@@ -1,0 +1,487 @@
+[2025-12-04 21:11:09] USER: # test: toggle-llm off# test: self-research how does AGI evolve# test: self-research module bios status# test: self-research terminal run lstoggle-llm off
+[2025-12-04 21:11:10] ASSISTANT: [HF ERROR] 401 Client Error: Unauthorized for url: https://router.huggingface.co/v1/chat/completions
+[2025-12-04 21:11:38] USER: self-research evolve
+[2025-12-04 21:11:40] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Evolution The change in the heritable characteristics of biological populations over successive generations.
+
+Evolve (Imagine Dragons album) The third studio album by American rock band Imagine Dragons, released on June 23, 2017, by...
+[2025-12-04 21:12:13] USER: self-research how does AGI evolve
+[2025-12-04 21:12:15] ASSISTANT: [NO RESULTS FOUND]
+[2025-12-04 21:12:53] USER: self-research module bios status
+[2025-12-04 21:12:53] ASSISTANT: [MODULE bios] <modules.bios.BIOS object at 0x7137ab58e0>
+[2025-12-04 21:13:17] USER: self-research terminal run ls
+[2025-12-04 21:13:17] ASSISTANT: [TERMINAL ERROR] rc=127
+/data/data/com.termux/files/usr/bin/sh: 1: run: not found
+[2025-12-04 21:22:19] USER: toggle-llm off
+[2025-12-04 21:22:19] ASSISTANT: LLM disabled
+[2025-12-04 21:22:49] USER: module self_researcher help
+[2025-12-04 21:22:49] ASSISTANT: [RAW DATA MODE] You said: "module self_researcher help"
+[2025-12-04 21:23:04] USER: self_researcher help
+[2025-12-04 21:23:04] ASSISTANT: [RAW DATA MODE] You said: "self_researcher help"
+[2025-12-04 21:23:17] USER: self_research help
+[2025-12-04 21:23:17] ASSISTANT: [RAW DATA MODE] You said: "self_research help"
+[2025-12-04 21:23:20] USER: help
+[2025-12-04 21:23:20] ASSISTANT: Commands:
+  learn about <topic>
+  !remember key: value
+  !forget key
+  !memory
+  analyze <query>
+  ideas about <topic>
+  reflect
+  evolve
+  status
+  self-heal
+  self-teach
+  self-maintenance
+  self-idea-impl
+  self-research <cmd> <arg>
+  self-research <natural query>
+  toggle-llm on/off
+  device-info
+  read-file <path>
+  write-file <path> <text>
+
+[2025-12-04 21:23:36] USER: self-research help
+[2025-12-04 21:23:37] ASSISTANT: [WEB RESEARCH RESULTS]
+
+H.E.L.P. is an American television drama series which aired on ABC for one season as a mid-season replacement for Mission: Impossible, which was a replacement for Mr. Belvedere in March 1990. The series was created by Christopher Crowe and Dick Wolf, and starred John Mahoney as Chief Patrick Meacham of the New York City Fire Department. Wesley Snipes played police officer Lou Barton and David Caruso played police officer Frank Sardoni of the NYPD. The premise of the show was based on an experimental combined emergency services station in New York City that co-located the resources of the Fire Department, Police Department and Emergency Medical Services. The series was canceled after its brief six-episode run. The concept of a show involving all three branches of NYC emergency services was successfully reintroduced nine years later with the 1999 debut of Third Watch, which ran for six seasons on NBC.
+
+Television series created by Dick Wolf
+
+Television series by Wolf Films
+
+Television series by Disney–ABC Domestic Television
+[2025-12-04 21:24:01] USER: self-research how an AI evolves
+[2025-12-04 21:24:03] ASSISTANT: [NO RESULTS FOUND]
+[2025-12-04 21:24:15] USER: self-research AI
+[2025-12-04 21:24:18] ASSISTANT: [WEB RESEARCH RESULTS]
+
+.ai is the Internet country code top-level domain for Anguilla, a British Overseas Territory in the Caribbean. It is administered by the government of Anguilla. It is a popular domain hack with companies and projects related to the artificial intelligence industry. Google's ad targeting treats.ai as a generic top-level domain because "users and website owners frequently see [the domain] as being more generic than country-targeted." In 2021, Google Search analyst Gary Illyes announced that ".ai" had been added to Google's list of generic country-code top-level domains, meaning that Google would no longer infer Anguilla-specific targeting from the ccTLD. Identity Digital began managing the domain as of January 2025.
+
+Internet in the United Kingdom - The United Kingdom has been involved with the Internet throughout its origins and development. The telecommunications infrastructure in the United Kingdom provides Internet access to homes and businesses mainly through fibre, cable, mobile and fixed wireless networks.
+
+Communications in Anguilla
+
+Country code top-level domains
+[2025-12-04 21:24:46] USER: self-research self evolution
+[2025-12-04 21:24:48] ASSISTANT: [NO RESULTS FOUND]
+[2025-12-04 21:25:04] USER: self-research learning
+[2025-12-04 21:25:05] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Learning is the process of acquiring new understanding, knowledge, behaviors, skills, values, attitudes, and preferences. The ability to learn is possessed by humans, non-human animals, and some machines; there is also evidence for some kind of learning in certain plants. Some learning is immediate, induced by a single event, but much skill and knowledge accumulate from repeated experiences. The changes induced by learning often last a lifetime, and it is hard to distinguish learned material that seems to be "lost" from that which cannot be retrieved. Human learning starts at birth and continues until death as a consequence of ongoing interactions between people and their environment. The nature and processes involved in learning are studied in many established fields, as well as emerging fields of knowledge. Research in such fields has led to the identification of various sorts of learning.
+
+Learning Category
+
+Neuropsychological assessment
+
+Systems science
+[2025-12-04 21:25:21] USER: self-research memory
+[2025-12-04 21:25:22] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Memory is the faculty of the mind by which data or information is encoded, stored, and retrieved when needed. It is the retention of information over time for the purpose of influencing future action. If past events could not be remembered, it would be impossible for language, relationships, or personal identity to develop. Memory loss is usually described as forgetfulness or amnesia. Memory is often understood as an informational processing system with explicit and implicit functioning that is made up of a sensory processor, short-term memory, and long-term memory. This can be related to the neuron. The sensory processor allows information from the outside world to be sensed in the form of chemical and physical stimuli and attended to various levels of focus and intent. Working memory serves as an encoding and retrieval processor. Information in the form of stimuli is encoded in accordance with explicit or implicit functions by the working memory processor.
+
+Memory Category
+
+Adaptive memory , memory systems that have evolved to help retain survival-and-fitness information.
+
+Body memory , hypothetical memory function of individual body parts or cells.
+[2025-12-04 21:25:42] USER: self-research development
+[2025-12-04 21:25:43] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Human Development Index A statistical composite index of life expectancy, education, and per capita income indicators...
+
+Developing country A country with a less-developed industrial base and a lower Human Development Index relative to...
+
+Sustainable development An approach to growth and human development that aims to meet the needs of the present without...
+[2025-12-04 21:26:10] USER: self-research internet
+[2025-12-04 21:26:11] ASSISTANT: [WEB RESEARCH RESULTS]
+
+The Internet is the global system of interconnected computer networks that uses the Internet protocol suite to communicate between networks and devices. It is a network of networks that comprises private, public, academic, business, and government networks of local to global scope, linked by electronic, wireless, and optical networking technologies. The Internet carries a vast range of information services and resources, such as the interlinked hypertext documents and applications of the World Wide Web, electronic mail, discussion groups, internet telephony, streaming media and file sharing. Most traditional communication media, including telephone, radio, television, paper mail, newspapers, and print publishing, have been transformed by the Internet, giving rise to new media such as email, online music, digital newspapers, news aggregators, and audio and video streaming websites.
+
+Internet Category
+
+Crowdfunding - Crowdfunding is the practice of funding a project or venture by raising money from a large number of people, typically via the internet. Crowdfunding is a form of crowdsourcing and alternative finance, to fund projects "without standard financial intermediaries".
+
+Crowdsourcing - Crowdsourcing involves a large group of dispersed participants contributing or producing goods or services—including ideas, votes, micro-tasks, and finances—for payment or as volunteers.
+[2025-12-04 21:26:36] USER: self-research reflection
+[2025-12-04 21:26:38] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Reflection (physics) The change in direction of a wavefront at an interface between two different media so that the...
+
+Specular reflection The mirror-like reflection of waves, such as light, from a surface.
+
+Diffuse reflection The reflection of light or other waves or particles from a surface such that a ray incident on...
+[2025-12-04 21:27:09] USER: self-research autonomy
+[2025-12-04 21:27:11] ASSISTANT: [WEB RESEARCH RESULTS]
+
+In developmental psychology and moral, political, bioethical philosophy, autonomy is the capacity to make an informed, uncoerced decision. Autonomous organizations or institutions are independent or self-governing. Autonomy can also be defined from a human resources perspective, where it denotes a level of discretion granted to an employee in their work. In such cases, autonomy is known to generally increase job satisfaction. Self-actualized individuals are thought to operate autonomously of external expectations. In a medical context, respect for a patient's personal autonomy is considered one of many fundamental ethical principles in medicine.
+
+Autonomy Category
+
+Autonomism - Autonomism or autonomismo, also known as autonomist Marxism or autonomous Marxism, is an anti-capitalist social movement and Marxist-based theoretical current that first emerged in Italy in the 1960s from workerism.
+
+Autonomy Day - All official holidays in Finland are established by acts of Parliament. The official holidays can be divided into Christian and non-Christian holidays. The main Christian holidays are Christmas, New Year's Day, Epiphany, Easter, Ascension day, Pentecost, Midsummer Day, and All Saints' Day.
+[2025-12-04 21:27:39] USER: self-research researching
+[2025-12-04 21:27:41] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Research is creative and systematic work undertaken to increase the stock of knowledge. It involves the collection, organization, and analysis of evidence to increase understanding of a topic, characterized by a particular attentiveness to controlling sources of bias and error. These activities are characterized by accounting and controlling for biases. A research project may be an expansion of past work in the field. To test the validity of instruments, procedures, or experiments, research may replicate elements of prior projects or the project as a whole. The primary purposes of basic research are documentation, discovery, interpretation, and the research and development of methods and systems for the advancement of human knowledge. Approaches to research depend on epistemologies, which vary considerably both within and between humanities and sciences.
+
+Research Category
+
+Advertising research - Advertising research is a systematic process of marketing research conducted to improve the efficiency of advertising. Advertising research is a detailed study conducted to know how customers respond to a particular ad or advertising campaign.
+
+European Charter for Researchers - The European Charter for Researchers is a recommendation of good practice for researchers and employers and/or funders of researchers issued by the European Commission Directorate-General for Research. It sketches rights and duties of researchers and their funding institutions.
+[2025-12-04 21:28:03] USER: self-research implementation
+[2025-12-04 21:28:05] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Implementation is the realization of an application, execution of a plan, idea, model, design, specification, standard, algorithm, policy, or the administration or management of a process or objective.
+
+Application software - Application software is any computer program that is intended for end-user use – not operating, administering or programming the computer. An application is any program that can be categorized as application software.
+
+Situated cognition - Situated cognition is a theory that posits that knowing is inseparable from doing by arguing that all knowledge is situated in activity bound to social, cultural and physical contexts.
+
+Computing terminology
+[2025-12-04 21:28:25] USER: self-research creation
+[2025-12-04 21:28:27] ASSISTANT: [WEB RESEARCH] URL: https://en.wikipedia.org/wiki/Creation
+[2025-12-04 21:28:53] USER: self-research self
+[2025-12-04 21:28:54] ASSISTANT: [WEB RESEARCH RESULTS]
+
+In philosophy, the self is an individual's own being, knowledge, and values, and the relationship between these attributes. The first-person perspective distinguishes selfhood from personal identity. Whereas "identity" is sameness and may involve categorization and labeling, selfhood implies a first-person perspective and suggests potential uniqueness. Conversely, "person" is used as a third-person reference. Personal identity can be impaired in late-stage Alzheimer's disease and in other neurodegenerative diseases. Finally, the self is distinguishable from "others". Including the distinction between sameness and otherness, the self versus other is a research topic in contemporary philosophy and contemporary phenomenology, psychology, psychiatry, neurology, and neuroscience. Although subjective experience is central to selfhood, the privacy of this experience is only one of many problems in the philosophy of self and the scientific study of consciousness.
+
+Self Category
+
+Anatta — "not-self", Buddhist concept stating there is no unchanging, permanent self, soul or essence in living beings.
+
+Attention - Attention or focus, is the concentration of awareness on some phenomenon to the exclusion of other stimuli. It is the selective concentration on discrete information, either subjectively or objectively.
+[2025-12-04 21:29:13] USER: self-research awareness
+[2025-12-04 21:29:14] ASSISTANT: [WEB RESEARCH RESULTS]
+
+In philosophy and psychology, awareness is the perception or knowledge of something. The concept is often synonymous with consciousness; however, one can be aware of something without being explicitly conscious of it. The states of awareness are also associated with the states of experience, so that the structure represented in awareness is mirrored in the structure of experience.
+
+Systems psychology
+
+Unsolved problems in neuroscience
+
+Mindfulness (psychology)
+[2025-12-04 21:29:33] USER: self-research mindfulness
+[2025-12-04 21:29:34] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Mindfulness is the cognitive skill, usually developed through exercises, of sustaining metacognitive awareness towards the contents of one's own mind and bodily sensations in the present moment. The term mindfulness derives from the Pali word sati, a significant element of Buddhist traditions, and the practice is based on ānāpānasati, Chan, and Tibetan meditation techniques. Since the 1990s, secular mindfulness has gained popularity in the West. Individuals who have contributed to the popularity of secular mindfulness in the modern Western context include Jon Kabat-Zinn and Thích Nhất Hạnh. Clinical psychology and psychiatry since the 1970s have developed a number of therapeutic applications based on mindfulness for helping people experiencing a variety of psychological conditions. Clinical studies have documented both physical- and mental-health benefits of mindfulness in different patient categories as well as in healthy adults and children.
+
+Alexander Technique - The Alexander Technique, named after its developer Frederick Matthias Alexander, is an alternative therapy based on the idea that poor posture causes a range of health problems.
+
+Affect labeling - Affect labeling is an implicit emotional regulation strategy that can be simply described as "putting feelings into words".
+
+Buddhism and psychology - Buddhism includes an analysis of human psychology, emotion, cognition, behavior and motivation along with therapeutic practices. Buddhist psychology is embedded within the greater Buddhist ethical and philosophical system, and its psychological terminology is colored by ethical overtones.
+[2025-12-04 21:29:47] USER: self-research computing
+[2025-12-04 21:29:49] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Computing is any goal-oriented activity requiring, benefiting from, or creating computing machinery. It includes the study and experimentation of algorithmic processes, and the development of both hardware and software. Computing has scientific, engineering, mathematical, technological, and social aspects. Major computing disciplines include computer engineering, computer science, cybersecurity, data science, information systems, information technology, and software engineering. The term computing is also synonymous with counting and calculating. In earlier times, it was used in reference to the action performed by mechanical computing machines, and before that, to human computers.
+
+Computing Category
+
+Artificial intelligence - Artificial intelligence is the capability of computational systems to perform tasks typically associated with human intelligence, such as learning, reasoning, problem-solving, perception, and decision-making.
+
+Computational science - Computational science, also known as scientific computing, technical computing or scientific computation, is a division of science, and more specifically the computer sciences, which uses advanced computing capabilities to understand and solve complex physical problems in science.
+[2025-12-04 21:30:17] USER: self-research dictionary
+[2025-12-04 21:30:19] ASSISTANT: [NO RESULTS FOUND]
+[2025-12-04 21:30:32] USER: self-research sentences
+[2025-12-04 21:30:33] ASSISTANT: [WEB RESEARCH RESULTS]
+
+The Sentences is a compendium of Christian theology written by Peter Lombard around 1150. It was the most important religious textbook of the Middle Ages.
+
+1150s books
+
+12th-century Christian texts
+
+Scholasticism
+[2025-12-04 21:30:55] USER: self-research communication
+[2025-12-04 21:30:56] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Communication is commonly defined as the transmission of information. Its precise definition is disputed and there are disagreements about whether unintentional or failed transmissions are included and whether communication not only transmits meaning but also creates it. Models of communication are simplified overviews of its main components and their interactions. Many models include the idea that a source uses a coding system to express information in the form of a message. The message is sent through a channel to a receiver who has to decode it to understand it. The main field of inquiry investigating communication is called communication studies. A common way to classify communication is by whether information is exchanged between humans, members of other species, or non-living entities such as computers. For human communication, a central contrast is between verbal and non-verbal communication.
+
+Communication Category
+
+Society
+[2025-12-04 21:31:08] USER: self-research morals
+[2025-12-04 21:31:10] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Morality is the categorization of intentions, decisions and actions into those that are proper, or right, and those that are improper, or wrong. Morality can be a body of standards or principles derived from a code of conduct from a particular philosophy, religion or culture, or it can derive from a standard that is understood to be universal. Morality may also be specifically synonymous with "goodness", "appropriateness" or "rightness". Moral philosophy includes meta-ethics, which studies abstract issues such as moral ontology and moral epistemology, and normative ethics, which studies more concrete systems of moral decision-making such as deontological ethics and consequentialism. An example of normative ethical philosophy is the Golden Rule, which states: "One should treat others as one would like others to treat oneself."
+
+Morality Category
+
+Ethics - Ethics is the philosophical study of moral phenomena. Also called moral philosophy, it investigates normative questions about what people ought to do or which behavior is morally right. Its main branches include normative ethics, applied ethics, and metaethics.
+
+Integrity - Integrity is the quality of being honest and having a consistent and uncompromising adherence to strong moral and ethical principles and values. In ethics, integrity is regarded as the honesty and truthfulness or earnestness of one's actions. Integrity can stand in opposition to hypocrisy.
+[2025-12-04 21:31:26] USER: self-research values
+[2025-12-04 21:31:28] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Value investing An investment paradigm that involves buying securities that appear underpriced by some form of...
+
+Note value In music notation, a note value indicates the relative duration of a note, using the texture or...
+
+Present value The value of an expected income stream determined as of the date of valuation.
+[2025-12-04 21:31:39] USER: self-research studying
+[2025-12-04 21:31:40] ASSISTANT: [NO RESULTS FOUND]
+[2025-12-04 21:31:54] USER: self-research study
+[2025-12-04 21:31:55] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Study skills Approaches applied to learning.
+
+Observational study In fields such as epidemiology, social sciences, psychology and statistics, an observational...
+
+Study (room) A room in a house that is used for paperwork, computer work, or reading.
+[2025-12-04 21:32:12] USER: self-research capabilities
+[2025-12-04 21:32:13] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Capability Maturity Model Integration A process level improvement training and appraisal program.
+
+Capability approach A normative approach to human welfare that concentrates on the actual capability of persons to...
+
+Capability Brown An English gardener and landscape architect, who remains the most famous figure in the history of...
+[2025-12-04 21:32:36] USER: self-research energy
+[2025-12-04 21:32:38] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Energy is the quantitative property that is transferred to a body or to a physical system, recognizable in the performance of work and in the form of heat and light. Energy is a conserved quantity—the law of conservation of energy states that energy can be converted in form, but not created or destroyed. The unit of measurement for energy in the International System of Units is the joule. Forms of energy include the kinetic energy of a moving object, the potential energy stored by an object, the elastic energy stored in a solid object, chemical energy associated with chemical reactions, the radiant energy carried by electromagnetic radiation, the internal energy contained within a thermodynamic system, and rest energy associated with an object's rest mass. These are not mutually exclusive. All living organisms constantly take in and release energy. The Earth's climate and ecosystems processes are driven primarily by radiant energy from the Sun.
+
+Combustion - Combustion, or burning, is a high-temperature exothermic redox chemical reaction between a fuel and an oxidant, usually atmospheric oxygen, that produces oxidized, often gaseous products, in a mixture termed as smoke.
+
+Efficient energy use - Efficient energy use, or energy efficiency, is the process of reducing the amount of energy required to provide products and services. There are many technologies and methods available that are more energy efficient than conventional systems.
+
+Energy democracy - Energy democracy is a concept developed within the environmental justice movement that pairs the renewable energy transition with efforts to democratize the production and management of energy resources— including the social ownership of energy infrastructure, decentralization of energy systems...
+[2025-12-04 21:32:56] USER: self-research inner
+[2025-12-04 21:32:57] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Interior design The art and science of enhancing the interior of a building to achieve a healthier and more...
+
+United States Department of the Interior An executive department of the U.S. federal government responsible for the management and...
+
+Interior (topology) The union of all subsets of S that are open in X. A point that is in the interior of S is an...
+[2025-12-04 21:33:15] USER: self-research internal
+[2025-12-04 21:33:16] ASSISTANT: [WEB RESEARCH RESULTS]
+
+The name internal is reserved by ICANN as a domain name for private application use that may not be installed as a top-level domain in the Domain Name System of the Internet. As of March 7, 2025, the domain has not been standardized by the Internet Engineering Task Force, though an Internet-Draft describing the TLD has been submitted.
+
+.example See related meanings for the word '.example'.
+
+.local See related meanings for the word '.local'.
+
+.localhost - The name localhost is reserved by the Internet Engineering Task Force as a domain name label that may not be installed as a top-level domain in the Domain Name System of the Internet.
+[2025-12-04 21:33:38] USER: self-research local
+[2025-12-04 21:33:39] ASSISTANT: [WEB RESEARCH RESULTS]
+
+The domain name.local is a special-use domain name reserved by the Internet Engineering Task Force so that it may not be installed as a top-level domain in the Domain Name System of the Internet. As such it is similar to the other special domain names, such as.localhost. However,.local has since been designated for use in link-local networking, in applications of multicast DNS and zero-configuration networking so that DNS service may be established without local installations of conventional DNS infrastructure on local area networks.
+
+Pseudo-top-level domains
+[2025-12-04 21:33:57] USER: self-research network
+[2025-12-04 21:33:59] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Computer network A group of communicating computers and peripherals known as hosts, which communicate data to...
+
+Neural network A group of interconnected units called neurons that send signals to one another.
+
+Network (1976 film) A 1976 American satirical comedy drama film directed by Sidney Lumet and written by Paddy Chayefsky.
+[2025-12-04 21:34:12] USER: self-research word
+[2025-12-04 21:34:13] ASSISTANT: [WEB RESEARCH RESULTS]
+
+A word is a basic element of language that carries meaning, can be used on its own, and is uninterruptible. Despite the fact that language speakers often have an intuitive grasp of what a word is, there is no consensus among linguists on its definition and numerous attempts to find specific criteria of the concept remain controversial. Different standards have been proposed, depending on the theoretical background and descriptive context; these do not converge on a single definition. Some specific definitions of the term "word" are employed to convey its different meanings at different levels of description, for example based on phonological, grammatical or orthographic basis. Others suggest that the concept is simply a convention used in everyday situations. The concept of "word" is distinguished from that of a morpheme, which is the smallest unit of language that has a meaning, even if it cannot stand on its own. Words are made out of at least one morpheme.
+
+Longest words - The longest word in any given language depends on the word formation rules of each specific language, and on the types of words allowed for consideration. Agglutinative languages allow for the creation of long words via compounding.
+
+Utterance - In spoken language analysis, an utterance is a continuous piece of speech, by one person, before or after which there is silence on the part of the person. In the case of spoken languages, it is generally, but not always, bounded by silence.
+
+Word (computer architecture) - In computing, a word is any processor design's natural unit of data. A word is a fixed-sized datum handled as a unit by the instruction set or the hardware of the processor.
+[2025-12-04 21:34:30] USER: self-research language
+[2025-12-04 21:34:31] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Language is a structured system of communication that consists of grammar and vocabulary. It is the primary means by which humans convey meaning, both in spoken and signed forms, and may also be conveyed through writing. Human language is characterized by its cultural and historical diversity, with significant variations observed between cultures and across time. Human languages possess the properties of productivity and displacement, which enable the creation of an infinite number of sentences, and the ability to refer to objects, events, and ideas that are not immediately present in the discourse. The use of human language relies on social convention and is acquired through learning. Estimates of the number of human languages in the world vary between 5,000 and 7,000. Precise estimates depend on an arbitrary distinction established between languages and dialects.
+
+Language Category
+
+Father tongue hypothesis - The father tongue hypothesis proposes the idea that humans tend to speak their father's language. The hypothesis is based on a 1997 proposal that linguistic affiliation correlates more closely with Y-chromosomal variation than with mitochondrial DNA variation.
+
+Human communication - Human communication, or anthroposemiotics, is a field of study dedicated to understanding how humans communicate. Humans' ability to communicate with one another would not be possible without an understanding of what we are referencing or thinking about.
+[2025-12-04 21:34:47] USER: self-research mathematics
+[2025-12-04 21:34:48] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Mathematics is a field of study that discovers and organizes methods, theories, and theorems that are developed and proved for the needs of empirical sciences and mathematics itself. There are many areas of mathematics, which include number theory, algebra, geometry, analysis, and set theory. Mathematics involves the description and manipulation of abstract objects that consist of either abstractions from nature or—in modern mathematics—purely abstract entities that are stipulated to have certain properties, called axioms. Mathematics uses pure reason to prove the properties of objects through proofs, which consist of a succession of applications of deductive rules to already established results. These results, called theorems, include previously proved theorems, axioms, and—in case of abstraction from nature—some basic properties that are considered true starting points of the theory under consideration.
+
+Mathematics Category
+
+Law (mathematics)
+
+Lists of mathematicians - This is a List of Lists of mathematicians and covers notable mathematicians by nationality, ethnicity, religion, profession and other characteristics. Alphabetical lists are also available.
+[2025-12-04 21:35:14] USER: self-research understanding
+[2025-12-04 21:35:15] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Understanding is a cognitive process related to an abstract or physical object, such as a person, situation, or message whereby one is able to use concepts to model that object. Understanding is a relation between the knower and an object of understanding. Understanding implies abilities and dispositions with respect to an object of knowledge that are sufficient to support intelligent behavior. Understanding is often, though not always, related to learning concepts, and sometimes also the theory or theories associated with those concepts. However, a person may have a good ability to predict the behavior of an object, animal or system—and therefore may, in some sense, understand it—without necessarily being familiar with the concepts or theories associated with that object, animal, or system in their culture. They may have developed their own distinct concepts and theories, which may be equivalent, better or worse than the recognized standard concepts and theories of their culture.
+
+Thought
+
+Knowledge
+
+Cognition
+[2025-12-04 21:35:43] USER: self-research cognition
+[2025-12-04 21:35:44] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Cognitions are mental activities that deal with knowledge. They encompass psychological processes that acquire, store, retrieve, transform, or otherwise use information. Cognitions are a pervasive part of mental life, helping individuals understand and interact with the world. Cognitive processes are typically categorized by their function. Perception organizes sensory information about the world, interpreting physical stimuli, such as light and sound, to construct a coherent experience of objects and events. Attention prioritizes specific aspects while filtering out irrelevant information. Memory is the ability to retain, store, and retrieve information, including working memory and long-term memory. Thinking encompasses psychological activities in which concepts, ideas, and mental representations are considered and manipulated. It includes reasoning, concept formation, problem-solving, and decision-making.
+
+Cognition Category
+
+Cognitive Abilities Screening Instrument - The Cognitive Abilities Screening Instrument is a cognitive test screening for dementia, in monitoring the disease progression, and in providing profiles of cognitive impairment by examining abilities on attention, concentration, orientation, short-term memory, long-term memory, language...
+
+Cognitive computing - Cognitive computing refers to technology platforms that, broadly speaking, are based on the scientific disciplines of artificial intelligence and signal processing.
+[2025-12-04 21:35:58] USER: self-research thought
+[2025-12-04 21:35:59] ASSISTANT: [WEB RESEARCH RESULTS]
+
+In their most common sense, thought and thinking refer to cognitive processes that occur independently of direct sensory stimulation. Core forms include judging, reasoning, concept formation, problem solving, and deliberation. Other processes, such as entertaining an idea, memory, or imagination, are also frequently considered types of thought. Unlike perception, these activities can occur without immediate input from the sensory organs. In a broader sense, any mental event—including perception and unconscious processes—may be described as a form of thought. The term can also denote not the process itself, but the resulting mental states or systems of ideas. A variety of theories attempt to explain the nature of thinking. Platonism holds that thought involves discerning eternal forms and their interrelations, distinguishing these pure entities from their imperfect sensory imitations.
+
+Thought Category
+
+Outline of human intelligence – Topic tree presenting the traits, capacities, models, and research fields of human intelligence, and more.
+
+Outline of thought – Topic tree that identifies many types of thoughts, types of thinking, aspects of thought, related fields, and more.
+[2025-12-04 21:36:14] USER: self-research knowledge
+[2025-12-04 21:36:15] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Knowledge is an awareness of facts, a familiarity with individuals and situations, or a practical skill. Knowledge of facts, also called propositional knowledge, is often characterized as true belief that is distinct from opinion or guesswork by virtue of justification. While there is wide agreement among philosophers that propositional knowledge is a form of true belief, many controversies focus on justification. This includes questions like how to understand justification, whether it is needed at all, and whether something else besides it is needed. These controversies intensified in the latter half of the 20th century due to a series of thought experiments called Gettier cases that provoked alternative definitions. Knowledge can be produced in many ways. The main source of empirical knowledge is perception, which involves the usage of the senses to learn about the external world. Introspection allows people to learn about their internal mental states and processes.
+
+Knowledge Category
+
+Mental content
+
+Intelligence
+[2025-12-04 21:36:37] USER: self-research intelligence
+[2025-12-04 21:36:38] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Intelligence has been defined in many ways: the capacity for abstraction, logic, understanding, self-awareness, learning, emotional knowledge, reasoning, planning, creativity, critical thinking, and problem-solving. It can be described as the ability to perceive or infer information and to retain it as knowledge to be applied to adaptive behaviors within an environment or context. The term rose to prominence during the early 1900s. Most psychologists believe that intelligence can be divided into various domains or competencies. Intelligence has been long-studied in humans, and across numerous disciplines. It has also been observed in the cognition of non-human animals. Some researchers have suggested that plants exhibit forms of intelligence, though this remains controversial.
+
+Intelligence Category
+
+Developmental psychology
+
+Psychological testing
+[2025-12-04 21:36:59] USER: self-research mechanism
+[2025-12-04 21:37:01] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Mechanism (economics) The term social mechanisms and mechanism-based explanations of social phenomena originate from...
+
+Mechanism design A branch of economics and game theory.
+
+Mechanism (engineering) A device that transforms input forces and movement into a desired set of output forces and movement.
+[2025-12-04 21:37:24] USER: self-research machine
+[2025-12-04 21:37:25] ASSISTANT: [WEB RESEARCH RESULTS]
+
+A machine is a thermodynamic system that uses power to apply forces and control movement to perform an action. The term is commonly applied to artificial devices, such as those employing engines or motors, but also to natural biological macromolecules, such as molecular machines. Machines can be driven by animals and people, by natural forces such as wind and water, and by chemical, thermal, or electrical power, and include a system of mechanisms that shape the actuator input to achieve a specific application of output forces and movement. They can also include computers and sensors that monitor performance and plan movement, often called mechanical systems. Renaissance natural philosophers identified six simple machines which were the elementary devices that put a load into motion, and calculated the ratio of output force to input force, known today as mechanical advantage.
+
+Automaton - An automaton is a relatively self-operating machine, or control mechanism designed to automatically follow a sequence of operations, or respond to predetermined instructions.
+
+Gear train - A gear train or gear set is a machine element of a mechanical system formed by mounting two or more gears on a frame such that the teeth of the gears engage.
+
+History of technology - The history of technology is the history of the invention of tools and techniques by humans. Technology includes methods ranging from simple stone tools to the complex genetic engineering and information technology that has emerged since the 1980s.
+[2025-12-04 21:37:37] USER: self-research mercy
+[2025-12-04 21:37:38] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Mercy is benevolence, forgiveness, and kindness in a variety of ethical, religious, social, and legal contexts. In the social and legal context, mercy may refer both to compassionate behavior on the part of those in power, or on the part of a humanitarian third party.
+
+Attributes of God in Christian theology
+
+Theories of law
+
+Punishments
+[2025-12-04 21:38:04] USER: self-research values
+[2025-12-04 21:38:05] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Value investing An investment paradigm that involves buying securities that appear underpriced by some form of...
+
+Note value In music notation, a note value indicates the relative duration of a note, using the texture or...
+
+Present value The value of an expected income stream determined as of the date of valuation.
+[2025-12-04 21:38:25] USER: self-research consumption
+[2025-12-04 21:38:26] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Consumerism A social and economic order in which the aspirations of many individuals include the acquisition...
+
+Consumption (economics) Consumption refers to the use of resources to fulfill present needs and desires.
+
+Consumer (food chain) A living creature that eats organisms from a different population.
+[2025-12-04 21:38:42] USER: self-research Allah
+[2025-12-04 21:38:44] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Allah is the Arabic language term for God, specifically the monotheistic God of Abraham. Outside of Arabic languages, it is principally associated with Islam, although the term was used in pre-Islamic Arabia and continues to be used today by Arabic-speaking adherents of any of the Abrahamic religions, including Judaism and Christianity. It is thought to be derived by contraction from al-ilāh and is linguistically related to other semitic God names, such as Aramaic and Hebrew. The word "Allah" now conveys the superiority or sole existence of one God, but among the pre-Islamic Arabs, Allah was a supreme deity and was worshipped alongside lesser deities in a pantheon. Many Jews, Christians, and early Muslims used "Allah" and "al-ilah" synonymously in Classical Arabic. The word is also frequently, albeit not exclusively, used by Bábists, Baháʼís, Mandaeans, Indonesian Christians, Maltese Christians, and Sephardic Jews, as well as by the Gagauz people.
+
+Allah Category
+
+Abdullah (name) See related meanings for the phrase 'Abdullah (name)'.
+
+Allah as a lunar deity - The theory that Allah originated as a lunar deity began in 1901 with the archaeologist Hugo Winckler. He associated Allah with a pre-Islamic Arabian deity, either Lah or Hubal, whom he identified as lunar in nature.
+[2025-12-04 21:40:19] USER: self-research individual
+[2025-12-04 21:40:20] ASSISTANT: [WEB RESEARCH RESULTS]
+
+An individual is one that exists as a distinct entity. Individuality is the state or quality of living as an individual; particularly as a person unique from other people and possessing one's own needs or goals, rights and responsibilities. The concept of an individual features in many fields, including biology, law, and philosophy. Every individual contributes significantly to the growth of a civilization. Society is a multifaceted concept that is shaped and influenced by a wide range of different things, including human behaviors, attitudes, and ideas. The culture, morals, and beliefs of others as well as the general direction and trajectory of the society can all be influenced and shaped by an individual's activities.
+
+Personhood
+
+Individualism
+
+Self
+[2025-12-04 21:40:38] USER: self-research memory
+[2025-12-04 21:40:39] ASSISTANT: [WEB RESEARCH RESULTS]
+
+Memory is the faculty of the mind by which data or information is encoded, stored, and retrieved when needed. It is the retention of information over time for the purpose of influencing future action. If past events could not be remembered, it would be impossible for language, relationships, or personal identity to develop. Memory loss is usually described as forgetfulness or amnesia. Memory is often understood as an informational processing system with explicit and implicit functioning that is made up of a sensory processor, short-term memory, and long-term memory. This can be related to the neuron. The sensory processor allows information from the outside world to be sensed in the form of chemical and physical stimuli and attended to various levels of focus and intent. Working memory serves as an encoding and retrieval processor. Information in the form of stimuli is encoded in accordance with explicit or implicit functions by the working memory processor.
+
+Memory Category
+
+Adaptive memory , memory systems that have evolved to help retain survival-and-fitness information.
+
+Body memory , hypothetical memory function of individual body parts or cells.
+[2025-12-04 21:45:41] USER: toggle-llm off
+[2025-12-04 21:45:41] ASSISTANT: LLM disabled
+[2025-12-04 21:45:45] USER: help
+[2025-12-04 21:45:45] ASSISTANT: Commands:
+  learn about <topic>
+  !remember key: value
+  !forget key
+  !memory
+  analyze <query>
+  ideas about <topic>
+  reflect
+  evolve
+  status
+  self-heal
+  self-teach
+  self-maintenance
+  self-idea-impl
+  self-research <cmd> <arg>
+  self-research <natural query>
+  toggle-llm on/off
+  device-info
+  read-file <path>
+  write-file <path> <text>
+
+[2025-12-04 21:45:54] USER: reflect
+[2025-12-04 21:45:54] ASSISTANT: [RAW DATA MODE] You said: "reflect"
+[2025-12-04 21:46:06] USER: self-teach
+[2025-12-04 21:46:06] ASSISTANT: [RAW DATA MODE] You said: "self-teach"
+[2025-12-04 21:46:10] USER: sl
+[2025-12-04 21:46:10] ASSISTANT: [RAW DATA MODE] You said: "sl"
+[2025-12-04 21:46:16] USER: self-heal
+[2025-12-04 21:46:16] ASSISTANT: [RAW DATA MODE] You said: "self-heal"
+[2025-12-04 21:46:26] USER: self-maintenance
+[2025-12-04 21:46:26] ASSISTANT: [RAW DATA MODE] You said: "self-maintenance"
+[2025-12-04 21:46:37] USER: self-idea-imll
+[2025-12-04 21:46:37] ASSISTANT: [RAW DATA MODE] You said: "self-idea-imll"
+[2025-12-04 21:46:46] USER: self-idea-impl
+[2025-12-04 21:46:46] ASSISTANT: [RAW DATA MODE] You said: "self-idea-impl"
+[2025-12-04 21:47:01] USER: device-info
+[2025-12-04 21:47:02] ASSISTANT: [RAW DATA MODE] You said: "device-info"
+[2025-12-04 21:47:15] USER: learn about internet
+[2025-12-04 21:47:15] ASSISTANT: [RAW DATA MODE] You said: "learn about internet"
+[2025-12-04 21:47:28] USER: !memory
+[2025-12-04 21:47:28] ASSISTANT: [RAW DATA MODE] You said: "!memory"
+[2025-12-04 21:47:34] USER: status
+[2025-12-04 21:47:34] ASSISTANT: [RAW DATA MODE] You said: "status"
+[2025-12-04 21:47:42] USER: analyze data
+[2025-12-04 21:47:42] ASSISTANT: [RAW DATA MODE] You said: "analyze data"

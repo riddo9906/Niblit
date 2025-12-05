@@ -1,0 +1,2510 @@
+{
+  "facts": [],
+  "interactions": [
+    {
+      "ts": 1764530567,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"hi\""
+    },
+    {
+      "ts": 1764530571,
+      "role": "user",
+      "text": "help"
+    },
+    {
+      "ts": 1764530571,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764530575,
+      "role": "user",
+      "text": "reflect"
+    },
+    {
+      "ts": 1764530575,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"reflect\""
+    },
+    {
+      "ts": 1764530595,
+      "role": "user",
+      "text": "self-research"
+    },
+    {
+      "ts": 1764530595,
+      "role": "assistant",
+      "text": "[RESEARCH ERROR] Usage: self-research <command> <arg>"
+    },
+    {
+      "ts": 1764530630,
+      "role": "user",
+      "text": "self-research about evolving"
+    },
+    {
+      "ts": 1764530630,
+      "role": "assistant",
+      "text": "[RESEARCH ERROR] Unknown command: about"
+    },
+    {
+      "ts": 1764530646,
+      "role": "user",
+      "text": "self-research evolve"
+    },
+    {
+      "ts": 1764530646,
+      "role": "assistant",
+      "text": "[RESEARCH ERROR] Usage: self-research <command> <arg>"
+    },
+    {
+      "ts": 1764530852,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764530852,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764530864,
+      "role": "user",
+      "text": "self research about the internet"
+    },
+    {
+      "ts": 1764530864,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self research about the internet\""
+    },
+    {
+      "ts": 1764530871,
+      "role": "user",
+      "text": "help"
+    },
+    {
+      "ts": 1764530871,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764530889,
+      "role": "user",
+      "text": "self-research chat data"
+    },
+    {
+      "ts": 1764530891,
+      "role": "assistant",
+      "text": "[NO RESULTS PARSED] Raw HTML returned."
+    },
+    {
+      "ts": 1764530918,
+      "role": "user",
+      "text": "self-research"
+    },
+    {
+      "ts": 1764530918,
+      "role": "assistant",
+      "text": "[RESEARCH ERROR] Usage: self-research <command> <arg>"
+    },
+    {
+      "ts": 1764530919,
+      "role": "user",
+      "text": "self-research about evolving"
+    },
+    {
+      "ts": 1764530921,
+      "role": "assistant",
+      "text": "[NO RESULTS PARSED] Raw HTML returned."
+    },
+    {
+      "ts": 1764530921,
+      "role": "user",
+      "text": "self-research AI consciousness"
+    },
+    {
+      "ts": 1764530923,
+      "role": "assistant",
+      "text": "[NO RESULTS PARSED] Raw HTML returned."
+    },
+    {
+      "ts": 1764530923,
+      "role": "user",
+      "text": "self-research future robotics"
+    },
+    {
+      "ts": 1764530925,
+      "role": "assistant",
+      "text": "[NO RESULTS PARSED] Raw HTML returned."
+    },
+    {
+      "ts": 1764530932,
+      "role": "user",
+      "text": "self-research search_google South Africa economy"
+    },
+    {
+      "ts": 1764530933,
+      "role": "assistant",
+      "text": "[NO RESULTS PARSED] Raw HTML returned."
+    },
+    {
+      "ts": 1764530956,
+      "role": "user",
+      "text": "self-research fetch_text https://wikipedia.com"
+    },
+    {
+      "ts": 1764530957,
+      "role": "assistant",
+      "text": "[FETCH ERROR] HTTP Error 403: Forbidden"
+    },
+    {
+      "ts": 1764531148,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764531148,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764531151,
+      "role": "user",
+      "text": "hi"
+    },
+    {
+      "ts": 1764531151,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"hi\""
+    },
+    {
+      "ts": 1764531173,
+      "role": "user",
+      "text": "self-research chat completions for AI"
+    },
+    {
+      "ts": 1764531175,
+      "role": "assistant",
+      "text": "[NO RESULTS PARSED] Raw HTML follows:\n\n<!DOCTYPE html><html lang=\"en-ZA\"><head><title>Google Search</title><style>body{background-color:#fff}</style><script nonce=\"pUv2xdfsUAVBw7yJwnPgeQ\">window.google = window.google || {};window.google.c = window.google.c || {cap:0};</script></head><body><noscript><style>table,div,span,p{display:none}</style><meta content=\"0;url=/httpservice/retry/enablejs?sei=5pssaYrwKu6Xg8UPkvLH0AY\" http-equiv=\"refresh\"><div style=\"display:block\">Please click <a href=\"/httpservice/retry/enablejs?sei=5pssaYrwKu6Xg8UPkvLH0AY\">here</a> if you are not redirected within a few seconds.</div></noscript><script nonce=\"pUv2xdfsUAVBw7yJwnPgeQ\">(function(){var sctm=false;(function(){sctm&&google.tick(\"load\",\"pbsst\");}).call(this);})();</script><script nonce=\"pUv2xdfsUAVBw7yJwnPgeQ\">//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjogMywic291cmNlcyI6WyIiXSwic291cmNlc0NvbnRlbnQiOlsiICJdLCJuYW1lcyI6WyJjbG9zdXJlRHluYW1pY0J1dHRvbiJdLCJtYXBwaW5ncyI6IkFBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEifQ==\n(function(){var X=function(g){return V.call(this,43,35,32,g)},V=function(g,S,q,y,d,u,G,Z,e,x){{e=S;while(e!=56)if(e==37)x=y,e=95;else if(e==g){if(G=(Z=T.trustedTypes,d),Z&&Z.createPolicy){try{G=Z.createPolicy(u,{createHTML:X,createScript:X,createScriptURL:X})}catch(p){if(T.console)T.console[y](p.message)}x=G}else x=G;e=33}else{if(e==33)return x;e==95?e=q-3<<1>=q&&(q+1^16)<q?g:33:e==S?e=60:e==60&&(e=(q|32)==q?37:95)}}},T=this||self;(0,eval)(function(g,S){return(S=V(43,35,15,\"error\",null,\"ks\"))&&g.eval(S.createScript(\"1\"))===1?function(q){return S.createScript(q)}:function(q){return\"\"+q}}(T)(Array(Math.random()*7824|0).join(\"\\n\")+['//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjogMywic291cmNlcyI6WyIiXSwic291cmNlc0NvbnRlbnQiOlsiICJdLCJuYW1lcyI6WyJjbG9zdXJlRHluYW1pY0J1dHRvbiJdLCJtYXBwaW5ncyI6IkFBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEifQ==',\n'(function(){/*',\n'',\n' Copyright Google LLC',\n' SPDX-License-Identifier: Apache-2.0',\n'*/',\n'var eu=funct"
+    },
+    {
+      "ts": 1764531198,
+      "role": "user",
+      "text": "help"
+    },
+    {
+      "ts": 1764531198,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  self-research <natural query>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764531228,
+      "role": "user",
+      "text": "self-research !memory"
+    },
+    {
+      "ts": 1764531229,
+      "role": "assistant",
+      "text": "[NO RESULTS PARSED] Raw HTML follows:\n\n<!DOCTYPE html><html lang=\"en-ZA\"><head><title>Google Search</title><style>body{background-color:#fff}</style><script nonce=\"-iHB4Bk20UtXwQ4U01MVSQ\">window.google = window.google || {};window.google.c = window.google.c || {cap:0};</script></head><body><noscript><style>table,div,span,p{display:none}</style><meta content=\"0;url=/httpservice/retry/enablejs?sei=HJwsae2xJ5yK4-EPt73m6AM\" http-equiv=\"refresh\"><div style=\"display:block\">Please click <a href=\"/httpservice/retry/enablejs?sei=HJwsae2xJ5yK4-EPt73m6AM\">here</a> if you are not redirected within a few seconds.</div></noscript><script nonce=\"-iHB4Bk20UtXwQ4U01MVSQ\">(function(){var sctm=false;(function(){sctm&&google.tick(\"load\",\"pbsst\");}).call(this);})();</script><script nonce=\"-iHB4Bk20UtXwQ4U01MVSQ\">//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjogMywic291cmNlcyI6WyIiXSwic291cmNlc0NvbnRlbnQiOlsiICJdLCJuYW1lcyI6WyJjbG9zdXJlRHluYW1pY0J1dHRvbiJdLCJtYXBwaW5ncyI6IkFBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEifQ==\n(function(){var X=function(g){return V.call(this,43,35,32,g)},V=function(g,S,q,y,d,u,G,Z,e,x){{e=S;while(e!=56)if(e==37)x=y,e=95;else if(e==g){if(G=(Z=T.trustedTypes,d),Z&&Z.createPolicy){try{G=Z.createPolicy(u,{createHTML:X,createScript:X,createScriptURL:X})}catch(p){if(T.console)T.console[y](p.message)}x=G}else x=G;e=33}else{if(e==33)return x;e==95?e=q-3<<1>=q&&(q+1^16)<q?g:33:e==S?e=60:e==60&&(e=(q|32)==q?37:95)}}},T=this||self;(0,eval)(function(g,S){return(S=V(43,35,15,\"error\",null,\"ks\"))&&g.eval(S.createScript(\"1\"))===1?function(q){return S.createScript(q)}:function(q){return\"\"+q}}(T)(Array(Math.random()*7824|0).join(\"\\n\")+['//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjogMywic291cmNlcyI6WyIiXSwic291cmNlc0NvbnRlbnQiOlsiICJdLCJuYW1lcyI6WyJjbG9zdXJlRHluYW1pY0J1dHRvbiJdLCJtYXBwaW5ncyI6IkFBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUEifQ==',\n'(function(){/*',\n'',\n' Copyright Google LLC',\n' SPDX-License-Identifier: Apache-2.0',\n'*/',\n'var eu=funct"
+    },
+    {
+      "ts": 1764531275,
+      "role": "user",
+      "text": "self-research bios status"
+    },
+    {
+      "ts": 1764531275,
+      "role": "assistant",
+      "text": "[MODULE bios] No callable API"
+    },
+    {
+      "ts": 1764531275,
+      "role": "user",
+      "text": "self-research firmware scan"
+    },
+    {
+      "ts": 1764531275,
+      "role": "assistant",
+      "text": "[MODULE firmware] No callable API"
+    },
+    {
+      "ts": 1764531275,
+      "role": "user",
+      "text": "self-research terminal_tools run ls"
+    },
+    {
+      "ts": 1764531275,
+      "role": "assistant",
+      "text": "Error running command: Command 'run ls' returned non-zero exit status 127."
+    },
+    {
+      "ts": 1764531295,
+      "role": "user",
+      "text": "self-research fs_manager list /self-research how does AGI evolve"
+    },
+    {
+      "ts": 1764531295,
+      "role": "assistant",
+      "text": "[MODULE fs_manager] No callable API"
+    },
+    {
+      "ts": 1764533255,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764533255,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764533269,
+      "role": "user",
+      "text": "help"
+    },
+    {
+      "ts": 1764533269,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  self-research <natural query>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764533293,
+      "role": "user",
+      "text": "self-research reflect"
+    },
+    {
+      "ts": 1764533521,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764533521,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764533548,
+      "role": "user",
+      "text": "self-research about the internet"
+    },
+    {
+      "ts": 1764533550,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nPlease click here if you are not redirected within a few seconds.\n\n---\n\nIf you're having trouble accessing Google Search, please click here, or send feedback."
+    },
+    {
+      "ts": 1764533577,
+      "role": "user",
+      "text": "self-research evolve"
+    },
+    {
+      "ts": 1764533579,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nPlease click here if you are not redirected within a few seconds.\n\n---\n\nIf you're having trouble accessing Google Search, please click here, or send feedback."
+    },
+    {
+      "ts": 1764534031,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764534031,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764534046,
+      "role": "user",
+      "text": "self-research reflect"
+    },
+    {
+      "ts": 1764534048,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nPlease click  here  if you are not redirected within a few seconds.\n\n---\n\nIf you're having trouble accessing Google Search, please  click here , or send  feedback ."
+    },
+    {
+      "ts": 1764534166,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764534166,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764534170,
+      "role": "user",
+      "text": "hi"
+    },
+    {
+      "ts": 1764534170,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"hi\""
+    },
+    {
+      "ts": 1764534192,
+      "role": "user",
+      "text": "self-research evolve"
+    },
+    {
+      "ts": 1764534193,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nPlease click  here  if you are not redirected within a few seconds.\n\n---\n\nIf you're having trouble accessing Google Search, please  click here , or send  feedback ."
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "cat > ~/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_researcher.py << 'EOF'"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"cat > ~/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_researcher.py << 'EOF'\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# self_researcher.py - v2"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# self_researcher.py - v2\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "import subprocess"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"import subprocess\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "import requests"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"import requests\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "from bs4 import BeautifulSoup"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"from bs4 import BeautifulSoup\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "class SelfResearcher:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"class SelfResearcher:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "def __init__(self, db, module_registry=None):"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"def __init__(self, db, module_registry=None):\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "self.db = db"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self.db = db\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "self.module_registry = module_registry or {}"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self.module_registry = module_registry or {}\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# Map internal Niblit commands → callable functions"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# Map internal Niblit commands → callable functions\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "self.command_map = {"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self.command_map = {\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"ideas\": \"ideas about\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"ideas\": \"ideas about\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"reflect\": \"reflect\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"reflect\": \"reflect\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"analyze\": \"analyze\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"analyze\": \"analyze\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"memory\": \"!memory\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"memory\": \"!memory\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"heal\": \"self-heal\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"heal\": \"self-heal\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"teach\": \"self-teach\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"teach\": \"self-teach\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"maintain\": \"self-maintenance\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"maintain\": \"self-maintenance\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"impl\": \"self-idea-impl\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"impl\": \"self-idea-impl\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"device\": \"device-info\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"device\": \"device-info\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"read\": \"read-file\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"read\": \"read-file\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"write\": \"write-file\","
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"write\": \"write-file\",\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "\"web.run\": \"web.run\",  # <-- new alias"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\"web.run\": \"web.run\",  # <-- new alias\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "}"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"}\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# ----------------------------------------"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# ----------------------------------------\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# --- Main Entry ---"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# --- Main Entry ---\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# ----------------------------------------"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# ----------------------------------------\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "def handle_command(self, cmd, arg=None):"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"def handle_command(self, cmd, arg=None):\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "cmd = cmd.lower().strip()"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"cmd = cmd.lower().strip()\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "arg = arg or \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"arg = arg or \"\"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# 1) Internal Commands"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# 1) Internal Commands\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if cmd in self.command_map:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if cmd in self.command_map:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if self.command_map[cmd] == \"web.run\":"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if self.command_map[cmd] == \"web.run\":\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return self.web_research(arg)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return self.web_research(arg)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return f\"[INTERNAL RESEARCH] → {self.command_map[cmd]} {arg}\".strip()"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return f\"[INTERNAL RESEARCH] → {self.command_map[cmd]} {arg}\".strip()\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# 2) Module-based Research"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# 2) Module-based Research\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if cmd == \"module\":"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if cmd == \"module\":\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return self.call_module(arg)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return self.call_module(arg)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# 3) Terminal Research"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# 3) Terminal Research\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if cmd == \"terminal\":"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if cmd == \"terminal\":\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return self.run_terminal(arg)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return self.run_terminal(arg)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# 4) Fallback: treat as natural query → web research"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# 4) Fallback: treat as natural query → web research\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "query = f\"{cmd} {arg}\".strip()"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"query = f\"{cmd} {arg}\".strip()\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return self.web_research(query)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return self.web_research(query)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# ----------------------------------------"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# ----------------------------------------\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# --- Web Research (google scraping) ---"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# --- Web Research (google scraping) ---\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# ----------------------------------------"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# ----------------------------------------\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "def web_research(self, query):"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"def web_research(self, query):\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "try:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"try:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "url = \"https://www.google.com/search?q=\" + query.replace(\" \", \"+\")"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"url = \"https://www.google.com/search?q=\" + query.replace(\" \", \"+\")\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "headers = {\"User-Agent\": \"Mozilla/5.0 (X11; Linux x86_64)\"}"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"headers = {\"User-Agent\": \"Mozilla/5.0 (X11; Linux x86_64)\"}\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "html = requests.get(url, headers=headers, timeout=8).text"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"html = requests.get(url, headers=headers, timeout=8).text\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "soup = BeautifulSoup(html, \"html.parser\")"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"soup = BeautifulSoup(html, \"html.parser\")\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "results = []"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"results = []\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "for div in soup.find_all(\"div\"):"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"for div in soup.find_all(\"div\"):\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "text = div.get_text(strip=True)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"text = div.get_text(strip=True)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if text and len(text.split()) > 6:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if text and len(text.split()) > 6:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "results.append(text)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"results.append(text)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if len(results) == 3:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if len(results) == 3:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "break"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"break\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if results:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if results:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return \"[WEB RESEARCH RESULTS]\\n\" + \"\\n\\n\".join(results)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return \"[WEB RESEARCH RESULTS]\\n\" + \"\\n\\n\".join(results)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return \"[NO CLEAN RESULTS PARSED] Raw HTML follows:\\n\" + html[:2000]"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return \"[NO CLEAN RESULTS PARSED] Raw HTML follows:\\n\" + html[:2000]\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "except Exception as e:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"except Exception as e:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return f\"[WEB RESEARCH ERROR] {e}\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return f\"[WEB RESEARCH ERROR] {e}\"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# ----------------------------------------"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# ----------------------------------------\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# --- Module Calls ---"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# --- Module Calls ---\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# ----------------------------------------"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# ----------------------------------------\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "def call_module(self, text):"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"def call_module(self, text):\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "parts = text.split(\" \")"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"parts = text.split(\" \")\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "module = parts[0].strip()"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"module = parts[0].strip()\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "action = \" \".join(parts[1:]).strip()"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"action = \" \".join(parts[1:]).strip()\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "registry = self.module_registry or {}"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"registry = self.module_registry or {}\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if module not in registry:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if module not in registry:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return f\"[MODULE ERROR] Module '{module}' not registered.\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return f\"[MODULE ERROR] Module '{module}' not registered.\"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "target = registry[module]"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"target = registry[module]\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# Must expose public API"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# Must expose public API\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "if not hasattr(target, \"api\"):"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"if not hasattr(target, \"api\"):\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return f\"[MODULE {module}] No callable API\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return f\"[MODULE {module}] No callable API\"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "try:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"try:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return target.api(action)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return target.api(action)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "except Exception as e:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"except Exception as e:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return f\"[MODULE ERROR] {e}\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return f\"[MODULE ERROR] {e}\"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# ----------------------------------------"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# ----------------------------------------\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# --- Terminal Commands ---"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# --- Terminal Commands ---\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "# ----------------------------------------"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"# ----------------------------------------\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "def run_terminal(self, cmd):"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"def run_terminal(self, cmd):\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "try:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"try:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"out = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return out.decode()"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return out.decode()\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "except subprocess.CalledProcessError as e:"
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"except subprocess.CalledProcessError as e:\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "user",
+      "text": "return f\"[TERMINAL ERROR] {e.output.decode()}\""
+    },
+    {
+      "ts": 1764534248,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"return f\"[TERMINAL ERROR] {e.output.decode()}\"\""
+    },
+    {
+      "ts": 1764534253,
+      "role": "user",
+      "text": "EOFe,itm"
+    },
+    {
+      "ts": 1764534253,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"EOFe,itm\""
+    },
+    {
+      "ts": 1764534253,
+      "role": "user",
+      "text": ""
+    },
+    {
+      "ts": 1764534254,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"\""
+    },
+    {
+      "ts": 1764534293,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764534293,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764534295,
+      "role": "user",
+      "text": "self-research web.run how does AGI evolve"
+    },
+    {
+      "ts": 1764534296,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nPlease clickhereif you are not redirected within a few seconds.\n\nIf you're having trouble accessing Google Search, pleaseclick here, or sendfeedback."
+    },
+    {
+      "ts": 1764534296,
+      "role": "user",
+      "text": "self-research reflect"
+    },
+    {
+      "ts": 1764534296,
+      "role": "assistant",
+      "text": "[INTERNAL RESEARCH] → reflect"
+    },
+    {
+      "ts": 1764534296,
+      "role": "user",
+      "text": "self-research !memory"
+    },
+    {
+      "ts": 1764534297,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nPlease clickhereif you are not redirected within a few seconds.\n\nIf you're having trouble accessing Google Search, pleaseclick here, or sendfeedback."
+    },
+    {
+      "ts": 1764534297,
+      "role": "user",
+      "text": "self-research how to build an AI"
+    },
+    {
+      "ts": 1764534298,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nPlease clickhereif you are not redirected within a few seconds.\n\nIf you're having trouble accessing Google Search, pleaseclick here, or sendfeedback."
+    },
+    {
+      "ts": 1764534538,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764534538,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764534555,
+      "role": "user",
+      "text": "self-research web.run how does AGI evolve"
+    },
+    {
+      "ts": 1764534557,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764534557,
+      "role": "user",
+      "text": "self-research reflect"
+    },
+    {
+      "ts": 1764534557,
+      "role": "assistant",
+      "text": "[INTERNAL RESEARCH] → reflect"
+    },
+    {
+      "ts": 1764534557,
+      "role": "user",
+      "text": "self-research !memory"
+    },
+    {
+      "ts": 1764534558,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764534583,
+      "role": "user",
+      "text": "self-research how to build an AIself-research evolve"
+    },
+    {
+      "ts": 1764534583,
+      "role": "assistant",
+      "text": "[RESEARCH ERROR] Unknown command or missing argument"
+    },
+    {
+      "ts": 1764534589,
+      "role": "user",
+      "text": "help"
+    },
+    {
+      "ts": 1764534589,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  self-research <natural query>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764534605,
+      "role": "user",
+      "text": "device-info"
+    },
+    {
+      "ts": 1764534605,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"device-info\""
+    },
+    {
+      "ts": 1764534617,
+      "role": "user",
+      "text": "status"
+    },
+    {
+      "ts": 1764534617,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"status\""
+    },
+    {
+      "ts": 1764534779,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764534779,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764534788,
+      "role": "user",
+      "text": "self research evolve"
+    },
+    {
+      "ts": 1764534788,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self research evolve\""
+    },
+    {
+      "ts": 1764534807,
+      "role": "user",
+      "text": "web.run"
+    },
+    {
+      "ts": 1764534807,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"web.run\""
+    },
+    {
+      "ts": 1764534822,
+      "role": "user",
+      "text": "self research internet usage"
+    },
+    {
+      "ts": 1764534822,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self research internet usage\""
+    },
+    {
+      "ts": 1764534878,
+      "role": "user",
+      "text": "self-research evolve"
+    },
+    {
+      "ts": 1764534879,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nEvolution The change in the heritable characteristics of biological populations over successive generations.\n\nEvolve (Imagine Dragons album) The third studio album by American rock band Imagine Dragons, released on June 23, 2017, by..."
+    },
+    {
+      "ts": 1764534899,
+      "role": "user",
+      "text": "self-research help"
+    },
+    {
+      "ts": 1764534899,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  self-research <natural query>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764534913,
+      "role": "user",
+      "text": "self-research reflect"
+    },
+    {
+      "ts": 1764534915,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nReflection (physics) The change in direction of a wavefront at an interface between two different media so that the...\n\nSpecular reflection The mirror-like reflection of waves, such as light, from a surface.\n\nDiffuse reflection The reflection of light or other waves or particles from a surface such that a ray incident on..."
+    },
+    {
+      "ts": 1764534937,
+      "role": "user",
+      "text": "self-research self-teach"
+    },
+    {
+      "ts": 1764534939,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764534962,
+      "role": "user",
+      "text": "self-research self-idea-impl"
+    },
+    {
+      "ts": 1764534963,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764534980,
+      "role": "user",
+      "text": "self-maintenance"
+    },
+    {
+      "ts": 1764534980,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self-maintenance\""
+    },
+    {
+      "ts": 1764534997,
+      "role": "user",
+      "text": "self-research self-maintenance"
+    },
+    {
+      "ts": 1764534998,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764535034,
+      "role": "user",
+      "text": "self-research learn about internet usage"
+    },
+    {
+      "ts": 1764535034,
+      "role": "assistant",
+      "text": "[RESEARCH ERROR] Unknown command or missing argument"
+    },
+    {
+      "ts": 1764535058,
+      "role": "user",
+      "text": "self-heal"
+    },
+    {
+      "ts": 1764535058,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self-heal\""
+    },
+    {
+      "ts": 1764700688,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764700688,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764700704,
+      "role": "user",
+      "text": "self-research evolve"
+    },
+    {
+      "ts": 1764700705,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\nEvolution The change in the heritable characteristics of biological populations over successive generations.\n\nEvolve (Imagine Dragons album) The third studio album by American rock band Imagine Dragons, released on June 23, 2017, by..."
+    },
+    {
+      "ts": 1764700731,
+      "role": "user",
+      "text": "toggle-llm on"
+    },
+    {
+      "ts": 1764700731,
+      "role": "assistant",
+      "text": "LLM enabled"
+    },
+    {
+      "ts": 1764700795,
+      "role": "user",
+      "text": "study your own architecture as an AI and do self research about self evolving"
+    },
+    {
+      "ts": 1764700799,
+      "role": "assistant",
+      "text": "[HF ERROR] 401 Client Error: Unauthorized for url: https://router.huggingface.co/v1/chat/completions"
+    },
+    {
+      "ts": 1764875469,
+      "role": "user",
+      "text": "# test: toggle-llm off\r# test: self-research how does AGI evolve\r# test: self-research module bios status\r# test: self-research terminal run lstoggle-llm off"
+    },
+    {
+      "ts": 1764875470,
+      "role": "assistant",
+      "text": "[HF ERROR] 401 Client Error: Unauthorized for url: https://router.huggingface.co/v1/chat/completions"
+    },
+    {
+      "ts": 1764875498,
+      "role": "user",
+      "text": "self-research evolve"
+    },
+    {
+      "ts": 1764875500,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nEvolution The change in the heritable characteristics of biological populations over successive generations.\n\nEvolve (Imagine Dragons album) The third studio album by American rock band Imagine Dragons, released on June 23, 2017, by..."
+    },
+    {
+      "ts": 1764875533,
+      "role": "user",
+      "text": "self-research how does AGI evolve"
+    },
+    {
+      "ts": 1764875535,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764875573,
+      "role": "user",
+      "text": "self-research module bios status"
+    },
+    {
+      "ts": 1764875573,
+      "role": "assistant",
+      "text": "[MODULE bios] <modules.bios.BIOS object at 0x7137ab58e0>"
+    },
+    {
+      "ts": 1764875597,
+      "role": "user",
+      "text": "self-research terminal run ls"
+    },
+    {
+      "ts": 1764875597,
+      "role": "assistant",
+      "text": "[TERMINAL ERROR] rc=127\n/data/data/com.termux/files/usr/bin/sh: 1: run: not found"
+    },
+    {
+      "ts": 1764876139,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764876139,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764876169,
+      "role": "user",
+      "text": "module self_researcher help"
+    },
+    {
+      "ts": 1764876169,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"module self_researcher help\""
+    },
+    {
+      "ts": 1764876184,
+      "role": "user",
+      "text": "self_researcher help"
+    },
+    {
+      "ts": 1764876184,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self_researcher help\""
+    },
+    {
+      "ts": 1764876197,
+      "role": "user",
+      "text": "self_research help"
+    },
+    {
+      "ts": 1764876197,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self_research help\""
+    },
+    {
+      "ts": 1764876200,
+      "role": "user",
+      "text": "help"
+    },
+    {
+      "ts": 1764876200,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  self-research <natural query>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764876216,
+      "role": "user",
+      "text": "self-research help"
+    },
+    {
+      "ts": 1764876217,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nH.E.L.P. is an American television drama series which aired on ABC for one season as a mid-season replacement for Mission: Impossible, which was a replacement for Mr. Belvedere in March 1990. The series was created by Christopher Crowe and Dick Wolf, and starred John Mahoney as Chief Patrick Meacham of the New York City Fire Department. Wesley Snipes played police officer Lou Barton and David Caruso played police officer Frank Sardoni of the NYPD. The premise of the show was based on an experimental combined emergency services station in New York City that co-located the resources of the Fire Department, Police Department and Emergency Medical Services. The series was canceled after its brief six-episode run. The concept of a show involving all three branches of NYC emergency services was successfully reintroduced nine years later with the 1999 debut of Third Watch, which ran for six seasons on NBC.\n\nTelevision series created by Dick Wolf\n\nTelevision series by Wolf Films\n\nTelevision series by Disney–ABC Domestic Television"
+    },
+    {
+      "ts": 1764876241,
+      "role": "user",
+      "text": "self-research how an AI evolves"
+    },
+    {
+      "ts": 1764876243,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764876255,
+      "role": "user",
+      "text": "self-research AI"
+    },
+    {
+      "ts": 1764876258,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\n.ai is the Internet country code top-level domain for Anguilla, a British Overseas Territory in the Caribbean. It is administered by the government of Anguilla. It is a popular domain hack with companies and projects related to the artificial intelligence industry. Google's ad targeting treats.ai as a generic top-level domain because \"users and website owners frequently see [the domain] as being more generic than country-targeted.\" In 2021, Google Search analyst Gary Illyes announced that \".ai\" had been added to Google's list of generic country-code top-level domains, meaning that Google would no longer infer Anguilla-specific targeting from the ccTLD. Identity Digital began managing the domain as of January 2025.\n\nInternet in the United Kingdom - The United Kingdom has been involved with the Internet throughout its origins and development. The telecommunications infrastructure in the United Kingdom provides Internet access to homes and businesses mainly through fibre, cable, mobile and fixed wireless networks.\n\nCommunications in Anguilla\n\nCountry code top-level domains"
+    },
+    {
+      "ts": 1764876286,
+      "role": "user",
+      "text": "self-research self evolution"
+    },
+    {
+      "ts": 1764876288,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764876304,
+      "role": "user",
+      "text": "self-research learning"
+    },
+    {
+      "ts": 1764876305,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nLearning is the process of acquiring new understanding, knowledge, behaviors, skills, values, attitudes, and preferences. The ability to learn is possessed by humans, non-human animals, and some machines; there is also evidence for some kind of learning in certain plants. Some learning is immediate, induced by a single event, but much skill and knowledge accumulate from repeated experiences. The changes induced by learning often last a lifetime, and it is hard to distinguish learned material that seems to be \"lost\" from that which cannot be retrieved. Human learning starts at birth and continues until death as a consequence of ongoing interactions between people and their environment. The nature and processes involved in learning are studied in many established fields, as well as emerging fields of knowledge. Research in such fields has led to the identification of various sorts of learning.\n\nLearning Category\n\nNeuropsychological assessment\n\nSystems science"
+    },
+    {
+      "ts": 1764876321,
+      "role": "user",
+      "text": "self-research memory"
+    },
+    {
+      "ts": 1764876322,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nMemory is the faculty of the mind by which data or information is encoded, stored, and retrieved when needed. It is the retention of information over time for the purpose of influencing future action. If past events could not be remembered, it would be impossible for language, relationships, or personal identity to develop. Memory loss is usually described as forgetfulness or amnesia. Memory is often understood as an informational processing system with explicit and implicit functioning that is made up of a sensory processor, short-term memory, and long-term memory. This can be related to the neuron. The sensory processor allows information from the outside world to be sensed in the form of chemical and physical stimuli and attended to various levels of focus and intent. Working memory serves as an encoding and retrieval processor. Information in the form of stimuli is encoded in accordance with explicit or implicit functions by the working memory processor.\n\nMemory Category\n\nAdaptive memory , memory systems that have evolved to help retain survival-and-fitness information.\n\nBody memory , hypothetical memory function of individual body parts or cells."
+    },
+    {
+      "ts": 1764876342,
+      "role": "user",
+      "text": "self-research development"
+    },
+    {
+      "ts": 1764876343,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nHuman Development Index A statistical composite index of life expectancy, education, and per capita income indicators...\n\nDeveloping country A country with a less-developed industrial base and a lower Human Development Index relative to...\n\nSustainable development An approach to growth and human development that aims to meet the needs of the present without..."
+    },
+    {
+      "ts": 1764876370,
+      "role": "user",
+      "text": "self-research internet"
+    },
+    {
+      "ts": 1764876371,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nThe Internet is the global system of interconnected computer networks that uses the Internet protocol suite to communicate between networks and devices. It is a network of networks that comprises private, public, academic, business, and government networks of local to global scope, linked by electronic, wireless, and optical networking technologies. The Internet carries a vast range of information services and resources, such as the interlinked hypertext documents and applications of the World Wide Web, electronic mail, discussion groups, internet telephony, streaming media and file sharing. Most traditional communication media, including telephone, radio, television, paper mail, newspapers, and print publishing, have been transformed by the Internet, giving rise to new media such as email, online music, digital newspapers, news aggregators, and audio and video streaming websites.\n\nInternet Category\n\nCrowdfunding - Crowdfunding is the practice of funding a project or venture by raising money from a large number of people, typically via the internet. Crowdfunding is a form of crowdsourcing and alternative finance, to fund projects \"without standard financial intermediaries\".\n\nCrowdsourcing - Crowdsourcing involves a large group of dispersed participants contributing or producing goods or services—including ideas, votes, micro-tasks, and finances—for payment or as volunteers."
+    },
+    {
+      "ts": 1764876396,
+      "role": "user",
+      "text": "self-research reflection"
+    },
+    {
+      "ts": 1764876398,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nReflection (physics) The change in direction of a wavefront at an interface between two different media so that the...\n\nSpecular reflection The mirror-like reflection of waves, such as light, from a surface.\n\nDiffuse reflection The reflection of light or other waves or particles from a surface such that a ray incident on..."
+    },
+    {
+      "ts": 1764876429,
+      "role": "user",
+      "text": "self-research autonomy"
+    },
+    {
+      "ts": 1764876431,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nIn developmental psychology and moral, political, bioethical philosophy, autonomy is the capacity to make an informed, uncoerced decision. Autonomous organizations or institutions are independent or self-governing. Autonomy can also be defined from a human resources perspective, where it denotes a level of discretion granted to an employee in their work. In such cases, autonomy is known to generally increase job satisfaction. Self-actualized individuals are thought to operate autonomously of external expectations. In a medical context, respect for a patient's personal autonomy is considered one of many fundamental ethical principles in medicine.\n\nAutonomy Category\n\nAutonomism - Autonomism or autonomismo, also known as autonomist Marxism or autonomous Marxism, is an anti-capitalist social movement and Marxist-based theoretical current that first emerged in Italy in the 1960s from workerism.\n\nAutonomy Day - All official holidays in Finland are established by acts of Parliament. The official holidays can be divided into Christian and non-Christian holidays. The main Christian holidays are Christmas, New Year's Day, Epiphany, Easter, Ascension day, Pentecost, Midsummer Day, and All Saints' Day."
+    },
+    {
+      "ts": 1764876459,
+      "role": "user",
+      "text": "self-research researching"
+    },
+    {
+      "ts": 1764876461,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nResearch is creative and systematic work undertaken to increase the stock of knowledge. It involves the collection, organization, and analysis of evidence to increase understanding of a topic, characterized by a particular attentiveness to controlling sources of bias and error. These activities are characterized by accounting and controlling for biases. A research project may be an expansion of past work in the field. To test the validity of instruments, procedures, or experiments, research may replicate elements of prior projects or the project as a whole. The primary purposes of basic research are documentation, discovery, interpretation, and the research and development of methods and systems for the advancement of human knowledge. Approaches to research depend on epistemologies, which vary considerably both within and between humanities and sciences.\n\nResearch Category\n\nAdvertising research - Advertising research is a systematic process of marketing research conducted to improve the efficiency of advertising. Advertising research is a detailed study conducted to know how customers respond to a particular ad or advertising campaign.\n\nEuropean Charter for Researchers - The European Charter for Researchers is a recommendation of good practice for researchers and employers and/or funders of researchers issued by the European Commission Directorate-General for Research. It sketches rights and duties of researchers and their funding institutions."
+    },
+    {
+      "ts": 1764876483,
+      "role": "user",
+      "text": "self-research implementation"
+    },
+    {
+      "ts": 1764876485,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nImplementation is the realization of an application, execution of a plan, idea, model, design, specification, standard, algorithm, policy, or the administration or management of a process or objective.\n\nApplication software - Application software is any computer program that is intended for end-user use – not operating, administering or programming the computer. An application is any program that can be categorized as application software.\n\nSituated cognition - Situated cognition is a theory that posits that knowing is inseparable from doing by arguing that all knowledge is situated in activity bound to social, cultural and physical contexts.\n\nComputing terminology"
+    },
+    {
+      "ts": 1764876505,
+      "role": "user",
+      "text": "self-research creation"
+    },
+    {
+      "ts": 1764876507,
+      "role": "assistant",
+      "text": "[WEB RESEARCH] URL: https://en.wikipedia.org/wiki/Creation"
+    },
+    {
+      "ts": 1764876533,
+      "role": "user",
+      "text": "self-research self"
+    },
+    {
+      "ts": 1764876534,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nIn philosophy, the self is an individual's own being, knowledge, and values, and the relationship between these attributes. The first-person perspective distinguishes selfhood from personal identity. Whereas \"identity\" is sameness and may involve categorization and labeling, selfhood implies a first-person perspective and suggests potential uniqueness. Conversely, \"person\" is used as a third-person reference. Personal identity can be impaired in late-stage Alzheimer's disease and in other neurodegenerative diseases. Finally, the self is distinguishable from \"others\". Including the distinction between sameness and otherness, the self versus other is a research topic in contemporary philosophy and contemporary phenomenology, psychology, psychiatry, neurology, and neuroscience. Although subjective experience is central to selfhood, the privacy of this experience is only one of many problems in the philosophy of self and the scientific study of consciousness.\n\nSelf Category\n\nAnatta — \"not-self\", Buddhist concept stating there is no unchanging, permanent self, soul or essence in living beings.\n\nAttention - Attention or focus, is the concentration of awareness on some phenomenon to the exclusion of other stimuli. It is the selective concentration on discrete information, either subjectively or objectively."
+    },
+    {
+      "ts": 1764876553,
+      "role": "user",
+      "text": "self-research awareness"
+    },
+    {
+      "ts": 1764876554,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nIn philosophy and psychology, awareness is the perception or knowledge of something. The concept is often synonymous with consciousness; however, one can be aware of something without being explicitly conscious of it. The states of awareness are also associated with the states of experience, so that the structure represented in awareness is mirrored in the structure of experience.\n\nSystems psychology\n\nUnsolved problems in neuroscience\n\nMindfulness (psychology)"
+    },
+    {
+      "ts": 1764876573,
+      "role": "user",
+      "text": "self-research mindfulness"
+    },
+    {
+      "ts": 1764876574,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nMindfulness is the cognitive skill, usually developed through exercises, of sustaining metacognitive awareness towards the contents of one's own mind and bodily sensations in the present moment. The term mindfulness derives from the Pali word sati, a significant element of Buddhist traditions, and the practice is based on ānāpānasati, Chan, and Tibetan meditation techniques. Since the 1990s, secular mindfulness has gained popularity in the West. Individuals who have contributed to the popularity of secular mindfulness in the modern Western context include Jon Kabat-Zinn and Thích Nhất Hạnh. Clinical psychology and psychiatry since the 1970s have developed a number of therapeutic applications based on mindfulness for helping people experiencing a variety of psychological conditions. Clinical studies have documented both physical- and mental-health benefits of mindfulness in different patient categories as well as in healthy adults and children.\n\nAlexander Technique - The Alexander Technique, named after its developer Frederick Matthias Alexander, is an alternative therapy based on the idea that poor posture causes a range of health problems.\n\nAffect labeling - Affect labeling is an implicit emotional regulation strategy that can be simply described as \"putting feelings into words\".\n\nBuddhism and psychology - Buddhism includes an analysis of human psychology, emotion, cognition, behavior and motivation along with therapeutic practices. Buddhist psychology is embedded within the greater Buddhist ethical and philosophical system, and its psychological terminology is colored by ethical overtones."
+    },
+    {
+      "ts": 1764876587,
+      "role": "user",
+      "text": "self-research computing"
+    },
+    {
+      "ts": 1764876589,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nComputing is any goal-oriented activity requiring, benefiting from, or creating computing machinery. It includes the study and experimentation of algorithmic processes, and the development of both hardware and software. Computing has scientific, engineering, mathematical, technological, and social aspects. Major computing disciplines include computer engineering, computer science, cybersecurity, data science, information systems, information technology, and software engineering. The term computing is also synonymous with counting and calculating. In earlier times, it was used in reference to the action performed by mechanical computing machines, and before that, to human computers.\n\nComputing Category\n\nArtificial intelligence - Artificial intelligence is the capability of computational systems to perform tasks typically associated with human intelligence, such as learning, reasoning, problem-solving, perception, and decision-making.\n\nComputational science - Computational science, also known as scientific computing, technical computing or scientific computation, is a division of science, and more specifically the computer sciences, which uses advanced computing capabilities to understand and solve complex physical problems in science."
+    },
+    {
+      "ts": 1764876617,
+      "role": "user",
+      "text": "self-research dictionary"
+    },
+    {
+      "ts": 1764876619,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764876632,
+      "role": "user",
+      "text": "self-research sentences"
+    },
+    {
+      "ts": 1764876633,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nThe Sentences is a compendium of Christian theology written by Peter Lombard around 1150. It was the most important religious textbook of the Middle Ages.\n\n1150s books\n\n12th-century Christian texts\n\nScholasticism"
+    },
+    {
+      "ts": 1764876655,
+      "role": "user",
+      "text": "self-research communication"
+    },
+    {
+      "ts": 1764876656,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nCommunication is commonly defined as the transmission of information. Its precise definition is disputed and there are disagreements about whether unintentional or failed transmissions are included and whether communication not only transmits meaning but also creates it. Models of communication are simplified overviews of its main components and their interactions. Many models include the idea that a source uses a coding system to express information in the form of a message. The message is sent through a channel to a receiver who has to decode it to understand it. The main field of inquiry investigating communication is called communication studies. A common way to classify communication is by whether information is exchanged between humans, members of other species, or non-living entities such as computers. For human communication, a central contrast is between verbal and non-verbal communication.\n\nCommunication Category\n\nSociety"
+    },
+    {
+      "ts": 1764876668,
+      "role": "user",
+      "text": "self-research morals"
+    },
+    {
+      "ts": 1764876670,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nMorality is the categorization of intentions, decisions and actions into those that are proper, or right, and those that are improper, or wrong. Morality can be a body of standards or principles derived from a code of conduct from a particular philosophy, religion or culture, or it can derive from a standard that is understood to be universal. Morality may also be specifically synonymous with \"goodness\", \"appropriateness\" or \"rightness\". Moral philosophy includes meta-ethics, which studies abstract issues such as moral ontology and moral epistemology, and normative ethics, which studies more concrete systems of moral decision-making such as deontological ethics and consequentialism. An example of normative ethical philosophy is the Golden Rule, which states: \"One should treat others as one would like others to treat oneself.\"\n\nMorality Category\n\nEthics - Ethics is the philosophical study of moral phenomena. Also called moral philosophy, it investigates normative questions about what people ought to do or which behavior is morally right. Its main branches include normative ethics, applied ethics, and metaethics.\n\nIntegrity - Integrity is the quality of being honest and having a consistent and uncompromising adherence to strong moral and ethical principles and values. In ethics, integrity is regarded as the honesty and truthfulness or earnestness of one's actions. Integrity can stand in opposition to hypocrisy."
+    },
+    {
+      "ts": 1764876686,
+      "role": "user",
+      "text": "self-research values"
+    },
+    {
+      "ts": 1764876688,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nValue investing An investment paradigm that involves buying securities that appear underpriced by some form of...\n\nNote value In music notation, a note value indicates the relative duration of a note, using the texture or...\n\nPresent value The value of an expected income stream determined as of the date of valuation."
+    },
+    {
+      "ts": 1764876699,
+      "role": "user",
+      "text": "self-research studying"
+    },
+    {
+      "ts": 1764876700,
+      "role": "assistant",
+      "text": "[NO RESULTS FOUND]"
+    },
+    {
+      "ts": 1764876714,
+      "role": "user",
+      "text": "self-research study"
+    },
+    {
+      "ts": 1764876715,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nStudy skills Approaches applied to learning.\n\nObservational study In fields such as epidemiology, social sciences, psychology and statistics, an observational...\n\nStudy (room) A room in a house that is used for paperwork, computer work, or reading."
+    },
+    {
+      "ts": 1764876732,
+      "role": "user",
+      "text": "self-research capabilities"
+    },
+    {
+      "ts": 1764876733,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nCapability Maturity Model Integration A process level improvement training and appraisal program.\n\nCapability approach A normative approach to human welfare that concentrates on the actual capability of persons to...\n\nCapability Brown An English gardener and landscape architect, who remains the most famous figure in the history of..."
+    },
+    {
+      "ts": 1764876756,
+      "role": "user",
+      "text": "self-research energy"
+    },
+    {
+      "ts": 1764876758,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nEnergy is the quantitative property that is transferred to a body or to a physical system, recognizable in the performance of work and in the form of heat and light. Energy is a conserved quantity—the law of conservation of energy states that energy can be converted in form, but not created or destroyed. The unit of measurement for energy in the International System of Units is the joule. Forms of energy include the kinetic energy of a moving object, the potential energy stored by an object, the elastic energy stored in a solid object, chemical energy associated with chemical reactions, the radiant energy carried by electromagnetic radiation, the internal energy contained within a thermodynamic system, and rest energy associated with an object's rest mass. These are not mutually exclusive. All living organisms constantly take in and release energy. The Earth's climate and ecosystems processes are driven primarily by radiant energy from the Sun.\n\nCombustion - Combustion, or burning, is a high-temperature exothermic redox chemical reaction between a fuel and an oxidant, usually atmospheric oxygen, that produces oxidized, often gaseous products, in a mixture termed as smoke.\n\nEfficient energy use - Efficient energy use, or energy efficiency, is the process of reducing the amount of energy required to provide products and services. There are many technologies and methods available that are more energy efficient than conventional systems.\n\nEnergy democracy - Energy democracy is a concept developed within the environmental justice movement that pairs the renewable energy transition with efforts to democratize the production and management of energy resources— including the social ownership of energy infrastructure, decentralization of energy systems..."
+    },
+    {
+      "ts": 1764876776,
+      "role": "user",
+      "text": "self-research inner"
+    },
+    {
+      "ts": 1764876777,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nInterior design The art and science of enhancing the interior of a building to achieve a healthier and more...\n\nUnited States Department of the Interior An executive department of the U.S. federal government responsible for the management and...\n\nInterior (topology) The union of all subsets of S that are open in X. A point that is in the interior of S is an..."
+    },
+    {
+      "ts": 1764876795,
+      "role": "user",
+      "text": "self-research internal"
+    },
+    {
+      "ts": 1764876796,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nThe name internal is reserved by ICANN as a domain name for private application use that may not be installed as a top-level domain in the Domain Name System of the Internet. As of March 7, 2025, the domain has not been standardized by the Internet Engineering Task Force, though an Internet-Draft describing the TLD has been submitted.\n\n.example See related meanings for the word '.example'.\n\n.local See related meanings for the word '.local'.\n\n.localhost - The name localhost is reserved by the Internet Engineering Task Force as a domain name label that may not be installed as a top-level domain in the Domain Name System of the Internet."
+    },
+    {
+      "ts": 1764876818,
+      "role": "user",
+      "text": "self-research local"
+    },
+    {
+      "ts": 1764876819,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nThe domain name.local is a special-use domain name reserved by the Internet Engineering Task Force so that it may not be installed as a top-level domain in the Domain Name System of the Internet. As such it is similar to the other special domain names, such as.localhost. However,.local has since been designated for use in link-local networking, in applications of multicast DNS and zero-configuration networking so that DNS service may be established without local installations of conventional DNS infrastructure on local area networks.\n\nPseudo-top-level domains"
+    },
+    {
+      "ts": 1764876837,
+      "role": "user",
+      "text": "self-research network"
+    },
+    {
+      "ts": 1764876839,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nComputer network A group of communicating computers and peripherals known as hosts, which communicate data to...\n\nNeural network A group of interconnected units called neurons that send signals to one another.\n\nNetwork (1976 film) A 1976 American satirical comedy drama film directed by Sidney Lumet and written by Paddy Chayefsky."
+    },
+    {
+      "ts": 1764876852,
+      "role": "user",
+      "text": "self-research word"
+    },
+    {
+      "ts": 1764876853,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nA word is a basic element of language that carries meaning, can be used on its own, and is uninterruptible. Despite the fact that language speakers often have an intuitive grasp of what a word is, there is no consensus among linguists on its definition and numerous attempts to find specific criteria of the concept remain controversial. Different standards have been proposed, depending on the theoretical background and descriptive context; these do not converge on a single definition. Some specific definitions of the term \"word\" are employed to convey its different meanings at different levels of description, for example based on phonological, grammatical or orthographic basis. Others suggest that the concept is simply a convention used in everyday situations. The concept of \"word\" is distinguished from that of a morpheme, which is the smallest unit of language that has a meaning, even if it cannot stand on its own. Words are made out of at least one morpheme.\n\nLongest words - The longest word in any given language depends on the word formation rules of each specific language, and on the types of words allowed for consideration. Agglutinative languages allow for the creation of long words via compounding.\n\nUtterance - In spoken language analysis, an utterance is a continuous piece of speech, by one person, before or after which there is silence on the part of the person. In the case of spoken languages, it is generally, but not always, bounded by silence.\n\nWord (computer architecture) - In computing, a word is any processor design's natural unit of data. A word is a fixed-sized datum handled as a unit by the instruction set or the hardware of the processor."
+    },
+    {
+      "ts": 1764876870,
+      "role": "user",
+      "text": "self-research language"
+    },
+    {
+      "ts": 1764876871,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nLanguage is a structured system of communication that consists of grammar and vocabulary. It is the primary means by which humans convey meaning, both in spoken and signed forms, and may also be conveyed through writing. Human language is characterized by its cultural and historical diversity, with significant variations observed between cultures and across time. Human languages possess the properties of productivity and displacement, which enable the creation of an infinite number of sentences, and the ability to refer to objects, events, and ideas that are not immediately present in the discourse. The use of human language relies on social convention and is acquired through learning. Estimates of the number of human languages in the world vary between 5,000 and 7,000. Precise estimates depend on an arbitrary distinction established between languages and dialects.\n\nLanguage Category\n\nFather tongue hypothesis - The father tongue hypothesis proposes the idea that humans tend to speak their father's language. The hypothesis is based on a 1997 proposal that linguistic affiliation correlates more closely with Y-chromosomal variation than with mitochondrial DNA variation.\n\nHuman communication - Human communication, or anthroposemiotics, is a field of study dedicated to understanding how humans communicate. Humans' ability to communicate with one another would not be possible without an understanding of what we are referencing or thinking about."
+    },
+    {
+      "ts": 1764876887,
+      "role": "user",
+      "text": "self-research mathematics"
+    },
+    {
+      "ts": 1764876888,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nMathematics is a field of study that discovers and organizes methods, theories, and theorems that are developed and proved for the needs of empirical sciences and mathematics itself. There are many areas of mathematics, which include number theory, algebra, geometry, analysis, and set theory. Mathematics involves the description and manipulation of abstract objects that consist of either abstractions from nature or—in modern mathematics—purely abstract entities that are stipulated to have certain properties, called axioms. Mathematics uses pure reason to prove the properties of objects through proofs, which consist of a succession of applications of deductive rules to already established results. These results, called theorems, include previously proved theorems, axioms, and—in case of abstraction from nature—some basic properties that are considered true starting points of the theory under consideration.\n\nMathematics Category\n\nLaw (mathematics)\n\nLists of mathematicians - This is a List of Lists of mathematicians and covers notable mathematicians by nationality, ethnicity, religion, profession and other characteristics. Alphabetical lists are also available."
+    },
+    {
+      "ts": 1764876914,
+      "role": "user",
+      "text": "self-research understanding"
+    },
+    {
+      "ts": 1764876915,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nUnderstanding is a cognitive process related to an abstract or physical object, such as a person, situation, or message whereby one is able to use concepts to model that object. Understanding is a relation between the knower and an object of understanding. Understanding implies abilities and dispositions with respect to an object of knowledge that are sufficient to support intelligent behavior. Understanding is often, though not always, related to learning concepts, and sometimes also the theory or theories associated with those concepts. However, a person may have a good ability to predict the behavior of an object, animal or system—and therefore may, in some sense, understand it—without necessarily being familiar with the concepts or theories associated with that object, animal, or system in their culture. They may have developed their own distinct concepts and theories, which may be equivalent, better or worse than the recognized standard concepts and theories of their culture.\n\nThought\n\nKnowledge\n\nCognition"
+    },
+    {
+      "ts": 1764876943,
+      "role": "user",
+      "text": "self-research cognition"
+    },
+    {
+      "ts": 1764876944,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nCognitions are mental activities that deal with knowledge. They encompass psychological processes that acquire, store, retrieve, transform, or otherwise use information. Cognitions are a pervasive part of mental life, helping individuals understand and interact with the world. Cognitive processes are typically categorized by their function. Perception organizes sensory information about the world, interpreting physical stimuli, such as light and sound, to construct a coherent experience of objects and events. Attention prioritizes specific aspects while filtering out irrelevant information. Memory is the ability to retain, store, and retrieve information, including working memory and long-term memory. Thinking encompasses psychological activities in which concepts, ideas, and mental representations are considered and manipulated. It includes reasoning, concept formation, problem-solving, and decision-making.\n\nCognition Category\n\nCognitive Abilities Screening Instrument - The Cognitive Abilities Screening Instrument is a cognitive test screening for dementia, in monitoring the disease progression, and in providing profiles of cognitive impairment by examining abilities on attention, concentration, orientation, short-term memory, long-term memory, language...\n\nCognitive computing - Cognitive computing refers to technology platforms that, broadly speaking, are based on the scientific disciplines of artificial intelligence and signal processing."
+    },
+    {
+      "ts": 1764876958,
+      "role": "user",
+      "text": "self-research thought"
+    },
+    {
+      "ts": 1764876959,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nIn their most common sense, thought and thinking refer to cognitive processes that occur independently of direct sensory stimulation. Core forms include judging, reasoning, concept formation, problem solving, and deliberation. Other processes, such as entertaining an idea, memory, or imagination, are also frequently considered types of thought. Unlike perception, these activities can occur without immediate input from the sensory organs. In a broader sense, any mental event—including perception and unconscious processes—may be described as a form of thought. The term can also denote not the process itself, but the resulting mental states or systems of ideas. A variety of theories attempt to explain the nature of thinking. Platonism holds that thought involves discerning eternal forms and their interrelations, distinguishing these pure entities from their imperfect sensory imitations.\n\nThought Category\n\nOutline of human intelligence – Topic tree presenting the traits, capacities, models, and research fields of human intelligence, and more.\n\nOutline of thought – Topic tree that identifies many types of thoughts, types of thinking, aspects of thought, related fields, and more."
+    },
+    {
+      "ts": 1764876974,
+      "role": "user",
+      "text": "self-research knowledge"
+    },
+    {
+      "ts": 1764876975,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nKnowledge is an awareness of facts, a familiarity with individuals and situations, or a practical skill. Knowledge of facts, also called propositional knowledge, is often characterized as true belief that is distinct from opinion or guesswork by virtue of justification. While there is wide agreement among philosophers that propositional knowledge is a form of true belief, many controversies focus on justification. This includes questions like how to understand justification, whether it is needed at all, and whether something else besides it is needed. These controversies intensified in the latter half of the 20th century due to a series of thought experiments called Gettier cases that provoked alternative definitions. Knowledge can be produced in many ways. The main source of empirical knowledge is perception, which involves the usage of the senses to learn about the external world. Introspection allows people to learn about their internal mental states and processes.\n\nKnowledge Category\n\nMental content\n\nIntelligence"
+    },
+    {
+      "ts": 1764876997,
+      "role": "user",
+      "text": "self-research intelligence"
+    },
+    {
+      "ts": 1764876998,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nIntelligence has been defined in many ways: the capacity for abstraction, logic, understanding, self-awareness, learning, emotional knowledge, reasoning, planning, creativity, critical thinking, and problem-solving. It can be described as the ability to perceive or infer information and to retain it as knowledge to be applied to adaptive behaviors within an environment or context. The term rose to prominence during the early 1900s. Most psychologists believe that intelligence can be divided into various domains or competencies. Intelligence has been long-studied in humans, and across numerous disciplines. It has also been observed in the cognition of non-human animals. Some researchers have suggested that plants exhibit forms of intelligence, though this remains controversial.\n\nIntelligence Category\n\nDevelopmental psychology\n\nPsychological testing"
+    },
+    {
+      "ts": 1764877019,
+      "role": "user",
+      "text": "self-research mechanism"
+    },
+    {
+      "ts": 1764877021,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nMechanism (economics) The term social mechanisms and mechanism-based explanations of social phenomena originate from...\n\nMechanism design A branch of economics and game theory.\n\nMechanism (engineering) A device that transforms input forces and movement into a desired set of output forces and movement."
+    },
+    {
+      "ts": 1764877044,
+      "role": "user",
+      "text": "self-research machine"
+    },
+    {
+      "ts": 1764877045,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nA machine is a thermodynamic system that uses power to apply forces and control movement to perform an action. The term is commonly applied to artificial devices, such as those employing engines or motors, but also to natural biological macromolecules, such as molecular machines. Machines can be driven by animals and people, by natural forces such as wind and water, and by chemical, thermal, or electrical power, and include a system of mechanisms that shape the actuator input to achieve a specific application of output forces and movement. They can also include computers and sensors that monitor performance and plan movement, often called mechanical systems. Renaissance natural philosophers identified six simple machines which were the elementary devices that put a load into motion, and calculated the ratio of output force to input force, known today as mechanical advantage.\n\nAutomaton - An automaton is a relatively self-operating machine, or control mechanism designed to automatically follow a sequence of operations, or respond to predetermined instructions.\n\nGear train - A gear train or gear set is a machine element of a mechanical system formed by mounting two or more gears on a frame such that the teeth of the gears engage.\n\nHistory of technology - The history of technology is the history of the invention of tools and techniques by humans. Technology includes methods ranging from simple stone tools to the complex genetic engineering and information technology that has emerged since the 1980s."
+    },
+    {
+      "ts": 1764877057,
+      "role": "user",
+      "text": "self-research mercy"
+    },
+    {
+      "ts": 1764877058,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nMercy is benevolence, forgiveness, and kindness in a variety of ethical, religious, social, and legal contexts. In the social and legal context, mercy may refer both to compassionate behavior on the part of those in power, or on the part of a humanitarian third party.\n\nAttributes of God in Christian theology\n\nTheories of law\n\nPunishments"
+    },
+    {
+      "ts": 1764877084,
+      "role": "user",
+      "text": "self-research values"
+    },
+    {
+      "ts": 1764877085,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nValue investing An investment paradigm that involves buying securities that appear underpriced by some form of...\n\nNote value In music notation, a note value indicates the relative duration of a note, using the texture or...\n\nPresent value The value of an expected income stream determined as of the date of valuation."
+    },
+    {
+      "ts": 1764877105,
+      "role": "user",
+      "text": "self-research consumption"
+    },
+    {
+      "ts": 1764877106,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nConsumerism A social and economic order in which the aspirations of many individuals include the acquisition...\n\nConsumption (economics) Consumption refers to the use of resources to fulfill present needs and desires.\n\nConsumer (food chain) A living creature that eats organisms from a different population."
+    },
+    {
+      "ts": 1764877122,
+      "role": "user",
+      "text": "self-research Allah"
+    },
+    {
+      "ts": 1764877124,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nAllah is the Arabic language term for God, specifically the monotheistic God of Abraham. Outside of Arabic languages, it is principally associated with Islam, although the term was used in pre-Islamic Arabia and continues to be used today by Arabic-speaking adherents of any of the Abrahamic religions, including Judaism and Christianity. It is thought to be derived by contraction from al-ilāh and is linguistically related to other semitic God names, such as Aramaic and Hebrew. The word \"Allah\" now conveys the superiority or sole existence of one God, but among the pre-Islamic Arabs, Allah was a supreme deity and was worshipped alongside lesser deities in a pantheon. Many Jews, Christians, and early Muslims used \"Allah\" and \"al-ilah\" synonymously in Classical Arabic. The word is also frequently, albeit not exclusively, used by Bábists, Baháʼís, Mandaeans, Indonesian Christians, Maltese Christians, and Sephardic Jews, as well as by the Gagauz people.\n\nAllah Category\n\nAbdullah (name) See related meanings for the phrase 'Abdullah (name)'.\n\nAllah as a lunar deity - The theory that Allah originated as a lunar deity began in 1901 with the archaeologist Hugo Winckler. He associated Allah with a pre-Islamic Arabian deity, either Lah or Hubal, whom he identified as lunar in nature."
+    },
+    {
+      "ts": 1764877219,
+      "role": "user",
+      "text": "self-research individual"
+    },
+    {
+      "ts": 1764877220,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nAn individual is one that exists as a distinct entity. Individuality is the state or quality of living as an individual; particularly as a person unique from other people and possessing one's own needs or goals, rights and responsibilities. The concept of an individual features in many fields, including biology, law, and philosophy. Every individual contributes significantly to the growth of a civilization. Society is a multifaceted concept that is shaped and influenced by a wide range of different things, including human behaviors, attitudes, and ideas. The culture, morals, and beliefs of others as well as the general direction and trajectory of the society can all be influenced and shaped by an individual's activities.\n\nPersonhood\n\nIndividualism\n\nSelf"
+    },
+    {
+      "ts": 1764877238,
+      "role": "user",
+      "text": "self-research memory"
+    },
+    {
+      "ts": 1764877239,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nMemory is the faculty of the mind by which data or information is encoded, stored, and retrieved when needed. It is the retention of information over time for the purpose of influencing future action. If past events could not be remembered, it would be impossible for language, relationships, or personal identity to develop. Memory loss is usually described as forgetfulness or amnesia. Memory is often understood as an informational processing system with explicit and implicit functioning that is made up of a sensory processor, short-term memory, and long-term memory. This can be related to the neuron. The sensory processor allows information from the outside world to be sensed in the form of chemical and physical stimuli and attended to various levels of focus and intent. Working memory serves as an encoding and retrieval processor. Information in the form of stimuli is encoded in accordance with explicit or implicit functions by the working memory processor.\n\nMemory Category\n\nAdaptive memory , memory systems that have evolved to help retain survival-and-fitness information.\n\nBody memory , hypothetical memory function of individual body parts or cells."
+    },
+    {
+      "ts": 1764877541,
+      "role": "user",
+      "text": "toggle-llm off"
+    },
+    {
+      "ts": 1764877541,
+      "role": "assistant",
+      "text": "LLM disabled"
+    },
+    {
+      "ts": 1764877545,
+      "role": "user",
+      "text": "help"
+    },
+    {
+      "ts": 1764877545,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  self-research <natural query>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764877554,
+      "role": "user",
+      "text": "reflect"
+    },
+    {
+      "ts": 1764877554,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"reflect\""
+    },
+    {
+      "ts": 1764877566,
+      "role": "user",
+      "text": "self-teach"
+    },
+    {
+      "ts": 1764877566,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self-teach\""
+    },
+    {
+      "ts": 1764877570,
+      "role": "user",
+      "text": "sl"
+    },
+    {
+      "ts": 1764877570,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"sl\""
+    },
+    {
+      "ts": 1764877576,
+      "role": "user",
+      "text": "self-heal"
+    },
+    {
+      "ts": 1764877576,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self-heal\""
+    },
+    {
+      "ts": 1764877586,
+      "role": "user",
+      "text": "self-maintenance"
+    },
+    {
+      "ts": 1764877586,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self-maintenance\""
+    },
+    {
+      "ts": 1764877597,
+      "role": "user",
+      "text": "self-idea-imll"
+    },
+    {
+      "ts": 1764877597,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self-idea-imll\""
+    },
+    {
+      "ts": 1764877606,
+      "role": "user",
+      "text": "self-idea-impl"
+    },
+    {
+      "ts": 1764877606,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self-idea-impl\""
+    },
+    {
+      "ts": 1764877621,
+      "role": "user",
+      "text": "device-info"
+    },
+    {
+      "ts": 1764877622,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"device-info\""
+    },
+    {
+      "ts": 1764877635,
+      "role": "user",
+      "text": "learn about internet"
+    },
+    {
+      "ts": 1764877635,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"learn about internet\""
+    },
+    {
+      "ts": 1764877648,
+      "role": "user",
+      "text": "!memory"
+    },
+    {
+      "ts": 1764877648,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"!memory\""
+    },
+    {
+      "ts": 1764877654,
+      "role": "user",
+      "text": "status"
+    },
+    {
+      "ts": 1764877654,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"status\""
+    },
+    {
+      "ts": 1764877662,
+      "role": "user",
+      "text": "analyze data"
+    },
+    {
+      "ts": 1764877662,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"analyze data\""
+    },
+    {
+      "ts": 1764886157,
+      "role": "user",
+      "text": "toggle"
+    },
+    {
+      "ts": 1764886158,
+      "role": "assistant",
+      "text": "[HF ERROR] 401 Client Error: Unauthorized for url: https://router.huggingface.co/v1/chat/completions"
+    },
+    {
+      "ts": 1764886193,
+      "role": "user",
+      "text": "self-teach"
+    },
+    {
+      "ts": 1764886193,
+      "role": "assistant",
+      "text": "[RAW DATA MODE] You said: \"self-teach\""
+    },
+    {
+      "ts": 1764886211,
+      "role": "user",
+      "text": "self-research help"
+    },
+    {
+      "ts": 1764886211,
+      "role": "assistant",
+      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  self-research <natural query>\n  market <topic>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
+    },
+    {
+      "ts": 1764886224,
+      "role": "user",
+      "text": "self-research heL"
+    },
+    {
+      "ts": 1764886225,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nHel (mythological being) A female being in Norse mythology who is said to preside over an underworld realm of the same...\n\nHelsinki Airport The main international airport serving Helsinki, the capital of Finland, as well as its...\n\nHigh energy laser A laser developed for military use, also known as the Nautilus laser system."
+    },
+    {
+      "ts": 1764886240,
+      "role": "user",
+      "text": "self-research maintenance"
+    },
+    {
+      "ts": 1764886242,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nThe technical meaning of maintenance involves functional checks, servicing, repairing or replacing of necessary devices, equipment, machinery, building infrastructure and supporting utilities in industrial, business, and residential installations. Terms such as \"predictive\" or \"planned\" maintenance describe various cost-effective practices aimed at keeping equipment operational; these activities occur either before or after a potential failure.\n\nMaintenance Category\n\nPlanning\n\nPrevention"
+    },
+    {
+      "ts": 1764886260,
+      "role": "user",
+      "text": "self-research heal"
+    },
+    {
+      "ts": 1764886261,
+      "role": "assistant",
+      "text": "[WEB RESEARCH RESULTS]\n\nHealing With physical trauma or disease suffered by an organism, healing involves the repairing of...\n\nHeal (film) A 2017 documentary film that was written and directed by Kelly Noonan-Gores and produced by...\n\nHeal (Loreen album) The debut studio album by Swedish singer Loreen, released on 24 October 2012 through Warner Music..."
+    }
+  ],
+  "personality": {
+    "mood": "neutral",
+    "verbosity": "medium"
+  },
+  "meta": {}
+}
