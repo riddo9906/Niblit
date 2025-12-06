@@ -1,4 +1,3 @@
-# modules/terminal_tools.py
 import subprocess, os
 
 class TerminalTools:

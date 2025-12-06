@@ -1,4 +1,3 @@
-# modules/control_panel.py
 class ControlPanel:
     def __init__(self, db, modules):
         self.db = db

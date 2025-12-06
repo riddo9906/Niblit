@@ -1,282 +1,619 @@
-# niblit_core.py
-from dotenv import load_dotenv
-load_dotenv()
+# niblit_core.py  — integrated with InternetManager, SelfResearcher and HFLLM shims
+"""
+Minimal integrated NiblitCore update:
+- Instantiates internet_manager, self_researcher and llm_module.HFLLMAdapter (if present)
+- Adds simple commands:
+    * research|search|web <query>  -> SelfResearcher.search / handle_command
+    * net.*                        -> InternetManager (search/ping/info/status)
+    * hf ask <prompt>              -> use HFLLMAdapter.query_llm
+    * hf online|model              -> info about HF model/token
+- Keeps prior behavior and back-compat with dashboard.py which expects
+  module-level llm_module.HF_TOKEN and llm_module.is_online().
+"""
+import importlib
+import traceback
+import logging
+import os
+from typing import Optional, Any
 
-import sys, os, time, logging
-from datetime import datetime
-
-log = logging.getLogger("NiblitCore")
+log = logging.getLogger("niblit_core")
 logging.basicConfig(level=logging.INFO)
 
-# Safe import helper
-def safe_import(name):
-    try:
-        return __import__(name)
-    except Exception as e:
-        log.error(f"[Import] Failed to load {name}: {e}")
-        return None
+# Try import storage DB
+try:
+    from modules.storage import KnowledgeDB
+except Exception:
+    KnowledgeDB = None
 
-# Ensure modules/ folder in path
-modules_path = os.path.join(os.path.dirname(__file__), "modules")
-if modules_path not in sys.path:
-    sys.path.insert(0, modules_path)
+# Optional adapters
+try:
+    from modules.hf_adapter import HFAdapter
+except Exception:
+    HFAdapter = None
 
-# Load runtime pieces
-memory_mod = safe_import("niblit_memory") or safe_import("modules.storage")
-MemoryManager = getattr(memory_mod, "MemoryManager", None) or getattr(memory_mod, "KnowledgeDB", None)
-llm_adapter_module = safe_import("modules.llm_adapter") or safe_import("llm_adapter")
-hf_adapter_module  = safe_import("modules.hf_adapter") or safe_import("hf_adapter")
-self_researcher_module = safe_import("modules.self_researcher") or safe_import("self_researcher")
-market_researcher_module = safe_import("modules.market_researcher") or safe_import("market_researcher")
+try:
+    from modules.local_llm_adapter import LocalLLMAdapter
+except Exception:
+    LocalLLMAdapter = None
 
-def timestamp():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# Known module classes
+from modules.analytics import AnalyticsModule
+from modules.antifraud import AntiFraudModule
+from modules.bios import BIOS
+from modules.bootloader import Bootloader
+from modules.control_panel import ControlPanel
+from modules.counter_active_membrane import CounterActiveMembrane
+from modules.dashboard import terminal_dashboard, status_dict
+from modules.device_manager import DeviceManager
+from modules.filesystem_manager import FileSystemManager
+from modules.firmware import Firmware
+from modules.idea_generator import IdeaGenerator
+from modules.permission_manager import PermissionManager
+from modules.reflect import ReflectModule
+from modules.self_healer import SelfHealer
+from modules.self_idea_implementation import SelfIdeaImplementation
+from modules.self_maintenance import SelfMaintenance
+from modules.self_teacher import SelfTeacher
+from modules.slsa_generator import SLSAGenerator
+from modules.terminal_tools import TerminalTools
+from modules.market_researcher import MarketResearcher
+
+# Optional modules we will try to wire up
+# - internet_manager (class InternetManager in modules/internet_manager.py)
+# - self_researcher (class SelfResearcher in modules/self_researcher.py)
+# - llm_module.HFLLMAdapter (class HFLLMAdapter in modules/llm_module.py)
+InternetManager = None
+SelfResearcher = None
+HFLLMAdapter = None
+llm_module = None
+
+try:
+    from modules import internet_manager as _im_mod
+    InternetManager = getattr(_im_mod, "InternetManager", None)
+except Exception:
+    InternetManager = None
+
+try:
+    from modules import self_researcher as _sr_mod
+    SelfResearcher = getattr(_sr_mod, "SelfResearcher", None)
+except Exception:
+    SelfResearcher = None
+
+try:
+    from modules import llm_module as llm_module
+    HFLLMAdapter = getattr(llm_module, "HFLLMAdapter", None)
+except Exception:
+    HFLLMAdapter = None
+    llm_module = None
+
 
 class NiblitCore:
-    def __init__(self):
-        log.info("[Init] NiblitCore starting...")
-        # Memory manager (wraps DB)
-        if MemoryManager:
-            try:
-                # prefer parameterless constructor if available
-                self.memory = MemoryManager()
-            except Exception:
-                # fallback: try KnowledgeDB from modules.storage
+    """
+    Central orchestrator for Niblit (minimal integrated update).
+    Accepts memory_path that can be:
+      - a str path (passed to KnowledgeDB if available)
+      - a DB-like object (LocalDB)
+      - None -> try to instantiate KnowledgeDB() with default
+    """
+
+    def __init__(self, memory_path: Optional[Any] = None):
+        # -------------------------
+        # DB init
+        # -------------------------
+        self.db = None
+        if memory_path is None:
+            if KnowledgeDB:
                 try:
-                    from modules.storage import KnowledgeDB
-                    self.memory = KnowledgeDB()
-                except Exception:
-                    self.memory = None
+                    self.db = KnowledgeDB()
+                except Exception as e:
+                    log.warning(f"[niblit_core] KnowledgeDB init failed: {e}")
+                    self.db = None
+        elif isinstance(memory_path, str):
+            if KnowledgeDB:
+                try:
+                    self.db = KnowledgeDB(memory_path)
+                except Exception as e:
+                    log.warning(f"[niblit_core] KnowledgeDB init failed for '{memory_path}': {e}")
+                    self.db = None
+            else:
+                log.warning("[niblit_core] KnowledgeDB class not available; memory_path string ignored.")
         else:
-            self.memory = None
+            # assume DB-like object
+            self.db = memory_path
 
-        self.start_ts = time.time()
-        self.running  = True
-
-        # Adapters - pass DB where required
+        # -------------------------
+        # Permissions
+        # -------------------------
         try:
-            self.llm_adapter = llm_adapter_module.LLMAdapter(self.memory) if llm_adapter_module else None
-        except Exception as e:
-            log.error(f"[Init] LLMAdapter init failed: {e}")
-            self.llm_adapter = None
+            self.permissions = PermissionManager()
+        except Exception:
+            self.permissions = None
 
-        try:
-            self.hf_adapter  = hf_adapter_module.HFAdapter(self.memory)  if hf_adapter_module else None
-        except Exception as e:
-            log.error(f"[Init] HFAdapter init failed: {e}")
-            self.hf_adapter = None
-
-        # research modules
-        try:
-            self.researcher = self_researcher_module.SelfResearcher(self.memory, getattr(self.memory, "runtime_registry", {}) ) if self_researcher_module else None
-        except Exception as e:
-            log.error(f"[Init] Researcher init failed: {e}")
-            self.researcher = None
-
-        try:
-            self.market = market_researcher_module.MarketResearcher(self.memory) if market_researcher_module else None
-        except Exception as e:
-            log.error(f"[Init] Market init failed: {e}")
-            self.market = None
-
-        # LLM toggle
-        self.llm_enabled = True
-
-    # try adapters in order: local LLM adapter -> HF adapter
-    def attempt_adapters(self, user_text, tone=None):
-        context = None
-        if self.memory and hasattr(self.memory, "show_all"):
+        # -------------------------
+        # LLM adapters
+        # -------------------------
+        self.local_llm = None
+        if LocalLLMAdapter:
             try:
-                context = self.memory.show_all()
+                self.local_llm = LocalLLMAdapter()
             except Exception:
-                context = None
+                self.local_llm = None
 
-        # 1) Local LLM adapter (wraps provider; respects provider.is_online)
-        if self.llm_adapter and getattr(self.llm_adapter, "is_available", lambda: False)():
+        self.llm = None
+        if HFAdapter:
             try:
-                resp = self.llm_adapter.query(user_text, context=context)
-                if resp:
-                    if self.memory and hasattr(self.memory, "add_entry"):
-                        try:
-                            self.memory.add_entry(user_text, resp)
-                        except Exception:
-                            pass
-                    return resp
+                self.llm = HFAdapter(db=self.db)
             except Exception as e:
-                log.error(f"[Adapter] LLMAdapter failed: {e}")
+                log.warning(f"[niblit_core] HFAdapter init failed: {e}")
+                self.llm = None
 
-        # 2) HF adapter (router) as fallback
-        if self.hf_adapter and getattr(self.hf_adapter, "is_online", lambda: False)():
-            try:
-                resp = self.hf_adapter.query(user_text, context=context)
-                if resp:
-                    if self.memory and hasattr(self.memory, "add_entry"):
-                        try:
-                            self.memory.add_entry(user_text, resp)
-                        except Exception:
-                            pass
-                    return resp
-            except Exception as e:
-                log.error(f"[Adapter] HFAdapter failed: {e}")
-
-        return None
-
-    # Main handle entry (text command or chat)
-    def handle(self, text: str):
-        text = (text or "").strip()
-        if not text:
-            return "..."
-
-        # quick local logging
+        # -------------------------
+        # instantiate modules
+        # -------------------------
+        self.modules = {}
         try:
-            if self.memory and hasattr(self.memory, "add_entry"):
-                # We store user utterance as a lightweight entry; implementations may vary.
-                self.memory.add_entry("USER", text)
+            self.modules = {
+                "bios": BIOS(),
+                "bootloader": Bootloader(),
+                "firmware": Firmware(),
+                "analytics": AnalyticsModule(self.db),
+                "antifraud": AntiFraudModule(self.db),
+                "reflect": ReflectModule(self.db),
+                "idea_generator": IdeaGenerator(self.db),
+                "self_healer": SelfHealer(self.db),
+                "self_teacher": SelfTeacher(self.db),
+                "self_idea_implementation": SelfIdeaImplementation(self.db),
+                "self_maintenance": SelfMaintenance(self.db),
+                "slsa": SLSAGenerator(self.db),
+                "device_manager": DeviceManager(),
+                "filesystem": FileSystemManager(),
+                "terminal": TerminalTools(),
+                "counter_membrane": CounterActiveMembrane(self.db),
+                "market_researcher": MarketResearcher(self.db),
+            }
+        except Exception as e:
+            log.warning(f"[niblit_core] module instantiation had errors: {e}")
+            # try to continue with partial modules
+            self.modules = {}
+
+        # -------------------------
+        # InternetManager (if available) - register as "internet_manager"
+        # -------------------------
+        try:
+            if InternetManager:
+                try:
+                    self.modules["internet_manager"] = InternetManager()
+                except TypeError:
+                    # fallback: instantiate without args
+                    self.modules["internet_manager"] = InternetManager()
+        except Exception as e:
+            log.debug(f"[niblit_core] internet_manager init failed: {e}")
+
+        # -------------------------
+        # SelfResearcher (if available) - it expects (db, modules_registry)
+        # register as "self_researcher"
+        # -------------------------
+        try:
+            if SelfResearcher:
+                try:
+                    # pass runtime registry (partial for now)
+                    self.modules["self_researcher"] = SelfResearcher(self.db, self.modules)
+                except TypeError:
+                    self.modules["self_researcher"] = SelfResearcher(self.db)
+        except Exception as e:
+            log.debug(f"[niblit_core] self_researcher init failed: {e}")
+
+        # -------------------------
+        # HFLLMAdapter shim (so dashboard.py calling llm_module.HF_TOKEN & is_online() keeps working)
+        # Instantiate HFLLMAdapter and attach helpful shims on the module if present.
+        # Also register instance under 'hf_llm'
+        # -------------------------
+        try:
+            if HFLLMAdapter and llm_module:
+                try:
+                    hf_inst = HFLLMAdapter()
+                    self.modules["hf_llm"] = hf_inst
+                    # set module-level HF_TOKEN for compatibility (dashboard.py expects this)
+                    try:
+                        token = os.environ.get("HF_TOKEN", "") or os.environ.get("HUGGINGFACE_TOKEN", "")
+                        setattr(llm_module, "HF_TOKEN", token)
+                    except Exception:
+                        pass
+                    # provide an is_online shim the dashboard expects
+                    try:
+                        setattr(llm_module, "is_online", lambda : hf_inst.is_online() if hasattr(hf_inst, "is_online") else False)
+                    except Exception:
+                        pass
+                except Exception as e:
+                    log.debug(f"[niblit_core] HFLLMAdapter init failed: {e}")
         except Exception:
             pass
 
-        low = text.lower()
-        parts = text.split()
-        cmd = parts[0].lower() if parts else ""
-        arg = " ".join(parts[1:]).strip() if len(parts) > 1 else ""
+        # -------------------------
+        # Control panel
+        # -------------------------
+        try:
+            self.modules["control_panel"] = ControlPanel(self.db, self.modules)
+        except Exception:
+            self.modules.setdefault("control_panel", None)
 
-        # Quick help
-        if text.strip() == "?" or text.strip().lower() == "help":
-            return self.help_text()
+        # expose runtime_registry on DB when supported
+        try:
+            if self.db is not None:
+                setattr(self.db, "runtime_registry", self.modules)
+        except Exception:
+            pass
 
-        # Toggle LLM (on/off)
-        if low.startswith("toggle-llm"):
-            p = low.split()
-            if len(p) == 2 and p[1] in ("on", "off"):
-                self.llm_enabled = (p[1] == "on")
-                return f"LLM {'enabled' if self.llm_enabled else 'disabled'}"
-            else:
-                return "[TOGGLE ERROR] Usage: toggle-llm on/off"
+        # runtime state
+        self.running = True
+        self.start_ts = None
+        self.llm_enabled = True
 
-        # show memory
-        if text.lower() == "show memory":
-            if not self.memory or not hasattr(self.memory, "show_all"):
-                return "[Memory Missing]"
+    # -------------------------
+    # Boot
+    # -------------------------
+    def boot(self) -> str:
+        out = []
+        try:
+            out.append(self.modules.get("bios").boot_sequence())
+        except Exception as e:
+            out.append(f"[bios error] {e}")
+        try:
+            out.append(self.modules.get("bootloader").start())
+        except Exception as e:
+            out.append(f"[bootloader error] {e}")
+        try:
+            out.append(self.modules.get("firmware").load())
+        except Exception as e:
+            out.append(f"[firmware error] {e}")
+        self.start_ts = True
+        return "\n".join(out)
+
+    # -------------------------
+    # Interaction
+    # -------------------------
+    def interact(self, user_text: str) -> str:
+        try:
+            # store user interaction if DB supports it
             try:
-                entries = self.memory.show_all()
-                if not entries:
-                    return "[Memory Empty]"
-                return "\n".join([f"{i+1}. {e.get('user','?')} -> {e.get('reply','?')}" for i,e in enumerate(entries)])
-            except Exception:
-                return "[Memory Error]"
-
-        # self-research commands
-        if cmd in ("self-research", "research", "study", "web", "search"):
-            if self.researcher:
-                # researcher.handle_command expects (cmd, arg) or natural query
-                # Use "web.run" mapping inside researcher for natural queries
-                try:
-                    if cmd in ("self-research", "research") and arg:
-                        # pass natural query
-                        return self.researcher.handle_command("web.run", arg)
-                    else:
-                        return self.researcher.handle_command(cmd, arg)
-                except Exception as e:
-                    log.error(f"[Research] error: {e}")
-                    return f"[Research Error] {e}"
-            else:
-                return "[Researcher Missing]"
-
-        # market commands
-        if cmd in ("market", "finance", "economy", "trends"):
-            if self.market:
-                try:
-                    if arg:
-                        return self.market.summary(arg)
-                    else:
-                        return self.market.summary("stocks")
-                except Exception as e:
-                    log.error(f"[Market] error: {e}")
-                    return f"[Market Error] {e}"
-            else:
-                return "[Market Researcher Missing]"
-
-        # device info / utilities routing (if memory runtime registry present)
-        if cmd in ("device-info", "device", "status"):
-            try:
-                registry = getattr(self.memory, "runtime_registry", {}) if self.memory else {}
-                device = registry.get("device_manager")
-                control = registry.get("control_panel")
-                if device and hasattr(device, "info"):
-                    return str(device.info())
-                if control and hasattr(control, "status"):
-                    return str(control.status())
+                if self.db and hasattr(self.db, "add_interaction"):
+                    self.db.add_interaction("user", user_text)
             except Exception:
                 pass
 
-        # If LLMs disabled or adapters failed => raw fallback
-        if not self.llm_enabled:
-            return f"[RAW DATA MODE] You said: \"{text}\""
+            # antifraud
+            af = self.modules.get("antifraud")
+            try:
+                antifraud_result = af.check(user_text) if af and hasattr(af, "check") else "No antifraud module."
+            except Exception as e:
+                antifraud_result = f"[antifraud error] {e}"
 
-        # Try adapters (local -> HF)
-        adapter_resp = self.attempt_adapters(text)
-        if adapter_resp:
-            return adapter_resp
+            # analytics
+            analytics = self.modules.get("analytics")
+            try:
+                analysis = analytics.analyze_text(user_text) if analytics and hasattr(analytics, "analyze_text") else ""
+            except Exception as e:
+                analysis = f"[analytics error] {e}"
 
-        # final fallback
-        fallback = f"[FALLBACK] I heard: {text}"
+            # idea generation (quick)
+            idea_mod = self.modules.get("idea_generator")
+            idea_snippet = ""
+            try:
+                if idea_mod and hasattr(idea_mod, "generate"):
+                    idea_snippet = idea_mod.generate(user_text) or ""
+            except Exception:
+                idea_snippet = ""
+
+            # optional auto-reflect
+            try:
+                if self.permissions and getattr(self.permissions, "check", lambda x: False)("auto_reflect"):
+                    refl = self.modules.get("reflect")
+                    if refl and hasattr(refl, "collect_and_summarize"):
+                        refl.collect_and_summarize()
+            except Exception:
+                pass
+
+            reply = f"[AntiFraud] {antifraud_result}\n[Analysis] {analysis}\n[Ideas]\n{idea_snippet}"
+
+            # store assistant reply
+            try:
+                if self.db and hasattr(self.db, "add_interaction"):
+                    self.db.add_interaction("assistant", reply)
+            except Exception:
+                pass
+
+            return reply
+        except Exception as e:
+            return f"[Interact Error] {e}"
+
+    # -------------------------
+    # LLM access (local preferred when requested)
+    # -------------------------
+    def query_llm(self, prompt: str, max_tokens: int = 120, prefer_local: bool = False) -> str:
+        # prefer local LLM if available
+        if prefer_local and self.local_llm:
+            try:
+                if hasattr(self.local_llm, "query"):
+                    return self.local_llm.query(prompt, max_tokens=max_tokens)
+                if hasattr(self.local_llm, "chat"):
+                    return self.local_llm.chat(prompt, max_tokens=max_tokens)
+                if hasattr(self.local_llm, "generate"):
+                    return self.local_llm.generate(prompt, max_tokens=max_tokens)
+            except Exception as e:
+                try:
+                    if self.db and hasattr(self.db, "add_fact"):
+                        self.db.add_fact("llm_error", f"local failed: {e}", tags=["llm"])
+                except Exception:
+                    pass
+
+        # remote HF adapter
+        if self.llm and hasattr(self.llm, "query"):
+            try:
+                return self.llm.query(prompt, context=None, max_tokens=max_tokens)
+            except Exception as e:
+                try:
+                    if self.db and hasattr(self.db, "add_fact"):
+                        self.db.add_fact("llm_error", f"hf failed: {e}", tags=["llm"])
+                except Exception:
+                    pass
+                return f"[LLM ERROR] {e}"
+
+        # try HFLLMAdapter instance if registered under modules
         try:
-            if self.memory and hasattr(self.memory, "add_entry"):
-                self.memory.add_entry("FALLBACK", fallback)
+            hf_inst = self.modules.get("hf_llm")
+            if hf_inst:
+                # HFLLMAdapter uses query_llm(messages, model=None, max_tokens=..)
+                # Provide a simple messages shim (user message only)
+                try:
+                    msgs = [{"role":"user","content":prompt}]
+                    return hf_inst.query_llm(msgs, max_tokens=max_tokens)
+                except Exception as e:
+                    return f"[HF ERROR] {e}"
         except Exception:
             pass
-        return fallback
 
-    def help_text(self):
-        return (
-            "Commands:\n"
-            "  ? or help - quick help\n"
-            "  learn about <topic>\n"
-            "  !remember key: value\n"
-            "  !forget key\n"
-            "  !memory\n"
-            "  analyze <query>\n"
-            "  ideas about <topic>\n"
-            "  reflect\n"
-            "  evolve\n"
-            "  status\n"
-            "  self-heal\n"
-            "  self-teach\n"
-            "  self-maintenance\n"
-            "  self-idea-impl\n"
-            "  self-research <cmd> <arg>\n"
-            "  self-research <natural query>\n"
-            "  market <topic>\n"
-            "  toggle-llm on/off\n"
-            "  device-info\n"
-            "  read-file <path>\n"
-            "  write-file <path> <text>\n"
-        )
+        return "[LLM] No adapter available."
 
-    def save_all(self):
+    # -------------------------
+    # Dashboard
+    # -------------------------
+    def dashboard(self) -> str:
         try:
-            if self.memory and hasattr(self.memory, "autosave"):
-                self.memory.autosave()
-            elif self.memory and hasattr(self.memory, "_save"):
-                self.memory._save()
-        except Exception:
-            pass
+            return terminal_dashboard(self.db, self.modules)
+        except Exception as e:
+            return f"[dashboard error] {e}"
 
-    def shutdown(self):
-        log.info("[Shutdown] Saving memory...")
-        self.save_all()
-        self.running = False
-        log.info("[Shutdown] Done.")
+    def dashboard_dict(self) -> dict:
+        try:
+            return status_dict(self.db, self.modules)
+        except Exception as e:
+            return {"error": str(e)}
 
-if __name__ == "__main__":
-    core = NiblitCore()
-    print("[Selftest] NiblitCore interactive mode. Type '?' for help.")
-    try:
-        while core.running:
-            cmd = input("You: ").strip()
-            if cmd.lower() in ("exit","quit","shutdown"):
-                core.shutdown()
-                break
-            print("Niblit:", core.handle(cmd))
-    except KeyboardInterrupt:
-        core.shutdown()
+    # -------------------------
+    # Reload module (hot)
+    # -------------------------
+    def reload_module(self, module_name: str) -> str:
+        try:
+            mod = importlib.import_module(f"modules.{module_name}")
+            importlib.reload(mod)
+            cls_name = "".join(part.capitalize() for part in module_name.split("_"))
+            factory = getattr(mod, cls_name, None)
+            if factory:
+                try:
+                    inst = factory(self.db)
+                except TypeError:
+                    inst = factory()
+                self.modules[module_name] = inst
+                try:
+                    if self.db is not None:
+                        setattr(self.db, "runtime_registry", self.modules)
+                except Exception:
+                    pass
+                return f"Reloaded and instantiated {module_name} -> {cls_name}"
+            self.modules[module_name] = mod
+            return f"Reloaded module code for {module_name} (no class instantiation)"
+        except Exception as e:
+            tb = traceback.format_exc()
+            return f"Error reloading {module_name}: {e}\n{tb}"
+
+    # -------------------------
+    # Simple handler / commands
+    # -------------------------
+    def handle(self, text: str) -> str:
+        t = (text or "").strip()
+        if not t:
+            return "..."
+        parts = t.split()
+        cmd = parts[0].lower()
+        arg = " ".join(parts[1:]).strip()
+
+        # basic commands
+        if cmd in ("boot", "start"):
+            return self.boot()
+        if cmd in ("status", "dashboard"):
+            return self.dashboard()
+        if cmd == "query-llm":
+            return self.query_llm(arg)
+        if cmd == "reload" and arg:
+            return self.reload_module(arg)
+
+        # idea
+        if cmd == "idea":
+            mod = self.modules.get("idea_generator")
+            if mod and hasattr(mod, "generate"):
+                try:
+                    return mod.generate(arg)
+                except Exception as e:
+                    return f"[idea error] {e}"
+            return "[idea] module missing."
+
+        # implement
+        if cmd in ("impl", "implement"):
+            mod = self.modules.get("self_idea_implementation")
+            if mod:
+                try:
+                    if arg.isdigit():
+                        return mod.implement_ideas(int(arg))
+                    if hasattr(mod, "implement_idea"):
+                        return mod.implement_idea(arg)
+                    return mod.implement_ideas()
+                except Exception as e:
+                    return f"[implement error] {e}"
+            return "[implement] module missing."
+
+        # reflect
+        if cmd == "reflect":
+            mod = self.modules.get("reflect")
+            if mod and hasattr(mod, "collect_and_summarize"):
+                try:
+                    return mod.collect_and_summarize()
+                except Exception as e:
+                    return f"[reflect error] {e}"
+            return "[reflect] module missing."
+
+        # teach
+        if cmd == "teach":
+            mod = self.modules.get("self_teacher")
+            if mod and hasattr(mod, "generate_lessons"):
+                try:
+                    n = int(arg) if arg.isdigit() else 5
+                    return mod.generate_lessons(n)
+                except Exception as e:
+                    return f"[teach error] {e}"
+            return "[teach] module missing."
+
+        # heal
+        if cmd == "heal":
+            mod = self.modules.get("self_healer")
+            if mod and hasattr(mod, "repair"):
+                try:
+                    return mod.repair()
+                except Exception as e:
+                    return f"[heal error] {e}"
+            return "[heal] module missing."
+
+        # maintain
+        if cmd == "maintain":
+            mod = self.modules.get("self_maintenance")
+            if mod and hasattr(mod, "run"):
+                try:
+                    days = int(arg) if arg.isdigit() else 30
+                    return mod.run(retention_days=days)
+                except Exception as e:
+                    return f"[maintain error] {e}"
+            return "[maintain] module missing."
+
+        # -------------------------
+        # SelfResearcher commands
+        # -------------------------
+        if cmd in ("research", "search", "web"):
+            sr = self.modules.get("self_researcher")
+            if not sr:
+                return "[research] SelfResearcher missing."
+            # prefer sr.handle_command for "web.run", else use .search
+            try:
+                # use sr.handle_command when available for richer behavior
+                if hasattr(sr, "handle_command"):
+                    return sr.handle_command("web.run", arg)
+                if hasattr(sr, "search"):
+                    results = sr.search(arg)
+                    return "[WEB RESEARCH RESULTS]\n\n" + "\n\n".join(results)
+            except Exception as e:
+                return f"[research error] {e}"
+
+        # -------------------------
+        # Internet Manager commands
+        # -------------------------
+        if cmd in ("net", "internet"):
+            net = self.modules.get("internet_manager")
+            if not net:
+                return "[net] InternetManager missing."
+            # subcommands: search <q>, fetch <url>, ping <host>, info, status, latency
+            if arg.startswith("search "):
+                q = arg.replace("search ", "", 1)
+                # InternetManager uses search_web()
+                if hasattr(net, "search_web"):
+                    try:
+                        return "\n\n".join(net.search_web(q))
+                    except Exception as e:
+                        return f"[net search error] {e}"
+                # fallback to generic
+                if hasattr(net, "search"):
+                    try:
+                        return "\n\n".join(net.search(q))
+                    except Exception as e:
+                        return f"[net search error] {e}"
+                return "[net] search not supported by internet manager."
+            if arg.startswith("fetch "):
+                url = arg.replace("fetch ", "", 1)
+                try:
+                    res = net.fetch_url(url)
+                    return str(res)
+                except Exception as e:
+                    return f"[net fetch error] {e}"
+            if arg.startswith("ping "):
+                host = arg.replace("ping ", "", 1)
+                try:
+                    return str(net.ping(host))
+                except Exception as e:
+                    return f"[net ping error] {e}"
+            if arg.startswith("latency"):
+                try:
+                    lat = net.get_latency()
+                    return f"latency_ms: {lat}"
+                except Exception as e:
+                    return f"[net latency error] {e}"
+            if arg in ("info", "status"):
+                try:
+                    if hasattr(net, "info"):
+                        return str(net.info())
+                    if hasattr(net, "is_online"):
+                        return str({"online": net.is_online()})
+                except Exception as e:
+                    return f"[net info error] {e}"
+            return "[net] unknown subcommand."
+
+        # -------------------------
+        # HF LLM (llm_module.HFLLMAdapter) quick commands
+        # -------------------------
+        if cmd == "hf":
+            # usage: hf ask <prompt> | hf online | hf model
+            if not arg:
+                return "[hf] usage: hf ask <prompt> | hf online | hf model"
+            parts = arg.split()
+            sub = parts[0].lower()
+            rest = " ".join(parts[1:]).strip()
+            hf_inst = self.modules.get("hf_llm")
+            if sub == "ask":
+                if not hf_inst:
+                    return "[hf] HFLLMAdapter missing."
+                try:
+                    msgs = [{"role":"user","content": rest}]
+                    return hf_inst.query_llm(msgs, max_tokens=250)
+                except Exception as e:
+                    return f"[hf ask error] {e}"
+            if sub in ("online","status"):
+                # check module-level shim first
+                try:
+                    if llm_module and hasattr(llm_module, "is_online"):
+                        return str(llm_module.is_online())
+                except Exception:
+                    pass
+                if hf_inst and hasattr(hf_inst, "is_online"):
+                    try:
+                        return str(hf_inst.is_online())
+                    except Exception as e:
+                        return f"[hf online error] {e}"
+                return "unknown"
+            if sub == "model":
+                try:
+                    if hf_inst and hasattr(hf_inst, "model"):
+                        return str(getattr(hf_inst, "model"))
+                    if llm_module and hasattr(llm_module, "model"):
+                        return str(getattr(llm_module, "model"))
+                except Exception:
+                    pass
+                return "[hf] model unknown."
+
+        # fallback -> conversational interact()
+        return self.interact(t)

@@ -1,4 +1,3 @@
-# modules/counter_active_membrane.py
 import os
 
 class CounterActiveMembrane:

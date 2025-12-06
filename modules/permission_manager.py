@@ -1,4 +1,3 @@
-# modules/permission_manager.py
 import json, os
 
 PERM_FILE = "niblit_perms.json"
@@ -22,10 +21,8 @@ class PermissionManager:
             json.dump(self.perms,f,indent=2)
 
     def ask(self, action, description):
-        # If already decided, return decision
         if action in self.perms:
             return self.perms[action]
-        # Ask user in terminal (safe)
         resp = input(f"Grant permission for '{action}'? ({description}) [y/N]: ").strip().lower()
         allow = resp in ('y','yes')
         self.perms[action] = bool(allow)

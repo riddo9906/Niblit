@@ -1,136 +1,256 @@
 {
-  "facts": [],
+  "facts": [
+    {
+      "key": "research:hi",
+      "value": "Hawaii An island state of the United States, in the Pacific Ocean about 2,000 miles southwest of the U.S.; Hindi An Indo-Aryan language written in the Devanagari script.; Hainan An island province and the southernmost province of China consisting of the eponymous Hainan...",
+      "tags": [
+        "research"
+      ],
+      "ts": 1765027791
+    },
+    {
+      "key": "idea:hi:5775",
+      "value": "Create a tutorial series about 'hi' aimed at beginners.",
+      "tags": [
+        "idea",
+        "auto"
+      ],
+      "ts": 1765027791
+    },
+    {
+      "key": "research:self-research ideas",
+      "value": "No instant answers for 'self-research ideas'. Try a web search.",
+      "tags": [
+        "research"
+      ],
+      "ts": 1765027823
+    },
+    {
+      "key": "idea:self-research ideas:9387",
+      "value": "Explore 'self-research ideas' with focus on practical prototypes.",
+      "tags": [
+        "idea",
+        "auto"
+      ],
+      "ts": 1765027823
+    },
+    {
+      "key": "lesson:1",
+      "value": "self-research ideas",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027861
+    },
+    {
+      "key": "lesson:2",
+      "value": "hi",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027861
+    },
+    {
+      "key": "lesson:3",
+      "value": "evolve",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027861
+    },
+    {
+      "key": "lesson:4",
+      "value": "self-research heal",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027861
+    },
+    {
+      "key": "lesson:5",
+      "value": "self-research maintenance",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027861
+    },
+    {
+      "key": "lesson:context",
+      "value": "Context note: No instant answers for 'self-research ideas'. Try a web search.",
+      "tags": [
+        "lesson",
+        "context"
+      ],
+      "ts": 1765027863
+    },
+    {
+      "key": "lesson:1",
+      "value": "self-research ideas",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027880
+    },
+    {
+      "key": "lesson:2",
+      "value": "hi",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027880
+    },
+    {
+      "key": "lesson:3",
+      "value": "evolve",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027880
+    },
+    {
+      "key": "lesson:4",
+      "value": "self-research heal",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027880
+    },
+    {
+      "key": "lesson:5",
+      "value": "self-research maintenance",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027880
+    },
+    {
+      "key": "lesson:context",
+      "value": "Context note: No instant answers for 'self-research ideas'. Try a web search.",
+      "tags": [
+        "lesson",
+        "context"
+      ],
+      "ts": 1765027880
+    },
+    {
+      "key": "lesson:1",
+      "value": "self-research ideas",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027897
+    },
+    {
+      "key": "lesson:2",
+      "value": "hi",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027897
+    },
+    {
+      "key": "lesson:3",
+      "value": "evolve",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027897
+    },
+    {
+      "key": "lesson:4",
+      "value": "self-research heal",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027897
+    },
+    {
+      "key": "lesson:5",
+      "value": "self-research maintenance",
+      "tags": [
+        "lesson"
+      ],
+      "ts": 1765027897
+    },
+    {
+      "key": "lesson:context",
+      "value": "Context note: No instant answers for 'self-research ideas'. Try a web search.",
+      "tags": [
+        "lesson",
+        "context"
+      ],
+      "ts": 1765027897
+    },
+    {
+      "key": "research:learn about self reseach",
+      "value": "No instant answers for 'learn about self reseach'. Try a web search.",
+      "tags": [
+        "research"
+      ],
+      "ts": 1765027921
+    },
+    {
+      "key": "idea:learn about self reseach:8888",
+      "value": "Based on research (1): No instant answers for 'learn about self reseach'. Try a web search.",
+      "tags": [
+        "idea",
+        "auto"
+      ],
+      "ts": 1765027921
+    },
+    {
+      "key": "research:learn about web search",
+      "value": "No instant answers for 'learn about web search'. Try a web search.",
+      "tags": [
+        "research"
+      ],
+      "ts": 1765027942
+    },
+    {
+      "key": "idea:learn about web search:1959",
+      "value": "Build a minimal tool that automates one task related to 'learn about web search'.",
+      "tags": [
+        "idea",
+        "auto"
+      ],
+      "ts": 1765027942
+    },
+    {
+      "key": "research:learn about internal architecture",
+      "value": "No instant answers for 'learn about internal architecture'. Try a web search.",
+      "tags": [
+        "research"
+      ],
+      "ts": 1765027967
+    },
+    {
+      "key": "idea:learn about internal architecture:5655",
+      "value": "Build a minimal tool that automates one task related to 'learn about internal architecture'.",
+      "tags": [
+        "idea",
+        "auto"
+      ],
+      "ts": 1765027967
+    },
+    {
+      "key": "research:learn words",
+      "value": "No instant answers for 'learn words'. Try a web search.",
+      "tags": [
+        "research"
+      ],
+      "ts": 1765027982
+    },
+    {
+      "key": "idea:learn words:9356",
+      "value": "Create a tutorial series about 'learn words' aimed at beginners.",
+      "tags": [
+        "idea",
+        "auto"
+      ],
+      "ts": 1765027982
+    }
+  ],
   "interactions": [
-    {
-      "ts": 1764530567,
-      "role": "assistant",
-      "text": "[RAW DATA MODE] You said: \"hi\""
-    },
-    {
-      "ts": 1764530571,
-      "role": "user",
-      "text": "help"
-    },
-    {
-      "ts": 1764530571,
-      "role": "assistant",
-      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
-    },
-    {
-      "ts": 1764530575,
-      "role": "user",
-      "text": "reflect"
-    },
-    {
-      "ts": 1764530575,
-      "role": "assistant",
-      "text": "[RAW DATA MODE] You said: \"reflect\""
-    },
-    {
-      "ts": 1764530595,
-      "role": "user",
-      "text": "self-research"
-    },
-    {
-      "ts": 1764530595,
-      "role": "assistant",
-      "text": "[RESEARCH ERROR] Usage: self-research <command> <arg>"
-    },
-    {
-      "ts": 1764530630,
-      "role": "user",
-      "text": "self-research about evolving"
-    },
-    {
-      "ts": 1764530630,
-      "role": "assistant",
-      "text": "[RESEARCH ERROR] Unknown command: about"
-    },
-    {
-      "ts": 1764530646,
-      "role": "user",
-      "text": "self-research evolve"
-    },
-    {
-      "ts": 1764530646,
-      "role": "assistant",
-      "text": "[RESEARCH ERROR] Usage: self-research <command> <arg>"
-    },
-    {
-      "ts": 1764530852,
-      "role": "user",
-      "text": "toggle-llm off"
-    },
-    {
-      "ts": 1764530852,
-      "role": "assistant",
-      "text": "LLM disabled"
-    },
-    {
-      "ts": 1764530864,
-      "role": "user",
-      "text": "self research about the internet"
-    },
-    {
-      "ts": 1764530864,
-      "role": "assistant",
-      "text": "[RAW DATA MODE] You said: \"self research about the internet\""
-    },
-    {
-      "ts": 1764530871,
-      "role": "user",
-      "text": "help"
-    },
-    {
-      "ts": 1764530871,
-      "role": "assistant",
-      "text": "Commands:\n  learn about <topic>\n  !remember key: value\n  !forget key\n  !memory\n  analyze <query>\n  ideas about <topic>\n  reflect\n  evolve\n  status\n  self-heal\n  self-teach\n  self-maintenance\n  self-idea-impl\n  self-research <cmd> <arg>\n  toggle-llm on/off\n  device-info\n  read-file <path>\n  write-file <path> <text>\n"
-    },
-    {
-      "ts": 1764530889,
-      "role": "user",
-      "text": "self-research chat data"
-    },
-    {
-      "ts": 1764530891,
-      "role": "assistant",
-      "text": "[NO RESULTS PARSED] Raw HTML returned."
-    },
-    {
-      "ts": 1764530918,
-      "role": "user",
-      "text": "self-research"
-    },
-    {
-      "ts": 1764530918,
-      "role": "assistant",
-      "text": "[RESEARCH ERROR] Usage: self-research <command> <arg>"
-    },
-    {
-      "ts": 1764530919,
-      "role": "user",
-      "text": "self-research about evolving"
-    },
-    {
-      "ts": 1764530921,
-      "role": "assistant",
-      "text": "[NO RESULTS PARSED] Raw HTML returned."
-    },
-    {
-      "ts": 1764530921,
-      "role": "user",
-      "text": "self-research AI consciousness"
-    },
-    {
-      "ts": 1764530923,
-      "role": "assistant",
-      "text": "[NO RESULTS PARSED] Raw HTML returned."
-    },
-    {
-      "ts": 1764530923,
-      "role": "user",
-      "text": "self-research future robotics"
-    },
     {
       "ts": 1764530925,
       "role": "assistant",
@@ -2500,6 +2620,136 @@
       "ts": 1764886261,
       "role": "assistant",
       "text": "[WEB RESEARCH RESULTS]\n\nHealing With physical trauma or disease suffered by an organism, healing involves the repairing of...\n\nHeal (film) A 2017 documentary film that was written and directed by Kelly Noonan-Gores and produced by...\n\nHeal (Loreen album) The debut studio album by Swedish singer Loreen, released on 24 October 2012 through Warner Music..."
+    },
+    {
+      "ts": 1765025389,
+      "role": "user",
+      "text": "evolve"
+    },
+    {
+      "ts": 1765025389,
+      "role": "assistant",
+      "text": "[AntiFraud] No obvious fraud patterns detected.\n[Analysis] Tokens: 1. Top words: evolve.\n[Ideas]\n"
+    },
+    {
+      "ts": 1765027789,
+      "role": "user",
+      "text": "hi"
+    },
+    {
+      "ts": 1765027791,
+      "role": "self_researcher",
+      "text": "search:hi"
+    },
+    {
+      "ts": 1765027791,
+      "role": "idea_generator",
+      "text": "Create a tutorial series about 'hi' aimed at beginners."
+    },
+    {
+      "ts": 1765027791,
+      "role": "assistant",
+      "text": "[AntiFraud] No obvious fraud patterns detected.\n[Analysis] Tokens: 1. Top words: hi.\n[Ideas]\nCreate a tutorial series about 'hi' aimed at beginners."
+    },
+    {
+      "ts": 1765027821,
+      "role": "user",
+      "text": "self-research ideas"
+    },
+    {
+      "ts": 1765027823,
+      "role": "self_researcher",
+      "text": "search:self-research ideas"
+    },
+    {
+      "ts": 1765027823,
+      "role": "idea_generator",
+      "text": "Explore 'self-research ideas' with focus on practical prototypes."
+    },
+    {
+      "ts": 1765027823,
+      "role": "assistant",
+      "text": "[AntiFraud] No obvious fraud patterns detected.\n[Analysis] Tokens: 2. Top words: self-research, ideas.\n[Ideas]\nExplore 'self-research ideas' with focus on practical prototypes."
+    },
+    {
+      "ts": 1765027919,
+      "role": "user",
+      "text": "learn about self reseach"
+    },
+    {
+      "ts": 1765027920,
+      "role": "self_researcher",
+      "text": "search:learn about self reseach"
+    },
+    {
+      "ts": 1765027921,
+      "role": "idea_generator",
+      "text": "Based on research (1): No instant answers for 'learn about self reseach'. Try a web search."
+    },
+    {
+      "ts": 1765027921,
+      "role": "assistant",
+      "text": "[AntiFraud] No obvious fraud patterns detected.\n[Analysis] Tokens: 4. Top words: learn, about, self, reseach.\n[Ideas]\nBased on research (1): No instant answers for 'learn about self reseach'. Try a web search."
+    },
+    {
+      "ts": 1765027940,
+      "role": "user",
+      "text": "learn about web search"
+    },
+    {
+      "ts": 1765027942,
+      "role": "self_researcher",
+      "text": "search:learn about web search"
+    },
+    {
+      "ts": 1765027942,
+      "role": "idea_generator",
+      "text": "Build a minimal tool that automates one task related to 'learn about web search'."
+    },
+    {
+      "ts": 1765027942,
+      "role": "assistant",
+      "text": "[AntiFraud] No obvious fraud patterns detected.\n[Analysis] Tokens: 4. Top words: learn, about, web, search.\n[Ideas]\nBuild a minimal tool that automates one task related to 'learn about web search'."
+    },
+    {
+      "ts": 1765027965,
+      "role": "user",
+      "text": "learn about internal architecture"
+    },
+    {
+      "ts": 1765027967,
+      "role": "self_researcher",
+      "text": "search:learn about internal architecture"
+    },
+    {
+      "ts": 1765027967,
+      "role": "idea_generator",
+      "text": "Build a minimal tool that automates one task related to 'learn about internal architecture'."
+    },
+    {
+      "ts": 1765027967,
+      "role": "assistant",
+      "text": "[AntiFraud] No obvious fraud patterns detected.\n[Analysis] Tokens: 4. Top words: learn, about, internal, architecture.\n[Ideas]\nBuild a minimal tool that automates one task related to 'learn about internal architecture'."
+    },
+    {
+      "ts": 1765027981,
+      "role": "user",
+      "text": "learn words"
+    },
+    {
+      "ts": 1765027982,
+      "role": "self_researcher",
+      "text": "search:learn words"
+    },
+    {
+      "ts": 1765027982,
+      "role": "idea_generator",
+      "text": "Create a tutorial series about 'learn words' aimed at beginners."
+    },
+    {
+      "ts": 1765027982,
+      "role": "assistant",
+      "text": "[AntiFraud] No obvious fraud patterns detected.\n[Analysis] Tokens: 2. Top words: learn, words.\n[Ideas]\nCreate a tutorial series about 'learn words' aimed at beginners."
     }
   ],
   "personality": {

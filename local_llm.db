@@ -1,0 +1,9 @@
+{
+  "log": [
+    {
+      "ts": 1764984815.8679261,
+      "key": "system",
+      "value": "LocalLLM loaded model: tiny-llm-default"
+    }
+  ]
+}

@@ -1,6 +1,3 @@
-# modules/self_healer.py
-import time
-
 class SelfHealer:
     def __init__(self, db):
         self.db = db

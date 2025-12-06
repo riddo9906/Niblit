@@ -1,4 +1,3 @@
-# modules/self_maintenance.py
 import time
 
 class SelfMaintenance:

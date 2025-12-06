@@ -1,6 +1,18 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "server.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
   "routes": [
-    { "src": "/(.*)", "dest": "/app.py" }
+    {
+      "src": "/(.*)",
+      "dest": "server.py"
+    }
   ]
 }

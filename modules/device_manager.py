@@ -1,4 +1,3 @@
-# modules/device_manager.py
 import os, platform
 
 class DeviceManager:
