@@ -1,4 +1,3 @@
- copilot/complete-niblit-module-integration
 #!/usr/bin/env python3
 """
 niblit_core.py — NiblitCore: Unified Autonomous AI Runtime
@@ -27,31 +26,12 @@ if BASE_DIR not in sys.path:
 # ============================================================
 # LOGGING SETUP
 # ============================================================
-
-# niblit_core.py
-
-# ============================
-# STANDARD LIBRARY IMPORTS
-# ============================
-import logging
-import os
-import threading
-import time
-from datetime import datetime
-
-# ============================
-# GLOBAL SETUP
-# ============================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-main
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
 log = logging.getLogger("NiblitCore")
 
-copilot/complete-niblit-module-integration
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
@@ -107,7 +87,6 @@ def parse_intent(text: str):
 # ============================================================
 # SAFE IMPORT SYSTEM (modules/ sub-package)
 # ============================================================
-=======
 
 class _FallbackDB:
     """Minimal no-op stub used when KnowledgeDB is unavailable."""
@@ -270,8 +249,7 @@ except Exception as _e:
 
 # ============================
 # SAFE IMPORT SYSTEM
-# ===========================
-main
+# ============================
 
 def safe_import(name, default=None):
     try:
@@ -283,7 +261,8 @@ def safe_import(name, default=None):
         return default
 
 class Stub:
-    def __init__(self, *a, **k): pass
+    def __init__(self, *a, **k):
+        pass
 
 SelfResearcher    = safe_import("self_researcher", Stub)
 LLMAdapter        = safe_import("llm_adapter", Stub)
@@ -295,18 +274,9 @@ SelfIdeaGenerator = safe_import("self_idea_generator", Stub)
 
 try:
     from modules import internet_manager
-    copilot/complete-niblit-module-integration
-except Exception:
 except Exception as _e:
     log.warning(f"internet_manager failed to import: {_e}")
-    main
     internet_manager = None
-
-# ============================================================
-# REQUIRED DATA LAYER IMPORTS
-# ============================================================
-from modules.knowledge_db import KnowledgeDB
-from modules.db import LocalDB
 
 # ============================================================
 # INTELLIGENCE LAYER IMPORTS
@@ -319,16 +289,17 @@ except Exception as _e:
     NiblitBrain = None
 
 try:
- copilot/complete-niblit-module-integration
     from niblit_router import NiblitRouter
 except Exception as _e:
     log.warning(f"NiblitRouter not available: {_e}")
-    from niblit_router import safe_call, NiblitRouter
-except Exception as _e:
-    log.warning(f"NiblitRouter failed to import: {_e}" 
-    main
     NiblitRouter = None
-    safe_call = None
+
+if NiblitRouter is None:
+    try:
+        from niblit_router import safe_call, NiblitRouter
+    except Exception as _e:
+        log.warning(f"NiblitRouter failed to import: {_e}")
+        NiblitRouter = None
 
 if safe_call is None:
     def safe_call(fn, *a, **kw):
@@ -492,6 +463,8 @@ class NiblitCore:
         else:
             log.warning("KnowledgeDB unavailable; using no-op fallback db")
             self.db = _FallbackDB()
+        # Expose db as memory for compatibility with app.py and other modules
+        self.memory = self.db
         self._routing = False
         self.orchestrator_available = ORCHESTRATOR_AVAILABLE
         self._orchestration_running = False
@@ -513,7 +486,6 @@ class NiblitCore:
             core=self
         )
 
-copilot/complete-niblit-module-integration
         self.collector = (
             Collector(
                 db=self.db,
@@ -522,13 +494,6 @@ copilot/complete-niblit-module-integration
             )
             if Collector else None
         )
-
-        self.collector = Collector(
-            db=self.db,
-            trainer=self.trainer,
-            self_teacher=self.self_teacher
-        ) if Collector else None
- main
 
         self.modules = {
             "llm": self.llm,
@@ -635,31 +600,17 @@ copilot/complete-niblit-module-integration
         if self.idea_generator:
             threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
 
-        # OPTIONAL / ORPHANED MODULES
-        self.actions = safe_call(NiblitActions) if NiblitActions else None
-        self.env = safe_call(NiblitEnv) if NiblitEnv else None
-        self.guard = safe_call(NiblitGuard) if NiblitGuard else None
-        self.hf_module = safe_call(NiblitHF) if NiblitHF else None
-        self.identity = safe_call(NiblitIdentity) if NiblitIdentity else None
-        self.learning = safe_call(NiblitLearning) if NiblitLearning else None
-        self.manager = safe_call(NiblitManager) if NiblitManager else None
-        self.network = safe_call(NiblitNetwork) if NiblitNetwork else None
-        self.lifecycle = safe_call(LifecycleEngine) if LifecycleEngine else None
-        self.generator = safe_call(Generator) if Generator else None
-        self.healer_module = safe_call(Healer) if Healer else None
-        self.membrane = safe_call(Membrane) if Membrane else None
-
         # AUTONOMOUS THREADS
         threading.Thread(target=self._health_loop, daemon=True).start()
         threading.Thread(target=self._trainer_loop, daemon=True).start()
         threading.Thread(target=self._auto_research_loop, daemon=True).start()
         threading.Thread(target=self._self_heal_loop, daemon=True).start()
-        
+
         if self.orchestrator_available:
             log.info("Orchestrator components available")
         else:
             log.warning("Orchestrator components not available")
-            
+
         log.info("TRUE AUTONOMOUS NIBLIT READY")
 
     # ============================
@@ -768,20 +719,20 @@ copilot/complete-niblit-module-integration
                 return "[Orchestrator not available]"
             if self._orchestration_running:
                 return "[Orchestration already running]"
-            
+
             self._orchestration_running = True
             log.info("[ORCHESTRATOR] Pipeline started")
-            
+
             results = []
             results.append("=== ORCHESTRATION PIPELINE ===")
             results.append(self._run_audit())
             results.append(self._run_self_heal_orchestrated())
             results.append(self._generate_fix_guide())
             results.append(self._verify_imports_orchestrated())
-            
+
             log.info("[ORCHESTRATOR] Pipeline completed")
             self._orchestration_running = False
-            
+
             return "\n".join(results)
         except Exception as e:
             log.error(f"[ORCHESTRATOR] Pipeline failed: {e}")
@@ -885,11 +836,7 @@ copilot/complete-niblit-module-integration
                 return self.brain.think(text)
 
         if ltext.startswith("slsa-status"):
- copilot/complete-niblit-module-integration
-            return slsa_manager.status() if slsa_manager else "[SLSA not available]"
-=======
             return slsa_manager.status() if slsa_manager else "[SLSA unavailable]"
- main
 
         if ltext.startswith("self-research"):
             parts = text.split(" ", 1)
@@ -902,22 +849,22 @@ copilot/complete-niblit-module-integration
         # ============================
         # ORCHESTRATOR COMMANDS
         # ============================
-        
+
         if ltext.startswith("orchestrate audit"):
             return self._run_audit()
-        
+
         if ltext.startswith("orchestrate self-heal"):
             return self._run_self_heal_orchestrated()
-        
+
         if ltext.startswith("orchestrate fix-guide"):
             return self._generate_fix_guide()
-        
+
         if ltext.startswith("orchestrate verify"):
             return self._verify_imports_orchestrated()
-        
+
         if ltext.startswith("orchestrate pipeline"):
             return self._run_orchestration_pipeline()
-        
+
         if ltext.startswith("hf-task "):
             task_prompt = text[8:].strip()
             return self._hf_task(task_prompt)
@@ -964,11 +911,7 @@ copilot/complete-niblit-module-integration
             topics = parts[1].split(",") if len(parts) > 1 else None
             return slsa_manager.start(topics) if slsa_manager else "[SLSA unavailable]"
         if ltext.startswith("stop_slsa"):
-copilot/complete-niblit-module-integration
-            return slsa_manager.stop() if slsa_manager else "[SLSA not available]"
-=======
             return slsa_manager.stop() if slsa_manager else "[SLSA unavailable]"
- main
         if ltext.startswith("restart_slsa"):
             if not slsa_manager:
                 return "[SLSA not available]"
@@ -1029,7 +972,7 @@ copilot/complete-niblit-module-integration
             "toggle-llm on/off\n"
             "shutdown"
         )
-        
+
         if self.orchestrator_available:
             orchestrator_help = (
                 "\n\n--- ORCHESTRATOR COMMANDS ---\n"
@@ -1041,7 +984,7 @@ copilot/complete-niblit-module-integration
                 "hf-task <prompt>"
             )
             return base_help + orchestrator_help
-        
+
         return base_help
 
     def shutdown(self):
