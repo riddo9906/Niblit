@@ -20,7 +20,7 @@ from niblit_orchestrator import (
     verify_imports,
     hf_task_example,
 )
-from niblit_memory import NiblitMemory
+from niblit_memory import MemoryManager
 
 # ─────────────────────────────
 # IDENTITY INVARIANTS
@@ -57,7 +57,7 @@ class LifecycleEngine:
         self.phase = PHASES[self.phase_index]
 
         # Initialize memory, trainer, and tasks
-        self.memory = NiblitMemory()
+        self.memory = MemoryManager()
         self.trainer = Trainer(collector=self.memory)
         self.tasks = NiblitTasks(brain=None, memory=self.memory)  # Brain integration optional
 

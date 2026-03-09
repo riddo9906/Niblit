@@ -21,14 +21,53 @@ logging.basicConfig(
 )
 
 # ───────── Local Modules ─────────
-from modules.db import LocalDB
-from modules.hf_brain import HFBrain
-from modules.self_researcher import SelfResearcher
-from modules.self_healer import SelfHealer
-from modules.self_idea_implementation import SelfIdeaImplementation
-from modules.reflect import ReflectModule
-from modules.self_teacher import SelfTeacher
-from modules.internet_manager import InternetManager  # <- updated manager
+try:
+    from modules.db import LocalDB
+except Exception as _e:
+    log.warning(f"LocalDB unavailable: {_e}")
+    LocalDB = None
+
+try:
+    from modules.hf_brain import HFBrain
+except Exception as _e:
+    log.warning(f"HFBrain unavailable: {_e}")
+    HFBrain = None
+
+try:
+    from modules.self_researcher import SelfResearcher
+except Exception as _e:
+    log.warning(f"SelfResearcher unavailable: {_e}")
+    SelfResearcher = None
+
+try:
+    from modules.self_healer import SelfHealer
+except Exception as _e:
+    log.warning(f"SelfHealer unavailable: {_e}")
+    SelfHealer = None
+
+try:
+    from modules.self_idea_implementation import SelfIdeaImplementation
+except Exception as _e:
+    log.warning(f"SelfIdeaImplementation unavailable: {_e}")
+    SelfIdeaImplementation = None
+
+try:
+    from modules.reflect import ReflectModule
+except Exception as _e:
+    log.warning(f"ReflectModule unavailable: {_e}")
+    ReflectModule = None
+
+try:
+    from modules.self_teacher import SelfTeacher
+except Exception as _e:
+    log.warning(f"SelfTeacher unavailable: {_e}")
+    SelfTeacher = None
+
+try:
+    from modules.internet_manager import InternetManager
+except Exception as _e:
+    log.warning(f"InternetManager unavailable: {_e}")
+    InternetManager = None
 
 # ───────── Memory Adapter ─────────
 class _DBMemoryAdapter:
@@ -103,7 +142,7 @@ class NiblitBrain:
             self.hf_brain = None
 
         # InternetManager injection
-        self.internet = internet or InternetManager(db=self.memory)
+        self.internet = internet or (InternetManager(db=self.memory) if InternetManager else None)
 
         # Self Modules
         self.self_researcher = SelfResearcher(self.memory) if SelfResearcher else None

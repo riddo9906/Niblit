@@ -9,13 +9,34 @@ REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from tools.repo_audit import RepoAuditor
-from tools.self_heal_auto import main as self_heal_main
-from tools.FixGuideGenerator import FixGuideGenerator
-from modules.db import LocalDB
+try:
+    from tools.repo_audit import RepoAuditor
+except Exception as _e:
+    RepoAuditor = None
 
-# NEW HF query import
-from niblit_brain import hf_query
+try:
+    from tools.self_heal_auto import main as self_heal_main
+except Exception as _e:
+    self_heal_main = None
+
+try:
+    from tools.FixGuideGenerator import FixGuideGenerator
+except Exception as _e:
+    FixGuideGenerator = None
+
+try:
+    from modules.db import LocalDB
+except Exception as _e:
+    LocalDB = None
+
+# HF query — optional, provided as a stub if niblit_brain doesn't export it
+try:
+    from niblit_brain import hf_query
+except (ImportError, AttributeError):
+    import logging as _log
+    def hf_query(prompt):
+        _log.getLogger("NiblitOrchestrator").warning("hf_query unavailable, returning placeholder")
+        return "[HF query unavailable]"
 
 LOG_FILE = os.path.join(REPO_ROOT, "niblit_orchestrator.log")
 
@@ -28,6 +49,9 @@ def log(msg):
 # Audit
 def run_audit():
     log("=== Step 1: Repo Audit Started ===")
+    if RepoAuditor is None:
+        log("RepoAuditor unavailable, skipping audit.")
+        return None
     auditor = RepoAuditor(REPO_ROOT)
     report = auditor.run_audit()
     log("=== Step 1: Repo Audit Completed ===")
@@ -36,6 +60,9 @@ def run_audit():
 # Self-Heal
 def run_self_heal():
     log("=== Step 2: Self-Heal Auto Started ===")
+    if self_heal_main is None:
+        log("self_heal_main unavailable, skipping.")
+        return
     try:
         self_heal_main()
         log("=== Step 2: Self-Heal Auto Completed ===")
@@ -45,6 +72,9 @@ def run_self_heal():
 # Fix Guide
 def generate_fix_guide():
     log("=== Step 3: Generating Fix Guide ===")
+    if FixGuideGenerator is None or LocalDB is None:
+        log("FixGuideGenerator or LocalDB unavailable, skipping.")
+        return None
     db = LocalDB()
     fg = FixGuideGenerator(db)
     fix_guide_path = os.path.join(REPO_ROOT, "Fix_Guide.txt")
@@ -54,6 +84,9 @@ def generate_fix_guide():
 
 def execute_fix_guide(fix_guide_path):
     log("=== Step 4: Executing Fix Guide ===")
+    if not fix_guide_path:
+        log("Fix Guide path not provided, skipping.")
+        return
     if os.path.exists(fix_guide_path):
         try:
             subprocess.run(["bash", fix_guide_path], check=True)

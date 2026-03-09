@@ -580,7 +580,12 @@ class NiblitCore:
         else:
             log.warning("KnowledgeDB unavailable; using no-op fallback db")
             self.db = _FallbackDB()
+<<<<<<< HEAD
 >>>>>>> d93ca01 (Wire all scripts into niblit_core.py: fix imports, globals, and orphaned modules)
+=======
+        # Expose db as memory for compatibility with app.py and other modules
+        self.memory = self.db
+>>>>>>> 053e22f (Fix cross-module wiring issues: imports, missing methods, and compatibility)
         self._routing = False
         self.orchestrator_available = ORCHESTRATOR_AVAILABLE
         self._orchestration_running = False
