@@ -12,15 +12,31 @@ from datetime import datetime
 # Import your existing scripts
 from trainer_full import Trainer
 from niblit_tasks import NiblitTasks
-from niblit_orchestrator import (
-    run_audit,
-    run_self_heal,
-    generate_fix_guide,
-    execute_fix_guide,
-    verify_imports,
-    hf_task_example,
-)
-from niblit_memory import NiblitMemory
+try:
+    from niblit_orchestrator import (
+        run_audit,
+        run_self_heal,
+        generate_fix_guide,
+        execute_fix_guide,
+        verify_imports,
+        hf_task_example,
+    )
+    _ORCHESTRATOR_AVAILABLE = True
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("LifecycleEngine").warning(
+        f"niblit_orchestrator not available: {_e}"
+    )
+    _ORCHESTRATOR_AVAILABLE = False
+
+    def run_audit(): pass
+    def run_self_heal(): pass
+    def generate_fix_guide(): return ""
+    def execute_fix_guide(g): pass
+    def verify_imports(): pass
+    def hf_task_example(): pass
+
+from niblit_memory import MemoryManager, NiblitMemory
 
 # ─────────────────────────────
 # IDENTITY INVARIANTS
@@ -58,7 +74,7 @@ class LifecycleEngine:
 
         # Initialize memory, trainer, and tasks
         self.memory = NiblitMemory()
-        self.trainer = Trainer(collector=self.memory)
+        self.trainer = Trainer(db=self.memory)
         self.tasks = NiblitTasks(brain=None, memory=self.memory)  # Brain integration optional
 
         self.running = False
