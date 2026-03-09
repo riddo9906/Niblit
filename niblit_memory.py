@@ -304,6 +304,9 @@ class MemoryManager:
 
 GLOBAL_MEMORY = MemoryManager()
 
+# Backward-compatibility alias used by niblit_hf, niblit_manager, lifecycle_engine
+NiblitMemory = MemoryManager
+
 
 # ============================================================
 # TEST
