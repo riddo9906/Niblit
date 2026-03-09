@@ -10,7 +10,7 @@ import sys
 import logging
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple, Optional
 
 # ============================
@@ -550,7 +550,7 @@ class NiblitCore:
             if not ORCHESTRATOR_AVAILABLE or not FixGuideGenerator:
                 return "[Orchestrator not available]"
             log.info("[ORCHESTRATOR] Generating fix guide...")
-            db = (LocalDB() if LocalDB else None) or self.db
+            db = LocalDB() if LocalDB is not None else self.db
             fg = FixGuideGenerator(db)
             fix_guide_path = os.path.join(BASE_DIR, "Fix_Guide.txt")
             msg = fg.generate_fix_guide(fix_guide_path)
@@ -635,6 +635,22 @@ class NiblitCore:
             return f"[HF task failed: {e}]"
 
     # ============================
+    # HELPERS
+    # ============================
+
+    def _get_memory_count(self) -> int:
+        """Return the number of stored memory entries, or 0 if unavailable."""
+        try:
+            if self.db:
+                if hasattr(self.db, "recent_interactions"):
+                    return len(self.db.recent_interactions(500))
+                if hasattr(self.db, "get_learning_log"):
+                    return len(self.db.get_learning_log())
+        except Exception:
+            pass
+        return 0
+
+    # ============================
     # BACKGROUND LOOPS
     # ============================
 
@@ -644,18 +660,7 @@ class NiblitCore:
             uptime = int(time.time() - self.start_ts)
             if uptime // 120 != last:
                 last = uptime // 120
-                try:
-                    if self.db:
-                        if hasattr(self.db, "get_learning_log"):
-                            mem = len(self.db.get_learning_log())
-                        elif hasattr(self.db, "recent_interactions"):
-                            mem = len(self.db.recent_interactions(50))
-                        else:
-                            mem = 0
-                    else:
-                        mem = 0
-                except Exception:
-                    mem = 0
+                mem = self._get_memory_count()
                 log.info(f"[HEALTH] uptime={uptime}s mem={mem}")
             time.sleep(5)
 
@@ -763,15 +768,10 @@ class NiblitCore:
         if intent == "help":
             return self.help_text()
         if intent == "time":
-            return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+            return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
         if intent == "status":
             try:
-                mem_count = 0
-                if self.db:
-                    if hasattr(self.db, "recent_interactions"):
-                        mem_count = len(self.db.recent_interactions(500))
-                    elif hasattr(self.db, "get_learning_log"):
-                        mem_count = len(self.db.get_learning_log())
+                mem_count = self._get_memory_count()
                 status_msg = f"Memory: {mem_count}"
                 status_msg += " | Orchestrator: " + ("Available" if self.orchestrator_available else "Unavailable")
                 return status_msg

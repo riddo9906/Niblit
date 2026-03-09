@@ -1,3 +1,8 @@
 .vercel
 .env
-.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+niblit_memory.json
+niblit.db
