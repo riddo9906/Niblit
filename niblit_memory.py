@@ -304,7 +304,11 @@ class MemoryManager:
 
 GLOBAL_MEMORY = MemoryManager()
 
+<<<<<<< HEAD
 # Alias for backward-compatibility with modules that import NiblitMemory
+=======
+# Backward-compatibility alias used by niblit_hf, niblit_manager, lifecycle_engine
+>>>>>>> fe952ee (Complete Niblit module integration: fix niblit_core.py, knowledge_db, memory alias, lifecycle_engine)
 NiblitMemory = MemoryManager
 
 
