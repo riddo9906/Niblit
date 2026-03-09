@@ -6,3 +6,4 @@ __pycache__/
 *.pyd
 niblit_memory.json
 niblit.db
+*.egg-info/
