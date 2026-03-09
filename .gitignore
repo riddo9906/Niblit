@@ -17,6 +17,13 @@ niblit_memory.db
 local_llm.db
 niblit_orchestrator.log
 niblit.db
+<<<<<<< HEAD
 
 # Logs
 *.log
+=======
+__pycache__/
+*.pyc
+__pycache__/
+*.pyc
+>>>>>>> 2db875a (Merge main into copilot/complete-niblit-structural-fix, resolved conflicts)
