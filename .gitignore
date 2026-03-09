@@ -1,4 +1,3 @@
-#
 # Vercel deployment files
 .vercel
 .env
@@ -11,18 +10,13 @@ __pycache__/
 *.egg-info
 *.bak
 *.bak.[0-9]*
-<<<<<<< HEAD
 
 # Runtime files
 niblit_memory.json
+niblit_memory.db
+local_llm.db
 niblit_orchestrator.log
 niblit.db
 
 # Logs
 *.log
-=======
-niblit_memory.json
-niblit_memory.db
-local_llm.db
-niblit.db
->>>>>>> f994558 (Address review feedback: Trainer init, relative import, broad exception catch, gitignore db files)
