@@ -196,6 +196,10 @@ class KnowledgeDB:
             })
         self._save()
 
+    def get_learning_queue(self):
+        with self.lock:
+            return list(self.data.get("learning_queue", []))
+
     # ============================================================
     # PERSONALITY / PREFERENCES
     # ============================================================

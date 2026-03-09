@@ -297,12 +297,24 @@ except Exception as _e:
 # SELF MODULES (via safe_import from modules/)
 # ============================
 SelfResearcher    = safe_import("self_researcher", Stub)
-LLMAdapter        = safe_import("llm_adapter", Stub)
 SelfHealer_mod    = safe_import("self_healer", Stub)
 SelfTeacher_mod   = safe_import("self_teacher", Stub)
-Reflect_mod       = safe_import("reflect", Stub)
 SelfImplementer   = safe_import("self_implementer", Stub)
 SelfIdeaGenerator = safe_import("self_idea_generator", Stub)
+
+# ReflectModule and LLMAdapter use non-standard names that safe_import can't
+# derive from the module name; import them directly with try/except.
+try:
+    from modules.reflect import ReflectModule as Reflect_mod
+except Exception as _e:
+    log.debug(f"ReflectModule not available: {_e}")
+    Reflect_mod = None
+
+try:
+    from modules.llm_adapter import LLMAdapter
+except Exception as _e:
+    log.debug(f"LLMAdapter not available: {_e}")
+    LLMAdapter = None
 
 # ============================
 # TOOLS / ORCHESTRATION
@@ -395,9 +407,9 @@ class NiblitCore:
             self.internet = None
 
         # ── Self Modules ──
-        self.reflect = safe_call(Reflect_mod, self.db)
+        self.reflect = safe_call(Reflect_mod, self.db) if Reflect_mod else None
         self.self_healer = safe_call(SelfHealer_mod, self.db)
-        self.llm = safe_call(LLMAdapter, self.db)
+        self.llm = safe_call(LLMAdapter) if LLMAdapter else None
         self.trainer = safe_call(Trainer, self.db)
         self.self_teacher = safe_call(
             SelfTeacher_mod,
@@ -604,23 +616,26 @@ class NiblitCore:
         try:
             if not ORCHESTRATOR_AVAILABLE:
                 return "[Orchestrator not available]"
-            if self._orchestration_running:
-                return "[Orchestration already running]"
-            self._orchestration_running = True
-            log.info("[ORCHESTRATOR] Pipeline started")
-            results = [
-                "=== ORCHESTRATION PIPELINE ===",
-                self._run_audit(),
-                self._run_self_heal_orchestrated(),
-                self._generate_fix_guide(),
-                self._verify_imports_orchestrated(),
-            ]
-            log.info("[ORCHESTRATOR] Pipeline completed")
-            self._orchestration_running = False
-            return "\n".join(results)
+            with self._lock:
+                if self._orchestration_running:
+                    return "[Orchestration already running]"
+                self._orchestration_running = True
+            try:
+                log.info("[ORCHESTRATOR] Pipeline started")
+                results = [
+                    "=== ORCHESTRATION PIPELINE ===",
+                    self._run_audit(),
+                    self._run_self_heal_orchestrated(),
+                    self._generate_fix_guide(),
+                    self._verify_imports_orchestrated(),
+                ]
+                log.info("[ORCHESTRATOR] Pipeline completed")
+                return "\n".join(results)
+            finally:
+                with self._lock:
+                    self._orchestration_running = False
         except Exception as e:
             log.error(f"[ORCHESTRATOR] Pipeline failed: {e}")
-            self._orchestration_running = False
             return f"[Pipeline failed: {e}]"
 
     def _hf_task(self, prompt: str) -> str:
@@ -682,8 +697,8 @@ class NiblitCore:
     def _auto_research_loop(self):
         while self.running:
             try:
-                if self.db and hasattr(self.db, "get_learning_log") and self.researcher:
-                    queued = self.db.get_learning_log()
+                if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
+                    queued = self.db.get_learning_queue()
                     for item in queued[-5:]:
                         topic = item.get("topic") if isinstance(item, dict) else None
                         if topic:
