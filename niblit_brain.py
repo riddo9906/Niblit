@@ -257,3 +257,14 @@ class NiblitBrain:
         ):
             return self.handle_command(text)
         return self.think(text)
+
+
+# ───────── Module-level HF query (used by niblit_orchestrator) ─────────
+def hf_query(prompt: str) -> str:
+    """Execute a HuggingFace model query. Exposed at module level for orchestrator."""
+    try:
+        hf = HFBrain()
+        return hf.ask_single(prompt) or "[No response]"
+    except Exception as e:
+        log.debug(f"hf_query failed: {e}")
+        return f"[HF query failed: {e}]"

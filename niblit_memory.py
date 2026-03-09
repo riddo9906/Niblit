@@ -304,6 +304,9 @@ class MemoryManager:
 
 GLOBAL_MEMORY = MemoryManager()
 
+# Alias for backward-compatibility with modules that import NiblitMemory
+NiblitMemory = MemoryManager
+
 
 # ============================================================
 # TEST
