@@ -9,3 +9,5 @@ niblit_memory.json
 niblit_memory.db
 local_llm.db
 niblit.db
+__pycache__/
+*.pyc
