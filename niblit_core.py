@@ -11,6 +11,20 @@ from niblit_brain import NiblitBrain
 from modules.slsa_manager import slsa_manager
 from modules.evolve import engine as evolve_engine
 
+# ============================
+# ORCHESTRATOR IMPORTS
+# ============================
+try:
+    from tools.repo_audit import RepoAuditor
+    from tools.self_heal_auto import main as self_heal_main
+    from tools.FixGuideGenerator import FixGuideGenerator
+    from modules.db import LocalDB
+    from niblit_brain import hf_query
+    ORCHESTRATOR_AVAILABLE = True
+except Exception as e:
+    ORCHESTRATOR_AVAILABLE = False
+    orchestrator_error = str(e)
+
 logging.basicConfig(level=logging.INFO,
                     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s')
 log = logging.getLogger("NiblitCore")
@@ -66,6 +80,8 @@ class NiblitCore:
         self.start_ts = time.time()
         self.db = KnowledgeDB(memory_path) if memory_path else KnowledgeDB()
         self._routing = False
+        self.orchestrator_available = ORCHESTRATOR_AVAILABLE
+        self._orchestration_running = False
 
         # MODULE LOAD
         self.reflect = safe_call(Reflect, self.db)
@@ -156,7 +172,155 @@ class NiblitCore:
         threading.Thread(target=self._trainer_loop, daemon=True).start()
         threading.Thread(target=self._auto_research_loop, daemon=True).start()
         threading.Thread(target=self._self_heal_loop, daemon=True).start()
+        
+        if self.orchestrator_available:
+            log.info("Orchestrator components available")
+        else:
+            log.warning("Orchestrator components not available")
+            
         log.info("TRUE AUTONOMOUS NIBLIT READY")
+
+    # ============================
+    # ORCHESTRATOR METHODS
+    # ============================
+
+    def _run_audit(self):
+        """Run repository audit via orchestrator"""
+        try:
+            if not ORCHESTRATOR_AVAILABLE:
+                return "[Orchestrator not available]"
+            log.info("[ORCHESTRATOR] Running audit...")
+            auditor = RepoAuditor(BASE_DIR)
+            report = auditor.run_audit()
+            log.info("[ORCHESTRATOR] Audit completed")
+            return str(report) if report else "[Audit completed]"
+        except Exception as e:
+            log.error(f"[ORCHESTRATOR] Audit failed: {e}")
+            return f"[Audit failed: {e}]"
+
+    def _run_self_heal_orchestrated(self):
+        """Run self-heal via orchestrator"""
+        try:
+            if not ORCHESTRATOR_AVAILABLE:
+                return "[Orchestrator not available]"
+            log.info("[ORCHESTRATOR] Running self-heal...")
+            self_heal_main()
+            log.info("[ORCHESTRATOR] Self-heal completed")
+            return "[Self-heal completed]"
+        except Exception as e:
+            log.error(f"[ORCHESTRATOR] Self-heal failed: {e}")
+            return f"[Self-heal failed: {e}]"
+
+    def _generate_fix_guide(self):
+        """Generate fix guide via orchestrator"""
+        try:
+            if not ORCHESTRATOR_AVAILABLE:
+                return "[Orchestrator not available]"
+            log.info("[ORCHESTRATOR] Generating fix guide...")
+            db = LocalDB()
+            fg = FixGuideGenerator(db)
+            fix_guide_path = os.path.join(BASE_DIR, "Fix_Guide.txt")
+            msg = fg.generate_fix_guide(fix_guide_path)
+            log.info(f"[ORCHESTRATOR] Fix guide generated: {fix_guide_path}")
+            return msg
+        except Exception as e:
+            log.error(f"[ORCHESTRATOR] Fix guide generation failed: {e}")
+            return f"[Fix guide failed: {e}]"
+
+    def _verify_imports_orchestrated(self):
+        """Verify module imports via orchestrator"""
+        try:
+            if not ORCHESTRATOR_AVAILABLE:
+                return "[Orchestrator not available]"
+            log.info("[ORCHESTRATOR] Verifying imports...")
+            modules_to_check = [
+                "modules.analytics",
+                "modules.bios",
+                "modules.control_panel",
+                "modules.counter_active_membrane",
+                "modules.db",
+                "modules.device_manager",
+                "modules.evolve",
+                "modules.firmware",
+                "modules.hf_adapter",
+                "modules.idea_generator",
+                "modules.internet_manager",
+                "modules.llm_adapter",
+                "modules.llm_module",
+                "modules.local_llm_adapter",
+                "modules.market_researcher",
+                "modules.orphan_imports",
+                "modules.permission_manager",
+                "modules.reflect",
+                "modules.self_healer",
+                "modules.self_idea_implementation",
+                "modules.self_maintenance",
+                "modules.self_researcher",
+                "modules.self_teacher",
+                "modules.slsa_generator",
+                "modules.storage",
+                "modules.terminal_tools"
+            ]
+            success = 0
+            fail = 0
+            failed_modules = []
+            for mod in modules_to_check:
+                try:
+                    __import__(mod)
+                    log.info(f"[IMPORT] SUCCESS: {mod}")
+                    success += 1
+                except Exception as e:
+                    log.warning(f"[IMPORT] FAILED: {mod}: {e}")
+                    failed_modules.append(f"{mod}: {e}")
+                    fail += 1
+            result = f"Verification completed: {success} success, {fail} failed."
+            if failed_modules:
+                result += f"\nFailed: {', '.join(failed_modules)}"
+            log.info(f"[ORCHESTRATOR] {result}")
+            return result
+        except Exception as e:
+            log.error(f"[ORCHESTRATOR] Import verification failed: {e}")
+            return f"[Import verification failed: {e}]"
+
+    def _run_orchestration_pipeline(self):
+        """Run full orchestration pipeline"""
+        try:
+            if not ORCHESTRATOR_AVAILABLE:
+                return "[Orchestrator not available]"
+            if self._orchestration_running:
+                return "[Orchestration already running]"
+            
+            self._orchestration_running = True
+            log.info("[ORCHESTRATOR] Pipeline started")
+            
+            results = []
+            results.append("=== ORCHESTRATION PIPELINE ===")
+            results.append(self._run_audit())
+            results.append(self._run_self_heal_orchestrated())
+            results.append(self._generate_fix_guide())
+            results.append(self._verify_imports_orchestrated())
+            
+            log.info("[ORCHESTRATOR] Pipeline completed")
+            self._orchestration_running = False
+            
+            return "\n".join(results)
+        except Exception as e:
+            log.error(f"[ORCHESTRATOR] Pipeline failed: {e}")
+            self._orchestration_running = False
+            return f"[Pipeline failed: {e}]"
+
+    def _hf_task(self, prompt):
+        """Execute HF task via orchestrator"""
+        try:
+            if not ORCHESTRATOR_AVAILABLE:
+                return "[Orchestrator/HF not available]"
+            log.info(f"[HF TASK] Executing: {prompt}")
+            response = hf_query(prompt)
+            log.info(f"[HF TASK] Response received")
+            return str(response) if response else "[No response]"
+        except Exception as e:
+            log.error(f"[HF TASK] Failed: {e}")
+            return f"[HF task failed: {e}]"
 
     # ============================
     # LOOPS
@@ -250,6 +414,29 @@ class NiblitCore:
                     self.researcher.internet = self.internet
                 return safe_call(self.researcher.search, topic) or "[Research failed]"
 
+        # ============================
+        # ORCHESTRATOR COMMANDS
+        # ============================
+        
+        if ltext.startswith("orchestrate audit"):
+            return self._run_audit()
+        
+        if ltext.startswith("orchestrate self-heal"):
+            return self._run_self_heal_orchestrated()
+        
+        if ltext.startswith("orchestrate fix-guide"):
+            return self._generate_fix_guide()
+        
+        if ltext.startswith("orchestrate verify"):
+            return self._verify_imports_orchestrated()
+        
+        if ltext.startswith("orchestrate pipeline"):
+            return self._run_orchestration_pipeline()
+        
+        if ltext.startswith("hf-task "):
+            task_prompt = text[8:].strip()
+            return self._hf_task(task_prompt)
+
         intent, meta = parse_intent(text)
 
         if intent == "help":
@@ -258,7 +445,12 @@ class NiblitCore:
             return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
         if intent == "status":
             try:
-                return f"Memory: {len(self.db.recent_interactions(500))}"
+                status_msg = f"Memory: {len(self.db.recent_interactions(500))}"
+                if self.orchestrator_available:
+                    status_msg += " | Orchestrator: Available"
+                else:
+                    status_msg += " | Orchestrator: Unavailable"
+                return status_msg
             except:
                 return "Memory: 0"
         if intent == "remember":
@@ -324,7 +516,7 @@ class NiblitCore:
     # ============================
 
     def help_text(self):
-        return (
+        base_help = (
             "help\n"
             "time\n"
             "status\n"
@@ -344,6 +536,20 @@ class NiblitCore:
             "toggle-llm on/off\n"
             "shutdown"
         )
+        
+        if self.orchestrator_available:
+            orchestrator_help = (
+                "\n\n--- ORCHESTRATOR COMMANDS ---\n"
+                "orchestrate audit\n"
+                "orchestrate self-heal\n"
+                "orchestrate fix-guide\n"
+                "orchestrate verify\n"
+                "orchestrate pipeline\n"
+                "hf-task <prompt>"
+            )
+            return base_help + orchestrator_help
+        
+        return base_help
 
     def shutdown(self):
         log.info("Shutdown started")
