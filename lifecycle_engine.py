@@ -58,7 +58,7 @@ class LifecycleEngine:
 
         # Initialize memory, trainer, and tasks
         self.memory = MemoryManager()
-        self.trainer = Trainer(collector=self.memory)
+        self.trainer = Trainer(db=self.memory)
         self.tasks = NiblitTasks(brain=None, memory=self.memory)  # Brain integration optional
 
         self.running = False

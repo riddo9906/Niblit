@@ -7,6 +7,7 @@ import json
 from collections import defaultdict
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Ensure tools directory is on the path for structural_helper
 _TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _TOOLS_DIR not in sys.path:
@@ -19,6 +20,13 @@ if _TOOLS_DIR not in sys.path:
 
 >>>>>>> 053e22f (Fix cross-module wiring issues: imports, missing methods, and compatibility)
 from structural_helper import get_all_py_files
+=======
+try:
+    from .structural_helper import get_all_py_files
+except ImportError:
+    # fallback for direct script execution
+    from structural_helper import get_all_py_files
+>>>>>>> f994558 (Address review feedback: Trainer init, relative import, broad exception catch, gitignore db files)
 
 class RepoAuditor:
     def __init__(self, base_dir="."):
