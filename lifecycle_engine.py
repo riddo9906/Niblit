@@ -96,7 +96,8 @@ class LifecycleEngine:
                 self.advance_phase()
             
             elif self.phase == "TRAIN":
-                self.trainer.step_if_needed()
+                interactions = self.memory.get_learning_log() or []
+                self.trainer.step_if_needed(interactions)
                 self.advance_phase()
             
             elif self.phase == "TASKS":
