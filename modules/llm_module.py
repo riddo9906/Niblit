@@ -1,48 +1,72 @@
+#!/usr/bin/env python3
+# modules/llm_module.py
+"""
+Hugging Face LLM adapter using InferenceClient (modern API).
+Provides:
+ - HFLLMAdapter.is_online()
+ - HFLLMAdapter.query_llm(messages, model=None, max_tokens=300)
+"""
 import os
-import requests
 from dotenv import load_dotenv
 
-load_dotenv()  # Load .env automatically
+load_dotenv()
 
-HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
+HF_TOKEN = os.environ.get("HF_TOKEN", "") or os.environ.get("HUGGINGFACE_TOKEN", "")
+
+try:
+    from huggingface_hub import InferenceClient
+    HF_CLIENT_AVAILABLE = True
+except Exception:
+    InferenceClient = None
+    HF_CLIENT_AVAILABLE = False
+
+DEFAULT_MODEL = "moonshotai/Kimi-K2-Instruct-0905"
 
 class HFLLMAdapter:
-    """
-    Hugging Face LLM Adapter
-    Uses .env HF_TOKEN and supports offline fallback.
-    """
-    def __init__(self):
-        self.api_key = os.environ.get("HF_TOKEN", "")
-        self.model = "moonshotai/Kimi-K2-Instruct-0905"
+    def __init__(self, model: str = DEFAULT_MODEL):
+        self.model = model
+        self.api_key = HF_TOKEN
+        self.client = None
+        if HF_CLIENT_AVAILABLE and self.api_key:
+            try:
+                self.client = InferenceClient(api_key=self.api_key)
+            except Exception:
+                self.client = None
 
-    # ---------------------------
-    # CHECK ONLINE STATUS
-    # ---------------------------
-    def is_online(self):
-        if not self.api_key:
-            return False
-        try:
-            r = requests.get("https://huggingface.co", timeout=3)
-            return r.status_code == 200
-        except Exception:
-            return False
+    def is_online(self) -> bool:
+        # Simple check: client present and api_key present
+        return bool(self.client and self.api_key)
 
-    # ---------------------------
-    # QUERY LLM
-    # ---------------------------
-    def query_llm(self, messages, model=None, max_tokens=300):
-        if not model:
+    def query_llm(self, messages, model: str = None, max_tokens: int = 300):
+        """
+        messages: list[{"role": "...", "content": "..."}]
+        Returns the assistant reply as a string or an error string.
+        """
+        if model is None:
             model = self.model
-        if not self.api_key:
-            return "[HF ERROR] No API token set."
-
-        payload = {"model": model, "messages": messages, "max_tokens": max_tokens}
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-
+        if not self.client:
+            return "[HF ERROR] InferenceClient unavailable or HF_TOKEN not set."
         try:
-            r = requests.post(HF_API_URL, json=payload, headers=headers, timeout=20)
-            r.raise_for_status()
-            data = r.json()
-            return data["choices"][0]["message"]["content"]
+            resp = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+            )
+            # Try extract human-friendly text
+            try:
+                # resp.choices[0].message may be a dict or object
+                choice = resp.choices[0]
+                msg = getattr(choice, "message", None) or (choice.get("message") if isinstance(choice, dict) else None)
+                # msg could be object with .content or dict with "content"
+                if isinstance(msg, dict):
+                    content = msg.get("content") or msg.get("content_text") or str(msg)
+                else:
+                    content = getattr(msg, "content", None) or str(msg)
+            except Exception:
+                # fallback to stringifying resp
+                content = str(resp)
+            return content
         except Exception as e:
-            return f"[HF ERROR] {str(e)}"
+            return f"[HF ERROR] {e}"
+if __name__ == "__main__":
+    print('Running llm_module.py')

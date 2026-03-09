@@ -31,3 +31,5 @@ class PermissionManager:
 
     def check(self, action):
         return bool(self.perms.get(action, False))
+if __name__ == "__main__":
+    print('Running permission_manager.py')

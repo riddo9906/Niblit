@@ -8,3 +8,5 @@ class FileSystemManager:
             if not os.path.exists(p):
                 os.makedirs(p, exist_ok=True)
         return f"Ensured structure at {base_path}"
+if __name__ == "__main__":
+    print('Running filesystem_manager.py')

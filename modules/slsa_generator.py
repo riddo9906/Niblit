@@ -9,3 +9,5 @@ class SLSAGenerator:
         out = "\n".join(steps_list)
         self.db.add_fact(f"slsa:{topic}", out, tags=['slsa'])
         return out
+if __name__ == "__main__":
+    print('Running slsa_generator.py')

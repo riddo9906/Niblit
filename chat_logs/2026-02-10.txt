@@ -1,0 +1,97 @@
+[2026-02-10 00:04:14] USER: help
+[2026-02-10 00:04:14] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+[2026-02-10 00:04:46] USER: self-research history
+[2026-02-10 00:04:46] NIBLIT: 
+[2026-02-10 00:06:43] USER: self-research internet
+[2026-02-10 00:06:43] NIBLIT: 
+[2026-02-10 18:53:32] USER: hi
+[2026-02-10 18:53:32] NIBLIT: 
+[2026-02-10 18:53:41] USER: help
+[2026-02-10 18:53:41] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+[2026-02-10 18:57:31] USER: exexit
+[2026-02-10 18:57:31] NIBLIT: 
+[2026-02-10 19:17:38] USER: hi
+[2026-02-10 19:17:38] NIBLIT: 
+[2026-02-10 19:18:21] USER: teach physics
+[2026-02-10 19:18:21] NIBLIT: 
+[2026-02-10 19:18:48] USER: research data
+[2026-02-10 19:18:48] NIBLIT: 
+[2026-02-10 19:19:19] USER: evolve
+[2026-02-10 19:19:19] NIBLIT: 
+[2026-02-10 19:19:41] USER: help
+[2026-02-10 19:19:41] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+[2026-02-10 19:20:09] USER: time
+[2026-02-10 19:20:09] NIBLIT: 
+[2026-02-10 19:20:28] USER: time
+[2026-02-10 19:20:28] NIBLIT: 
+[2026-02-10 19:42:07] USER: hi
+[2026-02-10 19:42:07] NIBLIT: 
+[2026-02-10 19:42:12] USER: help
+[2026-02-10 19:42:12] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+[2026-02-10 19:42:33] USER: se
+[2026-02-10 19:42:33] NIBLIT: 
+[2026-02-10 19:42:55] USER: self-research internet
+[2026-02-10 19:42:55] NIBLIT: 
+[2026-02-10 23:01:44] USER: search artificial intelligence
+[2026-02-10 23:01:44] NIBLIT: 
+[2026-02-10 23:02:05] USER: help
+[2026-02-10 23:02:05] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+[2026-02-10 23:02:24] USER: summary data
+[2026-02-10 23:02:24] NIBLIT: 
+[2026-02-10 23:02:41] USER: llm-off
+[2026-02-10 23:02:41] NIBLIT: 
+[2026-02-10 23:03:24] USER: toggle-llm off
+[2026-02-10 23:03:24] NIBLIT: 
+[2026-02-10 23:03:39] USER: search data
+[2026-02-10 23:03:39] NIBLIT: 
+[2026-02-10 23:16:56] USER: toggle-llm off
+[2026-02-10 23:16:56] NIBLIT: 
+[2026-02-10 23:17:09] USER: hi
+[2026-02-10 23:17:09] NIBLIT: 

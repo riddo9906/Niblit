@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""
+Lightweight SelfResearcher used by NiblitSystem.
+Provides:
+- handle_command("web.run", query) -> simple requests search fallback
+- search(query) -> returns short list of result strings (best-effort)
+This is intentionally conservative (no hard deps), and will fall back if requests is missing.
+"""
+import os
+import time
+
+try:
+    import requests
+except Exception:
+    requests = None
+
+class SelfResearcher:
+    def __init__(self, db=None, modules=None):
+        self.db = db
+        self.modules = modules or {}
+        self.provider = "web"
+
+    def handle_command(self, cmd, arg):
+        cmd = (cmd or "").lower()
+        if cmd == "web.run" or cmd.startswith("web"):
+            return self._search_web(arg)
+        return f"[self_researcher] Unknown command: {cmd}"
+
+    def search(self, query, limit=5):
+        """Return list of short textual results (best-effort)."""
+        return self._search_web(query, limit=limit, as_list=True)
+
+    def _search_web(self, query, limit=5, as_list=False):
+        """Very small web-search fallback: uses duckduckgo HTML search if requests available."""
+        if not query:
+            return [] if as_list else "[]"
+        if requests is None:
+            # graceful fallback: attempt to use modules.internet_manager if present
+            net = (self.modules or {}).get("internet_manager")
+            if net and hasattr(net, "search_web"):
+                try:
+                    results = net.search_web(query)
+                    return results if as_list else ("\n\n".join(results[:limit]) if isinstance(results, list) else str(results))
+                except Exception:
+                    pass
+            return ("[self_researcher] requests library not available; install requests or provide internet_manager." if not as_list else [])
+        try:
+            # simple DuckDuckGo HTML scrape (no API)
+            rsp = requests.get("https://duckduckgo.com/html/", params={"q": query}, timeout=6)
+            text = rsp.text
+            # naive extraction of result snippets
+            snippets = []
+            for part in text.split("<a rel=\"nofollow\" class=\"result__a\""):
+                if 'href="' in part:
+                    # get first > ... </a> content
+                    try:
+                        title = part.split(">",1)[1].split("</a>",1)[0]
+                        title = title.replace("<span class=\"result__snippet\">", " - ").split("<",1)[0].strip()
+                        if title:
+                            snippets.append(title)
+                    except Exception:
+                        continue
+                if len(snippets) >= limit:
+                    break
+            if not snippets:
+                # fallback: return short excerpt
+                return (["No instant results"] if as_list else "No instant results")
+            return snippets if as_list else ("\n\n".join(snippets[:limit]))
+        except Exception as e:
+            return (f"[self_researcher] search error: {e}" if not as_list else [])

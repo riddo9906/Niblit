@@ -1,40 +1,80 @@
 #!/usr/bin/env python3
 # modules/reflect.py
+
 from datetime import datetime
+import re
+
+_default_instance = None
+
 
 class ReflectModule:
-    def __init__(self, db):
+    def __init__(self, db, self_teacher=None, learner=None):
+        """
+        db: database object
+        self_teacher: optional SelfTeacher module
+        learner: optional SelfIdeaImplementation module
+        """
         self.db = db
+        self.self_teacher = self_teacher
+        self.learner = learner
 
-    def collect_and_summarize(self, entry: str = None):
-        """
-        If entry is None -> prompt interactive input().
-        Otherwise accept provided entry (non-interactive).
-        Saves a brief summary to the DB.
-        """
-        try:
-            if entry is None:
-                entry = input('Reflection (type a short journal entry): ').strip()
-        except Exception:
-            entry = (entry or "").strip()
-
+    def collect_and_summarize(self, entry=None):
         if not entry:
-            return 'No entry recorded.'
+            return "No reflection entry."
+
         ts = datetime.utcnow().isoformat()
+
+        # ───────── SAVE REFLECTION ─────────
         try:
-            self.db.add_fact(f'reflect:{ts}', entry, tags=['reflect'])
+            if self.db:
+                self.db.add_fact(f"reflect:{ts}", entry, tags=["reflect"])
         except Exception:
             pass
-        # naive summary: top words
-        words = [w.strip('.,!?') for w in entry.split() if len(w) > 3]
-        top = sorted(set(words), key=lambda w: -words.count(w))[:5]
-        summary = f"Saved reflection at {ts}. Top themes: {', '.join(top[:5])}"
-        return summary
 
-    def summarize_text(self, text, max_sentences=3):
-        # ultra-simple summarizer: take first few sentences
-        import re
-        if not text:
-            return ""
-        sents = re.split(r'(?<=[.!?])\s+', text)
-        return " ".join(sents[:max_sentences]).strip()
+        # ───────── EXTRACT TOP THEMES ─────────
+        words = [w.strip(".,!?") for w in entry.split() if len(w) > 3]
+        top = sorted(set(words), key=lambda x: words.count(x), reverse=True)
+        themes = ", ".join(top[:5])
+
+        # ───────── FEED INTO SELF-TEACHER ─────────
+        if self.self_teacher:
+            try:
+                self.self_teacher.teach(entry)
+            except Exception:
+                pass
+
+        # ───────── FEED INTO LEARNER MODULE ─────────
+        if self.learner:
+            try:
+                self.learner.learn(entry)
+            except Exception:
+                pass
+
+        return f"Reflection saved. Themes: {themes}"
+
+    def auto_reflect(self, recent_events):
+        if not recent_events:
+            return "Nothing to reflect on."
+
+        text = " | ".join(recent_events[:5])
+        return self.collect_and_summarize(f"System reflection: {text}")
+
+
+# ───────── ROUTER COMPATIBILITY FUNCTION ─────────
+
+def collect_and_summarize(entry=None, db=None):
+    """
+    Router-safe wrapper.
+    Allows router to call reflect.collect_and_summarize(...)
+    without crashing if db is not passed.
+    """
+    global _default_instance
+
+    if _default_instance is None:
+        _default_instance = ReflectModule(db)
+
+    return _default_instance.collect_and_summarize(entry)
+
+
+if __name__ == "__main__":
+    print("Running reflect.py")

@@ -31,3 +31,5 @@ def status_dict(db, modules):
         "cwd": os.getcwd(),
         "time": time.time()
     }
+if __name__ == "__main__":
+    print('Running dashboard.py')

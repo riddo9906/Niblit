@@ -1,55 +1,69 @@
 #!/usr/bin/env python3
 # modules/self_teacher.py
-from modules.self_researcher import SelfResearcher
 
 class SelfTeacher:
-    def __init__(self, db):
+    def __init__(self, db, researcher=None, reflector=None, learner=None):
         self.db = db
-        registry = getattr(db, "runtime_registry", {}) if db else {}
-        try:
-            self.researcher = SelfResearcher(db, modules_registry=registry)
-        except Exception:
-            self.researcher = SelfResearcher(db)
+        self.researcher = researcher
+        self.reflector = reflector
+        self.learner = learner
 
-    def generate_lessons(self, limit=5):
-        interactions = []
-        try:
-            interactions = self.db.recent_interactions(200)
-        except Exception:
-            interactions = []
-        lessons = []
-        for it in reversed(interactions):
-            if it.get('role') == 'user' and len(lessons) < limit:
-                excerpt = it.get('text', '')[:240]
-                key = f"lesson:{len(lessons)+1}"
-                try:
-                    self.db.add_fact(key, excerpt, tags=['lesson'])
-                except Exception:
-                    pass
-                lessons.append(excerpt)
-        return f"Generated {len(lessons)} internal lessons."
+        # Recursion protection
+        self._is_teaching = False
 
-    def teach(self, topic: str, limit=5):
-        """
-        Produce a small set of 'lessons' about a topic using internet research and internal interactions.
-        """
-        topic = (topic or "").strip()
+    def teach(self, topic):
         if not topic:
-            return self.generate_lessons(limit)
+            return "No topic provided for self-teach."
 
-        results = []
-        try:
-            results = self.researcher.search(topic, max_results=limit)
-        except Exception:
-            results = []
+        # 🔒 Prevent reflect <-> teach infinite loop
+        if self._is_teaching:
+            return "Teaching skipped (recursion protection)."
 
-        lessons = []
-        for i, r in enumerate(results[:limit], 1):
-            lesson = f"Lesson {i}: {r}"
-            key = f"lesson:{topic}:{i}"
+        self._is_teaching = True
+
+        learned = []
+
+        if self.researcher:
             try:
-                self.db.add_fact(key, lesson, tags=['lesson','external'])
+                learned = self.researcher.search(topic)
+            except Exception:
+                learned = []
+
+        summary = ""
+        if learned:
+            summary = learned[0]
+        else:
+            summary = f"No external data found for {topic}"
+
+        # Store learning in DB (unchanged logic)
+        try:
+            self.db.add_fact(
+                f"learn:{topic}",
+                summary,
+                tags=["learn", "self-teach"]
+            )
+        except Exception:
+            pass
+
+        # Feed into learner (SelfIdeaImplementation) if available
+        if self.learner:
+            try:
+                self.learner.learn(summary)
             except Exception:
                 pass
-            lessons.append(lesson)
-        return f"Generated {len(lessons)} lessons for '{topic}'."
+
+        # Reflect AFTER storing (same behavior as before)
+        if self.reflector:
+            try:
+                self.reflector.collect_and_summarize(
+                    f"Learned about {topic}: {summary}"
+                )
+            except Exception:
+                pass
+
+        self._is_teaching = False
+
+        return f"Self-teach completed for '{topic}'."
+
+if __name__ == "__main__":
+    print("Running self_teacher.py")

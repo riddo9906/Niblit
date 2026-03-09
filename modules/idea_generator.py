@@ -55,3 +55,5 @@ class IdeaGenerator:
         except Exception:
             pass
         return idea
+if __name__ == "__main__":
+    print('Running idea_generator.py')

@@ -1,0 +1,371 @@
+#!/usr/bin/env python3
+"""
+NIBLIT AIOS — Unified Fused Core
+Merged: Legacy modules + v5.2 fused HFBrain improvements
+Author: Riyaad Behardien
+"""
+
+import os
+import sys
+import json
+import time
+import threading
+import logging
+from datetime import datetime
+from typing import Any, List, Tuple
+
+# ---------------------------
+# Logging
+# ---------------------------
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+log = logging.getLogger("NiblitCore")
+
+# ---------------------------
+# Utilities
+# ---------------------------
+def now_iso():
+    return datetime.utcnow().isoformat() + "Z"
+
+def timestamp():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def safe_call(fn, *a, **kw):
+    try:
+        return fn(*a, **kw)
+    except Exception as e:
+        log.debug("safe_call failure: %s -> %s", fn, e)
+        return None
+
+# ---------------------------
+# Emotion detection
+# ---------------------------
+_EMO_KEYWORDS = {
+    "positive": ["good","great","awesome","nice","happy","love","thanks","thank"],
+    "negative": ["bad","sad","angry","upset","hate","problem","issue","frustrat"],
+    "neutral":  ["ok","fine","maybe","later"]
+}
+
+def detect_emotion(text: str) -> str:
+    tl = text.lower()
+    score = {"positive":0,"negative":0,"neutral":0}
+    for k, words in _EMO_KEYWORDS.items():
+        for w in words:
+            if w in tl:
+                score[k] += 1
+    best = max(score.items(), key=lambda x: (x[1], x[0]))
+    return best[0] if best[1] > 0 else "neutral"
+
+# ---------------------------
+# Intent parser
+# ---------------------------
+def parse_intent(text: str) -> Tuple[str, dict]:
+    t = text.strip().lower()
+    if t.startswith("remember "):
+        payload = t[len("remember "):].strip()
+        if ":" in payload:
+            k, v = payload.split(":", 1)
+            return "remember", {"key": k.strip(), "value": v.strip()}
+        return "bad_remember", {}
+    if t in ("time", "what time is it", "current time"):
+        return "time", {}
+    if "weather" in t:
+        return "weather", {}
+    if t in ("help", "commands"):
+        return "help", {}
+    if t in ("status", "health"):
+        return "status", {}
+    if t in ("shutdown", "exit", "quit"):
+        return "shutdown", {}
+    if t.startswith("learn about "):
+        return "learn", {"topic": t[len("learn about "):].strip()}
+    if t.startswith("ideas about "):
+        return "ideas", {"topic": t[len("ideas about "):].strip()}
+    return "chat", {}
+
+# ---------------------------
+# Knowledge / Memory DB
+# ---------------------------
+class KnowledgeDB:
+    def __init__(self, path='niblit_memory.json'):
+        self.path = path
+        self.lock = threading.Lock()
+        self.data = {
+            'facts': [],
+            'interactions': [],
+            'learning_queue': [],
+            'personality': {'mood':'neutral','verbosity':'medium'},
+            'meta': {}
+        }
+        self._load()
+
+    def _load(self):
+        try:
+            if os.path.exists(self.path):
+                with open(self.path,'r',encoding='utf-8') as f:
+                    self.data = json.load(f)
+        except Exception:
+            try:
+                os.rename(self.path, self.path + '.bak')
+            except Exception:
+                pass
+            self._save()
+
+    def _save(self):
+        with self.lock:
+            with open(self.path,'w',encoding='utf-8') as f:
+                json.dump(self.data,f,indent=2,ensure_ascii=False)
+
+    # Facts
+    def add_fact(self, key, value, tags=None):
+        tags = tags or []
+        self.data['facts'].append({
+            'key': key,
+            'value': value,
+            'tags': tags,
+            'ts': int(time.time())
+        })
+        self._save()
+
+    # Interactions
+    def add_interaction(self, role, text):
+        self.data['interactions'].append({
+            'ts': int(time.time()),
+            'role': role,
+            'text': text
+        })
+        if len(self.data['interactions']) > 500:
+            self.data['interactions'] = self.data['interactions'][-500:]
+        self._save()
+
+    def recent_interactions(self, n=20):
+        return self.data['interactions'][-n:]
+
+    # Learning queue
+    def queue_learning(self, topic: str):
+        self.data['learning_queue'].append({
+            "topic": topic,
+            "status": "queued",
+            "ts": int(time.time())
+        })
+        self._save()
+
+    def get_learning_queue(self):
+        return self.data.get("learning_queue", [])
+
+    # Personality
+    def get_personality(self):
+        return self.data.get("personality", {})
+
+# ---------------------------
+# Module imports (legacy + fused)
+# ---------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODULES_PATH = os.path.join(BASE_DIR, "modules")
+if MODULES_PATH not in sys.path:
+    sys.path.insert(0, MODULES_PATH)
+
+try:
+    from modules.self_researcher import SelfResearcher
+    from modules.storage import KnowledgeDB as LegacyDB
+    from modules.llm_adapter import LLMAdapter
+    from modules.analytics import AnalyticsModule
+    from modules.antifraud import AntiFraudModule
+    from modules.idea_generator import IdeaGenerator
+    from modules.reflect import ReflectModule
+    from modules.self_healer import SelfHealer
+    from modules.self_teacher import SelfTeacher
+    from modules.self_maintenance import SelfMaintenance
+    from modules.counter_active_membrane import CounterActiveMembrane
+    from modules.self_idea_implementation import SelfIdeaImplementation
+    from modules.slsa_generator import SLSAGenerator
+    from modules.control_panel import ControlPanel
+    from modules.device_manager import DeviceManager
+    from modules.bios import BIOS
+    from modules.firmware import Firmware
+    from modules.bootloader import Bootloader
+    from modules.filesystem_manager import FileSystemManager
+    from modules.terminal_tools import TerminalTools
+    from modules.permission_manager import PermissionManager
+except Exception as e:
+    log.warning(f"Some legacy modules failed to load: {e}")
+
+# ---------------------------
+# NiblitCore Unified
+# ---------------------------
+class NiblitCore:
+    def __init__(self, memory_path=None):
+        log.info("Initializing NiblitCore unified system...")
+        self.start_ts = time.time()
+
+        # Memory
+        self.db = KnowledgeDB(memory_path) if memory_path else KnowledgeDB()
+        self.personality = self.db.get_personality()
+
+        # -------------------
+        # Legacy Modules
+        # -------------------
+        self.llm = safe_call(LLMAdapter, self.db)
+        self.analytics = safe_call(AnalyticsModule, self.db)
+        self.antifraud = safe_call(AntiFraudModule, self.db)
+        self.idea_gen = safe_call(IdeaGenerator, self.db)
+        self.reflect = safe_call(ReflectModule, self.db)
+        self.self_healer = safe_call(SelfHealer, self.db)
+        self.self_teacher = safe_call(SelfTeacher, self.db)
+        self.self_maintenance = safe_call(SelfMaintenance, self.db)
+        self.cam = safe_call(CounterActiveMembrane, self.db)
+        self.self_idea_impl = safe_call(SelfIdeaImplementation, self.db)
+        self.slsa_gen = safe_call(SLSAGenerator, self.db)
+        self.control_panel = safe_call(ControlPanel, self.db, {})
+        self.device_manager = safe_call(DeviceManager)
+        self.bios = safe_call(BIOS)
+        self.firmware = safe_call(Firmware)
+        self.bootloader = safe_call(Bootloader)
+        self.fs_manager = safe_call(FileSystemManager)
+        self.terminal_tools = safe_call(TerminalTools)
+        self.perms = safe_call(PermissionManager)
+
+        self.modules = {
+            'analytics': self.analytics,
+            'antifraud': self.antifraud,
+            'ideas': self.idea_gen,
+            'reflect': self.reflect,
+            'llm': self.llm,
+            'self_healer': self.self_healer,
+            'self_teacher': self.self_teacher,
+            'self_maintenance': self.self_maintenance,
+            'cam': self.cam,
+            'self_idea_impl': self.self_idea_impl,
+            'slsa': self.slsa_gen,
+            'control_panel': self.control_panel,
+            'device_manager': self.device_manager,
+            'bios': self.bios,
+            'firmware': self.firmware,
+            'bootloader': self.bootloader,
+            'fs_manager': self.fs_manager,
+            'terminal_tools': self.terminal_tools,
+            'perms': self.perms
+        }
+
+        # SelfResearcher gets full modules
+        self.self_researcher = safe_call(SelfResearcher, self.db, self.modules)
+
+        # -------------------
+        # Fused HFBrain
+        # -------------------
+        self.hf_brain = self._load_hf_brain()
+
+        # -------------------
+        # Runtime
+        # -------------------
+        self.running = True
+        self.persona = {
+            "mode": "hybrid",
+            "tone": "balanced",
+            "emotion_history": [],
+            "last_user": None
+        }
+
+        self._start_background_threads()
+        log.info("NiblitCore unified system initialized.")
+
+    # HFBrain loader
+    def _load_hf_brain(self):
+        try:
+            from modules.hf_brain import HFBrain
+            brain = HFBrain()
+            log.info("HFBrain loaded successfully.")
+            return brain
+        except Exception as e:
+            log.warning(f"HFBrain failed to load: {e}")
+            return None
+
+    # -------------------
+    # Background threads
+    # -------------------
+    def _start_background_threads(self):
+        threading.Thread(
+            target=self._health_monitor,
+            daemon=True,
+            name="niblit-health"
+        ).start()
+
+    def _health_monitor(self):
+        last_log = 0
+        while self.running:
+            uptime = int(time.time() - self.start_ts)
+            if uptime - last_log >= 120:
+                mem_count = len(self.db.recent_interactions(100))
+                log.info(f"[HEALTH] uptime={uptime}s memory={mem_count}")
+                last_log = uptime
+            time.sleep(5)
+
+    # -------------------
+    # Core methods
+    # -------------------
+    def handle(self, text: str) -> str:
+        self.persona["last_user"] = text
+        emotion = detect_emotion(text)
+        self.persona["emotion_history"].append((now_iso(), emotion))
+        self.persona["emotion_history"] = self.persona["emotion_history"][-40:]
+
+        intent, meta = parse_intent(text)
+
+        # Memory / Facts
+        if intent == "remember":
+            self.db.add_fact(meta["key"], meta["value"])
+            return f"Saved: {meta['key']}"
+        if intent == "time":
+            return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        if intent == "status":
+            return f"Memory entries: {len(self.db.recent_interactions(500))}"
+        if intent == "learn":
+            topic = meta.get("topic","")
+            self.db.queue_learning(topic)
+            return f"Learning queued → {topic}"
+        if intent == "ideas":
+            topic = meta.get("topic","")
+            return f"Ideas for {topic}: Prototype → Test → Evolve"
+        if intent == "shutdown":
+            threading.Thread(target=self.shutdown, daemon=True).start()
+            return "Shutdown scheduled."
+
+        # Legacy self-research
+        if text.lower().startswith("self-research"):
+            parts = text.split(" ", 2)
+            if len(parts) == 2:
+                query = parts[1]
+                return safe_call(self.self_researcher.handle_command, "web.run", query) or "[Error]"
+            elif len(parts) >=3:
+                cmd,arg = parts[1],parts[2]
+                return safe_call(self.self_researcher.handle_command, cmd,arg) or "[Error]"
+            return "[RESEARCH ERROR] Usage: self-research <cmd> <arg> or <query>"
+
+        # Fallback to HFBrain / LLM / raw chat
+        context = "\n".join(r['text'] for r in self.db.recent_interactions(20))
+        if self.hf_brain:
+            resp = safe_call(self.hf_brain.ask_single, text)
+            if resp: 
+                self.db.add_interaction("assistant", resp)
+                return resp.strip()
+        if self.llm and safe_call(self.llm.is_available):
+            return safe_call(self.llm.query, text, context=context) or f"[neutral] I hear you: '{text}'"
+        return f"[neutral] I hear you: '{text}'"
+
+    def shutdown(self):
+        log.info("Shutdown initiated…")
+        self.running = False
+        time.sleep(0.5)
+        log.info("Shutdown complete.")
+
+# -------------------
+# Self-test
+# -------------------
+if __name__ == "__main__":
+    core = NiblitCore()
+    print("[Selftest] NiblitCore running.")
+    try:
+        while core.running:
+            cmd = input("> ").strip()
+            print(core.handle(cmd))
+    except KeyboardInterrupt:
+        core.shutdown()

@@ -9,3 +9,5 @@ class DeviceManager:
             return os.listdir(path)
         except Exception as e:
             return {"error": str(e)}
+if __name__ == "__main__":
+    print('Running device_manager.py')

@@ -1,0 +1,325 @@
+{
+    "events": [
+        {
+            "timestamp": "2025-12-11T20:18:14.150269",
+            "event": "Incoming message: help"
+        },
+        {
+            "timestamp": "2025-12-11T20:18:22.543901",
+            "event": "Incoming message: hi"
+        },
+        {
+            "time": "2025-12-13T20:45:49.529643",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2025-12-13T20:46:00.352056",
+            "event": "Incoming: help"
+        },
+        {
+            "time": "2025-12-13T21:25:42.886429",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2025-12-13T21:25:43.433159",
+            "event": "Autonomous reflection triggered."
+        },
+        {
+            "time": "2025-12-13T21:25:45.392696",
+            "event": "Incoming: help"
+        },
+        {
+            "time": "2025-12-13T21:25:59.558538",
+            "event": "Incoming: boot"
+        },
+        {
+            "time": "2025-12-14T12:52:41.074627",
+            "event": "Incoming: exir"
+        },
+        {
+            "time": "2025-12-14T12:57:23.445635",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2025-12-14T13:10:52.639822",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2025-12-14T13:10:53.287473",
+            "event": "Autonomous reflection triggered."
+        },
+        {
+            "time": "2025-12-16T08:24:42.475879",
+            "event": "Incoming: status"
+        },
+        {
+            "time": "2025-12-16T08:24:45.573445",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2026-01-31T22:25:52.838934",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2026-01-31T23:31:10.514618",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2026-01-31T23:31:10.850888",
+            "event": "Autonomous reflection triggered."
+        },
+        {
+            "time": "2026-01-31T23:31:21.495604",
+            "event": "Incoming: help"
+        },
+        {
+            "time": "2026-01-31T23:31:32.890625",
+            "event": "Incoming: ?"
+        },
+        {
+            "time": "2026-02-01T07:33:48.803120",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2026-02-01T07:34:36.443862",
+            "event": "Incoming: do you understand the concept of learning amd retaining learned knowledge"
+        },
+        {
+            "time": "2026-02-01T07:34:36.672758",
+            "event": "Autonomous reflection triggered."
+        },
+        {
+            "time": "2026-02-01T07:35:24.358680",
+            "event": "Incoming: heal"
+        },
+        {
+            "time": "2026-02-01T07:35:40.436117",
+            "event": "Incoming: what are you"
+        },
+        {
+            "time": "2026-02-01T07:36:05.719144",
+            "event": "Incoming: how do i create and train my own large language model"
+        },
+        {
+            "time": "2026-02-01T07:41:39.798002",
+            "event": "Incoming: hi"
+        },
+        {
+            "time": "2026-02-01T07:41:40.135350",
+            "event": "Autonomous reflection triggered."
+        },
+        {
+            "time": "2026-02-01T07:41:58.163483",
+            "event": "Incoming: what have you learnes"
+        },
+        {
+            "time": "2026-02-01T07:52:28.662223",
+            "event": "Incoming: hel0"
+        },
+        {
+            "time": "2026-02-01T10:07:39.000688",
+            "event": "2026-02-01 12:07:39 - Incoming: ideas about learning to understand"
+        },
+        {
+            "time": "2026-02-01T10:25:48.006702",
+            "event": "2026-02-01 12:25:48 - Incoming: help"
+        },
+        {
+            "time": "2026-02-01T10:25:48.905873",
+            "event": "Autonomous reflection triggered."
+        },
+        {
+            "time": "2026-02-01T10:26:01.094547",
+            "event": "2026-02-01 12:26:01 - Incoming: heal"
+        },
+        {
+            "time": "2026-02-01T11:05:23.531933",
+            "event": "2026-02-01 13:05:23 - Incoming: hi"
+        },
+        {
+            "time": "2026-02-02T18:48:06.405389",
+            "event": "2026-02-02 20:48:06 - Incoming: reflect"
+        },
+        {
+            "time": "2026-02-02T18:48:25.134803",
+            "event": "2026-02-02 20:48:25 - Incoming: reflect"
+        },
+        {
+            "time": "2026-02-02T18:48:25.789905",
+            "event": "Autonomous reflection triggered."
+        },
+        {
+            "time": "2026-02-02T18:48:52.939358",
+            "event": "2026-02-02 20:48:52 - Incoming: nresearch AI"
+        },
+        {
+            "time": "2026-02-02T18:49:10.972738",
+            "event": "2026-02-02 20:49:10 - Incoming: teach"
+        }
+    ],
+    "learning_log": [
+        {
+            "raw": "hi",
+            "normalized": "hi",
+            "positivity": 0,
+            "negativity": 0,
+            "response": "[neutral mode] I hear you: 'hi'. Tell me more."
+        },
+        {
+            "raw": "help",
+            "normalized": "help",
+            "positivity": 0,
+            "negativity": 0,
+            "response": "[neutral mode] I hear you: 'help'. Tell me more."
+        },
+        {
+            "time": "2025-12-13T20:45:49.530110",
+            "input": "hi"
+        },
+        {
+            "time": "2025-12-13T20:46:00.353067",
+            "input": "help"
+        },
+        {
+            "time": "2025-12-13T21:25:42.887393",
+            "input": "hi"
+        },
+        {
+            "time": "2025-12-13T21:25:43.432996",
+            "thought": "Reflecting on recent interactions."
+        },
+        {
+            "time": "2025-12-13T21:25:45.393708",
+            "input": "help"
+        },
+        {
+            "time": "2025-12-13T21:25:59.559149",
+            "input": "boot"
+        },
+        {
+            "time": "2025-12-14T12:52:41.084774",
+            "input": "exir"
+        },
+        {
+            "time": "2025-12-14T13:10:52.644891",
+            "input": "hi"
+        },
+        {
+            "time": "2025-12-14T13:10:53.287412",
+            "thought": "Reflecting on recent interactions."
+        },
+        {
+            "time": "2025-12-16T08:24:42.479675",
+            "input": "status"
+        },
+        {
+            "time": "2025-12-16T08:24:45.574824",
+            "input": "hi"
+        },
+        {
+            "time": "2026-01-31T22:25:52.840180",
+            "input": "hi"
+        },
+        {
+            "time": "2026-01-31T23:31:10.515896",
+            "input": "hi"
+        },
+        {
+            "time": "2026-01-31T23:31:10.850812",
+            "thought": "Reflecting on recent interactions."
+        },
+        {
+            "time": "2026-01-31T23:31:21.496561",
+            "input": "help"
+        },
+        {
+            "time": "2026-01-31T23:31:32.892114",
+            "input": "?"
+        },
+        {
+            "time": "2026-02-01T07:33:48.804507",
+            "input": "hi"
+        },
+        {
+            "time": "2026-02-01T07:34:36.445308",
+            "input": "do you understand the concept of learning amd retaining learned knowledge"
+        },
+        {
+            "time": "2026-02-01T07:34:36.672637",
+            "thought": "Reflecting on recent interactions."
+        },
+        {
+            "time": "2026-02-01T07:35:24.360587",
+            "input": "heal"
+        },
+        {
+            "time": "2026-02-01T07:35:40.437598",
+            "input": "what are you"
+        },
+        {
+            "time": "2026-02-01T07:36:05.720068",
+            "input": "how do i create and train my own large language model"
+        },
+        {
+            "time": "2026-02-01T07:41:39.798932",
+            "input": "hi"
+        },
+        {
+            "time": "2026-02-01T07:41:40.135238",
+            "thought": "Reflecting on recent interactions."
+        },
+        {
+            "time": "2026-02-01T07:41:58.165107",
+            "input": "what have you learnes"
+        },
+        {
+            "time": "2026-02-01T07:52:28.663551",
+            "input": "hel0"
+        },
+        {
+            "time": "2026-02-01T10:07:39.007273",
+            "input": "ideas about learning to understand"
+        },
+        {
+            "time": "2026-02-01T10:25:48.014177",
+            "input": "help"
+        },
+        {
+            "time": "2026-02-01T10:25:48.905700",
+            "thought": "Reflecting on recent interactions."
+        },
+        {
+            "time": "2026-02-01T10:26:01.096545",
+            "input": "heal"
+        },
+        {
+            "time": "2026-02-01T11:05:23.537947",
+            "input": "hi"
+        },
+        {
+            "time": "2026-02-02T18:48:06.407102",
+            "input": "reflect"
+        },
+        {
+            "time": "2026-02-02T18:48:25.136384",
+            "input": "reflect"
+        },
+        {
+            "time": "2026-02-02T18:48:25.789829",
+            "thought": "Reflecting on recent interactions."
+        },
+        {
+            "time": "2026-02-02T18:48:52.940680",
+            "input": "nresearch AI"
+        },
+        {
+            "time": "2026-02-02T18:49:10.974872",
+            "input": "teach"
+        }
+    ],
+    "preferences": {
+        "tone": "friendly",
+        "interaction_style": "casual"
+    },
+    "recent_inputs": []
+}

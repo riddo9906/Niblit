@@ -1,0 +1,28 @@
+[2026-02-16 12:15:00] USER: status
+[2026-02-16 12:15:00] NIBLIT: [STATUS] Core modules online ✔
+LLM enabled: True
+Memory entries: 0
+[2026-02-16 12:15:13] USER: toggle-llm off
+[2026-02-16 12:15:13] NIBLIT: 
+[2026-02-16 12:15:21] USER: status
+[2026-02-16 12:15:21] NIBLIT: [STATUS] Core modules online ✔
+LLM enabled: False
+Memory entries: 0
+[2026-02-16 12:15:33] USER: search ai agents
+[2026-02-16 12:15:33] NIBLIT: 
+[2026-02-16 12:16:02] USER: self-research ai agents
+[2026-02-16 12:16:02] NIBLIT: 
+[2026-02-16 12:16:19] USER: help
+[2026-02-16 12:16:19] NIBLIT: help
+time
+status
+remember key:value
+learn about <topic>
+ideas about <topic>
+search <query>
+summary <query>
+self-research <topic>
+toggle-llm on/off
+shutdown
+[2026-02-16 12:17:05] USER: self-teach memory learning
+[2026-02-16 12:17:05] NIBLIT: 

@@ -9,3 +9,5 @@ class ControlPanel:
             "interactions_count": len(self.db.data.get('interactions',[])),
             "available_modules": list(self.modules.keys())
         }
+if __name__ == "__main__":
+    print('Running control_panel.py')

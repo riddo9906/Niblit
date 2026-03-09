@@ -1,0 +1,1520 @@
+[2025-12-07 15:37:14.833165] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2025-12-07 15:37:14.833285] Checking missing modules...
+[2025-12-07 15:37:14.833688] FAILED: db — No module named 'db'
+[2025-12-07 15:37:14.838922] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 50, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'db'
+
+[2025-12-07 15:37:14.839283] FAILED: structural_helper — No module named 'structural_helper'
+[2025-12-07 15:37:14.839854] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 50, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'structural_helper'
+
+[2025-12-07 15:37:15.441945] SUCCESS: Loaded flask
+[2025-12-07 15:37:15.442081] Checking orphan modules...
+[2025-12-07 15:37:15.449350] SUCCESS: Loaded main
+[2025-12-07 15:37:15.591459] SUCCESS: Loaded niblit_net
+[2025-12-07 15:37:16.339103] SUCCESS: Loaded server
+[2025-12-07 15:37:16.343604] SUCCESS: Loaded niblit_memory
+[2025-12-07 15:37:16.350361] SUCCESS: Loaded app
+[2025-12-07 15:37:17.732008] SUCCESS: Loaded hf_test
+[2025-12-07 15:37:17.744221] SUCCESS: Loaded modules.llm_adapter
+[2025-12-07 15:37:17.744588] SUCCESS: Loaded modules.internet_manager
+[2025-12-07 15:37:17.752309] SUCCESS: Loaded modules.evolve
+[2025-12-07 15:37:17.752582] SUCCESS: Loaded tools.repo_audit
+[2025-12-07 15:37:17.752773] SUCCESS: Loaded tools.structural_helper
+[2025-12-07 15:37:17.760917] SUCCESS: Loaded tools.FixGuideGenerator
+[2025-12-07 15:37:17.761167] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2025-12-07 15:38:00.618243] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2025-12-07 15:38:00.618349] Checking missing modules...
+[2025-12-07 15:38:00.618689] FAILED: db — No module named 'db'
+[2025-12-07 15:38:00.628969] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 50, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'db'
+
+[2025-12-07 15:38:00.629361] FAILED: structural_helper — No module named 'structural_helper'
+[2025-12-07 15:38:00.629974] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 50, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'structural_helper'
+
+[2025-12-07 15:38:00.933440] SUCCESS: Loaded flask
+[2025-12-07 15:38:00.933589] Checking orphan modules...
+[2025-12-07 15:38:00.935352] SUCCESS: Loaded main
+[2025-12-07 15:38:01.021877] SUCCESS: Loaded niblit_net
+[2025-12-07 15:38:01.489972] SUCCESS: Loaded server
+[2025-12-07 15:38:01.490767] SUCCESS: Loaded niblit_memory
+[2025-12-07 15:38:01.495616] SUCCESS: Loaded app
+[2025-12-07 15:38:01.904110] SUCCESS: Loaded hf_test
+[2025-12-07 15:38:01.905948] SUCCESS: Loaded modules.llm_adapter
+[2025-12-07 15:38:01.906262] SUCCESS: Loaded modules.internet_manager
+[2025-12-07 15:38:01.907838] SUCCESS: Loaded modules.evolve
+[2025-12-07 15:38:01.908119] SUCCESS: Loaded tools.repo_audit
+[2025-12-07 15:38:01.908326] SUCCESS: Loaded tools.structural_helper
+[2025-12-07 15:38:01.909883] SUCCESS: Loaded tools.FixGuideGenerator
+[2025-12-07 15:38:01.910117] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2025-12-07 15:44:28.251767] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2025-12-07 15:44:28.252481] Checking missing modules...
+[2025-12-07 15:44:28.252985] FAILED: modules.db — No module named 'modules'
+[2025-12-07 15:44:28.264137] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'modules'
+
+[2025-12-07 15:44:28.264597] FAILED: tools.structural_helper — No module named 'tools'
+[2025-12-07 15:44:28.265299] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'tools'
+
+[2025-12-07 15:44:28.265408] Checking orphan modules...
+[2025-12-07 15:44:28.265690] FAILED: main — No module named 'main'
+[2025-12-07 15:44:28.266190] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'main'
+
+[2025-12-07 15:44:28.266539] FAILED: niblit_net — No module named 'niblit_net'
+[2025-12-07 15:44:28.267090] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'niblit_net'
+
+[2025-12-07 15:44:28.267446] FAILED: server — No module named 'server'
+[2025-12-07 15:44:28.267964] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'server'
+
+[2025-12-07 15:44:28.268272] FAILED: niblit_memory — No module named 'niblit_memory'
+[2025-12-07 15:44:28.268759] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'niblit_memory'
+
+[2025-12-07 15:44:28.269036] FAILED: app — No module named 'app'
+[2025-12-07 15:44:28.269494] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'app'
+
+[2025-12-07 15:44:28.269755] FAILED: hf_test — No module named 'hf_test'
+[2025-12-07 15:44:28.270209] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'hf_test'
+
+[2025-12-07 15:44:28.270585] FAILED: modules.llm_adapter — No module named 'modules'
+[2025-12-07 15:44:28.271203] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'modules'
+
+[2025-12-07 15:44:28.271519] FAILED: modules.internet_manager — No module named 'modules'
+[2025-12-07 15:44:28.272109] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'modules'
+
+[2025-12-07 15:44:28.272418] FAILED: modules.evolve — No module named 'modules'
+[2025-12-07 15:44:28.272986] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'modules'
+
+[2025-12-07 15:44:28.273285] FAILED: tools.repo_audit — No module named 'tools'
+[2025-12-07 15:44:28.273843] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'tools'
+
+[2025-12-07 15:44:28.274168] FAILED: tools.structural_helper — No module named 'tools'
+[2025-12-07 15:44:28.274815] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'tools'
+
+[2025-12-07 15:44:28.275130] FAILED: tools.FixGuideGenerator — No module named 'tools'
+[2025-12-07 15:44:28.275683] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+ModuleNotFoundError: No module named 'tools'
+
+[2025-12-07 15:44:28.275771] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2025-12-07 15:44:35.049732] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2025-12-07 15:44:35.049912] Checking missing modules...
+[2025-12-07 15:44:35.065414] SUCCESS: Loaded modules.db
+[2025-12-07 15:44:35.072649] SUCCESS: Loaded tools.structural_helper
+[2025-12-07 15:44:35.072866] Checking orphan modules...
+[2025-12-07 15:44:35.076755] SUCCESS: Loaded main
+[2025-12-07 15:44:35.483309] SUCCESS: Loaded niblit_net
+[2025-12-07 15:44:36.431000] SUCCESS: Loaded server
+[2025-12-07 15:44:36.433136] SUCCESS: Loaded niblit_memory
+[2025-12-07 15:44:36.438537] SUCCESS: Loaded app
+[2025-12-07 15:44:37.011458] SUCCESS: Loaded hf_test
+[2025-12-07 15:44:37.016955] SUCCESS: Loaded modules.llm_adapter
+[2025-12-07 15:44:37.017409] SUCCESS: Loaded modules.internet_manager
+[2025-12-07 15:44:37.020090] SUCCESS: Loaded modules.evolve
+[2025-12-07 15:44:37.020452] SUCCESS: Loaded tools.repo_audit
+[2025-12-07 15:44:37.020660] SUCCESS: Loaded tools.structural_helper
+[2025-12-07 15:44:37.023460] SUCCESS: Loaded tools.FixGuideGenerator
+[2025-12-07 15:44:37.023840] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2025-12-07 15:47:07.793361] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2025-12-07 15:47:07.796315] Checking missing modules...
+[2025-12-07 15:47:07.803374] SUCCESS: Loaded modules.db
+[2025-12-07 15:47:07.810096] SUCCESS: Loaded tools.structural_helper
+[2025-12-07 15:47:07.810275] Checking orphan modules...
+[2025-12-07 15:47:07.811315] SUCCESS: Loaded main
+[2025-12-07 15:47:08.046040] SUCCESS: Loaded niblit_net
+[2025-12-07 15:47:08.718977] SUCCESS: Loaded server
+[2025-12-07 15:47:08.719677] SUCCESS: Loaded niblit_memory
+[2025-12-07 15:47:08.724151] SUCCESS: Loaded app
+[2025-12-07 15:47:09.546385] SUCCESS: Loaded hf_test
+[2025-12-07 15:47:09.552949] SUCCESS: Loaded modules.llm_adapter
+[2025-12-07 15:47:09.553388] SUCCESS: Loaded modules.internet_manager
+[2025-12-07 15:47:09.555199] SUCCESS: Loaded modules.evolve
+[2025-12-07 15:47:09.555519] SUCCESS: Loaded tools.repo_audit
+[2025-12-07 15:47:09.555710] SUCCESS: Loaded tools.structural_helper
+[2025-12-07 15:47:09.557105] SUCCESS: Loaded tools.FixGuideGenerator
+[2025-12-07 15:47:09.557328] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2025-12-07 15:47:38.827531] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2025-12-07 15:47:38.827700] Checking missing modules...
+[2025-12-07 15:47:38.834996] SUCCESS: Loaded modules.db
+[2025-12-07 15:47:38.842421] SUCCESS: Loaded tools.structural_helper
+[2025-12-07 15:47:38.842685] Checking orphan modules...
+[2025-12-07 15:47:38.843914] SUCCESS: Loaded main
+[2025-12-07 15:47:39.057636] SUCCESS: Loaded niblit_net
+[2025-12-07 15:47:39.661465] SUCCESS: Loaded server
+[2025-12-07 15:47:39.662181] SUCCESS: Loaded niblit_memory
+[2025-12-07 15:47:39.666407] SUCCESS: Loaded app
+[2025-12-07 15:47:40.050710] SUCCESS: Loaded hf_test
+[2025-12-07 15:47:40.052545] SUCCESS: Loaded modules.llm_adapter
+[2025-12-07 15:47:40.052869] SUCCESS: Loaded modules.internet_manager
+[2025-12-07 15:47:40.054055] SUCCESS: Loaded modules.evolve
+[2025-12-07 15:47:40.054292] SUCCESS: Loaded tools.repo_audit
+[2025-12-07 15:47:40.054476] SUCCESS: Loaded tools.structural_helper
+[2025-12-07 15:47:40.065867] SUCCESS: Loaded tools.FixGuideGenerator
+[2025-12-07 15:47:40.066271] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2025-12-11 00:07:54.593240] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2025-12-11 00:07:54.593757] Checking missing modules...
+[2025-12-11 00:07:54.601065] SUCCESS: Loaded modules.db
+[2025-12-11 00:07:54.607845] SUCCESS: Loaded tools.structural_helper
+[2025-12-11 00:07:54.608025] Checking orphan modules...
+[2025-12-11 00:07:54.685279] SUCCESS: Loaded main
+[2025-12-11 00:07:54.905972] SUCCESS: Loaded niblit_net
+[2025-12-11 00:07:55.229821] FAILED: server — cannot import name 'NiblitCore' from 'niblit_core' (/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py)
+[2025-12-11 00:07:55.232864] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/server.py", line 3, in <module>
+    from niblit_core import NiblitCore
+ImportError: cannot import name 'NiblitCore' from 'niblit_core' (/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py)
+
+[2025-12-11 00:07:55.235259] SUCCESS: Loaded niblit_memory
+[2025-12-11 00:07:55.240885] SUCCESS: Loaded app
+[2025-12-11 00:07:55.725234] SUCCESS: Loaded hf_test
+[2025-12-11 00:07:56.581180] SUCCESS: Loaded modules.llm_adapter
+[2025-12-11 00:07:56.583555] SUCCESS: Loaded modules.internet_manager
+[2025-12-11 00:07:56.584490] SUCCESS: Loaded modules.evolve
+[2025-12-11 00:07:56.585225] SUCCESS: Loaded tools.repo_audit
+[2025-12-11 00:07:56.585352] SUCCESS: Loaded tools.structural_helper
+[2025-12-11 00:07:56.588810] SUCCESS: Loaded tools.FixGuideGenerator
+[2025-12-11 00:07:56.588923] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-01 00:41:10.963850] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-01 00:41:10.967273] Checking missing modules...
+[2026-02-01 00:41:10.975587] SUCCESS: Loaded modules.db
+[2026-02-01 00:41:10.980613] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 00:41:10.980748] Checking orphan modules...
+[2026-02-01 00:41:11.260681] SUCCESS: Loaded main
+[2026-02-01 00:41:11.262402] SUCCESS: Loaded niblit_net
+[2026-02-01 00:41:11.675945] FAILED: server — LLMAdapter() takes no arguments
+[2026-02-01 00:41:11.677601] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/server.py", line 7, in <module>
+    n = NiblitCore()
+        ^^^^^^^^^^^^
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py", line 58, in __init__
+    self.llm = LLMAdapter(self.db)
+               ^^^^^^^^^^^^^^^^^^^
+TypeError: LLMAdapter() takes no arguments
+
+[2026-02-01 00:41:11.677946] SUCCESS: Loaded niblit_memory
+[2026-02-01 00:41:11.683748] SUCCESS: Loaded app
+[2026-02-01 00:41:13.131998] SUCCESS: Loaded hf_test
+[2026-02-01 00:41:13.132394] SUCCESS: Loaded modules.llm_adapter
+[2026-02-01 00:41:13.138040] SUCCESS: Loaded modules.internet_manager
+[2026-02-01 00:41:13.146338] SUCCESS: Loaded modules.evolve
+[2026-02-01 00:41:13.148965] SUCCESS: Loaded tools.repo_audit
+[2026-02-01 00:41:13.149458] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 00:41:13.157716] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-01 00:41:13.158055] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-01 01:32:09.426433] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-01 01:32:09.430086] Checking missing modules...
+[2026-02-01 01:32:09.437819] SUCCESS: Loaded modules.db
+[2026-02-01 01:32:09.438861] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 01:32:09.438960] Checking orphan modules...
+[2026-02-01 01:32:10.748285] SUCCESS: Loaded main
+[2026-02-01 01:32:10.749076] SUCCESS: Loaded niblit_net
+[2026-02-01 01:32:11.024870] FAILED: server — LLMAdapter() takes no arguments
+[2026-02-01 01:32:11.027244] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/server.py", line 7, in <module>
+    n = NiblitCore()
+        ^^^^^^^^^^^^
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py", line 58, in __init__
+    self.llm = LLMAdapter(self.db)
+               ^^^^^^^^^^^^^^^^^^^
+TypeError: LLMAdapter() takes no arguments
+
+[2026-02-01 01:32:11.027714] SUCCESS: Loaded niblit_memory
+[2026-02-01 01:32:11.033208] SUCCESS: Loaded app
+[2026-02-01 01:32:11.776582] SUCCESS: Loaded hf_test
+[2026-02-01 01:32:11.777281] SUCCESS: Loaded modules.llm_adapter
+[2026-02-01 01:32:11.786508] SUCCESS: Loaded modules.internet_manager
+[2026-02-01 01:32:11.791550] SUCCESS: Loaded modules.evolve
+[2026-02-01 01:32:11.795053] SUCCESS: Loaded tools.repo_audit
+[2026-02-01 01:32:11.795829] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 01:32:11.807908] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-01 01:32:11.808272] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-01 09:15:38.161653] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-01 09:15:38.164255] Checking missing modules...
+[2026-02-01 09:15:38.171482] SUCCESS: Loaded modules.db
+[2026-02-01 09:15:38.172575] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 09:15:38.172677] Checking orphan modules...
+[2026-02-01 09:15:39.446517] SUCCESS: Loaded main
+[2026-02-01 09:15:39.447289] SUCCESS: Loaded niblit_net
+[2026-02-01 09:15:39.724738] FAILED: server — LLMAdapter() takes no arguments
+[2026-02-01 09:15:39.726331] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/server.py", line 7, in <module>
+    n = NiblitCore()
+        ^^^^^^^^^^^^
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py", line 58, in __init__
+    self.llm = LLMAdapter(self.db)
+               ^^^^^^^^^^^^^^^^^^^
+TypeError: LLMAdapter() takes no arguments
+
+[2026-02-01 09:15:39.726640] SUCCESS: Loaded niblit_memory
+[2026-02-01 09:15:39.732252] SUCCESS: Loaded app
+[2026-02-01 09:15:40.147760] SUCCESS: Loaded hf_test
+[2026-02-01 09:15:40.148334] SUCCESS: Loaded modules.llm_adapter
+[2026-02-01 09:15:40.153523] SUCCESS: Loaded modules.internet_manager
+[2026-02-01 09:15:40.155741] SUCCESS: Loaded modules.evolve
+[2026-02-01 09:15:40.157706] SUCCESS: Loaded tools.repo_audit
+[2026-02-01 09:15:40.158037] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 09:15:40.165783] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-01 09:15:40.166134] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-01 09:20:31.609421] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-01 09:20:31.609629] Checking missing modules...
+[2026-02-01 09:20:31.617205] SUCCESS: Loaded modules.db
+[2026-02-01 09:20:31.618325] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 09:20:31.618437] Checking orphan modules...
+[2026-02-01 09:20:32.880599] SUCCESS: Loaded main
+[2026-02-01 09:20:32.881005] SUCCESS: Loaded niblit_net
+[2026-02-01 09:20:33.034921] FAILED: server — LLMAdapter() takes no arguments
+[2026-02-01 09:20:33.036692] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/server.py", line 7, in <module>
+    n = NiblitCore()
+        ^^^^^^^^^^^^
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py", line 58, in __init__
+    self.llm = LLMAdapter(self.db)
+               ^^^^^^^^^^^^^^^^^^^
+TypeError: LLMAdapter() takes no arguments
+
+[2026-02-01 09:20:33.037040] SUCCESS: Loaded niblit_memory
+[2026-02-01 09:20:33.041309] SUCCESS: Loaded app
+[2026-02-01 09:20:33.662481] SUCCESS: Loaded hf_test
+[2026-02-01 09:20:33.662931] SUCCESS: Loaded modules.llm_adapter
+[2026-02-01 09:20:33.664848] SUCCESS: Loaded modules.internet_manager
+[2026-02-01 09:20:33.666198] SUCCESS: Loaded modules.evolve
+[2026-02-01 09:20:33.667746] SUCCESS: Loaded tools.repo_audit
+[2026-02-01 09:20:33.668107] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 09:20:33.676093] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-01 09:20:33.676496] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-01 09:23:59.045515] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-01 09:23:59.045665] Checking missing modules...
+[2026-02-01 09:23:59.052560] SUCCESS: Loaded modules.db
+[2026-02-01 09:23:59.053617] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 09:23:59.053718] Checking orphan modules...
+[2026-02-01 09:24:00.315318] SUCCESS: Loaded main
+[2026-02-01 09:24:00.315726] SUCCESS: Loaded niblit_net
+[2026-02-01 09:24:00.465722] FAILED: server — LLMAdapter() takes no arguments
+[2026-02-01 09:24:00.467337] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/server.py", line 7, in <module>
+    n = NiblitCore()
+        ^^^^^^^^^^^^
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py", line 58, in __init__
+    self.llm = LLMAdapter(self.db)
+               ^^^^^^^^^^^^^^^^^^^
+TypeError: LLMAdapter() takes no arguments
+
+[2026-02-01 09:24:00.467666] SUCCESS: Loaded niblit_memory
+[2026-02-01 09:24:00.471907] SUCCESS: Loaded app
+[2026-02-01 09:24:00.848311] SUCCESS: Loaded hf_test
+[2026-02-01 09:24:00.848785] SUCCESS: Loaded modules.llm_adapter
+[2026-02-01 09:24:00.850517] SUCCESS: Loaded modules.internet_manager
+[2026-02-01 09:24:00.851740] SUCCESS: Loaded modules.evolve
+[2026-02-01 09:24:00.853443] SUCCESS: Loaded tools.repo_audit
+[2026-02-01 09:24:00.853751] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 09:24:00.861293] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-01 09:24:00.861670] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-01 09:33:00.562306] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-01 09:33:00.564869] Checking missing modules...
+[2026-02-01 09:33:00.572501] SUCCESS: Loaded modules.db
+[2026-02-01 09:33:00.573525] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 09:33:00.573629] Checking orphan modules...
+[2026-02-01 09:33:01.813147] SUCCESS: Loaded main
+[2026-02-01 09:33:01.813555] SUCCESS: Loaded niblit_net
+[2026-02-01 09:33:01.997285] FAILED: server — LLMAdapter() takes no arguments
+[2026-02-01 09:33:01.998982] Traceback (most recent call last):
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/orphan_imports.py", line 19, in try_import
+    importlib.import_module(module_name)
+  File "/data/data/com.termux/files/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/server.py", line 7, in <module>
+    n = NiblitCore()
+        ^^^^^^^^^^^^
+  File "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py", line 58, in __init__
+    self.llm = LLMAdapter(self.db)
+               ^^^^^^^^^^^^^^^^^^^
+TypeError: LLMAdapter() takes no arguments
+
+[2026-02-01 09:33:01.999303] SUCCESS: Loaded niblit_memory
+[2026-02-01 09:33:02.003501] SUCCESS: Loaded app
+[2026-02-01 09:33:02.616228] SUCCESS: Loaded hf_test
+[2026-02-01 09:33:02.616757] SUCCESS: Loaded modules.llm_adapter
+[2026-02-01 09:33:02.618649] SUCCESS: Loaded modules.internet_manager
+[2026-02-01 09:33:02.619989] SUCCESS: Loaded modules.evolve
+[2026-02-01 09:33:02.621769] SUCCESS: Loaded tools.repo_audit
+[2026-02-01 09:33:02.622052] SUCCESS: Loaded tools.structural_helper
+[2026-02-01 09:33:02.629847] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-01 09:33:02.630221] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-08 17:06:04.185097] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-08 17:06:04.188097] Checking missing modules...
+[2026-02-08 17:06:04.195321] SUCCESS: Loaded modules.db
+[2026-02-08 17:06:04.196352] SUCCESS: Loaded tools.structural_helper
+[2026-02-08 17:06:04.196454] Checking orphan modules...
+[2026-02-08 17:06:05.490325] SUCCESS: Loaded main
+[2026-02-08 17:06:05.490456] SUCCESS: Loaded niblit_net
+[2026-02-08 17:06:05.855629] SUCCESS: Loaded server
+[2026-02-08 17:06:05.855864] SUCCESS: Loaded niblit_memory
+[2026-02-08 17:06:05.863499] SUCCESS: Loaded app
+[2026-02-08 17:06:06.470237] SUCCESS: Loaded hf_test
+[2026-02-08 17:06:06.471945] SUCCESS: Loaded modules.llm_adapter
+[2026-02-08 17:06:06.473459] SUCCESS: Loaded modules.internet_manager
+[2026-02-08 17:06:06.474665] SUCCESS: Loaded modules.evolve
+[2026-02-08 17:06:06.474921] SUCCESS: Loaded tools.repo_audit
+[2026-02-08 17:06:06.475110] SUCCESS: Loaded tools.structural_helper
+[2026-02-08 17:06:06.475286] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-08 17:06:06.475478] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-08 17:35:55.253963] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-08 17:35:55.256976] Checking missing modules...
+[2026-02-08 17:35:55.264304] SUCCESS: Loaded modules.db
+[2026-02-08 17:35:55.265415] SUCCESS: Loaded tools.structural_helper
+[2026-02-08 17:35:55.265527] Checking orphan modules...
+[2026-02-08 17:35:56.536035] SUCCESS: Loaded main
+[2026-02-08 17:35:56.536185] SUCCESS: Loaded niblit_net
+[2026-02-08 17:35:56.850787] SUCCESS: Loaded server
+[2026-02-08 17:35:56.850990] SUCCESS: Loaded niblit_memory
+[2026-02-08 17:35:56.858982] SUCCESS: Loaded app
+[2026-02-08 17:35:57.351983] SUCCESS: Loaded hf_test
+[2026-02-08 17:35:57.353910] SUCCESS: Loaded modules.llm_adapter
+[2026-02-08 17:35:57.355359] SUCCESS: Loaded modules.internet_manager
+[2026-02-08 17:35:57.356673] SUCCESS: Loaded modules.evolve
+[2026-02-08 17:35:57.357123] SUCCESS: Loaded tools.repo_audit
+[2026-02-08 17:35:57.357374] SUCCESS: Loaded tools.structural_helper
+[2026-02-08 17:35:57.357584] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-08 17:35:57.357773] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 21:33:26.018111] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 21:33:26.021388] Checking missing modules...
+[2026-02-09 21:33:26.029678] SUCCESS: Loaded modules.db
+[2026-02-09 21:33:26.030803] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 21:33:26.030919] Checking orphan modules...
+[2026-02-09 21:33:27.373744] SUCCESS: Loaded main
+[2026-02-09 21:33:27.373883] SUCCESS: Loaded niblit_net
+[2026-02-09 21:33:27.724533] SUCCESS: Loaded server
+[2026-02-09 21:33:27.724736] SUCCESS: Loaded niblit_memory
+[2026-02-09 21:33:27.731989] SUCCESS: Loaded app
+[2026-02-09 21:33:28.294891] SUCCESS: Loaded hf_test
+[2026-02-09 21:33:28.296957] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 21:33:28.298672] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 21:33:28.300360] SUCCESS: Loaded modules.evolve
+[2026-02-09 21:33:28.300758] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 21:33:28.301003] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 21:33:28.301251] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 21:33:28.301431] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 21:47:53.611218] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 21:47:53.613966] Checking missing modules...
+[2026-02-09 21:47:53.621524] SUCCESS: Loaded modules.db
+[2026-02-09 21:47:53.622533] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 21:47:53.622631] Checking orphan modules...
+[2026-02-09 21:47:55.040814] SUCCESS: Loaded main
+[2026-02-09 21:47:55.040949] SUCCESS: Loaded niblit_net
+[2026-02-09 21:47:55.331491] SUCCESS: Loaded server
+[2026-02-09 21:47:55.331692] SUCCESS: Loaded niblit_memory
+[2026-02-09 21:47:55.338886] SUCCESS: Loaded app
+[2026-02-09 21:47:55.773251] SUCCESS: Loaded hf_test
+[2026-02-09 21:47:55.773704] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 21:47:55.775361] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 21:47:55.776904] SUCCESS: Loaded modules.evolve
+[2026-02-09 21:47:55.777228] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 21:47:55.777432] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 21:47:55.777617] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 21:47:55.777782] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 22:17:13.749366] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 22:17:13.752359] Checking missing modules...
+[2026-02-09 22:17:13.759742] SUCCESS: Loaded modules.db
+[2026-02-09 22:17:13.760822] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 22:17:13.760926] Checking orphan modules...
+[2026-02-09 22:17:15.148623] SUCCESS: Loaded main
+[2026-02-09 22:17:15.148753] SUCCESS: Loaded niblit_net
+[2026-02-09 22:17:15.425419] SUCCESS: Loaded server
+[2026-02-09 22:17:15.425625] SUCCESS: Loaded niblit_memory
+[2026-02-09 22:17:15.431999] SUCCESS: Loaded app
+[2026-02-09 22:17:15.865315] SUCCESS: Loaded hf_test
+[2026-02-09 22:17:15.865882] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 22:17:15.867490] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 22:17:15.869067] SUCCESS: Loaded modules.evolve
+[2026-02-09 22:17:15.869387] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 22:17:15.869588] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 22:17:15.869769] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 22:17:15.869931] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 22:37:26.074015] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 22:37:26.074720] Checking missing modules...
+[2026-02-09 22:37:26.084323] SUCCESS: Loaded modules.db
+[2026-02-09 22:37:26.085572] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 22:37:26.085701] Checking orphan modules...
+[2026-02-09 22:37:27.490031] SUCCESS: Loaded main
+[2026-02-09 22:37:27.490164] SUCCESS: Loaded niblit_net
+[2026-02-09 22:37:27.756765] SUCCESS: Loaded server
+[2026-02-09 22:37:27.756963] SUCCESS: Loaded niblit_memory
+[2026-02-09 22:37:27.763295] SUCCESS: Loaded app
+[2026-02-09 22:37:28.232712] SUCCESS: Loaded hf_test
+[2026-02-09 22:37:28.233120] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 22:37:28.234465] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 22:37:28.235854] SUCCESS: Loaded modules.evolve
+[2026-02-09 22:37:28.236113] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 22:37:28.236300] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 22:37:28.236472] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 22:37:28.236628] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 22:49:04.430909] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 22:49:04.433709] Checking missing modules...
+[2026-02-09 22:49:04.440961] SUCCESS: Loaded modules.db
+[2026-02-09 22:49:04.442053] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 22:49:04.442155] Checking orphan modules...
+[2026-02-09 22:49:05.826587] SUCCESS: Loaded main
+[2026-02-09 22:49:05.826729] SUCCESS: Loaded niblit_net
+[2026-02-09 22:49:06.079370] SUCCESS: Loaded server
+[2026-02-09 22:49:06.079565] SUCCESS: Loaded niblit_memory
+[2026-02-09 22:49:06.085991] SUCCESS: Loaded app
+[2026-02-09 22:49:06.485497] SUCCESS: Loaded hf_test
+[2026-02-09 22:49:06.486007] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 22:49:06.487725] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 22:49:06.489310] SUCCESS: Loaded modules.evolve
+[2026-02-09 22:49:06.489648] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 22:49:06.489856] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 22:49:06.490041] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 22:49:06.490205] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 22:53:07.857315] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 22:53:07.860165] Checking missing modules...
+[2026-02-09 22:53:07.867850] SUCCESS: Loaded modules.db
+[2026-02-09 22:53:07.870422] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 22:53:07.870549] Checking orphan modules...
+[2026-02-09 22:53:09.308329] SUCCESS: Loaded main
+[2026-02-09 22:53:09.308477] SUCCESS: Loaded niblit_net
+[2026-02-09 22:53:09.575815] SUCCESS: Loaded server
+[2026-02-09 22:53:09.576097] SUCCESS: Loaded niblit_memory
+[2026-02-09 22:53:09.584139] SUCCESS: Loaded app
+[2026-02-09 22:53:10.131212] SUCCESS: Loaded hf_test
+[2026-02-09 22:53:10.131643] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 22:53:10.133096] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 22:53:10.134385] SUCCESS: Loaded modules.evolve
+[2026-02-09 22:53:10.134648] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 22:53:10.134841] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 22:53:10.135020] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 22:53:10.135364] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 23:11:03.664711] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 23:11:03.668042] Checking missing modules...
+[2026-02-09 23:11:03.677927] SUCCESS: Loaded modules.db
+[2026-02-09 23:11:03.679028] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 23:11:03.679163] Checking orphan modules...
+[2026-02-09 23:11:05.036317] SUCCESS: Loaded main
+[2026-02-09 23:11:05.036448] SUCCESS: Loaded niblit_net
+[2026-02-09 23:11:05.311303] SUCCESS: Loaded server
+[2026-02-09 23:11:05.311502] SUCCESS: Loaded niblit_memory
+[2026-02-09 23:11:05.317558] SUCCESS: Loaded app
+[2026-02-09 23:11:05.746380] SUCCESS: Loaded hf_test
+[2026-02-09 23:11:05.746847] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 23:11:05.748583] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 23:11:05.750165] SUCCESS: Loaded modules.evolve
+[2026-02-09 23:11:05.750531] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 23:11:05.750753] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 23:11:05.750933] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 23:11:05.751187] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 23:40:24.837846] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 23:40:24.840924] Checking missing modules...
+[2026-02-09 23:40:24.848135] SUCCESS: Loaded modules.db
+[2026-02-09 23:40:24.849157] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 23:40:24.849262] Checking orphan modules...
+[2026-02-09 23:40:26.170729] SUCCESS: Loaded main
+[2026-02-09 23:40:26.170869] SUCCESS: Loaded niblit_net
+[2026-02-09 23:40:26.423118] SUCCESS: Loaded server
+[2026-02-09 23:40:26.423319] SUCCESS: Loaded niblit_memory
+[2026-02-09 23:40:26.429283] SUCCESS: Loaded app
+[2026-02-09 23:40:26.839217] SUCCESS: Loaded hf_test
+[2026-02-09 23:40:26.839725] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 23:40:26.841315] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 23:40:26.842762] SUCCESS: Loaded modules.evolve
+[2026-02-09 23:40:26.843152] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 23:40:26.843415] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 23:40:26.843612] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 23:40:26.843775] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-09 23:46:37.794156] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-09 23:46:37.797295] Checking missing modules...
+[2026-02-09 23:46:37.804951] SUCCESS: Loaded modules.db
+[2026-02-09 23:46:37.806091] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 23:46:37.806193] Checking orphan modules...
+[2026-02-09 23:46:39.174673] SUCCESS: Loaded main
+[2026-02-09 23:46:39.174813] SUCCESS: Loaded niblit_net
+[2026-02-09 23:46:39.438110] SUCCESS: Loaded server
+[2026-02-09 23:46:39.438308] SUCCESS: Loaded niblit_memory
+[2026-02-09 23:46:39.444963] SUCCESS: Loaded app
+[2026-02-09 23:46:39.853225] SUCCESS: Loaded hf_test
+[2026-02-09 23:46:39.853708] SUCCESS: Loaded modules.llm_adapter
+[2026-02-09 23:46:39.855401] SUCCESS: Loaded modules.internet_manager
+[2026-02-09 23:46:39.856900] SUCCESS: Loaded modules.evolve
+[2026-02-09 23:46:39.857249] SUCCESS: Loaded tools.repo_audit
+[2026-02-09 23:46:39.857469] SUCCESS: Loaded tools.structural_helper
+[2026-02-09 23:46:39.857654] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-09 23:46:39.857818] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-10 00:03:53.406810] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-10 00:03:53.409539] Checking missing modules...
+[2026-02-10 00:03:53.418018] SUCCESS: Loaded modules.db
+[2026-02-10 00:03:53.419460] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 00:03:53.419608] Checking orphan modules...
+[2026-02-10 00:03:54.879911] SUCCESS: Loaded main
+[2026-02-10 00:03:54.880078] SUCCESS: Loaded niblit_net
+[2026-02-10 00:03:55.156562] SUCCESS: Loaded server
+[2026-02-10 00:03:55.156818] SUCCESS: Loaded niblit_memory
+[2026-02-10 00:03:55.165155] SUCCESS: Loaded app
+[2026-02-10 00:03:55.568316] SUCCESS: Loaded hf_test
+[2026-02-10 00:03:55.568680] SUCCESS: Loaded modules.llm_adapter
+[2026-02-10 00:03:55.569728] SUCCESS: Loaded modules.internet_manager
+[2026-02-10 00:03:55.570524] SUCCESS: Loaded modules.evolve
+[2026-02-10 00:03:55.570681] SUCCESS: Loaded tools.repo_audit
+[2026-02-10 00:03:55.570796] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 00:03:55.570922] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-10 00:03:55.571024] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-10 00:06:22.056909] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-10 00:06:22.057125] Checking missing modules...
+[2026-02-10 00:06:22.064927] SUCCESS: Loaded modules.db
+[2026-02-10 00:06:22.066091] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 00:06:22.066208] Checking orphan modules...
+[2026-02-10 00:06:23.531651] SUCCESS: Loaded main
+[2026-02-10 00:06:23.531799] SUCCESS: Loaded niblit_net
+[2026-02-10 00:06:23.714830] SUCCESS: Loaded server
+[2026-02-10 00:06:23.715027] SUCCESS: Loaded niblit_memory
+[2026-02-10 00:06:23.720093] SUCCESS: Loaded app
+[2026-02-10 00:06:24.110225] SUCCESS: Loaded hf_test
+[2026-02-10 00:06:24.110563] SUCCESS: Loaded modules.llm_adapter
+[2026-02-10 00:06:24.111699] SUCCESS: Loaded modules.internet_manager
+[2026-02-10 00:06:24.112631] SUCCESS: Loaded modules.evolve
+[2026-02-10 00:06:24.112860] SUCCESS: Loaded tools.repo_audit
+[2026-02-10 00:06:24.113013] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 00:06:24.113151] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-10 00:06:24.113286] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-10 18:27:09.829336] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-10 18:27:09.832262] Checking missing modules...
+[2026-02-10 18:27:09.839201] SUCCESS: Loaded modules.db
+[2026-02-10 18:27:09.840291] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 18:27:09.840392] Checking orphan modules...
+[2026-02-10 18:27:11.179234] SUCCESS: Loaded main
+[2026-02-10 18:27:11.179365] SUCCESS: Loaded niblit_net
+[2026-02-10 18:27:11.445172] SUCCESS: Loaded server
+[2026-02-10 18:27:11.445382] SUCCESS: Loaded niblit_memory
+[2026-02-10 18:27:11.452728] SUCCESS: Loaded app
+[2026-02-10 18:27:11.870244] SUCCESS: Loaded hf_test
+[2026-02-10 18:27:11.870578] SUCCESS: Loaded modules.llm_adapter
+[2026-02-10 18:27:11.871588] SUCCESS: Loaded modules.internet_manager
+[2026-02-10 18:27:11.872547] SUCCESS: Loaded modules.evolve
+[2026-02-10 18:27:11.872746] SUCCESS: Loaded tools.repo_audit
+[2026-02-10 18:27:11.872874] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 18:27:11.872979] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-10 18:27:11.873055] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-10 18:52:30.754930] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-10 18:52:30.757872] Checking missing modules...
+[2026-02-10 18:52:30.765806] SUCCESS: Loaded modules.db
+[2026-02-10 18:52:30.766842] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 18:52:30.766943] Checking orphan modules...
+[2026-02-10 18:52:32.107950] SUCCESS: Loaded main
+[2026-02-10 18:52:32.108095] SUCCESS: Loaded niblit_net
+[2026-02-10 18:52:32.378852] SUCCESS: Loaded server
+[2026-02-10 18:52:32.379080] SUCCESS: Loaded niblit_memory
+[2026-02-10 18:52:32.385760] SUCCESS: Loaded app
+[2026-02-10 18:52:32.813144] SUCCESS: Loaded hf_test
+[2026-02-10 18:52:32.813641] SUCCESS: Loaded modules.llm_adapter
+[2026-02-10 18:52:32.815323] SUCCESS: Loaded modules.internet_manager
+[2026-02-10 18:52:32.816851] SUCCESS: Loaded modules.evolve
+[2026-02-10 18:52:32.817150] SUCCESS: Loaded tools.repo_audit
+[2026-02-10 18:52:32.817346] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 18:52:32.817527] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-10 18:52:32.817685] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-10 19:17:03.225356] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-10 19:17:03.226056] Checking missing modules...
+[2026-02-10 19:17:03.236112] SUCCESS: Loaded modules.db
+[2026-02-10 19:17:03.238826] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 19:17:03.238957] Checking orphan modules...
+[2026-02-10 19:17:05.182330] SUCCESS: Loaded main
+[2026-02-10 19:17:05.182463] SUCCESS: Loaded niblit_net
+[2026-02-10 19:17:05.450679] SUCCESS: Loaded server
+[2026-02-10 19:17:05.450904] SUCCESS: Loaded niblit_memory
+[2026-02-10 19:17:05.458486] SUCCESS: Loaded app
+[2026-02-10 19:17:05.850087] SUCCESS: Loaded hf_test
+[2026-02-10 19:17:05.850698] SUCCESS: Loaded modules.llm_adapter
+[2026-02-10 19:17:05.852648] SUCCESS: Loaded modules.internet_manager
+[2026-02-10 19:17:05.854335] SUCCESS: Loaded modules.evolve
+[2026-02-10 19:17:05.854689] SUCCESS: Loaded tools.repo_audit
+[2026-02-10 19:17:05.854905] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 19:17:05.855097] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-10 19:17:05.855271] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-10 19:41:28.934049] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-10 19:41:28.937755] Checking missing modules...
+[2026-02-10 19:41:28.945292] SUCCESS: Loaded modules.db
+[2026-02-10 19:41:28.946369] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 19:41:28.946468] Checking orphan modules...
+[2026-02-10 19:41:30.315597] SUCCESS: Loaded main
+[2026-02-10 19:41:30.315775] SUCCESS: Loaded niblit_net
+[2026-02-10 19:41:30.641721] SUCCESS: Loaded server
+[2026-02-10 19:41:30.641997] SUCCESS: Loaded niblit_memory
+[2026-02-10 19:41:30.649623] SUCCESS: Loaded app
+[2026-02-10 19:41:31.134094] SUCCESS: Loaded hf_test
+[2026-02-10 19:41:31.134579] SUCCESS: Loaded modules.llm_adapter
+[2026-02-10 19:41:31.136208] SUCCESS: Loaded modules.internet_manager
+[2026-02-10 19:41:31.137693] SUCCESS: Loaded modules.evolve
+[2026-02-10 19:41:31.138000] SUCCESS: Loaded tools.repo_audit
+[2026-02-10 19:41:31.138195] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 19:41:31.138414] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-10 19:41:31.138580] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-10 23:00:57.219279] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-10 23:00:57.221739] Checking missing modules...
+[2026-02-10 23:00:57.229710] SUCCESS: Loaded modules.db
+[2026-02-10 23:00:57.230833] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 23:00:57.230941] Checking orphan modules...
+[2026-02-10 23:00:58.740217] SUCCESS: Loaded main
+[2026-02-10 23:00:58.740350] SUCCESS: Loaded niblit_net
+[2026-02-10 23:00:59.093070] SUCCESS: Loaded server
+[2026-02-10 23:00:59.093290] SUCCESS: Loaded niblit_memory
+[2026-02-10 23:00:59.101118] SUCCESS: Loaded app
+[2026-02-10 23:00:59.731332] SUCCESS: Loaded hf_test
+[2026-02-10 23:00:59.731575] SUCCESS: Loaded modules.llm_adapter
+[2026-02-10 23:00:59.731790] SUCCESS: Loaded modules.internet_manager
+[2026-02-10 23:00:59.732509] SUCCESS: Loaded modules.evolve
+[2026-02-10 23:00:59.732661] SUCCESS: Loaded tools.repo_audit
+[2026-02-10 23:00:59.732750] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 23:00:59.732823] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-10 23:00:59.732886] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-10 23:16:42.700995] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-10 23:16:42.703746] Checking missing modules...
+[2026-02-10 23:16:42.711454] SUCCESS: Loaded modules.db
+[2026-02-10 23:16:42.712660] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 23:16:42.712778] Checking orphan modules...
+[2026-02-10 23:16:44.148181] SUCCESS: Loaded main
+[2026-02-10 23:16:44.148319] SUCCESS: Loaded niblit_net
+[2026-02-10 23:16:44.472235] SUCCESS: Loaded server
+[2026-02-10 23:16:44.472491] SUCCESS: Loaded niblit_memory
+[2026-02-10 23:16:44.480276] SUCCESS: Loaded app
+[2026-02-10 23:16:44.887465] SUCCESS: Loaded hf_test
+[2026-02-10 23:16:44.888099] SUCCESS: Loaded modules.llm_adapter
+[2026-02-10 23:16:44.888414] SUCCESS: Loaded modules.internet_manager
+[2026-02-10 23:16:44.889804] SUCCESS: Loaded modules.evolve
+[2026-02-10 23:16:44.890082] SUCCESS: Loaded tools.repo_audit
+[2026-02-10 23:16:44.890279] SUCCESS: Loaded tools.structural_helper
+[2026-02-10 23:16:44.890467] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-10 23:16:44.890635] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-11 21:46:41.971567] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-11 21:46:41.975121] Checking missing modules...
+[2026-02-11 21:46:41.982886] SUCCESS: Loaded modules.db
+[2026-02-11 21:46:41.984042] SUCCESS: Loaded tools.structural_helper
+[2026-02-11 21:46:41.984151] Checking orphan modules...
+[2026-02-11 21:46:43.322141] SUCCESS: Loaded main
+[2026-02-11 21:46:43.322310] SUCCESS: Loaded niblit_net
+[2026-02-11 21:46:43.674206] SUCCESS: Loaded server
+[2026-02-11 21:46:43.674536] SUCCESS: Loaded niblit_memory
+[2026-02-11 21:46:43.682327] SUCCESS: Loaded app
+[2026-02-11 21:46:44.079371] SUCCESS: Loaded hf_test
+[2026-02-11 21:46:44.079858] SUCCESS: Loaded modules.llm_adapter
+[2026-02-11 21:46:44.080131] SUCCESS: Loaded modules.internet_manager
+[2026-02-11 21:46:44.081521] SUCCESS: Loaded modules.evolve
+[2026-02-11 21:46:44.081796] SUCCESS: Loaded tools.repo_audit
+[2026-02-11 21:46:44.081984] SUCCESS: Loaded tools.structural_helper
+[2026-02-11 21:46:44.082160] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-11 21:46:44.082419] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-12 00:16:58.916196] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-12 00:16:58.919020] Checking missing modules...
+[2026-02-12 00:16:58.926227] SUCCESS: Loaded modules.db
+[2026-02-12 00:16:58.927426] SUCCESS: Loaded tools.structural_helper
+[2026-02-12 00:16:58.927531] Checking orphan modules...
+[2026-02-12 00:17:00.284428] SUCCESS: Loaded main
+[2026-02-12 00:17:00.284558] SUCCESS: Loaded niblit_net
+[2026-02-12 00:17:00.622923] SUCCESS: Loaded server
+[2026-02-12 00:17:00.623123] SUCCESS: Loaded niblit_memory
+[2026-02-12 00:17:00.630927] SUCCESS: Loaded app
+[2026-02-12 00:17:01.042968] SUCCESS: Loaded hf_test
+[2026-02-12 00:17:01.043456] SUCCESS: Loaded modules.llm_adapter
+[2026-02-12 00:17:01.043742] SUCCESS: Loaded modules.internet_manager
+[2026-02-12 00:17:01.045117] SUCCESS: Loaded modules.evolve
+[2026-02-12 00:17:01.045389] SUCCESS: Loaded tools.repo_audit
+[2026-02-12 00:17:01.045577] SUCCESS: Loaded tools.structural_helper
+[2026-02-12 00:17:01.045751] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-12 00:17:01.045905] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 21:36:29.421971] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 21:36:29.424948] Checking missing modules...
+[2026-02-13 21:36:29.433132] SUCCESS: Loaded modules.db
+[2026-02-13 21:36:29.435784] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 21:36:29.435905] Checking orphan modules...
+[2026-02-13 21:36:31.033962] SUCCESS: Loaded main
+[2026-02-13 21:36:31.034151] SUCCESS: Loaded niblit_net
+[2026-02-13 21:36:31.373899] SUCCESS: Loaded server
+[2026-02-13 21:36:31.374088] SUCCESS: Loaded niblit_memory
+[2026-02-13 21:36:31.382630] SUCCESS: Loaded app
+[2026-02-13 21:36:31.929045] SUCCESS: Loaded hf_test
+[2026-02-13 21:36:31.929287] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 21:36:31.929386] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 21:36:31.929987] SUCCESS: Loaded modules.evolve
+[2026-02-13 21:36:31.930153] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 21:36:31.930272] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 21:36:31.930350] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 21:36:31.930407] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 21:50:55.026045] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 21:50:55.028807] Checking missing modules...
+[2026-02-13 21:50:55.038415] SUCCESS: Loaded modules.db
+[2026-02-13 21:50:55.041149] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 21:50:55.041317] Checking orphan modules...
+[2026-02-13 21:50:56.495315] SUCCESS: Loaded main
+[2026-02-13 21:50:56.495463] SUCCESS: Loaded niblit_net
+[2026-02-13 21:50:56.834906] SUCCESS: Loaded server
+[2026-02-13 21:50:56.835108] SUCCESS: Loaded niblit_memory
+[2026-02-13 21:50:56.843855] SUCCESS: Loaded app
+[2026-02-13 21:50:57.247840] SUCCESS: Loaded hf_test
+[2026-02-13 21:50:57.248344] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 21:50:57.248629] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 21:50:57.250171] SUCCESS: Loaded modules.evolve
+[2026-02-13 21:50:57.250526] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 21:50:57.250770] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 21:50:57.250956] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 21:50:57.251115] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 21:57:29.474690] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 21:57:29.477422] Checking missing modules...
+[2026-02-13 21:57:29.485695] SUCCESS: Loaded modules.db
+[2026-02-13 21:57:29.486875] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 21:57:29.486987] Checking orphan modules...
+[2026-02-13 21:57:30.960516] SUCCESS: Loaded main
+[2026-02-13 21:57:30.960658] SUCCESS: Loaded niblit_net
+[2026-02-13 21:57:31.301032] SUCCESS: Loaded server
+[2026-02-13 21:57:31.301255] SUCCESS: Loaded niblit_memory
+[2026-02-13 21:57:31.309069] SUCCESS: Loaded app
+[2026-02-13 21:57:31.738162] SUCCESS: Loaded hf_test
+[2026-02-13 21:57:31.738628] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 21:57:31.738869] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 21:57:31.740197] SUCCESS: Loaded modules.evolve
+[2026-02-13 21:57:31.740476] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 21:57:31.740675] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 21:57:31.740860] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 21:57:31.741031] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 22:03:43.951722] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 22:03:43.954387] Checking missing modules...
+[2026-02-13 22:03:43.961868] SUCCESS: Loaded modules.db
+[2026-02-13 22:03:43.963230] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:03:43.963352] Checking orphan modules...
+[2026-02-13 22:03:45.360630] SUCCESS: Loaded main
+[2026-02-13 22:03:45.360761] SUCCESS: Loaded niblit_net
+[2026-02-13 22:03:45.686602] SUCCESS: Loaded server
+[2026-02-13 22:03:45.686797] SUCCESS: Loaded niblit_memory
+[2026-02-13 22:03:45.694704] SUCCESS: Loaded app
+[2026-02-13 22:03:46.099254] SUCCESS: Loaded hf_test
+[2026-02-13 22:03:46.099840] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 22:03:46.100087] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 22:03:46.101529] SUCCESS: Loaded modules.evolve
+[2026-02-13 22:03:46.101832] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 22:03:46.102036] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:03:46.102321] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 22:03:46.102509] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 22:16:50.180479] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 22:16:50.183567] Checking missing modules...
+[2026-02-13 22:16:50.190802] SUCCESS: Loaded modules.db
+[2026-02-13 22:16:50.191863] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:16:50.191960] Checking orphan modules...
+[2026-02-13 22:16:51.542679] SUCCESS: Loaded main
+[2026-02-13 22:16:51.542807] SUCCESS: Loaded niblit_net
+[2026-02-13 22:16:51.862496] SUCCESS: Loaded server
+[2026-02-13 22:16:51.862711] SUCCESS: Loaded niblit_memory
+[2026-02-13 22:16:51.870239] SUCCESS: Loaded app
+[2026-02-13 22:16:52.302289] SUCCESS: Loaded hf_test
+[2026-02-13 22:16:52.302792] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 22:16:52.303041] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 22:16:52.304461] SUCCESS: Loaded modules.evolve
+[2026-02-13 22:16:52.304778] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 22:16:52.304979] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:16:52.305159] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 22:16:52.305317] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 22:30:42.467317] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 22:30:42.470311] Checking missing modules...
+[2026-02-13 22:30:42.478295] SUCCESS: Loaded modules.db
+[2026-02-13 22:30:42.480775] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:30:42.480882] Checking orphan modules...
+[2026-02-13 22:30:43.897272] SUCCESS: Loaded main
+[2026-02-13 22:30:43.897400] SUCCESS: Loaded niblit_net
+[2026-02-13 22:30:44.235571] SUCCESS: Loaded server
+[2026-02-13 22:30:44.235785] SUCCESS: Loaded niblit_memory
+[2026-02-13 22:30:44.243623] SUCCESS: Loaded app
+[2026-02-13 22:30:44.637202] SUCCESS: Loaded hf_test
+[2026-02-13 22:30:44.637641] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 22:30:44.637887] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 22:30:44.639490] SUCCESS: Loaded modules.evolve
+[2026-02-13 22:30:44.639817] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 22:30:44.640020] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:30:44.640203] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 22:30:44.640365] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 22:50:06.961860] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 22:50:06.964854] Checking missing modules...
+[2026-02-13 22:50:06.972315] SUCCESS: Loaded modules.db
+[2026-02-13 22:50:06.973473] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:50:06.973578] Checking orphan modules...
+[2026-02-13 22:50:08.373747] SUCCESS: Loaded main
+[2026-02-13 22:50:08.373880] SUCCESS: Loaded niblit_net
+[2026-02-13 22:50:08.709058] SUCCESS: Loaded server
+[2026-02-13 22:50:08.709276] SUCCESS: Loaded niblit_memory
+[2026-02-13 22:50:08.717074] SUCCESS: Loaded app
+[2026-02-13 22:50:09.105960] SUCCESS: Loaded hf_test
+[2026-02-13 22:50:09.106537] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 22:50:09.106848] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 22:50:09.108408] SUCCESS: Loaded modules.evolve
+[2026-02-13 22:50:09.108765] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 22:50:09.108970] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:50:09.109148] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 22:50:09.109309] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 22:59:13.669966] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 22:59:13.672580] Checking missing modules...
+[2026-02-13 22:59:13.681201] SUCCESS: Loaded modules.db
+[2026-02-13 22:59:13.682545] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:59:13.682672] Checking orphan modules...
+[2026-02-13 22:59:15.164077] SUCCESS: Loaded main
+[2026-02-13 22:59:15.164221] SUCCESS: Loaded niblit_net
+[2026-02-13 22:59:15.495082] SUCCESS: Loaded server
+[2026-02-13 22:59:15.495289] SUCCESS: Loaded niblit_memory
+[2026-02-13 22:59:15.503253] SUCCESS: Loaded app
+[2026-02-13 22:59:15.872944] SUCCESS: Loaded hf_test
+[2026-02-13 22:59:15.873134] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 22:59:15.873230] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 22:59:15.873794] SUCCESS: Loaded modules.evolve
+[2026-02-13 22:59:15.873909] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 22:59:15.873982] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 22:59:15.874047] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 22:59:15.874145] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 23:15:26.588955] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 23:15:26.592039] Checking missing modules...
+[2026-02-13 23:15:26.599288] SUCCESS: Loaded modules.db
+[2026-02-13 23:15:26.600418] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 23:15:26.600526] Checking orphan modules...
+[2026-02-13 23:15:28.013425] SUCCESS: Loaded main
+[2026-02-13 23:15:28.013563] SUCCESS: Loaded niblit_net
+[2026-02-13 23:15:28.335661] SUCCESS: Loaded server
+[2026-02-13 23:15:28.336229] SUCCESS: Loaded niblit_memory
+[2026-02-13 23:15:28.344947] SUCCESS: Loaded app
+[2026-02-13 23:15:28.824896] SUCCESS: Loaded hf_test
+[2026-02-13 23:15:28.825288] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 23:15:28.825544] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 23:15:28.826897] SUCCESS: Loaded modules.evolve
+[2026-02-13 23:15:28.827192] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 23:15:28.827399] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 23:15:28.827588] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 23:15:28.827755] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 23:19:00.171116] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 23:19:00.174048] Checking missing modules...
+[2026-02-13 23:19:00.181996] SUCCESS: Loaded modules.db
+[2026-02-13 23:19:00.184742] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 23:19:00.184870] Checking orphan modules...
+[2026-02-13 23:19:02.127733] SUCCESS: Loaded main
+[2026-02-13 23:19:02.127968] SUCCESS: Loaded niblit_net
+[2026-02-13 23:19:02.641840] SUCCESS: Loaded server
+[2026-02-13 23:19:02.643548] SUCCESS: Loaded niblit_memory
+[2026-02-13 23:19:02.652858] SUCCESS: Loaded app
+[2026-02-13 23:19:03.038559] SUCCESS: Loaded hf_test
+[2026-02-13 23:19:03.038791] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 23:19:03.038920] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 23:19:03.040352] SUCCESS: Loaded modules.evolve
+[2026-02-13 23:19:03.040573] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 23:19:03.040765] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 23:19:03.040911] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 23:19:03.041017] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 23:27:39.172074] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 23:27:39.174641] Checking missing modules...
+[2026-02-13 23:27:39.182316] SUCCESS: Loaded modules.db
+[2026-02-13 23:27:39.183563] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 23:27:39.183684] Checking orphan modules...
+[2026-02-13 23:27:40.656722] SUCCESS: Loaded main
+[2026-02-13 23:27:40.656849] SUCCESS: Loaded niblit_net
+[2026-02-13 23:27:40.977868] SUCCESS: Loaded server
+[2026-02-13 23:27:40.978082] SUCCESS: Loaded niblit_memory
+[2026-02-13 23:27:40.985787] SUCCESS: Loaded app
+[2026-02-13 23:27:41.480083] SUCCESS: Loaded hf_test
+[2026-02-13 23:27:41.480552] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 23:27:41.480800] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 23:27:41.482380] SUCCESS: Loaded modules.evolve
+[2026-02-13 23:27:41.482780] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 23:27:41.483011] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 23:27:41.483225] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 23:27:41.483404] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-13 23:34:14.902384] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-13 23:34:14.905454] Checking missing modules...
+[2026-02-13 23:34:14.912775] SUCCESS: Loaded modules.db
+[2026-02-13 23:34:14.913925] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 23:34:14.914033] Checking orphan modules...
+[2026-02-13 23:34:16.280953] SUCCESS: Loaded main
+[2026-02-13 23:34:16.281088] SUCCESS: Loaded niblit_net
+[2026-02-13 23:34:16.604908] SUCCESS: Loaded server
+[2026-02-13 23:34:16.605244] SUCCESS: Loaded niblit_memory
+[2026-02-13 23:34:16.625969] SUCCESS: Loaded app
+[2026-02-13 23:34:17.047085] SUCCESS: Loaded hf_test
+[2026-02-13 23:34:17.047539] SUCCESS: Loaded modules.llm_adapter
+[2026-02-13 23:34:17.047780] SUCCESS: Loaded modules.internet_manager
+[2026-02-13 23:34:17.049253] SUCCESS: Loaded modules.evolve
+[2026-02-13 23:34:17.049586] SUCCESS: Loaded tools.repo_audit
+[2026-02-13 23:34:17.049816] SUCCESS: Loaded tools.structural_helper
+[2026-02-13 23:34:17.049997] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-13 23:34:17.050265] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 10:45:48.651238] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 10:45:48.654510] Checking missing modules...
+[2026-02-14 10:45:48.662858] SUCCESS: Loaded modules.db
+[2026-02-14 10:45:48.664047] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 10:45:48.664207] Checking orphan modules...
+[2026-02-14 10:45:50.081392] SUCCESS: Loaded main
+[2026-02-14 10:45:50.081533] SUCCESS: Loaded niblit_net
+[2026-02-14 10:45:50.449115] SUCCESS: Loaded server
+[2026-02-14 10:45:50.449401] SUCCESS: Loaded niblit_memory
+[2026-02-14 10:45:50.475512] SUCCESS: Loaded app
+[2026-02-14 10:45:51.072769] SUCCESS: Loaded hf_test
+[2026-02-14 10:45:51.073247] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 10:45:51.073498] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 10:45:51.074884] SUCCESS: Loaded modules.evolve
+[2026-02-14 10:45:51.075222] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 10:45:51.075439] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 10:45:51.075632] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 10:45:51.075808] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 13:51:32.735316] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 13:51:32.738427] Checking missing modules...
+[2026-02-14 13:51:32.746203] SUCCESS: Loaded modules.db
+[2026-02-14 13:51:32.747435] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 13:51:32.747550] Checking orphan modules...
+[2026-02-14 13:51:33.017656] SUCCESS: Loaded main
+[2026-02-14 13:51:33.017795] SUCCESS: Loaded niblit_net
+[2026-02-14 13:51:33.328590] SUCCESS: Loaded server
+[2026-02-14 13:51:33.340574] SUCCESS: Loaded niblit_memory
+[2026-02-14 13:51:33.420863] SUCCESS: Loaded app
+[2026-02-14 13:51:34.075802] SUCCESS: Loaded hf_test
+[2026-02-14 13:51:34.076653] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 13:51:34.077492] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 13:51:34.080167] SUCCESS: Loaded modules.evolve
+[2026-02-14 13:51:34.080726] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 13:51:34.081436] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 13:51:34.081921] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 13:51:34.082313] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 14:14:42.642635] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 14:14:42.645795] Checking missing modules...
+[2026-02-14 14:14:42.654213] SUCCESS: Loaded modules.db
+[2026-02-14 14:14:42.655684] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 14:14:42.655812] Checking orphan modules...
+[2026-02-14 14:14:42.947795] SUCCESS: Loaded main
+[2026-02-14 14:14:42.947932] SUCCESS: Loaded niblit_net
+[2026-02-14 14:14:43.244782] SUCCESS: Loaded server
+[2026-02-14 14:14:43.245111] SUCCESS: Loaded niblit_memory
+[2026-02-14 14:14:43.296929] SUCCESS: Loaded app
+[2026-02-14 14:14:43.976807] SUCCESS: Loaded hf_test
+[2026-02-14 14:14:43.977757] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 14:14:43.978466] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 14:14:43.981251] SUCCESS: Loaded modules.evolve
+[2026-02-14 14:14:43.981762] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 14:14:43.982084] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 14:14:43.982363] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 14:14:43.982616] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 14:46:35.418202] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 14:46:35.419102] Checking missing modules...
+[2026-02-14 14:46:35.427727] SUCCESS: Loaded modules.db
+[2026-02-14 14:46:35.429217] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 14:46:35.429341] Checking orphan modules...
+[2026-02-14 14:46:35.721778] SUCCESS: Loaded main
+[2026-02-14 14:46:35.721942] SUCCESS: Loaded niblit_net
+[2026-02-14 14:46:36.020970] SUCCESS: Loaded server
+[2026-02-14 14:46:36.021241] SUCCESS: Loaded niblit_memory
+[2026-02-14 14:46:36.031920] SUCCESS: Loaded app
+[2026-02-14 14:46:36.473861] SUCCESS: Loaded hf_test
+[2026-02-14 14:46:36.477428] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 14:46:36.482997] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 14:46:36.503066] SUCCESS: Loaded modules.evolve
+[2026-02-14 14:46:36.507818] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 14:46:36.511685] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 14:46:36.515541] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 14:46:36.522495] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 15:04:58.775590] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 15:04:58.778326] Checking missing modules...
+[2026-02-14 15:04:58.785881] SUCCESS: Loaded modules.db
+[2026-02-14 15:04:58.786993] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 15:04:58.787096] Checking orphan modules...
+[2026-02-14 15:04:59.061798] SUCCESS: Loaded main
+[2026-02-14 15:04:59.061930] SUCCESS: Loaded niblit_net
+[2026-02-14 15:04:59.353702] SUCCESS: Loaded server
+[2026-02-14 15:04:59.365834] SUCCESS: Loaded niblit_memory
+[2026-02-14 15:04:59.377027] SUCCESS: Loaded app
+[2026-02-14 15:05:00.156879] SUCCESS: Loaded hf_test
+[2026-02-14 15:05:00.157669] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 15:05:00.158204] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 15:05:00.160812] SUCCESS: Loaded modules.evolve
+[2026-02-14 15:05:00.161454] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 15:05:00.161789] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 15:05:00.162114] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 15:05:00.162371] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 15:13:26.704446] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 15:13:26.707396] Checking missing modules...
+[2026-02-14 15:13:26.715501] SUCCESS: Loaded modules.db
+[2026-02-14 15:13:26.716777] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 15:13:26.716890] Checking orphan modules...
+[2026-02-14 15:13:26.976688] SUCCESS: Loaded main
+[2026-02-14 15:13:26.976825] SUCCESS: Loaded niblit_net
+[2026-02-14 15:13:27.222614] SUCCESS: Loaded server
+[2026-02-14 15:13:27.234420] SUCCESS: Loaded niblit_memory
+[2026-02-14 15:13:27.270315] SUCCESS: Loaded app
+[2026-02-14 15:13:27.771234] SUCCESS: Loaded hf_test
+[2026-02-14 15:13:27.772065] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 15:13:27.772820] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 15:13:27.775062] SUCCESS: Loaded modules.evolve
+[2026-02-14 15:13:27.775503] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 15:13:27.775823] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 15:13:27.776126] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 15:13:27.776534] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 16:07:31.730600] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 16:07:31.734156] Checking missing modules...
+[2026-02-14 16:07:31.741517] SUCCESS: Loaded modules.db
+[2026-02-14 16:07:31.742698] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 16:07:31.742802] Checking orphan modules...
+[2026-02-14 16:07:32.042689] SUCCESS: Loaded main
+[2026-02-14 16:07:32.042869] SUCCESS: Loaded niblit_net
+[2026-02-14 16:07:32.472588] SUCCESS: Loaded server
+[2026-02-14 16:07:32.477337] SUCCESS: Loaded niblit_memory
+[2026-02-14 16:07:32.501132] SUCCESS: Loaded app
+[2026-02-14 16:07:33.032533] SUCCESS: Loaded hf_test
+[2026-02-14 16:07:33.065739] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 16:07:33.119121] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 16:07:33.122010] SUCCESS: Loaded modules.evolve
+[2026-02-14 16:07:33.122421] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 16:07:33.122851] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 16:07:33.123282] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 16:07:33.123626] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 16:09:18.011710] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 16:09:18.011875] Checking missing modules...
+[2026-02-14 16:09:18.019298] SUCCESS: Loaded modules.db
+[2026-02-14 16:09:18.020635] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 16:09:18.020763] Checking orphan modules...
+[2026-02-14 16:09:18.315718] SUCCESS: Loaded main
+[2026-02-14 16:09:18.315899] SUCCESS: Loaded niblit_net
+[2026-02-14 16:09:18.516073] SUCCESS: Loaded server
+[2026-02-14 16:09:18.520224] SUCCESS: Loaded niblit_memory
+[2026-02-14 16:09:18.538774] SUCCESS: Loaded app
+[2026-02-14 16:09:19.573783] SUCCESS: Loaded hf_test
+[2026-02-14 16:09:19.574461] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 16:09:19.574879] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 16:09:19.576737] SUCCESS: Loaded modules.evolve
+[2026-02-14 16:09:19.577081] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 16:09:19.577317] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 16:09:19.577532] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 16:09:19.577720] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 17:54:40.888056] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 17:54:40.890989] Checking missing modules...
+[2026-02-14 17:54:40.899358] SUCCESS: Loaded modules.db
+[2026-02-14 17:54:40.900568] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 17:54:40.900671] Checking orphan modules...
+[2026-02-14 17:54:41.181523] SUCCESS: Loaded main
+[2026-02-14 17:54:41.181656] SUCCESS: Loaded niblit_net
+[2026-02-14 17:54:41.492357] SUCCESS: Loaded server
+[2026-02-14 17:54:41.518992] SUCCESS: Loaded niblit_memory
+[2026-02-14 17:54:41.571570] SUCCESS: Loaded app
+[2026-02-14 17:54:42.285772] SUCCESS: Loaded hf_test
+[2026-02-14 17:54:42.286555] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 17:54:42.287027] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 17:54:42.288752] SUCCESS: Loaded modules.evolve
+[2026-02-14 17:54:42.289118] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 17:54:42.289410] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 17:54:42.289698] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 17:54:42.289954] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-14 18:01:51.052650] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-14 18:01:51.055107] Checking missing modules...
+[2026-02-14 18:01:51.062844] SUCCESS: Loaded modules.db
+[2026-02-14 18:01:51.064112] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 18:01:51.064231] Checking orphan modules...
+[2026-02-14 18:01:51.352989] SUCCESS: Loaded main
+[2026-02-14 18:01:51.353126] SUCCESS: Loaded niblit_net
+[2026-02-14 18:01:51.641133] SUCCESS: Loaded server
+[2026-02-14 18:01:51.662167] SUCCESS: Loaded niblit_memory
+[2026-02-14 18:01:51.789310] SUCCESS: Loaded app
+[2026-02-14 18:01:52.456459] SUCCESS: Loaded hf_test
+[2026-02-14 18:01:52.457515] SUCCESS: Loaded modules.llm_adapter
+[2026-02-14 18:01:52.458444] SUCCESS: Loaded modules.internet_manager
+[2026-02-14 18:01:52.462156] SUCCESS: Loaded modules.evolve
+[2026-02-14 18:01:52.462809] SUCCESS: Loaded tools.repo_audit
+[2026-02-14 18:01:52.463328] SUCCESS: Loaded tools.structural_helper
+[2026-02-14 18:01:52.464024] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-14 18:01:52.464456] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-15 10:08:57.585170] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-15 10:08:57.588098] Checking missing modules...
+[2026-02-15 10:08:57.595303] SUCCESS: Loaded modules.db
+[2026-02-15 10:08:57.596425] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 10:08:57.596526] Checking orphan modules...
+[2026-02-15 10:08:57.858264] SUCCESS: Loaded main
+[2026-02-15 10:08:57.858393] SUCCESS: Loaded niblit_net
+[2026-02-15 10:08:58.170051] SUCCESS: Loaded server
+[2026-02-15 10:08:58.170422] SUCCESS: Loaded niblit_memory
+[2026-02-15 10:08:58.193298] SUCCESS: Loaded app
+[2026-02-15 10:08:58.739529] SUCCESS: Loaded hf_test
+[2026-02-15 10:08:58.739781] SUCCESS: Loaded modules.llm_adapter
+[2026-02-15 10:08:58.739870] SUCCESS: Loaded modules.internet_manager
+[2026-02-15 10:08:58.740442] SUCCESS: Loaded modules.evolve
+[2026-02-15 10:08:58.740532] SUCCESS: Loaded tools.repo_audit
+[2026-02-15 10:08:58.740595] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 10:08:58.740654] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-15 10:08:58.740706] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-15 10:30:31.862408] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-15 10:30:31.865401] Checking missing modules...
+[2026-02-15 10:30:31.873244] SUCCESS: Loaded modules.db
+[2026-02-15 10:30:31.875821] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 10:30:31.875934] Checking orphan modules...
+[2026-02-15 10:30:32.163851] SUCCESS: Loaded main
+[2026-02-15 10:30:32.163985] SUCCESS: Loaded niblit_net
+[2026-02-15 10:30:32.506152] SUCCESS: Loaded server
+[2026-02-15 10:30:32.510374] SUCCESS: Loaded niblit_memory
+[2026-02-15 10:30:32.734782] SUCCESS: Loaded app
+[2026-02-15 10:30:33.567150] SUCCESS: Loaded hf_test
+[2026-02-15 10:30:33.578729] SUCCESS: Loaded modules.llm_adapter
+[2026-02-15 10:30:33.597755] SUCCESS: Loaded modules.internet_manager
+[2026-02-15 10:30:33.708785] SUCCESS: Loaded modules.evolve
+[2026-02-15 10:30:33.829454] SUCCESS: Loaded tools.repo_audit
+[2026-02-15 10:30:33.892296] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 10:30:33.893096] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-15 10:30:33.893523] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-15 20:57:42.809896] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-15 20:57:42.813564] Checking missing modules...
+[2026-02-15 20:57:42.820795] SUCCESS: Loaded modules.db
+[2026-02-15 20:57:42.821952] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 20:57:42.822056] Checking orphan modules...
+[2026-02-15 20:57:43.088736] SUCCESS: Loaded main
+[2026-02-15 20:57:43.088866] SUCCESS: Loaded niblit_net
+[2026-02-15 20:57:43.425076] SUCCESS: Loaded server
+[2026-02-15 20:57:43.450491] SUCCESS: Loaded niblit_memory
+[2026-02-15 20:57:43.466000] SUCCESS: Loaded app
+[2026-02-15 20:57:44.360484] SUCCESS: Loaded hf_test
+[2026-02-15 20:57:44.386883] SUCCESS: Loaded modules.llm_adapter
+[2026-02-15 20:57:44.391957] SUCCESS: Loaded modules.internet_manager
+[2026-02-15 20:57:44.535577] SUCCESS: Loaded modules.evolve
+[2026-02-15 20:57:44.544304] SUCCESS: Loaded tools.repo_audit
+[2026-02-15 20:57:44.610098] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 20:57:44.735485] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-15 20:57:44.798944] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-15 21:48:13.428685] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-15 21:48:13.431466] Checking missing modules...
+[2026-02-15 21:48:13.439078] SUCCESS: Loaded modules.db
+[2026-02-15 21:48:13.440268] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 21:48:13.440374] Checking orphan modules...
+[2026-02-15 21:48:13.700218] SUCCESS: Loaded main
+[2026-02-15 21:48:13.700353] SUCCESS: Loaded niblit_net
+[2026-02-15 21:48:13.976003] SUCCESS: Loaded server
+[2026-02-15 21:48:13.976261] SUCCESS: Loaded niblit_memory
+[2026-02-15 21:48:13.985993] SUCCESS: Loaded app
+[2026-02-15 21:48:14.391144] SUCCESS: Loaded hf_test
+[2026-02-15 21:48:14.391733] SUCCESS: Loaded modules.llm_adapter
+[2026-02-15 21:48:14.392023] SUCCESS: Loaded modules.internet_manager
+[2026-02-15 21:48:14.393468] SUCCESS: Loaded modules.evolve
+[2026-02-15 21:48:14.393781] SUCCESS: Loaded tools.repo_audit
+[2026-02-15 21:48:14.393979] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 21:48:14.394187] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-15 21:48:14.394351] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-15 21:55:43.505814] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-15 21:55:43.508917] Checking missing modules...
+[2026-02-15 21:55:43.516199] SUCCESS: Loaded modules.db
+[2026-02-15 21:55:43.517308] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 21:55:43.517406] Checking orphan modules...
+[2026-02-15 21:55:43.770072] SUCCESS: Loaded main
+[2026-02-15 21:55:43.770232] SUCCESS: Loaded niblit_net
+[2026-02-15 21:55:44.043117] SUCCESS: Loaded server
+[2026-02-15 21:55:44.043589] SUCCESS: Loaded niblit_memory
+[2026-02-15 21:55:44.052958] SUCCESS: Loaded app
+[2026-02-15 21:55:44.471598] SUCCESS: Loaded hf_test
+[2026-02-15 21:55:44.472078] SUCCESS: Loaded modules.llm_adapter
+[2026-02-15 21:55:44.472327] SUCCESS: Loaded modules.internet_manager
+[2026-02-15 21:55:44.473660] SUCCESS: Loaded modules.evolve
+[2026-02-15 21:55:44.473960] SUCCESS: Loaded tools.repo_audit
+[2026-02-15 21:55:44.474178] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 21:55:44.474374] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-15 21:55:44.474534] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-15 22:05:53.506550] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-15 22:05:53.509790] Checking missing modules...
+[2026-02-15 22:05:53.517656] SUCCESS: Loaded modules.db
+[2026-02-15 22:05:53.518955] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 22:05:53.519078] Checking orphan modules...
+[2026-02-15 22:05:53.780498] SUCCESS: Loaded main
+[2026-02-15 22:05:53.780637] SUCCESS: Loaded niblit_net
+[2026-02-15 22:05:54.064980] SUCCESS: Loaded server
+[2026-02-15 22:05:54.065229] SUCCESS: Loaded niblit_memory
+[2026-02-15 22:05:54.074626] SUCCESS: Loaded app
+[2026-02-15 22:05:54.532265] SUCCESS: Loaded hf_test
+[2026-02-15 22:05:54.532732] SUCCESS: Loaded modules.llm_adapter
+[2026-02-15 22:05:54.532980] SUCCESS: Loaded modules.internet_manager
+[2026-02-15 22:05:54.534409] SUCCESS: Loaded modules.evolve
+[2026-02-15 22:05:54.534702] SUCCESS: Loaded tools.repo_audit
+[2026-02-15 22:05:54.534892] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 22:05:54.535066] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-15 22:05:54.535224] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-15 22:36:02.264285] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-15 22:36:02.267719] Checking missing modules...
+[2026-02-15 22:36:02.275131] SUCCESS: Loaded modules.db
+[2026-02-15 22:36:02.276294] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 22:36:02.276396] Checking orphan modules...
+[2026-02-15 22:36:02.529969] SUCCESS: Loaded main
+[2026-02-15 22:36:02.530102] SUCCESS: Loaded niblit_net
+[2026-02-15 22:36:02.812167] SUCCESS: Loaded server
+[2026-02-15 22:36:02.812419] SUCCESS: Loaded niblit_memory
+[2026-02-15 22:36:02.821750] SUCCESS: Loaded app
+[2026-02-15 22:36:03.352237] SUCCESS: Loaded hf_test
+[2026-02-15 22:36:03.352852] SUCCESS: Loaded modules.llm_adapter
+[2026-02-15 22:36:03.353225] SUCCESS: Loaded modules.internet_manager
+[2026-02-15 22:36:03.354740] SUCCESS: Loaded modules.evolve
+[2026-02-15 22:36:03.355071] SUCCESS: Loaded tools.repo_audit
+[2026-02-15 22:36:03.355333] SUCCESS: Loaded tools.structural_helper
+[2026-02-15 22:36:03.355591] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-15 22:36:03.355765] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-02-16 12:14:42.170316] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-02-16 12:14:42.170880] Checking missing modules...
+[2026-02-16 12:14:42.178349] SUCCESS: Loaded modules.db
+[2026-02-16 12:14:42.179569] SUCCESS: Loaded tools.structural_helper
+[2026-02-16 12:14:42.179676] Checking orphan modules...
+[2026-02-16 12:14:42.429949] SUCCESS: Loaded main
+[2026-02-16 12:14:42.430070] SUCCESS: Loaded niblit_net
+[2026-02-16 12:14:42.738491] SUCCESS: Loaded server
+[2026-02-16 12:14:42.738734] SUCCESS: Loaded niblit_memory
+[2026-02-16 12:14:42.747282] SUCCESS: Loaded app
+[2026-02-16 12:14:43.194243] SUCCESS: Loaded hf_test
+[2026-02-16 12:14:43.194704] SUCCESS: Loaded modules.llm_adapter
+[2026-02-16 12:14:43.194947] SUCCESS: Loaded modules.internet_manager
+[2026-02-16 12:14:43.196493] SUCCESS: Loaded modules.evolve
+[2026-02-16 12:14:43.196795] SUCCESS: Loaded tools.repo_audit
+[2026-02-16 12:14:43.196995] SUCCESS: Loaded tools.structural_helper
+[2026-02-16 12:14:43.197171] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-02-16 12:14:43.197328] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====

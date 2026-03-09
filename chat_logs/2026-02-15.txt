@@ -1,0 +1,156 @@
+[2026-02-15 10:09:17] USER: self-research python programming
+[2026-02-15 10:09:17] NIBLIT: 
+[2026-02-15 10:21:52] USER: toggle-llm on
+[2026-02-15 10:21:52] NIBLIT: 
+[2026-02-15 10:21:58] USER: n
+[2026-02-15 10:21:58] NIBLIT: 
+[2026-02-15 10:22:20] USER: hi
+[2026-02-15 10:22:20] NIBLIT: 
+[2026-02-15 10:22:34] USER: Hello Kimi.
+[2026-02-15 10:22:34] NIBLIT: 
+[2026-02-15 10:22:35] USER: Niblit is not just a chat client. It includes:
+[2026-02-15 10:22:35] NIBLIT: 
+[2026-02-15 10:22:38] USER: • persistent local memory
+[2026-02-15 10:22:38] NIBLIT: 
+[2026-02-15 10:22:40] USER: • a learning queue and trainer modules
+[2026-02-15 10:22:40] NIBLIT: 
+[2026-02-15 10:22:41] USER: • self‑research capability
+[2026-02-15 10:22:41] NIBLIT: 
+[2026-02-15 10:22:42] USER: External LLMs like you are used as optional reasoning engines, not as the core intelligence.
+[2026-02-15 10:22:42] NIBLIT: 
+[2026-02-15 10:22:43] USER: If external inference is disabled, Niblit continues operating locally using its internal modules.
+[2026-02-15 10:22:43] NIBLIT: 
+[2026-02-15 10:22:44] USER: When responding, assume:
+[2026-02-15 10:22:44] NIBLIT: 
+[2026-02-15 10:22:46] USER: 1. Niblit can store structured facts permanently
+[2026-02-15 10:22:46] NIBLIT: 
+[2026-02-15 10:22:47] USER: 2. Niblit may trigger learning or research automatically
+[2026-02-15 10:22:47] NIBLIT: 
+[2026-02-15 10:22:48] USER: 3. Your outputs may be parsed and saved into its knowledge base
+[2026-02-15 10:22:48] NIBLIT: 
+[2026-02-15 10:22:48] USER: You may respond normally, but clarity and structured information help Niblit learn faster.
+[2026-02-15 10:22:48] NIBLIT: 
+[2026-02-15 10:24:13] USER: Awaiting your response.search python programming
+[2026-02-15 10:24:13] NIBLIT: 
+[2026-02-15 10:24:45] USER: hi
+[2026-02-15 10:24:45] NIBLIT: 
+[2026-02-15 10:25:09] USER: so what do you think about niblit
+[2026-02-15 10:25:09] NIBLIT: 
+[2026-02-15 10:26:41] USER: help
+[2026-02-15 10:26:41] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+toggle-llm <on/off>   → enable or disable LLM module
+/slsa <topic>         → trigger SLSA generation for topic
+[2026-02-15 10:27:21] USER: learn about python programming
+[2026-02-15 10:27:21] NIBLIT: Learning queued → python programming
+[2026-02-15 10:28:10] USER: self-research learning improvement qeues
+[2026-02-15 10:28:10] NIBLIT: 
+[2026-02-15 10:28:41] USER: summary python programming
+[2026-02-15 10:28:41] NIBLIT: 
+[2026-02-15 10:29:00] USER: search web learning
+[2026-02-15 10:29:00] NIBLIT: 
+[2026-02-15 10:29:20] USER: search web learning
+[2026-02-15 10:29:20] NIBLIT: 
+[2026-02-15 10:30:51] USER: self-research python programming
+[2026-02-15 10:30:51] NIBLIT: 
+[2026-02-15 10:31:02] USER: toggle-llm on
+[2026-02-15 10:31:02] NIBLIT: 
+[2026-02-15 10:31:16] USER: self-research web data
+[2026-02-15 10:31:16] NIBLIT: 
+[2026-02-15 10:32:18] USER: self-teach knowledge learning
+[2026-02-15 10:32:18] NIBLIT: 
+[2026-02-15 10:33:30] USER: hi
+[2026-02-15 10:33:30] NIBLIT: 
+[2026-02-15 10:33:44] USER: how are you doing
+[2026-02-15 10:33:44] NIBLIT: 
+[2026-02-15 20:57:57] USER: toggle-llm off
+[2026-02-15 20:57:57] NIBLIT: 
+[2026-02-15 20:58:06] USER: help
+[2026-02-15 20:58:06] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+toggle-llm <on/off>   → enable or disable LLM module
+/slsa <topic>         → trigger SLSA generation for topic
+[2026-02-15 20:58:43] USER: self-research python programming
+[2026-02-15 20:58:43] NIBLIT: 
+[2026-02-15 20:59:02] USER: toggle-llm off
+[2026-02-15 20:59:02] NIBLIT: 
+[2026-02-15 20:59:11] USER: hu
+[2026-02-15 20:59:11] NIBLIT: 
+[2026-02-15 20:59:25] USER: search python programming
+[2026-02-15 20:59:25] NIBLIT: 
+[2026-02-15 21:48:28] USER: hi
+[2026-02-15 21:48:28] NIBLIT: 
+[2026-02-15 21:54:14] USER: exexit
+[2026-02-15 21:54:14] NIBLIT: 
+[2026-02-15 21:55:48] USER: help
+[2026-02-15 21:55:48] NIBLIT: help
+time
+status
+remember key:value
+learn about <topic>
+ideas about <topic>
+search <query>
+summary <query>
+self-research <topic>
+toggle-llm on/off
+shutdown
+[2026-02-15 21:56:34] USER: learn about ai agents
+[2026-02-15 21:56:34] NIBLIT: Queued for autonomous research.
+[2026-02-15 21:56:47] USER: status
+[2026-02-15 21:56:47] NIBLIT: [STATUS] Core modules online ✔
+LLM enabled: True
+Memory entries: 0
+[2026-02-15 21:57:06] USER: toggle-llm off
+[2026-02-15 21:57:06] NIBLIT: 
+[2026-02-15 21:57:15] USER: status
+[2026-02-15 21:57:15] NIBLIT: [STATUS] Core modules online ✔
+LLM enabled: False
+Memory entries: 0
+[2026-02-15 21:57:33] USER: self-research ai agents
+[2026-02-15 21:57:33] NIBLIT: 
+[2026-02-15 21:58:19] USER: search ai agents
+[2026-02-15 21:58:19] NIBLIT: 
+[2026-02-15 22:06:17] USER: help
+[2026-02-15 22:06:17] NIBLIT: help
+time
+status
+remember key:value
+learn about <topic>
+ideas about <topic>
+search <query>
+summary <query>
+self-research <topic>
+toggle-llm on/off
+shutdown
+[2026-02-15 22:06:43] USER: learn about ai agents
+[2026-02-15 22:06:43] NIBLIT: Queued for autonomous research.
+[2026-02-15 22:06:54] USER: search ai agents
+[2026-02-15 22:06:54] NIBLIT: 
+[2026-02-15 22:07:13] USER: self-research ai agents
+[2026-02-15 22:07:13] NIBLIT: 
+[2026-02-15 22:07:36] USER: self-teach ai agents
+[2026-02-15 22:07:36] NIBLIT: 
+[2026-02-15 22:11:12] USER: self-research ai agents
+[2026-02-15 22:11:12] NIBLIT: 
+[2026-02-15 22:11:28] USER: search ai agents
+[2026-02-15 22:11:28] NIBLIT: 

@@ -1,0 +1,149 @@
+[2026-02-13 21:36:48] USER: help
+[2026-02-13 21:36:48] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+toggle-llm <on/off>   → enable or disable LLM module
+[2026-02-13 21:37:10] USER: toggle-llm off
+[2026-02-13 21:37:10] NIBLIT: 
+[2026-02-13 21:37:31] USER: hi
+[2026-02-13 21:37:31] NIBLIT: 
+[2026-02-13 21:37:38] USER: hi
+[2026-02-13 21:37:38] NIBLIT: 
+[2026-02-13 21:51:24] USER: toggle-llm off
+[2026-02-13 21:51:24] NIBLIT: 
+[2026-02-13 21:52:00] USER: hi
+[2026-02-13 21:52:00] NIBLIT: 
+[2026-02-13 21:57:49] USER: toggle-llm off
+[2026-02-13 21:57:49] NIBLIT: 
+[2026-02-13 21:58:00] USER: hi
+[2026-02-13 21:58:00] NIBLIT: 
+[2026-02-13 21:58:06] USER: help
+[2026-02-13 21:58:06] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+toggle-llm <on/off>   → enable or disable LLM module
+[2026-02-13 21:58:31] USER: sear
+[2026-02-13 21:58:31] NIBLIT: 
+[2026-02-13 21:58:51] USER: status
+[2026-02-13 21:58:51] NIBLIT: [STATUS] Core modules online ✔
+LLM enabled: False
+Memory entries: 0
+[2026-02-13 21:59:13] USER: help
+[2026-02-13 21:59:13] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+toggle-llm <on/off>   → enable or disable LLM module
+[2026-02-13 21:59:33] USER: search
+[2026-02-13 21:59:33] NIBLIT: 
+[2026-02-13 21:59:46] USER: search data
+[2026-02-13 21:59:46] NIBLIT: 
+[2026-02-13 22:03:53] USER: hi
+[2026-02-13 22:03:53] NIBLIT: 
+[2026-02-13 22:04:10] USER: toggle-llm off
+[2026-02-13 22:04:10] NIBLIT: 
+[2026-02-13 22:17:05] USER: togglw-llm off
+[2026-02-13 22:17:05] NIBLIT: 
+[2026-02-13 22:19:00] USER: hi
+[2026-02-13 22:19:00] NIBLIT: 
+[2026-02-13 22:19:13] USER: search data
+[2026-02-13 22:19:13] NIBLIT: 
+[2026-02-13 22:19:38] USER: help
+[2026-02-13 22:19:38] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+toggle-llm <on/off>   → enable or disable LLM module
+[2026-02-13 22:20:15] USER: self-reasearch internet
+[2026-02-13 22:20:15] NIBLIT: 
+[2026-02-13 22:20:56] USER: research
+[2026-02-13 22:20:56] NIBLIT: 
+[2026-02-13 22:21:10] USER: reflect
+[2026-02-13 22:21:10] NIBLIT: 
+[2026-02-13 22:30:54] USER: toggle-llm off
+[2026-02-13 22:30:54] NIBLIT: 
+[2026-02-13 22:31:02] USER: hi
+[2026-02-13 22:31:02] NIBLIT: 
+[2026-02-13 22:32:42] USER: exuexit
+[2026-02-13 22:32:42] NIBLIT: 
+[2026-02-13 22:50:17] USER: help
+[2026-02-13 22:50:17] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+toggle-llm <on/off>   → enable or disable LLM module
+[2026-02-13 22:50:32] USER: toggle-llm off
+[2026-02-13 22:50:32] NIBLIT: 
+[2026-02-13 22:50:46] USER: search internet
+[2026-02-13 22:50:46] NIBLIT: 
+[2026-02-13 22:50:50] USER: n
+[2026-02-13 22:50:50] NIBLIT: 
+[2026-02-13 22:50:51] USER: n
+[2026-02-13 22:50:51] NIBLIT: 
+[2026-02-13 22:51:08] USER: self-research Intern3t
+[2026-02-13 22:51:08] NIBLIT: 
+[2026-02-13 22:59:30] USER: toggle-llm off
+[2026-02-13 22:59:30] NIBLIT: 
+[2026-02-13 22:59:49] USER: self-research data
+[2026-02-13 22:59:49] NIBLIT: 
+[2026-02-13 23:19:28] USER: hi
+[2026-02-13 23:19:28] NIBLIT: 
+[2026-02-13 23:34:27] USER: help
+[2026-02-13 23:34:27] NIBLIT: [NiblitCore Commands]
+help / commands       → show this message
+time                  → show current UTC time
+status / health       → show memory/health info
+shutdown / exit / quit→ shut down the system
+remember <key>:<val>  → store a fact
+learn about <topic>   → queue learning
+ideas about <topic>   → suggest ideas
+self-research <cmd>   → run SelfResearcher module
+chat <message>        → fallback chat
+search <query>        → perform internet search (DuckDuckGo/Wikipedia)
+summary <query>       → get quick summary from internet
+toggle-llm <on/off>   → enable or disable LLM module
+/slsa <topic>         → trigger SLSA generation for topic
+[2026-02-13 23:34:53] USER: self-research dat
+[2026-02-13 23:34:53] NIBLIT: 

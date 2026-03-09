@@ -70,3 +70,5 @@ class KnowledgeDB:
         self.data['facts'] = condensed + self.data['facts']
         self._save()
         return condensed
+if __name__ == "__main__":
+    print('Running storage.py')

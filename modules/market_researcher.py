@@ -51,3 +51,5 @@ class MarketResearcher:
             return f"Market summary ({topic}): {data['summary'][:300]}"
         # simulated list
         return f"Market summary ({topic}): " + ", ".join([f"{d['trend']}({d['value']})" for d in data])
+if __name__ == "__main__":
+    print('Running market_researcher.py')

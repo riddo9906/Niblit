@@ -1,0 +1,103 @@
+# modules/llm_adapter.py
+# NiblitOS v5 — Unified LLM Adapter (HF + GPT + Offline Fallback)
+
+import os
+import json
+import requests
+
+HF_API = os.getenv("HF_API", "https://api-inference.huggingface.co/models")
+HF_TOKEN = os.getenv("HF_TOKEN", None)
+OPENAI_KEY = os.getenv("OPENAI_API_KEY", None)
+LOCAL_MODEL_PATH = os.getenv("LOCAL_MODEL_PATH", None)
+
+HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
+
+class LLMAdapter:
+
+    # -------------------------
+    # Query HuggingFace
+    # -------------------------
+    def query_hf(self, prompt):
+        if not HF_TOKEN:
+            return None
+
+        try:
+            payload = {"inputs": prompt, "parameters": {"max_new_tokens": 250}}
+
+            res = requests.post(
+                f"{HF_API}/Qwen/Qwen2.5-0.5B-Instruct",
+                headers=HEADERS,
+                json=payload,
+                timeout=15
+            )
+
+            if res.status_code == 200:
+                out = res.json()
+                if isinstance(out, list) and len(out) > 0:
+                    return out[0].get("generated_text", out)
+                return out
+            return None
+
+        except Exception:
+            return None
+
+    # -------------------------
+    # Query OpenAI API
+    # -------------------------
+    def query_openai(self, prompt):
+        if not OPENAI_KEY:
+            return None
+
+        try:
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+
+            res = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json=payload,
+                timeout=15
+            )
+
+            if res.status_code == 200:
+                return res.json()["choices"][0]["message"]["content"]
+            return None
+
+        except Exception:
+            return None
+
+    # -------------------------
+    # Offline fallback LLM
+    # -------------------------
+    def query_local(self, prompt):
+        # Safe simple offline model
+        response = f"[Local Fallback] Echo: {prompt}"
+        return response
+
+    # -------------------------
+    # Auto-select best LLM
+    # -------------------------
+    def query(self, prompt, mode="general"):
+
+        # Try HF first
+        out = self.query_hf(prompt)
+        if out:
+            return out
+
+        # Try OpenAI
+        out = self.query_openai(prompt)
+        if out:
+            return out
+
+        # Last fallback
+        return self.query_local(prompt)
+
+# Export instance
+llm = LLMAdapter()
+def query(prompt, mode="general"):
+    return llm.query(prompt, mode)

@@ -12,3 +12,5 @@ class SelfMaintenance:
         self.db.condense(keep_top=50)
         self.db._save()
         return f"Removed {removed} old interactions and condensed memory."
+if __name__ == "__main__":
+    print('Running self_maintenance.py')

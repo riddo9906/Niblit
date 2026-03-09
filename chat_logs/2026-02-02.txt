@@ -1,0 +1,19 @@
+[2026-02-02 20:47:24] USER: help
+[2026-02-02 20:47:24] NIBLIT: Commands:
+  learn about <topic>
+  !remember key: value
+  !forget key
+  !memory
+  analyze <query>
+  ideas about <topic>
+  reflect
+  evolve
+  status
+  self-heal
+  self-teach
+  toggle-llm on/off
+
+[2026-02-02 20:48:16] USER: reflect
+[2026-02-02 20:48:16] NIBLIT: 
+[2026-02-02 20:49:04] USER: nresearch AI
+[2026-02-02 20:49:04] NIBLIT: 

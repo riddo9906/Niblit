@@ -18,3 +18,5 @@ class AnalyticsModule:
             return {'count':len(nums),'mean':sum(nums)/len(nums)}
         except Exception:
             return {'error':'invalid numbers'}
+if __name__ == "__main__":
+    print('Running analytics.py')

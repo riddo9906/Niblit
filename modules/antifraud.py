@@ -18,3 +18,5 @@ class AntiFraudModule:
         for a in alerts:
             self.db.add_fact('antifraud:alert', a, tags=['antifraud'])
         return ' | '.join(alerts)
+if __name__ == "__main__":
+    print('Running antifraud.py')

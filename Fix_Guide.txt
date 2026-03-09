@@ -1,0 +1,42 @@
+#!/bin/bash
+
+echo '=== Fix Guide Started ==='
+
+echo "
+# Adding __main__ block to niblit_brain.py"
+cat >> "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py" << EOF
+if __name__ == "__main__":
+    print('Running niblit_brain.py')
+EOF
+echo "
+# Adding __main__ block to self_implementer.py"
+cat >> "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_implementer.py" << EOF
+if __name__ == "__main__":
+    print('Running self_implementer.py')
+EOF
+echo "
+# Adding __main__ block to ingestion.py"
+cat >> "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/ingestion.py" << EOF
+if __name__ == "__main__":
+    print('Running ingestion.py')
+EOF
+echo "
+# Adding __main__ block to slsa_manager.py"
+cat >> "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/slsa_manager.py" << EOF
+if __name__ == "__main__":
+    print('Running slsa_manager.py')
+EOF
+echo "
+# Adding __main__ block to self_idea_generator.py"
+cat >> "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_idea_generator.py" << EOF
+if __name__ == "__main__":
+    print('Running self_idea_generator.py')
+EOF
+
+# Running self-maintenance
+python3 -c 'from modules.self_maintenance import SelfMaintenance; from modules.db import LocalDB; db=LocalDB(); SelfMaintenance(db).run()'
+
+# Running self-healer
+python3 -c 'from modules.self_healer import SelfHealer; from modules.db import LocalDB; db=LocalDB(); SelfHealer(db).repair()'
+
+echo '=== Fix Guide Completed ==='

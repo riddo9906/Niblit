@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+import json
+import time
+import os
+
+class LocalDB:
+    def __init__(self, path="niblit.db"):
+        self.path = path
+        if not os.path.exists(self.path):
+            # Initialize with interactions and facts
+            self.data = {"interactions": [], "facts": []}
+            self._save()
+        else:
+            self.data = self._read()
+
+    def _read(self):
+        with open(self.path, "r") as f:
+            return json.load(f)
+
+    def _write(self, data):
+        with open(self.path, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def _save(self):
+        self._write(self.data)
+
+    # Interaction logging
+    def add_entry(self, key, value):
+        self.data.setdefault("interactions", [])
+        self.data["interactions"].append({
+            "ts": time.time(),
+            "key": key,
+            "value": value
+        })
+        self._save()
+
+    def get_log(self):
+        return self.data.get("interactions", [])
+
+    # Fact handling
+    def list_facts(self, limit=500):
+        return self.data.get("facts", [])[:limit]
+
+    def add_fact(self, key, value, tags=None):
+        tags = tags or []
+        self.data.setdefault("facts", [])
+        self.data["facts"].append({
+            "key": key,
+            "value": value,
+            "tags": tags
+        })
+        self._save()
+
+    # Condense old interactions
+    def condense(self, keep_top=50):
+        interactions = self.data.get("interactions", [])
+        if len(interactions) > keep_top:
+            self.data["interactions"] = interactions[-keep_top:]
+            self._save()
+if __name__ == "__main__":
+    print('Running db.py')

@@ -46,3 +46,5 @@ class LocalLLMAdapter:
 
     def chat(self, prompt, max_tokens=150, online_adapter=None):
         return self.generate(prompt, max_tokens=max_tokens, online_adapter=online_adapter)
+if __name__ == "__main__":
+    print('Running local_llm_adapter.py')

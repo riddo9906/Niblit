@@ -1,0 +1,47 @@
+[2026-02-01 12:25:33] USER: help
+[2026-02-01 12:25:33] NIBLIT: Commands:
+  learn about <topic>
+  !remember key: value
+  !forget key
+  !memory
+  analyze <query>
+  ideas about <topic>
+  reflect
+  evolve
+  status
+  self-heal
+  self-teach
+  toggle-llm on/off
+
+[2026-02-01 12:25:53] USER: help
+[2026-02-01 12:25:53] NIBLIT: Commands:
+  learn about <topic>
+  !remember key: value
+  !forget key
+  !memory
+  analyze <query>
+  ideas about <topic>
+  reflect
+  evolve
+  status
+  self-heal
+  self-teach
+  toggle-llm on/off
+
+[2026-02-01 13:05:05] USER: help
+[2026-02-01 13:05:05] NIBLIT: Commands:
+  learn about <topic>
+  !remember key: value
+  !forget key
+  !memory
+  analyze <query>
+  ideas about <topic>
+  reflect
+  evolve
+  status
+  self-heal
+  self-teach
+  toggle-llm on/off
+
+[2026-02-01 13:05:24] USER: hi
+[2026-02-01 13:05:24] NIBLIT: 

@@ -22,3 +22,5 @@ class TerminalTools:
                 return f.read()
         except Exception as e:
             return f"Error reading file: {e}"
+if __name__ == "__main__":
+    print('Running terminal_tools.py')

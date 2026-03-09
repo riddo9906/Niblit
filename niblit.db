@@ -1,0 +1,5714 @@
+{
+  "log": [],
+  "interactions": [
+    {
+      "ts": 1771182994.4289238,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": false,
+        "ts": 1771182994.428914
+      }
+    },
+    {
+      "ts": 1771182994.5162838,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": false,
+        "ts": 1771182994.5162728
+      }
+    },
+    {
+      "ts": 1771183192.403844,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183192.4038317
+      }
+    },
+    {
+      "ts": 1771183192.9066286,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183192.9066188
+      }
+    },
+    {
+      "ts": 1771183192.9906797,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183192.9906693
+      }
+    },
+    {
+      "ts": 1771183410.5629513,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183410.5629423
+      }
+    },
+    {
+      "ts": 1771183410.6559677,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183410.6559591
+      }
+    },
+    {
+      "ts": 1771183410.7373676,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183410.737357
+      }
+    },
+    {
+      "ts": 1771183768.5626562,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183768.562645
+      }
+    },
+    {
+      "ts": 1771183768.6529913,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183768.652982
+      }
+    },
+    {
+      "ts": 1771183768.7340417,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": false,
+        "ts": 1771183768.7340317
+      }
+    },
+    {
+      "ts": 1771184029.140842,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184029.1408312
+      }
+    },
+    {
+      "ts": 1771184029.2310112,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184029.2310004
+      }
+    },
+    {
+      "ts": 1771184029.3148596,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184029.3148472
+      }
+    },
+    {
+      "ts": 1771184128.0463047,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184128.0462878
+      }
+    },
+    {
+      "ts": 1771184128.1836624,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184128.1836474
+      }
+    },
+    {
+      "ts": 1771184148.392478,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184148.3924432
+      }
+    },
+    {
+      "ts": 1771184271.1328354,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184271.1327844
+      }
+    },
+    {
+      "ts": 1771184271.2747004,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184271.2746952
+      }
+    },
+    {
+      "ts": 1771184271.3842022,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": false,
+        "ts": 1771184271.3841968
+      }
+    },
+    {
+      "ts": 1771184293.1461015,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184293.1458728
+      }
+    },
+    {
+      "ts": 1771184294.9499884,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184294.949971
+      }
+    },
+    {
+      "ts": 1771184296.5910497,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184296.591035
+      }
+    },
+    {
+      "ts": 1771184318.6461525,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184318.6460764
+      }
+    },
+    {
+      "ts": 1771184320.3424807,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184320.3424635
+      }
+    },
+    {
+      "ts": 1771184321.9924312,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184321.9924161
+      }
+    },
+    {
+      "ts": 1771184343.7078092,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184343.7077286
+      }
+    },
+    {
+      "ts": 1771184345.3332431,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184345.3332243
+      }
+    },
+    {
+      "ts": 1771184347.0229812,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184347.0229678
+      }
+    },
+    {
+      "ts": 1771184368.6627243,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184368.6627057
+      }
+    },
+    {
+      "ts": 1771184370.255126,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184370.2551146
+      }
+    },
+    {
+      "ts": 1771184371.8410695,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184371.8410585
+      }
+    },
+    {
+      "ts": 1771184393.5867698,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184393.5867572
+      }
+    },
+    {
+      "ts": 1771184395.2769852,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184395.2769685
+      }
+    },
+    {
+      "ts": 1771184397.9707146,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184397.9707015
+      }
+    },
+    {
+      "ts": 1771184419.5564575,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184419.5564432
+      }
+    },
+    {
+      "ts": 1771184421.124786,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184421.124776
+      }
+    },
+    {
+      "ts": 1771184422.8375428,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184422.837531
+      }
+    },
+    {
+      "ts": 1771184444.4869757,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184444.4869633
+      }
+    },
+    {
+      "ts": 1771184446.1460009,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184446.1459904
+      }
+    },
+    {
+      "ts": 1771184447.8684182,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184447.868408
+      }
+    },
+    {
+      "ts": 1771184469.5907016,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184469.5906816
+      }
+    },
+    {
+      "ts": 1771184471.2909675,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184471.2909553
+      }
+    },
+    {
+      "ts": 1771184472.9884512,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184472.988441
+      }
+    },
+    {
+      "ts": 1771184494.6287017,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184494.6286902
+      }
+    },
+    {
+      "ts": 1771184496.6542294,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184496.6542206
+      }
+    },
+    {
+      "ts": 1771184498.483615,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184498.4836051
+      }
+    },
+    {
+      "ts": 1771184520.164888,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184520.1648753
+      }
+    },
+    {
+      "ts": 1771184521.816686,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184521.8166735
+      }
+    },
+    {
+      "ts": 1771184523.4851944,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1771184523.4851842
+      }
+    },
+    {
+      "ts": 1772038528.1252766,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1252718
+      }
+    },
+    {
+      "ts": 1772038528.1277504,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1277428
+      }
+    },
+    {
+      "ts": 1772038528.1304073,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1304035
+      }
+    },
+    {
+      "ts": 1772038528.1325336,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1325285
+      }
+    },
+    {
+      "ts": 1772038528.1347065,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1347036
+      }
+    },
+    {
+      "ts": 1772038528.1372535,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1372485
+      }
+    },
+    {
+      "ts": 1772038528.1398613,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.139857
+      }
+    },
+    {
+      "ts": 1772038528.1422276,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1422226
+      }
+    },
+    {
+      "ts": 1772038528.1445498,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1445453
+      }
+    },
+    {
+      "ts": 1772038528.1469953,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1469903
+      }
+    },
+    {
+      "ts": 1772038528.149467,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1494622
+      }
+    },
+    {
+      "ts": 1772038528.152034,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1520293
+      }
+    },
+    {
+      "ts": 1772038528.1545234,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1545203
+      }
+    },
+    {
+      "ts": 1772038528.156972,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1569676
+      }
+    },
+    {
+      "ts": 1772038528.159497,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1594937
+      }
+    },
+    {
+      "ts": 1772038528.1619577,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1619537
+      }
+    },
+    {
+      "ts": 1772038528.1643577,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1643558
+      }
+    },
+    {
+      "ts": 1772038528.166796,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.166792
+      }
+    },
+    {
+      "ts": 1772038528.1693778,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.1693735
+      }
+    },
+    {
+      "ts": 1772038528.1720932,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.172088
+      }
+    },
+    {
+      "ts": 1772038528.174917,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772038528.174913
+      }
+    },
+    {
+      "ts": 1772038528.1776016,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772038528.1775963
+      }
+    },
+    {
+      "ts": 1772038529.9370391,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038529.9370193
+      }
+    },
+    {
+      "ts": 1772038531.4252014,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038531.425182
+      }
+    },
+    {
+      "ts": 1772038532.8663456,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038532.866326
+      }
+    },
+    {
+      "ts": 1772038554.3715007,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038554.3714797
+      }
+    },
+    {
+      "ts": 1772038555.8658898,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038555.865868
+      }
+    },
+    {
+      "ts": 1772038557.3430753,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038557.3430567
+      }
+    },
+    {
+      "ts": 1772038579.0969293,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038579.0969183
+      }
+    },
+    {
+      "ts": 1772038580.8228388,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038580.822826
+      }
+    },
+    {
+      "ts": 1772038582.1594577,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038582.1594481
+      }
+    },
+    {
+      "ts": 1772038603.610351,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038603.6103354
+      }
+    },
+    {
+      "ts": 1772038605.2842758,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038605.2842567
+      }
+    },
+    {
+      "ts": 1772038607.2573936,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038607.2573664
+      }
+    },
+    {
+      "ts": 1772038628.8561368,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038628.856123
+      }
+    },
+    {
+      "ts": 1772038630.387189,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038630.3871672
+      }
+    },
+    {
+      "ts": 1772038631.7832494,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038631.7832327
+      }
+    },
+    {
+      "ts": 1772038653.254484,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038653.2544656
+      }
+    },
+    {
+      "ts": 1772038654.6990123,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038654.6990001
+      }
+    },
+    {
+      "ts": 1772038656.2404397,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038656.24042
+      }
+    },
+    {
+      "ts": 1772038677.6872172,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038677.6872065
+      }
+    },
+    {
+      "ts": 1772038679.1938267,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038679.1938157
+      }
+    },
+    {
+      "ts": 1772038680.6489475,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772038680.6489341
+      }
+    },
+    {
+      "ts": 1772122782.7889132,
+      "key": "learning",
+      "value": {
+        "time": "2026-02-26T16:19:42.788867",
+        "input": "hi"
+      }
+    },
+    {
+      "ts": 1772129544.4921417,
+      "key": "learning",
+      "value": {
+        "time": "2026-02-26T18:12:24.492103",
+        "input": "\u001b[A\u001b[A\u0018exit"
+      }
+    },
+    {
+      "ts": 1772258012.5610518,
+      "key": "learning",
+      "value": {
+        "time": "2026-02-28T05:53:32.561023",
+        "input": "hi"
+      }
+    },
+    {
+      "ts": 1772280072.5240371,
+      "key": "learning",
+      "value": {
+        "time": "2026-02-28T12:01:12.524012",
+        "input": "hi"
+      }
+    },
+    {
+      "ts": 1772286568.2170448,
+      "key": "learning",
+      "value": {
+        "time": "2026-02-28T13:49:28.217022",
+        "input": "hi"
+      }
+    },
+    {
+      "ts": 1772480082.1330793,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.133064
+      }
+    },
+    {
+      "ts": 1772480082.1445131,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.1444983
+      }
+    },
+    {
+      "ts": 1772480082.1518521,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.1518433
+      }
+    },
+    {
+      "ts": 1772480082.1611743,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.1611655
+      }
+    },
+    {
+      "ts": 1772480082.1704762,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.17047
+      }
+    },
+    {
+      "ts": 1772480082.1750479,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.1750426
+      }
+    },
+    {
+      "ts": 1772480082.1803374,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.1803312
+      }
+    },
+    {
+      "ts": 1772480082.1840787,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.1840737
+      }
+    },
+    {
+      "ts": 1772480082.1879098,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.1879048
+      }
+    },
+    {
+      "ts": 1772480082.1916566,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.1916518
+      }
+    },
+    {
+      "ts": 1772480082.195518,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.1955142
+      }
+    },
+    {
+      "ts": 1772480082.1991587,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.199154
+      }
+    },
+    {
+      "ts": 1772480082.2031014,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.2030973
+      }
+    },
+    {
+      "ts": 1772480082.206836,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.2068305
+      }
+    },
+    {
+      "ts": 1772480082.210852,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.2108479
+      }
+    },
+    {
+      "ts": 1772480082.2147226,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.2147174
+      }
+    },
+    {
+      "ts": 1772480082.2189586,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.2189543
+      }
+    },
+    {
+      "ts": 1772480082.2230308,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.2230256
+      }
+    },
+    {
+      "ts": 1772480082.2273664,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.2273614
+      }
+    },
+    {
+      "ts": 1772480082.231322,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.2313159
+      }
+    },
+    {
+      "ts": 1772480082.2355428,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480082.2355392
+      }
+    },
+    {
+      "ts": 1772480082.2396088,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480082.2396045
+      }
+    },
+    {
+      "ts": 1772480084.122645,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480084.1226304
+      }
+    },
+    {
+      "ts": 1772480085.772046,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480085.772023
+      }
+    },
+    {
+      "ts": 1772480087.305212,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480087.3052003
+      }
+    },
+    {
+      "ts": 1772480108.9243925,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480108.9243817
+      }
+    },
+    {
+      "ts": 1772480110.5350552,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480110.5350416
+      }
+    },
+    {
+      "ts": 1772480113.3330986,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480113.3330774
+      }
+    },
+    {
+      "ts": 1772480135.0968616,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480135.096852
+      }
+    },
+    {
+      "ts": 1772480136.7431202,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480136.7431104
+      }
+    },
+    {
+      "ts": 1772480138.2774315,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480138.2774227
+      }
+    },
+    {
+      "ts": 1772480159.8709724,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480159.8709617
+      }
+    },
+    {
+      "ts": 1772480161.4160335,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480161.4160178
+      }
+    },
+    {
+      "ts": 1772480163.0126617,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480163.0126476
+      }
+    },
+    {
+      "ts": 1772480184.7129147,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480184.7129016
+      }
+    },
+    {
+      "ts": 1772480186.388753,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480186.3887355
+      }
+    },
+    {
+      "ts": 1772480188.016619,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480188.0166054
+      }
+    },
+    {
+      "ts": 1772480209.6630645,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480209.6630502
+      }
+    },
+    {
+      "ts": 1772480211.233322,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480211.2333074
+      }
+    },
+    {
+      "ts": 1772480212.907817,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480212.9077938
+      }
+    },
+    {
+      "ts": 1772480234.5335214,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480234.5335097
+      }
+    },
+    {
+      "ts": 1772480236.1740944,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480236.1740723
+      }
+    },
+    {
+      "ts": 1772480237.7911265,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480237.7911036
+      }
+    },
+    {
+      "ts": 1772480259.4760425,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480259.4760318
+      }
+    },
+    {
+      "ts": 1772480261.3108275,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480261.3108056
+      }
+    },
+    {
+      "ts": 1772480262.9182272,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480262.9182138
+      }
+    },
+    {
+      "ts": 1772480284.791018,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480284.7909982
+      }
+    },
+    {
+      "ts": 1772480286.508784,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480286.5087626
+      }
+    },
+    {
+      "ts": 1772480288.218334,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480288.2183213
+      }
+    },
+    {
+      "ts": 1772480309.9975212,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480309.9975
+      }
+    },
+    {
+      "ts": 1772480311.6586552,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480311.6586294
+      }
+    },
+    {
+      "ts": 1772480313.6117053,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480313.611683
+      }
+    },
+    {
+      "ts": 1772480335.845656,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480335.8456352
+      }
+    },
+    {
+      "ts": 1772480337.4149814,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480337.4149673
+      }
+    },
+    {
+      "ts": 1772480339.0767329,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480339.0767188
+      }
+    },
+    {
+      "ts": 1772480360.7322233,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480360.7322032
+      }
+    },
+    {
+      "ts": 1772480362.3528159,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480362.3527904
+      }
+    },
+    {
+      "ts": 1772480364.0071042,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480364.007088
+      }
+    },
+    {
+      "ts": 1772480385.6125164,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480385.6125028
+      }
+    },
+    {
+      "ts": 1772480387.360457,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480387.3604462
+      }
+    },
+    {
+      "ts": 1772480388.9931946,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480388.993183
+      }
+    },
+    {
+      "ts": 1772480411.1856248,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480411.1856043
+      }
+    },
+    {
+      "ts": 1772480412.757788,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480412.7577772
+      }
+    },
+    {
+      "ts": 1772480414.3667338,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480414.3667238
+      }
+    },
+    {
+      "ts": 1772480436.1084478,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480436.1084304
+      }
+    },
+    {
+      "ts": 1772480437.8782368,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480437.8782094
+      }
+    },
+    {
+      "ts": 1772480873.3350358,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.3350298
+      }
+    },
+    {
+      "ts": 1772480873.3429554,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.3429434
+      }
+    },
+    {
+      "ts": 1772480873.3543928,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.354384
+      }
+    },
+    {
+      "ts": 1772480873.362237,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.3622315
+      }
+    },
+    {
+      "ts": 1772480873.36957,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.3695664
+      }
+    },
+    {
+      "ts": 1772480873.374875,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.37487
+      }
+    },
+    {
+      "ts": 1772480873.3806777,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.3806727
+      }
+    },
+    {
+      "ts": 1772480873.386139,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.3861349
+      }
+    },
+    {
+      "ts": 1772480873.391813,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.3918095
+      }
+    },
+    {
+      "ts": 1772480873.3971481,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.3971438
+      }
+    },
+    {
+      "ts": 1772480873.4029484,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.4029448
+      }
+    },
+    {
+      "ts": 1772480873.4085193,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.4085143
+      }
+    },
+    {
+      "ts": 1772480873.4143257,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.4143214
+      }
+    },
+    {
+      "ts": 1772480873.4200642,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.4200604
+      }
+    },
+    {
+      "ts": 1772480873.4260004,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.4259963
+      }
+    },
+    {
+      "ts": 1772480873.4318907,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.4318852
+      }
+    },
+    {
+      "ts": 1772480873.4380856,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.4380813
+      }
+    },
+    {
+      "ts": 1772480873.4441903,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.444186
+      }
+    },
+    {
+      "ts": 1772480873.4506469,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.4506426
+      }
+    },
+    {
+      "ts": 1772480873.4568017,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.4567962
+      }
+    },
+    {
+      "ts": 1772480873.463291,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772480873.4632869
+      }
+    },
+    {
+      "ts": 1772480873.469227,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772480873.4692223
+      }
+    },
+    {
+      "ts": 1772480875.1277792,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480875.1277688
+      }
+    },
+    {
+      "ts": 1772480876.6821356,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480876.6821237
+      }
+    },
+    {
+      "ts": 1772480878.3566377,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480878.356623
+      }
+    },
+    {
+      "ts": 1772480900.1226459,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480900.1226196
+      }
+    },
+    {
+      "ts": 1772480901.9451144,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480901.9451008
+      }
+    },
+    {
+      "ts": 1772480903.5554717,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480903.5554547
+      }
+    },
+    {
+      "ts": 1772480925.1649435,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480925.164932
+      }
+    },
+    {
+      "ts": 1772480926.7788692,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480926.7788599
+      }
+    },
+    {
+      "ts": 1772480928.3658133,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772480928.3658006
+      }
+    },
+    {
+      "ts": 1772481092.6576533,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.6576378
+      }
+    },
+    {
+      "ts": 1772481092.6770976,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.6770864
+      }
+    },
+    {
+      "ts": 1772481092.6873393,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.6873338
+      }
+    },
+    {
+      "ts": 1772481092.694189,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.6941833
+      }
+    },
+    {
+      "ts": 1772481092.7006252,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.7006195
+      }
+    },
+    {
+      "ts": 1772481092.706741,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.7067354
+      }
+    },
+    {
+      "ts": 1772481092.712915,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.7129111
+      }
+    },
+    {
+      "ts": 1772481092.718841,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.7188363
+      }
+    },
+    {
+      "ts": 1772481092.725211,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.725207
+      }
+    },
+    {
+      "ts": 1772481092.7312872,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.7312815
+      }
+    },
+    {
+      "ts": 1772481092.7376034,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.7375994
+      }
+    },
+    {
+      "ts": 1772481092.7438908,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.7438855
+      }
+    },
+    {
+      "ts": 1772481092.7502978,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.7502933
+      }
+    },
+    {
+      "ts": 1772481092.7565172,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.7565114
+      }
+    },
+    {
+      "ts": 1772481092.76318,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.7631762
+      }
+    },
+    {
+      "ts": 1772481092.769468,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.7694635
+      }
+    },
+    {
+      "ts": 1772481092.7761686,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.7761633
+      }
+    },
+    {
+      "ts": 1772481092.7823803,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.782375
+      }
+    },
+    {
+      "ts": 1772481092.789045,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.7890403
+      }
+    },
+    {
+      "ts": 1772481092.7955418,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.7955356
+      }
+    },
+    {
+      "ts": 1772481092.802305,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481092.802301
+      }
+    },
+    {
+      "ts": 1772481092.8087761,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481092.8087716
+      }
+    },
+    {
+      "ts": 1772481099.1674833,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481099.1674716
+      }
+    },
+    {
+      "ts": 1772481105.3080397,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481105.30803
+      }
+    },
+    {
+      "ts": 1772481111.3940852,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481111.394062
+      }
+    },
+    {
+      "ts": 1772481138.1741862,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481138.1741633
+      }
+    },
+    {
+      "ts": 1772481144.4061995,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481144.406177
+      }
+    },
+    {
+      "ts": 1772481150.4199562,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481150.4199448
+      }
+    },
+    {
+      "ts": 1772481176.9356327,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481176.9356203
+      }
+    },
+    {
+      "ts": 1772481183.034035,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481183.0340126
+      }
+    },
+    {
+      "ts": 1772481189.166413,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481189.1664042
+      }
+    },
+    {
+      "ts": 1772481215.1136603,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481215.113651
+      }
+    },
+    {
+      "ts": 1772481221.1825497,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481221.1825383
+      }
+    },
+    {
+      "ts": 1772481228.6264727,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481228.6264596
+      }
+    },
+    {
+      "ts": 1772481255.470308,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481255.470297
+      }
+    },
+    {
+      "ts": 1772481261.8016505,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481261.801636
+      }
+    },
+    {
+      "ts": 1772481268.2211804,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481268.221171
+      }
+    },
+    {
+      "ts": 1772481294.5381112,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481294.5381017
+      }
+    },
+    {
+      "ts": 1772481300.6500506,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481300.6500344
+      }
+    },
+    {
+      "ts": 1772481306.7968163,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481306.7968066
+      }
+    },
+    {
+      "ts": 1772481332.9585052,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481332.9584846
+      }
+    },
+    {
+      "ts": 1772481338.363354,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481338.363277
+      }
+    },
+    {
+      "ts": 1772481534.5219696,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.5219626
+      }
+    },
+    {
+      "ts": 1772481534.535168,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.5351577
+      }
+    },
+    {
+      "ts": 1772481534.5467856,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.5467815
+      }
+    },
+    {
+      "ts": 1772481534.5549104,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.554905
+      }
+    },
+    {
+      "ts": 1772481534.562286,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.5622826
+      }
+    },
+    {
+      "ts": 1772481534.5693216,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.5693166
+      }
+    },
+    {
+      "ts": 1772481534.5767572,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.576753
+      }
+    },
+    {
+      "ts": 1772481534.584072,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.584067
+      }
+    },
+    {
+      "ts": 1772481534.5915961,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.591592
+      }
+    },
+    {
+      "ts": 1772481534.5986269,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.5986223
+      }
+    },
+    {
+      "ts": 1772481534.6063042,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.6063
+      }
+    },
+    {
+      "ts": 1772481534.6136076,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.6136017
+      }
+    },
+    {
+      "ts": 1772481534.6212876,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.6212833
+      }
+    },
+    {
+      "ts": 1772481534.6288185,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.628814
+      }
+    },
+    {
+      "ts": 1772481534.636454,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.6364508
+      }
+    },
+    {
+      "ts": 1772481534.643952,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.6439474
+      }
+    },
+    {
+      "ts": 1772481534.651561,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.6515563
+      }
+    },
+    {
+      "ts": 1772481534.659136,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.6591313
+      }
+    },
+    {
+      "ts": 1772481534.6670175,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.6670113
+      }
+    },
+    {
+      "ts": 1772481534.6746373,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.6746323
+      }
+    },
+    {
+      "ts": 1772481534.6828265,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772481534.6828222
+      }
+    },
+    {
+      "ts": 1772481534.6903486,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772481534.6903434
+      }
+    },
+    {
+      "ts": 1772481542.6424513,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481542.6424296
+      }
+    },
+    {
+      "ts": 1772481550.0315988,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481550.0315819
+      }
+    },
+    {
+      "ts": 1772481557.308735,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481557.3087132
+      }
+    },
+    {
+      "ts": 1772481584.5158255,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481584.5158064
+      }
+    },
+    {
+      "ts": 1772481591.1101289,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481591.1101065
+      }
+    },
+    {
+      "ts": 1772481598.0405138,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": false,
+        "live": true,
+        "ts": 1772481598.0404954
+      }
+    },
+    {
+      "ts": 1772482125.7485971,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.7485833
+      }
+    },
+    {
+      "ts": 1772482125.762766,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.7627554
+      }
+    },
+    {
+      "ts": 1772482125.7773347,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.7773292
+      }
+    },
+    {
+      "ts": 1772482125.7867842,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.7867785
+      }
+    },
+    {
+      "ts": 1772482125.7951784,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.7951736
+      }
+    },
+    {
+      "ts": 1772482125.8032107,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.8032055
+      }
+    },
+    {
+      "ts": 1772482125.8115659,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.811561
+      }
+    },
+    {
+      "ts": 1772482125.8197079,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.8197017
+      }
+    },
+    {
+      "ts": 1772482125.8283424,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.8283384
+      }
+    },
+    {
+      "ts": 1772482125.836534,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.8365278
+      }
+    },
+    {
+      "ts": 1772482125.8452291,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.8452249
+      }
+    },
+    {
+      "ts": 1772482125.8532598,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.8532526
+      }
+    },
+    {
+      "ts": 1772482125.8618968,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.8618925
+      }
+    },
+    {
+      "ts": 1772482125.8700824,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.8700755
+      }
+    },
+    {
+      "ts": 1772482125.8787198,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.878715
+      }
+    },
+    {
+      "ts": 1772482125.8868847,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.8868787
+      }
+    },
+    {
+      "ts": 1772482125.8955112,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.8955064
+      }
+    },
+    {
+      "ts": 1772482125.9039977,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.903991
+      }
+    },
+    {
+      "ts": 1772482125.9126823,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.9126775
+      }
+    },
+    {
+      "ts": 1772482125.921276,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.9212697
+      }
+    },
+    {
+      "ts": 1772482125.9299302,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772482125.929926
+      }
+    },
+    {
+      "ts": 1772482125.9383633,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772482125.9383569
+      }
+    },
+    {
+      "ts": 1772482141.093697,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482141.093681
+      }
+    },
+    {
+      "ts": 1772482141.1128366,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "car",
+        "artifact": {
+          "concept": "car",
+          "definition": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than car",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Car A motor vehicle with wheels.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cars (film) A 2006 American animated sports comedy film produced by Pixar Animation Studios for Walt Disney...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Central African Republic A landlocked country in Central Africa.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+              "url": "https://en.wikipedia.org/wiki/Car"
+            }
+          ],
+          "timestamp": "2026-03-02T20:09:01.112718"
+        },
+        "ts": 1772482141.1128316
+      }
+    },
+    {
+      "ts": 1772482153.200344,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482153.200335
+      }
+    },
+    {
+      "ts": 1772482153.2093358,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "computer",
+        "artifact": {
+          "concept": "computer",
+          "definition": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of o",
+          "structure": null,
+          "function": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "origin": null,
+          "evolution": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Computer A machine that can be programmed to automatically carry out sequences of arithmetic or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Personal computer A computer designed for personal use.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "OK Computer The third studio album by the English rock band Radiohead, released on 21 May 1997.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (Courage the Cowardly Dog) A character in the US TV series.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (magazine) An IEEE Computer Society practitioner-oriented magazine issued to all members of the society.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (occupation) The term \"computer\", in use from the early 17th century, meant \"one who computes\": a person...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Computers\" (Don't Hug Me I'm Scared) A TV series episode.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Analog computer A type of computation machine that uses physical phenomena such as electrical, mechanical, or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Computer (character) A character on the TV series The Bear.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, software, and peripheral equipment needed and used for full operation, or to a group of computers that are linked and function together, such as a computer network or computer cluster.",
+              "url": "https://en.wikipedia.org/wiki/Computer"
+            }
+          ],
+          "timestamp": "2026-03-02T20:09:13.209228"
+        },
+        "ts": 1772482153.2093294
+      }
+    },
+    {
+      "ts": 1772482166.2028854,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482166.2028587
+      }
+    },
+    {
+      "ts": 1772482166.218715,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "phone",
+        "artifact": {
+          "concept": "phone",
+          "definition": "A telephone, commonly shortened to phone, is a telecommunications device that enables two or more users to conduct a conversation when they are too far apart to be easily heard directly. A telephone c",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Telephone A telecommunications device that enables two or more users to conduct a conversation when...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cell phone A portable wireless telephone that allows users to make and receive calls over a radio frequency...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Smart phone A mobile device that combines the functionality of a traditional mobile phone with advanced...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone A complex and deeply ingrained concept in traditional Burmese culture, primarily associated with...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (phonetics) Any distinct speech sound.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (film) A 2002 South Korean supernatural horror film written and directed by Ahn Byeong-ki and starring...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (novel) The eleventh novel by Will Self, published in 2017.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (software) A Unix text chat program, originally allowing messaging only between the users logged on to one...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Phone\" (song) A song by Lizzo from her 2016 EP Coconut Oil.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phones (DJ) An English record producer, songwriter, musician, and remixer.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (film) A 2015 South Korean sci-fi action thriller film directed by Kim Bong-ju.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (Dutch TV series) A Dutch television reality show, which is created by Willem Brom, Beau van Erven Dorens and Marc...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (American TV series) An American reality television show of six episodes, based on the Dutch version of the same name.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (Australian TV series) An Australian reality television show, based on the Dutch version of the same name.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Radiotelephony A radio communication system for conducting a conversation; radiotelephony means telephony by radio.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A telephone, commonly shortened to phone, is a telecommunications device that enables two or more users to conduct a conversation when they are too far apart to be easily heard directly. A telephone converts sound, typically and most efficiently the human voice, into electronic signals that are transmitted via cables and other communication channels to another telephone which reproduces the sound to the receiving user. The term is derived from Ancient Greek: \u03c4\u1fc6\u03bb\u03b5, romanized: t\u0113le, lit. 'far' and \u03c6\u03c9\u03bd\u03ae, together meaning distant voice.",
+              "url": "https://en.wikipedia.org/wiki/Telephone"
+            }
+          ],
+          "timestamp": "2026-03-02T20:09:26.218591"
+        },
+        "ts": 1772482166.2187092
+      }
+    },
+    {
+      "ts": 1772482199.89745,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482199.89743
+      }
+    },
+    {
+      "ts": 1772482199.9182248,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "car",
+        "artifact": {
+          "concept": "car",
+          "definition": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than car",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Car A motor vehicle with wheels.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cars (film) A 2006 American animated sports comedy film produced by Pixar Animation Studios for Walt Disney...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Central African Republic A landlocked country in Central Africa.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+              "url": "https://en.wikipedia.org/wiki/Car"
+            }
+          ],
+          "timestamp": "2026-03-02T20:09:59.918086"
+        },
+        "ts": 1772482199.9182174
+      }
+    },
+    {
+      "ts": 1772482212.901532,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482212.9015188
+      }
+    },
+    {
+      "ts": 1772482212.9163032,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "computer",
+        "artifact": {
+          "concept": "computer",
+          "definition": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of o",
+          "structure": null,
+          "function": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "origin": null,
+          "evolution": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Computer A machine that can be programmed to automatically carry out sequences of arithmetic or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Personal computer A computer designed for personal use.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "OK Computer The third studio album by the English rock band Radiohead, released on 21 May 1997.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (Courage the Cowardly Dog) A character in the US TV series.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (magazine) An IEEE Computer Society practitioner-oriented magazine issued to all members of the society.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (occupation) The term \"computer\", in use from the early 17th century, meant \"one who computes\": a person...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Computers\" (Don't Hug Me I'm Scared) A TV series episode.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Analog computer A type of computation machine that uses physical phenomena such as electrical, mechanical, or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Computer (character) A character on the TV series The Bear.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, software, and peripheral equipment needed and used for full operation, or to a group of computers that are linked and function together, such as a computer network or computer cluster.",
+              "url": "https://en.wikipedia.org/wiki/Computer"
+            }
+          ],
+          "timestamp": "2026-03-02T20:10:12.916209"
+        },
+        "ts": 1772482212.9162982
+      }
+    },
+    {
+      "ts": 1772482224.6746016,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482224.6745875
+      }
+    },
+    {
+      "ts": 1772482224.6911788,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "phone",
+        "artifact": {
+          "concept": "phone",
+          "definition": "A telephone, commonly shortened to phone, is a telecommunications device that enables two or more users to conduct a conversation when they are too far apart to be easily heard directly. A telephone c",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Telephone A telecommunications device that enables two or more users to conduct a conversation when...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cell phone A portable wireless telephone that allows users to make and receive calls over a radio frequency...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Smart phone A mobile device that combines the functionality of a traditional mobile phone with advanced...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone A complex and deeply ingrained concept in traditional Burmese culture, primarily associated with...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (phonetics) Any distinct speech sound.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (film) A 2002 South Korean supernatural horror film written and directed by Ahn Byeong-ki and starring...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (novel) The eleventh novel by Will Self, published in 2017.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (software) A Unix text chat program, originally allowing messaging only between the users logged on to one...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Phone\" (song) A song by Lizzo from her 2016 EP Coconut Oil.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phones (DJ) An English record producer, songwriter, musician, and remixer.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (film) A 2015 South Korean sci-fi action thriller film directed by Kim Bong-ju.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (Dutch TV series) A Dutch television reality show, which is created by Willem Brom, Beau van Erven Dorens and Marc...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (American TV series) An American reality television show of six episodes, based on the Dutch version of the same name.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (Australian TV series) An Australian reality television show, based on the Dutch version of the same name.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Radiotelephony A radio communication system for conducting a conversation; radiotelephony means telephony by radio.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A telephone, commonly shortened to phone, is a telecommunications device that enables two or more users to conduct a conversation when they are too far apart to be easily heard directly. A telephone converts sound, typically and most efficiently the human voice, into electronic signals that are transmitted via cables and other communication channels to another telephone which reproduces the sound to the receiving user. The term is derived from Ancient Greek: \u03c4\u1fc6\u03bb\u03b5, romanized: t\u0113le, lit. 'far' and \u03c6\u03c9\u03bd\u03ae, together meaning distant voice.",
+              "url": "https://en.wikipedia.org/wiki/Telephone"
+            }
+          ],
+          "timestamp": "2026-03-02T20:10:24.691051"
+        },
+        "ts": 1772482224.6911724
+      }
+    },
+    {
+      "ts": 1772482258.0348618,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482258.0348475
+      }
+    },
+    {
+      "ts": 1772482258.0464458,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "car",
+        "artifact": {
+          "concept": "car",
+          "definition": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than car",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Car A motor vehicle with wheels.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cars (film) A 2006 American animated sports comedy film produced by Pixar Animation Studios for Walt Disney...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Central African Republic A landlocked country in Central Africa.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+              "url": "https://en.wikipedia.org/wiki/Car"
+            }
+          ],
+          "timestamp": "2026-03-02T20:10:58.046363"
+        },
+        "ts": 1772482258.0464413
+      }
+    },
+    {
+      "ts": 1772482270.6304748,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482270.6304536
+      }
+    },
+    {
+      "ts": 1772482270.6493585,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "computer",
+        "artifact": {
+          "concept": "computer",
+          "definition": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of o",
+          "structure": null,
+          "function": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "origin": null,
+          "evolution": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Computer A machine that can be programmed to automatically carry out sequences of arithmetic or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Personal computer A computer designed for personal use.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "OK Computer The third studio album by the English rock band Radiohead, released on 21 May 1997.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (Courage the Cowardly Dog) A character in the US TV series.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (magazine) An IEEE Computer Society practitioner-oriented magazine issued to all members of the society.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (occupation) The term \"computer\", in use from the early 17th century, meant \"one who computes\": a person...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Computers\" (Don't Hug Me I'm Scared) A TV series episode.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Analog computer A type of computation machine that uses physical phenomena such as electrical, mechanical, or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Computer (character) A character on the TV series The Bear.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, software, and peripheral equipment needed and used for full operation, or to a group of computers that are linked and function together, such as a computer network or computer cluster.",
+              "url": "https://en.wikipedia.org/wiki/Computer"
+            }
+          ],
+          "timestamp": "2026-03-02T20:11:10.649261"
+        },
+        "ts": 1772482270.6493537
+      }
+    },
+    {
+      "ts": 1772482283.0530324,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482283.0530238
+      }
+    },
+    {
+      "ts": 1772482283.0678174,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "phone",
+        "artifact": {
+          "concept": "phone",
+          "definition": "A telephone, commonly shortened to phone, is a telecommunications device that enables two or more users to conduct a conversation when they are too far apart to be easily heard directly. A telephone c",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Telephone A telecommunications device that enables two or more users to conduct a conversation when...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cell phone A portable wireless telephone that allows users to make and receive calls over a radio frequency...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Smart phone A mobile device that combines the functionality of a traditional mobile phone with advanced...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone A complex and deeply ingrained concept in traditional Burmese culture, primarily associated with...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (phonetics) Any distinct speech sound.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (film) A 2002 South Korean supernatural horror film written and directed by Ahn Byeong-ki and starring...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (novel) The eleventh novel by Will Self, published in 2017.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (software) A Unix text chat program, originally allowing messaging only between the users logged on to one...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Phone\" (song) A song by Lizzo from her 2016 EP Coconut Oil.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phones (DJ) An English record producer, songwriter, musician, and remixer.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (film) A 2015 South Korean sci-fi action thriller film directed by Kim Bong-ju.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (Dutch TV series) A Dutch television reality show, which is created by Willem Brom, Beau van Erven Dorens and Marc...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (American TV series) An American reality television show of six episodes, based on the Dutch version of the same name.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (Australian TV series) An Australian reality television show, based on the Dutch version of the same name.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Radiotelephony A radio communication system for conducting a conversation; radiotelephony means telephony by radio.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A telephone, commonly shortened to phone, is a telecommunications device that enables two or more users to conduct a conversation when they are too far apart to be easily heard directly. A telephone converts sound, typically and most efficiently the human voice, into electronic signals that are transmitted via cables and other communication channels to another telephone which reproduces the sound to the receiving user. The term is derived from Ancient Greek: \u03c4\u1fc6\u03bb\u03b5, romanized: t\u0113le, lit. 'far' and \u03c6\u03c9\u03bd\u03ae, together meaning distant voice.",
+              "url": "https://en.wikipedia.org/wiki/Telephone"
+            }
+          ],
+          "timestamp": "2026-03-02T20:11:23.067708"
+        },
+        "ts": 1772482283.067813
+      }
+    },
+    {
+      "ts": 1772482317.6171982,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482317.6171823
+      }
+    },
+    {
+      "ts": 1772482317.639991,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "car",
+        "artifact": {
+          "concept": "car",
+          "definition": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than car",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Car A motor vehicle with wheels.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cars (film) A 2006 American animated sports comedy film produced by Pixar Animation Studios for Walt Disney...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Central African Republic A landlocked country in Central Africa.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+              "url": "https://en.wikipedia.org/wiki/Car"
+            }
+          ],
+          "timestamp": "2026-03-02T20:11:57.639858"
+        },
+        "ts": 1772482317.639983
+      }
+    },
+    {
+      "ts": 1772482330.1490219,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772482330.149
+      }
+    },
+    {
+      "ts": 1772482330.1722155,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "computer",
+        "artifact": {
+          "concept": "computer",
+          "definition": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of o",
+          "structure": null,
+          "function": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "origin": null,
+          "evolution": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:00",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.6,
+            "winddirection": 156,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Computer A machine that can be programmed to automatically carry out sequences of arithmetic or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Personal computer A computer designed for personal use.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "OK Computer The third studio album by the English rock band Radiohead, released on 21 May 1997.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (Courage the Cowardly Dog) A character in the US TV series.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (magazine) An IEEE Computer Society practitioner-oriented magazine issued to all members of the society.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (occupation) The term \"computer\", in use from the early 17th century, meant \"one who computes\": a person...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Computers\" (Don't Hug Me I'm Scared) A TV series episode.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Analog computer A type of computation machine that uses physical phenomena such as electrical, mechanical, or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Computer (character) A character on the TV series The Bear.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, software, and peripheral equipment needed and used for full operation, or to a group of computers that are linked and function together, such as a computer network or computer cluster.",
+              "url": "https://en.wikipedia.org/wiki/Computer"
+            }
+          ],
+          "timestamp": "2026-03-02T20:12:10.172099"
+        },
+        "ts": 1772482330.17221
+      }
+    },
+    {
+      "ts": 1772483131.9244275,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483131.9244125
+      }
+    },
+    {
+      "ts": 1772483131.9537044,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772483131.9536915
+      }
+    },
+    {
+      "ts": 1772483131.965986,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483131.9659805
+      }
+    },
+    {
+      "ts": 1772483131.977004,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483131.9769986
+      }
+    },
+    {
+      "ts": 1772483131.9884698,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483131.988464
+      }
+    },
+    {
+      "ts": 1772483131.9997385,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772483131.9997315
+      }
+    },
+    {
+      "ts": 1772483132.011189,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483132.0111833
+      }
+    },
+    {
+      "ts": 1772483132.0220826,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772483132.0220766
+      }
+    },
+    {
+      "ts": 1772483132.033474,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483132.0334694
+      }
+    },
+    {
+      "ts": 1772483132.0444417,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483132.0444348
+      }
+    },
+    {
+      "ts": 1772483132.0558493,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483132.0558448
+      }
+    },
+    {
+      "ts": 1772483132.0669708,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772483132.066965
+      }
+    },
+    {
+      "ts": 1772483132.0784326,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483132.0784276
+      }
+    },
+    {
+      "ts": 1772483132.0897284,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772483132.0897243
+      }
+    },
+    {
+      "ts": 1772483132.1013343,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483132.1013288
+      }
+    },
+    {
+      "ts": 1772483132.1126397,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483132.112635
+      }
+    },
+    {
+      "ts": 1772483132.1241994,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483132.1241953
+      }
+    },
+    {
+      "ts": 1772483132.1356056,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483132.1356003
+      }
+    },
+    {
+      "ts": 1772483132.147343,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483132.1473374
+      }
+    },
+    {
+      "ts": 1772483132.1586275,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483132.1586225
+      }
+    },
+    {
+      "ts": 1772483132.1702797,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483132.170276
+      }
+    },
+    {
+      "ts": 1772483132.1816714,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483132.1816669
+      }
+    },
+    {
+      "ts": 1772483145.944771,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483145.944758
+      }
+    },
+    {
+      "ts": 1772483145.9635098,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "car",
+        "artifact": {
+          "concept": "car",
+          "definition": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than car",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+          "live_context": {
+            "time": "2026-03-02T20:15",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.7,
+            "winddirection": 155,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Car A motor vehicle with wheels.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cars (film) A 2006 American animated sports comedy film produced by Pixar Animation Studios for Walt Disney...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Central African Republic A landlocked country in Central Africa.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+              "url": "https://en.wikipedia.org/wiki/Car"
+            }
+          ],
+          "timestamp": "2026-03-02T20:25:45.963364"
+        },
+        "ts": 1772483145.9635031
+      }
+    },
+    {
+      "ts": 1772483158.5831196,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483158.5830958
+      }
+    },
+    {
+      "ts": 1772483158.6068213,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "computer",
+        "artifact": {
+          "concept": "computer",
+          "definition": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of o",
+          "structure": null,
+          "function": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "origin": null,
+          "evolution": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:15",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.7,
+            "winddirection": 155,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Computer A machine that can be programmed to automatically carry out sequences of arithmetic or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Personal computer A computer designed for personal use.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "OK Computer The third studio album by the English rock band Radiohead, released on 21 May 1997.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (Courage the Cowardly Dog) A character in the US TV series.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (magazine) An IEEE Computer Society practitioner-oriented magazine issued to all members of the society.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (occupation) The term \"computer\", in use from the early 17th century, meant \"one who computes\": a person...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Computers\" (Don't Hug Me I'm Scared) A TV series episode.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Analog computer A type of computation machine that uses physical phenomena such as electrical, mechanical, or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Computer (character) A character on the TV series The Bear.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, software, and peripheral equipment needed and used for full operation, or to a group of computers that are linked and function together, such as a computer network or computer cluster.",
+              "url": "https://en.wikipedia.org/wiki/Computer"
+            }
+          ],
+          "timestamp": "2026-03-02T20:25:58.606722"
+        },
+        "ts": 1772483158.6068163
+      }
+    },
+    {
+      "ts": 1772483172.3609958,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483172.3609776
+      }
+    },
+    {
+      "ts": 1772483172.3853555,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "phone",
+        "artifact": {
+          "concept": "phone",
+          "definition": "A telephone, commonly shortened to phone, is a telecommunications device that enables two or more users to conduct a conversation when they are too far apart to be easily heard directly. A telephone c",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:15",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.7,
+            "winddirection": 155,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Telephone A telecommunications device that enables two or more users to conduct a conversation when...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cell phone A portable wireless telephone that allows users to make and receive calls over a radio frequency...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Smart phone A mobile device that combines the functionality of a traditional mobile phone with advanced...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone A complex and deeply ingrained concept in traditional Burmese culture, primarily associated with...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (phonetics) Any distinct speech sound.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (film) A 2002 South Korean supernatural horror film written and directed by Ahn Byeong-ki and starring...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (novel) The eleventh novel by Will Self, published in 2017.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phone (software) A Unix text chat program, originally allowing messaging only between the users logged on to one...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Phone\" (song) A song by Lizzo from her 2016 EP Coconut Oil.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Phones (DJ) An English record producer, songwriter, musician, and remixer.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (film) A 2015 South Korean sci-fi action thriller film directed by Kim Bong-ju.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (Dutch TV series) A Dutch television reality show, which is created by Willem Brom, Beau van Erven Dorens and Marc...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (American TV series) An American reality television show of six episodes, based on the Dutch version of the same name.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Phone (Australian TV series) An Australian reality television show, based on the Dutch version of the same name.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Radiotelephony A radio communication system for conducting a conversation; radiotelephony means telephony by radio.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A telephone, commonly shortened to phone, is a telecommunications device that enables two or more users to conduct a conversation when they are too far apart to be easily heard directly. A telephone converts sound, typically and most efficiently the human voice, into electronic signals that are transmitted via cables and other communication channels to another telephone which reproduces the sound to the receiving user. The term is derived from Ancient Greek: \u03c4\u1fc6\u03bb\u03b5, romanized: t\u0113le, lit. 'far' and \u03c6\u03c9\u03bd\u03ae, together meaning distant voice.",
+              "url": "https://en.wikipedia.org/wiki/Telephone"
+            }
+          ],
+          "timestamp": "2026-03-02T20:26:12.385211"
+        },
+        "ts": 1772483172.3853498
+      }
+    },
+    {
+      "ts": 1772483204.9920468,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483204.9920316
+      }
+    },
+    {
+      "ts": 1772483205.0098035,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "car",
+        "artifact": {
+          "concept": "car",
+          "definition": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than car",
+          "structure": null,
+          "function": null,
+          "origin": null,
+          "evolution": null,
+          "context": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+          "live_context": {
+            "time": "2026-03-02T20:15",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.7,
+            "winddirection": 155,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Car A motor vehicle with wheels.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Cars (film) A 2006 American animated sports comedy film produced by Pixar Animation Studios for Walt Disney...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Central African Republic A landlocked country in Central Africa.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A car, or an automobile, is a motor vehicle with wheels. Most definitions of cars state that they run primarily on roads, seat 1-8 people, have four wheels, and mainly transport people rather than cargo. There are over 1.6 billion cars in use worldwide as of 2025.",
+              "url": "https://en.wikipedia.org/wiki/Car"
+            }
+          ],
+          "timestamp": "2026-03-02T20:26:45.009728"
+        },
+        "ts": 1772483205.0098
+      }
+    },
+    {
+      "ts": 1772483216.8004599,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483216.8004463
+      }
+    },
+    {
+      "ts": 1772483216.8176184,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "computer",
+        "artifact": {
+          "concept": "computer",
+          "definition": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of o",
+          "structure": null,
+          "function": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "origin": null,
+          "evolution": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, ",
+          "context": null,
+          "live_context": {
+            "time": "2026-03-02T20:15",
+            "interval": 900,
+            "temperature": 17.6,
+            "windspeed": 16.7,
+            "winddirection": 155,
+            "is_day": 0,
+            "weathercode": 1
+          },
+          "structured_search": [
+            {
+              "source": "duckduckgo",
+              "text": "Computer A machine that can be programmed to automatically carry out sequences of arithmetic or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Personal computer A computer designed for personal use.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "OK Computer The third studio album by the English rock band Radiohead, released on 21 May 1997.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (Courage the Cowardly Dog) A character in the US TV series.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (magazine) An IEEE Computer Society practitioner-oriented magazine issued to all members of the society.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Computer (occupation) The term \"computer\", in use from the early 17th century, meant \"one who computes\": a person...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "\"Computers\" (Don't Hug Me I'm Scared) A TV series episode.",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "Analog computer A type of computation machine that uses physical phenomena such as electrical, mechanical, or...",
+              "url": null
+            },
+            {
+              "source": "duckduckgo",
+              "text": "The Computer (character) A character on the TV series The Bear.",
+              "url": null
+            },
+            {
+              "source": "wikipedia",
+              "text": "A computer is a machine that can be programmed to automatically carry out sequences of arithmetic or logical operations (computation). Modern digital electronic computers can perform generic sets of operations known as programs, which enable computers to perform a wide range of tasks. The term computer system may refer to a nominally complete computer that includes the hardware, operating system, software, and peripheral equipment needed and used for full operation, or to a group of computers that are linked and function together, such as a computer network or computer cluster.",
+              "url": "https://en.wikipedia.org/wiki/Computer"
+            }
+          ],
+          "timestamp": "2026-03-02T20:26:56.817534"
+        },
+        "ts": 1772483216.8176146
+      }
+    },
+    {
+      "ts": 1772483620.5799525,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.5799375
+      }
+    },
+    {
+      "ts": 1772483620.6003563,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.6003444
+      }
+    },
+    {
+      "ts": 1772483620.6200466,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.62004
+      }
+    },
+    {
+      "ts": 1772483620.6338155,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.6338098
+      }
+    },
+    {
+      "ts": 1772483620.6468732,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.6468687
+      }
+    },
+    {
+      "ts": 1772483620.6597438,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.6597388
+      }
+    },
+    {
+      "ts": 1772483620.672985,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.67298
+      }
+    },
+    {
+      "ts": 1772483620.6858947,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.6858892
+      }
+    },
+    {
+      "ts": 1772483620.6991024,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.6990986
+      }
+    },
+    {
+      "ts": 1772483620.7121243,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.7121186
+      }
+    },
+    {
+      "ts": 1772483620.7251055,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.7251012
+      }
+    },
+    {
+      "ts": 1772483620.7379138,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.7379074
+      }
+    },
+    {
+      "ts": 1772483620.7510428,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.7510383
+      }
+    },
+    {
+      "ts": 1772483620.7640579,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.7640514
+      }
+    },
+    {
+      "ts": 1772483620.7772563,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.777252
+      }
+    },
+    {
+      "ts": 1772483620.7903216,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.7903166
+      }
+    },
+    {
+      "ts": 1772483620.8034327,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.8034282
+      }
+    },
+    {
+      "ts": 1772483620.8165793,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.8165736
+      }
+    },
+    {
+      "ts": 1772483620.8301222,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.830118
+      }
+    },
+    {
+      "ts": 1772483620.8431952,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.84319
+      }
+    },
+    {
+      "ts": 1772483620.8566077,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772483620.8566039
+      }
+    },
+    {
+      "ts": 1772483620.8697996,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772483620.8697958
+      }
+    },
+    {
+      "ts": 1772483634.7841492,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483634.7841344
+      }
+    },
+    {
+      "ts": 1772483648.3706794,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483648.3706577
+      }
+    },
+    {
+      "ts": 1772483661.410558,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483661.4105344
+      }
+    },
+    {
+      "ts": 1772483697.3525279,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483697.3525076
+      }
+    },
+    {
+      "ts": 1772483709.0441735,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483709.0441604
+      }
+    },
+    {
+      "ts": 1772483725.7255423,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483725.7255332
+      }
+    },
+    {
+      "ts": 1772483759.237545,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483759.2375343
+      }
+    },
+    {
+      "ts": 1772483772.8425984,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483772.8425782
+      }
+    },
+    {
+      "ts": 1772483785.5472531,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483785.547235
+      }
+    },
+    {
+      "ts": 1772483818.8873525,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772483818.8872914
+      }
+    },
+    {
+      "ts": 1772484126.4137197,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.413714
+      }
+    },
+    {
+      "ts": 1772484126.4402328,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.4402218
+      }
+    },
+    {
+      "ts": 1772484126.456315,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.4563103
+      }
+    },
+    {
+      "ts": 1772484126.4700196,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hf ask hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.4700139
+      }
+    },
+    {
+      "ts": 1772484126.4838333,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.4838288
+      }
+    },
+    {
+      "ts": 1772484126.4973238,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "Ai",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.4973185
+      }
+    },
+    {
+      "ts": 1772484126.5112467,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.5112422
+      }
+    },
+    {
+      "ts": 1772484126.5248625,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "reflect",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.5248575
+      }
+    },
+    {
+      "ts": 1772484126.539152,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.5391467
+      }
+    },
+    {
+      "ts": 1772484126.5531993,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "query llm hi",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.5531933
+      }
+    },
+    {
+      "ts": 1772484126.5670907,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.5670867
+      }
+    },
+    {
+      "ts": 1772484126.5806835,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "hi",
+          "results_count": 3,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.5806782
+      }
+    },
+    {
+      "ts": 1772484126.5945868,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.594583
+      }
+    },
+    {
+      "ts": 1772484126.6085217,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "ideas",
+          "results_count": 5,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.6085172
+      }
+    },
+    {
+      "ts": 1772484126.622778,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.6227705
+      }
+    },
+    {
+      "ts": 1772484126.636637,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "idea AI",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.636632
+      }
+    },
+    {
+      "ts": 1772484126.6507785,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.6507745
+      }
+    },
+    {
+      "ts": 1772484126.6647003,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal auti",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.6646955
+      }
+    },
+    {
+      "ts": 1772484126.6791832,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.6791785
+      }
+    },
+    {
+      "ts": 1772484126.6930902,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "sself heal auto",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.6930852
+      }
+    },
+    {
+      "ts": 1772484126.707332,
+      "key": "slsa_reinforce",
+      "value": {
+        "topic": "net:search",
+        "ts": 1772484126.7073276
+      }
+    },
+    {
+      "ts": 1772484126.7212157,
+      "key": "slsa_module_feed",
+      "value": {
+        "concept": "net:search",
+        "artifact": {
+          "query": "self heal",
+          "results_count": 1,
+          "concept": "net:search"
+        },
+        "ts": 1772484126.7212074
+      }
+    },
+    {
+      "ts": 1772484139.8744657,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484139.874442
+      }
+    },
+    {
+      "ts": 1772484152.59016,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484152.59015
+      }
+    },
+    {
+      "ts": 1772484166.9634762,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484166.9634519
+      }
+    },
+    {
+      "ts": 1772484201.8013995,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484201.8013785
+      }
+    },
+    {
+      "ts": 1772484213.2477043,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484213.247687
+      }
+    },
+    {
+      "ts": 1772484226.2182467,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484226.218226
+      }
+    },
+    {
+      "ts": 1772484259.7740433,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484259.774033
+      }
+    },
+    {
+      "ts": 1772484272.0692365,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484272.0692163
+      }
+    },
+    {
+      "ts": 1772484284.4659224,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484284.4659083
+      }
+    },
+    {
+      "ts": 1772484317.991388,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484317.9913676
+      }
+    },
+    {
+      "ts": 1772484329.8430953,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484329.8430803
+      }
+    },
+    {
+      "ts": 1772484342.8906147,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484342.8906004
+      }
+    },
+    {
+      "ts": 1772484375.6744332,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484375.67442
+      }
+    },
+    {
+      "ts": 1772484388.4094,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484388.4093907
+      }
+    },
+    {
+      "ts": 1772484400.9329786,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484400.9329524
+      }
+    },
+    {
+      "ts": 1772484434.0922396,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484434.0922315
+      }
+    },
+    {
+      "ts": 1772484446.7077665,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484446.707746
+      }
+    },
+    {
+      "ts": 1772484458.7615793,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484458.761569
+      }
+    },
+    {
+      "ts": 1772484491.204443,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484491.2044325
+      }
+    },
+    {
+      "ts": 1772484503.0424974,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484503.042483
+      }
+    },
+    {
+      "ts": 1772484514.46496,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484514.4649506
+      }
+    },
+    {
+      "ts": 1772484547.370435,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484547.3704247
+      }
+    },
+    {
+      "ts": 1772484559.809941,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484559.8099291
+      }
+    },
+    {
+      "ts": 1772484574.2311735,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484574.2311606
+      }
+    },
+    {
+      "ts": 1772484608.4578626,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484608.4578445
+      }
+    },
+    {
+      "ts": 1772484620.6583858,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484620.6583757
+      }
+    },
+    {
+      "ts": 1772484633.3960204,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484633.3960052
+      }
+    },
+    {
+      "ts": 1772484666.4829035,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484666.482895
+      }
+    },
+    {
+      "ts": 1772484678.982813,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484678.9827936
+      }
+    },
+    {
+      "ts": 1772484690.8394842,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1772484690.8394642
+      }
+    }
+  ],
+  "facts": [
+    {
+      "key": "net:search",
+      "value": {
+        "query": "hi",
+        "results_count": 3,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:hi",
+      "value": "Based on research: Hawaii An island state of the United States, in the Pacific Ocean about 2,000 miles southwest of the U",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "hf ask hi",
+        "results_count": 1,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:hf ask hi",
+      "value": "Based on research: No instant answers for 'hf ask hi'",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "Ai",
+        "results_count": 5,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:ai",
+      "value": "Prototype an automation that solves a repetitive problem around 'Ai'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "reflect",
+        "results_count": 3,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:reflect",
+      "value": "Based on research: Specular reflection The mirror-like reflection of waves, such as light, from a surface",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "query llm hi",
+        "results_count": 1,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:query llm hi",
+      "value": "Develop a lightweight monitoring dashboard that tracks 'query llm hi' trends.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "hi",
+        "results_count": 3,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:hi",
+      "value": "Based on research: Hainan An island province and the southernmost province of China consisting of the eponymous Hainan",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "ideas",
+        "results_count": 5,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:ideas",
+      "value": "Create a tutorial series about 'ideas' aimed at beginners.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "idea AI",
+        "results_count": 1,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:idea ai",
+      "value": "Offer a data-driven micro-newsletter with weekly insights on 'idea AI'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "self heal auti",
+        "results_count": 1,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:self heal auti",
+      "value": "Offer a data-driven micro-newsletter with weekly insights on 'self heal auti'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "sself heal auto",
+        "results_count": 1,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:sself heal auto",
+      "value": "Offer a data-driven micro-newsletter with weekly insights on 'sself heal auto'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "net:search",
+      "value": {
+        "query": "self heal",
+        "results_count": 1,
+        "concept": "net:search"
+      },
+      "tags": [
+        "net",
+        "search"
+      ]
+    },
+    {
+      "key": "idea:self heal",
+      "value": "Develop a lightweight monitoring dashboard that tracks 'self heal' trends.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:hi",
+      "value": "Offer a data-driven micro-newsletter with weekly insights on 'hi'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:hel0",
+      "value": "Create a tutorial series about 'hel0' aimed at beginners.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:internet wikipedia",
+      "value": "Offer a data-driven micro-newsletter with weekly insights on 'internet wikipedia'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:teach internet",
+      "value": "Prototype an automation that solves a repetitive problem around 'teach internet'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:data",
+      "value": "Develop a lightweight monitoring dashboard that tracks 'data' trends.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:net data",
+      "value": "Offer a data-driven micro-newsletter with weekly insights on 'net data'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:hi",
+      "value": "Prototype an automation that solves a repetitive problem around 'hi'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:resa",
+      "value": "Prototype an automation that solves a repetitive problem around 'resa'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:h",
+      "value": "Prototype an automation that solves a repetitive problem around 'h'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:hf ask hi",
+      "value": "Create a tutorial series about 'hf ask hi' aimed at beginners.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:qeu",
+      "value": "Prototype an automation that solves a repetitive problem around 'qeu'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:query llm hi",
+      "value": "Prototype an automation that solves a repetitive problem around 'query llm hi'.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    },
+    {
+      "key": "idea:query llm hi",
+      "value": "Develop a lightweight monitoring dashboard that tracks 'query llm hi' trends.",
+      "tags": [
+        "idea",
+        "auto"
+      ]
+    }
+  ]
+}

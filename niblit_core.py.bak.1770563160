@@ -1,0 +1,324 @@
+#!/usr/bin/env python3
+"""
+NIBLIT AIOS — Fused Core v5.1
+Author: Riyaad Behardien
+Combines original NiblitCore + Full Hybrid Core features
+"""
+
+import os
+import time
+import threading
+import logging
+import json
+from datetime import datetime
+from typing import Any, List, Tuple, Optional
+
+# ---------------------------
+# Logging
+# ---------------------------
+logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
+log = logging.getLogger("NiblitCore")
+
+# ---------------------------
+# Utilities
+# ---------------------------
+def now_iso():
+    return datetime.utcnow().isoformat() + "Z"
+
+def timestamp():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def json_safe(obj: Any) -> str:
+    try:
+        return json.dumps(obj, default=str, indent=2)
+    except Exception:
+        return str(obj)
+
+def safe_call(fn, *a, **kw):
+    try:
+        return fn(*a, **kw)
+    except Exception as e:
+        log.debug("safe_call failure: %s -> %s", fn, e)
+        return None
+
+# ---------------------------
+# Emotion detection
+# ---------------------------
+_EMO_KEYWORDS = {
+    "positive": ["good","great","awesome","nice","happy","love","thanks","thank"],
+    "negative": ["bad","sad","angry","upset","hate","problem","issue","frustrat"],
+    "neutral":  ["ok","fine","maybe","later"]
+}
+
+def detect_emotion(text: str) -> str:
+    tl = text.lower()
+    score = {"positive":0,"negative":0,"neutral":0}
+    for k, words in _EMO_KEYWORDS.items():
+        for w in words:
+            if w in tl:
+                score[k] += 1
+    best = max(score.items(), key=lambda x: (x[1], x[0]))
+    return best[0] if best[1] > 0 else "neutral"
+
+# ---------------------------
+# Intent parser
+# ---------------------------
+def parse_intent(text: str) -> Tuple[str, dict]:
+    t = text.strip().lower()
+    if t.startswith("remember "):
+        payload = t[len("remember "):].strip()
+        if ":" in payload:
+            k,v = payload.split(":",1)
+            return "remember", {"key":k.strip(), "value":v.strip()}
+        return "bad_remember", {}
+    if t in ("time", "what time is it", "current time"):
+        return "time", {}
+    if "weather" in t:
+        return "weather", {}
+    if t in ("help", "commands"):
+        return "help", {}
+    if t in ("status", "health"):
+        return "status", {}
+    if t in ("shutdown","exit","quit"):
+        return "shutdown", {}
+    if t.startswith("learn about "):
+        return "learn", {"topic": t[len("learn about "):].strip()}
+    if t.startswith("ideas about "):
+        return "ideas", {"topic": t[len("ideas about "):].strip()}
+    return "chat", {}
+
+# ---------------------------
+# Storage / Memory
+# ---------------------------
+class KnowledgeDB:
+    def __init__(self, path='niblit_memory.json'):
+        self.path = path
+        self.data = {
+            'facts': [],
+            'interactions': [],
+            'personality': {'mood':'neutral','verbosity':'medium'},
+            'meta': {}
+        }
+        self._load()
+
+    def _load(self):
+        try:
+            if os.path.exists(self.path):
+                with open(self.path,'r',encoding='utf-8') as f:
+                    self.data = json.load(f)
+        except Exception:
+            try:
+                os.rename(self.path, self.path + '.bak')
+            except Exception:
+                pass
+            self._save()
+
+    def _save(self):
+        with open(self.path,'w',encoding='utf-8') as f:
+            json.dump(self.data,f,indent=2,ensure_ascii=False)
+
+    # Facts
+    def add_fact(self,key,value,tags=None):
+        tags = tags or []
+        self.data['facts'].append({'key':key,'value':value,'tags':tags,'ts':int(time.time())})
+        self._save()
+
+    def forget(self,key):
+        before = len(self.data['facts'])
+        self.data['facts'] = [f for f in self.data['facts'] if f['key'] != key]
+        self._save()
+        return before - len(self.data['facts'])
+
+    def list_facts(self,limit=50):
+        return list(reversed(self.data['facts'][-limit:]))
+
+    # Interactions
+    def add_interaction(self, role, text):
+        if 'interactions' not in self.data:
+            self.data['interactions'] = []
+        self.data['interactions'].append({'ts':int(time.time()),'role':role,'text':text})
+        if len(self.data['interactions'])>500:
+            self.data['interactions'] = self.data['interactions'][-500:]
+        self._save()
+
+    def recent_interactions(self, n=20):
+        if 'interactions' not in self.data:
+            self.data['interactions'] = []
+        return self.data['interactions'][-n:]
+
+    def get_personality(self):
+        if 'personality' not in self.data:
+            self.data['personality'] = {'mood':'neutral','verbosity':'medium'}
+        return self.data['personality']
+
+# ---------------------------
+# NiblitCore fused with Brain
+# ---------------------------
+class NiblitCore:
+    def __init__(self, memory_path=None):
+        log.info("Initializing NiblitCore fused system...")
+        self.start_ts = time.time()
+        self.start_time = now_iso()
+
+        # --- Memory ---
+        self.db = KnowledgeDB(memory_path) if memory_path else KnowledgeDB()
+        self.memory = self.db
+        self.personality = self.db.get_personality()
+
+        # --- Modules ---
+        self.llm_enabled = True
+        self.llm = None  # placeholder for LLMAdapter
+        self.hf_brain = self._load_hf_brain()
+        self.self_healer = None  # optional: implement self-healer
+        self.self_teacher = None  # optional: implement self-teacher
+
+        # --- Runtime ---
+        self.running = True
+        self.event_bus: List[Tuple[str,Any]] = []
+        self._bg_threads: List[threading.Thread] = []
+
+        # --- Persona ---
+        self.persona = {"mode":"hybrid","tone":"balanced","emotion_history":[],"last_user":None}
+
+        # Start background threads
+        self._start_background_threads()
+        log.info("NiblitCore fused system initialized successfully.")
+
+    # ---------------------------
+    # HFBrain loader
+    # ---------------------------
+    def _load_hf_brain(self):
+        try:
+            from modules.hf_brain import HFBrain
+            brain = HFBrain()
+            log.info("HFBrain loaded successfully.")
+            return brain
+        except Exception as e:
+            log.warning(f"HFBrain failed to load: {e}")
+            return None
+
+    # ---------------------------
+    # Background threads
+    # ---------------------------
+    def _start_background_threads(self):
+        t1 = threading.Thread(target=self._background_loop, daemon=True, name="niblit-bg")
+        t2 = threading.Thread(target=self._health_monitor, daemon=True, name="niblit-health")
+        t1.start(); t2.start()
+        self._bg_threads.extend([t1,t2])
+
+    def _background_loop(self):
+        while self.running:
+            # placeholder: flush trainers, sensors, maintenance hooks
+            time.sleep(3)
+
+    def _health_monitor(self):
+        while self.running:
+            uptime = int(time.time() - self.start_ts)
+            mem_count = len(self.memory.recent_interactions(100)) if self.memory else 0
+            log.info(f"[HEALTH] Niblit alive | uptime_s={uptime} | memory={mem_count}")
+            time.sleep(30)
+
+    # ---------------------------
+    # Chat / Brain interface
+    # ---------------------------
+    def learn(self, user_input: str):
+        self.memory.add_interaction("user", user_input)
+
+    def think(self, user_input: str) -> str:
+        self.learn(user_input)
+        context = ""
+        recalled = self.memory.recent_interactions(10)
+        if recalled:
+            context = "Based on previous interactions:\n"
+            for r in recalled:
+                context += f"- {r['text']}\n"
+            context += "\n"
+        prompt = context + user_input
+        if self.hf_brain:
+            resp = safe_call(self.hf_brain.ask_single, prompt)
+            if resp: return resp.strip()
+        return f"[neutral] I hear you: '{user_input}'"
+
+    # ---------------------------
+    # Respond / heuristic
+    # ---------------------------
+    def respond(self, text: str) -> str:
+        self.persona["last_user"] = text
+        emotion = detect_emotion(text)
+        self.persona["emotion_history"].append((now_iso(), emotion))
+        if len(self.persona["emotion_history"])>40:
+            self.persona["emotion_history"] = self.persona["emotion_history"][-40:]
+        tone = self.persona.get("tone", "balanced")
+        intent, meta = parse_intent(text)
+
+        # --- intent handling ---
+        try:
+            if intent == "remember":
+                k,v = meta.get("key"), meta.get("value")
+                self.db.add_fact(k,v)
+                reply = f"Saved {k}"
+                return reply
+            if intent == "time":
+                reply = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                return reply
+            if intent == "help":
+                reply = self.help_text()
+                return reply
+            if intent == "status":
+                reply = f"Memory entries: {len(self.db.recent_interactions(50))}"
+                return reply
+            if intent == "learn":
+                topic = meta.get("topic","")
+                return f"Learning about {topic}…"
+            if intent == "ideas":
+                topic = meta.get("topic","")
+                return f"Quick ideas for {topic}: 1) Prototype 2) Monetize 3) Iterate"
+            if intent == "shutdown":
+                threading.Thread(target=self.shutdown, daemon=True).start()
+                return "Shutdown scheduled."
+        except Exception as e:
+            log.exception("Respond error: %s", e)
+            return f"Error processing: {e}"
+
+        # fallback
+        return self.think(text)
+
+    # ---------------------------
+    # Utilities
+    # ---------------------------
+    def help_text(self) -> str:
+        return (
+            "Commands:\n"
+            "  remember key: value\n"
+            "  time\n"
+            "  status\n"
+            "  learn about <topic>\n"
+            "  ideas about <topic>\n"
+            "  help\n"
+            "  shutdown"
+        )
+
+    # ---------------------------
+    # Shutdown
+    # ---------------------------
+    def shutdown(self):
+        log.info("Shutdown initiated…")
+        self.running = False
+        time.sleep(0.5)
+        log.info("Shutdown complete.")
+
+# ---------------------------
+# Quick self-test
+# ---------------------------
+if __name__ == "__main__":
+    core = NiblitCore()
+    print("[Selftest] NiblitCore fused system running. Type messages or 'exit'.")
+    try:
+        while core.running:
+            cmd = input("You: ").strip()
+            if cmd.lower() in ("exit","quit","shutdown"):
+                core.shutdown()
+                break
+            print("Niblit:", core.respond(cmd))
+    except KeyboardInterrupt:
+        core.shutdown()

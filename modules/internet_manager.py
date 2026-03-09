@@ -1,180 +1,153 @@
 #!/usr/bin/env python3
 # modules/internet_manager.py
-"""
-InternetManager - lightweight Termux-friendly internet utilities.
 
-Provides:
- - is_online()
- - ping(host)
- - get_latency(host, tries)
- - fetch_url(url) -> dict{status_code, text}
- - search_web(query) -> list[str]
- - search(query) -> alias to search_web
- - info() -> dict
- - status() -> brief string
-"""
-import time
 import requests
-import html
 import re
-from typing import List, Dict, Any
+import html
+from bs4 import BeautifulSoup  # for extracting text from HTML
+
+# Optional: pip install googlesearch-python
+try:
+    from googlesearch import search as google_search
+    GOOGLE_ENABLED = True
+except ImportError:
+    GOOGLE_ENABLED = False
 
 DDG_API = "https://api.duckduckgo.com/"
-WIKI_API = "https://en.wikipedia.org/api/rest_v1/page/summary/{}"
+WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary/{}"
+WIKI_SEARCH = "https://en.wikipedia.org/w/api.php"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; Niblit/1.0)"
+}
+
 
 class InternetManager:
-    def __init__(self, db=None, timeout: int = 6):
-        """
-        db: optional DB object (will be used for logging)
-        timeout: HTTP timeout in seconds
-        """
-        self.timeout = timeout
+    def __init__(self, db=None, llm_adapter=None, timeout=6):
         self.db = db
+        self.llm = llm_adapter
+        self.timeout = timeout
 
-    # --------------------------
-    # Basic checks & info
-    # --------------------------
-    def is_online(self) -> bool:
+    # ─────────────────────────────
+    def is_online(self):
         try:
             r = requests.get("https://api.ipify.org?format=json", timeout=self.timeout)
             return r.status_code == 200
         except Exception:
             return False
 
-    def info(self) -> Dict[str, Any]:
-        return {
-            "online": self.is_online(),
-            "timeout": self.timeout,
-            "provider": "duckduckgo+wiki",
-        }
+    # ─────────────────────────────
+    # SMART SEARCH
+    # Returns structured results with source, text, and optional url
+    def search(self, query, max_results=5, use_llm=True):
+        results = []
 
-    def status(self) -> str:
-        i = self.info()
-        return f"online={i.get('online')} timeout={i.get('timeout')} provider={i.get('provider')}"
-
-    # --------------------------
-    # Ping / latency
-    # --------------------------
-    def ping(self, host: str = "https://duckduckgo.com") -> Dict[str, Any]:
+        # ───────── DUCKDUCKGO ─────────
         try:
-            start = time.time()
-            r = requests.get(host, timeout=self.timeout)
-            latency = int((time.time() - start) * 1000)
-            out = {"ok": r.ok, "status_code": r.status_code, "latency_ms": latency, "url": host}
-            if self.db and hasattr(self.db, "add_fact"):
-                try:
-                    self.db.add_fact("net:ping", out, tags=["net"])
-                except Exception:
-                    pass
-            return out
-        except Exception as e:
-            return {"ok": False, "error": str(e), "url": host}
-
-    def get_latency(self, host: str = "https://duckduckgo.com", tries: int = 2) -> Any:
-        latencies = []
-        for _ in range(max(1, tries)):
-            r = self.ping(host)
-            if r.get("ok"):
-                latencies.append(r.get("latency_ms", 9999))
-        return min(latencies) if latencies else None
-
-    # --------------------------
-    # Fetch a URL (lightweight)
-    # --------------------------
-    def fetch_url(self, url: str, max_len: int = 4000) -> Dict[str, Any]:
-        try:
-            r = requests.get(url, timeout=self.timeout)
-            text = r.text or ""
-            text = re.sub(r'\s+', ' ', html.unescape(text))
-            snippet = text[:max_len]
-            return {"status_code": r.status_code, "text": snippet, "url": url}
-        except Exception as e:
-            return {"error": str(e), "url": url}
-
-    # --------------------------
-    # DuckDuckGo Instant Answer + Wikipedia fallback
-    # --------------------------
-    def _ddg_instant(self, query: str) -> List[str]:
-        try:
-            params = {"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}
-            r = requests.get(DDG_API, params=params, timeout=self.timeout)
-            r.raise_for_status()
-            data = r.json()
-            results = []
-            if data.get("AbstractText"):
-                results.append(data.get("AbstractText"))
-            if data.get("Answer"):
-                results.append(str(data.get("Answer")))
-            if data.get("RelatedTopics"):
-                for t in data["RelatedTopics"][:6]:
-                    if isinstance(t, dict):
-                        txt = t.get("Text") or t.get("Result") or ""
-                        if txt:
-                            results.append(txt)
-            if not results and data.get("Results"):
-                for res in data.get("Results", [])[:5]:
-                    if isinstance(res, dict):
-                        txt = res.get("Text") or res.get("Result") or ""
-                        if txt:
-                            results.append(txt)
-            return results
-        except Exception:
-            return []
-
-    def _wiki_summary(self, query: str) -> List[str]:
-        try:
-            q = query.strip().replace(" ", "_")
-            r = requests.get(WIKI_API.format(q), timeout=self.timeout)
-            if r.status_code == 200:
-                js = r.json()
-                if js.get("extract"):
-                    txt = js.get("extract")
-                    sents = re.split(r'(?<=[.!?])\s+', txt)
-                    return sents[:3]
-            return []
-        except Exception:
-            return []
-
-    def search_web(self, query: str, max_results: int = 5) -> List[str]:
-        """
-        High-level search:
-         - try DuckDuckGo instant JSON
-         - fallback to Wikipedia summary if sparse
-         - return cleaned list of snippets
-        """
-        if not query:
-            return []
-
-        out = []
-        try:
-            out.extend(self._ddg_instant(query))
-            if len(out) < 2:
-                out.extend(self._wiki_summary(query))
+            r = requests.get(
+                DDG_API,
+                params={"q": query, "format": "json", "no_html": 1},
+                timeout=self.timeout
+            )
+            js = r.json()
+            if js.get("AbstractText"):
+                results.append({"source": "duckduckgo", "text": js["AbstractText"], "url": None})
+            for t in js.get("RelatedTopics", []):
+                if isinstance(t, dict) and t.get("Text"):
+                    results.append({"source": "duckduckgo", "text": t["Text"], "url": None})
         except Exception:
             pass
 
-        if not out:
-            out = [f"No instant answers for '{query}'. Try a web search."]
+        # ───────── WIKIPEDIA ─────────
+        try:
+            # Search API
+            r = requests.get(
+                WIKI_SEARCH,
+                params={"action": "query", "list": "search", "srsearch": query, "format": "json"},
+                headers=HEADERS,
+                timeout=self.timeout
+            )
+            js = r.json()
+            search_hits = js.get("query", {}).get("search", [])
+            if search_hits:
+                title = search_hits[0]["title"]
+                # Summary API
+                r2 = requests.get(WIKI_SUMMARY.format(title.replace(" ", "_")), headers=HEADERS, timeout=self.timeout)
+                if r2.status_code == 200:
+                    js2 = r2.json()
+                    if js2.get("extract"):
+                        results.append({
+                            "source": "wikipedia",
+                            "text": js2["extract"],
+                            "url": js2.get("content_urls", {}).get("desktop", {}).get("page")
+                        })
+        except Exception:
+            pass
 
-        cleaned = []
-        for t in out:
-            if not t:
-                continue
-            s = re.sub(r'\s+', ' ', html.unescape(str(t))).strip()
-            if s and s not in cleaned:
-                cleaned.append(s)
-            if len(cleaned) >= max_results:
-                break
-
-        # optional logging to DB
-        if self.db and hasattr(self.db, "add_fact"):
+        # ───────── GOOGLE + MULTI AI SNIPPETS ─────────
+        if GOOGLE_ENABLED:
+            ai_snippets = []
             try:
-                self.db.add_fact("net:search", {"query": query, "results_count": len(cleaned)}, tags=["net", "search"])
+                # Fetch main Google AI snippet
+                search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
+                r_snip = requests.get(search_url, headers=HEADERS, timeout=self.timeout)
+                if r_snip.status_code == 200:
+                    soup = BeautifulSoup(r_snip.text, "html.parser")
+                    snippet_divs = soup.find_all("div", class_=re.compile(r"(ayqGOc|xpdopen)"))
+                    for div in snippet_divs:
+                        snippet_text = div.get_text(separator=" ", strip=True)
+                        if snippet_text and snippet_text not in ai_snippets:
+                            ai_snippets.append(snippet_text)
+
+                # Collect content from multiple Google URLs
+                google_urls = list(google_search(query, num_results=max_results * 5))
+                for url in google_urls:
+                    try:
+                        page = requests.get(url, timeout=self.timeout, headers=HEADERS)
+                        if page.status_code == 200:
+                            soup = BeautifulSoup(page.text, "html.parser")
+                            page_text = ' '.join(p.get_text(separator=' ') for p in soup.find_all('p'))
+                            if page_text:
+                                results.append({"source": "google", "text": page_text, "url": url})
+                    except Exception:
+                        continue
             except Exception:
                 pass
 
-        return cleaned
+            # Add AI snippets as individual entries
+            for snippet in ai_snippets:
+                results.append({"source": "google_ai", "text": snippet, "url": None})
 
-    # alias used by other modules / core (compatibility)
-    def search(self, query: str, max_results: int = 5) -> List[str]:
-        return self.search_web(query, max_results=max_results)
+        # ───────── CLEAN SENTENCES ─────────
+        cleaned_results = []
+        for entry in results:
+            sentences = re.split(r'(?<=[.!?])\s+', entry["text"])
+            unique_sentences = []
+            for s in sentences:
+                s_clean = re.sub(r"\s+", " ", html.unescape(s)).strip()
+                if s_clean and s_clean not in unique_sentences:
+                    unique_sentences.append(s_clean)
+            # Limit number of sentences per entry
+            entry["text"] = " ".join(unique_sentences[:max_results])
+            cleaned_results.append(entry)
+
+        # ───────── LLM REWRITE ─────────
+        if use_llm and self.llm:
+            try:
+                for entry in cleaned_results:
+                    rewritten = self.llm.generate(
+                        f"Rewrite the following information in clear, concise, factual words:\n{entry['text']}",
+                        max_tokens=300
+                    )
+                    if rewritten:
+                        entry["text"] = rewritten
+            except Exception:
+                pass
+
+        return cleaned_results
+
+
+# ─────────────────────────────
+if __name__ == "__main__":
+    im = InternetManager()
+    for res in im.search("queued learning"):
+        print(res)
