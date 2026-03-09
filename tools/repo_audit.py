@@ -5,6 +5,12 @@ import sys
 import importlib.util
 import json
 from collections import defaultdict
+
+# Ensure the tools directory is in sys.path so structural_helper can be found
+_TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _TOOLS_DIR not in sys.path:
+    sys.path.insert(0, _TOOLS_DIR)
+
 from structural_helper import get_all_py_files
 
 class RepoAuditor:

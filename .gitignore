@@ -1,3 +1,7 @@
 .vercel
 .env
-.env
+__pycache__/
+*.pyc
+*.pyo
+*.bak
+*.bak.[0-9]*

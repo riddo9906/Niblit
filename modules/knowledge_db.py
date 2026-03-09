@@ -318,6 +318,29 @@ class KnowledgeDB:
             return dict(self.data)
 
     # ============================================================
+    # COMPATIBILITY METHODS
+    # ============================================================
+
+    def recent_interactions(self, limit: int = 50):
+        """Return the most recent interactions, up to `limit`."""
+        with self.lock:
+            interactions = self.data.get("interactions", [])
+            return list(interactions[-limit:])
+
+    def get_learning_queue(self):
+        """Return the pending learning queue."""
+        with self.lock:
+            return list(self.data.get("learning_queue", []))
+
+    def mark_training_step(self, step: int):
+        """Record a training step in metadata."""
+        with self.lock:
+            self.data.setdefault("meta", {})
+            self.data["meta"]["last_training_step"] = step
+            self.data["meta"]["last_training_ts"] = int(time.time())
+        self._save()
+
+    # ============================================================
     # SHUTDOWN
     # ============================================================
 

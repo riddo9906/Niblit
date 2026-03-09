@@ -3,12 +3,12 @@
 
 import os
 import requests
-from niblit_memory import NiblitMemory
+from niblit_memory import MemoryManager
 
 class NiblitHF:
     def __init__(self):
         self.token = os.getenv("HF_TOKEN")
-        self.memory = NiblitMemory()
+        self.memory = MemoryManager()
         self.api = "https://api-inference.huggingface.co/models"
 
     def query_model(self, model, payload):

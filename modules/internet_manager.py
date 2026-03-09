@@ -4,7 +4,12 @@
 import requests
 import re
 import html
-from bs4 import BeautifulSoup  # for extracting text from HTML
+try:
+    from bs4 import BeautifulSoup  # for extracting text from HTML
+    BS4_AVAILABLE = True
+except ImportError:
+    BeautifulSoup = None
+    BS4_AVAILABLE = False
 
 # Optional: pip install googlesearch-python
 try:
@@ -87,29 +92,30 @@ class InternetManager:
         if GOOGLE_ENABLED:
             ai_snippets = []
             try:
-                # Fetch main Google AI snippet
-                search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
-                r_snip = requests.get(search_url, headers=HEADERS, timeout=self.timeout)
-                if r_snip.status_code == 200:
-                    soup = BeautifulSoup(r_snip.text, "html.parser")
-                    snippet_divs = soup.find_all("div", class_=re.compile(r"(ayqGOc|xpdopen)"))
-                    for div in snippet_divs:
-                        snippet_text = div.get_text(separator=" ", strip=True)
-                        if snippet_text and snippet_text not in ai_snippets:
-                            ai_snippets.append(snippet_text)
+                if BS4_AVAILABLE:
+                    # Fetch main Google AI snippet
+                    search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
+                    r_snip = requests.get(search_url, headers=HEADERS, timeout=self.timeout)
+                    if r_snip.status_code == 200:
+                        soup = BeautifulSoup(r_snip.text, "html.parser")
+                        snippet_divs = soup.find_all("div", class_=re.compile(r"(ayqGOc|xpdopen)"))
+                        for div in snippet_divs:
+                            snippet_text = div.get_text(separator=" ", strip=True)
+                            if snippet_text and snippet_text not in ai_snippets:
+                                ai_snippets.append(snippet_text)
 
-                # Collect content from multiple Google URLs
-                google_urls = list(google_search(query, num_results=max_results * 5))
-                for url in google_urls:
-                    try:
-                        page = requests.get(url, timeout=self.timeout, headers=HEADERS)
-                        if page.status_code == 200:
-                            soup = BeautifulSoup(page.text, "html.parser")
-                            page_text = ' '.join(p.get_text(separator=' ') for p in soup.find_all('p'))
-                            if page_text:
-                                results.append({"source": "google", "text": page_text, "url": url})
-                    except Exception:
-                        continue
+                    # Collect content from multiple Google URLs
+                    google_urls = list(google_search(query, num_results=max_results * 5))
+                    for url in google_urls:
+                        try:
+                            page = requests.get(url, timeout=self.timeout, headers=HEADERS)
+                            if page.status_code == 200:
+                                soup = BeautifulSoup(page.text, "html.parser")
+                                page_text = ' '.join(p.get_text(separator=' ') for p in soup.find_all('p'))
+                                if page_text:
+                                    results.append({"source": "google", "text": page_text, "url": url})
+                        except Exception:
+                            continue
             except Exception:
                 pass
 
