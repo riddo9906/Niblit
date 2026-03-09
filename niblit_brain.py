@@ -213,7 +213,7 @@ class NiblitBrain:
 
         elif lcmd.startswith("self-heal"):
             if self.self_healer:
-                return self.self_healer.run()
+                return self.self_healer.repair()
             return "SelfHealer module not available."
 
         elif lcmd.startswith("self-idea"):
@@ -263,7 +263,7 @@ class NiblitBrain:
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query. Exposed at module level for orchestrator."""
     try:
-        hf = HFBrain()
+        hf = HFBrain(None)
         return hf.ask_single(prompt) or "[No response]"
     except Exception as e:
         log.debug(f"hf_query failed: {e}")
