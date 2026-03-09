@@ -1,3 +1,4 @@
+ copilot/complete-niblit-module-integration
 #!/usr/bin/env python3
 """
 niblit_core.py — NiblitCore: Unified Autonomous AI Runtime
@@ -26,12 +27,31 @@ if BASE_DIR not in sys.path:
 # ============================================================
 # LOGGING SETUP
 # ============================================================
+
+# niblit_core.py
+
+# ============================
+# STANDARD LIBRARY IMPORTS
+# ============================
+import logging
+import os
+import threading
+import time
+from datetime import datetime
+
+# ============================
+# GLOBAL SETUP
+# ============================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+main
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
 log = logging.getLogger("NiblitCore")
 
+copilot/complete-niblit-module-integration
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
@@ -87,6 +107,171 @@ def parse_intent(text: str):
 # ============================================================
 # SAFE IMPORT SYSTEM (modules/ sub-package)
 # ============================================================
+=======
+
+class _FallbackDB:
+    """Minimal no-op stub used when KnowledgeDB is unavailable."""
+    def __getattr__(self, name):
+        return lambda *a, **kw: None
+
+# ============================
+# CORE MODULE IMPORTS
+# ============================
+try:
+    from modules.knowledge_db import KnowledgeDB
+except Exception as _e:
+    log.warning(f"KnowledgeDB failed to import: {_e}")
+    KnowledgeDB = None
+
+try:
+    from modules.intent_parser import parse_intent
+except Exception as _e:
+    log.warning(f"parse_intent failed to import: {_e}")
+    def parse_intent(text):
+        return "unknown", {}
+
+try:
+    from niblit_brain import NiblitBrain
+except Exception as _e:
+    log.warning(f"NiblitBrain failed to import: {_e}")
+    NiblitBrain = None
+
+try:
+    from collector_full import Collector
+except Exception as _e:
+    log.warning(f"Collector failed to import: {_e}")
+    Collector = None
+
+try:
+    from trainer_full import Trainer
+except Exception as _e:
+    log.warning(f"Trainer failed to import: {_e}")
+    Trainer = None
+
+try:
+    from modules.slsa_manager import slsa_manager
+except Exception as _e:
+    log.warning(f"slsa_manager failed to import: {_e}")
+    slsa_manager = None
+
+try:
+    from modules.db import LocalDB
+except Exception as _e:
+    log.warning(f"LocalDB failed to import: {_e}")
+    LocalDB = None
+
+# ============================
+# ORCHESTRATOR IMPORTS
+# ============================
+ORCHESTRATOR_AVAILABLE = False
+RepoAuditor = None
+self_heal_main = None
+FixGuideGenerator = None
+
+try:
+    from tools.repo_audit import RepoAuditor
+    from tools.self_heal_auto import main as self_heal_main
+    from tools.FixGuideGenerator import FixGuideGenerator
+    ORCHESTRATOR_AVAILABLE = True
+    log.info("Orchestrator components loaded successfully")
+except Exception as _e:
+    log.warning(f"Orchestrator components not available: {_e}")
+
+# hf_query is not yet defined in the codebase; provide a None fallback
+hf_query = None
+
+# ============================
+# ORPHANED MODULE IMPORTS
+# ============================
+try:
+    from niblit_actions import NiblitActions
+except Exception as _e:
+    log.warning(f"NiblitActions failed to import: {_e}")
+    NiblitActions = None
+
+try:
+    from niblit_env import NiblitEnv
+except Exception as _e:
+    log.warning(f"NiblitEnv failed to import: {_e}")
+    NiblitEnv = None
+
+try:
+    from niblit_guard import NiblitGuard
+except Exception as _e:
+    log.warning(f"NiblitGuard failed to import: {_e}")
+    NiblitGuard = None
+
+try:
+    from niblit_hf import NiblitHF
+except Exception as _e:
+    log.warning(f"NiblitHF failed to import: {_e}")
+    NiblitHF = None
+
+try:
+    from niblit_identity import NiblitIdentity
+except Exception as _e:
+    log.warning(f"NiblitIdentity failed to import: {_e}")
+    NiblitIdentity = None
+
+try:
+    from niblit_learning import NiblitLearning
+except Exception as _e:
+    log.warning(f"NiblitLearning failed to import: {_e}")
+    NiblitLearning = None
+
+try:
+    from niblit_manager import NiblitManager
+except Exception as _e:
+    log.warning(f"NiblitManager failed to import: {_e}")
+    NiblitManager = None
+
+try:
+    from niblit_net import fetch_data, learn_from_data
+except Exception as _e:
+    log.warning(f"niblit_net failed to import: {_e}")
+    fetch_data = None
+    learn_from_data = None
+
+try:
+    from niblit_network_full import NiblitNetwork
+except Exception as _e:
+    log.warning(f"NiblitNetwork failed to import: {_e}")
+    NiblitNetwork = None
+
+try:
+    from lifecycle_engine import LifecycleEngine
+except Exception as _e:
+    log.warning(f"LifecycleEngine failed to import: {_e}")
+    LifecycleEngine = None
+
+try:
+    from module_loader import load_modules
+except Exception as _e:
+    log.warning(f"module_loader failed to import: {_e}")
+    load_modules = None
+
+try:
+    from generator_full import Generator
+except Exception as _e:
+    log.warning(f"Generator failed to import: {_e}")
+    Generator = None
+
+try:
+    from healer_full import Healer
+except Exception as _e:
+    log.warning(f"Healer failed to import: {_e}")
+    Healer = None
+
+try:
+    from membrane_full import Membrane
+except Exception as _e:
+    log.warning(f"Membrane failed to import: {_e}")
+    Membrane = None
+
+# ============================
+# SAFE IMPORT SYSTEM
+# ===========================
+main
 
 def safe_import(name, default=None):
     try:
@@ -110,7 +295,11 @@ SelfIdeaGenerator = safe_import("self_idea_generator", Stub)
 
 try:
     from modules import internet_manager
+    copilot/complete-niblit-module-integration
 except Exception:
+except Exception as _e:
+    log.warning(f"internet_manager failed to import: {_e}")
+    main
     internet_manager = None
 
 # ============================================================
@@ -130,10 +319,25 @@ except Exception as _e:
     NiblitBrain = None
 
 try:
+ copilot/complete-niblit-module-integration
     from niblit_router import NiblitRouter
 except Exception as _e:
     log.warning(f"NiblitRouter not available: {_e}")
+    from niblit_router import safe_call, NiblitRouter
+except Exception as _e:
+    log.warning(f"NiblitRouter failed to import: {_e}" 
+    main
     NiblitRouter = None
+    safe_call = None
+
+if safe_call is None:
+    def safe_call(fn, *a, **kw):
+        try:
+            return fn(*a, **kw)
+        except Exception:
+            log.exception(f"safe_call failed for {fn}")
+            name = getattr(fn, "__name__", "unknown")
+            return f"[ERROR::{name}]"
 
 try:
     from collector_full import Collector
@@ -283,7 +487,11 @@ class NiblitCore:
 
         log.info("Booting TRUE Autonomous Niblit...")
         self.start_ts = time.time()
-        self.db = KnowledgeDB(memory_path) if memory_path else KnowledgeDB()
+        if KnowledgeDB:
+            self.db = KnowledgeDB(memory_path) if memory_path else KnowledgeDB()
+        else:
+            log.warning("KnowledgeDB unavailable; using no-op fallback db")
+            self.db = _FallbackDB()
         self._routing = False
         self.orchestrator_available = ORCHESTRATOR_AVAILABLE
         self._orchestration_running = False
@@ -305,6 +513,7 @@ class NiblitCore:
             core=self
         )
 
+copilot/complete-niblit-module-integration
         self.collector = (
             Collector(
                 db=self.db,
@@ -313,6 +522,13 @@ class NiblitCore:
             )
             if Collector else None
         )
+
+        self.collector = Collector(
+            db=self.db,
+            trainer=self.trainer,
+            self_teacher=self.self_teacher
+        ) if Collector else None
+ main
 
         self.modules = {
             "llm": self.llm,
@@ -418,6 +634,20 @@ class NiblitCore:
         self.idea_generator = safe_call(SelfIdeaGenerator, db=self.db, collector=self.collector)
         if self.idea_generator:
             threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
+
+        # OPTIONAL / ORPHANED MODULES
+        self.actions = safe_call(NiblitActions) if NiblitActions else None
+        self.env = safe_call(NiblitEnv) if NiblitEnv else None
+        self.guard = safe_call(NiblitGuard) if NiblitGuard else None
+        self.hf_module = safe_call(NiblitHF) if NiblitHF else None
+        self.identity = safe_call(NiblitIdentity) if NiblitIdentity else None
+        self.learning = safe_call(NiblitLearning) if NiblitLearning else None
+        self.manager = safe_call(NiblitManager) if NiblitManager else None
+        self.network = safe_call(NiblitNetwork) if NiblitNetwork else None
+        self.lifecycle = safe_call(LifecycleEngine) if LifecycleEngine else None
+        self.generator = safe_call(Generator) if Generator else None
+        self.healer_module = safe_call(Healer) if Healer else None
+        self.membrane = safe_call(Membrane) if Membrane else None
 
         # AUTONOMOUS THREADS
         threading.Thread(target=self._health_loop, daemon=True).start()
@@ -655,7 +885,11 @@ class NiblitCore:
                 return self.brain.think(text)
 
         if ltext.startswith("slsa-status"):
+ copilot/complete-niblit-module-integration
             return slsa_manager.status() if slsa_manager else "[SLSA not available]"
+=======
+            return slsa_manager.status() if slsa_manager else "[SLSA unavailable]"
+ main
 
         if ltext.startswith("self-research"):
             parts = text.split(" ", 1)
@@ -728,15 +962,19 @@ class NiblitCore:
                 return "[SLSA not available]"
             parts = text.split(" ", 1)
             topics = parts[1].split(",") if len(parts) > 1 else None
-            return slsa_manager.start(topics)
+            return slsa_manager.start(topics) if slsa_manager else "[SLSA unavailable]"
         if ltext.startswith("stop_slsa"):
+copilot/complete-niblit-module-integration
             return slsa_manager.stop() if slsa_manager else "[SLSA not available]"
+=======
+            return slsa_manager.stop() if slsa_manager else "[SLSA unavailable]"
+ main
         if ltext.startswith("restart_slsa"):
             if not slsa_manager:
                 return "[SLSA not available]"
             parts = text.split(" ", 1)
             topics = parts[1].split(",") if len(parts) > 1 else None
-            return slsa_manager.restart(topics)
+            return slsa_manager.restart(topics) if slsa_manager else "[SLSA unavailable]"
 
         if intent == "shutdown":
             threading.Thread(target=self.shutdown, daemon=True).start()
