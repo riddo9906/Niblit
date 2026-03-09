@@ -30,9 +30,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pylint
-        # Optional: install local modules as editable package for linting
-        pip install -e .
+        pip install -e . --no-deps
 
     - name: Analysing the code with pylint
       run: |
+        pylint $(git ls-files '*.py' 'modules/**/*.py' 'tools/**/*.py')      run: |
         pylint $(git ls-files '*.py' 'modules/**/*.py' 'tools/**/*.py')
