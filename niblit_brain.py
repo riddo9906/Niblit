@@ -257,3 +257,16 @@ class NiblitBrain:
         ):
             return self.handle_command(text)
         return self.think(text)
+
+
+# ─────────── HF Shortcut ───────────
+def hf_query(prompt: str, memory=None, llm_enabled=True):
+    if memory is None:
+        try:
+            from niblit_memory import MemoryManager
+            memory = MemoryManager()
+        except Exception as _e:
+            log.warning(f"niblit_memory unavailable in hf_query, proceeding without memory: {_e}")
+            memory = None
+    brain = NiblitBrain(memory, llm_enabled=llm_enabled)
+    return brain.think(prompt)
