@@ -5,3 +5,7 @@ __pycache__/
 *.pyo
 *.bak
 *.bak.[0-9]*
+niblit_memory.json
+niblit_memory.db
+local_llm.db
+niblit.db

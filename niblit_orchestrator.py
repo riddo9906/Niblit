@@ -32,10 +32,10 @@ except Exception as _e:
 # HF query — optional, provided as a stub if niblit_brain doesn't export it
 try:
     from niblit_brain import hf_query
-except (ImportError, AttributeError):
+except Exception as _e:
     import logging as _log
+    _log.getLogger("NiblitOrchestrator").warning(f"hf_query unavailable: {_e}")
     def hf_query(prompt):
-        _log.getLogger("NiblitOrchestrator").warning("hf_query unavailable, returning placeholder")
         return "[HF query unavailable]"
 
 LOG_FILE = os.path.join(REPO_ROOT, "niblit_orchestrator.log")
