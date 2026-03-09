@@ -298,6 +298,7 @@ class NiblitBrain:
         return self.think(text)
 
 
+<<<<<<< HEAD
 # ───────── Module-level HF query (used by niblit_orchestrator) ─────────
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query. Exposed at module level for orchestrator."""
@@ -307,3 +308,16 @@ def hf_query(prompt: str) -> str:
     except Exception as e:
         log.debug(f"hf_query failed: {e}")
         return f"[HF query failed: {e}]"
+=======
+# ─────────── HF Shortcut ───────────
+def hf_query(prompt: str, memory=None, llm_enabled=True):
+    if memory is None:
+        try:
+            from niblit_memory import MemoryManager
+            memory = MemoryManager()
+        except Exception as _e:
+            log.warning(f"niblit_memory unavailable in hf_query, proceeding without memory: {_e}")
+            memory = None
+    brain = NiblitBrain(memory, llm_enabled=llm_enabled)
+    return brain.think(prompt)
+>>>>>>> 29b8b59 (Fix import errors: add hf_query to niblit_brain, wrap imports in lifecycle_engine)

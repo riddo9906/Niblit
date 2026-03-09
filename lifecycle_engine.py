@@ -10,6 +10,7 @@ import time
 from datetime import datetime
 
 # Import your existing scripts
+<<<<<<< HEAD
 from trainer_full import Trainer
 from niblit_tasks import NiblitTasks
 <<<<<<< HEAD
@@ -23,6 +24,34 @@ from niblit_orchestrator import (
 )
 from niblit_memory import MemoryManager
 =======
+=======
+try:
+    from trainer_full import Trainer
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("LifecycleEngine").warning(
+        f"trainer_full not available: {_e}"
+    )
+    class Trainer:
+        """No-op stub used when trainer_full is unavailable."""
+        def __init__(self, **kwargs): pass
+        def step_if_needed(self): pass
+
+try:
+    from niblit_tasks import NiblitTasks
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger("LifecycleEngine").warning(
+        f"niblit_tasks not available: {_e}"
+    )
+    class NiblitTasks:
+        """No-op stub used when niblit_tasks is unavailable."""
+        def __init__(self, **kwargs): pass
+        def idle_think(self): pass
+        def start(self): pass
+        def stop(self): pass
+
+>>>>>>> 29b8b59 (Fix import errors: add hf_query to niblit_brain, wrap imports in lifecycle_engine)
 try:
     from niblit_orchestrator import (
         run_audit,
