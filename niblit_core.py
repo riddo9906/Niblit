@@ -1,5 +1,6 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 # niblit_core.py — Unified NiblitCore
 # Single class, all 40+ components wired with graceful degradation.
 # Compatible with main.py, server.py, and app.py entry points.
@@ -22,6 +23,8 @@ from datetime import datetime
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 =======
+=======
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
 #!/usr/bin/env python3
 """
 niblit_core.py — NiblitCore: Unified Autonomous AI Runtime
@@ -50,7 +53,10 @@ if BASE_DIR not in sys.path:
 # ============================================================
 # LOGGING SETUP
 # ============================================================
+<<<<<<< HEAD
 >>>>>>> fe952ee (Complete Niblit module integration: fix niblit_core.py, knowledge_db, memory alias, lifecycle_engine)
+=======
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
@@ -58,6 +64,64 @@ logging.basicConfig(
 log = logging.getLogger("NiblitCore")
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+# ============================================================
+# GLOBAL FLAGS & COMMAND LIST
+# ============================================================
+DEBUG_MODE = True
+COMMANDS = [
+    "help", "status", "memory", "search", "summary",
+    "learn about", "self-heal", "self-teach", "self-research",
+    "debug on", "debug off", "threads"
+]
+
+# ============================================================
+# UTILITY FUNCTIONS
+# ============================================================
+
+def safe_call(fn, *a, **kw):
+    """Call fn(*a, **kw) safely, logging and returning an error string on failure."""
+    try:
+        return fn(*a, **kw)
+    except Exception:
+        log.exception(f"safe_call failed for {fn}")
+        name = getattr(fn, "__name__", "unknown")
+        return f"[ERROR::{name}]"
+
+
+def parse_intent(text: str):
+    """Parse a user command string into (intent, meta) tuple."""
+    t = text.strip().lower()
+    if t in ("help", "?"):
+        return "help", {}
+    if t in ("time", "what time is it", "current time"):
+        return "time", {}
+    if t in ("status", "health"):
+        return "status", {}
+    if t.startswith("remember "):
+        rest = text[9:].strip()
+        if ":" in rest:
+            k, v = rest.split(":", 1)
+            return "remember", {"key": k.strip(), "value": v.strip()}
+    if t.startswith("learn about ") or t.startswith("learn "):
+        topic = text.split(" ", 2)[-1].strip()
+        return "learn", {"topic": topic}
+    if t.startswith("ideas about ") or t.startswith("ideas "):
+        topic = text.split(" ", 1)[-1].strip()
+        return "ideas", {"topic": topic}
+    if t in ("toggle-llm on", "llm on"):
+        return "toggle_llm", {"state": "on"}
+    if t in ("toggle-llm off", "llm off"):
+        return "toggle_llm", {"state": "off"}
+    if t in ("shutdown", "exit", "quit"):
+        return "shutdown", {}
+    return "chat", {"text": text}
+
+# ============================================================
+# SAFE IMPORT SYSTEM (modules/ sub-package)
+# ============================================================
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
 
 class _FallbackDB:
     """Minimal no-op stub used when KnowledgeDB is unavailable."""
@@ -220,6 +284,7 @@ except Exception as _e:
 
 >>>>>>> d93ca01 (Wire all scripts into niblit_core.py: fix imports, globals, and orphaned modules)
 # ============================
+<<<<<<< HEAD
 # STDLIB IMPORTS
 # ============================
 import os
@@ -359,6 +424,10 @@ def parse_intent(text: str):
 # SAFE IMPORT SYSTEM (modules/ sub-package)
 # ============================================================
 >>>>>>> fe952ee (Complete Niblit module integration: fix niblit_core.py, knowledge_db, memory alias, lifecycle_engine)
+=======
+# SAFE IMPORT SYSTEM
+# ============================
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
 
 def safe_import(name, default=None):
     """Import a class from the modules/ package, returning default on failure."""
@@ -370,6 +439,12 @@ def safe_import(name, default=None):
         log.debug(f"Module {name} not available: {e}")
         return default
 
+<<<<<<< HEAD
+=======
+class Stub:
+    def __init__(self, *a, **k):
+        pass
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
 
 <<<<<<< HEAD
 # ============================
@@ -416,15 +491,14 @@ SelfIdeaGenerator = safe_import("self_idea_generator", Stub)
 
 try:
     from modules import internet_manager
+<<<<<<< HEAD
 except Exception:
+=======
+except Exception as _e:
+    log.warning(f"internet_manager failed to import: {_e}")
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
     internet_manager = None
 >>>>>>> fe952ee (Complete Niblit module integration: fix niblit_core.py, knowledge_db, memory alias, lifecycle_engine)
-
-# ============================================================
-# REQUIRED DATA LAYER IMPORTS
-# ============================================================
-from modules.knowledge_db import KnowledgeDB
-from modules.db import LocalDB
 
 # ============================================================
 # INTELLIGENCE LAYER IMPORTS
@@ -441,6 +515,7 @@ try:
 except Exception as _e:
     log.warning(f"NiblitRouter not available: {_e}")
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     from modules import internet_manager
 except Exception as _e:
@@ -454,8 +529,16 @@ except Exception as _e:
 >>>>>>> d93ca01 (Wire all scripts into niblit_core.py: fix imports, globals, and orphaned modules)
 =======
 >>>>>>> fe952ee (Complete Niblit module integration: fix niblit_core.py, knowledge_db, memory alias, lifecycle_engine)
+=======
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
     NiblitRouter = None
-    safe_call = None
+
+if NiblitRouter is None:
+    try:
+        from niblit_router import safe_call, NiblitRouter
+    except Exception as _e:
+        log.warning(f"NiblitRouter failed to import: {_e}")
+        NiblitRouter = None
 
 if safe_call is None:
     def safe_call(fn, *a, **kw):
@@ -842,11 +925,16 @@ class NiblitCore:
             log.warning("KnowledgeDB unavailable; using no-op fallback db")
             self.db = _FallbackDB()
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> d93ca01 (Wire all scripts into niblit_core.py: fix imports, globals, and orphaned modules)
 =======
         # Expose db as memory for compatibility with app.py and other modules
         self.memory = self.db
 >>>>>>> 053e22f (Fix cross-module wiring issues: imports, missing methods, and compatibility)
+=======
+        # Expose db as memory for compatibility with app.py and other modules
+        self.memory = self.db
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
         self._routing = False
         self.orchestrator_available = ORCHESTRATOR_AVAILABLE
         self._orchestration_running = False
@@ -912,6 +1000,7 @@ class NiblitCore:
         self.self_implementer = safe_call(SelfImplementer, db=self.db, core=self)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         # ── Collector ──
         self.collector = safe_call(
             Collector,
@@ -920,6 +1009,8 @@ class NiblitCore:
             self_teacher=self.self_teacher
         ) if Collector else None
 =======
+=======
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
         self.collector = (
             Collector(
                 db=self.db,
@@ -928,7 +1019,10 @@ class NiblitCore:
             )
             if Collector else None
         )
+<<<<<<< HEAD
 >>>>>>> fe952ee (Complete Niblit module integration: fix niblit_core.py, knowledge_db, memory alias, lifecycle_engine)
+=======
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
 
         self.modules = {
             "llm": self.llm,
@@ -1066,6 +1160,7 @@ class NiblitCore:
             threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
 
 <<<<<<< HEAD
+<<<<<<< HEAD
         # ── Lifecycle Engine ──
         self.lifecycle = None
         if LifecycleEngine:
@@ -1097,6 +1192,8 @@ class NiblitCore:
         self.healer_module = safe_call(Healer) if Healer else None
         self.membrane = safe_call(Membrane) if Membrane else None
 
+=======
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
         # AUTONOMOUS THREADS
 >>>>>>> d93ca01 (Wire all scripts into niblit_core.py: fix imports, globals, and orphaned modules)
         threading.Thread(target=self._health_loop, daemon=True).start()
@@ -1107,7 +1204,11 @@ class NiblitCore:
         if self.orchestrator_available:
             log.info("Orchestrator components available")
         else:
+<<<<<<< HEAD
             log.debug("Orchestrator components not available")
+=======
+            log.warning("Orchestrator components not available")
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
 
         log.info("TRUE AUTONOMOUS NIBLIT READY")
 
@@ -1208,6 +1309,7 @@ class NiblitCore:
         try:
             if not ORCHESTRATOR_AVAILABLE:
                 return "[Orchestrator not available]"
+<<<<<<< HEAD
             with self._lock:
                 if self._orchestration_running:
                     return "[Orchestration already running]"
@@ -1226,6 +1328,25 @@ class NiblitCore:
             finally:
                 with self._lock:
                     self._orchestration_running = False
+=======
+            if self._orchestration_running:
+                return "[Orchestration already running]"
+
+            self._orchestration_running = True
+            log.info("[ORCHESTRATOR] Pipeline started")
+
+            results = []
+            results.append("=== ORCHESTRATION PIPELINE ===")
+            results.append(self._run_audit())
+            results.append(self._run_self_heal_orchestrated())
+            results.append(self._generate_fix_guide())
+            results.append(self._verify_imports_orchestrated())
+
+            log.info("[ORCHESTRATOR] Pipeline completed")
+            self._orchestration_running = False
+
+            return "\n".join(results)
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
         except Exception as e:
             log.error(f"[ORCHESTRATOR] Pipeline failed: {e}")
             return f"[Pipeline failed: {e}]"
@@ -1374,6 +1495,7 @@ class NiblitCore:
         if ltext.startswith("slsa-status"):
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             return self.slsa_manager.status() if self.slsa_manager else "[SLSA not available]"
 =======
             return slsa_manager.status() if slsa_manager else "[SLSA unavailable]"
@@ -1381,6 +1503,9 @@ class NiblitCore:
 =======
             return slsa_manager.status() if slsa_manager else "[SLSA not available]"
 >>>>>>> fe952ee (Complete Niblit module integration: fix niblit_core.py, knowledge_db, memory alias, lifecycle_engine)
+=======
+            return slsa_manager.status() if slsa_manager else "[SLSA unavailable]"
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
 
         if ltext.startswith("self-research"):
             parts = text.split(" ", 1)
@@ -1390,6 +1515,7 @@ class NiblitCore:
                     self.researcher.internet = self.internet
                 return safe_call(self.researcher.search, topic) or "[Research failed]"
 
+<<<<<<< HEAD
         # ── Orchestrator Commands ──
         if ltext.startswith("orchestrate audit"):
             return self._run_audit()
@@ -1401,6 +1527,27 @@ class NiblitCore:
             return self._verify_imports_orchestrated()
         if ltext.startswith("orchestrate pipeline"):
             return self._run_orchestration_pipeline()
+=======
+        # ============================
+        # ORCHESTRATOR COMMANDS
+        # ============================
+
+        if ltext.startswith("orchestrate audit"):
+            return self._run_audit()
+
+        if ltext.startswith("orchestrate self-heal"):
+            return self._run_self_heal_orchestrated()
+
+        if ltext.startswith("orchestrate fix-guide"):
+            return self._generate_fix_guide()
+
+        if ltext.startswith("orchestrate verify"):
+            return self._verify_imports_orchestrated()
+
+        if ltext.startswith("orchestrate pipeline"):
+            return self._run_orchestration_pipeline()
+
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
         if ltext.startswith("hf-task "):
             task_prompt = text[8:].strip()
             return self._hf_task(task_prompt)
@@ -1463,10 +1610,14 @@ class NiblitCore:
             return slsa_manager.start(topics) if slsa_manager else "[SLSA unavailable]"
         if ltext.startswith("stop_slsa"):
 <<<<<<< HEAD
+<<<<<<< HEAD
             return slsa_manager.stop() if slsa_manager else "[SLSA unavailable]"
 =======
             return slsa_manager.stop() if slsa_manager else "[SLSA not available]"
 >>>>>>> fe952ee (Complete Niblit module integration: fix niblit_core.py, knowledge_db, memory alias, lifecycle_engine)
+=======
+            return slsa_manager.stop() if slsa_manager else "[SLSA unavailable]"
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
         if ltext.startswith("restart_slsa"):
             if not slsa_manager:
                 return "[SLSA not available]"
@@ -1528,6 +1679,10 @@ class NiblitCore:
             "toggle-llm on/off\n"
             "shutdown"
         )
+<<<<<<< HEAD
+=======
+
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
         if self.orchestrator_available:
             orchestrator_help = (
                 "\n\n--- ORCHESTRATOR COMMANDS ---\n"
@@ -1539,6 +1694,10 @@ class NiblitCore:
                 "hf-task <prompt>"
             )
             return base_help + orchestrator_help
+<<<<<<< HEAD
+=======
+
+>>>>>>> 10d566f (Refactor logging and import handling in niblit_core.py)
         return base_help
 
     # ============================
