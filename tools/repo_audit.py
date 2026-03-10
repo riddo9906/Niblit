@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+"""
+Repository Auditor for Niblit
+Analyzes Python files for imports, circular dependencies, orphaned modules, and more.
+"""
+
 import os
 import ast
 import time
@@ -6,13 +12,18 @@ import importlib.util
 import json
 from collections import defaultdict
 
+_TOOLS_DIR = os.path.dirname(os.path.abspath(__file__));
+if _TOOLS_DIR not in sys.path:
+    sys.path.insert(0, _TOOLS_DIR)
+
 try:
-    from .structural_helper import get_all_py_files
+    from structural_helper import get_all_py_files
 except ImportError:
-    # fallback for direct script execution
     from structural_helper import get_all_py_files
 
 class RepoAuditor:
+    """Audits a repository for Python module issues."""
+
     def __init__(self, base_dir="."):
         self.base_dir = base_dir
         self.py_files = get_all_py_files(base_dir)
@@ -26,14 +37,12 @@ class RepoAuditor:
         self.file_errors = defaultdict(list)
         self.json_report_path = os.path.join(self.base_dir, "niblit_audit_report.json")
 
-    # -----------------------------
-    # Build import graph for circular detection
-    # -----------------------------
     def build_import_graph(self):
-        module_map = {}  # filepath -> module name
+        """Build a graph of module imports for circular dependency detection."""
+        module_map = {}
         for f in self.py_files:
             rel_path = os.path.relpath(f, self.base_dir)
-            module_name = rel_path.replace(os.sep, ".")[:-3]  # remove .py
+            module_name = rel_path.replace(os.sep, ".")[:-3]
             module_map[f] = module_name
 
         for f in self.py_files:
@@ -55,10 +64,8 @@ class RepoAuditor:
                         self.import_graph[current_module].append(node.module)
                         self.imports_found.add(node.module)
 
-    # -----------------------------
-    # Detect circular imports
-    # -----------------------------
     def detect_circular_imports(self):
+        """Detect circular import dependencies."""
         visited = set()
         stack = []
 
@@ -79,10 +86,8 @@ class RepoAuditor:
         for module in self.import_graph:
             visit(module)
 
-    # -----------------------------
-    # Detect scripts without __main__
-    # -----------------------------
     def detect_scripts_without_main(self):
+        """Detect scripts that lack a __main__ check."""
         for f in self.py_files:
             with open(f, "r", encoding="utf-8") as file:
                 try:
@@ -108,10 +113,8 @@ class RepoAuditor:
                 self.scripts_without_main.append(f)
                 self.file_errors[f].append("Missing __main__ check")
 
-    # -----------------------------
-    # Detect outdated scripts
-    # -----------------------------
     def detect_outdated_scripts(self, age_days=365):
+        """Detect scripts that haven't been modified in more than age_days."""
         cutoff = time.time() - age_days * 24 * 3600
         for f in self.py_files:
             mtime = os.path.getmtime(f)
@@ -119,31 +122,31 @@ class RepoAuditor:
                 self.outdated_scripts.append(f)
                 self.file_errors[f].append("Outdated (>1 year)")
 
-    # -----------------------------
-    # Detect missing modules
-    # -----------------------------
     def detect_missing_modules(self):
-        available_modules = set(os.path.relpath(f, self.base_dir).replace(os.sep, ".")[:-3] for f in self.py_files)
+        """Detect imports that cannot be resolved."""
+        available_modules = set(
+            os.path.relpath(f, self.base_dir).replace(os.sep, ".")[:-3]
+            for f in self.py_files
+        )
         std_libs = set(sys.builtin_module_names)
         for imp in self.imports_found:
             if imp not in available_modules and imp not in std_libs:
                 if importlib.util.find_spec(imp) is None:
                     self.missing_modules.add(imp)
 
-    # -----------------------------
-    # Detect orphaned modules (never imported)
-    # -----------------------------
     def detect_orphaned_modules(self):
-        module_names = [os.path.relpath(f, self.base_dir).replace(os.sep, ".")[:-3] for f in self.py_files]
+        """Detect modules that are never imported."""
+        module_names = [
+            os.path.relpath(f, self.base_dir).replace(os.sep, ".")[:-3]
+            for f in self.py_files
+        ]
         imported_modules_flat = set(self.imports_found)
         for m in module_names:
             if m not in imported_modules_flat and not m.endswith("__init__"):
                 self.orphaned_modules.append(m)
 
-    # -----------------------------
-    # Generate JSON report
-    # -----------------------------
     def generate_json_report(self):
+        """Generate a JSON report of audit findings."""
         report = {
             "circular_imports": self.circular_imports,
             "scripts_without_main": self.scripts_without_main,
@@ -155,13 +158,11 @@ class RepoAuditor:
         }
         with open(self.json_report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=4)
-        print(f"\n[JSON report saved to {self.json_report_path}]")
+        print(f"\n[JSON report saved to {self.json_report_path}]\n")
         return report
 
-    # -----------------------------
-    # Run full audit
-    # -----------------------------
     def run_audit(self):
+        """Run the complete repository audit."""
         print("=== Niblit Full Repo Audit ===")
         self.build_import_graph()
         self.detect_circular_imports()
@@ -215,9 +216,6 @@ class RepoAuditor:
         print("\n=== Audit Complete ===")
         return self.generate_json_report()
 
-# -----------------------------
-# Handler if run as a script
-# -----------------------------
 if __name__ == "__main__":
     base_path = os.path.dirname(os.path.abspath(__file__)) + "/.."
     auditor = RepoAuditor(base_path)
