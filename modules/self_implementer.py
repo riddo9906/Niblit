@@ -142,3 +142,7 @@ class SelfImplementer:
     def stop(self):
         self.running = False
         log.info("SelfImplementer loop stopped.")
+
+
+if __name__ == "__main__":
+    print('Running self_implementer.py')

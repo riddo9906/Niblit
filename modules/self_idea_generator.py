@@ -45,3 +45,7 @@ class SelfIdeaGenerator:
 
     def stop(self):
         self.running = False
+
+
+if __name__ == "__main__":
+    print('Running self_idea_generator.py')

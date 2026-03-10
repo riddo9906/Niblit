@@ -1,25 +1,93 @@
-# niblit_core.py
+import modules.orphan_imports  # auto-added by self_heal_auto
+#!/usr/bin/env python3
+"""
+niblit_core.py — NiblitCore: Unified Autonomous AI Runtime
 
-# ============================
-# STANDARD LIBRARY IMPORTS
-# ============================
-import logging
+Integrates all Niblit modules into a single orchestrated core.
+Compatible with main.py and server.py.
+"""
+
+# ============================================================
+# STDLIB IMPORTS
+# ============================================================
 import os
-import threading
+import sys
 import time
-from datetime import datetime
+import threading
+import logging
+from datetime import datetime, timezone
 
-# ============================
-# GLOBAL SETUP
-# ============================
+# ============================================================
+# PATH SETUP
+# ============================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
+# ============================================================
+# LOGGING SETUP
+# ============================================================
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
 log = logging.getLogger("NiblitCore")
 
+# ============================================================
+# GLOBAL FLAGS & COMMAND LIST
+# ============================================================
+DEBUG_MODE = True
+COMMANDS = [
+    "help", "status", "memory", "search", "summary",
+    "learn about", "self-heal", "self-teach", "self-research",
+    "debug on", "debug off", "threads"
+]
+
+# ============================================================
+# UTILITY FUNCTIONS
+# ============================================================
+
+def safe_call(fn, *a, **kw):
+    """Call fn(*a, **kw) safely, logging and returning an error string on failure."""
+    try:
+        return fn(*a, **kw)
+    except Exception:
+        log.exception(f"safe_call failed for {fn}")
+        name = getattr(fn, "__name__", "unknown")
+        return f"[ERROR::{name}]"
+
+
+def parse_intent(text: str):
+    """Parse a user command string into (intent, meta) tuple."""
+    t = text.strip().lower()
+    if t in ("help", "?"):
+        return "help", {}
+    if t in ("time", "what time is it", "current time"):
+        return "time", {}
+    if t in ("status", "health"):
+        return "status", {}
+    if t.startswith("remember "):
+        rest = text[9:].strip()
+        if ":" in rest:
+            k, v = rest.split(":", 1)
+            return "remember", {"key": k.strip(), "value": v.strip()}
+    if t.startswith("learn about ") or t.startswith("learn "):
+        topic = text.split(" ", 2)[-1].strip()
+        return "learn", {"topic": topic}
+    if t.startswith("ideas about ") or t.startswith("ideas "):
+        topic = text.split(" ", 1)[-1].strip()
+        return "ideas", {"topic": topic}
+    if t in ("toggle-llm on", "llm on"):
+        return "toggle_llm", {"state": "on"}
+    if t in ("toggle-llm off", "llm off"):
+        return "toggle_llm", {"state": "off"}
+    if t in ("shutdown", "exit", "quit"):
+        return "shutdown", {}
+    return "chat", {"text": text}
+
+# ============================================================
+# SAFE IMPORT SYSTEM (modules/ sub-package)
+# ============================================================
 
 class _FallbackDB:
     """Minimal no-op stub used when KnowledgeDB is unavailable."""
@@ -188,20 +256,21 @@ def safe_import(name, default=None):
     try:
         mod = __import__(f"modules.{name}", fromlist=[name])
         cls = "".join(x.capitalize() for x in name.split("_"))
-        return getattr(mod, cls, mod)
+        return getattr(mod, cls, default)
     except Exception as e:
         log.warning(f"Module {name} failed to load: {e}")
         return default
 
 class Stub:
-    def __init__(self, *a, **k): pass
+    def __init__(self, *a, **k):
+        pass
 
-SelfResearcher  = safe_import("self_researcher", Stub)
-LLMAdapter      = safe_import("llm_adapter", Stub)
-SelfHealer      = safe_import("self_healer", Stub)
-SelfTeacher     = safe_import("self_teacher", Stub)
-Reflect         = safe_import("reflect", Stub)
-SelfImplementer = safe_import("self_implementer", Stub)
+SelfResearcher    = safe_import("self_researcher", Stub)
+LLMAdapter        = safe_import("llm_adapter", Stub)
+SelfHealer        = safe_import("self_healer", Stub)
+SelfTeacher       = safe_import("self_teacher", Stub)
+Reflect           = safe_import("reflect", Stub)
+SelfImplementer   = safe_import("self_implementer", Stub)
 SelfIdeaGenerator = safe_import("self_idea_generator", Stub)
 
 try:
@@ -210,12 +279,28 @@ except Exception as _e:
     log.warning(f"internet_manager failed to import: {_e}")
     internet_manager = None
 
+# ============================================================
+# INTELLIGENCE LAYER IMPORTS
+# ============================================================
+
 try:
-    from niblit_router import safe_call, NiblitRouter
+    from niblit_brain import NiblitBrain
 except Exception as _e:
-    log.warning(f"NiblitRouter failed to import: {_e}")
+    log.warning(f"NiblitBrain not available: {_e}")
+    NiblitBrain = None
+
+try:
+    from niblit_router import NiblitRouter
+except Exception as _e:
+    log.warning(f"NiblitRouter not available: {_e}")
     NiblitRouter = None
-    safe_call = None
+
+if NiblitRouter is None:
+    try:
+        from niblit_router import safe_call, NiblitRouter
+    except Exception as _e:
+        log.warning(f"NiblitRouter failed to import: {_e}")
+        NiblitRouter = None
 
 if safe_call is None:
     def safe_call(fn, *a, **kw):
@@ -226,9 +311,147 @@ if safe_call is None:
             name = getattr(fn, "__name__", "unknown")
             return f"[ERROR::{name}]"
 
-# ============================
+try:
+    from collector_full import Collector
+except Exception as _e:
+    log.warning(f"Collector not available: {_e}")
+    Collector = None
+
+try:
+    from trainer_full import Trainer
+except Exception as _e:
+    log.warning(f"Trainer not available: {_e}")
+    Trainer = None
+
+try:
+    from niblit_tasks import NiblitTasks
+except Exception as _e:
+    log.warning(f"NiblitTasks not available: {_e}")
+    NiblitTasks = None
+
+# ============================================================
+# SYSTEM SERVICE IMPORTS (all optional)
+# ============================================================
+
+try:
+    from niblit_sensors_full import NiblitSensors
+except Exception as _e:
+    log.warning(f"NiblitSensors not available: {_e}")
+    NiblitSensors = None
+
+try:
+    from niblit_voice_full import NiblitVoice
+except Exception as _e:
+    log.warning(f"NiblitVoice not available: {_e}")
+    NiblitVoice = None
+
+try:
+    from niblit_network_full import NiblitNetwork
+except Exception as _e:
+    log.warning(f"NiblitNetwork not available: {_e}")
+    NiblitNetwork = None
+
+try:
+    from niblit_env import NiblitEnv
+except Exception as _e:
+    log.warning(f"NiblitEnv not available: {_e}")
+    NiblitEnv = None
+
+try:
+    from niblit_identity import NiblitIdentity
+except Exception as _e:
+    log.warning(f"NiblitIdentity not available: {_e}")
+    NiblitIdentity = None
+
+try:
+    from niblit_guard import NiblitGuard
+except Exception as _e:
+    log.warning(f"NiblitGuard not available: {_e}")
+    NiblitGuard = None
+
+try:
+    from niblit_actions import NiblitActions
+except Exception as _e:
+    log.warning(f"NiblitActions not available: {_e}")
+    NiblitActions = None
+
+try:
+    from niblit_hf import NiblitHF
+except Exception as _e:
+    log.warning(f"NiblitHF not available: {_e}")
+    NiblitHF = None
+
+try:
+    from niblit_manager import NiblitManager
+except Exception as _e:
+    log.warning(f"NiblitManager not available: {_e}")
+    NiblitManager = None
+
+try:
+    from niblit_learning import NiblitLearning
+except Exception as _e:
+    log.warning(f"NiblitLearning not available: {_e}")
+    NiblitLearning = None
+
+try:
+    from slsa_generator_full import SLSAGenerator
+    from modules.slsa_manager import slsa_manager
+except Exception as _e:
+    log.warning(f"SLSA modules not available: {_e}")
+    SLSAGenerator = None
+    slsa_manager = None
+
+try:
+    from healer_full import Healer
+except Exception as _e:
+    log.warning(f"Healer not available: {_e}")
+    Healer = None
+
+try:
+    from membrane_full import Membrane
+except Exception as _e:
+    log.warning(f"Membrane not available: {_e}")
+    Membrane = None
+
+try:
+    from generator_full import Generator
+except Exception as _e:
+    log.warning(f"Generator not available: {_e}")
+    Generator = None
+
+try:
+    from self_maintenance_full import SelfMaintenance
+except Exception as _e:
+    log.warning(f"SelfMaintenance not available: {_e}")
+    SelfMaintenance = None
+
+try:
+    from lifecycle_engine import LifecycleEngine
+except Exception as _e:
+    log.warning(f"LifecycleEngine not available: {_e}")
+    LifecycleEngine = None
+
+# ============================================================
+# ORCHESTRATOR AVAILABILITY CHECK
+# ============================================================
+ORCHESTRATOR_AVAILABLE = False
+try:
+    from niblit_orchestrator import (
+        run_audit,
+        run_self_heal,
+        generate_fix_guide,
+        execute_fix_guide,
+        verify_imports,
+        hf_task_example,
+    )
+    ORCHESTRATOR_AVAILABLE = True
+    log.info("Orchestrator components loaded successfully")
+except Exception as _e:
+    log.warning(f"Orchestrator components not available: {_e}")
+
+# ============================================================
 # CORE
-# ============================
+# ============================================================
 
 class NiblitCore:
 
@@ -264,11 +487,14 @@ class NiblitCore:
             core=self
         )
 
-        self.collector = Collector(
-            db=self.db,
-            trainer=self.trainer,
-            self_teacher=self.self_teacher
-        ) if Collector else None
+        self.collector = (
+            Collector(
+                db=self.db,
+                trainer=self.trainer,
+                self_teacher=self.self_teacher
+            )
+            if Collector else None
+        )
 
         self.modules = {
             "llm": self.llm,
@@ -307,16 +533,19 @@ class NiblitCore:
         self.running = True
 
         # NIBLIT BRAIN
-        try:
-            self.brain = NiblitBrain(self.db, llm_enabled=True, internet=self.internet)
-            if self.brain and hasattr(self.brain, "self_teacher"):
-                self.self_teacher = self.brain.self_teacher
-            if self.collector:
-                self.collector.self_teacher = self.self_teacher
-            if self.brain and hasattr(self.brain, "self_implementer"):
-                self.brain.self_implementer = self.self_implementer
-        except Exception as e:
-            log.warning(f"NiblitBrain failed: {e}")
+        if NiblitBrain:
+            try:
+                self.brain = NiblitBrain(self.db, llm_enabled=True, internet=self.internet)
+                if self.brain and hasattr(self.brain, "self_teacher"):
+                    self.self_teacher = self.brain.self_teacher
+                if self.collector:
+                    self.collector.self_teacher = self.self_teacher
+                if self.brain and hasattr(self.brain, "self_implementer"):
+                    self.brain.self_implementer = self.self_implementer
+            except Exception as e:
+                log.warning(f"NiblitBrain failed: {e}")
+                self.brain = None
+        else:
             self.brain = None
 
         # ROUTER
@@ -326,36 +555,63 @@ class NiblitCore:
         else:
             self.router = None
 
+        # SYSTEM SERVICES (all optional)
+        self.sensors = NiblitSensors() if NiblitSensors else None
+        self.voice = NiblitVoice() if NiblitVoice else None
+        self.network = NiblitNetwork() if NiblitNetwork else None
+        self.env = NiblitEnv() if NiblitEnv else None
+        self.identity = NiblitIdentity() if NiblitIdentity else None
+        self.guard = NiblitGuard() if NiblitGuard else None
+        self.actions = NiblitActions() if NiblitActions else None
+        self.healer = Healer() if Healer else None
+        self.membrane = Membrane() if Membrane else None
+        self.generator = Generator() if Generator else None
+        self.self_maintenance = SelfMaintenance() if SelfMaintenance else None
+
+        # NiblitHF — shares MemoryManager singleton
+        try:
+            self.niblit_hf = NiblitHF() if NiblitHF else None
+        except Exception as _e:
+            log.warning(f"NiblitHF init failed: {_e}")
+            self.niblit_hf = None
+
+        # NiblitLearning
+        self.learning = NiblitLearning(self.db) if NiblitLearning else None
+
+        # NiblitTasks
+        self.tasks = (
+            NiblitTasks(brain=self.brain, memory=self.db)
+            if NiblitTasks else None
+        )
+        if self.tasks:
+            self.tasks.start()
+
+        # Lifecycle Engine (optional, heavy)
+        self.lifecycle = None
+        if LifecycleEngine:
+            try:
+                self.lifecycle = LifecycleEngine()
+                self.lifecycle.start()
+            except Exception as _e:
+                log.warning(f"LifecycleEngine start failed: {_e}")
+                self.lifecycle = None
+
         # SELF IDEA GENERATOR
         self.idea_generator = safe_call(SelfIdeaGenerator, db=self.db, collector=self.collector)
         if self.idea_generator:
             threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
-
-        # OPTIONAL / ORPHANED MODULES
-        self.actions = safe_call(NiblitActions) if NiblitActions else None
-        self.env = safe_call(NiblitEnv) if NiblitEnv else None
-        self.guard = safe_call(NiblitGuard) if NiblitGuard else None
-        self.hf_module = safe_call(NiblitHF) if NiblitHF else None
-        self.identity = safe_call(NiblitIdentity) if NiblitIdentity else None
-        self.learning = safe_call(NiblitLearning) if NiblitLearning else None
-        self.manager = safe_call(NiblitManager) if NiblitManager else None
-        self.network = safe_call(NiblitNetwork) if NiblitNetwork else None
-        self.lifecycle = safe_call(LifecycleEngine) if LifecycleEngine else None
-        self.generator = safe_call(Generator) if Generator else None
-        self.healer_module = safe_call(Healer) if Healer else None
-        self.membrane = safe_call(Membrane) if Membrane else None
 
         # AUTONOMOUS THREADS
         threading.Thread(target=self._health_loop, daemon=True).start()
         threading.Thread(target=self._trainer_loop, daemon=True).start()
         threading.Thread(target=self._auto_research_loop, daemon=True).start()
         threading.Thread(target=self._self_heal_loop, daemon=True).start()
-        
+
         if self.orchestrator_available:
             log.info("Orchestrator components available")
         else:
             log.warning("Orchestrator components not available")
-            
+
         log.info("TRUE AUTONOMOUS NIBLIT READY")
 
     # ============================
@@ -368,10 +624,9 @@ class NiblitCore:
             if not ORCHESTRATOR_AVAILABLE:
                 return "[Orchestrator not available]"
             log.info("[ORCHESTRATOR] Running audit...")
-            auditor = RepoAuditor(BASE_DIR)
-            report = auditor.run_audit()
+            run_audit()
             log.info("[ORCHESTRATOR] Audit completed")
-            return str(report) if report else "[Audit completed]"
+            return "[Audit completed]"
         except Exception as e:
             log.error(f"[ORCHESTRATOR] Audit failed: {e}")
             return f"[Audit failed: {e}]"
@@ -382,7 +637,7 @@ class NiblitCore:
             if not ORCHESTRATOR_AVAILABLE:
                 return "[Orchestrator not available]"
             log.info("[ORCHESTRATOR] Running self-heal...")
-            self_heal_main()
+            run_self_heal()
             log.info("[ORCHESTRATOR] Self-heal completed")
             return "[Self-heal completed]"
         except Exception as e:
@@ -395,12 +650,10 @@ class NiblitCore:
             if not ORCHESTRATOR_AVAILABLE:
                 return "[Orchestrator not available]"
             log.info("[ORCHESTRATOR] Generating fix guide...")
-            db = LocalDB()
-            fg = FixGuideGenerator(db)
-            fix_guide_path = os.path.join(BASE_DIR, "Fix_Guide.txt")
-            msg = fg.generate_fix_guide(fix_guide_path)
-            log.info(f"[ORCHESTRATOR] Fix guide generated: {fix_guide_path}")
-            return msg
+            guide = generate_fix_guide()
+            execute_fix_guide(guide)
+            log.info("[ORCHESTRATOR] Fix guide generated")
+            return "[Fix guide generated]"
         except Exception as e:
             log.error(f"[ORCHESTRATOR] Fix guide generation failed: {e}")
             return f"[Fix guide failed: {e}]"
@@ -467,20 +720,20 @@ class NiblitCore:
                 return "[Orchestrator not available]"
             if self._orchestration_running:
                 return "[Orchestration already running]"
-            
+
             self._orchestration_running = True
             log.info("[ORCHESTRATOR] Pipeline started")
-            
+
             results = []
             results.append("=== ORCHESTRATION PIPELINE ===")
             results.append(self._run_audit())
             results.append(self._run_self_heal_orchestrated())
             results.append(self._generate_fix_guide())
             results.append(self._verify_imports_orchestrated())
-            
+
             log.info("[ORCHESTRATOR] Pipeline completed")
             self._orchestration_running = False
-            
+
             return "\n".join(results)
         except Exception as e:
             log.error(f"[ORCHESTRATOR] Pipeline failed: {e}")
@@ -493,7 +746,7 @@ class NiblitCore:
             if not ORCHESTRATOR_AVAILABLE:
                 return "[Orchestrator/HF not available]"
             log.info(f"[HF TASK] Executing: {prompt}")
-            response = hf_query(prompt)
+            response = hf_task_example()
             log.info(f"[HF TASK] Response received")
             return str(response) if response else "[No response]"
         except Exception as e:
@@ -597,22 +850,22 @@ class NiblitCore:
         # ============================
         # ORCHESTRATOR COMMANDS
         # ============================
-        
+
         if ltext.startswith("orchestrate audit"):
             return self._run_audit()
-        
+
         if ltext.startswith("orchestrate self-heal"):
             return self._run_self_heal_orchestrated()
-        
+
         if ltext.startswith("orchestrate fix-guide"):
             return self._generate_fix_guide()
-        
+
         if ltext.startswith("orchestrate verify"):
             return self._verify_imports_orchestrated()
-        
+
         if ltext.startswith("orchestrate pipeline"):
             return self._run_orchestration_pipeline()
-        
+
         if ltext.startswith("hf-task "):
             task_prompt = text[8:].strip()
             return self._hf_task(task_prompt)
@@ -653,12 +906,16 @@ class NiblitCore:
             return "\n".join(r) if r else "[No results]"
 
         if ltext.startswith("start_slsa"):
+            if not slsa_manager:
+                return "[SLSA not available]"
             parts = text.split(" ", 1)
             topics = parts[1].split(",") if len(parts) > 1 else None
             return slsa_manager.start(topics) if slsa_manager else "[SLSA unavailable]"
         if ltext.startswith("stop_slsa"):
             return slsa_manager.stop() if slsa_manager else "[SLSA unavailable]"
         if ltext.startswith("restart_slsa"):
+            if not slsa_manager:
+                return "[SLSA not available]"
             parts = text.split(" ", 1)
             topics = parts[1].split(",") if len(parts) > 1 else None
             return slsa_manager.restart(topics) if slsa_manager else "[SLSA unavailable]"
@@ -716,7 +973,7 @@ class NiblitCore:
             "toggle-llm on/off\n"
             "shutdown"
         )
-        
+
         if self.orchestrator_available:
             orchestrator_help = (
                 "\n\n--- ORCHESTRATOR COMMANDS ---\n"
@@ -728,13 +985,32 @@ class NiblitCore:
                 "hf-task <prompt>"
             )
             return base_help + orchestrator_help
-        
+
         return base_help
 
     def shutdown(self):
         log.info("Shutdown started")
         self.running = False
-        time.sleep(1)
+        if self.tasks:
+            try:
+                self.tasks.stop()
+            except Exception:
+                pass
+        if self.lifecycle:
+            try:
+                self.lifecycle.stop()
+            except Exception:
+                pass
+        if self.network:
+            try:
+                self.network.shutdown()
+            except Exception:
+                pass
+        if hasattr(self, "db") and self.db:
+            try:
+                self.db.shutdown()
+            except Exception:
+                pass
         log.info("Shutdown complete")
 
 # ============================

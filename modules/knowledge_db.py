@@ -348,6 +348,41 @@ class KnowledgeDB:
         log.info("KnowledgeDB shutting down — saving final state")
         self._save()
 
+    # ============================================================
+    # COMPATIBILITY METHODS
+    # (Used by niblit_core, niblit_router, collector_full, trainer_full)
+    # ============================================================
+
+    def recent_interactions(self, n: int = 50):
+        """Return the most recent n interaction records."""
+        with self.lock:
+            interactions = list(self.data.get("interactions", []))
+        return interactions[-n:] if len(interactions) > n else interactions
+
+    def get_learning_queue(self):
+        """Return pending learning queue items."""
+        with self.lock:
+            return list(self.data.get("learning_queue", []))
+
+    def mark_training_step(self, step: int):
+        """Record a trainer step completion."""
+        with self.lock:
+            self.data.setdefault("meta", {})
+            self.data["meta"]["last_training_step"] = step
+            self.data["meta"]["training_steps"] = (
+                self.data["meta"].get("training_steps", 0) + 1
+            )
+        self._save()
+        log.debug(f"[Training Step] {step}")
+
+    def store_interaction(self, entry: dict):
+        """Store a raw interaction dict (used by Collector)."""
+        with self.lock:
+            self.data.setdefault("interactions", [])
+            self.data["interactions"].append(entry)
+        self._save()
+        log.debug(f"[Interaction Stored] {entry}")
+
 
 # ============================================================
 # GLOBAL SINGLETON

@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 *.pyo
+<<<<<<< HEAD
 *.bak
 *.bak.[0-9]*
 niblit_memory.json
@@ -13,3 +14,5 @@ __pycache__/
 *.pyc
 __pycache__/
 *.pyc
+=======
+>>>>>>> main

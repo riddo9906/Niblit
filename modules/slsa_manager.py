@@ -38,3 +38,7 @@ class SLSAEngineManager:
 
 # singleton
 slsa_manager = SLSAEngineManager()
+
+
+if __name__ == "__main__":
+    print('Running slsa_manager.py')

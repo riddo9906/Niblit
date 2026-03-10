@@ -296,3 +296,7 @@ class NiblitBrain:
         ):
             return self.handle_command(text)
         return self.think(text)
+
+
+if __name__ == "__main__":
+    print('Running niblit_brain.py')
