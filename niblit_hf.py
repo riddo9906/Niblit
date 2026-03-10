@@ -3,12 +3,18 @@
 
 import os
 import requests
-from niblit_memory import MemoryManager
+
+try:
+    from niblit_memory import MemoryManager
+except ImportError as _e:
+    import logging as _logging
+    _logging.getLogger("NiblitHF").warning(f"niblit_memory unavailable: {_e}")
+    MemoryManager = None
 
 class NiblitHF:
     def __init__(self):
         self.token = os.getenv("HF_TOKEN")
-        self.memory = MemoryManager()
+        self.memory = MemoryManager() if MemoryManager else None
         self.api = "https://api-inference.huggingface.co/models"
 
     def query_model(self, model, payload):
@@ -19,7 +25,8 @@ class NiblitHF:
 
         try:
             response = requests.post(f"{self.api}/{model}", headers=headers, json=payload)
-            self.memory.log_event(f"HF query to {model}")
+            if self.memory:
+                self.memory.log_event(f"HF query to {model}")
             return response.json()
         except Exception as e:
             return {"error": str(e)}

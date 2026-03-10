@@ -156,8 +156,12 @@ try:
 except Exception as _e:
     log.warning(f"Orchestrator components not available: {_e}")
 
-# hf_query is not yet defined in the codebase; provide a None fallback
-hf_query = None
+# hf_query — imported from niblit_brain; falls back to None if unavailable
+try:
+    from niblit_brain import hf_query
+except ImportError as _e:
+    log.warning(f"hf_query failed to import: {_e}")
+    hf_query = None
 
 # ============================
 # ORPHANED MODULE IMPORTS
@@ -745,12 +749,25 @@ class NiblitCore:
             if not ORCHESTRATOR_AVAILABLE:
                 return "[Orchestrator/HF not available]"
             log.info(f"[HF TASK] Executing: {prompt}")
-            response = hf_task_example()
+            response = hf_task_example(prompt)
             log.info(f"[HF TASK] Response received")
             return str(response) if response else "[No response]"
         except Exception as e:
             log.error(f"[HF TASK] Failed: {e}")
             return f"[HF task failed: {e}]"
+
+    def _trigger_learning(self, user_input: str, response: str):
+        """Invoke NiblitLearning on each conversation turn, queue follow-up tasks."""
+        if self.learning:
+            try:
+                self.learning.process_interaction(user_input, response)
+            except Exception as _e:
+                log.warning(f"NiblitLearning.process_interaction failed: {_e}")
+        if self.tasks:
+            try:
+                self.tasks.add_task("remember", {"input": user_input, "response": response})
+            except Exception as _e:
+                log.warning(f"NiblitTasks.add_task failed: {_e}")
 
     # ============================
     # LOOPS
@@ -930,22 +947,24 @@ class NiblitCore:
             finally:
                 self._routing = False
             if r and r.strip() != text:
+                self._trigger_learning(text, r)
                 return r
 
+        response = None
         if self.llm_enabled and self.hf:
-            r = safe_call(self.hf.ask_single, text)
-            if r:
-                return r
+            response = safe_call(self.hf.ask_single, text)
 
-        if self.llm_enabled:
-            r = safe_call(self.llm.query, text)
-            if r:
-                return r
+        if not response and self.llm_enabled:
+            response = safe_call(self.llm.query, text)
 
-        if self.brain:
-            return self.brain.think(text)
+        if not response and self.brain:
+            response = self.brain.think(text)
 
-        return f"I hear you: {text}"
+        if not response:
+            response = f"I hear you: {text}"
+
+        self._trigger_learning(text, response)
+        return response
 
     # ============================
     # HELP & SHUTDOWN
