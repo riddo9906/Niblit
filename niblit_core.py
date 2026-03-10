@@ -338,7 +338,7 @@ def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
     try:
         from modules.hf_brain import HFBrain
-        hf = HFBrain()
+        hf = HFBrain(None)
         return hf.ask_single(prompt) or "[No response]"
     except Exception as e:
         log.debug(f"hf_query failed: {e}")
