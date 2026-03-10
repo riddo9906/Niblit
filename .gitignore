@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 <<<<<<< HEAD
 *.bak
 *.bak.[0-9]*
