@@ -699,8 +699,12 @@ class NiblitCore:
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
                     queued = self.db.get_learning_queue()
-                    for item in queued[-5:]:
-                        topic = item.get("topic") if isinstance(item, dict) else None
+                    pending = [
+                        item for item in queued
+                        if isinstance(item, dict) and item.get("status") == "queued"
+                    ]
+                    for item in pending[-5:]:
+                        topic = item.get("topic")
                         if topic:
                             log.info(f"[AUTO RESEARCH] {topic}")
                             if self.internet:
@@ -716,6 +720,11 @@ class NiblitCore:
                                         )
                                     except Exception:
                                         pass
+                            if hasattr(self.db, "mark_learning_done"):
+                                try:
+                                    self.db.mark_learning_done(topic)
+                                except Exception:
+                                    pass
             except Exception:
                 pass
             time.sleep(150)
