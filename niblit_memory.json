@@ -1,12 +1,12 @@
 {
-    "facts": [],
-    "interactions": [],
+    "events": [],
     "learning_log": [],
-    "learning_queue": [],
     "preferences": {
         "mood": "neutral",
         "verbosity": "medium"
     },
-    "events": [],
+    "facts": [],
+    "interactions": [],
+    "learning_queue": [],
     "meta": {}
 }
