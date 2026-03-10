@@ -1,55 +1,12 @@
 {
-    "facts": [],
-    "interactions": [
-        {
-            "time": "2026-03-10 12:12:12",
-            "input": "hello niblit",
-            "response": "[HFBrain Disabled] hello niblit",
-            "source": "brain"
-        }
-    ],
-    "learning_log": [
-        {
-            "raw": "hello niblit",
-            "normalized": "hello niblit",
-            "positivity": 0,
-            "negativity": 0,
-            "response": "[HFBrain Disabled] hello niblit"
-        },
-        {
-            "raw": "hello niblit",
-            "normalized": "hello niblit",
-            "positivity": 0,
-            "negativity": 0,
-            "response": "[HFBrain Disabled] hello niblit"
-        }
-    ],
-    "learning_queue": [],
+    "events": [],
+    "learning_log": [],
     "preferences": {
         "mood": "neutral",
         "verbosity": "medium"
     },
-    "events": [
-        {
-            "time": "2026-03-10T12:12:12.356000",
-            "event": "2026-03-10 12:12:12 - Incoming: hello niblit"
-        },
-        {
-            "time": "2026-03-10T12:12:12.356730",
-            "event": "Task queued: remember"
-        },
-        {
-            "time": "2026-03-10T12:12:12.357156",
-            "event": "Remembered: {'input': 'hello niblit', 'response': '[HFBrain Disabled] hello niblit'}"
-        },
-        {
-            "time": "2026-03-10T12:12:12.358128",
-            "event": "Task queued: remember"
-        },
-        {
-            "time": "2026-03-10T12:12:12.358623",
-            "event": "Remembered: {'input': 'hello niblit', 'response': '[HFBrain Disabled] hello niblit'}"
-        }
-    ],
+    "facts": [],
+    "interactions": [],
+    "learning_queue": [],
     "meta": {}
 }

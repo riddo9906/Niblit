@@ -4,6 +4,8 @@ NIBLIT BRAIN MODULE
 Handles thinking, learning, HFBrain integration, self modules, and router compatibility
 """
 
+__all__ = ["NiblitBrain", "hf_query"]
+
 import sys
 import os
 import datetime
