@@ -88,3 +88,7 @@ def ingest(memory, raw_line, speaker="user"):
         log.error(f"INGEST FAILED: {ex}")
 
     return e
+
+
+if __name__ == "__main__":
+    print('Running ingestion.py')

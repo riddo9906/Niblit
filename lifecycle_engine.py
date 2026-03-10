@@ -61,6 +61,7 @@ except Exception as _e:
     def hf_task_example(): pass
 
 from niblit_memory import MemoryManager, NiblitMemory
+main
 
 # ─────────────────────────────
 # IDENTITY INVARIANTS
@@ -136,7 +137,8 @@ class LifecycleEngine:
                 self.advance_phase()
             
             elif self.phase == "TRAIN":
-                self.trainer.step_if_needed()
+                interactions = self.memory.get_learning_log() or []
+                self.trainer.step_if_needed(interactions)
                 self.advance_phase()
             
             elif self.phase == "TASKS":
@@ -201,3 +203,13 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         engine.stop()
+
+
+if __name__ == "__main__":
+    print('Running lifecycle_engine.py')
+
+
+if __name__ == "__main__":
+    print('Running lifecycle_engine.py')
+if __name__ == "__main__":
+    print('Running lifecycle_engine.py')

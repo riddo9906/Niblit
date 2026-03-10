@@ -5,7 +5,12 @@ import sys
 import importlib.util
 import json
 from collections import defaultdict
-from structural_helper import get_all_py_files
+
+try:
+    from .structural_helper import get_all_py_files
+except ImportError:
+    # fallback for direct script execution
+    from structural_helper import get_all_py_files
 
 class RepoAuditor:
     def __init__(self, base_dir="."):

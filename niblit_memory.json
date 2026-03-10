@@ -1,100 +1,12 @@
 {
-    "events": [
-        {
-            "time": "2026-03-09T18:35:44.292649",
-            "event": "2026-03-09 20:35:44 - Incoming: self-research data collection"
-        },
-        {
-            "time": "2026-03-09T18:52:56.477457",
-            "event": "2026-03-09 20:52:56 - Incoming: \u001bexit"
-        },
-        {
-            "time": "2026-03-09T18:52:56.482369",
-            "event": "2026-03-09 20:52:56 - Incoming: \u001bexit"
-        },
-        {
-            "time": "2026-03-09T18:52:57.347987",
-            "event": "Interaction stored from unknown"
-        },
-        {
-            "time": "2026-03-09T18:52:57.352846",
-            "event": "Interaction stored from unknown"
-        },
-        {
-            "time": "2026-03-09T20:26:23.393622",
-            "event": "[Lifecycle] Advanced to phase: AUDIT"
-        },
-        {
-            "time": "2026-03-09T20:26:43.681265",
-            "event": "[Lifecycle] Advanced to phase: AUDIT"
-        },
-        {
-            "time": "2026-03-09T20:26:51.103304",
-            "event": "[Lifecycle] Advanced to phase: AUDIT"
-        },
-        {
-            "time": "2026-03-09T20:26:57.462902",
-            "event": "[Lifecycle] Advanced to phase: AUDIT"
-        },
-        {
-            "time": "2026-03-09T20:29:04.267124",
-            "event": "[Lifecycle] Advanced to phase: AUDIT"
-        },
-        {
-            "time": "2026-03-09T20:29:11.683336",
-            "event": "[Lifecycle] Advanced to phase: AUDIT"
-        }
-    ],
-    "learning_log": [
-        {
-            "time": "2026-03-09T18:52:57.342011",
-            "speaker": "user",
-            "input": "user",
-            "response": "\u001bexit",
-            "source": "unknown",
-            "data": null
-        },
-        {
-            "time": "2026-03-09T18:52:57.351346",
-            "speaker": "user",
-            "input": "assistant",
-            "response": "Got it. Take care!",
-            "source": "unknown",
-            "data": null
-        }
-    ],
+    "facts": [],
+    "interactions": [],
+    "learning_log": [],
+    "learning_queue": [],
     "preferences": {
         "mood": "neutral",
         "verbosity": "medium"
     },
-    "facts": [
-        {
-            "key": "research:data collection",
-            "value": "[ERROR::search]",
-            "tags": [
-                "research"
-            ],
-            "ts": 1773081350
-        }
-    ],
-    "interactions": [
-        {
-            "time": "2026-03-09T18:52:57.342011",
-            "speaker": "user",
-            "input": "user",
-            "response": "\u001bexit",
-            "source": "unknown",
-            "data": null
-        },
-        {
-            "time": "2026-03-09T18:52:57.351346",
-            "speaker": "user",
-            "input": "assistant",
-            "response": "Got it. Take care!",
-            "source": "unknown",
-            "data": null
-        }
-    ],
-    "learning_queue": [],
+    "events": [],
     "meta": {}
 }

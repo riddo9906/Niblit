@@ -8,7 +8,6 @@ Author: Riyaad Behardien
 import os
 import requests
 
-
 class HFBrain:
     """
     HuggingFace Router LLM interface for Niblit.
@@ -17,7 +16,6 @@ class HFBrain:
     """
 
     def __init__(self, db):
-
         self.db = db
 
         # KEEP YOUR MODEL
@@ -25,9 +23,11 @@ class HFBrain:
 
         self.enabled = True
 
-        self.token = os.getenv("HF_TOKEN")
+        # Use the HF_API_KEY environment variable
+        self.token = os.getenv("HF_API_KEY")
 
         if not self.token:
+            print("[HFBrain Warning] HF_API_KEY not set, HFBrain disabled")
             self.enabled = False
 
         # HuggingFace router endpoint
@@ -49,22 +49,17 @@ class HFBrain:
     # Context assembly
     # -------------------------
     def _build_context(self, user_prompt: str):
-
         messages = []
 
         try:
             recent = self.db.recent_interactions(15)
-
             for entry in recent:
-
                 role = entry.get("role", "user")
                 text = entry.get("text", "")
-
                 messages.append({
                     "role": role if role in ("user", "assistant") else "user",
                     "content": text
                 })
-
         except Exception:
             pass
 
@@ -85,12 +80,10 @@ class HFBrain:
     # Single query
     # -------------------------
     def ask_single(self, prompt: str) -> str:
-
         if not self.is_enabled():
             return self._fallback(prompt)
 
         try:
-
             messages = self._build_context(prompt)
 
             headers = {
@@ -116,11 +109,9 @@ class HFBrain:
                 return f"[HFBrain HTTP {r.status_code}] {r.text}"
 
             data = r.json()
-
             response = data["choices"][0]["message"]["content"].strip()
 
             if response:
-
                 self.db.add_interaction("user", prompt)
                 self.db.add_interaction("assistant", response)
 
@@ -136,5 +127,3 @@ class HFBrain:
 
 if __name__ == "__main__":
     print("HFBrain requires unified DB. Do not run standalone.")
-if __name__ == "__main__":
-    print('Running hf_brain.py')

@@ -1542,3 +1542,82 @@
 [2026-02-16T10:14:42.097801] Installed/updated pip package: flask
 [2026-02-16T10:14:43.330911] Ran modules.orphan_imports (import attempts logged separately)
 [2026-02-16T10:14:43.331640] === Self-heal (Mode A) completed ===
+[2026-03-09T22:25:14.570366] === Self-heal (Mode A) started ===
+[2026-03-09T22:25:14.586467] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/hf_test.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/hf_test.py.bak.1773094985
+[2026-03-09T22:25:14.586787] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/hf_test.py
+[2026-03-09T22:25:14.590439] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/llm_adapter.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/llm_adapter.py.bak.1773094985
+[2026-03-09T22:25:14.590720] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/llm_adapter.py
+[2026-03-09T22:25:14.592592] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/hf_brain.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/hf_brain.py.bak.1773094985
+[2026-03-09T22:25:14.592833] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/hf_brain.py
+[2026-03-09T22:25:14.594079] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py.bak.1773094985
+[2026-03-09T22:25:14.594348] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py
+[2026-03-09T22:25:14.594467] HF endpoint replacements: 4
+[2026-03-09T22:25:14.595428] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py.bak.1773094985
+[2026-03-09T22:25:14.598278] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py
+[2026-03-09T22:25:14.599630] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py.bak.1773094985
+[2026-03-09T22:25:14.600327] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py
+[2026-03-09T22:25:14.601083] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_orchestrator.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_orchestrator.py.bak.1773094985
+[2026-03-09T22:25:14.601594] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_orchestrator.py
+[2026-03-09T22:25:14.604143] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/slsa_generator_full.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/slsa_generator_full.py.bak.1773094985
+[2026-03-09T22:25:14.604444] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/slsa_generator_full.py
+[2026-03-09T22:25:14.608353] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/repo_audit.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/repo_audit.py.bak.1773094985
+[2026-03-09T22:25:14.609842] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/repo_audit.py
+[2026-03-09T22:25:14.610518] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/FixGuideGenerator.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/FixGuideGenerator.py.bak.1773094985
+[2026-03-09T22:25:14.610737] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/FixGuideGenerator.py
+[2026-03-09T22:25:14.611358] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py.bak.1773094985
+[2026-03-09T22:25:14.611573] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py
+[2026-03-09T22:25:14.611674] Smart import fixes applied to 7 files
+[2026-03-09T22:25:14.638690] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/lifecycle_engine.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/lifecycle_engine.py.bak.1773094985
+[2026-03-09T22:25:14.641601] Appended __main__ block to /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/lifecycle_engine.py
+[2026-03-09T22:25:14.657692] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py.bak.1773094985
+[2026-03-09T22:25:14.657978] Appended __main__ block to /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py
+[2026-03-09T22:25:14.706012] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/setup.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/setup.py.bak.1773094985
+[2026-03-09T22:25:14.706251] Appended __main__ block to /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/setup.py
+[2026-03-09T22:25:14.753088] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_implementer.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_implementer.py.bak.1773094985
+[2026-03-09T22:25:14.753362] Appended __main__ block to /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_implementer.py
+[2026-03-09T22:25:14.756666] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/ingestion.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/ingestion.py.bak.1773094985
+[2026-03-09T22:25:14.756908] Appended __main__ block to /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/ingestion.py
+[2026-03-09T22:25:14.758575] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/slsa_manager.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/slsa_manager.py.bak.1773094985
+[2026-03-09T22:25:14.758832] Appended __main__ block to /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/slsa_manager.py
+[2026-03-09T22:25:14.760784] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_idea_generator.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_idea_generator.py.bak.1773094985
+[2026-03-09T22:25:14.761021] Appended __main__ block to /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/self_idea_generator.py
+[2026-03-09T22:25:14.772091] Added __main__ blocks to 7 files
+[2026-03-09T22:25:14.772403] modules/orphan_imports.py already exists
+[2026-03-09T22:25:14.773100] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py.bak.1773094985
+[2026-03-09T22:25:14.773536] Inserted import modules.orphan_imports into niblit_core.py
+[2026-03-09T22:25:18.064016] Installed/updated pip package: flask
+[2026-03-09T22:25:19.532036] Ran modules.orphan_imports (import attempts logged separately)
+[2026-03-09T22:25:19.532552] === Self-heal (Mode A) completed ===
+[2026-03-09T22:25:38.275853] === Self-heal (Mode A) started ===
+[2026-03-09T22:25:38.290632] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/hf_test.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/hf_test.py.bak.1773094985
+[2026-03-09T22:25:38.290870] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/hf_test.py
+[2026-03-09T22:25:38.293994] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/llm_adapter.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/llm_adapter.py.bak.1773094985
+[2026-03-09T22:25:38.294242] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/llm_adapter.py
+[2026-03-09T22:25:38.296068] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/hf_brain.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/hf_brain.py.bak.1773094985
+[2026-03-09T22:25:38.296327] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/modules/hf_brain.py
+[2026-03-09T22:25:38.297552] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py.bak.1773094985
+[2026-03-09T22:25:38.297830] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py
+[2026-03-09T22:25:38.297958] HF endpoint replacements: 4
+[2026-03-09T22:25:38.298754] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py.bak.1773094985
+[2026-03-09T22:25:38.299145] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_core.py
+[2026-03-09T22:25:38.300255] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py.bak.1773094985
+[2026-03-09T22:25:38.300532] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_brain.py
+[2026-03-09T22:25:38.301085] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_orchestrator.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_orchestrator.py.bak.1773094985
+[2026-03-09T22:25:38.301311] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/niblit_orchestrator.py
+[2026-03-09T22:25:38.303569] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/slsa_generator_full.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/slsa_generator_full.py.bak.1773094985
+[2026-03-09T22:25:38.303855] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/slsa_generator_full.py
+[2026-03-09T22:25:38.307799] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/repo_audit.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/repo_audit.py.bak.1773094985
+[2026-03-09T22:25:38.308056] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/repo_audit.py
+[2026-03-09T22:25:38.308617] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/FixGuideGenerator.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/FixGuideGenerator.py.bak.1773094985
+[2026-03-09T22:25:38.308821] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/FixGuideGenerator.py
+[2026-03-09T22:25:38.309377] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py.bak.1773094985
+[2026-03-09T22:25:38.309590] Applied smart import path fixes in /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/tools/self_heal_auto.py
+[2026-03-09T22:25:38.309697] Smart import fixes applied to 7 files
+[2026-03-09T22:25:38.336442] Backed up /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/lifecycle_engine.py -> /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/lifecycle_engine.py.bak.1773094985
+[2026-03-09T22:25:38.336689] Appended __main__ block to /data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit/lifecycle_engine.py
+[2026-03-09T22:25:38.461601] Added __main__ blocks to 1 files
+[2026-03-09T22:25:38.461934] modules/orphan_imports.py already exists
+[2026-03-09T22:25:38.462361] niblit_core.py already imports modules.orphan_imports
+[2026-03-09T22:25:40.693893] Installed/updated pip package: flask
+[2026-03-09T22:25:42.064415] Ran modules.orphan_imports (import attempts logged separately)
+[2026-03-09T22:25:42.065019] === Self-heal (Mode A) completed ===
