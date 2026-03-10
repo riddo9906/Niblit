@@ -61,7 +61,6 @@ except Exception as _e:
     def hf_task_example(): pass
 
 from niblit_memory import MemoryManager, NiblitMemory
-main
 
 # ─────────────────────────────
 # IDENTITY INVARIANTS
