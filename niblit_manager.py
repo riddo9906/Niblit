@@ -3,7 +3,7 @@
 
 import os
 from niblit_env import NiblitEnv
-from niblit_memory import NiblitMemory
+from niblit_memory import MemoryManager
 from niblit_io import NiblitIO
 
 class NiblitManager:
