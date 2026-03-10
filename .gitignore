@@ -1,9 +1,14 @@
 .vercel
 .env
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info
+# Runtime files
 niblit_memory.json
+niblit_orchestrator.log
 niblit.db
-*.egg-info/
+# Logs
+*.log
