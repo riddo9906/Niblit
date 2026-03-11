@@ -101,12 +101,12 @@ jobs:
             
             [Full report available in artifacts]`;
               
-              github.rest.issues.createComment({
+              await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: comment
               });
             } catch (error) {
-              console.log('Could not post comment:', error);
+              console.log('Could not post comment (expected on fork PRs):', error.message);
             }
