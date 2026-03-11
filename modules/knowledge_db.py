@@ -196,6 +196,18 @@ class KnowledgeDB:
             })
         self._save()
 
+    def get_learning_queue(self):
+        with self.lock:
+            return list(self.data.get("learning_queue", []))
+
+    def mark_learning_done(self, topic):
+        """Mark all queued items with the given topic as processed."""
+        with self.lock:
+            for item in self.data.get("learning_queue", []):
+                if isinstance(item, dict) and item.get("topic") == topic:
+                    item["status"] = "processed"
+        self._save()
+
     # ============================================================
     # PERSONALITY / PREFERENCES
     # ============================================================
