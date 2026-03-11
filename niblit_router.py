@@ -7,6 +7,7 @@ Retains all original command handling and logic.
 
 import logging
 import threading
+import json
 from datetime import datetime
 from modules.slsa_manager import slsa_manager
 
@@ -20,7 +21,6 @@ logging.basicConfig(
 def timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-
 def safe_call(fn, *a, **kw):
     try:
         return fn(*a, **kw)
@@ -28,7 +28,6 @@ def safe_call(fn, *a, **kw):
         log.exception(f"safe_call failed for {fn}")
         name = getattr(fn, "__name__", "unknown")
         return f"[ERROR::{name}]"
-
 
 # ─────────────────────────────────────
 class NiblitRouter:
@@ -77,6 +76,42 @@ class NiblitRouter:
             safe_call(collector.capture, user, response, source)
 
     # ─────────────────────────────────
+    # DEDUPLICATION HELPER
+    # ─────────────────────────────────
+    def _deduplicate_results(self, items):
+        """
+        Order-preserving deduplication for mixed str/dict results.
+        
+        - Strings are keyed directly
+        - Dicts are serialized via json.dumps(sort_keys=True)
+        - Non-serializable objects fall back to str()
+        - Returns list of strings by converting dicts to JSON strings
+        """
+        seen = set()
+        result = []
+        
+        for item in items:
+            if isinstance(item, str):
+                key = item
+                text = item
+            elif isinstance(item, dict):
+                try:
+                    key = json.dumps(item, sort_keys=True)
+                    text = json.dumps(item)
+                except (TypeError, ValueError):
+                    key = str(item)
+                    text = str(item)
+            else:
+                key = str(item)
+                text = str(item)
+            
+            if key not in seen:
+                seen.add(key)
+                result.append(text)
+        
+        return result
+
+    # ─────────────────────────────────
     # INTERNET / SELF-RESEARCH
     # ─────────────────────────────────
     def _run_research(self, query):
@@ -121,9 +156,10 @@ class NiblitRouter:
                     "source": "research"
                 })
 
-        # 4️⃣ Normalize return as string
+        # 4️⃣ Normalize return as string (with proper deduplication)
         if results:
-            return "\n".join(list(dict.fromkeys(results)))  # remove duplicates
+            deduplicated = self._deduplicate_results(results)
+            return "\n".join(deduplicated)
 
         return f"[No data found for '{query}']"
 
@@ -164,7 +200,7 @@ class NiblitRouter:
 
         self.log_event(f"Incoming: {cleaned}")
 
-        cmd_word = lower.split(" ",1)[0]
+        cmd_word = lower.split(" ", 1)[0]
 
         if cmd_word in self.COMMAND_PREFIXES:
             resp = self.handle_command(cleaned)
@@ -176,7 +212,7 @@ class NiblitRouter:
             self._collect(cleaned, resp, "slash")
             return resp
 
-        llm_enabled = getattr(self.core, "llm_enabled", True)
+        llm_enabled = getattr(self.core, "llm_enabled", True) if self.core else True
 
         if self.core and not llm_enabled:
             resp = "[LLM disabled for chat — system commands still work]"
@@ -212,10 +248,10 @@ class NiblitRouter:
             topics = parts[1].split(",") if len(parts) > 1 else None
             return slsa_manager.restart(topics)
 
-        if lower.startswith(("slsa-status","status_slsa")):
+        if lower.startswith(("slsa-status", "status_slsa")):
             return slsa_manager.status()
 
-        if lower in ("status","health"):
+        if lower in ("status", "health"):
             mem = 0
             try:
                 if hasattr(self.memory, "recent_interactions"):
@@ -226,24 +262,24 @@ class NiblitRouter:
                 mem = 0
             return f"{ts} 🧠 Niblit operational. Memory entries: {mem}"
 
-        if lower in ("shutdown","exit","quit"):
+        if lower in ("shutdown", "exit", "quit"):
             if self.core:
-                threading.Thread(target=safe_call,args=(self.core.shutdown,),daemon=True).start()
+                threading.Thread(target=safe_call, args=(self.core.shutdown,), daemon=True).start()
             return "Shutdown scheduled."
 
         if lower.startswith("toggle-llm"):
             if not self.core:
                 return "[Error] Core not available"
             state = lower.replace("toggle-llm", "").strip()
-            if state in ("on","true","1"):
+            if state in ("on", "true", "1"):
                 self.core.llm_enabled = True
                 return "LLM enabled."
-            if state in ("off","false","0"):
+            if state in ("off", "false", "0"):
                 self.core.llm_enabled = False
                 return "LLM disabled."
             return "Usage: toggle-llm on/off"
 
-        if lower in ("help","commands"):
+        if lower in ("help", "commands"):
             return self.help_text()
 
         if lower.startswith("self-research"):
@@ -266,14 +302,14 @@ class NiblitRouter:
                 events = safe_call(self.memory.recent_interactions, 10) or []
                 return safe_call(self.core.reflect.auto_reflect, events)
 
-        if lower.startswith(("self-idea","self-implement","evolve")):
+        if lower.startswith(("self-idea", "self-implement", "evolve")):
             prompt = cmd
             return self._self_idea_implementation(prompt)
 
         if lower.startswith("remember "):
             payload = cmd[len("remember "):].strip()
             if ":" in payload and self.core:
-                k,v = payload.split(":",1)
+                k, v = payload.split(":", 1)
                 safe_call(self.core.db.add_fact, k.strip(), v.strip())
                 return f"Saved: {k.strip()}"
             return "Invalid remember format. Use remember key:value"
@@ -289,11 +325,11 @@ class NiblitRouter:
             return f"Ideas for {topic}: Prototype → Test → Evolve"
 
         if lower.startswith("self-heal"):
-            if self.core and getattr(self.core,"self_healer",None):
+            if self.core and getattr(self.core, "self_healer", None):
                 return safe_call(self.core.self_healer.run) or "[Error]"
             return "[SelfHeal ERROR] SelfHealer unavailable"
 
-        if lower in ("time","what time is it","current time"):
+        if lower in ("time", "what time is it", "current time"):
             return timestamp()
 
         if self.core:

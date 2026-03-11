@@ -2,30 +2,32 @@
 # modules/self_researcher.py
 
 from datetime import datetime
+import json
 import math
 import html
 import re
+
 
 class SelfResearcher:
     def __init__(self, db, modules_registry=None, research_engine=None, llm_adapter=None,
                  max_history=100, relevance_threshold=0.7):
         self.db = db
         self.registry = modules_registry or {}
-
+        
         # Internal Internet holder (dynamic wiring support)
         self._internet = None
         if "internet" in self.registry:
             self._internet = self.registry["internet"]
         elif hasattr(db, "internet"):
             self._internet = db.internet
-
+        
         # Optional modules
         self.engine = research_engine
         self.llm = llm_adapter
-
+        
         # Memory / history
         self.history = []
-        self.responses = []   # ← PATCH: store responses separately
+        self.responses = []  # ← PATCH: store responses separately
         self.max_history = max_history
         self.relevance_threshold = relevance_threshold
 
@@ -34,7 +36,7 @@ class SelfResearcher:
     @property
     def internet(self):
         return self._internet
-
+    
     @internet.setter
     def internet(self, value):
         self._internet = value
@@ -51,17 +53,47 @@ class SelfResearcher:
         return dot / (norm1 * norm2)
 
     # ─────────────────────────────────────────────
+    def _deduplicate(self, items):
+        """
+        Order-preserving deduplication that handles mixed str/dict items.
+        
+        - Strings are keyed directly
+        - Dicts are serialized via json.dumps(sort_keys=True)
+        - Non-serializable objects fall back to str()
+        - Returns original items with types intact
+        """
+        seen = set()
+        result = []
+        
+        for item in items:
+            if isinstance(item, str):
+                key = item
+            elif isinstance(item, dict):
+                try:
+                    key = json.dumps(item, sort_keys=True)
+                except (TypeError, ValueError):
+                    key = str(item)
+            else:
+                key = str(item)
+            
+            if key not in seen:
+                seen.add(key)
+                result.append(item)
+        
+        return result
+
+    # ─────────────────────────────────────────────
     def _update_history(self, query, results):
         timestamp = datetime.utcnow().isoformat()
         embedding = self.llm.embed(query) if self.llm else None
-
+        
         entry = {
             "query": query,
             "results": results,
             "timestamp": timestamp,
             "embedding": embedding
         }
-
+        
         self.history.append(entry)
 
         # PATCH: store responses separately
@@ -123,13 +155,14 @@ class SelfResearcher:
             except Exception:
                 pass
 
-        # Remove duplicates
-        collected_results = list(dict.fromkeys(collected_results))
+        # Remove duplicates (handles str/dict mix safely)
+        collected_results = self._deduplicate(collected_results)
 
         # 4️⃣ SYNTHESIZE MULTIPLE SOURCES USING LLM
         if synthesize and collected_results and use_llm and self.llm:
             try:
-                combined_text = " ".join(collected_results)
+                # Coerce all items to strings before joining
+                combined_text = " ".join(str(item) for item in collected_results)
                 synthesized = self.llm.generate(
                     f"Using these multiple sources, provide a coherent, factual, and concise answer to the query:\n{combined_text}",
                     max_tokens=400
@@ -178,7 +211,7 @@ class SelfResearcher:
 
         return collected_results[:max_results]
 
-    # ─────────────────────────────────────────────
+    # ─────────────────────────���───────────────────
     @property
     def recent_queries(self):
         return [h["query"] for h in self.history[-self.max_history:]]

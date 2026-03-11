@@ -857,7 +857,7 @@ class NiblitCore:
         try:
             # 9. LearningBatcher
             if LearningBatcher:
-                self.learning_batcher = LearningBatcher(batch_size=32, flush_interval=5)
+                self.learning_batcher = LearningBatcher(batch_size=32, flush_interval_seconds=5)
                 log.info("[IMPROVEMENTS] LearningBatcher initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] LearningBatcher failed: {e}")
