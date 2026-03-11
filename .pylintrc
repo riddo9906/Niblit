@@ -1,0 +1,21 @@
+[MASTER]
+max-locals=15
+max-branches=12
+max-attributes=7
+
+[MESSAGES CONTROL]
+disable=
+    C0111,
+    C0103,
+    W0212,
+    R0903,
+    R0913,
+    R0914,
+    R0801,
+    duplicate-code
+
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-arguments=10

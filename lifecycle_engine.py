@@ -129,10 +129,10 @@ except Exception as _e:
         pass
 
 try:
-    from niblit_memory import MemoryManager, NiblitMemory
+    from niblit_memory import MemoryManager
 except Exception as _e:
     log.warning(f"Memory managers not available: {_e}")
-    class NiblitMemory:
+    class MemoryManager:
         """No-op stub for memory."""
         def __init__(self): 
             pass
@@ -189,10 +189,10 @@ class LifecycleEngine:
 
         # Initialize memory, trainer, and tasks
         try:
-            self.memory = NiblitMemory()
+            self.memory = MemoryManager()
         except Exception as e:
             log.warning(f"NiblitMemory failed, using stub: {e}")
-            self.memory = NiblitMemory()
+            self.memory = MemoryManager()
 
         self.trainer = Trainer(db=self.memory)
         self.tasks = NiblitTasks(brain=None, memory=self.memory)

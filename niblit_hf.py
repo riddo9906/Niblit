@@ -74,10 +74,10 @@ except Exception as _e:
 
 # ───────── Memory Import ─────────
 try:
-    from niblit_memory import MemoryManager, NiblitMemory
+    from niblit_memory import MemoryManager
 except Exception as _e:
     log.warning(f"Memory managers not available: {_e}")
-    class NiblitMemory:
+    class MemoryManager:
         """No-op stub for memory."""
         def __init__(self):
             pass
@@ -98,10 +98,10 @@ class NiblitHF:
         self.token = os.getenv("HF_TOKEN")
         
         try:
-            self.memory = NiblitMemory()
+            self.memory = MemoryManager()
         except Exception as e:
             log.warning(f"Memory failed, using stub: {e}")
-            self.memory = NiblitMemory()
+            self.memory = MemoryManager()
 
         self.api = "https://api-inference.huggingface.co/models"
         self.timeout = 30  # API timeout in seconds
