@@ -28,25 +28,6 @@ evaluation=
 # used to format the message information. See doc for all details.
 #msg-template=
 
-[FORMAT]
-# Maximum number of characters on a single line.
-max-line-length=120
-
-# Regexp for a line that is allowed to be longer than the limit.
-long-line-note-regexp=^\s*(# )?<?https?://\S+>?$
-
-# Number of spaces of indent required inside a hanging or continued line.
-indent-after-paren=4
-
-# String used as indentation unit. This is usually "    " (4 spaces) or "\t" (1
-# tab).
-indent-string='    '
-
-# Expected format of line ending, especially useful when checking scripts as
-# they are prone to have the wrong line ending convention. This represents the
-# line ending type to be considered as expected.
-expected-line-ending-format=
-
 [LOGGING]
 # Format of logging format string.
 logging-format-style=old
