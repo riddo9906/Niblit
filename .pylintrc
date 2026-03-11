@@ -1,110 +1,20 @@
-# Pylint configuration for Niblit
-# Production-grade linting with 17 improvements integrated
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=120
 
-[MASTER]
-# Add current directory to Python path
-init-hook='import sys; sys.path.insert(0, ".")'
+# Regexp for a line that is allowed to be longer than the limit.
+long-line-note-regexp=^\s*(# )?<?https?://\S+>?$
 
-# Specify a configuration file
-#rcfile=
+# Number of spaces of indent required inside a hanging or continued line.
+indent-after-paren=4
 
-# Python code to execute, usually for sys.path manipulation such as
-# using the current folder as a module search path.
-#init-hook=
+# String used as indentation unit. This is usually "    " (4 spaces) or "\t" (1 tab).
+indent-string='    '
 
-# Discover python modules and packages in the file system subtree.
-recursive=true
-
-# When enabled, pylint would attempt to guess common misconfiguration and emit
-# user-friendly hints instead of false-positive error messages.
-suggestion-mode=true
-
-# Allow optimization of some failing checks (only Checker can do it).
-unsafe-load-any-extension=false
-
-# Regex pattern for files or directories which should be ignored while
-# performing recursive checks for problems.
-ignore-paths=
-  ^(?!.*[Nn]iblit).*$,
-  .git,
-  __pycache__,
-  .venv,
-  venv,
-  build,
-  dist,
-  *.egg-info,
-
-# Python files to ignore entirely
-ignore-patterns=test_.*?py
-
-# List of module names for which member attributes should not be checked
-# (useful for modules/projects where namespaces are manipulated during runtime
-# and thus existing member attributes cannot be deduced by static analysis). It
-# supports qualified module names, as well as Unix pattern matching.
-extension-pkg-allow-list=
-
-[MESSAGES CONTROL]
-# Only show warnings with the listed confidence levels. Leave empty to show
-# all. Valid levels: HIGH, INFERENCE, INFERENCE_FAILURE, UNDEFINED.
-confidence=
-
-# Disable all messages except those listed
-#enable=
-
-# Disable the message, report, category or checker with the given id(s). You
-# can either give multiple identifiers separated by comma (,) or put this
-# option multiple times (only on the command line, not in the configuration
-# file where it should appear only once). You can also use "--disable=all" to
-# disable everything first and then reenable specific checks. For example, if
-# you want to run only the similarities checker, you can use "--disable=all
-# --enable=similarities". If you want to run only the classes checker, but have
-# no Warning level messages displayed, use "--disable=all --enable=classes
-# --disable=W".
-
-# Disable warnings about duplicate code (common in modular systems like Niblit)
-disable=
-    # Convention violations (C)
-    C0111,  # missing-docstring - Too strict for production code
-    C0103,  # invalid-name - Allow flexibility in naming
-    C0114,  # missing-module-docstring
-    C0115,  # missing-class-docstring
-    C0116,  # missing-function-docstring
-    
-    # Refactor suggestions (R)
-    R0903,  # too-few-public-methods - Interfaces are allowed
-    R0913,  # too-many-arguments - Complex functions need parameters
-    R0914,  # too-many-locals - Modular code sometimes needs locals
-    R0915,  # too-many-statements - Complex operations are allowed
-    R0801,  # duplicate-code - CRITICAL: Disabled for Niblit (intentional patterns)
-    
-    # Warnings (W)
-    W0212,  # protected-access - Internal APIs are allowed
-    W0621,  # redefined-builtin - Sometimes necessary
-    W0703,  # broad-except - Production code needs broad exception handling
-    
-    # Information (I)
-    I0011,  # locally-disabled
-    I0013,  # file-ignored
-    I0021,  # useless-suppression
-    I0022,  # deprecated-pragma
-    
-    # Deprecated (D)
-    deprecated-lambda,
-    
-    # Other
-    fixme,  # Allow TODO/FIXME comments
-
-[REPORTS]
-# Set the output format. Available formats are text, parseable, colorized, json
-# and msvs (visual studio). You can also give a reporter class e.g. mypackage.
-# mymodule.MyReporterClass --output-format=json.
-output-format=text
-
-# Tells whether to display a full report or only the messages.
-reports=yes
-
-# Activate the evaluation score.
-score=yes
+# Expected format of line ending, especially useful when checking scripts as
+# they are prone to have the wrong line ending convention. This represents the
+# line ending type to be considered as expected.
+expected-line-ending-format=score=yes
 
 # Python expression which should return a note less than 10 (10 is the highest
 # note). You have access to the variables errors warning, refactor and
