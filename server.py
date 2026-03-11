@@ -1,10 +1,19 @@
 # server.py
+import os
 from flask import Flask, request, jsonify, render_template_string
 from niblit_core import NiblitCore
-import threading
 
 app = Flask("niblit_server")
-n = NiblitCore()
+
+# Lazy-initialize NiblitCore to improve cold start performance on serverless
+_core = None
+
+def get_core():
+    """Return a shared NiblitCore instance, initializing it on first call."""
+    global _core  # pylint: disable=global-statement
+    if _core is None:
+        _core = NiblitCore()
+    return _core
 
 # Simple HTML dashboard template
 DASHBOARD_HTML = """
@@ -68,27 +77,36 @@ checkStatus();
 def dashboard():
     return render_template_string(DASHBOARD_HTML)
 
+@app.route("/health", methods=["GET"])
+def health():
+    """Health check endpoint for uptime monitoring and Vercel warming."""
+    return jsonify({"status": "ok", "service": "niblit"})
+
 @app.route("/ping", methods=["GET"])
 def ping():
-    return jsonify({"status":"ok","personality": n.db.get_personality()})
+    n = get_core()
+    return jsonify({"status": "ok", "personality": n.db.get_personality()})
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    n = get_core()
     data = request.get_json(force=True, silent=True) or {}
-    text = data.get("text","").strip()
+    text = data.get("text", "").strip()
     if not text:
-        return jsonify({"error":"no text provided"}), 400
+        return jsonify({"error": "no text provided"}), 400
     reply = n.handle(text)
     return jsonify({"reply": reply})
 
 @app.route("/memory", methods=["GET"])
 def memory():
+    n = get_core()
     facts = n.db.list_facts(limit=200)
     return jsonify({"facts": facts})
 
 def run_server():
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Starting Niblit HTTP server on http://0.0.0.0:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 if __name__ == "__main__":
-    print("Starting Niblit HTTP server on http://0.0.0.0:5000")
     run_server()

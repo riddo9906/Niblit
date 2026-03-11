@@ -1,0 +1,57 @@
+name: Deployment Validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    name: Pre-deployment validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Syntax check – server.py
+        run: python -m py_compile server.py
+
+      - name: Validate vercel.json
+        run: python -c "import json, sys; json.load(open('vercel.json')); print('vercel.json is valid JSON')"
+
+      - name: Check .env.example exists
+        run: test -f .env.example && echo ".env.example found"
+
+      - name: Check required env variables documented
+        run: |
+          python - <<'EOF'
+          with open('.env.example') as f:
+              content = f.read()
+          required = ['HF_TOKEN', 'SECRET_KEY', 'FLASK_ENV']
+          missing = [v for v in required if v not in content]
+          if missing:
+              print(f"Missing from .env.example: {missing}")
+              raise SystemExit(1)
+          print("All required variables documented in .env.example")
+          EOF

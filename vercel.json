@@ -11,8 +11,33 @@
   ],
   "routes": [
     {
+      "src": "/ping",
+      "dest": "server.py"
+    },
+    {
+      "src": "/chat",
+      "dest": "server.py"
+    },
+    {
+      "src": "/memory",
+      "dest": "server.py"
+    },
+    {
+      "src": "/health",
+      "dest": "server.py"
+    },
+    {
       "src": "/(.*)",
       "dest": "server.py"
     }
-  ]
+  ],
+  "functions": {
+    "server.py": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "FLASK_ENV": "production"
+  }
 }
