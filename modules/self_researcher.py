@@ -2,8 +2,9 @@
 # modules/self_researcher.py
 
 from datetime import datetime
-import math
 import html
+import json
+import math
 import re
 
 class SelfResearcher:
@@ -90,6 +91,26 @@ class SelfResearcher:
         return relevant
 
     # ─────────────────────────────────────────────
+    def _deduplicate(self, items):
+        """Remove duplicates from a list of mixed str/dict items, preserving order.
+
+        Dict items are serialised to JSON for hashing; non-serialisable objects
+        fall back to their string representation (deduplication is best-effort for
+        those cases but will never raise).
+        """
+        seen = set()
+        result = []
+        for item in items:
+            try:
+                key = item if isinstance(item, str) else json.dumps(item, sort_keys=True)
+            except (TypeError, ValueError):
+                key = str(item)
+            if key not in seen:
+                seen.add(key)
+                result.append(item)
+        return result
+
+    # ─────────────────────────────────────────────
     # MAIN SEARCH — INTEGRATED WITH INTERNET MANAGER + LLM
     # ─────────────────────────────────────────────
     def search(self, query, max_results=5, use_llm=True, learn_in_background=True,
@@ -123,13 +144,16 @@ class SelfResearcher:
             except Exception:
                 pass
 
-        # Remove duplicates
-        collected_results = list(dict.fromkeys(collected_results))
+        # Remove duplicates (handles mixed dict/string types)
+        collected_results = self._deduplicate(collected_results)
 
         # 4️⃣ SYNTHESIZE MULTIPLE SOURCES USING LLM
         if synthesize and collected_results and use_llm and self.llm:
             try:
-                combined_text = " ".join(collected_results)
+                combined_text = " ".join(
+                    r if isinstance(r, str) else str(r)
+                    for r in collected_results
+                )
                 synthesized = self.llm.generate(
                     f"Using these multiple sources, provide a coherent, factual, and concise answer to the query:\n{combined_text}",
                     max_tokens=400
