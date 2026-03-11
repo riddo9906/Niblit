@@ -1,10 +1,24 @@
 # server.py
 from flask import Flask, request, jsonify, render_template_string
-from niblit_core import NiblitCore
-import threading
+import os
+
+try:
+    from niblit_core import NiblitCore
+except ImportError:
+    NiblitCore = None
 
 app = Flask("niblit_server")
-n = NiblitCore()
+
+_core = None
+
+def get_core():
+    global _core
+    if _core is None and NiblitCore:
+        try:
+            _core = NiblitCore()
+        except Exception as e:
+            app.logger.error("NiblitCore init error: %s", e)
+    return _core
 
 # Simple HTML dashboard template
 DASHBOARD_HTML = """
@@ -70,24 +84,45 @@ def dashboard():
 
 @app.route("/ping", methods=["GET"])
 def ping():
-    return jsonify({"status":"ok","personality": n.db.get_personality()})
+    core = get_core()
+    if not core:
+        return jsonify({"status": "no-core"})
+    try:
+        personality = core.db.get_personality()
+    except Exception as e:
+        app.logger.warning("get_personality error: %s", e)
+        personality = {}
+    return jsonify({"status": "ok", "personality": personality})
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    core = get_core()
+    if not core:
+        return jsonify({"error": "core failed"}), 500
     data = request.get_json(force=True, silent=True) or {}
-    text = data.get("text","").strip()
+    text = data.get("text", "").strip()
     if not text:
-        return jsonify({"error":"no text provided"}), 400
-    reply = n.handle(text)
+        return jsonify({"error": "no text provided"}), 400
+    try:
+        reply = core.handle(text)
+    except Exception as e:
+        reply = f"[error] {e}"
     return jsonify({"reply": reply})
 
 @app.route("/memory", methods=["GET"])
 def memory():
-    facts = n.db.list_facts(limit=200)
+    core = get_core()
+    if not core:
+        return jsonify({"facts": []})
+    try:
+        facts = core.db.list_facts(limit=200)
+    except Exception as e:
+        app.logger.warning("list_facts error: %s", e)
+        facts = []
     return jsonify({"facts": facts})
 
 def run_server():
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
 
 if __name__ == "__main__":
     print("Starting Niblit HTTP server on http://0.0.0.0:5000")
