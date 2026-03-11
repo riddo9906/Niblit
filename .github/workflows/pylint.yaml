@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  pull_request:
+  pull_request_target:
     branches:
       - main
 
@@ -20,8 +20,10 @@ jobs:
         python-version: ['3.10', '3.11', '3.12']
 
     steps:
-      - name: Checkout code
+      - name: Checkout base repo code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
@@ -82,28 +84,31 @@ jobs:
           retention-days: 30
 
       - name: Comment PR with results
-        if: github.event_name == 'pull_request' && always()
+        if: github.event_name == 'pull_request_target' && always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const pythonVersion = '${{ matrix.python-version }}';
-            
             try {
               const report = fs.readFileSync(`pylint-report-${pythonVersion}.txt`, 'utf8');
               const lines = report.split('\n').slice(0, 50);
-              
               const comment = `## PyLint Results (Python ${pythonVersion})
-              
+            
             \`\`\`
             ${lines.join('\n')}
             \`\`\`
             
             [Full report available in artifacts]`;
-              
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } catch (error) {
+              console.log('Could not post comment:', error);
+            }                owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: comment
               });
