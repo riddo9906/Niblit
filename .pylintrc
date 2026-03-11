@@ -137,9 +137,6 @@ indent-string='    '
 # line ending type to be considered as expected.
 expected-line-ending-format=
 
-# Number of spaces per indentation level to enforce.
-indent-string='    '
-
 [LOGGING]
 # Format of logging format string.
 logging-format-style=old
