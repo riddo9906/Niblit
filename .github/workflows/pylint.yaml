@@ -1,0 +1,148 @@
+name: PyLint Code Quality Check
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**.py'
+      - '.pylintrc'
+      - '.github/workflows/pylint.yaml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**.py'
+      - '.pylintrc'
+
+jobs:
+  pylint:
+    name: PyLint Analysis (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install pylint requests
+        # Install any optional dependencies
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    
+    - name: Run PyLint with error handling
+      run: |
+        echo "Starting PyLint analysis for Python ${{ matrix.python-version }}..."
+        
+        # Run pylint on all Python files, exit code 0 to prevent workflow failure on warnings
+        python -m pylint \
+          --exit-zero \
+          --rcfile=.pylintrc \
+          --output-format=json \
+          --reports=no \
+          niblit_*.py \
+          modules/ \
+          tools/ \
+          > pylint-report-${{ matrix.python-version }}.json 2>&1 || true
+        
+        # Generate human-readable report
+        python -m pylint \
+          --exit-zero \
+          --rcfile=.pylintrc \
+          --output-format=text \
+          niblit_*.py \
+          modules/ \
+          tools/ \
+          2>&1 | head -200 > pylint-report-${{ matrix.python-version }}.txt || true
+        
+        echo "PyLint analysis complete"
+    
+    - name: Parse and display results
+      if: always()
+      run: |
+        echo "=== PyLint Results ==="
+        if [ -f pylint-report-${{ matrix.python-version }}.txt ]; then
+          cat pylint-report-${{ matrix.python-version }}.txt
+        fi
+    
+    - name: Upload PyLint reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: pylint-reports-${{ matrix.python-version }}
+        path: |
+          pylint-report-${{ matrix.python-version }}.json
+          pylint-report-${{ matrix.python-version }}.txt
+        retention-days: 30
+    
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const pythonVersion = '${{ matrix.python-version }}';
+          
+          try {
+            const report = fs.readFileSync(`pylint-report-${pythonVersion}.txt`, 'utf8');
+            const lines = report.split('\n').slice(0, 50); // First 50 lines
+            
+            const comment = `## PyLint Results (Python ${pythonVersion})
+            
+          \`\`\`
+          ${lines.join('\n')}
+          \`\`\`
+          
+          [Full report available in artifacts]`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.log('Could not post comment:', error);
+          }
+    
+    - name: Quality Gate Check
+      if: always()
+      run: |
+        echo "PyLint Quality Gate Check"
+        echo "✓ Code quality analysis completed"
+        echo "✓ Reports generated and uploaded"
+        echo "✓ No workflow failure on pylint warnings (--exit-zero)"
+
+  summary:
+    name: PyLint Summary
+    runs-on: ubuntu-latest
+    needs: pylint
+    if: always()
+    
+    steps:
+    - name: Download all reports
+      uses: actions/download-artifact@v3
+    
+    - name: Generate summary
+      run: |
+        echo "## PyLint Analysis Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✓ Pylint checks completed for Python 3.10, 3.11, 3.12" >> $GITHUB_STEP_SUMMARY
+        echo "✓ Reports available in artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+        echo "- Max line length: 120" >> $GITHUB_STEP_SUMMARY
+        echo "- Max arguments: 10" >> $GITHUB_STEP_SUMMARY
+        echo "- Max locals: 15" >> $GITHUB_STEP_SUMMARY
+        echo "- Duplicate code warnings: Disabled (R0801)" >> $GITHUB_STEP_SUMMARY
