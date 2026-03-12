@@ -2,7 +2,7 @@
 """
 niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime
 
-Enhanced with 17 production improvements:
+Enhanced with 17 production improvements + AutonomousLearningEngine:
 1. CommandRegistry - Clean command dispatcher
 2. LayeredArchitecture - Separation of concerns
 3. DependencyInjection - Testable design
@@ -20,11 +20,14 @@ Enhanced with 17 production improvements:
 15. CommandLLMDecoupling - Commands ≠ LLM
 16. FullBackwardCompatibility - All logic preserved
 17. ProductionReady - Enterprise-grade reliability
+18. AutonomousLearning - Self-improvement when idle
 
 Architecture:
 User Input → CommandRegistry (commands only, zero LLM)
           → RouterLayer (complex routing)
           → LLMLayer (general chat only)
+
+Background: AutonomousLearningEngine (research → ideas → implement → reflect → learn → SLSA)
 
 Compatible with main.py, server.py, and app.py.
 """
@@ -152,6 +155,12 @@ except Exception as e:
     log.debug(f"AlertManager import failed: {e}")
     AlertManager = None
 
+try:
+    from modules.autonomous_learning_engine import initialize_autonomous_engine
+except Exception as e:
+    log.debug(f"AutonomousLearningEngine import failed: {e}")
+    initialize_autonomous_engine = None
+
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
@@ -159,7 +168,7 @@ DEBUG_MODE = True
 COMMANDS = [
     "help", "status", "memory", "search", "summary",
     "learn about", "self-heal", "self-teach", "self-research",
-    "debug on", "debug off", "threads"
+    "debug on", "debug off", "threads", "autonomous-learn"
 ]
 
 # ============================================================
@@ -182,7 +191,9 @@ class NiblitConfig:
     shutdown_timeout_seconds: float = 30
     health_check_interval: int = 120
     dump_loop_log_interval: int = 300
-    enable_improvements: bool = True  # NEW: Enable all improvements
+    enable_improvements: bool = True
+    enable_autonomous_learning: bool = True  # NEW
+    autonomous_learning_idle_threshold: int = 300  # NEW
     
     def __post_init__(self):
         if self.tools_dir is None:
@@ -199,6 +210,8 @@ class NiblitConfig:
             enable_background_loops=os.getenv("NIBLIT_LOOPS", "true").lower() in ("true", "1"),
             enable_async_loops=os.getenv("NIBLIT_ASYNC", "false").lower() in ("true", "1"),
             enable_improvements=os.getenv("NIBLIT_IMPROVEMENTS", "true").lower() in ("true", "1"),
+            enable_autonomous_learning=os.getenv("NIBLIT_AUTONOMOUS", "true").lower() in ("true", "1"),
+            autonomous_learning_idle_threshold=int(os.getenv("NIBLIT_IDLE_THRESHOLD", "300")),
         )
 
 
@@ -685,7 +698,7 @@ class NiblitCore:
     """
     Production-Grade NiblitCore: Unified Autonomous AI Runtime
     
-    Integrates 40+ components with 17 enterprise improvements:
+    Integrates 40+ components with 18 enterprise improvements:
     - CommandRegistry: Clean command dispatcher
     - LayeredArchitecture: Separation of concerns
     - DependencyInjection: Testable design
@@ -703,6 +716,7 @@ class NiblitCore:
     - CommandLLMDecoupling: Commands ≠ LLM (CRITICAL)
     - FullBackwardCompatibility: All logic preserved
     - ProductionReady: Enterprise-grade reliability
+    - AutonomousLearning: Self-improvement when idle (NEW)
     
     Compatible with main.py, server.py, and app.py.
     """
@@ -749,6 +763,9 @@ class NiblitCore:
         self.slsa_engine = None
         self.slsa_thread = None
         
+        # NEW: AutonomousLearningEngine
+        self.autonomous_engine = None
+        
         # NEW: Production improvements
         self.command_registry: Optional[CommandRegistry] = None
         self.task_coordinator: Optional[AsyncTaskCoordinator] = None
@@ -762,7 +779,7 @@ class NiblitCore:
         self.plugin_manager: Optional[PluginManager] = None
         self.alert_manager: Optional[AlertManager] = None
         
-        log.info("Booting TRUE Autonomous Niblit (Production Enhanced)...")
+        log.info("Booting TRUE Autonomous Niblit (Production Enhanced with AutonomousLearning)...")
         
         try:
             if self.config.enable_improvements:
@@ -770,10 +787,15 @@ class NiblitCore:
             
             self._initialize_core()
             self._initialize_modules()
+            
+            # NEW: Initialize AutonomousLearningEngine
+            if self.config.enable_autonomous_learning:
+                self._init_autonomous_learning()
+            
             self._start_background_services()
             
             if self.startup_report.is_healthy():
-                log.info("TRUE AUTONOMOUS NIBLIT READY (Production Ready)")
+                log.info("TRUE AUTONOMOUS NIBLIT READY (Production Ready + Autonomous Learning)")
             else:
                 log.warning(f"Degraded startup: {self.startup_report.summary()}")
         except Exception as e:
@@ -781,12 +803,52 @@ class NiblitCore:
             raise
 
     # ============================
+    # AUTONOMOUS LEARNING INITIALIZATION (NEW)
+    # ============================
+
+    def _init_autonomous_learning(self):
+        """Initialize AutonomousLearningEngine for autonomous self-improvement."""
+        if not initialize_autonomous_engine:
+            log.warning("[AUTONOMOUS] AutonomousLearningEngine not available")
+            return
+        
+        try:
+            log.info("[AUTONOMOUS] Initializing AutonomousLearningEngine...")
+            
+            # Wire up all components
+            self.autonomous_engine = initialize_autonomous_engine(
+                core=self,
+                researcher=self.researcher if hasattr(self, 'researcher') else None,
+                idea_generator=self.idea_generator if hasattr(self, 'idea_generator') else None,
+                reflect_module=self.reflect if hasattr(self, 'reflect') else None,
+                self_teacher=self.self_teacher if hasattr(self, 'self_teacher') else None,
+                slsa_manager=slsa_manager,
+                knowledge_db=self.db if hasattr(self, 'db') else None
+            )
+            
+            # Configure idle threshold
+            if self.autonomous_engine:
+                self.autonomous_engine.idle_threshold = self.config.autonomous_learning_idle_threshold
+            
+            # Start autonomous learning engine
+            if self.autonomous_engine and self.autonomous_engine.start():
+                log.info("[AUTONOMOUS] ✅ AutonomousLearningEngine started successfully")
+                self.startup_report.add("autonomous_learning", "ready")
+            else:
+                log.warning("[AUTONOMOUS] Failed to start engine")
+                self.startup_report.add("autonomous_learning", "degraded", "Failed to start")
+        
+        except Exception as e:
+            log.error(f"[AUTONOMOUS] Initialization failed: {e}")
+            self.startup_report.add("autonomous_learning", "degraded", str(e))
+
+    # ============================
     # IMPROVEMENT INITIALIZATION
     # ============================
 
     def _init_improvements(self):
         """Initialize all production improvements."""
-        log.info("[IMPROVEMENTS] Initializing 17 production enhancements...")
+        log.info("[IMPROVEMENTS] Initializing 18 production enhancements...")
         
         try:
             # 1. CommandRegistry
@@ -857,7 +919,7 @@ class NiblitCore:
         try:
             # 9. LearningBatcher
             if LearningBatcher:
-                self.learning_batcher = LearningBatcher(batch_size=32, flush_interval=5)
+                self.learning_batcher = LearningBatcher(batch_size=32, flush_interval_seconds=5)
                 log.info("[IMPROVEMENTS] LearningBatcher initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] LearningBatcher failed: {e}")
@@ -916,18 +978,23 @@ class NiblitCore:
             "restart_slsa", self._cmd_slsa_restart, "Restart SLSA", "slsa", priority=95
         )
         
+        # Autonomous Learning commands (NEW)
+        self.command_registry.register(
+            "autonomous-learn", self._cmd_autonomous_learn, "Autonomous learning control", "autonomous", priority=90
+        )
+        
         # Brain commands (use internet, NOT LLM)
         self.command_registry.register(
-            "self-research", self._cmd_self_research, "Research topic", "brain", priority=90
+            "self-research", self._cmd_self_research, "Research topic", "brain", priority=85
         )
         self.command_registry.register(
-            "self-idea", self._cmd_self_idea, "Generate ideas", "brain", priority=90
+            "self-idea", self._cmd_self_idea, "Generate ideas", "brain", priority=85
         )
         self.command_registry.register(
-            "reflect", self._cmd_reflect, "Reflect on topic", "brain", priority=90
+            "reflect", self._cmd_reflect, "Reflect on topic", "brain", priority=85
         )
         self.command_registry.register(
-            "self-implement", self._cmd_self_implement, "Implement concept", "brain", priority=90
+            "self-implement", self._cmd_self_implement, "Implement concept", "brain", priority=85
         )
         
         # Internet commands
@@ -949,6 +1016,63 @@ class NiblitCore:
             )
 
     # ============================
+    # AUTONOMOUS LEARNING COMMAND HANDLER (NEW)
+    # ============================
+
+    def _cmd_autonomous_learn(self, text: str) -> str:
+        """Handle autonomous learning commands."""
+        if not self.autonomous_engine:
+            return "[Autonomous learning engine not initialized]"
+        
+        action = text.lower().replace("autonomous-learn", "").strip()
+        
+        if action in ("start", "on"):
+            result = self.autonomous_engine.start()
+            return "🚀 Autonomous learning started ✅" if result else "ℹ️ Already running"
+        
+        if action in ("stop", "off"):
+            result = self.autonomous_engine.stop()
+            return "⏹️ Autonomous learning stopped ✅"
+        
+        if action == "status":
+            stats = self.autonomous_engine.get_learning_stats()
+            return f"""
+[AUTONOMOUS LEARNING STATUS]
+Running: {'✅' if stats['running'] else '❌'}
+System Idle: {'Yes' if stats['is_idle'] else 'No'}
+Research Cycles: {stats['stats']['research_completed']}
+Ideas Generated: {stats['stats']['ideas_generated']}
+Ideas Implemented: {stats['stats']['ideas_implemented']}
+Reflections: {stats['stats']['reflections_conducted']}
+SLSA Runs: {stats['stats']['slsa_runs']}
+Pending Ideas: {stats['pending_ideas']}
+Learning Rate: {stats['stats']['learning_rate']:.4f} actions/sec
+Research Topics: {stats['research_topics']}
+            """
+        
+        if action.startswith("add-topic "):
+            topic = action.replace("add-topic", "").strip()
+            if topic:
+                result = self.autonomous_engine.add_research_topic(topic)
+                return f"✅ Topic added: {topic}" if result else "ℹ️ Topic already exists"
+            return "Usage: autonomous-learn add-topic <topic>"
+        
+        if action.startswith("add-topics "):
+            topics_str = action.replace("add-topics", "").strip()
+            if topics_str:
+                topics = [t.strip() for t in topics_str.split(",")]
+                added = self.autonomous_engine.add_research_topics(topics)
+                return f"✅ Added {len(added)} topics: {', '.join(added)}"
+            return "Usage: autonomous-learn add-topics <topic1,topic2,...>"
+        
+        return """Usage:
+autonomous-learn start              — Start autonomous learning
+autonomous-learn stop               — Stop autonomous learning
+autonomous-learn status             — View learning statistics
+autonomous-learn add-topic <topic>  — Add research topic
+autonomous-learn add-topics <t1,t2> — Add multiple topics"""
+
+    # ============================
     # COMMAND HANDLERS (NO LLM)
     # ============================
 
@@ -962,7 +1086,8 @@ class NiblitCore:
         """Status command."""
         try:
             mem_count = self._get_memory_count()
-            return f"Status: OK | Memory: {mem_count} | Orchestrator: {'Available' if self.orchestrator_available else 'Unavailable'}"
+            autonomous_status = "Running" if (self.autonomous_engine and self.autonomous_engine.running) else "Stopped"
+            return f"Status: OK | Memory: {mem_count} | Orchestrator: {'Available' if self.orchestrator_available else 'Unavailable'} | Autonomous: {autonomous_status}"
         except Exception as e:
             log.error(f"Status command failed: {e}")
             return f"Status: Error - {e}"
@@ -1834,6 +1959,13 @@ class NiblitCore:
                 self.tasks.add_task("remember", {"input": user_input, "response": response})
             except Exception as _e:
                 log.debug(f"NiblitTasks.add_task failed: {_e}")
+        
+        # NEW: Update autonomous engine's last interaction time
+        if self.autonomous_engine:
+            try:
+                self.autonomous_engine.update_last_interaction()
+            except Exception as _e:
+                log.debug(f"Autonomous engine update failed: {_e}")
 
     def health_check(self) -> HealthCheckResult:
         """Comprehensive system health check."""
@@ -1849,6 +1981,7 @@ class NiblitCore:
             ("internet", self.internet),
             ("learning", self.learning),
             ("llm", self.llm),
+            ("autonomous_engine", self.autonomous_engine),
         ]
         
         for name, component in checks:
@@ -1904,12 +2037,13 @@ class NiblitCore:
         1. CommandRegistry (commands only - zero LLM)
         2. Brain commands (self-research, self-idea, reflect - uses modules, NOT LLM)
         3. SLSA commands
-        4. Orchestrator commands
-        5. System commands (status, health, metrics)
-        6. Intent parsing (core commands)
-        7. Internet commands (search, summary - uses internet directly, NOT LLM)
-        8. Router fallback (complex routing)
-        9. Brain.think() (ONLY for general chat)
+        4. Autonomous Learning commands (NEW)
+        5. Orchestrator commands
+        6. System commands (status, health, metrics)
+        7. Intent parsing (core commands)
+        8. Internet commands (search, summary - uses internet directly, NOT LLM)
+        9. Router fallback (complex routing)
+        10. Brain.think() (ONLY for general chat)
         """
         ltext = text.lower().strip()
         
@@ -1971,7 +2105,14 @@ class NiblitCore:
             return self._restart_slsa_engine(topics)
         
         # ============================
-        # LAYER 4: ORCHESTRATOR COMMANDS
+        # LAYER 4: AUTONOMOUS LEARNING COMMANDS (NEW)
+        # ============================
+        if ltext.startswith("autonomous-learn"):
+            log.debug("[AUTONOMOUS-CMD] Intercepted")
+            return self._cmd_autonomous_learn(text)
+        
+        # ============================
+        # LAYER 5: ORCHESTRATOR COMMANDS
         # ============================
         if ltext.startswith("orchestrate audit"):
             log.debug("[ORCH-CMD] Intercepted: audit")
@@ -1995,7 +2136,7 @@ class NiblitCore:
             return self._hf_task(task_prompt)
         
         # ============================
-        # LAYER 5: SYSTEM STATUS COMMANDS
+        # LAYER 6: SYSTEM STATUS COMMANDS
         # ============================
         if ltext.startswith("health"):
             log.debug("[STATUS-CMD] Intercepted: health")
@@ -2010,7 +2151,7 @@ class NiblitCore:
             return f"[DUMP] Loop cycles: {self._dump_loop_count}, Memory: {self._get_memory_count()}"
         
         # ============================
-        # LAYER 6: INTENT PARSING & CORE COMMANDS
+        # LAYER 7: INTENT PARSING & CORE COMMANDS
         # ============================
         intent, meta = parse_intent(text)
         log.debug(f"[INTENT] Parsed: {intent}")
@@ -2044,7 +2185,7 @@ class NiblitCore:
             return f"Ideas for {topic}: Prototype -> Test -> Evolve"
         
         # ============================
-        # LAYER 7: INTERNET COMMANDS (uses internet directly, NOT LLM)
+        # LAYER 8: INTERNET COMMANDS (uses internet directly, NOT LLM)
         # ============================
         if ltext.startswith("summary ") and self.internet:
             log.debug("[INTERNET-CMD] Intercepted: summary")
@@ -2055,7 +2196,7 @@ class NiblitCore:
             return self._cmd_search(text)
         
         # ============================
-        # LAYER 8: SHUTDOWN
+        # LAYER 9: SHUTDOWN
         # ============================
         if intent == "shutdown":
             log.debug("[CORE-CMD] Intercepted: shutdown")
@@ -2063,7 +2204,7 @@ class NiblitCore:
             return "Shutdown scheduled."
         
         # ============================
-        # LAYER 9: ROUTER FALLBACK
+        # LAYER 10: ROUTER FALLBACK
         # ============================
         log.debug("[ROUTER] Fallback routing (no direct match)")
         if self.router and not self._routing:
@@ -2079,7 +2220,7 @@ class NiblitCore:
                 self._routing = False
         
         # ============================
-        # LAYER 10: GENERAL CONVERSATION (brain.think ONLY)
+        # LAYER 11: GENERAL CONVERSATION (brain.think ONLY)
         # ============================
         log.debug("[BRAIN] General chat fallback - brain.think() only")
         response = None
@@ -2097,40 +2238,52 @@ class NiblitCore:
         return response
 
     def help_text(self) -> str:
-        """Return help text including orchestrator commands if available."""
+        """Return help text including all available commands."""
         base_help = (
-            "help                                — Show this help\n"
-            "time                                — Show current time\n"
-            "status                              — Show system status\n"
-            "health                              — Comprehensive health check\n"
-            "metrics                             — Performance metrics\n"
-            "dump                                — Show dump loop stats\n"
-            "remember key:value                  — Store a fact\n"
-            "learn about <topic>                 — Queue for research\n"
-            "ideas about <topic>                 — Get creative ideas\n"
-            "search <query>                      — Search the internet\n"
-            "summary <query>                     — Get quick summary\n"
-            "self-research <topic>               — Research autonomously (uses internet, NOT LLM)\n"
-            "reflect <topic>                     — Reflect on topic (uses modules, NOT LLM)\n"
-            "self-idea <topic>                   — Generate ideas (uses modules, NOT LLM)\n"
-            "self-implement <topic>              — Implement concept (uses modules, NOT LLM)\n"
-            "slsa-status                         — SLSA status\n"
-            "start_slsa [topic1 topic2 ...]     — Start SLSA\n"
-            "stop_slsa                           — Stop SLSA\n"
-            "restart_slsa [topic1 topic2 ...]   — Restart SLSA\n"
-            "toggle-llm on/off                   — Enable/disable LLM (general chat only)\n"
-            "shutdown                            — Graceful shutdown"
+            "[NIBLIT HELP]\n\n"
+            "=== CORE COMMANDS ===\n"
+            "help                              — Show this help\n"
+            "time                              — Show current time\n"
+            "status                            — Show system status\n"
+            "health                            — Comprehensive health check\n"
+            "metrics                           — Performance metrics\n"
+            "dump                              — Show dump loop stats\n"
+            "remember key:value                — Store a fact\n"
+            "learn about <topic>               — Queue for research\n"
+            "ideas about <topic>               — Get creative ideas\n"
+            "\n=== INTERNET COMMANDS ===\n"
+            "search <query>                    — Search the internet\n"
+            "summary <query>                   — Get quick summary\n"
+            "\n=== BRAIN COMMANDS (No LLM) ===\n"
+            "self-research <topic>             — Research autonomously (uses internet, NOT LLM)\n"
+            "reflect <topic>                   — Reflect on topic (uses modules, NOT LLM)\n"
+            "self-idea <topic>                 — Generate ideas (uses modules, NOT LLM)\n"
+            "self-implement <topic>            — Implement concept (uses modules, NOT LLM)\n"
+            "\n=== SLSA COMMANDS ===\n"
+            "slsa-status                       — SLSA status\n"
+            "start_slsa [topic1 topic2 ...]   — Start SLSA\n"
+            "stop_slsa                         — Stop SLSA\n"
+            "restart_slsa [topic1 topic2 ...]  — Restart SLSA\n"
+            "\n=== AUTONOMOUS LEARNING COMMANDS (NEW) ===\n"
+            "autonomous-learn start            — Start autonomous learning\n"
+            "autonomous-learn stop             — Stop autonomous learning\n"
+            "autonomous-learn status           — View learning statistics\n"
+            "autonomous-learn add-topic <t>    — Add research topic\n"
+            "autonomous-learn add-topics <t,t> — Add multiple topics\n"
+            "\n=== SETTINGS ===\n"
+            "toggle-llm on/off                 — Enable/disable LLM (general chat only)\n"
+            "shutdown                          — Graceful shutdown"
         )
 
         if self.orchestrator_available:
             orchestrator_help = (
-                "\n\n--- ORCHESTRATOR COMMANDS ---\n"
-                "orchestrate audit                  — Run repository audit\n"
-                "orchestrate self-heal              — Run self-healing\n"
-                "orchestrate fix-guide              — Generate fix guide\n"
-                "orchestrate verify                 — Verify imports\n"
-                "orchestrate pipeline               — Run full pipeline\n"
-                "hf-task <prompt>                   — Execute HF task"
+                "\n\n=== ORCHESTRATOR COMMANDS ===\n"
+                "orchestrate audit                — Run repository audit\n"
+                "orchestrate self-heal            — Run self-healing\n"
+                "orchestrate fix-guide            — Generate fix guide\n"
+                "orchestrate verify               — Verify imports\n"
+                "orchestrate pipeline             — Run full pipeline\n"
+                "hf-task <prompt>                 — Execute HF task"
             )
             return base_help + orchestrator_help
 
@@ -2143,7 +2296,15 @@ class NiblitCore:
         self.running = False
         self._shutdown_event.set()
         
-        # Stop SLSA engine first
+        # Stop autonomous engine first
+        if self.autonomous_engine:
+            try:
+                self.autonomous_engine.stop()
+                log.info("[SHUTDOWN] Autonomous engine stopped")
+            except Exception as e:
+                log.error(f"Autonomous engine shutdown failed: {e}")
+        
+        # Stop SLSA engine
         if self.slsa_engine:
             try:
                 self._stop_slsa_engine()
@@ -2195,7 +2356,7 @@ class NiblitCore:
 
 if __name__ == "__main__":
     core = NiblitCore()
-    print("TRUE Autonomous Niblit (Production Enhanced) running.")
+    print("TRUE Autonomous Niblit (Production Enhanced with AutonomousLearning) running.")
     print("Type 'help' for available commands or 'shutdown' to exit.\n")
     try:
         while core.running:
