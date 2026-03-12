@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime
+niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime with Full Self-Improvement
 
-Enhanced with 17 production improvements + AutonomousLearningEngine:
+Enhanced with 17 production improvements + 10 self-improvement modules + Autonomous Learning:
 1. CommandRegistry - Clean command dispatcher
 2. LayeredArchitecture - Separation of concerns
 3. DependencyInjection - Testable design
@@ -20,14 +20,15 @@ Enhanced with 17 production improvements + AutonomousLearningEngine:
 15. CommandLLMDecoupling - Commands ≠ LLM
 16. FullBackwardCompatibility - All logic preserved
 17. ProductionReady - Enterprise-grade reliability
-18. AutonomousLearning - Self-improvement when idle
+
++ 10 SELF-IMPROVEMENT MODULES + AUTONOMOUS LEARNING ENGINE
 
 Architecture:
 User Input → CommandRegistry (commands only, zero LLM)
           → RouterLayer (complex routing)
+          → ImprovementsLayer (autonomous self-improvement)
+          → AutonomousLayer (background learning when idle)
           → LLMLayer (general chat only)
-
-Background: AutonomousLearningEngine (research → ideas → implement → reflect → learn → SLSA)
 
 Compatible with main.py, server.py, and app.py.
 """
@@ -155,11 +156,77 @@ except Exception as e:
     log.debug(f"AlertManager import failed: {e}")
     AlertManager = None
 
+# ============================================================
+# 10 SELF-IMPROVEMENT MODULES IMPORTS
+# ============================================================
 try:
-    from modules.autonomous_learning_engine import initialize_autonomous_engine
+    from modules.parallel_learner import ParallelLearner
+except Exception as e:
+    log.debug(f"ParallelLearner import failed: {e}")
+    ParallelLearner = None
+
+try:
+    from modules.reasoning_engine import ReasoningEngine
+except Exception as e:
+    log.debug(f"ReasoningEngine import failed: {e}")
+    ReasoningEngine = None
+
+try:
+    from modules.gap_analyzer import GapAnalyzer
+except Exception as e:
+    log.debug(f"GapAnalyzer import failed: {e}")
+    GapAnalyzer = None
+
+try:
+    from modules.knowledge_synthesizer import KnowledgeSynthesizer
+except Exception as e:
+    log.debug(f"KnowledgeSynthesizer import failed: {e}")
+    KnowledgeSynthesizer = None
+
+try:
+    from modules.prediction_engine import PredictionEngine
+except Exception as e:
+    log.debug(f"PredictionEngine import failed: {e}")
+    PredictionEngine = None
+
+try:
+    from modules.memory_optimizer import MemoryOptimizer
+except Exception as e:
+    log.debug(f"MemoryOptimizer import failed: {e}")
+    MemoryOptimizer = None
+
+try:
+    from modules.adaptive_learning import AdaptiveLearning
+except Exception as e:
+    log.debug(f"AdaptiveLearning import failed: {e}")
+    AdaptiveLearning = None
+
+try:
+    from modules.metacognition import Metacognition
+except Exception as e:
+    log.debug(f"Metacognition import failed: {e}")
+    Metacognition = None
+
+try:
+    from modules.collaborative_learner import CollaborativeLearner
+except Exception as e:
+    log.debug(f"CollaborativeLearner import failed: {e}")
+    CollaborativeLearner = None
+
+try:
+    from modules.improvement_integrator import ImprovementIntegrator
+except Exception as e:
+    log.debug(f"ImprovementIntegrator import failed: {e}")
+    ImprovementIntegrator = None
+
+# ============================================================
+# AUTONOMOUS LEARNING ENGINE IMPORT
+# ============================================================
+try:
+    from modules.autonomous_learning_engine import AutonomousLearningEngine
 except Exception as e:
     log.debug(f"AutonomousLearningEngine import failed: {e}")
-    initialize_autonomous_engine = None
+    AutonomousLearningEngine = None
 
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
@@ -168,7 +235,9 @@ DEBUG_MODE = True
 COMMANDS = [
     "help", "status", "memory", "search", "summary",
     "learn about", "self-heal", "self-teach", "self-research",
-    "debug on", "debug off", "threads", "autonomous-learn"
+    "debug on", "debug off", "threads",
+    "show improvements", "run improvement-cycle", "improvement-status",
+    "autonomous-learn start", "autonomous-learn stop", "autonomous-learn status", "autonomous-learn add-topic"
 ]
 
 # ============================================================
@@ -192,8 +261,8 @@ class NiblitConfig:
     health_check_interval: int = 120
     dump_loop_log_interval: int = 300
     enable_improvements: bool = True
-    enable_autonomous_learning: bool = True  # NEW
-    autonomous_learning_idle_threshold: int = 300  # NEW
+    enable_self_improvements: bool = True
+    enable_autonomous_engine: bool = True
     
     def __post_init__(self):
         if self.tools_dir is None:
@@ -210,8 +279,8 @@ class NiblitConfig:
             enable_background_loops=os.getenv("NIBLIT_LOOPS", "true").lower() in ("true", "1"),
             enable_async_loops=os.getenv("NIBLIT_ASYNC", "false").lower() in ("true", "1"),
             enable_improvements=os.getenv("NIBLIT_IMPROVEMENTS", "true").lower() in ("true", "1"),
-            enable_autonomous_learning=os.getenv("NIBLIT_AUTONOMOUS", "true").lower() in ("true", "1"),
-            autonomous_learning_idle_threshold=int(os.getenv("NIBLIT_IDLE_THRESHOLD", "300")),
+            enable_self_improvements=os.getenv("NIBLIT_SELF_IMPROVEMENTS", "true").lower() in ("true", "1"),
+            enable_autonomous_engine=os.getenv("NIBLIT_AUTONOMOUS_ENGINE", "true").lower() in ("true", "1"),
         )
 
 
@@ -696,27 +765,15 @@ def hf_query(prompt: str) -> str:
 
 class NiblitCore:
     """
-    Production-Grade NiblitCore: Unified Autonomous AI Runtime
+    Production-Grade NiblitCore: Unified Autonomous AI Runtime with Full Self-Improvement
+
+    Integrates 40+ components with:
+    - 17 enterprise production improvements
+    - 10 self-improvement modules
+    - Autonomous Learning Engine (background learning when idle)
     
-    Integrates 40+ components with 18 enterprise improvements:
-    - CommandRegistry: Clean command dispatcher
-    - LayeredArchitecture: Separation of concerns
-    - DependencyInjection: Testable design
-    - StructuredLogging: Correlation ID tracing
-    - AsyncFirst: Full async/await support
-    - EventSourcing: Immutable audit trail
-    - RateLimiting: Token bucket algorithm
-    - Metrics: Observability & telemetry
-    - CircuitBreaker: Fault tolerance
-    - ConnectionPooling: Resource efficiency
-    - MultiLevelCaching: Performance optimization
-    - BatchProcessing: Bulk operation efficiency
-    - PluginArchitecture: Hot-reload support
-    - MonitoringAlerting: Prometheus integration
-    - CommandLLMDecoupling: Commands ≠ LLM (CRITICAL)
-    - FullBackwardCompatibility: All logic preserved
-    - ProductionReady: Enterprise-grade reliability
-    - AutonomousLearning: Self-improvement when idle (NEW)
+    Architecture:
+    User Input → CommandRegistry → Router → Improvements → Autonomous Learning → LLM
     
     Compatible with main.py, server.py, and app.py.
     """
@@ -763,9 +820,6 @@ class NiblitCore:
         self.slsa_engine = None
         self.slsa_thread = None
         
-        # NEW: AutonomousLearningEngine
-        self.autonomous_engine = None
-        
         # NEW: Production improvements
         self.command_registry: Optional[CommandRegistry] = None
         self.task_coordinator: Optional[AsyncTaskCoordinator] = None
@@ -779,7 +833,22 @@ class NiblitCore:
         self.plugin_manager: Optional[PluginManager] = None
         self.alert_manager: Optional[AlertManager] = None
         
-        log.info("Booting TRUE Autonomous Niblit (Production Enhanced with AutonomousLearning)...")
+        # NEW: 10 Self-Improvement Modules
+        self.improvements: Optional[ImprovementIntegrator] = None
+        self.parallel_learner: Optional[ParallelLearner] = None
+        self.reasoning_engine: Optional[ReasoningEngine] = None
+        self.gap_analyzer: Optional[GapAnalyzer] = None
+        self.synthesizer: Optional[KnowledgeSynthesizer] = None
+        self.predictor: Optional[PredictionEngine] = None
+        self.memory_optimizer: Optional[MemoryOptimizer] = None
+        self.adaptive_learning: Optional[AdaptiveLearning] = None
+        self.metacognition: Optional[Metacognition] = None
+        self.collaborative_learner: Optional[CollaborativeLearner] = None
+        
+        # NEW: Autonomous Learning Engine
+        self.autonomous_engine: Optional[AutonomousLearningEngine] = None
+        
+        log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
         
         try:
             if self.config.enable_improvements:
@@ -787,60 +856,15 @@ class NiblitCore:
             
             self._initialize_core()
             self._initialize_modules()
-            
-            # NEW: Initialize AutonomousLearningEngine
-            if self.config.enable_autonomous_learning:
-                self._init_autonomous_learning()
-            
             self._start_background_services()
             
             if self.startup_report.is_healthy():
-                log.info("TRUE AUTONOMOUS NIBLIT READY (Production Ready + Autonomous Learning)")
+                log.info("✅ NIBLIT READY (All Systems Go)")
             else:
-                log.warning(f"Degraded startup: {self.startup_report.summary()}")
+                log.warning(f"⚠️ Degraded startup: {self.startup_report.summary()}")
         except Exception as e:
             log.error(f"Fatal initialization error: {e}", exc_info=True)
             raise
-
-    # ============================
-    # AUTONOMOUS LEARNING INITIALIZATION (NEW)
-    # ============================
-
-    def _init_autonomous_learning(self):
-        """Initialize AutonomousLearningEngine for autonomous self-improvement."""
-        if not initialize_autonomous_engine:
-            log.warning("[AUTONOMOUS] AutonomousLearningEngine not available")
-            return
-        
-        try:
-            log.info("[AUTONOMOUS] Initializing AutonomousLearningEngine...")
-            
-            # Wire up all components
-            self.autonomous_engine = initialize_autonomous_engine(
-                core=self,
-                researcher=self.researcher if hasattr(self, 'researcher') else None,
-                idea_generator=self.idea_generator if hasattr(self, 'idea_generator') else None,
-                reflect_module=self.reflect if hasattr(self, 'reflect') else None,
-                self_teacher=self.self_teacher if hasattr(self, 'self_teacher') else None,
-                slsa_manager=slsa_manager,
-                knowledge_db=self.db if hasattr(self, 'db') else None
-            )
-            
-            # Configure idle threshold
-            if self.autonomous_engine:
-                self.autonomous_engine.idle_threshold = self.config.autonomous_learning_idle_threshold
-            
-            # Start autonomous learning engine
-            if self.autonomous_engine and self.autonomous_engine.start():
-                log.info("[AUTONOMOUS] ✅ AutonomousLearningEngine started successfully")
-                self.startup_report.add("autonomous_learning", "ready")
-            else:
-                log.warning("[AUTONOMOUS] Failed to start engine")
-                self.startup_report.add("autonomous_learning", "degraded", "Failed to start")
-        
-        except Exception as e:
-            log.error(f"[AUTONOMOUS] Initialization failed: {e}")
-            self.startup_report.add("autonomous_learning", "degraded", str(e))
 
     # ============================
     # IMPROVEMENT INITIALIZATION
@@ -848,14 +872,14 @@ class NiblitCore:
 
     def _init_improvements(self):
         """Initialize all production improvements."""
-        log.info("[IMPROVEMENTS] Initializing 18 production enhancements...")
+        log.info("[IMPROVEMENTS] Initializing 17 production enhancements...")
         
         try:
             # 1. CommandRegistry
             if CommandRegistry:
                 self.command_registry = CommandRegistry()
                 self._register_commands()
-                log.info("[IMPROVEMENTS] CommandRegistry initialized")
+                log.info("[IMPROVEMENTS] ✅ CommandRegistry initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CommandRegistry failed: {e}")
         
@@ -863,7 +887,7 @@ class NiblitCore:
             # 2. AsyncTaskCoordinator
             if AsyncTaskCoordinator:
                 self.task_coordinator = AsyncTaskCoordinator()
-                log.info("[IMPROVEMENTS] AsyncTaskCoordinator initialized")
+                log.info("[IMPROVEMENTS] ✅ AsyncTaskCoordinator initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] AsyncTaskCoordinator failed: {e}")
         
@@ -871,7 +895,7 @@ class NiblitCore:
             # 3. EventStore
             if EventStore:
                 self.event_store = EventStore(Path("./events.jsonl"))
-                log.info("[IMPROVEMENTS] EventStore initialized")
+                log.info("[IMPROVEMENTS] ✅ EventStore initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] EventStore failed: {e}")
         
@@ -879,7 +903,7 @@ class NiblitCore:
             # 4. RateLimiter
             if RateLimiter:
                 self.rate_limiter = RateLimiter(max_requests_per_sec=100)
-                log.info("[IMPROVEMENTS] RateLimiter initialized")
+                log.info("[IMPROVEMENTS] ✅ RateLimiter initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] RateLimiter failed: {e}")
         
@@ -887,7 +911,7 @@ class NiblitCore:
             # 5. TelemetryCollector
             if TelemetryCollector:
                 self.telemetry = TelemetryCollector()
-                log.info("[IMPROVEMENTS] TelemetryCollector initialized")
+                log.info("[IMPROVEMENTS] ✅ TelemetryCollector initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] TelemetryCollector failed: {e}")
         
@@ -896,7 +920,7 @@ class NiblitCore:
             self.circuit_breakers["brain"] = CircuitBreaker(failure_threshold=5)
             self.circuit_breakers["router"] = CircuitBreaker(failure_threshold=5)
             self.circuit_breakers["internet"] = CircuitBreaker(failure_threshold=5)
-            log.info("[IMPROVEMENTS] CircuitBreakers initialized")
+            log.info("[IMPROVEMENTS] ✅ CircuitBreakers initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CircuitBreakers failed: {e}")
         
@@ -904,7 +928,7 @@ class NiblitCore:
             # 7. ConnectionPool
             if ConnectionPool:
                 self.connection_pool = ConnectionPool()
-                log.info("[IMPROVEMENTS] ConnectionPool initialized")
+                log.info("[IMPROVEMENTS] ✅ ConnectionPool initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] ConnectionPool failed: {e}")
         
@@ -912,7 +936,7 @@ class NiblitCore:
             # 8. CacheStrategy
             if CacheStrategy:
                 self.cache_strategy = CacheStrategy()
-                log.info("[IMPROVEMENTS] CacheStrategy initialized")
+                log.info("[IMPROVEMENTS] ✅ CacheStrategy initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CacheStrategy failed: {e}")
         
@@ -920,7 +944,7 @@ class NiblitCore:
             # 9. LearningBatcher
             if LearningBatcher:
                 self.learning_batcher = LearningBatcher(batch_size=32, flush_interval_seconds=5)
-                log.info("[IMPROVEMENTS] LearningBatcher initialized")
+                log.info("[IMPROVEMENTS] ✅ LearningBatcher initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] LearningBatcher failed: {e}")
         
@@ -928,7 +952,7 @@ class NiblitCore:
             # 10. PluginManager
             if PluginManager:
                 self.plugin_manager = PluginManager()
-                log.info("[IMPROVEMENTS] PluginManager initialized")
+                log.info("[IMPROVEMENTS] ✅ PluginManager initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] PluginManager failed: {e}")
         
@@ -936,11 +960,11 @@ class NiblitCore:
             # 11. AlertManager
             if AlertManager:
                 self.alert_manager = AlertManager()
-                log.info("[IMPROVEMENTS] AlertManager initialized")
+                log.info("[IMPROVEMENTS] ✅ AlertManager initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] AlertManager failed: {e}")
         
-        log.info("[IMPROVEMENTS] Production enhancements initialized")
+        log.info("[IMPROVEMENTS] ✅ 17 production enhancements initialized")
 
     def _register_commands(self):
         """Register commands with CommandRegistry."""
@@ -964,23 +988,32 @@ class NiblitCore:
             "time", self._cmd_time, "Show current time", "core", priority=100
         )
         
-        # SLSA commands
+        # Autonomous Learning Commands
         self.command_registry.register(
-            "slsa-status", self._cmd_slsa_status, "SLSA status", "slsa", priority=95
+            "autonomous-learn start", self._cmd_autonomous_start, "Start autonomous learning", "autonomous", priority=98
         )
         self.command_registry.register(
-            "start_slsa", self._cmd_slsa_start, "Start SLSA", "slsa", priority=95
+            "autonomous-learn stop", self._cmd_autonomous_stop, "Stop autonomous learning", "autonomous", priority=98
         )
         self.command_registry.register(
-            "stop_slsa", self._cmd_slsa_stop, "Stop SLSA", "slsa", priority=95
+            "autonomous-learn status", self._cmd_autonomous_status, "View autonomous status", "autonomous", priority=98
         )
         self.command_registry.register(
-            "restart_slsa", self._cmd_slsa_restart, "Restart SLSA", "slsa", priority=95
+            "autonomous-learn add-topic", self._cmd_autonomous_add_topic, "Add research topic", "autonomous", priority=98
         )
         
-        # Autonomous Learning commands (NEW)
+        # SLSA commands
         self.command_registry.register(
-            "autonomous-learn", self._cmd_autonomous_learn, "Autonomous learning control", "autonomous", priority=90
+            "slsa-status", self._cmd_slsa_status, "SLSA status", "slsa", priority=90
+        )
+        self.command_registry.register(
+            "start_slsa", self._cmd_slsa_start, "Start SLSA", "slsa", priority=90
+        )
+        self.command_registry.register(
+            "stop_slsa", self._cmd_slsa_stop, "Stop SLSA", "slsa", priority=90
+        )
+        self.command_registry.register(
+            "restart_slsa", self._cmd_slsa_restart, "Restart SLSA", "slsa", priority=90
         )
         
         # Brain commands (use internet, NOT LLM)
@@ -1016,61 +1049,118 @@ class NiblitCore:
             )
 
     # ============================
-    # AUTONOMOUS LEARNING COMMAND HANDLER (NEW)
+    # AUTONOMOUS LEARNING COMMANDS
     # ============================
 
-    def _cmd_autonomous_learn(self, text: str) -> str:
-        """Handle autonomous learning commands."""
+    def _cmd_autonomous_start(self, text: str) -> str:
+        """Start autonomous learning engine."""
         if not self.autonomous_engine:
-            return "[Autonomous learning engine not initialized]"
+            return "[❌ Autonomous engine not available]"
         
-        action = text.lower().replace("autonomous-learn", "").strip()
+        result = self.autonomous_engine.start()
+        return "🚀 [AUTONOMOUS] Learning started ✅" if result else "ℹ️ [AUTONOMOUS] Already running"
+
+    def _cmd_autonomous_stop(self, text: str) -> str:
+        """Stop autonomous learning engine."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
         
-        if action in ("start", "on"):
-            result = self.autonomous_engine.start()
-            return "🚀 Autonomous learning started ✅" if result else "ℹ️ Already running"
+        result = self.autonomous_engine.stop()
+        return "⏹️ [AUTONOMOUS] Learning stopped ✅" if result else "ℹ️ [AUTONOMOUS] Not running"
+
+    def _cmd_autonomous_status(self, text: str) -> str:
+        """Show autonomous learning status."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
         
-        if action in ("stop", "off"):
-            result = self.autonomous_engine.stop()
-            return "⏹️ Autonomous learning stopped ✅"
-        
-        if action == "status":
-            stats = self.autonomous_engine.get_learning_stats()
-            return f"""
-[AUTONOMOUS LEARNING STATUS]
+        stats = self.autonomous_engine.get_learning_stats()
+        result = f"""
+🧠 **AUTONOMOUS LEARNING STATUS:**
+
 Running: {'✅' if stats['running'] else '❌'}
 System Idle: {'Yes' if stats['is_idle'] else 'No'}
-Research Cycles: {stats['stats']['research_completed']}
-Ideas Generated: {stats['stats']['ideas_generated']}
-Ideas Implemented: {stats['stats']['ideas_implemented']}
-Reflections: {stats['stats']['reflections_conducted']}
-SLSA Runs: {stats['stats']['slsa_runs']}
-Pending Ideas: {stats['pending_ideas']}
-Learning Rate: {stats['stats']['learning_rate']:.4f} actions/sec
-Research Topics: {stats['research_topics']}
-            """
+Uptime: {stats['uptime_seconds']}s
+
+📊 Statistics:
+  Research Cycles: {stats['stats']['research_completed']}
+  Ideas Generated: {stats['stats']['ideas_generated']}
+  Ideas Implemented: {stats['stats']['ideas_implemented']}
+  Reflections: {stats['stats']['reflections_conducted']}
+  Improvement Runs: {stats['stats']['slsa_runs']}
+  Learning Rate: {stats['stats']['learning_rate']:.4f} cycles/hour
+
+📚 Active Topics: {len(stats['research_topics'])}
+💡 Pending Ideas: {stats['pending_ideas']}
+"""
+        return result.strip()
+
+    def _cmd_autonomous_add_topic(self, text: str) -> str:
+        """Add research topic to autonomous engine."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
         
-        if action.startswith("add-topic "):
-            topic = action.replace("add-topic", "").strip()
-            if topic:
-                result = self.autonomous_engine.add_research_topic(topic)
-                return f"✅ Topic added: {topic}" if result else "ℹ️ Topic already exists"
+        topic = text[len("autonomous-learn add-topic"):].strip()
+        if not topic:
             return "Usage: autonomous-learn add-topic <topic>"
         
-        if action.startswith("add-topics "):
-            topics_str = action.replace("add-topics", "").strip()
-            if topics_str:
-                topics = [t.strip() for t in topics_str.split(",")]
-                added = self.autonomous_engine.add_research_topics(topics)
-                return f"✅ Added {len(added)} topics: {', '.join(added)}"
-            return "Usage: autonomous-learn add-topics <topic1,topic2,...>"
+        result = self.autonomous_engine.add_research_topic(topic)
+        return f"✅ Topic added: {topic}" if result else "ℹ️ Topic already exists"
+
+    # ============================
+    # SELF-IMPROVEMENT COMMANDS
+    # ============================
+
+    def _cmd_show_improvements(self, text: str) -> str:
+        """Show all 10 self-improvement modules."""
+        if not self.improvements:
+            return "[❌ Self-improvements not available]"
         
-        return """Usage:
-autonomous-learn start              — Start autonomous learning
-autonomous-learn stop               — Stop autonomous learning
-autonomous-learn status             — View learning statistics
-autonomous-learn add-topic <topic>  — Add research topic
-autonomous-learn add-topics <t1,t2> — Add multiple topics"""
+        status = self.improvements.get_improvement_status()
+        result = "🚀 **10 SELF-IMPROVEMENT MODULES:**\n\n"
+        
+        for i, (name, desc) in enumerate(status.items(), 1):
+            result += f"{i}. {desc}\n"
+        
+        return result
+
+    def _cmd_run_improvement_cycle(self, text: str) -> str:
+        """Run complete improvement cycle."""
+        if not self.improvements:
+            return "[❌ Self-improvements not available]"
+        
+        try:
+            log.info("🔄 [NIBLIT] Starting full improvement cycle...")
+            results = self.improvements.run_full_improvement_cycle()
+            
+            output = "🔄 **IMPROVEMENT CYCLE RESULTS:**\n\n"
+            for module, result in results.items():
+                if isinstance(result, dict):
+                    output += f"✅ {module.upper()}: {result}\n"
+                else:
+                    output += f"❌ {module.upper()}: {result}\n"
+            
+            return output
+        except Exception as e:
+            log.error(f"[IMPROVEMENTS] Improvement cycle failed: {e}", exc_info=True)
+            return f"[❌ Improvement cycle failed: {e}]"
+
+    def _cmd_improvement_status(self, text: str) -> str:
+        """Show improvement system status."""
+        if not self.improvements:
+            return "[❌ Self-improvements not available]"
+        
+        status = self.improvements.get_improvement_status()
+        result = "📊 **IMPROVEMENT SYSTEM STATUS:**\n\n"
+        
+        active = sum(1 for s in status.values() if "✅" in str(s))
+        total = len(status)
+        
+        result += f"Active Improvements: {active}/{total}\n\n"
+        result += "Details:\n"
+        for name, state in status.items():
+            result += f"  {state}\n"
+        
+        return result
 
     # ============================
     # COMMAND HANDLERS (NO LLM)
@@ -1086,8 +1176,9 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         """Status command."""
         try:
             mem_count = self._get_memory_count()
-            autonomous_status = "Running" if (self.autonomous_engine and self.autonomous_engine.running) else "Stopped"
-            return f"Status: OK | Memory: {mem_count} | Orchestrator: {'Available' if self.orchestrator_available else 'Unavailable'} | Autonomous: {autonomous_status}"
+            improvements = "✅ Active" if self.improvements else "❌ Inactive"
+            autonomous = "✅ Running" if (self.autonomous_engine and self.autonomous_engine.running) else "❌ Stopped"
+            return f"Status: OK | Memory: {mem_count} | Improvements: {improvements} | Autonomous: {autonomous}"
         except Exception as e:
             log.error(f"Status command failed: {e}")
             return f"Status: Error - {e}"
@@ -1238,7 +1329,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             
             self.memory = self.db
             self.startup_report.add("db", "ready")
-            log.info("Database initialized successfully")
+            log.info("✅ Database initialized successfully")
         except Exception as e:
             log.error(f"Database initialization failed: {e}")
             self.db = _FallbackDB()
@@ -1258,7 +1349,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             
             self.startup_report.add("identity", "ready")
             self.startup_report.add("guard", "ready")
-            log.info("Identity and security initialized")
+            log.info("✅ Identity and security initialized")
         except Exception as e:
             log.error(f"Identity/security init failed: {e}")
             self.startup_report.add("identity", "degraded", str(e))
@@ -1276,7 +1367,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                         return r.get("text", str(r)) if isinstance(r, dict) else str(r)
                     return "[No info found]"
                 self.internet.quick_summary = quick_summary
-                log.info("InternetManager loaded successfully")
+                log.info("✅ InternetManager loaded successfully")
             self.startup_report.add("internet", "ready")
         except Exception as e:
             log.debug(f"InternetManager failed: {e}")
@@ -1340,7 +1431,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 self.hf = None
             
             self.startup_report.add("ai_adapters", "ready")
-            log.info("AI adapters initialized")
+            log.info("✅ AI adapters initialized")
         except Exception as e:
             log.error(f"AI adapters init failed: {e}")
             self.startup_report.add("ai_adapters", "degraded", str(e))
@@ -1379,7 +1470,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 self.router = None
             
             self.startup_report.add("brain_router", "ready")
-            log.info("Brain and router initialized")
+            log.info("✅ Brain and router initialized")
         except Exception as e:
             log.error(f"Brain/router init failed: {e}")
             self.startup_report.add("brain_router", "degraded", str(e))
@@ -1410,7 +1501,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
             
             self.startup_report.add("learning", "ready")
-            log.info("Learning systems initialized")
+            log.info("✅ Learning systems initialized")
         except Exception as e:
             log.error(f"Learning systems init failed: {e}")
             self.startup_report.add("learning", "degraded", str(e))
@@ -1425,13 +1516,13 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             self.manager = safe_call(NiblitManager) if NiblitManager else None
             
             self.startup_report.add("system_services", "ready")
-            log.info("System services initialized")
+            log.info("✅ System services initialized")
         except Exception as e:
             log.error(f"System services init failed: {e}")
             self.startup_report.add("system_services", "degraded", str(e))
 
     def _init_optional_services(self):
-        """Initialize optional heavy modules."""
+        """Initialize optional heavy modules including all improvements."""
         try:
             self.membrane = safe_call(Membrane) if Membrane else None
             self.healer_obj = safe_call(Healer) if Healer else None
@@ -1453,11 +1544,110 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 except Exception as e:
                     log.debug(f"load_modules failed: {e}")
             
+            # ============================
+            # INITIALIZE 10 SELF-IMPROVEMENTS
+            # ============================
+            if self.config.enable_self_improvements:
+                self._init_self_improvements()
+            
+            # ============================
+            # INITIALIZE AUTONOMOUS LEARNING ENGINE
+            # ============================
+            if self.config.enable_autonomous_engine and AutonomousLearningEngine:
+                try:
+                    self.autonomous_engine = AutonomousLearningEngine(
+                        self,
+                        self.db,
+                        self.researcher,
+                        self.improvements
+                    )
+                    log.info("✅ AutonomousLearningEngine initialized")
+                    self.startup_report.add("autonomous_engine", "ready")
+                except Exception as e:
+                    log.warning(f"AutonomousLearningEngine init failed: {e}")
+                    self.startup_report.add("autonomous_engine", "degraded", str(e))
+            
             self.startup_report.add("optional_services", "ready")
-            log.info("Optional services initialized")
+            log.info("✅ Optional services initialized")
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))
+
+    def _init_self_improvements(self):
+        """Initialize 10 self-improvement modules."""
+        log.info("[SELF-IMPROVEMENTS] Initializing 10 modules...")
+        
+        try:
+            if ParallelLearner and self.researcher:
+                self.parallel_learner = ParallelLearner(self.researcher, max_workers=3)
+                log.info("[SELF-IMPROVEMENTS] ✅ ParallelLearner")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] ParallelLearner failed: {e}")
+        
+        try:
+            if ReasoningEngine and self.db:
+                self.reasoning_engine = ReasoningEngine(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ ReasoningEngine")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] ReasoningEngine failed: {e}")
+        
+        try:
+            if GapAnalyzer and self.db and self.researcher:
+                self.gap_analyzer = GapAnalyzer(self.db, self.researcher)
+                log.info("[SELF-IMPROVEMENTS] ✅ GapAnalyzer")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] GapAnalyzer failed: {e}")
+        
+        try:
+            if KnowledgeSynthesizer and self.db:
+                self.synthesizer = KnowledgeSynthesizer(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ KnowledgeSynthesizer")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] KnowledgeSynthesizer failed: {e}")
+        
+        try:
+            if PredictionEngine and self.db:
+                self.predictor = PredictionEngine(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ PredictionEngine")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] PredictionEngine failed: {e}")
+        
+        try:
+            if MemoryOptimizer and self.db:
+                self.memory_optimizer = MemoryOptimizer(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ MemoryOptimizer")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] MemoryOptimizer failed: {e}")
+        
+        try:
+            if AdaptiveLearning:
+                self.adaptive_learning = AdaptiveLearning()
+                log.info("[SELF-IMPROVEMENTS] ✅ AdaptiveLearning")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] AdaptiveLearning failed: {e}")
+        
+        try:
+            if Metacognition and self.db:
+                self.metacognition = Metacognition(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ Metacognition")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] Metacognition failed: {e}")
+        
+        try:
+            if CollaborativeLearner:
+                self.collaborative_learner = CollaborativeLearner()
+                log.info("[SELF-IMPROVEMENTS] ✅ CollaborativeLearner")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] CollaborativeLearner failed: {e}")
+        
+        try:
+            if ImprovementIntegrator:
+                self.improvements = ImprovementIntegrator(self, self.db, self.researcher)
+                log.info("[SELF-IMPROVEMENTS] ✅ ImprovementIntegrator")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] ImprovementIntegrator failed: {e}")
+        
+        log.info("[SELF-IMPROVEMENTS] ✅ All 10 modules initialized!")
 
     def _start_background_services(self):
         """Start background services and loops."""
@@ -1948,6 +2138,14 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
 
     def _trigger_learning(self, user_input: str, response: str):
         """Invoke NiblitLearning on each conversation turn, queue follow-up tasks."""
+        # Record user activity (not idle)
+        if self.autonomous_engine:
+            try:
+                if hasattr(self.autonomous_engine, "record_user_activity"):
+                    self.autonomous_engine.record_user_activity()
+            except Exception as e:
+                log.debug(f"Failed to record user activity: {e}")
+        
         if self.learning:
             try:
                 self.learning.process_interaction(user_input, response)
@@ -1959,13 +2157,6 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 self.tasks.add_task("remember", {"input": user_input, "response": response})
             except Exception as _e:
                 log.debug(f"NiblitTasks.add_task failed: {_e}")
-        
-        # NEW: Update autonomous engine's last interaction time
-        if self.autonomous_engine:
-            try:
-                self.autonomous_engine.update_last_interaction()
-            except Exception as _e:
-                log.debug(f"Autonomous engine update failed: {_e}")
 
     def health_check(self) -> HealthCheckResult:
         """Comprehensive system health check."""
@@ -1981,6 +2172,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             ("internet", self.internet),
             ("learning", self.learning),
             ("llm", self.llm),
+            ("improvements", self.improvements),
             ("autonomous_engine", self.autonomous_engine),
         ]
         
@@ -2037,13 +2229,14 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         1. CommandRegistry (commands only - zero LLM)
         2. Brain commands (self-research, self-idea, reflect - uses modules, NOT LLM)
         3. SLSA commands
-        4. Autonomous Learning commands (NEW)
-        5. Orchestrator commands
-        6. System commands (status, health, metrics)
-        7. Intent parsing (core commands)
-        8. Internet commands (search, summary - uses internet directly, NOT LLM)
-        9. Router fallback (complex routing)
-        10. Brain.think() (ONLY for general chat)
+        4. Orchestrator commands
+        5. System commands (status, health, metrics)
+        6. Autonomous Learning commands (NEW)
+        7. Self-Improvement commands (handled in _handle_impl BEFORE registry)
+        8. Intent parsing (core commands)
+        9. Internet commands (search, summary - uses internet directly, NOT LLM)
+        10. Router fallback (complex routing)
+        11. Brain.think() (ONLY for general chat)
         """
         ltext = text.lower().strip()
         
@@ -2060,7 +2253,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                     self._trigger_learning(text, result)
                     return result
             except Exception as e:
-                log.warning(f"[COMMAND_REGISTRY] Failed: {e}")
+                log.debug(f"[COMMAND_REGISTRY] Failed: {e}")
         
         # ============================
         # LAYER 2: BRAIN COMMANDS (uses modules, NOT LLM)
@@ -2105,14 +2298,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             return self._restart_slsa_engine(topics)
         
         # ============================
-        # LAYER 4: AUTONOMOUS LEARNING COMMANDS (NEW)
-        # ============================
-        if ltext.startswith("autonomous-learn"):
-            log.debug("[AUTONOMOUS-CMD] Intercepted")
-            return self._cmd_autonomous_learn(text)
-        
-        # ============================
-        # LAYER 5: ORCHESTRATOR COMMANDS
+        # LAYER 4: ORCHESTRATOR COMMANDS
         # ============================
         if ltext.startswith("orchestrate audit"):
             log.debug("[ORCH-CMD] Intercepted: audit")
@@ -2136,7 +2322,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             return self._hf_task(task_prompt)
         
         # ============================
-        # LAYER 6: SYSTEM STATUS COMMANDS
+        # LAYER 5: SYSTEM STATUS COMMANDS
         # ============================
         if ltext.startswith("health"):
             log.debug("[STATUS-CMD] Intercepted: health")
@@ -2151,7 +2337,35 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             return f"[DUMP] Loop cycles: {self._dump_loop_count}, Memory: {self._get_memory_count()}"
         
         # ============================
-        # LAYER 7: INTENT PARSING & CORE COMMANDS
+        # LAYER 6: AUTONOMOUS LEARNING COMMANDS
+        # ============================
+        if ltext.startswith("autonomous-learn"):
+            if "start" in ltext:
+                return self._cmd_autonomous_start(text)
+            elif "stop" in ltext:
+                return self._cmd_autonomous_stop(text)
+            elif "status" in ltext:
+                return self._cmd_autonomous_status(text)
+            elif "add-topic" in ltext:
+                return self._cmd_autonomous_add_topic(text)
+        
+        # ============================
+        # LAYER 7: SELF-IMPROVEMENT COMMANDS (BEFORE INTENT PARSING)
+        # ============================
+        if ltext == "show improvements":
+            log.debug("[IMPROVE-CMD] Intercepted: show improvements")
+            return self._cmd_show_improvements(text)
+        
+        if ltext == "run improvement-cycle":
+            log.debug("[IMPROVE-CMD] Intercepted: run improvement-cycle")
+            return self._cmd_run_improvement_cycle(text)
+        
+        if ltext == "improvement-status":
+            log.debug("[IMPROVE-CMD] Intercepted: improvement-status")
+            return self._cmd_improvement_status(text)
+        
+        # ============================
+        # LAYER 8: INTENT PARSING & CORE COMMANDS
         # ============================
         intent, meta = parse_intent(text)
         log.debug(f"[INTENT] Parsed: {intent}")
@@ -2185,7 +2399,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             return f"Ideas for {topic}: Prototype -> Test -> Evolve"
         
         # ============================
-        # LAYER 8: INTERNET COMMANDS (uses internet directly, NOT LLM)
+        # LAYER 9: INTERNET COMMANDS (uses internet directly, NOT LLM)
         # ============================
         if ltext.startswith("summary ") and self.internet:
             log.debug("[INTERNET-CMD] Intercepted: summary")
@@ -2196,7 +2410,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             return self._cmd_search(text)
         
         # ============================
-        # LAYER 9: SHUTDOWN
+        # LAYER 10: SHUTDOWN
         # ============================
         if intent == "shutdown":
             log.debug("[CORE-CMD] Intercepted: shutdown")
@@ -2204,7 +2418,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             return "Shutdown scheduled."
         
         # ============================
-        # LAYER 10: ROUTER FALLBACK
+        # LAYER 11: ROUTER FALLBACK
         # ============================
         log.debug("[ROUTER] Fallback routing (no direct match)")
         if self.router and not self._routing:
@@ -2220,7 +2434,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 self._routing = False
         
         # ============================
-        # LAYER 11: GENERAL CONVERSATION (brain.think ONLY)
+        # LAYER 12: GENERAL CONVERSATION (brain.think ONLY)
         # ============================
         log.debug("[BRAIN] General chat fallback - brain.think() only")
         response = None
@@ -2238,52 +2452,58 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         return response
 
     def help_text(self) -> str:
-        """Return help text including all available commands."""
+        """Return help text including all features."""
         base_help = (
-            "[NIBLIT HELP]\n\n"
-            "=== CORE COMMANDS ===\n"
-            "help                              — Show this help\n"
-            "time                              — Show current time\n"
-            "status                            — Show system status\n"
-            "health                            — Comprehensive health check\n"
-            "metrics                           — Performance metrics\n"
-            "dump                              — Show dump loop stats\n"
-            "remember key:value                — Store a fact\n"
-            "learn about <topic>               — Queue for research\n"
-            "ideas about <topic>               — Get creative ideas\n"
-            "\n=== INTERNET COMMANDS ===\n"
-            "search <query>                    — Search the internet\n"
-            "summary <query>                   — Get quick summary\n"
-            "\n=== BRAIN COMMANDS (No LLM) ===\n"
-            "self-research <topic>             — Research autonomously (uses internet, NOT LLM)\n"
-            "reflect <topic>                   — Reflect on topic (uses modules, NOT LLM)\n"
-            "self-idea <topic>                 — Generate ideas (uses modules, NOT LLM)\n"
-            "self-implement <topic>            — Implement concept (uses modules, NOT LLM)\n"
-            "\n=== SLSA COMMANDS ===\n"
-            "slsa-status                       — SLSA status\n"
-            "start_slsa [topic1 topic2 ...]   — Start SLSA\n"
-            "stop_slsa                         — Stop SLSA\n"
-            "restart_slsa [topic1 topic2 ...]  — Restart SLSA\n"
-            "\n=== AUTONOMOUS LEARNING COMMANDS (NEW) ===\n"
-            "autonomous-learn start            — Start autonomous learning\n"
-            "autonomous-learn stop             — Stop autonomous learning\n"
-            "autonomous-learn status           — View learning statistics\n"
-            "autonomous-learn add-topic <t>    — Add research topic\n"
-            "autonomous-learn add-topics <t,t> — Add multiple topics\n"
-            "\n=== SETTINGS ===\n"
-            "toggle-llm on/off                 — Enable/disable LLM (general chat only)\n"
-            "shutdown                          — Graceful shutdown"
+            "=== NIBLIT HELP ===\n\n"
+            "--- CORE ---\n"
+            "help                     — Show this help\n"
+            "time                     — Show current time\n"
+            "status                   — Show system status\n"
+            "health                   — Comprehensive health check\n"
+            "metrics                  — Performance metrics\n"
+            "dump                     — Show dump loop stats\n"
+            "\n--- MEMORY & LEARNING ---\n"
+            "remember key:value       — Store a fact\n"
+            "learn about <topic>      — Queue for research\n"
+            "ideas about <topic>      — Get creative ideas\n"
+            "\n--- AUTONOMOUS LEARNING ---\n"
+            "autonomous-learn start              — Start background learning\n"
+            "autonomous-learn stop               — Stop background learning\n"
+            "autonomous-learn status             — View learning statistics\n"
+            "autonomous-learn add-topic <topic>  — Add research topic\n"
+            "\n--- 10 SELF-IMPROVEMENTS ---\n"
+            "show improvements        — View all 10 improvements\n"
+            "run improvement-cycle    — Execute improvement cycle\n"
+            "improvement-status       — View improvement status\n"
+            "\n--- INTERNET & RESEARCH ---\n"
+            "search <query>           — Search the internet\n"
+            "summary <query>          — Get quick summary\n"
+            "self-research <topic>    — Research autonomously\n"
+            "\n--- BRAIN COMMANDS ---\n"
+            "self-idea <prompt>       — Generate ideas\n"
+            "self-implement           — Implement concept\n"
+            "reflect <text>           — Reflect on topic\n"
+            "auto-reflect             — Auto reflection\n"
+            "self-heal                — Self-healing\n"
+            "\n--- SLSA ENGINE ---\n"
+            "slsa-status              — SLSA status\n"
+            "start_slsa [topics]      — Start SLSA\n"
+            "stop_slsa                — Stop SLSA\n"
+            "restart_slsa [topics]    — Restart SLSA\n"
+            "\n--- SETTINGS ---\n"
+            "toggle-llm on/off        — Enable/disable LLM\n"
+            "shutdown                 — Graceful shutdown"
         )
 
         if self.orchestrator_available:
             orchestrator_help = (
-                "\n\n=== ORCHESTRATOR COMMANDS ===\n"
-                "orchestrate audit                — Run repository audit\n"
-                "orchestrate self-heal            — Run self-healing\n"
-                "orchestrate fix-guide            — Generate fix guide\n"
-                "orchestrate verify               — Verify imports\n"
-                "orchestrate pipeline             — Run full pipeline\n"
-                "hf-task <prompt>                 — Execute HF task"
+                "\n\n--- ORCHESTRATOR ---\n"
+                "orchestrate audit       — Run repository audit\n"
+                "orchestrate self-heal   — Run self-healing\n"
+                "orchestrate fix-guide   — Generate fix guide\n"
+                "orchestrate verify      — Verify imports\n"
+                "orchestrate pipeline    — Run full pipeline\n"
+                "hf-task <prompt>        — Execute HF task"
             )
             return base_help + orchestrator_help
 
@@ -2292,15 +2512,14 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
     def shutdown(self, timeout_seconds: Optional[float] = None):
         """Gracefully shutdown NiblitCore and all services."""
         timeout = timeout_seconds or self.config.shutdown_timeout_seconds
-        log.info("Shutdown initiated")
+        log.info("✅ Shutdown initiated")
         self.running = False
         self._shutdown_event.set()
         
         # Stop autonomous engine first
-        if self.autonomous_engine:
+        if self.autonomous_engine and self.autonomous_engine.running:
             try:
                 self.autonomous_engine.stop()
-                log.info("[SHUTDOWN] Autonomous engine stopped")
             except Exception as e:
                 log.error(f"Autonomous engine shutdown failed: {e}")
         
@@ -2347,7 +2566,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                     log.error(f"[SHUTDOWN] {name} failed: {e}")
         
         time.sleep(0.5)
-        log.info("Shutdown complete")
+        log.info("✅ Shutdown complete")
 
 
 # ============================================================
@@ -2356,7 +2575,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
 
 if __name__ == "__main__":
     core = NiblitCore()
-    print("TRUE Autonomous Niblit (Production Enhanced with AutonomousLearning) running.")
+    print("✨ Niblit Ready (All Systems: Production + Self-Improvement + Autonomous Learning)")
     print("Type 'help' for available commands or 'shutdown' to exit.\n")
     try:
         while core.running:

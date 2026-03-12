@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 NIBLIT ROUTER MODULE — FULLY ENHANCED WITH SELF-AWARENESS
+
 Enhanced version with self-aware responses about improvements and introspection.
 Retains all original command handling and logic 100%.
 """
@@ -18,7 +19,7 @@ logging.basicConfig(
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
 
-# ─────────────────────────────────────
+# ─────────────────────────────────
 def timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -30,10 +31,10 @@ def safe_call(fn, *a, **kw):
         name = getattr(fn, "__name__", "unknown")
         return f"[ERROR::{name}]"
 
-# ─────────────────────────────────────
+# ─────────────────────────────────
 class ChatDetector:
     """Detects message type: self-referential, self-introspection, info query, chat, or system"""
-    
+
     # Self-improvement/introspection patterns - asking about Niblit's potential improvements
     SELF_INTROSPECTION_PATTERNS = [
         r'what\s+would\s+you\s+improve',
@@ -52,7 +53,7 @@ class ChatDetector:
         r'what\s+are\s+you\s+proud\s+of',
         r'what\s+do\s+you\s+need\s+to\s+improve',
     ]
-    
+
     # Self-referential patterns - asking about Niblit itself
     SELF_REFERENTIAL_PATTERNS = [
         r'^what\s+are\s+you\s*\??$',
@@ -70,7 +71,7 @@ class ChatDetector:
         r'^what\s+are\s+your\s+(capabilities|features)\s*\??$',
         r'^how\s+many\s+(memories|facts|things)\s+do\s+you\s+have\s*\??$',
     ]
-    
+
     # Information query patterns
     INFO_QUERY_PATTERNS = [
         r'^what\s+is\s+',
@@ -87,7 +88,7 @@ class ChatDetector:
         r'^facts\s+about\s+',
         r'^teach\s+me\s+',
     ]
-    
+
     # Chat/casual patterns
     CHAT_PATTERNS = [
         r'^(hi|hello|hey|howdy|greetings)\s*$',
@@ -104,7 +105,7 @@ class ChatDetector:
         r'^lol\s*$|^haha\s*$',
         r'^(yes|no)\s*$',
     ]
-    
+
     # System query patterns
     SYSTEM_QUERY_PATTERNS = [
         r'^what\s+is\s+the\s+time\s*\??$',
@@ -115,7 +116,7 @@ class ChatDetector:
         r'^memory\s*$',
         r'^uptime\s*\??$',
     ]
-    
+
     @staticmethod
     def classify(text):
         """
@@ -128,38 +129,39 @@ class ChatDetector:
         6. General (default)
         """
         lower = text.lower().strip()
-        
+
         # Check self-introspection patterns FIRST (highest priority for reflection)
         for pattern in ChatDetector.SELF_INTROSPECTION_PATTERNS:
             if re.search(pattern, lower):
                 return 'self_introspection', None
-        
+
         # Check self-referential patterns
         for pattern in ChatDetector.SELF_REFERENTIAL_PATTERNS:
             if re.search(pattern, lower):
                 return 'self_referential', None
-        
+
         # Check system queries
         for pattern in ChatDetector.SYSTEM_QUERY_PATTERNS:
             if re.search(pattern, lower):
                 return 'system', None
-        
+
         # Check chat patterns
         for pattern in ChatDetector.CHAT_PATTERNS:
             if re.search(pattern, lower):
                 return 'chat', None
-        
+
         # Check info query patterns
         for pattern in ChatDetector.INFO_QUERY_PATTERNS:
             match = re.search(pattern, lower)
             if match:
                 subject = lower[match.end():].strip().rstrip('?').strip()
                 return 'info_query', subject
-        
+
         # Default to general conversation
         return 'general', None
 
 
+# ─────────────────────────────────
 class NiblitRouter:
 
     COMMAND_PREFIXES = (
@@ -168,7 +170,7 @@ class NiblitRouter:
         "self-heal", "status", "health", "time", "help", "commands",
         "evolve", "exit", "quit", "shutdown",
         "start_slsa", "stop_slsa", "restart_slsa", "slsa-status", "status_slsa",
-        "autonomous-learn"
+        "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status"
     )
 
     CHAT_RESPONSES = {
@@ -242,7 +244,7 @@ class NiblitRouter:
         """Order-preserving deduplication for mixed str/dict results."""
         seen = set()
         result = []
-        
+
         for item in items:
             if isinstance(item, str):
                 key = item
@@ -257,11 +259,11 @@ class NiblitRouter:
             else:
                 key = str(item)
                 text = str(item)
-            
+
             if key not in seen:
                 seen.add(key)
                 result.append(text)
-        
+
         return result
 
     # ─────────────────────────────────
@@ -270,16 +272,17 @@ class NiblitRouter:
     def _get_self_introspection_response(self, query):
         """
         Generate reflective response about Niblit's potential improvements and limitations.
+
         Shows self-awareness and understanding of what could be better.
         """
         if not self.core:
             return None
-        
+
         try:
             log.info(f"[INTROSPECTION] Processing self-introspection query: {query}")
-            
+
             query_lower = query.lower()
-            
+
             # What would you improve / How could you improve
             if 'improve' in query_lower:
                 response = """🔄 **Areas I Could Improve:**
@@ -306,7 +309,7 @@ class NiblitRouter:
 
 What aspect interests you most?"""
                 return response
-            
+
             # What are your limitations / weaknesses
             if 'limitation' in query_lower or 'weakness' in query_lower or 'struggle' in query_lower or 'hard' in query_lower:
                 response = """⚠️ **My Current Limitations:**
@@ -333,7 +336,7 @@ What aspect interests you most?"""
 
 **But I'm aware of these limitations and working to overcome them!**"""
                 return response
-            
+
             # What can you not do / What would make you better
             if 'cannot' in query_lower or 'can\'t' in query_lower or 'would make' in query_lower or 'be better' in query_lower or 'be able to' in query_lower:
                 response = """🎯 **What I Can't Do (Yet):**
@@ -369,7 +372,7 @@ What aspect interests you most?"""
 
 Your feedback helps me identify what to improve!"""
                 return response
-            
+
             # How do you feel / proud of / opinion
             if 'feel' in query_lower or 'proud' in query_lower or 'opinion' in query_lower:
                 response = """💭 **My Self-Reflection:**
@@ -400,7 +403,7 @@ I'm still early in my journey. There's so much I could be better at. But every c
 
 What do you think I should focus on improving?"""
                 return response
-            
+
             # Default introspection response
             response = """💭 **Self-Reflection:**
 
@@ -416,7 +419,7 @@ My goal isn't to be perfect - it's to be continuously improving. Each day I'm le
 
 What aspect of my improvement interests you?"""
             return response
-            
+
         except Exception as e:
             log.error(f"Self-introspection response failed: {e}")
             return None
@@ -428,15 +431,15 @@ What aspect of my improvement interests you?"""
         """Generate response about Niblit itself based on its learning history."""
         if not self.core:
             return None
-        
+
         try:
             log.info(f"[SELF-REF] Processing self-referential query: {query}")
-            
+
             db = getattr(self.core, "db", None)
             autonomous_engine = getattr(self.core, "autonomous_engine", None)
-            
+
             query_lower = query.lower()
-            
+
             # What are you / Who are you
             if 'what are you' in query_lower or 'who are you' in query_lower:
                 response = """I am Niblit, an autonomous AI system designed to:
@@ -448,7 +451,7 @@ What aspect of my improvement interests you?"""
 
 I'm constantly improving myself through autonomous learning cycles!"""
                 return response
-            
+
             # What have you learned / What do you know
             if 'learned' in query_lower or 'what do you know' in query_lower or 'discovered' in query_lower:
                 stats = None
@@ -457,7 +460,7 @@ I'm constantly improving myself through autonomous learning cycles!"""
                         stats = autonomous_engine.get_learning_stats()
                     except Exception:
                         pass
-                
+
                 if stats:
                     response = f"""🎓 **My Learning Progress:**
 
@@ -473,7 +476,7 @@ System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}""
                     return response
                 else:
                     return "I'm learning continuously! Use 'autonomous-learn status' to see my progress."
-            
+
             # Memory/capabilities
             if 'memory' in query_lower or 'capabilit' in query_lower or 'can you do' in query_lower:
                 mem_count = 0
@@ -484,7 +487,7 @@ System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}""
                         mem_count = len(safe_call(db.get_learning_log) or [])
                 except Exception:
                     pass
-                
+
                 response = f"""📚 **My Capabilities:**
 
 ✅ Store & Recall: {mem_count} memory entries
@@ -499,14 +502,14 @@ I can work in two modes:
 - 🤖 With LLM: AI-powered conversations
 - 🔍 Without LLM: Knowledge + internet-based responses"""
                 return response
-            
+
             # How do you work
             if 'how do you work' in query_lower or 'your purpose' in query_lower or 'your role' in query_lower or 'your function' in query_lower:
                 response = """⚙️ **How I Work:**
 
 1. **User Interaction**: I receive and process your messages
 2. **Intent Detection**: I determine if you want chat, information, or asking about me
-3. **Response Generation**: 
+3. **Response Generation**:
    - Chat: Conversational responses
    - Information: Research via internet + knowledge base
    - About Me: Information from my learning history
@@ -522,7 +525,7 @@ You can control me with commands like:
 - 'toggle-llm off' - Use me without AI (research-based)
 - 'self-research <topic>' - Make me research something"""
                 return response
-            
+
             # Default self-referential response
             response = """I'm Niblit, an autonomous AI system. I learn continuously, reason without LLM when needed, and improve myself over time.
 
@@ -533,7 +536,7 @@ Ask me about:
 - 'how do you work' - How I operate
 - 'what would you improve' - My growth plans"""
             return response
-            
+
         except Exception as e:
             log.error(f"Self-referential response failed: {e}")
             return None
@@ -620,21 +623,21 @@ Ask me about:
         """Handle autonomous learning commands."""
         if not self.core:
             return "[Core not available]"
-        
+
         engine = getattr(self.core, "autonomous_engine", None)
         if not engine:
             return "[Autonomous learning engine not initialized]"
-        
+
         action = cmd.lower().replace("autonomous-learn", "").strip()
-        
+
         if action in ("start", "on"):
             result = engine.start()
             return "🚀 Autonomous learning started ✅" if result else "ℹ️ Already running"
-        
+
         if action in ("stop", "off"):
             result = engine.stop()
             return "⏹️ Autonomous learning stopped ✅"
-        
+
         if action == "status":
             stats = engine.get_learning_stats()
             return f"""
@@ -649,15 +652,15 @@ SLSA Runs: {stats['stats']['slsa_runs']}
 Pending Ideas: {stats['pending_ideas']}
 Learning Rate: {stats['stats']['learning_rate']:.4f} actions/sec
 Research Topics: {stats['research_topics']}
-            """
-        
+           """
+
         if action.startswith("add-topic "):
             topic = action.replace("add-topic", "").strip()
             if topic:
                 result = engine.add_research_topic(topic)
                 return f"✅ Topic added: {topic}" if result else "ℹ️ Topic already exists"
             return "Usage: autonomous-learn add-topic <topic>"
-        
+
         if action.startswith("add-topics "):
             topics_str = action.replace("add-topics", "").strip()
             if topics_str:
@@ -665,7 +668,7 @@ Research Topics: {stats['research_topics']}
                 added = engine.add_research_topics(topics)
                 return f"✅ Added {len(added)} topics: {', '.join(added)}"
             return "Usage: autonomous-learn add-topics <topic1,topic2,...>"
-        
+
         return """Usage:
 autonomous-learn start              — Start autonomous learning
 autonomous-learn stop               — Stop autonomous learning
@@ -679,7 +682,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
     def _get_chat_response(self, query_type):
         """Generate contextual chat response"""
         import random
-        
+
         responses = {
             'greeting': self.CHAT_RESPONSES.get('greeting', ["Hi there!"]),
             'how_are_you': self.CHAT_RESPONSES.get('how_are_you', ["I'm doing well!"]),
@@ -687,7 +690,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             'okay': self.CHAT_RESPONSES.get('okay', ["Got it!"]),
             'goodbye': self.CHAT_RESPONSES.get('goodbye', ["Goodbye!"]),
         }
-        
+
         response_list = responses.get(query_type, ["How can I help?"])
         return random.choice(response_list)
 
@@ -698,18 +701,18 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         """Generate intelligent response using internet + self-research"""
         if not self.core:
             return None
-        
+
         researcher = getattr(self.core, "researcher", None)
         internet = getattr(self.core, "internet", None)
-        
+
         if not researcher and not internet:
             return None
-        
+
         try:
             log.info(f"🔍 [LLM-FREE] Researching query: {query}")
-            
+
             research_results = []
-            
+
             if researcher and hasattr(researcher, "search"):
                 research_results = safe_call(
                     researcher.search,
@@ -721,14 +724,14 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 ) or []
             elif internet:
                 research_results = safe_call(internet.search, query, max_results=5) or []
-            
+
             if not research_results:
                 return None
-            
+
             response = self._format_research_response(query, research_results)
             log.info(f"✅ [LLM-FREE] Generated researched response")
             return response
-            
+
         except Exception as e:
             log.error(f"❌ LLM-free response generation failed: {e}")
             return None
@@ -738,30 +741,28 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         """Format research results into readable response"""
         if not results:
             return f"[No information found for '{query}']"
-        
+
         formatted = []
         seen = set()
-        
+
         for result in results:
             if isinstance(result, dict):
                 text = result.get("text", result.get("summary", str(result)))
             else:
                 text = str(result)
-            
+
             if text not in seen and len(text) > 10:
                 seen.add(text)
                 formatted.append(text[:300])
-        
+
         if not formatted:
             return f"[No relevant information found for '{query}']"
-        
+
         response = f"📚 **Research Results for: {query}**\n\n"
-        
         for i, result in enumerate(formatted[:3], 1):
             response += f"{i}. {result}...\n\n"
-        
+
         response += f"\n[Use 'self-research {query}' for more detailed information]"
-        
         return response
 
     # ─────────────────────────────────
@@ -775,7 +776,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
 
         cmd_word = lower.split(" ", 1)[0]
 
-        if cmd_word in self.COMMAND_PREFIXES:
+        if cmd_word in self.COMMAND_PREFIXES or any(lower.startswith(prefix) for prefix in ["show improvements", "run improvement", "improvement-status"]):
             resp = self.handle_command(cleaned)
             self._collect(cleaned, resp, "command")
             return resp
@@ -787,35 +788,35 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
 
         llm_enabled = getattr(self.core, "llm_enabled", True) if self.core else True
 
-        # ═══════════════════════════════════════════════════════════
+        # ══��════════════════════════════════════════════════════════
         # LLM-FREE MODE: Smart routing based on intent
         # ═══════════════════════════════════════════════════════════
         if self.core and not llm_enabled:
             msg_type, subject = self.chat_detector.classify(cleaned)
             log.info(f"[MESSAGE TYPE] {msg_type} | Subject: {subject}")
-            
+
             # ─────── SELF-INTROSPECTION (NEW - HIGHEST PRIORITY) ───────
             if msg_type == 'self_introspection':
                 log.info("[INTROSPECTION] Processing self-awareness question")
                 response = self._get_self_introspection_response(cleaned)
-                
+
                 if response:
                     self._collect(cleaned, response, "self_introspection")
                     return response
-            
+
             # ─────── SELF-REFERENTIAL QUERY ───────
             if msg_type == 'self_referential':
                 log.info("[SELF-REF] Answering question about Niblit")
                 response = self._get_self_referential_response(cleaned)
-                
+
                 if response:
                     self._collect(cleaned, response, "self_reference")
                     return response
-            
+
             # ─────── CHAT MESSAGE ───────
             if msg_type == 'chat':
                 lower_text = cleaned.lower().strip()
-                
+
                 if any(p in lower_text for p in ['hi', 'hello', 'hey', 'howdy', 'greetings']):
                     response = self._get_chat_response('greeting')
                 elif 'how are you' in lower_text or "how's it" in lower_text or "what's up" in lower_text:
@@ -828,10 +829,10 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                     response = self._get_chat_response('okay')
                 else:
                     response = self._get_chat_response('greeting')
-                
+
                 self._collect(cleaned, response, "chat")
                 return response
-            
+
             # ─────── SYSTEM QUERY ───────
             if msg_type == 'system':
                 lower_text = cleaned.lower().strip()
@@ -843,48 +844,67 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                     response = "Using local memory database with autonomous learning"
                 else:
                     response = self.handle_command(cleaned)
-                
+
                 self._collect(cleaned, response, "system")
                 return response
-            
-            # ─────��─ INFORMATION QUERY ───────
+
+            # ─────── INFORMATION QUERY ───────
             if msg_type == 'info_query':
                 log.info(f"[QUERY] Information query detected: {subject}")
                 response = self._get_llm_free_response(cleaned)
-                
                 if response and response.strip():
                     self._collect(cleaned, response, "research_based")
                     return response
-            
+
             # ─────── GENERAL FALLBACK ───────
             response = self._get_llm_free_response(cleaned)
-            
             if response and response.strip():
                 self._collect(cleaned, response, "research_based")
                 return response
-            
+
             resp = "[I don't have specific information. Try: 'self-research <topic>' to learn more, or 'toggle-llm on' to use AI responses]"
             self._collect(cleaned, resp, "blocked")
             return resp
 
         # ═══════════════════════════════════════════════════════════
-        # NORMAL MODE: Use brain with LLM
+        # NORMAL MODE: Use brain with LLM or fallback to core
         # ═══════════════════════════════════════════════════════════
         if hasattr(self.brain, "think"):
             response = safe_call(self.brain.think, cleaned)
         else:
             response = safe_call(self.brain.handle, cleaned)
 
+        # Try core.handle as fallback
+        if not response or response == cleaned:
+            if self.core and hasattr(self.core, "handle"):
+                response = safe_call(self.core.handle, cleaned)
+
         log.info(f"[ROUTER RESPONSE] {response}")
         self._collect(cleaned, response, "brain")
         return response
 
-    # ──────────────────────────────��──
+    # ──────────────────────────────────
     # COMMAND HANDLER
-    # ─────────────────────────────────
+    # ──────────────────────────────────
     def handle_command(self, cmd):
         ts = timestamp()
         lower = cmd.lower().strip()
+
+        # ===== IMPROVEMENTS COMMANDS (NEW) =====
+        if lower == "show improvements":
+            if self.core and hasattr(self.core, "_cmd_show_improvements"):
+                return safe_call(self.core._cmd_show_improvements, cmd)
+            return "[Improvements command handler not available]"
+
+        if lower == "run improvement-cycle":
+            if self.core and hasattr(self.core, "_cmd_run_improvement_cycle"):
+                return safe_call(self.core._cmd_run_improvement_cycle, cmd)
+            return "[Improvements command handler not available]"
+
+        if lower == "improvement-status":
+            if self.core and hasattr(self.core, "_cmd_improvement_status"):
+                return safe_call(self.core._cmd_improvement_status, cmd)
+            return "[Improvements command handler not available]"
 
         # AUTONOMOUS LEARNING COMMANDS
         if lower.startswith("autonomous-learn"):
@@ -917,7 +937,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                     mem = len(self.core.db.recent_interactions(500))
             except:
                 mem = 0
-            
+
             autonomous_status = ""
             if self.core and hasattr(self.core, "autonomous_engine"):
                 engine = self.core.autonomous_engine
@@ -925,12 +945,12 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                     autonomous_status = " | Autonomous: Running"
                 elif engine:
                     autonomous_status = " | Autonomous: Stopped"
-            
+
             llm_status = ""
             if self.core:
                 llm_enabled = getattr(self.core, "llm_enabled", True)
                 llm_status = f" | LLM: {'Enabled' if llm_enabled else 'Disabled (research mode)'}"
-            
+
             return f"{ts} 🧠 Niblit operational. Memory entries: {mem}{autonomous_status}{llm_status}"
 
         # SHUTDOWN
@@ -1052,6 +1072,11 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "autonomous-learn start       — Start learning",
             "autonomous-learn status      — View progress",
             "autonomous-learn add-topic <t> — Add topic",
+            "",
+            "=== SELF-IMPROVEMENTS ===",
+            "show improvements            — View 10 improvement modules",
+            "run improvement-cycle        — Execute improvement cycle",
+            "improvement-status           — View improvement status",
             "",
             "=== SETTINGS ===",
             "toggle-llm off               — Disable LLM (use research mode)",

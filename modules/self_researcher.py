@@ -21,7 +21,7 @@ logging.basicConfig(
 
 class IntentAnalyzer:
     """Analyzes user queries to understand intent without LLM"""
-    
+
     INTENT_PATTERNS = {
         "question": [r"^what\s+", r"^how\s+", r"^why\s+", r"^when\s+", r"^where\s+", r"^who\s+", r"\?$"],
         "request": [r"^(give|show|tell|explain|describe|list)\s+", r"^can\s+you\s+", r"^please\s+"],
@@ -33,7 +33,7 @@ class IntentAnalyzer:
         "opinion": [r"^(do\s+you\s+think|what\s+do\s+you\s+think|opinion\s+on)", r"^your\s+view"],
         "learning": [r"^(teach|learn|understand)\s+", r"^explain\s+(how|why|what)"],
     }
-    
+
     @staticmethod
     def extract_intent(query: str) -> Tuple[str, Dict[str, Any]]:
         """
@@ -42,14 +42,14 @@ class IntentAnalyzer:
         """
         query_lower = query.lower().strip()
         keywords = re.findall(r'\b\w{3,}\b', query_lower)
-        
+
         # Detect intent type
         intent_type = "general_question"
         for itype, patterns in IntentAnalyzer.INTENT_PATTERNS.items():
             if any(re.search(p, query_lower) for p in patterns):
                 intent_type = itype
                 break
-        
+
         # Extract subject/topic
         subject = None
         if "what is" in query_lower:
@@ -60,7 +60,7 @@ class IntentAnalyzer:
             # Extract noun phrase after question word
             match = re.search(r'^(?:what|how|why|when|where|who)\s+(?:is|are|do|does|can|should|would|could)?\s+(.+?)\??$', query_lower)
             subject = match.group(1) if match else None
-        
+
         return intent_type, {
             "subject": subject,
             "keywords": keywords[:5],
@@ -73,11 +73,11 @@ class IntentAnalyzer:
 
 class KnowledgeBasedResponder:
     """Generates responses using stored knowledge + internet without LLM"""
-    
+
     def __init__(self, db, internet=None):
         self.db = db
         self.internet = internet
-    
+
     def _search_knowledge_base(self, query: str, max_results: int = 5) -> List[str]:
         """Search internal knowledge base for relevant facts"""
         results = []
@@ -97,9 +97,9 @@ class KnowledgeBasedResponder:
                             break
         except Exception as e:
             log.debug(f"Knowledge base search failed: {e}")
-        
+
         return results[:max_results]
-    
+
     def _search_learning_log(self, query: str, max_results: int = 3) -> List[str]:
         """Search learning history for relevant information"""
         results = []
@@ -107,7 +107,7 @@ class KnowledgeBasedResponder:
             if hasattr(self.db, "get_learning_log"):
                 log_entries = self.db.get_learning_log() or []
                 query_words = set(re.findall(r'\b\w{3,}\b', query.lower()))
-                
+
                 for entry in log_entries:
                     entry_text = str(entry.get("input", "") + " " + entry.get("response", "")).lower()
                     if any(word in entry_text for word in query_words):
@@ -116,9 +116,9 @@ class KnowledgeBasedResponder:
                             break
         except Exception as e:
             log.debug(f"Learning log search failed: {e}")
-        
+
         return results[:max_results]
-    
+
     def generate_response(self, query: str, intent_meta: Dict) -> Optional[str]:
         """
         Generate response using:
@@ -129,10 +129,10 @@ class KnowledgeBasedResponder:
         """
         # Step 1: Search knowledge base
         kb_results = self._search_knowledge_base(query, max_results=3)
-        
+
         # Step 2: Search learning log
         learning_results = self._search_learning_log(query, max_results=2)
-        
+
         # Step 3: Search internet if needed
         internet_results = []
         if self.internet and not kb_results:
@@ -140,20 +140,20 @@ class KnowledgeBasedResponder:
                 internet_results = self.internet.search(query, max_results=3) or []
             except Exception as e:
                 log.debug(f"Internet search failed: {e}")
-        
+
         # Step 4: Combine all sources
         all_results = kb_results + learning_results + internet_results
         if not all_results:
             return None
-        
+
         # Step 5: Build response based on intent
         return self._synthesize_response(query, intent_meta, all_results)
-    
+
     def _synthesize_response(self, query: str, intent_meta: Dict, sources: List[Any]) -> str:
         """Synthesize final response from multiple sources"""
         subject = intent_meta.get("subject", "topic")
         intent_type = intent_meta.get("intent_type", "question")
-        
+
         # Convert all sources to strings
         source_texts = []
         for src in sources:
@@ -162,7 +162,7 @@ class KnowledgeBasedResponder:
             else:
                 src_text = str(src)
             source_texts.append(src_text[:200])  # Limit each source to 200 chars
-        
+
         # Build response based on intent
         if intent_type == "definition":
             response = f"Based on stored knowledge and research:\n\n{source_texts[0]}"
@@ -174,11 +174,11 @@ class KnowledgeBasedResponder:
             response = "Technical information:\n\n" + "\n".join(source_texts[:2])
         else:
             response = "From my knowledge base:\n\n" + source_texts[0]
-        
+
         # Add confidence note
         if not sources:
             response += "\n\n[No relevant information found]"
-        
+
         return response
 
 
@@ -187,44 +187,44 @@ class SelfResearcher:
                  max_history=100, relevance_threshold=0.7):
         self.db = db
         self.registry = modules_registry or {}
-        
+
         # Internal Internet holder (dynamic wiring support)
         self._internet = None
         if "internet" in self.registry:
             self._internet = self.registry["internet"]
         elif hasattr(db, "internet"):
             self._internet = db.internet
-        
+
         # Optional modules
         self.engine = research_engine
         self.llm = llm_adapter
         self.reflect = self.registry.get("reflect")
         self.self_teacher = self.registry.get("self_teacher")
         self.knowledge_db = db
-        
+
         # Memory / history
         self.history = []
         self.responses = []
         self.max_history = max_history
         self.relevance_threshold = relevance_threshold
-        
+
         # Autonomous learning tracking
         self.learning_patterns = {}
         self.query_feedback = {}
-        
+
         # Knowledge-based responder
         self.knowledge_responder = KnowledgeBasedResponder(db, self._internet)
-        
+
         # Intent analyzer
         self.intent_analyzer = IntentAnalyzer()
-        
+
         log.info("✅ SelfResearcher initialized with knowledge-based responses + autonomous learning")
 
-    # ─────────────────────────────────────────────
+    # ────────────��────────────────────────────────
     @property
     def internet(self):
         return self._internet
-    
+
     @internet.setter
     def internet(self, value):
         self._internet = value
@@ -246,7 +246,7 @@ class SelfResearcher:
         """Order-preserving deduplication for mixed str/dict items"""
         seen = set()
         result = []
-        
+
         for item in items:
             if isinstance(item, str):
                 key = item
@@ -257,25 +257,25 @@ class SelfResearcher:
                     key = str(item)
             else:
                 key = str(item)
-            
+
             if key not in seen:
                 seen.add(key)
                 result.append(item)
-        
+
         return result
 
     # ─────────────────────────────────────────────
     def _update_history(self, query, results):
         timestamp = datetime.utcnow().isoformat()
-        embedding = self.llm.embed(query) if self.llm else None
-        
+        embedding = self.llm.embed(query) if self.llm and hasattr(self.llm, "embed") else None
+
         entry = {
             "query": query,
             "results": results,
             "timestamp": timestamp,
             "embedding": embedding
         }
-        
+
         self.history.append(entry)
         self.responses.append({
             "query": query,
@@ -296,10 +296,10 @@ class SelfResearcher:
         """Track learning patterns for autonomous improvement"""
         if not results:
             return
-        
+
         keywords = set(word.lower() for word in re.findall(r'\b\w{4,}\b', query))
         pattern_key = "_".join(sorted(keywords))
-        
+
         if pattern_key not in self.learning_patterns:
             self.learning_patterns[pattern_key] = {
                 "queries": [],
@@ -307,33 +307,39 @@ class SelfResearcher:
                 "frequency": 0,
                 "avg_quality": 0.0
             }
-        
+
         self.learning_patterns[pattern_key]["queries"].append(query)
         self.learning_patterns[pattern_key]["results_summary"].extend(results[:2])
         self.learning_patterns[pattern_key]["frequency"] += 1
-        
+
         avg_len = sum(len(str(r)) for r in results) / len(results) if results else 0
         self.learning_patterns[pattern_key]["avg_quality"] = avg_len
 
     # ─────────────────────────────────────────────
     def _check_history(self, query):
         """Check if similar query was answered before"""
-        if not self.llm:
+        if not self.llm or not hasattr(self.llm, "embed"):
             return []
-        query_embedding = self.llm.embed(query)
-        relevant = []
-        for entry in reversed(self.history):
-            sim = self._compute_similarity(query_embedding, entry.get("embedding"))
-            if sim >= self.relevance_threshold:
-                relevant.extend(entry["results"])
-        return relevant
+
+        try:
+            query_embedding = self.llm.embed(query)
+            relevant = []
+            for entry in reversed(self.history):
+                if entry.get("embedding"):
+                    sim = self._compute_similarity(query_embedding, entry.get("embedding"))
+                    if sim >= self.relevance_threshold:
+                        relevant.extend(entry["results"])
+            return relevant
+        except Exception as e:
+            log.debug(f"History check failed: {e}")
+            return []
 
     # ─────────────────────────────────────────────
     def _feed_to_reflection(self, query, results):
         """Feed research findings to reflection module"""
         if not self.reflect:
             return
-        
+
         try:
             insights = self._extract_insights(query, results)
             reflection = self.reflect.collect_and_summarize(
@@ -348,7 +354,7 @@ class SelfResearcher:
         """Feed research findings to self-teacher"""
         if not self.self_teacher:
             return
-        
+
         try:
             learning_content = self._synthesize_learning(query, results)
             self.self_teacher.teach(learning_content)
@@ -356,7 +362,7 @@ class SelfResearcher:
         except Exception as e:
             log.debug(f"Teacher feedback skipped: {e}")
 
-    # ─────────────────────────────────────────────
+    # ────────────────────────────────────────────��
     def _extract_insights(self, query, results):
         """Extract key insights from research results"""
         insights = []
@@ -372,8 +378,8 @@ class SelfResearcher:
         """Synthesize research into learnable content"""
         if not results:
             return query
-        
-        if self.llm:
+
+        if self.llm and hasattr(self.llm, "generate"):
             try:
                 learning_text = " ".join(str(r) for r in results[:3])
                 synthesized = self.llm.generate(
@@ -383,7 +389,7 @@ class SelfResearcher:
                 return synthesized if synthesized else query
             except Exception:
                 pass
-        
+
         return " ".join(str(r) for r in results[:2])
 
     # ─────────────────────────────────────────────
@@ -391,7 +397,7 @@ class SelfResearcher:
         """Store research results in knowledge database"""
         if not self.knowledge_db:
             return
-        
+
         try:
             for result in results:
                 self.knowledge_db.add_fact(
@@ -399,24 +405,45 @@ class SelfResearcher:
                     result,
                     tags=["research", "web", "autonomous"]
                 )
-            
+
             if hasattr(self.knowledge_db, "log_event"):
                 self.knowledge_db.log_event(
                     f"Research completed: {query} ({len(results)} results)"
                 )
-            
+
             log.info(f"[KnowledgeDB] Stored {len(results)} results for query: {query}")
         except Exception as e:
             log.debug(f"KnowledgeDB storage skipped: {e}")
 
     # ─────────────────────────────────────────────
-    # MAIN SEARCH WITH AUTONOMOUS LEARNING
+    # MAIN SEARCH METHOD - FLEXIBLE PARAMETERS
     # ─────────────────────────────────────────────
-    def search(self, query, max_results=5, use_llm=True, learn_in_background=True,
-               use_history=True, synthesize=True, enable_autonomous_learning=True):
-        """Enhanced search with autonomous learning"""
+    def search(self, query, max_results=5, **kwargs):
+        """
+        Enhanced search with autonomous learning.
+        
+        Args:
+            query: Search query string
+            max_results: Maximum results to return
+            **kwargs: Other optional parameters (ignored for flexibility)
+                - use_llm: Whether to use LLM for synthesis
+                - learn_in_background: Enable background learning
+                - use_history: Check history first
+                - synthesize: Synthesize results
+                - enable_autonomous_learning: Enable autonomous learning
+        
+        Returns:
+            List of search results
+        """
         if not query:
             return []
+
+        # Extract optional parameters with defaults
+        use_llm = kwargs.get('use_llm', True)
+        learn_in_background = kwargs.get('learn_in_background', True)
+        use_history = kwargs.get('use_history', True)
+        synthesize = kwargs.get('synthesize', True)
+        enable_autonomous_learning = kwargs.get('enable_autonomous_learning', True)
 
         collected_results = []
 
@@ -425,7 +452,7 @@ class SelfResearcher:
             collected_results.extend(self._check_history(query))
 
         # 2️⃣ ENGINE
-        if self.engine:
+        if self.engine and hasattr(self.engine, "run"):
             try:
                 r = self.engine.run(query)
                 if isinstance(r, dict):
@@ -436,7 +463,7 @@ class SelfResearcher:
                 log.debug(f"Engine search failed: {e}")
 
         # 3️⃣ INTERNET
-        if self._internet:
+        if self._internet and hasattr(self._internet, "search"):
             try:
                 web_results = self._internet.search(query, max_results=max_results * 3)
                 if web_results:
@@ -448,7 +475,7 @@ class SelfResearcher:
         collected_results = self._deduplicate(collected_results)
 
         # 4️⃣ SYNTHESIZE
-        if synthesize and collected_results and use_llm and self.llm:
+        if synthesize and collected_results and use_llm and self.llm and hasattr(self.llm, "generate"):
             try:
                 combined_text = " ".join(str(item) for item in collected_results)
                 synthesized = self.llm.generate(
@@ -485,7 +512,7 @@ class SelfResearcher:
         self._update_history(query, collected_results[:max_results])
 
         # 9️⃣ BACKGROUND LEARNING
-        if learn_in_background and self.llm:
+        if learn_in_background and self.llm and hasattr(self.llm, "background_learning"):
             try:
                 for r in collected_results:
                     self.llm.background_learning(r)
@@ -503,17 +530,17 @@ class SelfResearcher:
         WITHOUT LLM - for when LLM is disabled
         """
         log.info(f"🧠 [NO-LLM] Answering: {query}")
-        
+
         # Step 1: Analyze intent
         intent_type, intent_meta = self.intent_analyzer.extract_intent(query)
         log.info(f"[INTENT] Type: {intent_type} | Subject: {intent_meta.get('subject')}")
-        
+
         # Step 2: Generate knowledge-based response
         response = self.knowledge_responder.generate_response(query, {
             "intent_type": intent_type,
             **intent_meta
         })
-        
+
         if response:
             # Store for future learning
             try:
@@ -521,9 +548,9 @@ class SelfResearcher:
                 self.db.add_fact(f"intent_type:{query}", intent_type, tags=["intent", "no_llm"])
             except Exception:
                 pass
-            
+
             return response
-        
+
         # Fallback: Simple keyword-based response
         keywords = intent_meta.get("keywords", [])
         return f"I don't have specific information about '{query}', but I can research it for you. Key topics: {', '.join(keywords)}"
@@ -545,9 +572,9 @@ class SelfResearcher:
     def learning_insights(self):
         return {
             "total_patterns": len(self.learning_patterns),
-            "most_researched": max(self.learning_patterns.items(), 
-                                   key=lambda x: x[1]["frequency"], 
-                                   default=("None", {}))[0],
+            "most_researched": max(self.learning_patterns.items(),
+                                  key=lambda x: x[1]["frequency"],
+                                  default=("None", {}))[0],
             "patterns": self.learning_patterns
         }
 
