@@ -1,0 +1,55 @@
+{
+    "facts": [],
+    "interactions": [
+        {
+            "time": "2026-03-13 21:07:20",
+            "input": "hello",
+            "response": "[HFBrain Disabled] hello",
+            "source": "brain"
+        }
+    ],
+    "learning_log": [
+        {
+            "raw": "hello",
+            "normalized": "hello",
+            "positivity": 0,
+            "negativity": 0,
+            "response": "[HFBrain Disabled] hello"
+        },
+        {
+            "raw": "hello",
+            "normalized": "hello",
+            "positivity": 0,
+            "negativity": 0,
+            "response": "[HFBrain Disabled] hello"
+        }
+    ],
+    "learning_queue": [],
+    "preferences": {
+        "mood": "neutral",
+        "verbosity": "medium"
+    },
+    "events": [
+        {
+            "time": "2026-03-13T21:07:20.402847",
+            "event": "2026-03-13 21:07:20 - Incoming: hello"
+        },
+        {
+            "time": "2026-03-13T21:07:20.404861",
+            "event": "Task queued: remember"
+        },
+        {
+            "time": "2026-03-13T21:07:20.404946",
+            "event": "Remembered: {'input': 'hello', 'response': '[HFBrain Disabled] hello'}"
+        },
+        {
+            "time": "2026-03-13T21:07:20.406819",
+            "event": "Task queued: remember"
+        },
+        {
+            "time": "2026-03-13T21:07:20.407005",
+            "event": "Remembered: {'input': 'hello', 'response': '[HFBrain Disabled] hello'}"
+        }
+    ],
+    "meta": {}
+}
