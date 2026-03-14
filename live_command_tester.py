@@ -405,7 +405,7 @@ def _one_shot_loop_probes(core) -> list:
     # HealthLoop body
     def _probe_health():
         uptime = int(time.time() - core.start_ts)
-        _ = core._get_memory_count()
+        _ = core.get_memory_count()
         return f"health ok, uptime={uptime}s"
 
     results.append(_run_probe("loop-body → HealthLoop", _probe_health))

@@ -243,6 +243,30 @@ except Exception as e:
     log.debug(f"StructuralAwareness import failed: {e}")
     StructuralAwareness = None
 
+try:
+    from modules.code_generator import CodeGenerator
+except Exception as e:
+    log.debug(f"CodeGenerator import failed: {e}")
+    CodeGenerator = None
+
+try:
+    from modules.code_compiler import CodeCompiler
+except Exception as e:
+    log.debug(f"CodeCompiler import failed: {e}")
+    CodeCompiler = None
+
+try:
+    from modules.filesystem_manager import FilesystemManager as FileManager
+except Exception as e:
+    log.debug(f"FilesystemManager import failed: {e}")
+    FileManager = None
+
+try:
+    from modules.software_studier import SoftwareStudier
+except Exception as e:
+    log.debug(f"SoftwareStudier import failed: {e}")
+    SoftwareStudier = None
+
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
@@ -979,6 +1003,12 @@ class NiblitCore:
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
         self.structural_awareness: Optional[StructuralAwareness] = None
+
+        # NEW: Code capabilities + enhanced filesystem + software studier
+        self.code_generator: Optional[CodeGenerator] = None
+        self.code_compiler: Optional[CodeCompiler] = None
+        self.file_manager: Optional[FileManager] = None
+        self.software_studier: Optional[SoftwareStudier] = None
         
         log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
         
@@ -1404,7 +1434,197 @@ Uptime: {stats['uptime_seconds']}s
             return self.structural_awareness.resource_report()
         return "[StructuralAwareness not available]"
 
-    def _cmd_help(self, text: str) -> str:
+    # ──────────────────────────────────────
+    # CODE GENERATION COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_generate_code(self, spec: str) -> str:
+        """Generate code: 'python module name=my_mod docstring=Does X'"""
+        if not self.code_generator:
+            return "[CodeGenerator not available]"
+        # Parse spec: first word is language, second is template (optional), rest are key=value
+        parts = spec.split()
+        if not parts:
+            return "Usage: generate code <language> [template] [key=value ...]"
+        language = parts[0]
+        template = "module"
+        kwargs = {}
+        for part in parts[1:]:
+            if "=" in part:
+                k, _, v = part.partition("=")
+                kwargs[k.strip()] = v.strip()
+            elif not kwargs:  # Second positional arg = template
+                template = part
+        result = self.code_generator.generate(language, template, **kwargs)
+        if not result["success"]:
+            return f"❌ {result.get('error', 'Generation failed')}"
+        name = kwargs.get("name", "unnamed")
+        code = result["code"]
+        ext = self.code_generator.get_extension(language)
+        # Optionally save to generated/
+        if self.file_manager:
+            fpath = f"generated/{name}{ext}"
+            self.file_manager.write(fpath, code)
+            return f"✅ Generated {language}/{template} → saved to {fpath}\n\n```\n{code[:600]}\n```"
+        return f"✅ Generated {language}/{template}:\n\n```\n{code[:600]}\n```"
+
+    def _cmd_run_code(self, spec: str) -> str:
+        """Run code: 'python print(\"hello\")'"""
+        if not self.code_compiler:
+            return "[CodeCompiler not available]"
+        parts = spec.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: run code <language> <code>"
+        language, code = parts[0], parts[1]
+        result = self.code_compiler.run(language, code)
+        return result.format_output()
+
+    def _cmd_validate_code(self, spec: str) -> str:
+        """Validate syntax: 'validate python def foo(): pass'"""
+        if not self.code_compiler:
+            return "[CodeCompiler not available]"
+        parts = spec.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: validate <language> <code>"
+        language, code = parts[0], parts[1]
+        result = self.code_compiler.validate_syntax(language, code)
+        if result["valid"] is True:
+            return f"✅ Syntax valid ({language})"
+        if result["valid"] is False:
+            return f"❌ Syntax error ({language}): {result['error']}"
+        return f"ℹ️ {result['error']}"
+
+    def _cmd_study_language(self, language: str) -> str:
+        """Study a programming language."""
+        if not self.code_generator:
+            return "[CodeGenerator not available]"
+        return self.code_generator.study_language(language)
+
+    def _cmd_list_templates(self, language: str = "") -> str:
+        """List available code templates."""
+        if not self.code_generator:
+            return "[CodeGenerator not available]"
+        return self.code_generator.list_templates(language or None)
+
+    def _cmd_available_languages(self) -> str:
+        """Show available languages for code compiler."""
+        lines = []
+        if self.code_generator:
+            from modules.code_generator import SUPPORTED_LANGUAGES  # pylint: disable=import-outside-toplevel
+            lines.append(f"📝 **Generate**: {', '.join(SUPPORTED_LANGUAGES)}")
+        if self.code_compiler:
+            avail = self.code_compiler.available_languages()
+            avail_str = ", ".join(k for k, v in avail.items() if v)
+            unavail_str = ", ".join(k for k, v in avail.items() if not v)
+            lines.append(f"▶️  **Run** (available): {avail_str}")
+            if unavail_str:
+                lines.append(f"   (unavailable): {unavail_str}")
+        return "\n".join(lines) if lines else "[Code modules not available]"
+
+    # ──────────────────────────────────────
+    # FILE MANAGER COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_read_file(self, filepath: str) -> str:
+        """Read and display a file."""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        result = self.file_manager.read(filepath)
+        if not result["success"]:
+            return f"❌ {result['error']}"
+        content = result["content"]
+        if isinstance(content, bytes):
+            return f"📄 {filepath} ({result['size']} bytes, binary)"
+        preview = content[:1000] if len(content) > 1000 else content
+        suffix = "...[truncated]" if len(content) > 1000 else ""
+        return f"📄 **{filepath}** ({result['size']} chars):\n```\n{preview}{suffix}\n```"
+
+    def _cmd_write_file(self, spec: str) -> str:
+        """Write a file: '<filepath> <content>'"""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        parts = spec.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: write file <filepath> <content>"
+        filepath, content = parts[0], parts[1]
+        result = self.file_manager.write(filepath, content)
+        if result["success"]:
+            return f"✅ Written {result['bytes']} bytes → {result['path']}"
+        return f"❌ Write failed: {result['error']}"
+
+    def _cmd_list_files(self, dirpath: str = ".") -> str:
+        """List files in a directory."""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        result = self.file_manager.list_dir(dirpath)
+        if not result["success"]:
+            return f"❌ {result['error']}"
+        entries = result["entries"]
+        if not entries:
+            return f"📁 {result['path']} — empty"
+        lines = [f"📁 **{result['path']}** ({len(entries)} entries):"]
+        for e in entries[:40]:  # Cap at 40 entries
+            icon = "📁" if e["type"] == "dir" else "📄"
+            size = f" ({e['size']} B)" if e["type"] == "file" else ""
+            lines.append(f"  {icon} {e['name']}{size}")
+        if len(entries) > 40:
+            lines.append(f"  ... and {len(entries) - 40} more")
+        return "\n".join(lines)
+
+    def _cmd_execute_file(self, filepath: str) -> str:
+        """Execute a file."""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        result = self.file_manager.execute(filepath)
+        icon = "✅" if result["success"] else "❌"
+        lines = [f"{icon} **Execute**: {filepath}"]
+        if result["stdout"]:
+            lines.append(f"\n📤 Output:\n{result['stdout'].strip()}")
+        if result["stderr"]:
+            lines.append(f"\n⚠️ Stderr:\n{result['stderr'].strip()}")
+        if result.get("error"):
+            lines.append(f"\n❗ {result['error']}")
+        return "\n".join(lines)
+
+    def _cmd_file_environment(self) -> str:
+        """Show filesystem environment info."""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        return self.file_manager.environment_info()
+
+    # ──────────────────────────────────────
+    # SOFTWARE STUDIER COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_study_software(self, category: str) -> str:
+        """Study a software category."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.study_category(category)
+
+    def _cmd_software_categories(self) -> str:
+        """List software study categories."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.list_categories()
+
+    def _cmd_analyze_architecture(self, architecture: str) -> str:
+        """Analyze a software architecture."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.analyze_architecture(architecture)
+
+    def _cmd_design_software(self, description: str) -> str:
+        """Generate a software design outline."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.design_software(description)
+
+    def _cmd_software_studied(self) -> str:
+        """Show what software has been studied."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.what_ive_studied()
         """Help command."""
         if self.command_registry:
             return self.command_registry.get_help()
@@ -1884,6 +2104,58 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.debug(f"StructuralAwareness init failed: {e}")
                     self.startup_report.add("structural_awareness", "degraded", str(e))
+
+            # ============================
+            # CODE GENERATOR
+            # ============================
+            if CodeGenerator:
+                try:
+                    self.code_generator = CodeGenerator(db=self.db)
+                    log.info("✅ CodeGenerator initialized")
+                    self.startup_report.add("code_generator", "ready")
+                except Exception as e:
+                    log.debug(f"CodeGenerator init failed: {e}")
+                    self.startup_report.add("code_generator", "degraded", str(e))
+
+            # ============================
+            # CODE COMPILER
+            # ============================
+            if CodeCompiler:
+                try:
+                    self.code_compiler = CodeCompiler(db=self.db)
+                    log.info("✅ CodeCompiler initialized")
+                    self.startup_report.add("code_compiler", "ready")
+                except Exception as e:
+                    log.debug(f"CodeCompiler init failed: {e}")
+                    self.startup_report.add("code_compiler", "degraded", str(e))
+
+            # ============================
+            # FILE MANAGER (enhanced)
+            # ============================
+            if FileManager:
+                try:
+                    self.file_manager = FileManager(
+                        base_dir=str(self.config.memory_path.parent)
+                        if hasattr(self.config, "memory_path") else None,
+                        db=self.db,
+                    )
+                    log.info("✅ FilesystemManager (enhanced) initialized")
+                    self.startup_report.add("file_manager", "ready")
+                except Exception as e:
+                    log.debug(f"FilesystemManager init failed: {e}")
+                    self.startup_report.add("file_manager", "degraded", str(e))
+
+            # ============================
+            # SOFTWARE STUDIER
+            # ============================
+            if SoftwareStudier:
+                try:
+                    self.software_studier = SoftwareStudier(db=self.db)
+                    log.info("✅ SoftwareStudier initialized")
+                    self.startup_report.add("software_studier", "ready")
+                except Exception as e:
+                    log.debug(f"SoftwareStudier init failed: {e}")
+                    self.startup_report.add("software_studier", "degraded", str(e))
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))
@@ -2453,6 +2725,10 @@ Uptime: {stats['uptime_seconds']}s
             pass
         return 0
 
+    def get_memory_count(self) -> int:
+        """Public accessor for the number of stored memory entries."""
+        return self._get_memory_count()
+
     def _trigger_learning(self, user_input: str, response: str):
         """Invoke NiblitLearning on each conversation turn, queue follow-up tasks."""
         # Record user activity (not idle)
@@ -2747,6 +3023,93 @@ Uptime: {stats['uptime_seconds']}s
         if ltext in ("resource usage", "my resources", "memory usage"):
             log.debug("[SA-CMD] Intercepted: resource usage")
             return self._cmd_sa_resources()
+
+        # ============================
+        # LAYER 7d: CODE & FILE CAPABILITY COMMANDS
+        # ============================
+
+        # Generate code
+        if ltext.startswith("generate code ") or ltext.startswith("generate-code "):
+            rest = text[text.index(" ", text.index(" ") + 1):].strip()
+            log.debug("[CODE-CMD] generate code: %s", rest[:40])
+            return self._cmd_generate_code(rest)
+
+        # Run / compile / execute code
+        if ltext.startswith("run code ") or ltext.startswith("run-code "):
+            rest = text[text.index(" ", text.index(" ") + 1):].strip()
+            log.debug("[CODE-CMD] run code: %s", rest[:40])
+            return self._cmd_run_code(rest)
+
+        # Validate syntax
+        if ltext.startswith("validate "):
+            rest = text[len("validate "):].strip()
+            log.debug("[CODE-CMD] validate: %s", rest[:40])
+            return self._cmd_validate_code(rest)
+
+        # Execute a file
+        if ltext.startswith("execute file ") or ltext.startswith("exec file "):
+            filepath = text.split(None, 2)[-1].strip()
+            log.debug("[FILE-CMD] execute file: %s", filepath)
+            return self._cmd_execute_file(filepath)
+
+        # File operations: read, write, list, delete, info
+        if ltext.startswith("read file "):
+            filepath = text[len("read file "):].strip()
+            log.debug("[FILE-CMD] read: %s", filepath)
+            return self._cmd_read_file(filepath)
+
+        if ltext.startswith("write file "):
+            rest = text[len("write file "):].strip()
+            log.debug("[FILE-CMD] write: %s", rest[:40])
+            return self._cmd_write_file(rest)
+
+        if ltext.startswith("list files") or ltext in ("ls", "list dir", "list directory"):
+            dirpath = text.split(None, 2)[-1].strip() if len(text.split()) > 2 else "."
+            log.debug("[FILE-CMD] list: %s", dirpath)
+            return self._cmd_list_files(dirpath)
+
+        if ltext in ("file environment", "filesystem info", "fs info"):
+            log.debug("[FILE-CMD] environment info")
+            return self._cmd_file_environment()
+
+        # Language study
+        if ltext.startswith("study language ") or ltext.startswith("learn language "):
+            lang = text.split(None, 2)[-1].strip()
+            log.debug("[STUDY-CMD] study language: %s", lang)
+            return self._cmd_study_language(lang)
+
+        if ltext.startswith("code templates") or ltext == "list templates":
+            lang = text.split(None, 2)[-1].strip() if len(text.split()) > 2 else ""
+            log.debug("[CODE-CMD] list templates")
+            return self._cmd_list_templates(lang)
+
+        # Software study
+        if ltext.startswith("study software ") or ltext.startswith("learn software "):
+            cat = text.split(None, 2)[-1].strip()
+            log.debug("[STUDY-CMD] study software: %s", cat)
+            return self._cmd_study_software(cat)
+
+        if ltext.startswith("software categories") or ltext == "list software":
+            log.debug("[STUDY-CMD] list categories")
+            return self._cmd_software_categories()
+
+        if ltext.startswith("analyze architecture ") or ltext.startswith("study architecture "):
+            arch = text.split(None, 2)[-1].strip()
+            log.debug("[STUDY-CMD] analyze architecture: %s", arch)
+            return self._cmd_analyze_architecture(arch)
+
+        if ltext.startswith("design software ") or ltext.startswith("design-software "):
+            desc = text.split(None, 2)[-1].strip()
+            log.debug("[STUDY-CMD] design software: %s", desc[:40])
+            return self._cmd_design_software(desc)
+
+        if ltext in ("what have i studied", "studied software", "software studied"):
+            log.debug("[STUDY-CMD] what i've studied")
+            return self._cmd_software_studied()
+
+        if ltext in ("available languages", "compiler languages", "supported languages"):
+            log.debug("[CODE-CMD] available languages")
+            return self._cmd_available_languages()
 
         # ============================
         # LAYER 8: INTENT PARSING & CORE COMMANDS

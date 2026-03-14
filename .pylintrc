@@ -1,9 +1,28 @@
+[MESSAGES CONTROL]
+# Disable messages that are noisy for this codebase.
+#
+# E0401 import-error: All third-party/local imports are wrapped in try/except
+#   blocks intentionally — pylint cannot resolve them without PYTHONPATH.
+#
+# W0718 broad-exception-caught: Intentional in safe_import/safe_call patterns.
+#
+# W1203 logging-fstring-interpolation: Codebase uses f-strings in logging
+#   throughout for readability; lazy-% would reduce clarity here.
+#
+# C0415 import-outside-toplevel: Optional imports inside methods are intentional
+#   for optional heavy dependencies (psutil, resource, etc.).
+#
+# R0903 too-few-public-methods: Several small data/config classes intentionally
+#   have fewer than 2 public methods.
+disable=import-error,broad-exception-caught,logging-fstring-interpolation,import-outside-toplevel,too-few-public-methods
+
 [FORMAT]
 # Maximum number of characters on a single line.
 max-line-length=120
 
 # Regexp for a line that is allowed to be longer than the limit.
-long-line-note-regexp=^\s*(# )?<?https?://\S+>?$
+# (long-line-note-regexp is not recognized by pylint 4.x — commented out)
+#long-line-note-regexp=^\s*(# )?<?https?://\S+>?$
 
 # Number of spaces of indent required inside a hanging or continued line.
 indent-after-paren=4
@@ -13,8 +32,8 @@ indent-string='    '
 
 # Expected format of line ending, especially useful when checking scripts as
 # they are prone to have the wrong line ending convention. This represents the
-# line ending type to be considered as expected.
-expected-line-ending-format=score=yes
+# line ending type to be considered as expected. Empty means any is acceptable.
+expected-line-ending-format=
 
 # Python expression which should return a note less than 10 (10 is the highest
 # note). You have access to the variables errors warning, refactor and
@@ -147,7 +166,8 @@ variable-naming-style=snake_case
 
 [DESIGN]
 # Maximum number of arguments for function / method.
-max-arguments=10
+# (max-arguments not recognized by pylint 4.x, use max-positional-arguments)
+#max-arguments=10
 
 # Maximum number of attributes for a class.
 max-attributes=7
@@ -221,24 +241,21 @@ known-third-party=
 # Modules that should be considered safe to import even if their initializers
 # have side effects, which is mainly to support a deprecation of the old
 # optparse module.
-known-dangerous-modules=optparse
+# (known-dangerous-modules not recognized by pylint 4.x — commented out)
+#known-dangerous-modules=optparse
 
-# Force a consistent ordering within each section of imports. Possible orders
-# are "natural", "alphabetical", "random".
-import-order=natural
+# Force a consistent ordering within each section of imports.
+# (import-order not recognized by pylint 4.x — commented out)
+#import-order=natural
 
 [EXCEPTIONS]
 # Exceptions that will emit a warning when being caught. Defaults to
 # "BaseException, Exception".
-overgeneral-exceptions=BaseException,Exception
+overgeneral-exceptions=builtins.BaseException,builtins.Exception
 
 [TYPING]
-# Set the maximum number of opening parentheses on the left side of an and
-# expression after which pylint will start wrapping.
-max-line-length-suggestions=
-    79:standard,
-    100:google,
-    120:facebook,
+# (max-line-length-suggestions not recognized by pylint 4.x — section kept for reference)
+# max-line-length-suggestions:
 
 [VARIABLES]
 # List of additional names supposed to be defined in builtins. Remember that
@@ -271,7 +288,7 @@ allow-global-unused-variables=true
 # value is assumed.
 # checks-deprecated-method-option allows runtime configuration (through
 # callbacks).
-allowed-redefined-builtins=
+# (allowed-redefined-builtins already set above — duplicate removed)
 
 [MISCELLANEOUS]
 # List of note tags to take in consideration, separated by a comma.
@@ -296,14 +313,16 @@ generated-members=REQUEST,acl_users,aq_parent
 
 # Tells whether to warn about missing members when the owner of the attribute
 # is inferred to be None.
-ignore-none-returning-functions=
+# (ignore-none-returning-functions not recognized by pylint 4.x — commented out)
+#ignore-none-returning-functions=
 
 # Tells whether to warn about missing members when an owner of an attribute is
 # inferred to be None.
 ignore-mixin-members=yes
 
 # Ignore errors from member accesses on types inferred to be Any.
-ignore-on-opaque-types=yes
+# (ignore-on-opaque-types not recognized by pylint 4.x — commented out)
+#ignore-on-opaque-types=yes
 
 # List of class names to which Pylint should not warn about accessing
 # undefined members.
@@ -318,7 +337,8 @@ ignored-modules=
 # List of decorators that produce other decorators, such as
 # deprecated_decorator2. Add to this list to register other decorators that
 # produce valid decorators.
-decorator-transforms=
+# (decorator-transforms not recognized by pylint 4.x — commented out)
+#decorator-transforms=
 
 [SPELLING]
 # Limits count of emitted suggestions for spelling mistakes.
@@ -352,11 +372,13 @@ min-similarity-lines=4
 # Number of seconds to wait before starting to send termination signal to child
 # processes started by pylint on Windows. Set this to 0 to instantly kill child
 # processes on Windows. New in version 2.10.
-wait-for-child=10
+# (wait-for-child not recognized by pylint 4.x — commented out)
+#wait-for-child=10
 
 [PERFORMANCE]
 # Maximum number of local variables for function / method body.
-max-local-variables=15
+# (max-local-variables not recognized by pylint 4.x — use max-locals in DESIGN)
+# max-local-variables=15
 
 # Maximum number of lines in a file.
 max-module-lines=2000

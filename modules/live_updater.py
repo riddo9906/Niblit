@@ -73,6 +73,8 @@ class LiveUpdater:
         self.base_dir = Path(base_dir or os.getcwd())
         self._lock = threading.Lock()
         self._history: List[Dict[str, Any]] = []
+        # Reload timestamps keyed by module name — avoids monkey-patching modules
+        self._reload_times: Dict[str, float] = {}
         self._backup_dir = self.base_dir / ".update_backups"
         self._backup_dir.mkdir(exist_ok=True)
         log.info("[LiveUpdater] Initialized — base_dir=%s", self.base_dir)
@@ -202,11 +204,8 @@ class LiveUpdater:
                 mod = importlib.import_module(module_name)
 
             importlib.reload(mod)
-            # Stamp reload time
-            try:
-                mod._load_time = time.time()
-            except Exception:
-                pass
+            # Record reload timestamp in our own dict — avoids monkey-patching the module
+            self._reload_times[module_name] = time.time()
 
             record["success"] = True
             record["message"] = f"✅ Module '{module_name}' reloaded successfully."
@@ -277,13 +276,19 @@ class LiveUpdater:
                 except Exception as rb_e:
                     log.error("[LiveUpdater] Rollback write failed: %s", rb_e)
             record["error"] = reload_result["error"]
+            rolled_back_msg = (
+                "Rolled back to previous version."
+                if record["rolled_back"] else "Rollback failed."
+            )
             record["message"] = (
                 f"❌ Patch applied but reload failed for '{module_name}'. "
-                + ("Rolled back to previous version." if record["rolled_back"] else "Rollback failed.")
+                + rolled_back_msg
             )
         else:
             record["success"] = True
-            record["message"] = f"✅ Patch applied and '{module_name}' reloaded successfully."
+            record["message"] = (
+                f"✅ Patch applied and '{module_name}' reloaded successfully."
+            )
 
         record["elapsed_ms"] = round((time.time() - ts_start) * 1000, 1)
         self._history.append(record)
@@ -296,9 +301,8 @@ class LiveUpdater:
         lines = ["🔄 **Live Update History** (most recent last):"]
         for rec in self._history[-10:]:
             icon = "✅" if rec["success"] else "❌"
-            lines.append(
-                f"  {icon} [{rec['ts'][:19]}] {rec['action'].upper()} {rec['module']} — {rec['message']}"
-            )
+            action_ts = f"[{rec['ts'][:19]}] {rec['action'].upper()} {rec['module']}"
+            lines.append(f"  {icon} {action_ts} — {rec['message']}")
         return "\n".join(lines)
 
 
@@ -306,8 +310,8 @@ class LiveUpdater:
 # STANDALONE SELF-TEST
 # ──────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    import logging as _logging  # pylint: disable=reimported,ungrouped-imports
+    _logging.basicConfig(level=_logging.INFO, format="%(message)s")
     print("=== LiveUpdater self-test ===")
     updater = LiveUpdater()
 

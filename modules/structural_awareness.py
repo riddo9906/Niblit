@@ -18,7 +18,6 @@ import time
 import threading
 import logging
 import platform
-import traceback
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -238,6 +237,10 @@ class StructuralAwareness:
             ("slsa_engine",         "SLSAGenerator"),
             ("live_updater",        "LiveUpdater"),
             ("structural_awareness","StructuralAwareness"),
+            ("code_generator",      "CodeGenerator"),
+            ("code_compiler",       "CodeCompiler"),
+            ("file_manager",        "FilesystemManager"),
+            ("software_studier",    "SoftwareStudier"),
             # Production modules
             ("command_registry",    "CommandRegistry"),
             ("rate_limiter",        "RateLimiter"),
@@ -320,18 +323,34 @@ class StructuralAwareness:
 
 ♻️  HOT-UPDATE (LiveUpdater):
   reload <module>  → importlib.reload() with backup/rollback
-  apply-patch      → write new source → validate → reload → rollback on error"""
+  upgrade          → reload all modules changed on disk
+  apply-patch      → write new source → validate → reload → rollback on error
+
+💻  CODE CAPABILITIES:
+  generate code <lang> [template] → CodeGenerator fills template → saves to generated/
+  run code <lang> <code>          → CodeCompiler validates syntax → subprocess → result
+  validate <lang> <code>          → AST syntax check (Python) or quick pre-run check
+  study language <lang>           → CodeGenerator returns idioms + best practices
+
+📁  FILE MANAGER:
+  read/write/append/edit/delete/copy/move/execute for all file types
+  Termux support: detects Termux environment automatically
+  run code strings directly via temp files (Python, Bash, JS)
+
+📦  SOFTWARE STUDIER:
+  study software <category>  → deep study of OS, web, AI, databases, compilers, etc.
+  analyze architecture <name>→ pros/cons of microservices, monolith, event-driven, etc.
+  design software <desc>     → auto-generates architecture outline for any project"""
 
     # ──────────────────────────────────────────────────────
     # 8. FULL RUNTIME DASHBOARD
     # ──────────────────────────────────────────────────────
-    def runtime_dashboard(self, core: Any = None, router: Any = None) -> str:
+    def runtime_dashboard(self, core: Any = None, router: Any = None) -> str:  # pylint: disable=unused-argument
         """
         Master dashboard: threads + loops + components + resources.
         """
         target = core or self.core
 
-        uptime_s = time.time() - self._boot_time
         core_uptime = ""
         if target:
             core_start = getattr(target, "start_ts", None)
@@ -361,8 +380,8 @@ class StructuralAwareness:
 # STANDALONE SELF-TEST
 # ──────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    import logging as _logging  # pylint: disable=reimported,ungrouped-imports
+    _logging.basicConfig(level=_logging.INFO, format="%(message)s")
     print("=== StructuralAwareness self-test ===\n")
     sa = StructuralAwareness()
     print(sa.thread_report())

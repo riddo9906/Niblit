@@ -467,6 +467,21 @@ What aspect of my improvement interests you?"""
                                                  "cpu", "ram usage")):
                 return sa.resource_report() if sa else None
 
+            # Code / software capability queries
+            if any(kw in query_lower for kw in ("generate code", "code generation",
+                                                 "write code", "create code")):
+                cg = getattr(self.core, "code_generator", None)
+                if cg:
+                    return cg.list_templates()
+                return "I have a CodeGenerator module. Try: generate code python module name=my_mod"
+
+            if any(kw in query_lower for kw in ("study software", "what software",
+                                                 "software categories", "software types")):
+                ss = getattr(self.core, "software_studier", None)
+                if ss:
+                    return ss.list_categories()
+                return "I can study software with: study software <category>"
+
             # What are you / Who are you
             if 'what are you' in query_lower or 'who are you' in query_lower:
                 response = """I am Niblit, an autonomous AI system designed to:
@@ -524,6 +539,11 @@ System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}""
 ✅ Learn from Experience: Store facts for future reference
 ✅ Run SLSA: Generate knowledge artifacts automatically
 ✅ Answer without LLM: Use research + knowledge when LLM is disabled
+✅ Generate Code: Python, Bash, JS, HTML, CSS, SQL, JSON templates
+✅ Run Code: Execute Python, Bash, JS inline with compiler
+✅ Manage Files: Create, read, write, edit, execute all file types
+✅ Study Software: Learn OS, web apps, databases, AI systems, and more
+✅ Hot-Reload Modules: Update myself without restarting
 
 I can work in two modes:
 - 🤖 With LLM: AI-powered conversations
@@ -569,6 +589,8 @@ Ask me about:
 - 'my threads'        - All active threads right now
 - 'my loops'          - Background loop status
 - 'my structure'      - Full component inventory
+- 'generate code python module name=hello' - Generate code
+- 'study software ai_ml_systems'           - Study software types
 - 'what would you improve' - My growth plans"""
             return response
 
@@ -1011,7 +1033,100 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 return sa.resource_report()
             return "[StructuralAwareness not available]"
 
-        # ===== IMPROVEMENTS COMMANDS (NEW) =====
+        # ===== CODE GENERATION & COMPILER COMMANDS =====
+        if lower.startswith("generate code ") or lower.startswith("generate-code "):
+            if self.core and hasattr(self.core, "_cmd_generate_code"):
+                rest = cmd[cmd.index(" ", cmd.index(" ") + 1):].strip()
+                return safe_call(self.core._cmd_generate_code, rest) or "[Code gen failed]"
+            return "[CodeGenerator not available]"
+
+        if lower.startswith("run code ") or lower.startswith("run-code "):
+            if self.core and hasattr(self.core, "_cmd_run_code"):
+                rest = cmd[cmd.index(" ", cmd.index(" ") + 1):].strip()
+                return safe_call(self.core._cmd_run_code, rest) or "[Code run failed]"
+            return "[CodeCompiler not available]"
+
+        if lower.startswith("validate "):
+            if self.core and hasattr(self.core, "_cmd_validate_code"):
+                rest = cmd[len("validate "):].strip()
+                return safe_call(self.core._cmd_validate_code, rest) or "[Validate failed]"
+            return "[CodeCompiler not available]"
+
+        if lower.startswith("execute file ") or lower.startswith("exec file "):
+            if self.core and hasattr(self.core, "_cmd_execute_file"):
+                filepath = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_execute_file, filepath) or "[Execute failed]"
+            return "[FilesystemManager not available]"
+
+        if lower.startswith("read file "):
+            if self.core and hasattr(self.core, "_cmd_read_file"):
+                filepath = cmd[len("read file "):].strip()
+                return safe_call(self.core._cmd_read_file, filepath) or "[Read failed]"
+            return "[FilesystemManager not available]"
+
+        if lower.startswith("write file "):
+            if self.core and hasattr(self.core, "_cmd_write_file"):
+                rest = cmd[len("write file "):].strip()
+                return safe_call(self.core._cmd_write_file, rest) or "[Write failed]"
+            return "[FilesystemManager not available]"
+
+        if lower.startswith("list files") or lower in ("ls", "list dir", "list directory"):
+            if self.core and hasattr(self.core, "_cmd_list_files"):
+                parts = cmd.split(None, 2)
+                dirpath = parts[-1].strip() if len(parts) > 2 else "."
+                return safe_call(self.core._cmd_list_files, dirpath) or "[List failed]"
+            return "[FilesystemManager not available]"
+
+        if lower in ("file environment", "filesystem info", "fs info"):
+            if self.core and hasattr(self.core, "_cmd_file_environment"):
+                return safe_call(self.core._cmd_file_environment) or "[File env failed]"
+            return "[FilesystemManager not available]"
+
+        if lower.startswith("study language ") or lower.startswith("learn language "):
+            if self.core and hasattr(self.core, "_cmd_study_language"):
+                lang = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_study_language, lang) or "[Study failed]"
+            return "[CodeGenerator not available]"
+
+        if lower.startswith("code templates") or lower == "list templates":
+            if self.core and hasattr(self.core, "_cmd_list_templates"):
+                lang = cmd.split(None, 2)[-1].strip() if len(cmd.split()) > 2 else ""
+                return safe_call(self.core._cmd_list_templates, lang) or "[Templates failed]"
+            return "[CodeGenerator not available]"
+
+        if lower in ("available languages", "compiler languages", "supported languages"):
+            if self.core and hasattr(self.core, "_cmd_available_languages"):
+                return safe_call(self.core._cmd_available_languages) or "[Languages failed]"
+            return "[Code modules not available]"
+
+        # ===== SOFTWARE STUDIER COMMANDS =====
+        if lower.startswith("study software ") or lower.startswith("learn software "):
+            if self.core and hasattr(self.core, "_cmd_study_software"):
+                cat = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_study_software, cat) or "[Study failed]"
+            return "[SoftwareStudier not available]"
+
+        if lower.startswith("software categories") or lower == "list software":
+            if self.core and hasattr(self.core, "_cmd_software_categories"):
+                return safe_call(self.core._cmd_software_categories) or "[Categories failed]"
+            return "[SoftwareStudier not available]"
+
+        if lower.startswith("analyze architecture ") or lower.startswith("study architecture "):
+            if self.core and hasattr(self.core, "_cmd_analyze_architecture"):
+                arch = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_analyze_architecture, arch) or "[Analysis failed]"
+            return "[SoftwareStudier not available]"
+
+        if lower.startswith("design software ") or lower.startswith("design-software "):
+            if self.core and hasattr(self.core, "_cmd_design_software"):
+                desc = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_design_software, desc) or "[Design failed]"
+            return "[SoftwareStudier not available]"
+
+        if lower in ("what have i studied", "studied software", "software studied"):
+            if self.core and hasattr(self.core, "_cmd_software_studied"):
+                return safe_call(self.core._cmd_software_studied) or "[Studied failed]"
+            return "[SoftwareStudier not available]"
         if lower == "show improvements":
             if self.core and hasattr(self.core, "_cmd_show_improvements"):
                 return safe_call(self.core._cmd_show_improvements, cmd)
@@ -1219,6 +1334,32 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "dashboard                    — Full runtime dashboard",
             "operational flow             — How my loops and routing work",
             "resource usage               — RAM, CPU, uptime",
+            "",
+            "=== CODE GENERATION ===",
+            "generate code <lang> [tpl] [key=val ...]",
+            "                             — Generate code (python/bash/js/html/css/sql/json)",
+            "code templates               — List available templates",
+            "study language <lang>        — Learn best practices for a language",
+            "",
+            "=== CODE COMPILER / EXECUTOR ===",
+            "run code <language> <code>   — Execute code inline (python/bash/js)",
+            "validate <language> <code>   — Check syntax without running",
+            "execute file <path>          — Execute a script file",
+            "available languages          — Show supported compile/run languages",
+            "",
+            "=== FILE MANAGER ===",
+            "read file <path>             — Read and display a file",
+            "write file <path> <content>  — Write content to a file",
+            "list files [dir]             — List files in a directory",
+            "execute file <path>          — Execute a script file",
+            "file environment             — Show filesystem environment info",
+            "",
+            "=== SOFTWARE STUDY ===",
+            "study software <category>    — Study a software category in depth",
+            "software categories          — List all software categories",
+            "analyze architecture <name>  — Analyze an architecture pattern",
+            "design software <desc>       — Generate a software design outline",
+            "what have i studied          — Show what I've studied this session",
             "",
         ]
         return "\n".join(commands)
