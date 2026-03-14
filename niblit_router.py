@@ -544,6 +544,8 @@ System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}""
 ✅ Manage Files: Create, read, write, edit, execute all file types
 ✅ Study Software: Learn OS, web apps, databases, AI systems, and more
 ✅ Hot-Reload Modules: Update myself without restarting
+✅ Evolve Continuously: Research + code-gen + teach + reflect in every step
+✅ Research Code: Fetch real programming language info from internet → feed CodeGenerator
 
 I can work in two modes:
 - 🤖 With LLM: AI-powered conversations
@@ -1127,6 +1129,39 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             if self.core and hasattr(self.core, "_cmd_software_studied"):
                 return safe_call(self.core._cmd_software_studied) or "[Studied failed]"
             return "[SoftwareStudier not available]"
+
+        # ===== EVOLVE ENGINE COMMANDS =====
+        if lower in ("evolve", "evolve step", "run evolve"):
+            if self.core and hasattr(self.core, "_cmd_evolve_step"):
+                return safe_call(self.core._cmd_evolve_step) or "[Evolve failed]"
+            return "[EvolveEngine not available]"
+
+        if lower in ("evolve start", "start evolving", "start evolution"):
+            if self.core and hasattr(self.core, "_cmd_evolve_start"):
+                return safe_call(self.core._cmd_evolve_start) or "[Evolve start failed]"
+            return "[EvolveEngine not available]"
+
+        if lower in ("evolve stop", "stop evolving", "stop evolution"):
+            if self.core and hasattr(self.core, "_cmd_evolve_stop"):
+                return safe_call(self.core._cmd_evolve_stop) or "[Evolve stop failed]"
+            return "[EvolveEngine not available]"
+
+        if lower in ("evolve status", "evolution status"):
+            if self.core and hasattr(self.core, "_cmd_evolve_status"):
+                return safe_call(self.core._cmd_evolve_status) or "[Evolve status failed]"
+            return "[EvolveEngine not available]"
+
+        if lower in ("evolve history", "evolution history"):
+            if self.core and hasattr(self.core, "_cmd_evolve_history"):
+                return safe_call(self.core._cmd_evolve_history) or "[Evolve history failed]"
+            return "[EvolveEngine not available]"
+
+        # ===== CODE RESEARCH COMMANDS =====
+        if lower.startswith("research code ") or lower.startswith("research-code "):
+            if self.core and hasattr(self.core, "_cmd_research_code"):
+                rest = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_research_code, rest) or "[Research code failed]"
+            return "[Code research not available]"
         if lower == "show improvements":
             if self.core and hasattr(self.core, "_cmd_show_improvements"):
                 return safe_call(self.core._cmd_show_improvements, cmd)
@@ -1360,6 +1395,17 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "analyze architecture <name>  — Analyze an architecture pattern",
             "design software <desc>       — Generate a software design outline",
             "what have i studied          — Show what I've studied this session",
+            "",
+            "=== EVOLUTION ENGINE ===",
+            "evolve                       — Run one self-evolution step (research+code+teach+reflect)",
+            "evolve start                 — Start background continuous evolution",
+            "evolve stop                  — Stop background evolution",
+            "evolve status                — Show evolution status + available modules",
+            "evolve history               — Show recent evolution steps",
+            "",
+            "=== CODE RESEARCH ===",
+            "research code <lang> [topic] — Research a language from internet → feeds CodeGenerator",
+            "                               e.g. 'research code python async patterns'",
             "",
         ]
         return "\n".join(commands)

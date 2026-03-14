@@ -578,6 +578,110 @@ class SelfResearcher:
             "patterns": self.learning_patterns
         }
 
+    # ─────────────────────────────────────────────
+    # CODE RESEARCHER — feeds CodeGenerator with real internet data
+    # ─────────────────────────────────────────────
+    def research_code(self, language: str, topic: str = "best practices") -> Dict[str, Any]:
+        """
+        Research programming language information from the internet and
+        feed it directly into the CodeGenerator for concise, accurate code.
+
+        Args:
+            language: programming language (e.g., "python", "bash", "javascript")
+            topic: specific topic (e.g., "best practices", "design patterns", "stdlib")
+
+        Returns:
+            dict with keys: language, topic, snippets, idioms, sources
+        """
+        queries = [
+            f"{language} {topic} code examples",
+            f"{language} programming best practices",
+            f"{language} idioms patterns",
+            f"how to write concise {language} code",
+        ]
+
+        all_snippets: List[str] = []
+        sources: List[str] = []
+
+        for q in queries[:2]:  # limit to 2 searches to be efficient
+            results = self.search(
+                q,
+                max_results=3,
+                use_llm=False,
+                learn_in_background=False,
+                use_history=True,
+                synthesize=False,
+                enable_autonomous_learning=True,
+            )
+            for r in results:
+                if r and isinstance(r, str) and len(r) > 20:
+                    all_snippets.append(r)
+                    sources.append(q)
+
+        # Store in KB for future use
+        if all_snippets and self.db:
+            combined = "\n".join(all_snippets[:5])
+            try:
+                self.db.add_fact(
+                    f"code_research:{language}:{topic}",
+                    combined,
+                    tags=["code", "research", language, "internet"]
+                )
+                self.db.queue_learning(f"{language} {topic} programming patterns")
+            except Exception as e:
+                log.debug(f"Code research store failed: {e}")
+
+        log.info(f"[CODE RESEARCH] {language}/{topic}: found {len(all_snippets)} snippet(s)")
+
+        return {
+            "language": language,
+            "topic": topic,
+            "snippets": all_snippets[:5],
+            "idioms": all_snippets[:3],
+            "sources": list(set(sources)),
+            "count": len(all_snippets),
+        }
+
+    def research_code_and_feed_generator(
+        self,
+        language: str,
+        topic: str = "best practices",
+        code_generator=None,
+    ) -> str:
+        """
+        Research a language from the internet, then feed the result to
+        CodeGenerator so it learns from real, up-to-date information.
+
+        Returns a summary string of what was researched and stored.
+        """
+        research = self.research_code(language, topic)
+        snippets = research.get("snippets", [])
+
+        if not snippets:
+            return f"No code research results found for {language}/{topic}"
+
+        # Feed into CodeGenerator knowledge if available
+        if code_generator and hasattr(code_generator, "_store"):
+            for i, snippet in enumerate(snippets[:3]):
+                code_generator._store(  # pylint: disable=protected-access
+                    language, "internet_research", snippet, f"{language}_{topic}_{i}"
+                )
+
+        # Also queue for deep learning
+        if self.db:
+            try:
+                self.db.queue_learning(f"{language} advanced programming techniques")
+                self.db.queue_learning(f"{language} stdlib reference")
+            except Exception:
+                pass
+
+        summary = (
+            f"✅ Researched {language} {topic}: {len(snippets)} result(s) fetched.\n"
+            f"First result: {snippets[0][:120] if snippets else 'none'}..."
+        )
+        log.info(f"[CODE RESEARCH→GENERATOR] {summary[:80]}")
+        return summary
+
 
 # ─────────────────────────────────────────────
 if __name__ == "__main__":

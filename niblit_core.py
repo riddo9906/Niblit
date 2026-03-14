@@ -267,6 +267,12 @@ except Exception as e:
     log.debug(f"SoftwareStudier import failed: {e}")
     SoftwareStudier = None
 
+try:
+    from modules.evolve import EvolveEngine
+except Exception as e:
+    log.debug(f"EvolveEngine import failed: {e}")
+    EvolveEngine = None
+
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
@@ -1009,6 +1015,7 @@ class NiblitCore:
         self.code_compiler: Optional[CodeCompiler] = None
         self.file_manager: Optional[FileManager] = None
         self.software_studier: Optional[SoftwareStudier] = None
+        self.evolve_engine: Optional[EvolveEngine] = None
         
         log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
         
@@ -1625,10 +1632,79 @@ Uptime: {stats['uptime_seconds']}s
         if not self.software_studier:
             return "[SoftwareStudier not available]"
         return self.software_studier.what_ive_studied()
-        """Help command."""
-        if self.command_registry:
-            return self.command_registry.get_help()
-        return self.help_text()
+
+    # ──────────────────────────────────────
+    # EVOLVE ENGINE COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_evolve_step(self) -> str:
+        """Run one evolution step."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        try:
+            # Refresh references before stepping
+            self.evolve_engine.refresh_from_core()
+            result = self.evolve_engine.step()
+            return (
+                f"🧬 **Evolution step {result['iteration']}**\n"
+                f"  Direction: {result['direction']}\n"
+                f"  Actions ({len(result['actions'])}):\n"
+                + "\n".join(f"    • {a}" for a in result["actions"])
+            )
+        except Exception as exc:
+            log.error("Evolve step failed: %s", exc)
+            return f"[Evolve error: {exc}]"
+
+    def _cmd_evolve_start(self) -> str:
+        """Start background evolution."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        self.evolve_engine.refresh_from_core()
+        ok = self.evolve_engine.start_background_evolution()
+        return "✅ Background evolution started." if ok else "⚠️ Evolution already running."
+
+    def _cmd_evolve_stop(self) -> str:
+        """Stop background evolution."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        self.evolve_engine.stop_background_evolution()
+        return "✅ Background evolution stopped."
+
+    def _cmd_evolve_status(self) -> str:
+        """Show evolution status."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        status = self.evolve_engine.get_status()
+        lines = [
+            "🧬 **EvolveEngine Status:**",
+            f"  Running    : {'✅ Yes' if status['running'] else '❌ No'}",
+            f"  Iterations : {status['iteration']}",
+            f"  Stats      : {status['stats']}",
+            f"  Last Dir   : {status.get('last_direction', 'none')}",
+            f"  Modules    :",
+        ]
+        for mod, avail in status.get("available_modules", {}).items():
+            lines.append(f"    {'✅' if avail else '❌'} {mod}")
+        return "\n".join(lines)
+
+    def _cmd_evolve_history(self) -> str:
+        """Show evolution history."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        return self.evolve_engine.summarize_history()
+
+    def _cmd_research_code(self, spec: str) -> str:
+        """Research a programming language from the internet."""
+        if not self.researcher:
+            return "[Researcher not available]"
+        parts = spec.split(None, 1)
+        language = parts[0] if parts else "python"
+        topic = parts[1] if len(parts) > 1 else "best practices"
+        if hasattr(self.researcher, "research_code_and_feed_generator"):
+            return self.researcher.research_code_and_feed_generator(
+                language, topic, code_generator=self.code_generator
+            )
+        return f"[research_code not available — upgrade self_researcher.py]"
 
     def _cmd_status(self, text: str) -> str:
         """Status command."""
@@ -2066,10 +2142,13 @@ Uptime: {stats['uptime_seconds']}s
             if self.config.enable_autonomous_engine and AutonomousLearningEngine:
                 try:
                     self.autonomous_engine = AutonomousLearningEngine(
-                        self,
-                        self.db,
-                        self.researcher,
-                        self.improvements
+                        core=self,
+                        researcher=getattr(self, "researcher", None),
+                        idea_generator=getattr(self, "idea_generator", None),
+                        reflect_module=getattr(self, "reflect", None),
+                        self_teacher=getattr(self, "self_teacher", None),
+                        slsa_manager=getattr(self, "slsa_manager", None),
+                        knowledge_db=self.db,
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -2156,6 +2235,28 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.debug(f"SoftwareStudier init failed: {e}")
                     self.startup_report.add("software_studier", "degraded", str(e))
+
+            # ============================
+            # EVOLVE ENGINE
+            # ============================
+            if EvolveEngine:
+                try:
+                    self.evolve_engine = EvolveEngine(
+                        core=self,
+                        researcher=getattr(self, "researcher", None),
+                        code_generator=getattr(self, "code_generator", None),
+                        code_compiler=getattr(self, "code_compiler", None),
+                        software_studier=getattr(self, "software_studier", None),
+                        self_teacher=getattr(self, "self_teacher", None),
+                        reflect_module=getattr(self, "reflect", None),
+                        idea_generator=getattr(self, "idea_generator", None),
+                        knowledge_db=self.db,
+                    )
+                    log.info("✅ EvolveEngine initialized")
+                    self.startup_report.add("evolve_engine", "ready")
+                except Exception as e:
+                    log.debug(f"EvolveEngine init failed: {e}")
+                    self.startup_report.add("evolve_engine", "degraded", str(e))
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))
@@ -3110,6 +3211,35 @@ Uptime: {stats['uptime_seconds']}s
         if ltext in ("available languages", "compiler languages", "supported languages"):
             log.debug("[CODE-CMD] available languages")
             return self._cmd_available_languages()
+
+        # ============================
+        # LAYER 7e: EVOLVE + CODE RESEARCH COMMANDS
+        # ============================
+
+        if ltext in ("evolve", "evolve step", "run evolve"):
+            log.debug("[EVOLVE-CMD] step")
+            return self._cmd_evolve_step()
+
+        if ltext in ("evolve start", "start evolving", "start evolution"):
+            log.debug("[EVOLVE-CMD] start")
+            return self._cmd_evolve_start()
+
+        if ltext in ("evolve stop", "stop evolving", "stop evolution"):
+            log.debug("[EVOLVE-CMD] stop")
+            return self._cmd_evolve_stop()
+
+        if ltext in ("evolve status", "evolution status"):
+            log.debug("[EVOLVE-CMD] status")
+            return self._cmd_evolve_status()
+
+        if ltext in ("evolve history", "evolution history"):
+            log.debug("[EVOLVE-CMD] history")
+            return self._cmd_evolve_history()
+
+        if ltext.startswith("research code ") or ltext.startswith("research-code "):
+            rest = text.split(None, 2)[-1].strip()
+            log.debug("[CODE-RESEARCH-CMD] %s", rest[:40])
+            return self._cmd_research_code(rest)
 
         # ============================
         # LAYER 8: INTENT PARSING & CORE COMMANDS

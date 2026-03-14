@@ -241,6 +241,7 @@ class StructuralAwareness:
             ("code_compiler",       "CodeCompiler"),
             ("file_manager",        "FilesystemManager"),
             ("software_studier",    "SoftwareStudier"),
+            ("evolve_engine",       "EvolveEngine"),
             # Production modules
             ("command_registry",    "CommandRegistry"),
             ("rate_limiter",        "RateLimiter"),
