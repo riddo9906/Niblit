@@ -27,6 +27,18 @@
       "dest": "app.py"
     },
     {
+      "src": "/api/commands",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/status",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/search",
+      "dest": "app.py"
+    },
+    {
       "src": "/(.*)",
       "dest": "app.py"
     }
