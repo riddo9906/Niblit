@@ -171,7 +171,9 @@ class NiblitRouter:
         "status", "health", "time", "help", "commands",
         "evolve", "exit", "quit", "shutdown",
         "start_slsa", "stop_slsa", "restart_slsa", "slsa-status", "status_slsa",
-        "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status"
+        "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status",
+        "recall", "acquired data", "acquired-data", "knowledge stats", "knowledge-stats",
+        "ale processes", "ale-processes", "kb stats", "kb-stats",
     )
 
     CHAT_RESPONSES = {
@@ -504,36 +506,59 @@ I'm constantly improving myself through autonomous learning cycles!"""
                     except Exception:
                         pass
 
+                # Also pull KB summary if available
+                kb_summary = ""
+                if db and hasattr(db, "get_knowledge_summary"):
+                    try:
+                        kb_summary = db.get_knowledge_summary()
+                    except Exception:
+                        pass
+
                 if stats:
+                    s = stats["stats"]
                     response = f"""🎓 **My Learning Progress:**
 
-📊 Research Cycles Completed: {stats['stats'].get('research_completed', 0)}
-💡 Ideas Generated: {stats['stats'].get('ideas_generated', 0)}
-🚀 Ideas Implemented: {stats['stats'].get('ideas_implemented', 0)}
-🧠 Reflections Conducted: {stats['stats'].get('reflections_conducted', 0)}
-🔄 SLSA Runs: {stats['stats'].get('slsa_runs', 0)}
+📊 Research Cycles Completed: {s.get('research_completed', 0)}
+💡 Ideas Generated: {s.get('ideas_generated', 0)}
+🚀 Ideas Implemented: {s.get('ideas_implemented', 0)}
+🧠 Reflections Conducted: {s.get('reflections_conducted', 0)}
+🔄 SLSA Runs: {s.get('slsa_runs', 0)}
+🧬 Evolve Steps: {s.get('evolve_steps', 0)}
+💻 Code Researched: {s.get('code_researched', 0)} | Generated: {s.get('code_generated', 0)} | Compiled: {s.get('code_compiled', 0)}
+📖 Software Categories Studied: {s.get('software_studied', 0)}
 
-Learning Rate: {stats['stats'].get('learning_rate', 0):.4f} actions/sec
-Active Research Topics: {stats['research_topics']}
-System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}"""
+Learning Rate: {s.get('learning_rate', 0):.6f} actions/sec
+Active Research Topics: {stats.get('research_topics', 0)}
+System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}
+
+All acquired data is stored in KnowledgeDB and can be recalled:
+  'recall <topic>'         — search stored facts
+  'acquired data'          — browse all acquired facts
+  'knowledge stats'        — full KB summary
+  'ale processes'          — explain all 12 ALE steps"""
                     return response
+                elif kb_summary:
+                    return kb_summary
                 else:
                     return "I'm learning continuously! Use 'autonomous-learn status' to see my progress."
 
             # Memory/capabilities
             if 'memory' in query_lower or 'capabilit' in query_lower or 'can you do' in query_lower:
                 mem_count = 0
+                fact_count = 0
                 try:
                     if hasattr(db, "recent_interactions"):
                         mem_count = len(safe_call(db.recent_interactions, 500) or [])
                     elif hasattr(db, "get_learning_log"):
                         mem_count = len(safe_call(db.get_learning_log) or [])
+                    if hasattr(db, "list_facts"):
+                        fact_count = len(safe_call(db.list_facts, 10000) or [])
                 except Exception:
                     pass
 
                 response = f"""📚 **My Capabilities:**
 
-✅ Store & Recall: {mem_count} memory entries
+✅ Store & Recall: {mem_count} interactions + {fact_count} acquired facts
 ✅ Research Topics: Using internet + DuckDuckGo
 ✅ Generate Ideas: Through autonomous idea generation
 ✅ Reflect on Learning: Analyze and synthesize knowledge
@@ -547,6 +572,13 @@ System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}""
 ✅ Hot-Reload Modules: Update myself without restarting
 ✅ Evolve Continuously: Research + code-gen + teach + reflect in every step
 ✅ Research Code: Fetch real programming language info from internet → feed CodeGenerator
+✅ Knowledge Recall: All ALE output stored in KnowledgeDB, searchable anytime
+
+Data Recall Commands:
+  'recall <topic>'       — search stored knowledge
+  'acquired data'        — browse acquired facts
+  'knowledge stats'      — KB summary
+  'ale processes'        — ALE process awareness
 
 I can work in two modes:
 - 🤖 With LLM: AI-powered conversations
@@ -833,6 +865,15 @@ Ask me about:
             "autonomous-learn add-topic <topic>  — Add research topic\n"
             "autonomous-learn add-topics <t1,t2> — Add multiple topics"
         )
+
+    # ─────────────────────────────────
+    # KNOWLEDGE RECALL & ACQUIRED DATA
+    # ─────────────────────────────────
+    def _handle_knowledge(self, cmd):
+        """Route recall / acquired-data / knowledge-stats / ale-processes commands."""
+        if not self.core:
+            return "[Core not available — cannot access KnowledgeDB]"
+        return safe_call(self.core.handle, cmd)
 
     # ─────────────────────────────────
     # CHAT RESPONSE GENERATOR
@@ -1280,6 +1321,14 @@ Ask me about:
         if lower.startswith("autonomous-learn"):
             return self._handle_autonomous_learn(cmd)
 
+        # KNOWLEDGE RECALL & ACQUIRED DATA COMMANDS
+        if (lower.startswith("recall") or lower.startswith("acquired data")
+                or lower.startswith("acquired-data") or lower in (
+                    "knowledge stats", "knowledge-stats", "kb stats", "kb-stats",
+                    "ale processes", "ale-processes",
+                )):
+            return self._handle_knowledge(cmd)
+
         # SLSA COMMANDS
         if lower.startswith("start_slsa"):
             parts = cmd.split(" ", 1)
@@ -1444,10 +1493,14 @@ Ask me about:
             "what would you improve?      — Hear about my improvement plans",
             "what are your limitations?   — My honest weaknesses",
             "how do you feel about yourself? — My self-reflection",
+            "what have you learned?       — Learning progress + KB summary",
+            "what can you do?             — Capabilities + acquired data counts",
+            "how do you work?             — Operational flow, ALE, all processes",
+            "ale processes                — Full ALE step-by-step process awareness",
             "",
             "=== ABOUT NIBLIT ===",
             "what are you?                — Learn about Niblit",
-            "what have you learned?       — See learning progress",
+            "what have you learned?       — See learning progress + stored facts",
             "what can you do?             — View capabilities",
             "how do you work?             — How I operate",
             "",
@@ -1455,6 +1508,16 @@ Ask me about:
             "hi, hello, hey               — Casual greeting",
             "how are you?                 — Check in",
             "thanks                       — Say thank you",
+            "",
+            "=== KNOWLEDGE RECALL & ACQUIRED DATA ===",
+            "recall <topic>               — Search KnowledgeDB for any stored fact",
+            "                               (searches: facts, events, interactions, log)",
+            "acquired data                — Browse all facts acquired by ALE processes",
+            "acquired data <category>     — Filter: research|ideas|code|compiled|",
+            "                               reflection|software_study|implementation|all",
+            "knowledge stats              — Full KnowledgeDB summary with ALE breakdown",
+            "ale processes                — Explain all 12 ALE steps + module status",
+            "  Note: ALL ALE output is stored in KnowledgeDB and is recallable.",
             "",
             "=== INTERNET & RESEARCH ===",
             "search <query>               — Search internet (primary data source)",

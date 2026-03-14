@@ -287,6 +287,7 @@ COMMANDS = [
     "autonomous-learn add-topic", "autonomous-learn code-status",
     "evolve", "evolve start", "evolve stop", "evolve status", "evolve history",
     "research code",
+    "recall", "acquired data", "knowledge stats", "ale processes",
 ]
 
 # ============================================================
@@ -1187,6 +1188,20 @@ class NiblitCore:
             "autonomous-learn code-status", self._cmd_autonomous_code_status,
             "View code literacy status", "autonomous", priority=98
         )
+
+        # Knowledge recall & acquired data commands
+        self.command_registry.register(
+            "recall", self._cmd_recall, "Recall acquired data from KnowledgeDB", "knowledge", priority=95
+        )
+        self.command_registry.register(
+            "acquired data", self._cmd_acquired_data, "Browse acquired data by category", "knowledge", priority=95
+        )
+        self.command_registry.register(
+            "knowledge stats", self._cmd_knowledge_stats, "KnowledgeDB statistics and summary", "knowledge", priority=95
+        )
+        self.command_registry.register(
+            "ale processes", self._cmd_ale_process_awareness, "ALE process awareness", "knowledge", priority=95
+        )
         
         # SLSA commands
         self.command_registry.register(
@@ -1351,6 +1366,165 @@ Uptime: {stats['uptime_seconds']}s
         
         result = self.autonomous_engine.add_research_topic(topic)
         return f"✅ Topic added: {topic}" if result else "ℹ️ Topic already exists"
+
+    # ============================
+    # KNOWLEDGE RECALL & ACQUIRED DATA COMMANDS
+    # ============================
+
+    def _cmd_recall(self, text: str) -> str:
+        """Recall acquired data from KnowledgeDB matching a query."""
+        query = text.strip()
+        for prefix in ("recall ", "recall"):
+            if query.lower().startswith(prefix):
+                query = query[len(prefix):].strip()
+                break
+
+        if not self.db:
+            return "[❌ KnowledgeDB not available]"
+
+        try:
+            results = self.db.recall(query, limit=8)
+        except Exception as exc:
+            return f"[Recall error: {exc}]"
+
+        if not results:
+            return f"ℹ️ Nothing found for '{query}'. Try 'acquired data' or 'knowledge stats'."
+
+        lines = [f"🔍 **Recall results for '{query}'** ({len(results)} entries):\n"]
+        for i, r in enumerate(results, 1):
+            if isinstance(r, dict):
+                key = r.get("key", r.get("topic", r.get("time", "")))
+                value = r.get("value", r.get("input", r.get("text", str(r))))
+                tags = r.get("tags", [])
+                snippet = str(value)[:120].replace("\n", " ")
+                tag_str = f"  [{', '.join(str(t) for t in tags[:3])}]" if tags else ""
+                lines.append(f"  {i}. [{key}]{tag_str}\n     {snippet}")
+            else:
+                lines.append(f"  {i}. {str(r)[:120]}")
+        return "\n".join(lines)
+
+    def _cmd_acquired_data(self, text: str) -> str:
+        """Show acquired data stored in KnowledgeDB, optionally filtered by category."""
+        rest = text.strip()
+        for prefix in ("acquired data ", "acquired data", "acquired-data ", "acquired-data"):
+            if rest.lower().startswith(prefix):
+                rest = rest[len(prefix):].strip()
+                break
+        else:
+            rest = ""
+
+        category = rest or None
+
+        if not self.db or not hasattr(self.db, "get_acquired_data"):
+            return "[❌ KnowledgeDB does not support get_acquired_data]"
+
+        try:
+            data = self.db.get_acquired_data(category=category, limit=20)
+        except Exception as exc:
+            return f"[Acquired data error: {exc}]"
+
+        if not data:
+            cat_msg = f" in category '{category}'" if category else ""
+            return f"ℹ️ No acquired data{cat_msg} yet. Start 'autonomous-learn start' to begin collecting."
+
+        cat_label = f" [{category}]" if category else ""
+        lines = [f"📦 **Acquired Data{cat_label}** ({len(data)} entries, newest first):\n"]
+        for i, fact in enumerate(data[:15], 1):
+            key = str(fact.get("key", ""))[:50]
+            value = fact.get("value", "")
+            tags = fact.get("tags", [])
+            snippet = str(value)[:100].replace("\n", " ")
+            tag_str = ", ".join(str(t) for t in tags[:3])
+            lines.append(f"  {i}. {key}\n     {snippet}\n     tags: {tag_str}")
+        if len(data) > 15:
+            lines.append(f"\n  ... and {len(data) - 15} more. Use 'acquired data <category>' to filter.")
+
+        categories = ["research", "ideas", "implementation", "reflection", "code",
+                      "compiled", "software_study", "all"]
+        lines.append(f"\n📂 Available categories: {', '.join(categories)}")
+        return "\n".join(lines)
+
+    def _cmd_knowledge_stats(self, text: str) -> str:
+        """Show a summary of all stored knowledge and ALE process awareness."""
+        if not self.db:
+            return "[❌ KnowledgeDB not available]"
+
+        if hasattr(self.db, "get_knowledge_summary"):
+            try:
+                return self.db.get_knowledge_summary()
+            except Exception as exc:
+                return f"[Knowledge summary error: {exc}]"
+
+        # Fallback: basic stats
+        try:
+            all_data = self.db.get_all() if hasattr(self.db, "get_all") else {}
+            lines = ["📚 **Knowledge Base Stats:**\n"]
+            for section, items in all_data.items():
+                count = len(items) if isinstance(items, (list, dict)) else "—"
+                lines.append(f"  {section:<20}: {count}")
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"[Knowledge stats error: {exc}]"
+
+    def _cmd_ale_process_awareness(self, text: str) -> str:
+        """Explain all Niblit ALE processes and how data flows through them."""
+        ale_stats = {}
+        if self.autonomous_engine:
+            try:
+                ale_stats = self.autonomous_engine.get_learning_stats()
+            except Exception:
+                pass
+
+        s = ale_stats.get("stats", {})
+        mods = ale_stats.get("modules_available", {})
+
+        lines = [
+            "🧠 **NIBLIT AUTONOMOUS LEARNING ENGINE — PROCESS AWARENESS**\n",
+            "Niblit runs 12 self-improvement steps every idle cycle.",
+            "All output is stored as structured facts in KnowledgeDB.",
+            "Internet is the primary data source for collection steps.\n",
+            "━━━ CORE LEARNING LOOP ━━━",
+            f"  Step 1 — Research       : researcher+internet → KB  [{s.get('research_completed', 0)} runs]",
+            f"  Step 2 — Idea Generation: SelfIdeaImpl/Generator    [{s.get('ideas_generated', 0)} ideas]",
+            f"  Step 3 — Implementation : SelfImplementer executes  [{s.get('ideas_implemented', 0)} implemented]",
+            f"  Step 4 — Reflection     : ReflectModule summarizes  [{s.get('reflections_conducted', 0)} reflections]",
+            f"  Step 5 — SLSA           : generates knowledge artif [{s.get('slsa_runs', 0)} runs]",
+            f"  Step 6 — Learning       : SelfTeacher internalizes  [see KB: learning]",
+            f"  Step 7 — Evolution      : EvolveEngine self-evolves [{s.get('evolve_steps', 0)} steps]",
+            "",
+            "━━━ PROGRAMMING LITERACY LOOP ━━━",
+            f"  Step 8  — Code Research : internet+researcher→KB    [{s.get('code_researched', 0)} cycles]",
+            f"  Step 9  — Code Generate : idea+implementer→code     [{s.get('code_generated', 0)} snippets]",
+            f"  Step 10 — Code Compile  : CodeCompiler runs it      [{s.get('code_compiled', 0)} compiled]",
+            f"  Step 11 — Code Reflect  : ReflectModule studies it  [{s.get('code_reflected', 0)} reflected]",
+            f"  Step 12 — SW Study      : SoftwareStudier+internet  [{s.get('software_studied', 0)} categories]",
+            "",
+            "━━━ DATA STORAGE ━━━",
+            "  Every step stores a structured fact in KnowledgeDB with:",
+            "    • Unique key (ale_<step>:<topic>:<timestamp>)",
+            "    • Value dict with topic, result, and step name",
+            "    • Tags: [ale_stepN, <category>, autonomous]",
+            "  Data persists to niblit_memory.json automatically.",
+            "  Recall with: 'recall <topic>'",
+            "  Browse with: 'acquired data [category]'",
+            "  Summary  : 'knowledge stats'",
+            "",
+            "━━━ MODULE STATUS ━━━",
+        ]
+        for mod, available in mods.items():
+            lines.append(f"  {mod:<20}: {'✅' if available else '❌'}")
+
+        lines += [
+            "",
+            "━━━ HOW TO QUERY ━━━",
+            "  recall <topic>           — search all KB for topic",
+            "  acquired data            — browse all acquired facts",
+            "  acquired data research   — facts from Step 1",
+            "  acquired data code       — facts from Steps 8-11",
+            "  acquired data compiled   — compiled code output",
+            "  knowledge stats          — full KB summary",
+        ]
+        return "\n".join(lines)
 
     # ============================
     # SELF-IMPROVEMENT COMMANDS
@@ -3463,6 +3637,27 @@ Uptime: {stats['uptime_seconds']}s
             return self._cmd_research_code(rest)
 
         # ============================
+        # LAYER 7f: KNOWLEDGE RECALL & ACQUIRED DATA COMMANDS
+        # ============================
+
+        if ltext.startswith("recall ") or ltext == "recall":
+            log.debug("[KNOWLEDGE-CMD] recall")
+            return self._cmd_recall(text)
+
+        if ltext.startswith("acquired data") or ltext.startswith("acquired-data"):
+            log.debug("[KNOWLEDGE-CMD] acquired data")
+            return self._cmd_acquired_data(text)
+
+        if ltext in ("knowledge stats", "knowledge-stats", "kb stats", "kb-stats"):
+            log.debug("[KNOWLEDGE-CMD] knowledge stats")
+            return self._cmd_knowledge_stats(text)
+
+        if ltext in ("ale processes", "ale-processes", "show ale", "niblit processes",
+                     "how do you learn", "learning processes", "all processes"):
+            log.debug("[KNOWLEDGE-CMD] ale processes")
+            return self._cmd_ale_process_awareness(text)
+
+        # ============================
         # LAYER 8: INTENT PARSING & CORE COMMANDS
         # ============================
         intent, meta = parse_intent(text)
@@ -3564,6 +3759,13 @@ Uptime: {stats['uptime_seconds']}s
             "remember key:value       — Store a fact\n"
             "learn about <topic>      — Queue for research\n"
             "ideas about <topic>      — Get creative ideas\n"
+            "\n--- KNOWLEDGE RECALL & ACQUIRED DATA ---\n"
+            "recall <topic>           — Search KnowledgeDB for topic (searches all stored facts)\n"
+            "acquired data            — Browse all acquired facts from ALE processes\n"
+            "acquired data <category> — Filter by: research, ideas, code, compiled,\n"
+            "                           reflection, software_study, implementation, all\n"
+            "knowledge stats          — Full KnowledgeDB summary (counts, top tags, ALE breakdown)\n"
+            "ale processes            — Explain all 12 ALE steps + data storage + module status\n"
             "\n--- AUTONOMOUS LEARNING ---\n"
             "autonomous-learn start              — Start background learning (incl. code loop)\n"
             "autonomous-learn stop               — Stop background learning\n"
@@ -3572,11 +3774,19 @@ Uptime: {stats['uptime_seconds']}s
             "autonomous-learn code-status        — View programming literacy status\n"
             "\n--- PROGRAMMING LITERACY (CODE LOOP) ---\n"
             "  Runs during idle time — internet is the primary data source:\n"
-            "  Step 8:  Code Research   — researcher+internet → CodeGenerator\n"
-            "  Step 9:  Code Generation — idea+implementer produce compilable code\n"
-            "  Step 10: Code Compile    — CodeCompiler runs the generated code\n"
-            "  Step 11: Code Reflect    — ReflectModule studies compiled output\n"
-            "  Step 12: Software Study  — SoftwareStudier learns patterns via internet\n"
+            "  Step  1: Research       — researcher+internet → KB (tag: ale_step1)\n"
+            "  Step  2: Ideas          — SelfIdeaImpl generates ideas    (tag: ale_step2)\n"
+            "  Step  3: Implement      — SelfImplementer executes ideas  (tag: ale_step3)\n"
+            "  Step  4: Reflection     — ReflectModule summarizes        (tag: ale_step4)\n"
+            "  Step  5: SLSA           — generates knowledge artifacts   (tag: ale_step5)\n"
+            "  Step  6: Learning       — SelfTeacher internalizes        (tag: ale_step6)\n"
+            "  Step  7: Evolve         — EvolveEngine self-evolves       (tag: ale_step7)\n"
+            "  Step  8: Code Research  — internet → CodeGenerator        (tag: ale_step8)\n"
+            "  Step  9: Code Generate  — idea+implementer → code         (tag: ale_step9)\n"
+            "  Step 10: Code Compile   — CodeCompiler runs it            (tag: ale_step10)\n"
+            "  Step 11: Code Reflect   — ReflectModule studies output    (tag: ale_step11)\n"
+            "  Step 12: SW Study       — SoftwareStudier+internet        (tag: ale_step12)\n"
+            "  All output stored in KnowledgeDB.  Recall: 'recall <topic>'\n"
             "\n--- 10 SELF-IMPROVEMENTS ---\n"
             "show improvements        — View all 10 improvements\n"
             "run improvement-cycle    — Execute improvement cycle\n"

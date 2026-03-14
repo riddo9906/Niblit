@@ -205,6 +205,17 @@ class AutonomousLearningEngine:
                     self.knowledge_db.log_event(
                         f"Autonomous research completed: {topic} ({len(results) if results else 0} results)"
                     )
+                    # Store structured acquired data fact
+                    self.knowledge_db.add_fact(
+                        f"ale_research:{topic.replace(' ', '_')}:{int(time.time())}",
+                        {
+                            "topic": topic,
+                            "results_count": len(results) if results else 0,
+                            "summary": str(results[0])[:300] if results else "no results",
+                            "step": "step1_research",
+                        },
+                        tags=["ale_step1", "research", "autonomous", topic.split()[0].lower()],
+                    )
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
@@ -235,6 +246,12 @@ class AutonomousLearningEngine:
                     if self.knowledge_db:
                         try:
                             self.knowledge_db.log_event(f"Autonomous idea (SelfIdeaImpl): {idea_text[:50]}")
+                            self.knowledge_db.add_fact(
+                                f"ale_idea:{int(time.time())}",
+                                {"topic": topic, "idea": idea_text[:300], "generator": "SelfIdeaImpl",
+                                 "step": "step2_ideas"},
+                                tags=["ale_step2", "ideas", "autonomous"],
+                            )
                         except Exception as _db_e:
                             log.debug(f"Knowledge DB log_event failed: {_db_e}")
                     log.info(f"✅ [AUTONOMOUS IDEAS] SelfIdeaImpl generated: {idea_text[:50]}")
@@ -262,6 +279,12 @@ class AutonomousLearningEngine:
                     if self.knowledge_db:
                         try:
                             self.knowledge_db.log_event(f"Autonomous idea generated: {idea_str[:50]}")
+                            self.knowledge_db.add_fact(
+                                f"ale_idea:{int(time.time())}",
+                                {"topic": topic, "idea": idea_str[:300], "generator": "legacy",
+                                 "step": "step2_ideas"},
+                                tags=["ale_step2", "ideas", "autonomous"],
+                            )
                         except Exception:
                             pass
                     log.info(f"✅ [AUTONOMOUS IDEAS] Generated: {idea_str[:50]}")
@@ -291,6 +314,12 @@ class AutonomousLearningEngine:
                 if self.knowledge_db:
                     try:
                         self.knowledge_db.log_event(f"Autonomous implement queued: {idea_str[:50]}")
+                        self.knowledge_db.add_fact(
+                            f"ale_implementation:{int(time.time())}",
+                            {"idea": idea_str[:300], "method": "SelfImplementer.enqueue_plan",
+                             "step": "step3_implementation"},
+                            tags=["ale_step3", "implementation", "autonomous"],
+                        )
                     except Exception:
                         pass
                 log.info(f"✅ [AUTONOMOUS IMPLEMENT] Enqueued to SelfImplementer")
@@ -312,6 +341,12 @@ class AutonomousLearningEngine:
                     if self.knowledge_db:
                         try:
                             self.knowledge_db.log_event(f"Autonomous implementation: {idea_str[:50]}")
+                            self.knowledge_db.add_fact(
+                                f"ale_implementation:{int(time.time())}",
+                                {"idea": idea_str[:300], "plan": str(plan)[:200],
+                                 "method": "legacy", "step": "step3_implementation"},
+                                tags=["ale_step3", "implementation", "autonomous"],
+                            )
                         except Exception:
                             pass
                     log.info(f"✅ [AUTONOMOUS IMPLEMENT] Executed")
@@ -351,6 +386,13 @@ Autonomous Learning Summary:
             if self.knowledge_db:
                 try:
                     self.knowledge_db.log_event("Autonomous reflection completed")
+                    self.knowledge_db.add_fact(
+                        f"ale_reflection:{int(time.time())}",
+                        {"topic": last_topic, "idea": last_idea,
+                         "summary": str(result or reflection_text)[:400],
+                         "step": "step4_reflection"},
+                        tags=["ale_step4", "reflection", "autonomous"],
+                    )
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
@@ -387,6 +429,11 @@ Autonomous Learning Summary:
             if self.knowledge_db:
                 try:
                     self.knowledge_db.log_event(f"Autonomous SLSA started with topics: {topics}")
+                    self.knowledge_db.add_fact(
+                        f"ale_slsa:{int(time.time())}",
+                        {"topics": topics, "step": "step5_slsa"},
+                        tags=["ale_step5", "slsa", "autonomous"],
+                    )
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
@@ -414,6 +461,12 @@ Autonomous Learning Summary:
             if self.knowledge_db:
                 try:
                     self.knowledge_db.log_event(f"Autonomous teaching: {last_topic}")
+                    self.knowledge_db.add_fact(
+                        f"ale_learning:{last_topic.replace(' ', '_')}:{int(time.time())}",
+                        {"topic": last_topic, "result": str(result or "")[:300],
+                         "step": "step6_learning"},
+                        tags=["ale_step6", "learning", "autonomous"],
+                    )
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
@@ -816,6 +869,14 @@ Autonomous Learning Summary:
                     self.knowledge_db.log_event(
                         f"Autonomous evolve step {record.get('iteration', '?')}: "
                         f"{record.get('direction', '')} ({actions_count} actions)"
+                    )
+                    self.knowledge_db.add_fact(
+                        f"ale_evolve:{int(time.time())}",
+                        {"iteration": record.get("iteration", "?"),
+                         "direction": record.get("direction", ""),
+                         "actions_count": actions_count,
+                         "step": "step7_evolve"},
+                        tags=["ale_step7", "evolve", "autonomous"],
                     )
                 except Exception:
                     pass
