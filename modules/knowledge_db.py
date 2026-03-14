@@ -540,8 +540,8 @@ class KnowledgeDB:
         lines += [
             "",
             "ℹ️  Niblit's ALE runs 12 steps every idle cycle:",
-            "  1-7: Research, ideas, implement, learn, reflect, SLSA, evolve",
-            "  8-12: Code research, code gen, compile, code reflect, software study",
+            "  Steps 1-7 : Research → Ideas → Implement → Reflect → SLSA → Learn → Evolve",
+            "  Steps 8-12: Code Research → Code Generate → Compile → Code Reflect → SW Study",
             "  Internet is the primary data source; all output lands in KnowledgeDB.",
             "  Use 'recall <topic>' to query any stored fact.",
             "  Use 'acquired data [category]' to browse by category.",

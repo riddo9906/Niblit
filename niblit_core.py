@@ -1374,10 +1374,11 @@ Uptime: {stats['uptime_seconds']}s
     def _cmd_recall(self, text: str) -> str:
         """Recall acquired data from KnowledgeDB matching a query."""
         query = text.strip()
-        for prefix in ("recall ", "recall"):
-            if query.lower().startswith(prefix):
-                query = query[len(prefix):].strip()
-                break
+        # Strip the 'recall' command prefix (with or without trailing space)
+        if query.lower().startswith("recall "):
+            query = query[len("recall "):].strip()
+        elif query.lower() == "recall":
+            query = ""
 
         if not self.db:
             return "[❌ KnowledgeDB not available]"

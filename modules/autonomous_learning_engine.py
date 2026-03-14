@@ -136,6 +136,9 @@ class AutonomousLearningEngine:
         # Recently compiled code snippets waiting for reflection
         self._pending_compiled: List[Dict[str, Any]] = []
 
+        # Compiled code records queued for the reflect step (populated by _autonomous_code_compilation)
+        self._compiled_for_reflection: List[Dict[str, Any]] = []
+
         # Learning history
         self.learning_history = {
             "research_completed": 0,
@@ -706,9 +709,7 @@ Autonomous Learning Summary:
             # Queue for reflection
             if not success:
                 self._pending_compiled.insert(0, compiled_record)
-            # Store a copy for reflect step
-            if not hasattr(self, "_compiled_for_reflection"):
-                self._compiled_for_reflection: List[Dict[str, Any]] = []
+            # Store a copy for reflect step (attribute initialized in __init__)
             self._compiled_for_reflection.append(compiled_record)
 
             self.learning_history["code_compiled"] = self.learning_history.get("code_compiled", 0) + 1
@@ -728,9 +729,6 @@ Autonomous Learning Summary:
         """Step 11: ReflectModule studies compiled output so Niblit understands code."""
         if not self.reflect:
             return "[Code reflection skipped — ReflectModule not available]"
-
-        if not hasattr(self, "_compiled_for_reflection"):
-            self._compiled_for_reflection = []
 
         if not self._compiled_for_reflection:
             return "[No compiled code queued for reflection]"
@@ -819,7 +817,7 @@ Autonomous Learning Summary:
                 log.debug(f"Internet software study failed: {exc}")
 
         # 3. Analyze code patterns from the last compiled item for this category
-        if hasattr(self, "_compiled_for_reflection") and self._compiled_for_reflection:
+        if self._compiled_for_reflection:
             last = self._compiled_for_reflection[-1] if self._compiled_for_reflection else {}
             code_snippet = last.get("code", "")
             if code_snippet:
@@ -940,11 +938,13 @@ Autonomous Learning Summary:
         log.info(f"✅ [AUTONOMOUS CYCLE] Summary:\n{summary}")
         log.info("=" * 70)
 
-        # Update learning rate — use .get() consistently for all keys
+        # Update learning rate — count every discrete learning action
         elapsed = (datetime.utcnow() - datetime.fromisoformat(self.learning_history["start_time"])).total_seconds()
         total_actions = sum(self.learning_history.get(k, 0) for k in (
-            "research_completed", "ideas_implemented", "reflections_conducted",
-            "evolve_steps", "code_researched", "code_compiled", "software_studied",
+            "research_completed", "ideas_generated", "ideas_implemented",
+            "reflections_conducted", "slsa_runs", "evolve_steps",
+            "code_researched", "code_generated", "code_compiled",
+            "code_reflected", "software_studied",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
