@@ -10,4 +10,9 @@ class SelfMaintenance:
         log.debug("[SelfMaintenance] System check OK")
 
 if __name__ == "__main__":
-    print('Running self_maintenance_full.py')
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== SelfMaintenance self-test ===")
+    sm = SelfMaintenance()
+    sm.diagnose()
+    print("SelfMaintenance OK")

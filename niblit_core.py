@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime
+niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime with Full Self-Improvement
 
-Enhanced with 17 production improvements:
+Enhanced with 17 production improvements + 10 self-improvement modules + Autonomous Learning:
 1. CommandRegistry - Clean command dispatcher
 2. LayeredArchitecture - Separation of concerns
 3. DependencyInjection - Testable design
@@ -21,9 +21,13 @@ Enhanced with 17 production improvements:
 16. FullBackwardCompatibility - All logic preserved
 17. ProductionReady - Enterprise-grade reliability
 
++ 10 SELF-IMPROVEMENT MODULES + AUTONOMOUS LEARNING ENGINE
+
 Architecture:
 User Input → CommandRegistry (commands only, zero LLM)
           → RouterLayer (complex routing)
+          → ImprovementsLayer (autonomous self-improvement)
+          → AutonomousLayer (background learning when idle)
           → LLMLayer (general chat only)
 
 Compatible with main.py, server.py, and app.py.
@@ -153,13 +157,137 @@ except Exception as e:
     AlertManager = None
 
 # ============================================================
+# 10 SELF-IMPROVEMENT MODULES IMPORTS
+# ============================================================
+try:
+    from modules.parallel_learner import ParallelLearner
+except Exception as e:
+    log.debug(f"ParallelLearner import failed: {e}")
+    ParallelLearner = None
+
+try:
+    from modules.reasoning_engine import ReasoningEngine
+except Exception as e:
+    log.debug(f"ReasoningEngine import failed: {e}")
+    ReasoningEngine = None
+
+try:
+    from modules.gap_analyzer import GapAnalyzer
+except Exception as e:
+    log.debug(f"GapAnalyzer import failed: {e}")
+    GapAnalyzer = None
+
+try:
+    from modules.knowledge_synthesizer import KnowledgeSynthesizer
+except Exception as e:
+    log.debug(f"KnowledgeSynthesizer import failed: {e}")
+    KnowledgeSynthesizer = None
+
+try:
+    from modules.prediction_engine import PredictionEngine
+except Exception as e:
+    log.debug(f"PredictionEngine import failed: {e}")
+    PredictionEngine = None
+
+try:
+    from modules.memory_optimizer import MemoryOptimizer
+except Exception as e:
+    log.debug(f"MemoryOptimizer import failed: {e}")
+    MemoryOptimizer = None
+
+try:
+    from modules.adaptive_learning import AdaptiveLearning
+except Exception as e:
+    log.debug(f"AdaptiveLearning import failed: {e}")
+    AdaptiveLearning = None
+
+try:
+    from modules.metacognition import Metacognition
+except Exception as e:
+    log.debug(f"Metacognition import failed: {e}")
+    Metacognition = None
+
+try:
+    from modules.collaborative_learner import CollaborativeLearner
+except Exception as e:
+    log.debug(f"CollaborativeLearner import failed: {e}")
+    CollaborativeLearner = None
+
+try:
+    from modules.improvement_integrator import ImprovementIntegrator
+except Exception as e:
+    log.debug(f"ImprovementIntegrator import failed: {e}")
+    ImprovementIntegrator = None
+
+# ============================================================
+# AUTONOMOUS LEARNING ENGINE IMPORT
+# ============================================================
+try:
+    from modules.autonomous_learning_engine import AutonomousLearningEngine
+except Exception as e:
+    log.debug(f"AutonomousLearningEngine import failed: {e}")
+    AutonomousLearningEngine = None
+
+# ============================================================
+# LIVE UPDATER + STRUCTURAL AWARENESS IMPORTS
+# ============================================================
+try:
+    from modules.live_updater import LiveUpdater
+except Exception as e:
+    log.debug(f"LiveUpdater import failed: {e}")
+    LiveUpdater = None
+
+try:
+    from modules.structural_awareness import StructuralAwareness
+except Exception as e:
+    log.debug(f"StructuralAwareness import failed: {e}")
+    StructuralAwareness = None
+
+try:
+    from modules.code_generator import CodeGenerator
+except Exception as e:
+    log.debug(f"CodeGenerator import failed: {e}")
+    CodeGenerator = None
+
+try:
+    from modules.code_compiler import CodeCompiler
+except Exception as e:
+    log.debug(f"CodeCompiler import failed: {e}")
+    CodeCompiler = None
+
+try:
+    from modules.filesystem_manager import FilesystemManager as FileManager
+except Exception as e:
+    log.debug(f"FilesystemManager import failed: {e}")
+    FileManager = None
+
+try:
+    from modules.software_studier import SoftwareStudier
+except Exception as e:
+    log.debug(f"SoftwareStudier import failed: {e}")
+    SoftwareStudier = None
+
+try:
+    from modules.evolve import EvolveEngine
+except Exception as e:
+    log.debug(f"EvolveEngine import failed: {e}")
+    EvolveEngine = None
+
+# ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
 DEBUG_MODE = True
 COMMANDS = [
     "help", "status", "memory", "search", "summary",
     "learn about", "self-heal", "self-teach", "self-research",
-    "debug on", "debug off", "threads"
+    "self-idea", "self-implement", "reflect", "idea-implement",
+    "debug on", "debug off", "threads",
+    "show improvements", "run improvement-cycle", "improvement-status",
+    "autonomous-learn start", "autonomous-learn stop", "autonomous-learn status",
+    "autonomous-learn add-topic", "autonomous-learn code-status",
+    "evolve", "evolve start", "evolve stop", "evolve status", "evolve history",
+    "research code",
+    "recall", "acquired data", "knowledge stats", "ale processes",
 ]
 
 # ============================================================
@@ -182,7 +310,9 @@ class NiblitConfig:
     shutdown_timeout_seconds: float = 30
     health_check_interval: int = 120
     dump_loop_log_interval: int = 300
-    enable_improvements: bool = True  # NEW: Enable all improvements
+    enable_improvements: bool = True
+    enable_self_improvements: bool = True
+    enable_autonomous_engine: bool = True
     
     def __post_init__(self):
         if self.tools_dir is None:
@@ -199,6 +329,8 @@ class NiblitConfig:
             enable_background_loops=os.getenv("NIBLIT_LOOPS", "true").lower() in ("true", "1"),
             enable_async_loops=os.getenv("NIBLIT_ASYNC", "false").lower() in ("true", "1"),
             enable_improvements=os.getenv("NIBLIT_IMPROVEMENTS", "true").lower() in ("true", "1"),
+            enable_self_improvements=os.getenv("NIBLIT_SELF_IMPROVEMENTS", "true").lower() in ("true", "1"),
+            enable_autonomous_engine=os.getenv("NIBLIT_AUTONOMOUS_ENGINE", "true").lower() in ("true", "1"),
         )
 
 
@@ -523,6 +655,12 @@ SelfImplementer = safe_import("self_implementer", Stub)
 SelfIdeaGenerator = safe_import("self_idea_generator", Stub)
 
 try:
+    from modules.self_idea_implementation import SelfIdeaImplementation
+except Exception as _e:
+    log.debug(f"SelfIdeaImplementation not available: {_e}")
+    SelfIdeaImplementation = None
+
+try:
     from modules.reflect import ReflectModule as Reflect_mod
 except Exception as _e:
     log.debug(f"ReflectModule not available: {_e}")
@@ -678,31 +816,133 @@ def hf_query(prompt: str) -> str:
 
 
 # ============================================================
+# LOOP TRACER
+# ============================================================
+
+class LoopTracer:
+    """
+    Thread-safe registry that captures structured error records from every
+    background loop in Niblit.
+
+    Each record has the shape::
+
+        {
+            "loop":      str,           # loop/thread name  (e.g. "HealthLoop")
+            "source":    str,           # file that owns the loop
+            "ts":        str,           # ISO-8601 timestamp of the error
+            "error":     str,           # str(exception)
+            "error_type":str,           # type(exception).__name__
+            "tb":        str,           # raw traceback string
+            "frames": [                 # parsed frame list
+                {
+                    "file":     str,    # absolute path
+                    "lineno":   int,
+                    "function": str,
+                    "code":     str,    # source line (stripped)
+                }
+            ],
+        }
+
+    Usage inside a loop body::
+
+        try:
+            ...loop work...
+        except Exception as exc:
+            loop_tracer.record("HealthLoop", exc)
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._errors: List[Dict] = []
+
+    # ----------------------------------------------------------
+    @staticmethod
+    def _parse_frames(tb_str: str) -> List[Dict]:
+        import re
+        frames = []
+        pattern = re.compile(r'File "([^"]+)",\s+line\s+(\d+),\s+in\s+(\S+)')
+        lines = tb_str.splitlines()
+        for i, line in enumerate(lines):
+            m = pattern.search(line)
+            if m:
+                code = lines[i + 1].strip() if i + 1 < len(lines) else ""
+                frames.append({
+                    "file": m.group(1),
+                    "lineno": int(m.group(2)),
+                    "function": m.group(3),
+                    "code": code,
+                })
+        return frames
+
+    # ----------------------------------------------------------
+    def record(self, loop_name: str, exc: Exception) -> None:
+        """Record a loop error.  Safe to call from any thread."""
+        import traceback as _tb
+        tb_str = _tb.format_exc()
+        frames = self._parse_frames(tb_str)
+        # Use the first (outermost) frame — that is the loop-owner file,
+        # e.g. niblit_core.py, niblit_memory.py, lifecycle_engine.py.
+        source = frames[0]["file"] if frames else "<unknown>"
+        record = {
+            "loop": loop_name,
+            "source": source,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+            "tb": tb_str,
+            "frames": frames,
+        }
+        with self._lock:
+            self._errors.append(record)
+        log.debug(f"[LoopTracer] {loop_name} error recorded: {exc}")
+
+    # ----------------------------------------------------------
+    def get_errors(self) -> List[Dict]:
+        """Return a snapshot of all recorded errors (thread-safe copy)."""
+        with self._lock:
+            return list(self._errors)
+
+    # ----------------------------------------------------------
+    def clear(self) -> None:
+        """Clear all recorded errors."""
+        with self._lock:
+            self._errors.clear()
+
+    # ----------------------------------------------------------
+    def summary(self) -> str:
+        """Return a compact human-readable summary."""
+        errors = self.get_errors()
+        if not errors:
+            return "[LoopTracer] No loop errors recorded."
+        lines = [f"[LoopTracer] {len(errors)} loop error(s):"]
+        for e in errors:
+            lines.append(
+                f"  loop={e['loop']}  type={e['error_type']}  "
+                f"source={e['source']}  ts={e['ts']}"
+            )
+            lines.append(f"    {e['error']}")
+        return "\n".join(lines)
+
+
+# Singleton instance shared across niblit_core and importers
+loop_tracer = LoopTracer()
+
+
+# ============================================================
 # CORE
 # ============================================================
 
 class NiblitCore:
     """
-    Production-Grade NiblitCore: Unified Autonomous AI Runtime
+    Production-Grade NiblitCore: Unified Autonomous AI Runtime with Full Self-Improvement
+
+    Integrates 40+ components with:
+    - 17 enterprise production improvements
+    - 10 self-improvement modules
+    - Autonomous Learning Engine (background learning when idle)
     
-    Integrates 40+ components with 17 enterprise improvements:
-    - CommandRegistry: Clean command dispatcher
-    - LayeredArchitecture: Separation of concerns
-    - DependencyInjection: Testable design
-    - StructuredLogging: Correlation ID tracing
-    - AsyncFirst: Full async/await support
-    - EventSourcing: Immutable audit trail
-    - RateLimiting: Token bucket algorithm
-    - Metrics: Observability & telemetry
-    - CircuitBreaker: Fault tolerance
-    - ConnectionPooling: Resource efficiency
-    - MultiLevelCaching: Performance optimization
-    - BatchProcessing: Bulk operation efficiency
-    - PluginArchitecture: Hot-reload support
-    - MonitoringAlerting: Prometheus integration
-    - CommandLLMDecoupling: Commands ≠ LLM (CRITICAL)
-    - FullBackwardCompatibility: All logic preserved
-    - ProductionReady: Enterprise-grade reliability
+    Architecture:
+    User Input → CommandRegistry → Router → Improvements → Autonomous Learning → LLM
     
     Compatible with main.py, server.py, and app.py.
     """
@@ -762,7 +1002,36 @@ class NiblitCore:
         self.plugin_manager: Optional[PluginManager] = None
         self.alert_manager: Optional[AlertManager] = None
         
-        log.info("Booting TRUE Autonomous Niblit (Production Enhanced)...")
+        # NEW: 10 Self-Improvement Modules
+        self.improvements: Optional[ImprovementIntegrator] = None
+        self.parallel_learner: Optional[ParallelLearner] = None
+        self.reasoning_engine: Optional[ReasoningEngine] = None
+        self.gap_analyzer: Optional[GapAnalyzer] = None
+        self.synthesizer: Optional[KnowledgeSynthesizer] = None
+        self.predictor: Optional[PredictionEngine] = None
+        self.memory_optimizer: Optional[MemoryOptimizer] = None
+        self.adaptive_learning: Optional[AdaptiveLearning] = None
+        self.metacognition: Optional[Metacognition] = None
+        self.collaborative_learner: Optional[CollaborativeLearner] = None
+        
+        # NEW: Autonomous Learning Engine
+        self.autonomous_engine: Optional[AutonomousLearningEngine] = None
+
+        # NEW: Live Updater + Structural Awareness
+        self.live_updater: Optional[LiveUpdater] = None
+        self.structural_awareness: Optional[StructuralAwareness] = None
+
+        # NEW: Code capabilities + enhanced filesystem + software studier
+        self.code_generator: Optional[CodeGenerator] = None
+        self.code_compiler: Optional[CodeCompiler] = None
+        self.file_manager: Optional[FileManager] = None
+        self.software_studier: Optional[SoftwareStudier] = None
+        self.evolve_engine: Optional[EvolveEngine] = None
+
+        # NEW: SelfIdeaImplementation (research + implement + SLSA + memory)
+        self.idea_implementation = None
+        
+        log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
         
         try:
             if self.config.enable_improvements:
@@ -773,9 +1042,9 @@ class NiblitCore:
             self._start_background_services()
             
             if self.startup_report.is_healthy():
-                log.info("TRUE AUTONOMOUS NIBLIT READY (Production Ready)")
+                log.info("✅ NIBLIT READY (All Systems Go)")
             else:
-                log.warning(f"Degraded startup: {self.startup_report.summary()}")
+                log.warning(f"⚠️ Degraded startup: {self.startup_report.summary()}")
         except Exception as e:
             log.error(f"Fatal initialization error: {e}", exc_info=True)
             raise
@@ -793,7 +1062,7 @@ class NiblitCore:
             if CommandRegistry:
                 self.command_registry = CommandRegistry()
                 self._register_commands()
-                log.info("[IMPROVEMENTS] CommandRegistry initialized")
+                log.info("[IMPROVEMENTS] ✅ CommandRegistry initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CommandRegistry failed: {e}")
         
@@ -801,7 +1070,7 @@ class NiblitCore:
             # 2. AsyncTaskCoordinator
             if AsyncTaskCoordinator:
                 self.task_coordinator = AsyncTaskCoordinator()
-                log.info("[IMPROVEMENTS] AsyncTaskCoordinator initialized")
+                log.info("[IMPROVEMENTS] ✅ AsyncTaskCoordinator initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] AsyncTaskCoordinator failed: {e}")
         
@@ -809,7 +1078,7 @@ class NiblitCore:
             # 3. EventStore
             if EventStore:
                 self.event_store = EventStore(Path("./events.jsonl"))
-                log.info("[IMPROVEMENTS] EventStore initialized")
+                log.info("[IMPROVEMENTS] ✅ EventStore initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] EventStore failed: {e}")
         
@@ -817,7 +1086,7 @@ class NiblitCore:
             # 4. RateLimiter
             if RateLimiter:
                 self.rate_limiter = RateLimiter(max_requests_per_sec=100)
-                log.info("[IMPROVEMENTS] RateLimiter initialized")
+                log.info("[IMPROVEMENTS] ✅ RateLimiter initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] RateLimiter failed: {e}")
         
@@ -825,7 +1094,7 @@ class NiblitCore:
             # 5. TelemetryCollector
             if TelemetryCollector:
                 self.telemetry = TelemetryCollector()
-                log.info("[IMPROVEMENTS] TelemetryCollector initialized")
+                log.info("[IMPROVEMENTS] ✅ TelemetryCollector initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] TelemetryCollector failed: {e}")
         
@@ -834,7 +1103,7 @@ class NiblitCore:
             self.circuit_breakers["brain"] = CircuitBreaker(failure_threshold=5)
             self.circuit_breakers["router"] = CircuitBreaker(failure_threshold=5)
             self.circuit_breakers["internet"] = CircuitBreaker(failure_threshold=5)
-            log.info("[IMPROVEMENTS] CircuitBreakers initialized")
+            log.info("[IMPROVEMENTS] ✅ CircuitBreakers initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CircuitBreakers failed: {e}")
         
@@ -842,7 +1111,7 @@ class NiblitCore:
             # 7. ConnectionPool
             if ConnectionPool:
                 self.connection_pool = ConnectionPool()
-                log.info("[IMPROVEMENTS] ConnectionPool initialized")
+                log.info("[IMPROVEMENTS] ✅ ConnectionPool initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] ConnectionPool failed: {e}")
         
@@ -850,15 +1119,15 @@ class NiblitCore:
             # 8. CacheStrategy
             if CacheStrategy:
                 self.cache_strategy = CacheStrategy()
-                log.info("[IMPROVEMENTS] CacheStrategy initialized")
+                log.info("[IMPROVEMENTS] ✅ CacheStrategy initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CacheStrategy failed: {e}")
         
         try:
             # 9. LearningBatcher
             if LearningBatcher:
-                self.learning_batcher = LearningBatcher(batch_size=32, flush_interval=5)
-                log.info("[IMPROVEMENTS] LearningBatcher initialized")
+                self.learning_batcher = LearningBatcher(batch_size=32, flush_interval_seconds=5)
+                log.info("[IMPROVEMENTS] ✅ LearningBatcher initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] LearningBatcher failed: {e}")
         
@@ -866,7 +1135,7 @@ class NiblitCore:
             # 10. PluginManager
             if PluginManager:
                 self.plugin_manager = PluginManager()
-                log.info("[IMPROVEMENTS] PluginManager initialized")
+                log.info("[IMPROVEMENTS] ✅ PluginManager initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] PluginManager failed: {e}")
         
@@ -874,11 +1143,11 @@ class NiblitCore:
             # 11. AlertManager
             if AlertManager:
                 self.alert_manager = AlertManager()
-                log.info("[IMPROVEMENTS] AlertManager initialized")
+                log.info("[IMPROVEMENTS] ✅ AlertManager initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] AlertManager failed: {e}")
         
-        log.info("[IMPROVEMENTS] Production enhancements initialized")
+        log.info("[IMPROVEMENTS] ✅ 17 production enhancements initialized")
 
     def _register_commands(self):
         """Register commands with CommandRegistry."""
@@ -902,32 +1171,70 @@ class NiblitCore:
             "time", self._cmd_time, "Show current time", "core", priority=100
         )
         
+        # Autonomous Learning Commands
+        self.command_registry.register(
+            "autonomous-learn start", self._cmd_autonomous_start, "Start autonomous learning", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn stop", self._cmd_autonomous_stop, "Stop autonomous learning", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn status", self._cmd_autonomous_status, "View autonomous status", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn add-topic", self._cmd_autonomous_add_topic, "Add research topic", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn code-status", self._cmd_autonomous_code_status,
+            "View code literacy status", "autonomous", priority=98
+        )
+
+        # Knowledge recall & acquired data commands
+        self.command_registry.register(
+            "recall", self._cmd_recall, "Recall acquired data from KnowledgeDB", "knowledge", priority=95
+        )
+        self.command_registry.register(
+            "acquired data", self._cmd_acquired_data, "Browse acquired data by category", "knowledge", priority=95
+        )
+        self.command_registry.register(
+            "knowledge stats", self._cmd_knowledge_stats, "KnowledgeDB statistics and summary", "knowledge", priority=95
+        )
+        self.command_registry.register(
+            "ale processes", self._cmd_ale_process_awareness, "ALE process awareness", "knowledge", priority=95
+        )
+        
         # SLSA commands
         self.command_registry.register(
-            "slsa-status", self._cmd_slsa_status, "SLSA status", "slsa", priority=95
+            "slsa-status", self._cmd_slsa_status, "SLSA status", "slsa", priority=90
         )
         self.command_registry.register(
-            "start_slsa", self._cmd_slsa_start, "Start SLSA", "slsa", priority=95
+            "start_slsa", self._cmd_slsa_start, "Start SLSA", "slsa", priority=90
         )
         self.command_registry.register(
-            "stop_slsa", self._cmd_slsa_stop, "Stop SLSA", "slsa", priority=95
+            "stop_slsa", self._cmd_slsa_stop, "Stop SLSA", "slsa", priority=90
         )
         self.command_registry.register(
-            "restart_slsa", self._cmd_slsa_restart, "Restart SLSA", "slsa", priority=95
+            "restart_slsa", self._cmd_slsa_restart, "Restart SLSA", "slsa", priority=90
         )
         
         # Brain commands (use internet, NOT LLM)
         self.command_registry.register(
-            "self-research", self._cmd_self_research, "Research topic", "brain", priority=90
+            "self-research", self._cmd_self_research, "Research topic", "brain", priority=85
         )
         self.command_registry.register(
-            "self-idea", self._cmd_self_idea, "Generate ideas", "brain", priority=90
+            "self-idea", self._cmd_self_idea, "Generate ideas", "brain", priority=85
         )
         self.command_registry.register(
-            "reflect", self._cmd_reflect, "Reflect on topic", "brain", priority=90
+            "reflect", self._cmd_reflect, "Reflect on topic", "brain", priority=85
         )
         self.command_registry.register(
-            "self-implement", self._cmd_self_implement, "Implement concept", "brain", priority=90
+            "self-implement", self._cmd_self_implement, "Implement concept", "brain", priority=85
+        )
+        self.command_registry.register(
+            "self-teach", self._cmd_self_teach, "Teach a topic", "brain", priority=85
+        )
+        self.command_registry.register(
+            "idea-implement", self._cmd_idea_implement, "Generate and implement idea", "brain", priority=85
         )
         
         # Internet commands
@@ -948,21 +1255,710 @@ class NiblitCore:
                 "Run pipeline", "orchestrator", priority=70
             )
 
+        # Diagnostic / tester commands
+        self.command_registry.register(
+            "run-diagnostics", self._cmd_run_diagnostics,
+            "Run niblit diagnostic suite", "diagnostics", priority=65
+        )
+        self.command_registry.register(
+            "run-live-test", self._cmd_run_live_test,
+            "Run live command tester", "diagnostics", priority=65
+        )
+
+    # ============================
+    # AUTONOMOUS LEARNING COMMANDS
+    # ============================
+
+    def _cmd_autonomous_start(self, text: str) -> str:
+        """Start autonomous learning engine."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        
+        result = self.autonomous_engine.start()
+        return "🚀 [AUTONOMOUS] Learning started ✅" if result else "ℹ️ [AUTONOMOUS] Already running"
+
+    def _cmd_autonomous_stop(self, text: str) -> str:
+        """Stop autonomous learning engine."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        
+        result = self.autonomous_engine.stop()
+        return "⏹️ [AUTONOMOUS] Learning stopped ✅" if result else "ℹ️ [AUTONOMOUS] Not running"
+
+    def _cmd_autonomous_status(self, text: str) -> str:
+        """Show autonomous learning status."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        
+        stats = self.autonomous_engine.get_learning_stats()
+        s = stats["stats"]
+        mods = stats.get("modules_available", {})
+        result = f"""
+🧠 **AUTONOMOUS LEARNING STATUS:**
+
+Running: {'✅' if stats['running'] else '❌'}
+System Idle: {'Yes' if stats['is_idle'] else 'No'}
+Uptime: {stats['uptime_seconds']}s
+
+📊 Learning Statistics:
+  Research Cycles: {s.get('research_completed', 0)}
+  Ideas Generated: {s.get('ideas_generated', 0)}
+  Ideas Implemented: {s.get('ideas_implemented', 0)}
+  Reflections: {s.get('reflections_conducted', 0)}
+  SLSA Runs: {s.get('slsa_runs', 0)}
+  Evolve Steps: {s.get('evolve_steps', 0)}
+  Learning Rate: {s.get('learning_rate', 0.0):.6f} cycles/s
+
+💻 Programming Literacy:
+  Code Researched: {s.get('code_researched', 0)}
+  Code Generated: {s.get('code_generated', 0)}
+  Code Compiled: {s.get('code_compiled', 0)}
+  Code Reflected: {s.get('code_reflected', 0)}
+  Software Studied: {s.get('software_studied', 0)}
+  Last Language: {s.get('last_language_studied', 'none')}
+  Last Category: {s.get('last_software_category', 'none')}
+
+📚 Topics: {stats.get('research_topics', 0)} | Code Topics: {stats.get('code_research_topics', 0)} | SW Categories: {stats.get('software_study_categories', 0)}
+💡 Pending Ideas: {stats.get('pending_ideas', 0)}
+
+🔌 Modules Wired:
+  internet={mods.get('internet', False)} | code_generator={mods.get('code_generator', False)} | code_compiler={mods.get('code_compiler', False)} | software_studier={mods.get('software_studier', False)}
+"""
+        return result.strip()
+
+    def _cmd_autonomous_code_status(self, text: str) -> str:
+        """Show programming literacy / code loop status in detail."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        stats = self.autonomous_engine.get_learning_stats()
+        s = stats["stats"]
+        mods = stats.get("modules_available", {})
+        lines = [
+            "💻 **CODE LITERACY STATUS:**\n",
+            f"  Code Researched  : {s.get('code_researched', 0)} cycles",
+            f"  Code Generated   : {s.get('code_generated', 0)} snippets",
+            f"  Code Compiled    : {s.get('code_compiled', 0)} runs",
+            f"  Code Reflected   : {s.get('code_reflected', 0)} reflections",
+            f"  Software Studied : {s.get('software_studied', 0)} categories",
+            f"  Last Language    : {s.get('last_language_studied', 'none')}",
+            f"  Last SW Category : {s.get('last_software_category', 'none')}",
+            f"\n🔌 Module Availability:",
+            f"  internet         : {'✅' if mods.get('internet') else '❌'}",
+            f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}",
+            f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}",
+            f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}",
+            f"  researcher       : {'✅' if mods.get('researcher') else '❌'}",
+            f"\n📋 Pending:",
+            f"  Compilations     : {stats.get('pending_compilations', 0)}",
+            f"  Reflections      : {stats.get('pending_reflections', 0)}",
+            f"\n⚙️ Loop runs during idle time. Use 'autonomous-learn start' to enable.",
+        ]
+        return "\n".join(lines)
+
+    def _cmd_autonomous_add_topic(self, text: str) -> str:
+        """Add research topic to autonomous engine."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        
+        topic = text[len("autonomous-learn add-topic"):].strip()
+        if not topic:
+            return "Usage: autonomous-learn add-topic <topic>"
+        
+        result = self.autonomous_engine.add_research_topic(topic)
+        return f"✅ Topic added: {topic}" if result else "ℹ️ Topic already exists"
+
+    # ============================
+    # KNOWLEDGE RECALL & ACQUIRED DATA COMMANDS
+    # ============================
+
+    def _cmd_recall(self, text: str) -> str:
+        """Recall acquired data from KnowledgeDB matching a query."""
+        query = text.strip()
+        # Strip the 'recall' command prefix (with or without trailing space)
+        if query.lower().startswith("recall "):
+            query = query[len("recall "):].strip()
+        elif query.lower() == "recall":
+            query = ""
+
+        if not self.db:
+            return "[❌ KnowledgeDB not available]"
+
+        try:
+            results = self.db.recall(query, limit=8)
+        except Exception as exc:
+            return f"[Recall error: {exc}]"
+
+        if not results:
+            return f"ℹ️ Nothing found for '{query}'. Try 'acquired data' or 'knowledge stats'."
+
+        lines = [f"🔍 **Recall results for '{query}'** ({len(results)} entries):\n"]
+        for i, r in enumerate(results, 1):
+            if isinstance(r, dict):
+                key = r.get("key", r.get("topic", r.get("time", "")))
+                value = r.get("value", r.get("input", r.get("text", str(r))))
+                tags = r.get("tags", [])
+                snippet = str(value)[:120].replace("\n", " ")
+                tag_str = f"  [{', '.join(str(t) for t in tags[:3])}]" if tags else ""
+                lines.append(f"  {i}. [{key}]{tag_str}\n     {snippet}")
+            else:
+                lines.append(f"  {i}. {str(r)[:120]}")
+        return "\n".join(lines)
+
+    def _cmd_acquired_data(self, text: str) -> str:
+        """Show acquired data stored in KnowledgeDB, optionally filtered by category."""
+        rest = text.strip()
+        for prefix in ("acquired data ", "acquired data", "acquired-data ", "acquired-data"):
+            if rest.lower().startswith(prefix):
+                rest = rest[len(prefix):].strip()
+                break
+        else:
+            rest = ""
+
+        category = rest or None
+
+        if not self.db or not hasattr(self.db, "get_acquired_data"):
+            return "[❌ KnowledgeDB does not support get_acquired_data]"
+
+        try:
+            data = self.db.get_acquired_data(category=category, limit=20)
+        except Exception as exc:
+            return f"[Acquired data error: {exc}]"
+
+        if not data:
+            cat_msg = f" in category '{category}'" if category else ""
+            return f"ℹ️ No acquired data{cat_msg} yet. Start 'autonomous-learn start' to begin collecting."
+
+        cat_label = f" [{category}]" if category else ""
+        lines = [f"📦 **Acquired Data{cat_label}** ({len(data)} entries, newest first):\n"]
+        for i, fact in enumerate(data[:15], 1):
+            key = str(fact.get("key", ""))[:50]
+            value = fact.get("value", "")
+            tags = fact.get("tags", [])
+            snippet = str(value)[:100].replace("\n", " ")
+            tag_str = ", ".join(str(t) for t in tags[:3])
+            lines.append(f"  {i}. {key}\n     {snippet}\n     tags: {tag_str}")
+        if len(data) > 15:
+            lines.append(f"\n  ... and {len(data) - 15} more. Use 'acquired data <category>' to filter.")
+
+        categories = ["research", "ideas", "implementation", "reflection", "code",
+                      "compiled", "software_study", "all"]
+        lines.append(f"\n📂 Available categories: {', '.join(categories)}")
+        return "\n".join(lines)
+
+    def _cmd_knowledge_stats(self, text: str) -> str:
+        """Show a summary of all stored knowledge and ALE process awareness."""
+        if not self.db:
+            return "[❌ KnowledgeDB not available]"
+
+        if hasattr(self.db, "get_knowledge_summary"):
+            try:
+                return self.db.get_knowledge_summary()
+            except Exception as exc:
+                return f"[Knowledge summary error: {exc}]"
+
+        # Fallback: basic stats
+        try:
+            all_data = self.db.get_all() if hasattr(self.db, "get_all") else {}
+            lines = ["📚 **Knowledge Base Stats:**\n"]
+            for section, items in all_data.items():
+                count = len(items) if isinstance(items, (list, dict)) else "—"
+                lines.append(f"  {section:<20}: {count}")
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"[Knowledge stats error: {exc}]"
+
+    def _cmd_ale_process_awareness(self, text: str) -> str:
+        """Explain all Niblit ALE processes and how data flows through them."""
+        ale_stats = {}
+        if self.autonomous_engine:
+            try:
+                ale_stats = self.autonomous_engine.get_learning_stats()
+            except Exception:
+                pass
+
+        s = ale_stats.get("stats", {})
+        mods = ale_stats.get("modules_available", {})
+
+        lines = [
+            "🧠 **NIBLIT AUTONOMOUS LEARNING ENGINE — PROCESS AWARENESS**\n",
+            "Niblit runs 12 self-improvement steps every idle cycle.",
+            "All output is stored as structured facts in KnowledgeDB.",
+            "Internet is the primary data source for collection steps.\n",
+            "━━━ CORE LEARNING LOOP ━━━",
+            f"  Step 1 — Research       : researcher+internet → KB  [{s.get('research_completed', 0)} runs]",
+            f"  Step 2 — Idea Generation: SelfIdeaImpl/Generator    [{s.get('ideas_generated', 0)} ideas]",
+            f"  Step 3 — Implementation : SelfImplementer executes  [{s.get('ideas_implemented', 0)} implemented]",
+            f"  Step 4 — Reflection     : ReflectModule summarizes  [{s.get('reflections_conducted', 0)} reflections]",
+            f"  Step 5 — SLSA           : generates knowledge artif [{s.get('slsa_runs', 0)} runs]",
+            f"  Step 6 — Learning       : SelfTeacher internalizes  [see KB: learning]",
+            f"  Step 7 — Evolution      : EvolveEngine self-evolves [{s.get('evolve_steps', 0)} steps]",
+            "",
+            "━━━ PROGRAMMING LITERACY LOOP ━━━",
+            f"  Step 8  — Code Research : internet+researcher→KB    [{s.get('code_researched', 0)} cycles]",
+            f"  Step 9  — Code Generate : idea+implementer→code     [{s.get('code_generated', 0)} snippets]",
+            f"  Step 10 — Code Compile  : CodeCompiler runs it      [{s.get('code_compiled', 0)} compiled]",
+            f"  Step 11 — Code Reflect  : ReflectModule studies it  [{s.get('code_reflected', 0)} reflected]",
+            f"  Step 12 — SW Study      : SoftwareStudier+internet  [{s.get('software_studied', 0)} categories]",
+            "",
+            "━━━ DATA STORAGE ━━━",
+            "  Every step stores a structured fact in KnowledgeDB with:",
+            "    • Unique key (ale_<step>:<topic>:<timestamp>)",
+            "    • Value dict with topic, result, and step name",
+            "    • Tags: [ale_stepN, <category>, autonomous]",
+            "  Data persists to niblit_memory.json automatically.",
+            "  Recall with: 'recall <topic>'",
+            "  Browse with: 'acquired data [category]'",
+            "  Summary  : 'knowledge stats'",
+            "",
+            "━━━ MODULE STATUS ━━━",
+        ]
+        for mod, available in mods.items():
+            lines.append(f"  {mod:<20}: {'✅' if available else '❌'}")
+
+        lines += [
+            "",
+            "━━━ HOW TO QUERY ━━━",
+            "  recall <topic>           — search all KB for topic",
+            "  acquired data            — browse all acquired facts",
+            "  acquired data research   — facts from Step 1",
+            "  acquired data code       — facts from Steps 8-11",
+            "  acquired data compiled   — compiled code output",
+            "  knowledge stats          — full KB summary",
+        ]
+        return "\n".join(lines)
+
+    # ============================
+    # SELF-IMPROVEMENT COMMANDS
+    # ============================
+
+    def _cmd_show_improvements(self, text: str) -> str:
+        """Show all 10 self-improvement modules."""
+        if not self.improvements:
+            return "[❌ Self-improvements not available]"
+        
+        status = self.improvements.get_improvement_status()
+        result = "🚀 **10 SELF-IMPROVEMENT MODULES:**\n\n"
+        
+        for i, (name, desc) in enumerate(status.items(), 1):
+            result += f"{i}. {desc}\n"
+        
+        return result
+
+    def _cmd_run_improvement_cycle(self, text: str) -> str:
+        """Run complete improvement cycle."""
+        if not self.improvements:
+            return "[❌ Self-improvements not available]"
+        
+        try:
+            log.info("🔄 [NIBLIT] Starting full improvement cycle...")
+            results = self.improvements.run_full_improvement_cycle()
+            
+            output = "🔄 **IMPROVEMENT CYCLE RESULTS:**\n\n"
+            for module, result in results.items():
+                if isinstance(result, dict):
+                    output += f"✅ {module.upper()}: {result}\n"
+                else:
+                    output += f"❌ {module.upper()}: {result}\n"
+            
+            return output
+        except Exception as e:
+            log.error(f"[IMPROVEMENTS] Improvement cycle failed: {e}", exc_info=True)
+            return f"[❌ Improvement cycle failed: {e}]"
+
+    def _cmd_improvement_status(self, text: str) -> str:
+        """Show improvement system status."""
+        if not self.improvements:
+            return "[❌ Self-improvements not available]"
+        
+        status = self.improvements.get_improvement_status()
+        result = "📊 **IMPROVEMENT SYSTEM STATUS:**\n\n"
+        
+        active = sum(1 for s in status.values() if "✅" in str(s))
+        total = len(status)
+        
+        result += f"Active Improvements: {active}/{total}\n\n"
+        result += "Details:\n"
+        for name, state in status.items():
+            result += f"  {state}\n"
+        
+        return result
+
     # ============================
     # COMMAND HANDLERS (NO LLM)
     # ============================
 
+    # ──────────────────────────────────────
+    # LIVE UPDATER COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_reload_module(self, module_name: str) -> str:
+        """Hot-reload a module at runtime."""
+        if self.live_updater:
+            result = self.live_updater.reload_module(module_name)
+            return result["message"]
+        # Fallback: importlib.reload
+        try:
+            import importlib, sys as _sys
+            mod = _sys.modules.get(module_name)
+            if mod is None:
+                mod = importlib.import_module(module_name)
+            importlib.reload(mod)
+            return f"✅ Module '{module_name}' reloaded (direct fallback)."
+        except Exception as e:
+            return f"❌ Reload failed for '{module_name}': {e}"
+
+    def _cmd_upgrade(self) -> str:
+        """Reload all modules whose files changed on disk."""
+        if self.live_updater:
+            changed = self.live_updater.reload_all_changed()
+            if not changed:
+                return "✅ All modules are up-to-date — no changes detected on disk."
+            msgs = [r["message"] for r in changed]
+            return "🔄 **Self-Upgrade Complete:**\n" + "\n".join(f"  • {m}" for m in msgs)
+        return "[LiveUpdater not available — restart to pick up file changes]"
+
+    def _cmd_update_history(self) -> str:
+        """Show recent hot-reload history."""
+        if self.live_updater:
+            return self.live_updater.summarize_history()
+        return "[LiveUpdater not available]"
+
+    # ──────────────────────────────────────
+    # STRUCTURAL AWARENESS COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_sa_structure(self) -> str:
+        """Show full component inventory."""
+        if self.structural_awareness:
+            return self.structural_awareness.component_report(self)
+        return "[StructuralAwareness not available]"
+
+    def _cmd_sa_threads(self) -> str:
+        """Show all active threads."""
+        if self.structural_awareness:
+            return self.structural_awareness.thread_report()
+        import threading
+        lines = [f"🧵 Active threads ({threading.active_count()}):"]
+        for t in threading.enumerate():
+            lines.append(f"  • {t.name} ({'alive' if t.is_alive() else 'dead'})")
+        return "\n".join(lines)
+
+    def _cmd_sa_loops(self) -> str:
+        """Show background loop status."""
+        if self.structural_awareness:
+            return self.structural_awareness.loop_report(self)
+        return "[StructuralAwareness not available]"
+
+    def _cmd_sa_modules(self) -> str:
+        """Show loaded Niblit modules."""
+        if self.structural_awareness:
+            return self.structural_awareness.module_report()
+        return "[StructuralAwareness not available]"
+
+    def _cmd_sa_commands(self) -> str:
+        """Show all registered commands."""
+        if self.structural_awareness:
+            return self.structural_awareness.command_report(router=self.router)
+        if self.router and hasattr(self.router, "help_text"):
+            return self.router.help_text()
+        return self.help_text()
+
+    def _cmd_sa_dashboard(self) -> str:
+        """Show full runtime dashboard."""
+        if self.structural_awareness:
+            return self.structural_awareness.runtime_dashboard(
+                core=self, router=self.router
+            )
+        return self._cmd_status("")
+
+    def _cmd_sa_flow(self) -> str:
+        """Show operational flow description."""
+        if self.structural_awareness:
+            return self.structural_awareness.operational_flow()
+        return "[StructuralAwareness not available]"
+
+    def _cmd_sa_resources(self) -> str:
+        """Show resource usage."""
+        if self.structural_awareness:
+            return self.structural_awareness.resource_report()
+        return "[StructuralAwareness not available]"
+
+    # ──────────────────────────────────────
+    # CODE GENERATION COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_generate_code(self, spec: str) -> str:
+        """Generate code: 'python module name=my_mod docstring=Does X'"""
+        if not self.code_generator:
+            return "[CodeGenerator not available]"
+        # Parse spec: first word is language, second is template (optional), rest are key=value
+        parts = spec.split()
+        if not parts:
+            return "Usage: generate code <language> [template] [key=value ...]"
+        language = parts[0]
+        template = "module"
+        kwargs = {}
+        for part in parts[1:]:
+            if "=" in part:
+                k, _, v = part.partition("=")
+                kwargs[k.strip()] = v.strip()
+            elif not kwargs:  # Second positional arg = template
+                template = part
+        result = self.code_generator.generate(language, template, **kwargs)
+        if not result["success"]:
+            return f"❌ {result.get('error', 'Generation failed')}"
+        name = kwargs.get("name", "unnamed")
+        code = result["code"]
+        ext = self.code_generator.get_extension(language)
+        # Optionally save to generated/
+        if self.file_manager:
+            fpath = f"generated/{name}{ext}"
+            self.file_manager.write(fpath, code)
+            return f"✅ Generated {language}/{template} → saved to {fpath}\n\n```\n{code[:600]}\n```"
+        return f"✅ Generated {language}/{template}:\n\n```\n{code[:600]}\n```"
+
+    def _cmd_run_code(self, spec: str) -> str:
+        """Run code: 'python print(\"hello\")'"""
+        if not self.code_compiler:
+            return "[CodeCompiler not available]"
+        parts = spec.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: run code <language> <code>"
+        language, code = parts[0], parts[1]
+        result = self.code_compiler.run(language, code)
+        return result.format_output()
+
+    def _cmd_validate_code(self, spec: str) -> str:
+        """Validate syntax: 'validate python def foo(): pass'"""
+        if not self.code_compiler:
+            return "[CodeCompiler not available]"
+        parts = spec.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: validate <language> <code>"
+        language, code = parts[0], parts[1]
+        result = self.code_compiler.validate_syntax(language, code)
+        if result["valid"] is True:
+            return f"✅ Syntax valid ({language})"
+        if result["valid"] is False:
+            return f"❌ Syntax error ({language}): {result['error']}"
+        return f"ℹ️ {result['error']}"
+
+    def _cmd_study_language(self, language: str) -> str:
+        """Study a programming language."""
+        if not self.code_generator:
+            return "[CodeGenerator not available]"
+        return self.code_generator.study_language(language)
+
+    def _cmd_list_templates(self, language: str = "") -> str:
+        """List available code templates."""
+        if not self.code_generator:
+            return "[CodeGenerator not available]"
+        return self.code_generator.list_templates(language or None)
+
+    def _cmd_available_languages(self) -> str:
+        """Show available languages for code compiler."""
+        lines = []
+        if self.code_generator:
+            from modules.code_generator import SUPPORTED_LANGUAGES  # pylint: disable=import-outside-toplevel
+            lines.append(f"📝 **Generate**: {', '.join(SUPPORTED_LANGUAGES)}")
+        if self.code_compiler:
+            avail = self.code_compiler.available_languages()
+            avail_str = ", ".join(k for k, v in avail.items() if v)
+            unavail_str = ", ".join(k for k, v in avail.items() if not v)
+            lines.append(f"▶️  **Run** (available): {avail_str}")
+            if unavail_str:
+                lines.append(f"   (unavailable): {unavail_str}")
+        return "\n".join(lines) if lines else "[Code modules not available]"
+
+    # ──────────────────────────────────────
+    # FILE MANAGER COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_read_file(self, filepath: str) -> str:
+        """Read and display a file."""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        result = self.file_manager.read(filepath)
+        if not result["success"]:
+            return f"❌ {result['error']}"
+        content = result["content"]
+        if isinstance(content, bytes):
+            return f"📄 {filepath} ({result['size']} bytes, binary)"
+        preview = content[:1000] if len(content) > 1000 else content
+        suffix = "...[truncated]" if len(content) > 1000 else ""
+        return f"📄 **{filepath}** ({result['size']} chars):\n```\n{preview}{suffix}\n```"
+
+    def _cmd_write_file(self, spec: str) -> str:
+        """Write a file: '<filepath> <content>'"""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        parts = spec.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: write file <filepath> <content>"
+        filepath, content = parts[0], parts[1]
+        result = self.file_manager.write(filepath, content)
+        if result["success"]:
+            return f"✅ Written {result['bytes']} bytes → {result['path']}"
+        return f"❌ Write failed: {result['error']}"
+
+    def _cmd_list_files(self, dirpath: str = ".") -> str:
+        """List files in a directory."""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        result = self.file_manager.list_dir(dirpath)
+        if not result["success"]:
+            return f"❌ {result['error']}"
+        entries = result["entries"]
+        if not entries:
+            return f"📁 {result['path']} — empty"
+        lines = [f"📁 **{result['path']}** ({len(entries)} entries):"]
+        for e in entries[:40]:  # Cap at 40 entries
+            icon = "📁" if e["type"] == "dir" else "📄"
+            size = f" ({e['size']} B)" if e["type"] == "file" else ""
+            lines.append(f"  {icon} {e['name']}{size}")
+        if len(entries) > 40:
+            lines.append(f"  ... and {len(entries) - 40} more")
+        return "\n".join(lines)
+
+    def _cmd_execute_file(self, filepath: str) -> str:
+        """Execute a file."""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        result = self.file_manager.execute(filepath)
+        icon = "✅" if result["success"] else "❌"
+        lines = [f"{icon} **Execute**: {filepath}"]
+        if result["stdout"]:
+            lines.append(f"\n📤 Output:\n{result['stdout'].strip()}")
+        if result["stderr"]:
+            lines.append(f"\n⚠️ Stderr:\n{result['stderr'].strip()}")
+        if result.get("error"):
+            lines.append(f"\n❗ {result['error']}")
+        return "\n".join(lines)
+
+    def _cmd_file_environment(self) -> str:
+        """Show filesystem environment info."""
+        if not self.file_manager:
+            return "[FilesystemManager not available]"
+        return self.file_manager.environment_info()
+
+    # ──────────────────────────────────────
+    # SOFTWARE STUDIER COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_study_software(self, category: str) -> str:
+        """Study a software category."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.study_category(category)
+
+    def _cmd_software_categories(self) -> str:
+        """List software study categories."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.list_categories()
+
+    def _cmd_analyze_architecture(self, architecture: str) -> str:
+        """Analyze a software architecture."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.analyze_architecture(architecture)
+
+    def _cmd_design_software(self, description: str) -> str:
+        """Generate a software design outline."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.design_software(description)
+
+    def _cmd_software_studied(self) -> str:
+        """Show what software has been studied."""
+        if not self.software_studier:
+            return "[SoftwareStudier not available]"
+        return self.software_studier.what_ive_studied()
+
+    # ──────────────────────────────────────
+    # EVOLVE ENGINE COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_evolve_step(self) -> str:
+        """Run one evolution step."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        try:
+            # Refresh references before stepping
+            self.evolve_engine.refresh_from_core()
+            result = self.evolve_engine.step()
+            return (
+                f"🧬 **Evolution step {result['iteration']}**\n"
+                f"  Direction: {result['direction']}\n"
+                f"  Actions ({len(result['actions'])}):\n"
+                + "\n".join(f"    • {a}" for a in result["actions"])
+            )
+        except Exception as exc:
+            log.error("Evolve step failed: %s", exc)
+            return f"[Evolve error: {exc}]"
+
+    def _cmd_evolve_start(self) -> str:
+        """Start background evolution."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        self.evolve_engine.refresh_from_core()
+        ok = self.evolve_engine.start_background_evolution()
+        return "✅ Background evolution started." if ok else "⚠️ Evolution already running."
+
+    def _cmd_evolve_stop(self) -> str:
+        """Stop background evolution."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        self.evolve_engine.stop_background_evolution()
+        return "✅ Background evolution stopped."
+
+    def _cmd_evolve_status(self) -> str:
+        """Show evolution status."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        status = self.evolve_engine.get_status()
+        lines = [
+            "🧬 **EvolveEngine Status:**",
+            f"  Running    : {'✅ Yes' if status['running'] else '❌ No'}",
+            f"  Iterations : {status['iteration']}",
+            f"  Stats      : {status['stats']}",
+            f"  Last Dir   : {status.get('last_direction', 'none')}",
+            f"  Modules    :",
+        ]
+        for mod, avail in status.get("available_modules", {}).items():
+            lines.append(f"    {'✅' if avail else '❌'} {mod}")
+        return "\n".join(lines)
+
+    def _cmd_evolve_history(self) -> str:
+        """Show evolution history."""
+        if not self.evolve_engine:
+            return "[EvolveEngine not available]"
+        return self.evolve_engine.summarize_history()
+
+    def _cmd_research_code(self, spec: str) -> str:
+        """Research a programming language from the internet."""
+        if not self.researcher:
+            return "[Researcher not available]"
+        parts = spec.split(None, 1)
+        language = parts[0] if parts else "python"
+        topic = parts[1] if len(parts) > 1 else "best practices"
+        if hasattr(self.researcher, "research_code_and_feed_generator"):
+            return self.researcher.research_code_and_feed_generator(
+                language, topic, code_generator=self.code_generator
+            )
+        return f"[research_code not available — upgrade self_researcher.py]"
+
     def _cmd_help(self, text: str) -> str:
         """Help command."""
-        if self.command_registry:
-            return self.command_registry.get_help()
         return self.help_text()
 
     def _cmd_status(self, text: str) -> str:
         """Status command."""
         try:
             mem_count = self._get_memory_count()
-            return f"Status: OK | Memory: {mem_count} | Orchestrator: {'Available' if self.orchestrator_available else 'Unavailable'}"
+            improvements = "✅ Active" if self.improvements else "❌ Inactive"
+            autonomous = "✅ Running" if (self.autonomous_engine and self.autonomous_engine.running) else "❌ Stopped"
+            return f"Status: OK | Memory: {mem_count} | Improvements: {improvements} | Autonomous: {autonomous}"
         except Exception as e:
             log.error(f"Status command failed: {e}")
             return f"Status: Error - {e}"
@@ -1018,51 +2014,134 @@ class NiblitCore:
         return self._restart_slsa_engine(topics)
 
     def _cmd_self_research(self, text: str) -> str:
-        """Self-research command (uses internet, NOT LLM)."""
-        if not self.brain:
-            return "[Brain not available]"
-        try:
-            topic = text[len("self-research"):].strip() or "general"
-            response = self.brain.handle_command(f"self-research {topic}")
-            return response if response else "[Research failed]"
-        except Exception as e:
-            log.error(f"Self-research failed: {e}")
-            return f"[Self-research failed: {e}]"
+        """Self-research command — uses self_researcher + internet directly, NOT LLM."""
+        topic = text[len("self-research"):].strip() or "general"
+        # Direct module path: use researcher directly
+        if self.researcher and hasattr(self.researcher, "search"):
+            try:
+                results = self.researcher.search(topic, max_results=5, use_llm=False,
+                                                  enable_autonomous_learning=True)
+                if results:
+                    return "\n".join(str(r) for r in results[:3]) or "[No results]"
+            except Exception as e:
+                log.debug(f"Researcher search failed: {e}")
+        # Fallback: internet
+        if self.internet:
+            try:
+                results = self.internet.search(topic, max_results=3)
+                if results:
+                    return "\n".join(
+                        r.get("text", str(r)) if isinstance(r, dict) else str(r)
+                        for r in results[:3]
+                    ) or "[No results]"
+            except Exception as e:
+                log.debug(f"Internet search failed: {e}")
+        # Last fallback: brain
+        if self.brain:
+            try:
+                return self.brain.handle_command(f"self-research {topic}") or "[Research failed]"
+            except Exception as e:
+                log.debug(f"Brain fallback failed: {e}")
+        return "[Research failed — no modules available]"
 
     def _cmd_self_idea(self, text: str) -> str:
-        """Self-idea command (uses internet, NOT LLM)."""
-        if not self.brain:
-            return "[Brain not available]"
-        try:
-            prompt = text[len("self-idea"):].strip()
-            response = self.brain.handle_command(f"self-idea {prompt}")
-            return response if response else "[Idea generation failed]"
-        except Exception as e:
-            log.error(f"Self-idea failed: {e}")
-            return f"[Self-idea failed: {e}]"
+        """Self-idea command — uses SelfIdeaImplementation directly, NOT LLM."""
+        prompt = text[len("self-idea"):].strip() or "system improvement"
+        # Direct module path: use idea_implementation
+        if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
+            try:
+                result = self.idea_implementation.implement_idea(prompt)
+                return str(result) if result else "[Idea generation failed]"
+            except Exception as e:
+                log.debug(f"idea_implementation failed: {e}")
+        # Fallback: idea_generator
+        if self.idea_generator and hasattr(self.idea_generator, "generate_plan"):
+            try:
+                result = self.idea_generator.generate_plan(prompt)
+                return str(result) if result else "[Idea generation failed]"
+            except Exception as e:
+                log.debug(f"idea_generator failed: {e}")
+        # Last fallback: brain
+        if self.brain:
+            try:
+                return self.brain.handle_command(f"self-idea {prompt}") or "[Idea generation failed]"
+            except Exception as e:
+                log.debug(f"Brain fallback failed: {e}")
+        return "[Idea generation failed — no modules available]"
 
     def _cmd_reflect(self, text: str) -> str:
-        """Reflect command (uses internet/modules, NOT LLM)."""
-        if not self.brain:
-            return "[Brain not available]"
-        try:
-            topic = text[len("reflect"):].strip()
-            response = self.brain.handle_command(f"reflect {topic}")
-            return response if response else "[Reflection failed]"
-        except Exception as e:
-            log.error(f"Reflect failed: {e}")
-            return f"[Reflect failed: {e}]"
+        """Reflect command — uses ReflectModule directly, NOT LLM."""
+        topic = text[len("reflect"):].strip() or ""
+        # Direct module path: use reflect directly
+        if self.reflect and hasattr(self.reflect, "collect_and_summarize"):
+            try:
+                result = self.reflect.collect_and_summarize(topic or None)
+                return str(result) if result else "[Reflection completed]"
+            except Exception as e:
+                log.debug(f"Reflect module failed: {e}")
+        # Fallback: brain
+        if self.brain:
+            try:
+                return self.brain.handle_command(f"reflect {topic}") or "[Reflection failed]"
+            except Exception as e:
+                log.debug(f"Brain fallback failed: {e}")
+        return "[Reflect module not available]"
 
     def _cmd_self_implement(self, text: str) -> str:
-        """Self-implement command."""
-        if not self.brain:
-            return "[Brain not available]"
-        try:
-            response = self.brain.handle_command("self-implement")
-            return response if response else "[Self-implement failed]"
-        except Exception as e:
-            log.error(f"Self-implement failed: {e}")
-            return f"[Self-implement failed: {e}]"
+        """Self-implement command — uses SelfImplementer directly."""
+        plan = text[len("self-implement"):].strip() or ""
+        # Direct module path: enqueue to self_implementer
+        if self.self_implementer and hasattr(self.self_implementer, "enqueue_plan"):
+            try:
+                if plan:
+                    self.self_implementer.enqueue_plan(plan)
+                    return f"✅ Plan enqueued for implementation: {plan[:100]}"
+                # No plan given — show queue status
+                queue_len = len(getattr(self.self_implementer, "queue", []))
+                return f"SelfImplementer running. Queue depth: {queue_len}"
+            except Exception as e:
+                log.debug(f"self_implementer failed: {e}")
+        # Fallback: brain
+        if self.brain:
+            try:
+                cmd = f"self-implement {plan}" if plan else "self-implement"
+                return self.brain.handle_command(cmd) or "[Self-implement failed]"
+            except Exception as e:
+                log.debug(f"Brain fallback failed: {e}")
+        return "[SelfImplementer not available]"
+
+    def _cmd_self_teach(self, text: str) -> str:
+        """Self-teach command — teaches a topic using SelfTeacher + internet research."""
+        topic = text[len("self-teach"):].strip() if text.lower().startswith("self-teach") else text.strip()
+        if not topic:
+            return "Usage: self-teach <topic>"
+        if self.self_teacher and hasattr(self.self_teacher, "teach"):
+            try:
+                result = self.self_teacher.teach(topic)
+                return str(result) if result else f"✅ Teaching completed for: {topic}"
+            except Exception as e:
+                log.debug(f"self_teacher.teach failed: {e}")
+        return f"[SelfTeacher not available for topic: {topic}]"
+
+    def _cmd_idea_implement(self, text: str) -> str:
+        """Generate and implement an idea using SelfIdeaImplementation."""
+        prompt = text[len("idea-implement"):].strip() if text.lower().startswith("idea-implement") else text.strip()
+        if not prompt:
+            # Run batch implementation of stored ideas
+            if self.idea_implementation and hasattr(self.idea_implementation, "implement_ideas"):
+                try:
+                    result = self.idea_implementation.implement_ideas(limit=5)
+                    return str(result) if result else "✅ Idea implementation batch completed"
+                except Exception as e:
+                    log.debug(f"implement_ideas failed: {e}")
+            return "Usage: idea-implement <idea prompt>"
+        if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
+            try:
+                result = self.idea_implementation.implement_idea(prompt)
+                return str(result) if result else f"✅ Idea implemented: {prompt[:80]}"
+            except Exception as e:
+                log.debug(f"idea_implementation failed: {e}")
+        return f"[SelfIdeaImplementation not available for: {prompt}]"
 
     def _cmd_search(self, text: str) -> str:
         """Search command (uses internet directly, NOT LLM)."""
@@ -1089,6 +2168,58 @@ class NiblitCore:
             log.error(f"Summary failed: {e}")
             return f"[Summary failed: {e}]"
 
+    def _cmd_run_diagnostics(self, text: str) -> str:
+        """
+        Run the full niblit diagnostic suite (run_diagnostics.py) and return
+        its output as a string so it can be displayed inline during a session.
+        """
+        import subprocess
+        import sys
+        script = os.path.join(BASE_DIR, "run_diagnostics.py")
+        try:
+            log.info("[DIAGNOSTICS] Running run_diagnostics.py ...")
+            result = subprocess.run(
+                [sys.executable, script],
+                capture_output=True, text=True, timeout=120,
+                cwd=BASE_DIR,
+            )
+            output = result.stdout or ""
+            if result.stderr:
+                output += "\n[STDERR]\n" + result.stderr
+            log.info(f"[DIAGNOSTICS] Exited with code {result.returncode}")
+            return output.strip() or "[Diagnostics produced no output]"
+        except subprocess.TimeoutExpired:
+            return "[DIAGNOSTICS] Timed out after 120 s"
+        except Exception as e:
+            log.error(f"[DIAGNOSTICS] Failed: {e}")
+            return f"[DIAGNOSTICS] Failed: {e}"
+
+    def _cmd_run_live_test(self, text: str) -> str:
+        """
+        Run the live command tester (live_command_tester.py) and return its
+        output inline so results can be inspected without leaving the REPL.
+        """
+        import subprocess
+        import sys
+        script = os.path.join(BASE_DIR, "live_command_tester.py")
+        try:
+            log.info("[LIVE-TEST] Running live_command_tester.py ...")
+            result = subprocess.run(
+                [sys.executable, script],
+                capture_output=True, text=True, timeout=180,
+                cwd=BASE_DIR,
+            )
+            output = result.stdout or ""
+            if result.stderr:
+                output += "\n[STDERR]\n" + result.stderr
+            log.info(f"[LIVE-TEST] Exited with code {result.returncode}")
+            return output.strip() or "[Live-test produced no output]"
+        except subprocess.TimeoutExpired:
+            return "[LIVE-TEST] Timed out after 180 s"
+        except Exception as e:
+            log.error(f"[LIVE-TEST] Failed: {e}")
+            return f"[LIVE-TEST] Failed: {e}"
+
     # ============================
     # CORE INITIALIZATION (unchanged)
     # ============================
@@ -1113,7 +2244,7 @@ class NiblitCore:
             
             self.memory = self.db
             self.startup_report.add("db", "ready")
-            log.info("Database initialized successfully")
+            log.info("✅ Database initialized successfully")
         except Exception as e:
             log.error(f"Database initialization failed: {e}")
             self.db = _FallbackDB()
@@ -1133,7 +2264,7 @@ class NiblitCore:
             
             self.startup_report.add("identity", "ready")
             self.startup_report.add("guard", "ready")
-            log.info("Identity and security initialized")
+            log.info("✅ Identity and security initialized")
         except Exception as e:
             log.error(f"Identity/security init failed: {e}")
             self.startup_report.add("identity", "degraded", str(e))
@@ -1151,7 +2282,7 @@ class NiblitCore:
                         return r.get("text", str(r)) if isinstance(r, dict) else str(r)
                     return "[No info found]"
                 self.internet.quick_summary = quick_summary
-                log.info("InternetManager loaded successfully")
+                log.info("✅ InternetManager loaded successfully")
             self.startup_report.add("internet", "ready")
         except Exception as e:
             log.debug(f"InternetManager failed: {e}")
@@ -1188,6 +2319,13 @@ class NiblitCore:
                 researcher=None,
                 reflector=self.reflect
             ) if SelfTeacher_mod else None
+
+            # Wire reflect with self_teacher now that both are initialized
+            if self.reflect and self.self_teacher:
+                try:
+                    self.reflect.self_teacher = self.self_teacher
+                except Exception as _e:
+                    log.debug(f"[INIT] reflect.self_teacher wire failed (non-critical): {_e}")
             
             self.self_implementer = safe_call(
                 SelfImplementer,
@@ -1215,7 +2353,7 @@ class NiblitCore:
                 self.hf = None
             
             self.startup_report.add("ai_adapters", "ready")
-            log.info("AI adapters initialized")
+            log.info("✅ AI adapters initialized")
         except Exception as e:
             log.error(f"AI adapters init failed: {e}")
             self.startup_report.add("ai_adapters", "degraded", str(e))
@@ -1254,7 +2392,7 @@ class NiblitCore:
                 self.router = None
             
             self.startup_report.add("brain_router", "ready")
-            log.info("Brain and router initialized")
+            log.info("✅ Brain and router initialized")
         except Exception as e:
             log.error(f"Brain/router init failed: {e}")
             self.startup_report.add("brain_router", "degraded", str(e))
@@ -1283,9 +2421,37 @@ class NiblitCore:
             
             if self.idea_generator and hasattr(self.idea_generator, "autonomous_loop"):
                 threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
+
+            # Initialize SelfIdeaImplementation with db + self_implementer
+            if SelfIdeaImplementation:
+                try:
+                    self.idea_implementation = SelfIdeaImplementation(
+                        db=self.db,
+                        implementer=self.self_implementer,
+                    )
+                    log.info("✅ SelfIdeaImplementation initialized")
+                    self.startup_report.add("idea_implementation", "ready")
+                except Exception as e:
+                    log.debug(f"SelfIdeaImplementation init failed: {e}")
+                    self.idea_implementation = None
+                    self.startup_report.add("idea_implementation", "degraded", str(e))
+
+            # Wire reflect's learner to idea_implementation now that it's ready
+            if self.reflect and self.idea_implementation:
+                try:
+                    self.reflect.learner = self.idea_implementation
+                except Exception:
+                    pass
+
+            # Wire self_teacher's learner to idea_implementation
+            if self.self_teacher and self.idea_implementation:
+                try:
+                    self.self_teacher.learner = self.idea_implementation
+                except Exception:
+                    pass
             
             self.startup_report.add("learning", "ready")
-            log.info("Learning systems initialized")
+            log.info("✅ Learning systems initialized")
         except Exception as e:
             log.error(f"Learning systems init failed: {e}")
             self.startup_report.add("learning", "degraded", str(e))
@@ -1300,13 +2466,13 @@ class NiblitCore:
             self.manager = safe_call(NiblitManager) if NiblitManager else None
             
             self.startup_report.add("system_services", "ready")
-            log.info("System services initialized")
+            log.info("✅ System services initialized")
         except Exception as e:
             log.error(f"System services init failed: {e}")
             self.startup_report.add("system_services", "degraded", str(e))
 
     def _init_optional_services(self):
-        """Initialize optional heavy modules."""
+        """Initialize optional heavy modules including all improvements."""
         try:
             self.membrane = safe_call(Membrane) if Membrane else None
             self.healer_obj = safe_call(Healer) if Healer else None
@@ -1328,11 +2494,227 @@ class NiblitCore:
                 except Exception as e:
                     log.debug(f"load_modules failed: {e}")
             
+            # ============================
+            # INITIALIZE 10 SELF-IMPROVEMENTS
+            # ============================
+            if self.config.enable_self_improvements:
+                self._init_self_improvements()
+            
+            # ============================
+            # INITIALIZE AUTONOMOUS LEARNING ENGINE
+            # ============================
+            if self.config.enable_autonomous_engine and AutonomousLearningEngine:
+                try:
+                    self.autonomous_engine = AutonomousLearningEngine(
+                        core=self,
+                        researcher=getattr(self, "researcher", None),
+                        idea_generator=getattr(self, "idea_generator", None),
+                        reflect_module=getattr(self, "reflect", None),
+                        self_teacher=getattr(self, "self_teacher", None),
+                        slsa_manager=getattr(self, "slsa_manager", None),
+                        knowledge_db=self.db,
+                        evolve_engine=getattr(self, "evolve_engine", None),
+                        self_implementer=getattr(self, "self_implementer", None),
+                        idea_implementation=getattr(self, "idea_implementation", None),
+                        code_generator=getattr(self, "code_generator", None),
+                        code_compiler=getattr(self, "code_compiler", None),
+                        software_studier=getattr(self, "software_studier", None),
+                        internet=getattr(self, "internet", None),
+                    )
+                    log.info("✅ AutonomousLearningEngine initialized")
+                    self.startup_report.add("autonomous_engine", "ready")
+                except Exception as e:
+                    log.warning(f"AutonomousLearningEngine init failed: {e}")
+                    self.startup_report.add("autonomous_engine", "degraded", str(e))
+            
             self.startup_report.add("optional_services", "ready")
-            log.info("Optional services initialized")
+            log.info("✅ Optional services initialized")
+
+            # ============================
+            # LIVE UPDATER
+            # ============================
+            if LiveUpdater:
+                try:
+                    self.live_updater = LiveUpdater(base_dir=str(self.config.memory_path.parent)
+                                                    if hasattr(self.config, "memory_path") else None)
+                    log.info("✅ LiveUpdater initialized")
+                    self.startup_report.add("live_updater", "ready")
+                except Exception as e:
+                    log.debug(f"LiveUpdater init failed: {e}")
+                    self.startup_report.add("live_updater", "degraded", str(e))
+
+            # ============================
+            # STRUCTURAL AWARENESS
+            # ============================
+            if StructuralAwareness:
+                try:
+                    self.structural_awareness = StructuralAwareness(core=self)
+                    log.info("✅ StructuralAwareness initialized")
+                    self.startup_report.add("structural_awareness", "ready")
+                except Exception as e:
+                    log.debug(f"StructuralAwareness init failed: {e}")
+                    self.startup_report.add("structural_awareness", "degraded", str(e))
+
+            # ============================
+            # CODE GENERATOR
+            # ============================
+            if CodeGenerator:
+                try:
+                    self.code_generator = CodeGenerator(db=self.db)
+                    log.info("✅ CodeGenerator initialized")
+                    self.startup_report.add("code_generator", "ready")
+                except Exception as e:
+                    log.debug(f"CodeGenerator init failed: {e}")
+                    self.startup_report.add("code_generator", "degraded", str(e))
+
+            # ============================
+            # CODE COMPILER
+            # ============================
+            if CodeCompiler:
+                try:
+                    self.code_compiler = CodeCompiler(db=self.db)
+                    log.info("✅ CodeCompiler initialized")
+                    self.startup_report.add("code_compiler", "ready")
+                except Exception as e:
+                    log.debug(f"CodeCompiler init failed: {e}")
+                    self.startup_report.add("code_compiler", "degraded", str(e))
+
+            # ============================
+            # FILE MANAGER (enhanced)
+            # ============================
+            if FileManager:
+                try:
+                    self.file_manager = FileManager(
+                        base_dir=str(self.config.memory_path.parent)
+                        if hasattr(self.config, "memory_path") else None,
+                        db=self.db,
+                    )
+                    log.info("✅ FilesystemManager (enhanced) initialized")
+                    self.startup_report.add("file_manager", "ready")
+                except Exception as e:
+                    log.debug(f"FilesystemManager init failed: {e}")
+                    self.startup_report.add("file_manager", "degraded", str(e))
+
+            # ============================
+            # SOFTWARE STUDIER
+            # ============================
+            if SoftwareStudier:
+                try:
+                    self.software_studier = SoftwareStudier(db=self.db)
+                    log.info("✅ SoftwareStudier initialized")
+                    self.startup_report.add("software_studier", "ready")
+                except Exception as e:
+                    log.debug(f"SoftwareStudier init failed: {e}")
+                    self.startup_report.add("software_studier", "degraded", str(e))
+
+            # ============================
+            # EVOLVE ENGINE
+            # ============================
+            if EvolveEngine:
+                try:
+                    self.evolve_engine = EvolveEngine(
+                        core=self,
+                        researcher=getattr(self, "researcher", None),
+                        code_generator=getattr(self, "code_generator", None),
+                        code_compiler=getattr(self, "code_compiler", None),
+                        software_studier=getattr(self, "software_studier", None),
+                        self_teacher=getattr(self, "self_teacher", None),
+                        reflect_module=getattr(self, "reflect", None),
+                        idea_generator=getattr(self, "idea_generator", None),
+                        implementer=getattr(self, "self_implementer", None),
+                        knowledge_db=self.db,
+                        internet=getattr(self, "internet", None),
+                        idea_implementation=getattr(self, "idea_implementation", None),
+                        slsa=getattr(self, "slsa_engine", None),
+                        autonomous_engine=getattr(self, "autonomous_engine", None),
+                    )
+                    # Back-wire autonomous_engine → evolve_engine once both are available
+                    if self.autonomous_engine and not self.autonomous_engine.evolve_engine:
+                        self.autonomous_engine.evolve_engine = self.evolve_engine
+                    log.info("✅ EvolveEngine initialized")
+                    self.startup_report.add("evolve_engine", "ready")
+                except Exception as e:
+                    log.debug(f"EvolveEngine init failed: {e}")
+                    self.startup_report.add("evolve_engine", "degraded", str(e))
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))
+
+    def _init_self_improvements(self):
+        """Initialize 10 self-improvement modules."""
+        log.info("[SELF-IMPROVEMENTS] Initializing 10 modules...")
+        
+        try:
+            if ParallelLearner and self.researcher:
+                self.parallel_learner = ParallelLearner(self.researcher, max_workers=3)
+                log.info("[SELF-IMPROVEMENTS] ✅ ParallelLearner")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] ParallelLearner failed: {e}")
+        
+        try:
+            if ReasoningEngine and self.db:
+                self.reasoning_engine = ReasoningEngine(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ ReasoningEngine")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] ReasoningEngine failed: {e}")
+        
+        try:
+            if GapAnalyzer and self.db and self.researcher:
+                self.gap_analyzer = GapAnalyzer(self.db, self.researcher)
+                log.info("[SELF-IMPROVEMENTS] ✅ GapAnalyzer")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] GapAnalyzer failed: {e}")
+        
+        try:
+            if KnowledgeSynthesizer and self.db:
+                self.synthesizer = KnowledgeSynthesizer(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ KnowledgeSynthesizer")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] KnowledgeSynthesizer failed: {e}")
+        
+        try:
+            if PredictionEngine and self.db:
+                self.predictor = PredictionEngine(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ PredictionEngine")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] PredictionEngine failed: {e}")
+        
+        try:
+            if MemoryOptimizer and self.db:
+                self.memory_optimizer = MemoryOptimizer(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ MemoryOptimizer")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] MemoryOptimizer failed: {e}")
+        
+        try:
+            if AdaptiveLearning:
+                self.adaptive_learning = AdaptiveLearning()
+                log.info("[SELF-IMPROVEMENTS] ✅ AdaptiveLearning")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] AdaptiveLearning failed: {e}")
+        
+        try:
+            if Metacognition and self.db:
+                self.metacognition = Metacognition(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ Metacognition")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] Metacognition failed: {e}")
+        
+        try:
+            if CollaborativeLearner:
+                self.collaborative_learner = CollaborativeLearner()
+                log.info("[SELF-IMPROVEMENTS] ✅ CollaborativeLearner")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] CollaborativeLearner failed: {e}")
+        
+        try:
+            if ImprovementIntegrator:
+                self.improvements = ImprovementIntegrator(self, self.db, self.researcher)
+                log.info("[SELF-IMPROVEMENTS] ✅ ImprovementIntegrator")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] ImprovementIntegrator failed: {e}")
+        
+        log.info("[SELF-IMPROVEMENTS] ✅ All 10 modules initialized!")
 
     def _start_background_services(self):
         """Start background services and loops."""
@@ -1422,6 +2804,7 @@ class NiblitCore:
                 
                 time.sleep(10)
             except Exception as e:
+                loop_tracer.record("DumpMonitoringLoop", e)
                 log.error(f"[DUMP LOOP] Monitoring error: {e}")
                 time.sleep(10)
         
@@ -1525,6 +2908,7 @@ class NiblitCore:
                     log.info(f"[HEALTH] uptime={uptime}s mem={mem}")
                 time.sleep(5)
             except Exception as e:
+                loop_tracer.record("HealthLoop", e)
                 log.debug(f"Health loop error: {e}")
                 time.sleep(5)
 
@@ -1540,8 +2924,8 @@ class NiblitCore:
                     elif hasattr(self.trainer, "step_if_needed"):
                         buf = getattr(self.collector, "buffer", []) if self.collector else []
                         safe_call(self.trainer.step_if_needed, buf)
-            except Exception:
-                pass
+            except Exception as e:
+                loop_tracer.record("TrainerLoop", e)
             time.sleep(90)
 
     def _auto_research_loop(self):
@@ -1588,8 +2972,8 @@ class NiblitCore:
                                     self.db.mark_learning_done(topic)
                                 except Exception:
                                     pass
-            except Exception:
-                pass
+            except Exception as e:
+                loop_tracer.record("ResearchLoop", e)
             time.sleep(150)
 
     def _self_heal_loop(self):
@@ -1603,8 +2987,8 @@ class NiblitCore:
                         safe_call(self.self_healer.repair)
                     elif hasattr(self.self_healer, "full_heal"):
                         safe_call(self.self_healer.full_heal, self)
-            except Exception:
-                pass
+            except Exception as e:
+                loop_tracer.record("HealLoop", e)
             time.sleep(300)
 
     # ============================
@@ -1821,8 +3205,20 @@ class NiblitCore:
             pass
         return 0
 
+    def get_memory_count(self) -> int:
+        """Public accessor for the number of stored memory entries."""
+        return self._get_memory_count()
+
     def _trigger_learning(self, user_input: str, response: str):
         """Invoke NiblitLearning on each conversation turn, queue follow-up tasks."""
+        # Record user activity (not idle)
+        if self.autonomous_engine:
+            try:
+                if hasattr(self.autonomous_engine, "record_user_activity"):
+                    self.autonomous_engine.record_user_activity()
+            except Exception as e:
+                log.debug(f"Failed to record user activity: {e}")
+        
         if self.learning:
             try:
                 self.learning.process_interaction(user_input, response)
@@ -1849,6 +3245,8 @@ class NiblitCore:
             ("internet", self.internet),
             ("learning", self.learning),
             ("llm", self.llm),
+            ("improvements", self.improvements),
+            ("autonomous_engine", self.autonomous_engine),
         ]
         
         for name, component in checks:
@@ -1906,10 +3304,12 @@ class NiblitCore:
         3. SLSA commands
         4. Orchestrator commands
         5. System commands (status, health, metrics)
-        6. Intent parsing (core commands)
-        7. Internet commands (search, summary - uses internet directly, NOT LLM)
-        8. Router fallback (complex routing)
-        9. Brain.think() (ONLY for general chat)
+        6. Autonomous Learning commands (NEW)
+        7. Self-Improvement commands (handled in _handle_impl BEFORE registry)
+        8. Intent parsing (core commands)
+        9. Internet commands (search, summary - uses internet directly, NOT LLM)
+        10. Router fallback (complex routing)
+        11. Brain.think() (ONLY for general chat)
         """
         ltext = text.lower().strip()
         
@@ -1926,18 +3326,33 @@ class NiblitCore:
                     self._trigger_learning(text, result)
                     return result
             except Exception as e:
-                log.warning(f"[COMMAND_REGISTRY] Failed: {e}")
+                log.debug(f"[COMMAND_REGISTRY] Failed: {e}")
         
         # ============================
         # LAYER 2: BRAIN COMMANDS (uses modules, NOT LLM)
         # ============================
-        if self.brain:
-            brain_commands = (
-                "self-research", "self-heal", "self-idea", "self-implement",
-                "reflect", "auto-reflect"
-            )
-            if any(ltext.startswith(cmd) for cmd in brain_commands):
-                log.debug(f"[BRAIN-CMD] Intercepted: {ltext.split()[0]}")
+        # Direct module commands — handled by _cmd_* methods which use modules directly
+        direct_module_commands = (
+            "self-research", "self-heal", "self-idea", "self-implement",
+            "reflect", "auto-reflect", "self-teach", "idea-implement",
+        )
+        if any(ltext.startswith(cmd) for cmd in direct_module_commands):
+            log.debug(f"[MODULE-CMD] Intercepted: {ltext.split()[0]}")
+            # Try direct module handlers first
+            if ltext.startswith("self-research"):
+                return self._cmd_self_research(text)
+            if ltext.startswith("self-idea"):
+                return self._cmd_self_idea(text)
+            if ltext.startswith("self-implement"):
+                return self._cmd_self_implement(text)
+            if ltext.startswith("reflect"):
+                return self._cmd_reflect(text)
+            if ltext.startswith("self-teach"):
+                return self._cmd_self_teach(text)
+            if ltext.startswith("idea-implement"):
+                return self._cmd_idea_implement(text)
+            # Remaining (self-heal, auto-reflect): fall through to brain
+            if self.brain:
                 try:
                     response = safe_call(self.brain.handle_command, text)
                     if response:
@@ -1993,6 +3408,21 @@ class NiblitCore:
             log.debug("[HF-CMD] Intercepted")
             task_prompt = text[8:].strip()
             return self._hf_task(task_prompt)
+
+        # ============================
+        # LAYER 4b: DIAGNOSTIC / TESTER COMMANDS
+        # ============================
+        if ltext.startswith("run-diagnostics"):
+            log.debug("[DIAG-CMD] Intercepted: run-diagnostics")
+            return self._cmd_run_diagnostics(text)
+
+        if ltext.startswith("run-live-test"):
+            log.debug("[LIVE-TEST-CMD] Intercepted: run-live-test")
+            return self._cmd_run_live_test(text)
+
+        if ltext.startswith("loop-errors"):
+            log.debug("[DIAG-CMD] Intercepted: loop-errors")
+            return self.loop_tracer_summary()
         
         # ============================
         # LAYER 5: SYSTEM STATUS COMMANDS
@@ -2010,7 +3440,226 @@ class NiblitCore:
             return f"[DUMP] Loop cycles: {self._dump_loop_count}, Memory: {self._get_memory_count()}"
         
         # ============================
-        # LAYER 6: INTENT PARSING & CORE COMMANDS
+        # LAYER 6: AUTONOMOUS LEARNING COMMANDS
+        # ============================
+        if ltext.startswith("autonomous-learn"):
+            if "start" in ltext:
+                return self._cmd_autonomous_start(text)
+            elif "stop" in ltext:
+                return self._cmd_autonomous_stop(text)
+            elif "code-status" in ltext:
+                return self._cmd_autonomous_code_status(text)
+            elif "status" in ltext:
+                return self._cmd_autonomous_status(text)
+            elif "add-topic" in ltext:
+                return self._cmd_autonomous_add_topic(text)
+        
+        # ============================
+        # LAYER 7: SELF-IMPROVEMENT COMMANDS (BEFORE INTENT PARSING)
+        # ============================
+        if ltext == "show improvements":
+            log.debug("[IMPROVE-CMD] Intercepted: show improvements")
+            return self._cmd_show_improvements(text)
+        
+        if ltext == "run improvement-cycle":
+            log.debug("[IMPROVE-CMD] Intercepted: run improvement-cycle")
+            return self._cmd_run_improvement_cycle(text)
+        
+        if ltext == "improvement-status":
+            log.debug("[IMPROVE-CMD] Intercepted: improvement-status")
+            return self._cmd_improvement_status(text)
+
+        # ============================
+        # LAYER 7b: LIVE UPDATER COMMANDS
+        # ============================
+        if ltext.startswith("reload "):
+            mod_name = text[len("reload "):].strip()
+            if mod_name:
+                log.debug(f"[UPDATER-CMD] Intercepted: reload {mod_name}")
+                return self._cmd_reload_module(mod_name)
+
+        if ltext in ("upgrade", "update-self", "update self"):
+            log.debug("[UPDATER-CMD] Intercepted: upgrade")
+            return self._cmd_upgrade()
+
+        if ltext in ("update-history", "reload-history"):
+            log.debug("[UPDATER-CMD] Intercepted: update-history")
+            return self._cmd_update_history()
+
+        # ============================
+        # LAYER 7c: STRUCTURAL AWARENESS COMMANDS
+        # ============================
+        if ltext in ("my structure", "show structure", "niblit structure", "struct"):
+            log.debug("[SA-CMD] Intercepted: my structure")
+            return self._cmd_sa_structure()
+
+        if ltext in ("my threads", "active threads", "threads"):
+            log.debug("[SA-CMD] Intercepted: my threads")
+            return self._cmd_sa_threads()
+
+        if ltext in ("my loops", "active loops", "loops", "background loops"):
+            log.debug("[SA-CMD] Intercepted: my loops")
+            return self._cmd_sa_loops()
+
+        if ltext in ("my modules", "loaded modules", "modules"):
+            log.debug("[SA-CMD] Intercepted: my modules")
+            return self._cmd_sa_modules()
+
+        if ltext in ("my commands", "all commands"):
+            log.debug("[SA-CMD] Intercepted: my commands")
+            return self._cmd_sa_commands()
+
+        if ltext in ("runtime status", "live status", "dashboard"):
+            log.debug("[SA-CMD] Intercepted: dashboard")
+            return self._cmd_sa_dashboard()
+
+        if ltext in ("how do i work", "operational flow", "my flow", "loop flow"):
+            log.debug("[SA-CMD] Intercepted: operational flow")
+            return self._cmd_sa_flow()
+
+        if ltext in ("resource usage", "my resources", "memory usage"):
+            log.debug("[SA-CMD] Intercepted: resource usage")
+            return self._cmd_sa_resources()
+
+        # ============================
+        # LAYER 7d: CODE & FILE CAPABILITY COMMANDS
+        # ============================
+
+        # Generate code
+        if ltext.startswith("generate code ") or ltext.startswith("generate-code "):
+            rest = text[text.index(" ", text.index(" ") + 1):].strip()
+            log.debug("[CODE-CMD] generate code: %s", rest[:40])
+            return self._cmd_generate_code(rest)
+
+        # Run / compile / execute code
+        if ltext.startswith("run code ") or ltext.startswith("run-code "):
+            rest = text[text.index(" ", text.index(" ") + 1):].strip()
+            log.debug("[CODE-CMD] run code: %s", rest[:40])
+            return self._cmd_run_code(rest)
+
+        # Validate syntax
+        if ltext.startswith("validate "):
+            rest = text[len("validate "):].strip()
+            log.debug("[CODE-CMD] validate: %s", rest[:40])
+            return self._cmd_validate_code(rest)
+
+        # Execute a file
+        if ltext.startswith("execute file ") or ltext.startswith("exec file "):
+            filepath = text.split(None, 2)[-1].strip()
+            log.debug("[FILE-CMD] execute file: %s", filepath)
+            return self._cmd_execute_file(filepath)
+
+        # File operations: read, write, list, delete, info
+        if ltext.startswith("read file "):
+            filepath = text[len("read file "):].strip()
+            log.debug("[FILE-CMD] read: %s", filepath)
+            return self._cmd_read_file(filepath)
+
+        if ltext.startswith("write file "):
+            rest = text[len("write file "):].strip()
+            log.debug("[FILE-CMD] write: %s", rest[:40])
+            return self._cmd_write_file(rest)
+
+        if ltext.startswith("list files") or ltext in ("ls", "list dir", "list directory"):
+            dirpath = text.split(None, 2)[-1].strip() if len(text.split()) > 2 else "."
+            log.debug("[FILE-CMD] list: %s", dirpath)
+            return self._cmd_list_files(dirpath)
+
+        if ltext in ("file environment", "filesystem info", "fs info"):
+            log.debug("[FILE-CMD] environment info")
+            return self._cmd_file_environment()
+
+        # Language study
+        if ltext.startswith("study language ") or ltext.startswith("learn language "):
+            lang = text.split(None, 2)[-1].strip()
+            log.debug("[STUDY-CMD] study language: %s", lang)
+            return self._cmd_study_language(lang)
+
+        if ltext.startswith("code templates") or ltext == "list templates":
+            lang = text.split(None, 2)[-1].strip() if len(text.split()) > 2 else ""
+            log.debug("[CODE-CMD] list templates")
+            return self._cmd_list_templates(lang)
+
+        # Software study
+        if ltext.startswith("study software ") or ltext.startswith("learn software "):
+            cat = text.split(None, 2)[-1].strip()
+            log.debug("[STUDY-CMD] study software: %s", cat)
+            return self._cmd_study_software(cat)
+
+        if ltext.startswith("software categories") or ltext == "list software":
+            log.debug("[STUDY-CMD] list categories")
+            return self._cmd_software_categories()
+
+        if ltext.startswith("analyze architecture ") or ltext.startswith("study architecture "):
+            arch = text.split(None, 2)[-1].strip()
+            log.debug("[STUDY-CMD] analyze architecture: %s", arch)
+            return self._cmd_analyze_architecture(arch)
+
+        if ltext.startswith("design software ") or ltext.startswith("design-software "):
+            desc = text.split(None, 2)[-1].strip()
+            log.debug("[STUDY-CMD] design software: %s", desc[:40])
+            return self._cmd_design_software(desc)
+
+        if ltext in ("what have i studied", "studied software", "software studied"):
+            log.debug("[STUDY-CMD] what i've studied")
+            return self._cmd_software_studied()
+
+        if ltext in ("available languages", "compiler languages", "supported languages"):
+            log.debug("[CODE-CMD] available languages")
+            return self._cmd_available_languages()
+
+        # ============================
+        # LAYER 7e: EVOLVE + CODE RESEARCH COMMANDS
+        # ============================
+
+        if ltext in ("evolve", "evolve step", "run evolve"):
+            log.debug("[EVOLVE-CMD] step")
+            return self._cmd_evolve_step()
+
+        if ltext in ("evolve start", "start evolving", "start evolution"):
+            log.debug("[EVOLVE-CMD] start")
+            return self._cmd_evolve_start()
+
+        if ltext in ("evolve stop", "stop evolving", "stop evolution"):
+            log.debug("[EVOLVE-CMD] stop")
+            return self._cmd_evolve_stop()
+
+        if ltext in ("evolve status", "evolution status"):
+            log.debug("[EVOLVE-CMD] status")
+            return self._cmd_evolve_status()
+
+        if ltext in ("evolve history", "evolution history"):
+            log.debug("[EVOLVE-CMD] history")
+            return self._cmd_evolve_history()
+
+        if ltext.startswith("research code ") or ltext.startswith("research-code "):
+            rest = text.split(None, 2)[-1].strip()
+            log.debug("[CODE-RESEARCH-CMD] %s", rest[:40])
+            return self._cmd_research_code(rest)
+
+        # ============================
+        # LAYER 7f: KNOWLEDGE RECALL & ACQUIRED DATA COMMANDS
+        # ============================
+
+        if ltext.startswith("recall ") or ltext == "recall":
+            log.debug("[KNOWLEDGE-CMD] recall")
+            return self._cmd_recall(text)
+
+        if ltext.startswith("acquired data") or ltext.startswith("acquired-data"):
+            log.debug("[KNOWLEDGE-CMD] acquired data")
+            return self._cmd_acquired_data(text)
+
+        if ltext in ("knowledge stats", "knowledge-stats", "kb stats", "kb-stats"):
+            log.debug("[KNOWLEDGE-CMD] knowledge stats")
+            return self._cmd_knowledge_stats(text)
+
+        if ltext in ("ale processes", "ale-processes", "show ale", "niblit processes",
+                     "how do you learn", "learning processes", "all processes"):
+            log.debug("[KNOWLEDGE-CMD] ale processes")
+            return self._cmd_ale_process_awareness(text)
+
+        # ============================
+        # LAYER 8: INTENT PARSING & CORE COMMANDS
         # ============================
         intent, meta = parse_intent(text)
         log.debug(f"[INTENT] Parsed: {intent}")
@@ -2044,7 +3693,7 @@ class NiblitCore:
             return f"Ideas for {topic}: Prototype -> Test -> Evolve"
         
         # ============================
-        # LAYER 7: INTERNET COMMANDS (uses internet directly, NOT LLM)
+        # LAYER 9: INTERNET COMMANDS (uses internet directly, NOT LLM)
         # ============================
         if ltext.startswith("summary ") and self.internet:
             log.debug("[INTERNET-CMD] Intercepted: summary")
@@ -2055,7 +3704,7 @@ class NiblitCore:
             return self._cmd_search(text)
         
         # ============================
-        # LAYER 8: SHUTDOWN
+        # LAYER 10: SHUTDOWN
         # ============================
         if intent == "shutdown":
             log.debug("[CORE-CMD] Intercepted: shutdown")
@@ -2063,7 +3712,7 @@ class NiblitCore:
             return "Shutdown scheduled."
         
         # ============================
-        # LAYER 9: ROUTER FALLBACK
+        # LAYER 11: ROUTER FALLBACK
         # ============================
         log.debug("[ROUTER] Fallback routing (no direct match)")
         if self.router and not self._routing:
@@ -2079,7 +3728,7 @@ class NiblitCore:
                 self._routing = False
         
         # ============================
-        # LAYER 10: GENERAL CONVERSATION (brain.think ONLY)
+        # LAYER 12: GENERAL CONVERSATION (brain.think ONLY)
         # ============================
         log.debug("[BRAIN] General chat fallback - brain.think() only")
         response = None
@@ -2097,53 +3746,154 @@ class NiblitCore:
         return response
 
     def help_text(self) -> str:
-        """Return help text including orchestrator commands if available."""
+        """Return help text including all features."""
         base_help = (
-            "help                                — Show this help\n"
-            "time                                — Show current time\n"
-            "status                              — Show system status\n"
-            "health                              — Comprehensive health check\n"
-            "metrics                             — Performance metrics\n"
-            "dump                                — Show dump loop stats\n"
-            "remember key:value                  — Store a fact\n"
-            "learn about <topic>                 — Queue for research\n"
-            "ideas about <topic>                 — Get creative ideas\n"
-            "search <query>                      — Search the internet\n"
-            "summary <query>                     — Get quick summary\n"
-            "self-research <topic>               — Research autonomously (uses internet, NOT LLM)\n"
-            "reflect <topic>                     — Reflect on topic (uses modules, NOT LLM)\n"
-            "self-idea <topic>                   — Generate ideas (uses modules, NOT LLM)\n"
-            "self-implement <topic>              — Implement concept (uses modules, NOT LLM)\n"
-            "slsa-status                         — SLSA status\n"
-            "start_slsa [topic1 topic2 ...]     — Start SLSA\n"
-            "stop_slsa                           — Stop SLSA\n"
-            "restart_slsa [topic1 topic2 ...]   — Restart SLSA\n"
-            "toggle-llm on/off                   — Enable/disable LLM (general chat only)\n"
-            "shutdown                            — Graceful shutdown"
+            "=== NIBLIT HELP ===\n\n"
+            "--- CORE ---\n"
+            "help                     — Show this help\n"
+            "time                     — Show current time\n"
+            "status                   — Show system status\n"
+            "health                   — Comprehensive health check\n"
+            "metrics                  — Performance metrics\n"
+            "dump                     — Show dump loop stats\n"
+            "\n--- MEMORY & LEARNING ---\n"
+            "remember key:value       — Store a fact\n"
+            "learn about <topic>      — Queue for research\n"
+            "ideas about <topic>      — Get creative ideas\n"
+            "\n--- KNOWLEDGE RECALL & ACQUIRED DATA ---\n"
+            "recall <topic>           — Search KnowledgeDB for topic (searches all stored facts)\n"
+            "acquired data            — Browse all acquired facts from ALE processes\n"
+            "acquired data <category> — Filter by: research, ideas, code, compiled,\n"
+            "                           reflection, software_study, implementation, all\n"
+            "knowledge stats          — Full KnowledgeDB summary (counts, top tags, ALE breakdown)\n"
+            "ale processes            — Explain all 12 ALE steps + data storage + module status\n"
+            "\n--- AUTONOMOUS LEARNING ---\n"
+            "autonomous-learn start              — Start background learning (incl. code loop)\n"
+            "autonomous-learn stop               — Stop background learning\n"
+            "autonomous-learn status             — View full learning statistics\n"
+            "autonomous-learn add-topic <topic>  — Add research topic\n"
+            "autonomous-learn code-status        — View programming literacy status\n"
+            "\n--- PROGRAMMING LITERACY (CODE LOOP) ---\n"
+            "  Runs during idle time — internet is the primary data source:\n"
+            "  Step  1: Research       — researcher+internet → KB (tag: ale_step1)\n"
+            "  Step  2: Ideas          — SelfIdeaImpl generates ideas    (tag: ale_step2)\n"
+            "  Step  3: Implement      — SelfImplementer executes ideas  (tag: ale_step3)\n"
+            "  Step  4: Reflection     — ReflectModule summarizes        (tag: ale_step4)\n"
+            "  Step  5: SLSA           — generates knowledge artifacts   (tag: ale_step5)\n"
+            "  Step  6: Learning       — SelfTeacher internalizes        (tag: ale_step6)\n"
+            "  Step  7: Evolve         — EvolveEngine self-evolves       (tag: ale_step7)\n"
+            "  Step  8: Code Research  — internet → CodeGenerator        (tag: ale_step8)\n"
+            "  Step  9: Code Generate  — idea+implementer → code         (tag: ale_step9)\n"
+            "  Step 10: Code Compile   — CodeCompiler runs it            (tag: ale_step10)\n"
+            "  Step 11: Code Reflect   — ReflectModule studies output    (tag: ale_step11)\n"
+            "  Step 12: SW Study       — SoftwareStudier+internet        (tag: ale_step12)\n"
+            "  All output stored in KnowledgeDB.  Recall: 'recall <topic>'\n"
+            "\n--- 10 SELF-IMPROVEMENTS ---\n"
+            "show improvements        — View all 10 improvements\n"
+            "run improvement-cycle    — Execute improvement cycle\n"
+            "improvement-status       — View improvement status\n"
+            "\n--- INTERNET & RESEARCH ---\n"
+            "search <query>           — Search the internet\n"
+            "summary <query>          — Get quick summary\n"
+            "self-research <topic>    — Research autonomously\n"
+            "research code <lang> [topic] — Research language from internet → CodeGenerator\n"
+            "\n--- BRAIN / SELF-IMPROVEMENT COMMANDS ---\n"
+            "self-idea <prompt>       — Generate & implement idea\n"
+            "self-implement [plan]    — Enqueue plan to SelfImplementer\n"
+            "self-teach <topic>       — Teach topic via SelfTeacher + research\n"
+            "idea-implement [prompt]  — Generate and implement ideas\n"
+            "reflect [text]           — Reflect on topic\n"
+            "auto-reflect             — Auto reflection on recent events\n"
+            "self-heal                — Self-healing\n"
+            "\n--- EVOLUTION ENGINE ---\n"
+            "evolve                   — Run one self-evolution step\n"
+            "evolve start             — Start continuous background evolution\n"
+            "evolve stop              — Stop background evolution\n"
+            "evolve status            — Show evolution status\n"
+            "evolve history           — Show recent evolution steps\n"
+            "\n--- CODE GENERATION & COMPILATION ---\n"
+            "generate code <lang> [template] [key=val]  — Generate code\n"
+            "run code <lang> <code>          — Execute code inline\n"
+            "validate <lang> <code>          — Validate syntax\n"
+            "execute file <path>             — Execute a script file\n"
+            "code templates [lang]           — List templates\n"
+            "study language <lang>           — Best practices for language\n"
+            "available languages             — Show supported languages\n"
+            "\n--- FILE MANAGER ---\n"
+            "read file <path>         — Read file\n"
+            "write file <path> <content> — Write file\n"
+            "list files [dir]         — List files\n"
+            "file environment         — Filesystem info\n"
+            "\n--- SOFTWARE STUDY ---\n"
+            "study software <cat>     — Study a software category\n"
+            "software categories      — List all categories\n"
+            "analyze architecture <n> — Analyze architecture pattern\n"
+            "design software <desc>   — Generate software design\n"
+            "what have i studied      — Show studied this session\n"
+            "\n--- STRUCTURAL SELF-AWARENESS (INTROSPECTION) ---\n"
+            "my structure             — Full component inventory\n"
+            "my threads               — All active threads\n"
+            "my loops                 — Background loop status\n"
+            "my modules               — Loaded modules\n"
+            "my commands              — All registered commands\n"
+            "dashboard                — Full runtime dashboard\n"
+            "operational flow         — How loops/routing work\n"
+            "resource usage           — RAM, CPU, uptime\n"
+            "\n--- SLSA ENGINE ---\n"
+            "slsa-status              — SLSA status\n"
+            "start_slsa [topics]      — Start SLSA\n"
+            "stop_slsa                — Stop SLSA\n"
+            "restart_slsa [topics]    — Restart SLSA\n"
+            "\n--- LIVE UPDATE ---\n"
+            "reload <module.name>     — Hot-reload a module\n"
+            "upgrade                  — Reload all changed modules\n"
+            "update-history           — Show reload history\n"
+            "\n--- SETTINGS ---\n"
+            "toggle-llm on/off        — Enable/disable LLM\n"
+            "shutdown                 — Graceful shutdown\n"
+            "\n--- DIAGNOSTICS ---\n"
+            "run-diagnostics          — Run full niblit diagnostic suite\n"
+            "run-live-test            — Run live command tester\n"
+            "loop-errors              — Show background loop error summary"
         )
 
         if self.orchestrator_available:
             orchestrator_help = (
-                "\n\n--- ORCHESTRATOR COMMANDS ---\n"
-                "orchestrate audit                  — Run repository audit\n"
-                "orchestrate self-heal              — Run self-healing\n"
-                "orchestrate fix-guide              — Generate fix guide\n"
-                "orchestrate verify                 — Verify imports\n"
-                "orchestrate pipeline               — Run full pipeline\n"
-                "hf-task <prompt>                   — Execute HF task"
+                "\n\n--- ORCHESTRATOR ---\n"
+                "orchestrate audit       — Run repository audit\n"
+                "orchestrate self-heal   — Run self-healing\n"
+                "orchestrate fix-guide   — Generate fix guide\n"
+                "orchestrate verify      — Verify imports\n"
+                "orchestrate pipeline    — Run full pipeline\n"
+                "hf-task <prompt>        — Execute HF task"
             )
             return base_help + orchestrator_help
 
         return base_help
 
+    def get_loop_errors(self) -> List[Dict]:
+        """Return all loop errors captured by the LoopTracer since startup."""
+        return loop_tracer.get_errors()
+
+    def loop_tracer_summary(self) -> str:
+        """Return a human-readable summary of all loop errors."""
+        return loop_tracer.summary()
+
     def shutdown(self, timeout_seconds: Optional[float] = None):
         """Gracefully shutdown NiblitCore and all services."""
         timeout = timeout_seconds or self.config.shutdown_timeout_seconds
-        log.info("Shutdown initiated")
+        log.info("✅ Shutdown initiated")
         self.running = False
         self._shutdown_event.set()
         
-        # Stop SLSA engine first
+        # Stop autonomous engine first
+        if self.autonomous_engine and self.autonomous_engine.running:
+            try:
+                self.autonomous_engine.stop()
+            except Exception as e:
+                log.error(f"Autonomous engine shutdown failed: {e}")
+        
+        # Stop SLSA engine
         if self.slsa_engine:
             try:
                 self._stop_slsa_engine()
@@ -2186,7 +3936,7 @@ class NiblitCore:
                     log.error(f"[SHUTDOWN] {name} failed: {e}")
         
         time.sleep(0.5)
-        log.info("Shutdown complete")
+        log.info("✅ Shutdown complete")
 
 
 # ============================================================
@@ -2195,7 +3945,7 @@ class NiblitCore:
 
 if __name__ == "__main__":
     core = NiblitCore()
-    print("TRUE Autonomous Niblit (Production Enhanced) running.")
+    print("✨ Niblit Ready (All Systems: Production + Self-Improvement + Autonomous Learning)")
     print("Type 'help' for available commands or 'shutdown' to exit.\n")
     try:
         while core.running:

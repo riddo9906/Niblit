@@ -19,6 +19,9 @@ niblit.db
 
 # Runtime and temporary files
 niblit_memory.json
+niblit_memory.json.backup
+niblit_diagnostics.json
+niblit_live_test_report.json
 *.log
 
 # Python package metadata

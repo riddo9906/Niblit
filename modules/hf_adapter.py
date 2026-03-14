@@ -8,9 +8,12 @@ Maintains previous HFAdapter.is_online() and .query() signatures.
 import os
 import logging
 import time
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed; rely on os.environ
 
 log = logging.getLogger("HFAdapter")
 try:

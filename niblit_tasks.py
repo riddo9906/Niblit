@@ -81,4 +81,20 @@ class NiblitTasks:
 
 
 if __name__ == "__main__":
-    print('Running niblit_tasks.py')
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== NiblitTasks self-test ===")
+    from niblit_memory import MemoryManager
+    mem = MemoryManager()
+
+    class _StubBrain:
+        def think(self, text): return f"thought: {text}"
+
+    tasks = NiblitTasks(brain=_StubBrain(), memory=mem)
+    tasks.start()
+    tasks.add_task("remember", {"input": "hello", "response": "hi"})
+    tasks.add_task("self_reflect")
+    tasks.add_task("optimize_preferences")
+    import time; time.sleep(0.5)
+    tasks.stop()
+    print("NiblitTasks OK")

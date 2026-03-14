@@ -145,6 +145,20 @@ except Exception as _e:
         def log_event(self, msg): 
             log.info(msg)
 
+_loop_tracer = None  # Lazy-loaded on first use to avoid circular import with niblit_core
+
+
+def _get_loop_tracer():
+    """Lazily import loop_tracer from niblit_core to break circular import."""
+    global _loop_tracer
+    if _loop_tracer is None:
+        try:
+            from niblit_core import loop_tracer as _lt
+            _loop_tracer = _lt
+        except Exception:
+            pass
+    return _loop_tracer
+
 # ─────────────────────────────
 # IDENTITY INVARIANTS
 # ─────────────────────────────
@@ -408,6 +422,9 @@ class LifecycleEngine:
                 time.sleep(HEARTBEAT_INTERVAL)
 
             except Exception as e:
+                _lt = _get_loop_tracer()
+                if _lt:
+                    _lt.record("LifecycleHeartbeat", e)
                 log.error(f"[Heartbeat] Loop error: {e}")
                 if self.telemetry:
                     self.telemetry.increment_counter("heartbeat_error")

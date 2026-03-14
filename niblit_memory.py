@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-niblit_memory.py — Unified MemoryManager with global singleton & enhanced features
+niblit_memory.py — Unified NiblitMemory (MemoryManager) with global singleton & enhanced features
 
 Production Enhancements:
 1. Circuit breakers for fault tolerance
@@ -66,8 +66,22 @@ except Exception as _e:
     log.debug(f"EventStore unavailable: {_e}")
     EventStore = None
 
+_loop_tracer = None  # Lazy-loaded on first use to avoid circular import with niblit_core
 
-class MemoryManager:
+
+def _get_loop_tracer():
+    """Lazily import loop_tracer from niblit_core to break circular import."""
+    global _loop_tracer
+    if _loop_tracer is None:
+        try:
+            from niblit_core import loop_tracer as _lt
+            _loop_tracer = _lt
+        except Exception:
+            pass
+    return _loop_tracer
+
+
+class NiblitMemory:
     """
     Unified memory management system with singleton pattern and persistent storage.
     
@@ -91,7 +105,7 @@ class MemoryManager:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(MemoryManager, cls).__new__(cls)
+                    cls._instance = super(NiblitMemory, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, filename=None, autosave_interval=60, dump_interval=300):
@@ -308,6 +322,9 @@ class MemoryManager:
                 self.save()
                 time.sleep(self.autosave_interval)
             except Exception as e:
+                _lt = _get_loop_tracer()
+                if _lt:
+                    _lt.record("MemoryAutosaveLoop", e)
                 log.error(f"Autosave loop error: {e}")
                 time.sleep(self.autosave_interval)
 
@@ -318,6 +335,9 @@ class MemoryManager:
                 self.dump_state()
                 time.sleep(self.dump_interval)
             except Exception as e:
+                _lt = _get_loop_tracer()
+                if _lt:
+                    _lt.record("MemoryDumpLoop", e)
                 log.error(f"Dump loop error: {e}")
                 time.sleep(self.dump_interval)
 
@@ -571,8 +591,8 @@ class MemoryManager:
 # ─────────────────────────────
 # GLOBAL SINGLETON
 # ─────────────────────────────
-GLOBAL_MEMORY = MemoryManager()
-NiblitMemory = MemoryManager
+MemoryManager = NiblitMemory  # backward-compatibility alias for existing imports
+GLOBAL_MEMORY = NiblitMemory()
 
 
 # ─────────────────────────────
