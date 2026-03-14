@@ -2100,8 +2100,8 @@ Uptime: {stats['uptime_seconds']}s
             if self.reflect and self.self_teacher:
                 try:
                     self.reflect.self_teacher = self.self_teacher
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[INIT] reflect.self_teacher wire failed (non-critical): {_e}")
             
             self.self_implementer = safe_call(
                 SelfImplementer,

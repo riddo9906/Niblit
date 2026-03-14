@@ -185,8 +185,8 @@ class AutonomousLearningEngine:
                     if self.knowledge_db:
                         try:
                             self.knowledge_db.log_event(f"Autonomous idea (SelfIdeaImpl): {idea_text[:50]}")
-                        except Exception:
-                            pass
+                        except Exception as _db_e:
+                            log.debug(f"Knowledge DB log_event failed: {_db_e}")
                     log.info(f"✅ [AUTONOMOUS IDEAS] SelfIdeaImpl generated: {idea_text[:50]}")
                     return f"Idea generated (SelfIdeaImpl): {idea_text[:100]}"
             except Exception as e:
@@ -442,11 +442,11 @@ Autonomous Learning Summary:
         log.info(f"✅ [AUTONOMOUS CYCLE] Summary:\n{summary}")
         log.info("=" * 70)
 
-        # Update learning rate
+        # Update learning rate — use .get() consistently for all keys
         elapsed = (datetime.utcnow() - datetime.fromisoformat(self.learning_history["start_time"])).total_seconds()
-        total_actions = (self.learning_history["research_completed"] +
-                        self.learning_history["ideas_implemented"] +
-                        self.learning_history["reflections_conducted"] +
+        total_actions = (self.learning_history.get("research_completed", 0) +
+                        self.learning_history.get("ideas_implemented", 0) +
+                        self.learning_history.get("reflections_conducted", 0) +
                         self.learning_history.get("evolve_steps", 0))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 

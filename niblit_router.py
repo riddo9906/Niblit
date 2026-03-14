@@ -653,6 +653,17 @@ Ask me about:
     # ─────────────────────────────────
     def _self_idea_implementation(self, prompt):
         """Generate and implement an idea — uses SelfIdeaImplementation directly when available."""
+        # Normalize prompt: strip command prefix and ensure it's not empty
+        if not isinstance(prompt, str):
+            prompt = str(prompt)
+        # Strip any leading command words (self-idea, self-implement, evolve)
+        for prefix in ("self-idea", "self-implement", "evolve"):
+            if prompt.lower().startswith(prefix):
+                prompt = prompt[len(prefix):].strip()
+                break
+        if not prompt:
+            prompt = "system improvement"
+
         # Prefer direct SelfIdeaImplementation
         if self.core:
             idea_impl = getattr(self.core, "idea_implementation", None)
@@ -1307,10 +1318,10 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             return self._run_research(cmd[len("summary "):].strip())
 
         # REFLECTION & IDEAS — use direct module access
-        if lower == "reflect" or lower.startswith("reflect "):
-            topic = cmd[len("reflect"):].strip()
+        if lower.startswith("reflect"):
+            topic = cmd[len("reflect"):].strip() or None
             if self.core and getattr(self.core, "reflect", None):
-                return safe_call(self.core.reflect.collect_and_summarize, topic or None) or "[Reflection completed]"
+                return safe_call(self.core.reflect.collect_and_summarize, topic) or "[Reflection completed]"
             return "[Reflect module not available]"
 
         if lower.startswith("auto-reflect"):

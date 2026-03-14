@@ -344,12 +344,15 @@ class EvolveEngine:
         if not hasattr(self.researcher, "research_code_and_feed_generator"):
             return None
         # Only run for code/language directions
-        code_keywords = ["code", "language", "compil", "pattern", "python", "generation"]
+        code_keywords = ["code", "language", "compile", "pattern", "python", "generation"]
         if not any(kw in direction.lower() for kw in code_keywords):
             return None
         try:
             lang = "python"
-            topic = direction.replace("code generation", "").replace("language", "").strip() or "best practices"
+            # Build topic from direction by removing generic words
+            stop_words = {"code", "generation", "language", "pattern", "quality", "learning"}
+            topic_words = [w for w in direction.split() if w.lower() not in stop_words]
+            topic = " ".join(topic_words).strip() or "best practices"
             result = self.researcher.research_code_and_feed_generator(
                 lang, topic, code_generator=self.code_generator
             )
