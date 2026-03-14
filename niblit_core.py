@@ -760,6 +760,119 @@ def hf_query(prompt: str) -> str:
 
 
 # ============================================================
+# LOOP TRACER
+# ============================================================
+
+class LoopTracer:
+    """
+    Thread-safe registry that captures structured error records from every
+    background loop in Niblit.
+
+    Each record has the shape::
+
+        {
+            "loop":      str,           # loop/thread name  (e.g. "HealthLoop")
+            "source":    str,           # file that owns the loop
+            "ts":        str,           # ISO-8601 timestamp of the error
+            "error":     str,           # str(exception)
+            "error_type":str,           # type(exception).__name__
+            "tb":        str,           # raw traceback string
+            "frames": [                 # parsed frame list
+                {
+                    "file":     str,    # absolute path
+                    "lineno":   int,
+                    "function": str,
+                    "code":     str,    # source line (stripped)
+                }
+            ],
+        }
+
+    Usage inside a loop body::
+
+        try:
+            ...loop work...
+        except Exception as exc:
+            loop_tracer.record("HealthLoop", exc)
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._errors: List[Dict] = []
+
+    # ----------------------------------------------------------
+    @staticmethod
+    def _parse_frames(tb_str: str) -> List[Dict]:
+        import re
+        frames = []
+        pattern = re.compile(r'File "([^"]+)",\s+line\s+(\d+),\s+in\s+(\S+)')
+        lines = tb_str.splitlines()
+        for i, line in enumerate(lines):
+            m = pattern.search(line)
+            if m:
+                code = lines[i + 1].strip() if i + 1 < len(lines) else ""
+                frames.append({
+                    "file": m.group(1),
+                    "lineno": int(m.group(2)),
+                    "function": m.group(3),
+                    "code": code,
+                })
+        return frames
+
+    # ----------------------------------------------------------
+    def record(self, loop_name: str, exc: Exception) -> None:
+        """Record a loop error.  Safe to call from any thread."""
+        import traceback as _tb
+        tb_str = _tb.format_exc()
+        frames = self._parse_frames(tb_str)
+        # Use the first (outermost) frame — that is the loop-owner file,
+        # e.g. niblit_core.py, niblit_memory.py, lifecycle_engine.py.
+        source = frames[0]["file"] if frames else "<unknown>"
+        record = {
+            "loop": loop_name,
+            "source": source,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "error": str(exc),
+            "error_type": type(exc).__name__,
+            "tb": tb_str,
+            "frames": frames,
+        }
+        with self._lock:
+            self._errors.append(record)
+        log.debug(f"[LoopTracer] {loop_name} error recorded: {exc}")
+
+    # ----------------------------------------------------------
+    def get_errors(self) -> List[Dict]:
+        """Return a snapshot of all recorded errors (thread-safe copy)."""
+        with self._lock:
+            return list(self._errors)
+
+    # ----------------------------------------------------------
+    def clear(self) -> None:
+        """Clear all recorded errors."""
+        with self._lock:
+            self._errors.clear()
+
+    # ----------------------------------------------------------
+    def summary(self) -> str:
+        """Return a compact human-readable summary."""
+        errors = self.get_errors()
+        if not errors:
+            return "[LoopTracer] No loop errors recorded."
+        lines = [f"[LoopTracer] {len(errors)} loop error(s):"]
+        for e in errors:
+            lines.append(
+                f"  loop={e['loop']}  type={e['error_type']}  "
+                f"source={e['source']}  ts={e['ts']}"
+            )
+            lines.append(f"    {e['error']}")
+        return "\n".join(lines)
+
+
+# Singleton instance shared across niblit_core and importers
+loop_tracer = LoopTracer()
+
+
+# ============================================================
 # CORE
 # ============================================================
 
@@ -1737,6 +1850,7 @@ Uptime: {stats['uptime_seconds']}s
                 
                 time.sleep(10)
             except Exception as e:
+                loop_tracer.record("DumpMonitoringLoop", e)
                 log.error(f"[DUMP LOOP] Monitoring error: {e}")
                 time.sleep(10)
         
@@ -1840,6 +1954,7 @@ Uptime: {stats['uptime_seconds']}s
                     log.info(f"[HEALTH] uptime={uptime}s mem={mem}")
                 time.sleep(5)
             except Exception as e:
+                loop_tracer.record("HealthLoop", e)
                 log.debug(f"Health loop error: {e}")
                 time.sleep(5)
 
@@ -1855,8 +1970,8 @@ Uptime: {stats['uptime_seconds']}s
                     elif hasattr(self.trainer, "step_if_needed"):
                         buf = getattr(self.collector, "buffer", []) if self.collector else []
                         safe_call(self.trainer.step_if_needed, buf)
-            except Exception:
-                pass
+            except Exception as e:
+                loop_tracer.record("TrainerLoop", e)
             time.sleep(90)
 
     def _auto_research_loop(self):
@@ -1903,8 +2018,8 @@ Uptime: {stats['uptime_seconds']}s
                                     self.db.mark_learning_done(topic)
                                 except Exception:
                                     pass
-            except Exception:
-                pass
+            except Exception as e:
+                loop_tracer.record("ResearchLoop", e)
             time.sleep(150)
 
     def _self_heal_loop(self):
@@ -1918,8 +2033,8 @@ Uptime: {stats['uptime_seconds']}s
                         safe_call(self.self_healer.repair)
                     elif hasattr(self.self_healer, "full_heal"):
                         safe_call(self.self_healer.full_heal, self)
-            except Exception:
-                pass
+            except Exception as e:
+                loop_tracer.record("HealLoop", e)
             time.sleep(300)
 
     # ============================
@@ -2508,6 +2623,14 @@ Uptime: {stats['uptime_seconds']}s
             return base_help + orchestrator_help
 
         return base_help
+
+    def get_loop_errors(self) -> List[Dict]:
+        """Return all loop errors captured by the LoopTracer since startup."""
+        return loop_tracer.get_errors()
+
+    def loop_tracer_summary(self) -> str:
+        """Return a human-readable summary of all loop errors."""
+        return loop_tracer.summary()
 
     def shutdown(self, timeout_seconds: Optional[float] = None):
         """Gracefully shutdown NiblitCore and all services."""

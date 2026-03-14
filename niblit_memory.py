@@ -66,6 +66,11 @@ except Exception as _e:
     log.debug(f"EventStore unavailable: {_e}")
     EventStore = None
 
+try:
+    from niblit_core import loop_tracer as _loop_tracer
+except Exception:
+    _loop_tracer = None
+
 
 class MemoryManager:
     """
@@ -308,6 +313,8 @@ class MemoryManager:
                 self.save()
                 time.sleep(self.autosave_interval)
             except Exception as e:
+                if _loop_tracer:
+                    _loop_tracer.record("MemoryAutosaveLoop", e)
                 log.error(f"Autosave loop error: {e}")
                 time.sleep(self.autosave_interval)
 
@@ -318,6 +325,8 @@ class MemoryManager:
                 self.dump_state()
                 time.sleep(self.dump_interval)
             except Exception as e:
+                if _loop_tracer:
+                    _loop_tracer.record("MemoryDumpLoop", e)
                 log.error(f"Dump loop error: {e}")
                 time.sleep(self.dump_interval)
 

@@ -10,6 +10,11 @@ each command it captures:
   • the originating file path and line number
   • the responsible module/class name
 
+Phase 5 is the Loop Traceback Tester & Diagnoser: it exercises the body of
+every background loop (niblit_core, niblit_memory, lifecycle_engine) once
+synchronously, then runs a live soak window to catch errors from background
+threads, reporting file/line/function for every failure.
+
 A human-readable report is printed to stdout and a machine-readable copy is
 saved to niblit_live_test_report.json.
 
@@ -17,8 +22,8 @@ Usage:
     python live_command_tester.py
 
 Exit codes:
-    0  — all commands succeeded
-    1  — one or more commands raised errors
+    0  — all commands and loop probes succeeded
+    1  — one or more commands or loop probes raised errors
 """
 
 import os
@@ -26,7 +31,7 @@ import sys
 import json
 import time
 import traceback
-import datetime
+from datetime import datetime, timezone
 import threading
 
 # ─────────────────────────────────────────────
@@ -44,7 +49,7 @@ REPORT_PATH = os.path.join(BASE_DIR, "niblit_live_test_report.json")
 # ─────────────────────────────────────────────
 
 def _now():
-    return datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
+    return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
 
 def _bar(char="─", width=68):
@@ -330,6 +335,170 @@ def phase_shutdown(core) -> dict:
 
 
 # ─────────────────────────────────────────────
+# PHASE 6 — LOOP TRACEBACK TESTER & DIAGNOSER
+# ─────────────────────────────────────────────
+
+# Map every known loop name to: the owning script, a brief description of
+# what the loop does, and (if possible) a one-shot probe function that
+# exercises a single iteration of the loop body synchronously so we can
+# catch errors that would only surface at runtime.
+_LOOP_REGISTRY = [
+    {
+        "loop":   "HealthLoop",
+        "script": "niblit_core.py",
+        "desc":   "Monitors system health / uptime every 5 s",
+    },
+    {
+        "loop":   "TrainerLoop",
+        "script": "niblit_core.py",
+        "desc":   "Flushes collector and runs training cycle every 90 s",
+    },
+    {
+        "loop":   "ResearchLoop",
+        "script": "niblit_core.py",
+        "desc":   "Processes learning-queue items via SelfResearcher every 150 s",
+    },
+    {
+        "loop":   "HealLoop",
+        "script": "niblit_core.py",
+        "desc":   "Runs self-healer cycle every 300 s",
+    },
+    {
+        "loop":   "DumpMonitoringLoop",
+        "script": "niblit_core.py",
+        "desc":   "Logs dump-loop health and triggers DB state dump every N s",
+    },
+    {
+        "loop":   "MemoryAutosaveLoop",
+        "script": "niblit_memory.py",
+        "desc":   "Persists MemoryManager state to disk at regular intervals",
+    },
+    {
+        "loop":   "MemoryDumpLoop",
+        "script": "niblit_memory.py",
+        "desc":   "Dumps MemoryManager state via logging at regular intervals",
+    },
+    {
+        "loop":   "LifecycleHeartbeat",
+        "script": "lifecycle_engine.py",
+        "desc":   "Advances LifecycleEngine phases every HEARTBEAT_INTERVAL second(s)",
+    },
+]
+
+
+def _one_shot_loop_probes(core) -> list:
+    """
+    Exercise the *body* of each niblit_core loop once synchronously so any
+    logic errors are caught immediately rather than waiting for the sleep.
+    Returns a list of _run_probe dicts.
+    """
+    results = []
+
+    # HealthLoop body
+    def _probe_health():
+        uptime = int(time.time() - core.start_ts)
+        _ = core._get_memory_count()
+        return f"health ok, uptime={uptime}s"
+
+    results.append(_run_probe("loop-body → HealthLoop", _probe_health))
+
+    # TrainerLoop body
+    def _probe_trainer():
+        from niblit_core import safe_call as _sc
+        if core.collector and hasattr(core.collector, "flush_if_needed"):
+            _sc(core.collector.flush_if_needed)
+        if core.trainer:
+            if hasattr(core.trainer, "train_cycle"):
+                _sc(core.trainer.train_cycle)
+            elif hasattr(core.trainer, "step_if_needed"):
+                buf = getattr(core.collector, "buffer", []) if core.collector else []
+                _sc(core.trainer.step_if_needed, buf)
+        return "trainer-loop body ok"
+
+    results.append(_run_probe("loop-body → TrainerLoop", _probe_trainer))
+
+    # ResearchLoop body
+    def _probe_research():
+        from niblit_core import safe_call as _sc
+        if core.db and hasattr(core.db, "get_learning_queue") and core.researcher:
+            queued = core.db.get_learning_queue()
+            pending = [
+                item for item in queued
+                if isinstance(item, dict) and item.get("status") == "queued"
+            ]
+            return f"research-loop body ok, pending={len(pending)}"
+        return "research-loop body ok (no queue/researcher)"
+
+    results.append(_run_probe("loop-body → ResearchLoop", _probe_research))
+
+    # HealLoop body
+    def _probe_heal():
+        from niblit_core import safe_call as _sc
+        healer = getattr(core, "self_healer", None)
+        if healer:
+            if hasattr(healer, "run_cycle"):
+                _sc(healer.run_cycle)
+            elif hasattr(healer, "repair"):
+                _sc(healer.repair)
+            elif hasattr(healer, "full_heal"):
+                _sc(healer.full_heal, core)
+        return "heal-loop body ok"
+
+    results.append(_run_probe("loop-body → HealLoop", _probe_heal))
+
+    # DumpMonitoringLoop body
+    def _probe_dump():
+        from niblit_core import safe_call as _sc
+        if core.db and hasattr(core.db, "dump_state"):
+            _sc(core.db.dump_state)
+        return "dump-loop body ok"
+
+    results.append(_run_probe("loop-body → DumpMonitoringLoop", _probe_dump))
+
+    return results
+
+
+def phase_loop_tracer(core, soak_seconds: float = 3.0) -> dict:
+    """
+    Phase 5 — Loop Traceback Tester & Diagnoser.
+
+    Steps:
+      a) Retrieve any loop errors already captured since boot (phases 1-4
+         ran with background loops live the whole time).
+      b) Run a synchronous one-shot probe of each loop body so logic bugs
+         are surfaced immediately rather than waiting for a sleep cycle.
+      c) Add a brief soak window and harvest any additional errors the live
+         background threads raise during that period.
+
+    Returns:
+        {
+            "soak_errors":   list of LoopTracer records (live thread errors),
+            "one_shot":      list of _run_probe dicts   (synchronous probes),
+            "loop_registry": list of loop descriptor dicts,
+        }
+    """
+    from niblit_core import loop_tracer as _lt
+
+    # ── (a) errors captured since boot ──
+    prior_errors = _lt.get_errors()
+
+    # ── (b) synchronous one-shot probes ──
+    one_shot = _one_shot_loop_probes(core)
+
+    # ── (c) soak window for live thread errors ──
+    time.sleep(soak_seconds)
+
+    # Collect all errors: prior + any new ones from the soak window
+    soak_errors = _lt.get_errors()
+
+    return {
+        "soak_errors": soak_errors,
+        "one_shot": one_shot,
+        "loop_registry": _LOOP_REGISTRY,
+    }
+
+
+# ─────────────────────────────────────────────
 # PRINT REPORT
 # ─────────────────────────────────────────────
 
@@ -349,8 +518,60 @@ def _print_phase(section_title: str, results: list) -> int:
     return errors
 
 
+def _print_loop_phase(loop_data: dict) -> int:
+    """Print Phase 5 (Loop Tracer) section.  Returns total error count."""
+    _section(
+        "PHASE 5 — LOOP TRACEBACK TESTER & DIAGNOSER\n"
+        "  (one-shot body probes + live soak window)"
+    )
+
+    errors = 0
+
+    # ── known loops registry ──
+    print(f"\n  Known background loops ({len(loop_data['loop_registry'])}):")
+    for entry in loop_data["loop_registry"]:
+        print(f"    • [{entry['script']}]  {entry['loop']}  —  {entry['desc']}")
+
+    # ── one-shot body probes ──
+    print(f"\n  One-shot body probes:")
+    for res in loop_data["one_shot"]:
+        label = res["label"]
+        if res["status"] == "ok":
+            _ok(label)
+        elif res["status"] == "empty":
+            _warn(label, "empty response")
+        else:
+            errors += 1
+            _fail(label, res["error"], res["frames"])
+
+    # ── soak window results ──
+    soak = loop_data["soak_errors"]
+    print(f"\n  Live soak window — {len(soak)} error(s) captured from background threads:")
+    if not soak:
+        print("  ✓  No loop errors observed during soak window")
+    else:
+        for rec in soak:
+            errors += 1
+            print(f"\n  ✗  Loop : {rec['loop']}")
+            print(f"     Script   : {rec['source']}")
+            print(f"     Time     : {rec['ts']}")
+            print(f"     Type     : {rec['error_type']}")
+            print(f"     Error    : {rec['error']}")
+            print(f"     Traceback (most recent call last):")
+            for frame in rec.get("frames", []):
+                print(
+                    f"       File \"{frame['file']}\","
+                    f" line {frame['lineno']},"
+                    f" in {frame['function']}"
+                )
+                if frame.get("code"):
+                    print(f"         {frame['code']}")
+
+    return errors
+
+
 def print_full_report(boot_result, direct_results, routed_results,
-                      general_results, shutdown_result, elapsed):
+                      general_results, shutdown_result, loop_data, elapsed):
     total_errors = 0
 
     # ── BOOT ──
@@ -380,9 +601,12 @@ def print_full_report(boot_result, direct_results, routed_results,
         general_results,
     )
 
+    # ── LOOP TRACER ──
+    total_errors += _print_loop_phase(loop_data)
+
     # ── SHUTDOWN ──
     total_errors += _print_phase(
-        "PHASE 5 — SHUTDOWN",
+        "PHASE 6 — SHUTDOWN",
         [shutdown_result],
     )
 
@@ -390,9 +614,9 @@ def print_full_report(boot_result, direct_results, routed_results,
     _section("SUMMARY")
     print(f"  Elapsed      : {elapsed:.2f}s")
     if total_errors == 0:
-        print("  Result       : ✓ All commands succeeded — no errors found")
+        print("  Result       : ✓ All commands and loops passed — no errors found")
     else:
-        print(f"  Result       : ✗ {total_errors} command(s) raised errors — see details above")
+        print(f"  Result       : ✗ {total_errors} error(s) found — see details above")
         print(f"  JSON report  : {REPORT_PATH}")
 
     return total_errors
@@ -403,9 +627,9 @@ def print_full_report(boot_result, direct_results, routed_results,
 # ─────────────────────────────────────────────
 
 def save_report(boot_result, direct_results, routed_results,
-                general_results, shutdown_result, elapsed, total_errors):
+                general_results, shutdown_result, loop_data, elapsed, total_errors):
     report = {
-        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "elapsed_seconds": round(elapsed, 3),
         "total_errors": total_errors,
         "phases": {
@@ -414,6 +638,11 @@ def save_report(boot_result, direct_results, routed_results,
             "routed_commands": routed_results,
             "general_handle": general_results,
             "shutdown": shutdown_result,
+            "loop_tracer": {
+                "loop_registry": loop_data.get("loop_registry", []),
+                "one_shot_probes": loop_data.get("one_shot", []),
+                "soak_errors": loop_data.get("soak_errors", []),
+            },
         },
     }
     try:
@@ -444,7 +673,7 @@ def main():
         total_errors = sum(
             1 for r in boot_result.values() if r["status"] != "ok"
         )
-        save_report(boot_result, [], [], [], {}, elapsed, total_errors)
+        save_report(boot_result, [], [], [], {}, {}, elapsed, total_errors)
         sys.exit(1)
 
     # ── Phase 2: direct commands ──
@@ -456,7 +685,10 @@ def main():
     # ── Phase 4: general handle ──
     general_results = phase_general_handle(core_obj)
 
-    # ── Phase 5: shutdown ──
+    # ── Phase 5: loop tracer (before shutdown so background threads are still alive) ──
+    loop_data = phase_loop_tracer(core_obj, soak_seconds=3.0)
+
+    # ── Phase 6: shutdown ──
     shutdown_result = phase_shutdown(core_obj)
 
     elapsed = time.time() - start
@@ -464,12 +696,12 @@ def main():
     # ── Report ──
     total_errors = print_full_report(
         boot_result, direct_results, routed_results,
-        general_results, shutdown_result, elapsed,
+        general_results, shutdown_result, loop_data, elapsed,
     )
 
     save_report(
         boot_result, direct_results, routed_results,
-        general_results, shutdown_result, elapsed, total_errors,
+        general_results, shutdown_result, loop_data, elapsed, total_errors,
     )
 
     sys.exit(1 if total_errors > 0 else 0)

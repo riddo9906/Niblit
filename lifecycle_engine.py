@@ -145,6 +145,11 @@ except Exception as _e:
         def log_event(self, msg): 
             log.info(msg)
 
+try:
+    from niblit_core import loop_tracer as _loop_tracer
+except Exception:
+    _loop_tracer = None
+
 # ─────────────────────────────
 # IDENTITY INVARIANTS
 # ─────────────────────────────
@@ -408,6 +413,8 @@ class LifecycleEngine:
                 time.sleep(HEARTBEAT_INTERVAL)
 
             except Exception as e:
+                if _loop_tracer:
+                    _loop_tracer.record("LifecycleHeartbeat", e)
                 log.error(f"[Heartbeat] Loop error: {e}")
                 if self.telemetry:
                     self.telemetry.increment_counter("heartbeat_error")
