@@ -167,7 +167,8 @@ class NiblitRouter:
     COMMAND_PREFIXES = (
         "toggle-llm", "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
-        "self-heal", "status", "health", "time", "help", "commands",
+        "self-heal", "self-teach", "idea-implement",
+        "status", "health", "time", "help", "commands",
         "evolve", "exit", "quit", "shutdown",
         "start_slsa", "stop_slsa", "restart_slsa", "slsa-status", "status_slsa",
         "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status"
@@ -651,11 +652,29 @@ Ask me about:
     # SELF-IDEA IMPLEMENTATION
     # ─────────────────────────────────
     def _self_idea_implementation(self, prompt):
+        """Generate and implement an idea — uses SelfIdeaImplementation directly when available."""
+        # Prefer direct SelfIdeaImplementation
+        if self.core:
+            idea_impl = getattr(self.core, "idea_implementation", None)
+            if idea_impl and hasattr(idea_impl, "implement_idea"):
+                result = safe_call(idea_impl.implement_idea, prompt)
+                if result:
+                    # Also store to memory
+                    if hasattr(self.memory, "store_learning"):
+                        safe_call(self.memory.store_learning, {
+                            "time": timestamp(),
+                            "input": f"self-idea: {prompt}",
+                            "response": str(result),
+                            "source": "self_idea_implementation"
+                        })
+                    return f"[Self-Idea Implemented]\n{result}"
+
+        # Fallback: brain + enqueue plan
         plan = ""
-        if hasattr(self.brain, "handle"):
-            plan = safe_call(self.brain.handle, f"self-idea-plan: {prompt}")
-        elif hasattr(self.brain, "think"):
-            plan = safe_call(self.brain.think, f"self-idea-plan: {prompt}")
+        if self.brain and hasattr(self.brain, "handle"):
+            plan = safe_call(self.brain.handle, f"self-idea-plan: {prompt}") or ""
+        elif self.brain and hasattr(self.brain, "think"):
+            plan = safe_call(self.brain.think, f"self-idea-plan: {prompt}") or ""
 
         if self.core and hasattr(self.memory, "store_learning"):
             safe_call(self.memory.store_learning, {
@@ -667,13 +686,42 @@ Ask me about:
 
         if self.core and getattr(self.core, "self_implementer", None):
             implementer = self.core.self_implementer
-            if hasattr(implementer, "enqueue_plan"):
+            if plan and hasattr(implementer, "enqueue_plan"):
                 safe_call(implementer.enqueue_plan, plan)
-            else:
-                if hasattr(implementer, "queue") and isinstance(implementer.queue, list):
-                    implementer.queue.append(plan)
+            elif plan and hasattr(implementer, "queue") and isinstance(implementer.queue, list):
+                implementer.queue.append(plan)
 
         return f"[Self-Idea Plan Generated]\n{plan}"
+
+    # ─────────────────────────────────
+    def _handle_self_teach(self, cmd):
+        """Handle self-teach command — uses SelfTeacher directly."""
+        if not self.core:
+            return "[Core not available]"
+        topic = cmd[len("self-teach"):].strip() if cmd.lower().startswith("self-teach") else cmd.strip()
+        if not topic:
+            return "Usage: self-teach <topic>"
+        self_teacher = getattr(self.core, "self_teacher", None)
+        if self_teacher and hasattr(self_teacher, "teach"):
+            result = safe_call(self_teacher.teach, topic)
+            return str(result) if result else f"✅ Teaching completed for: {topic}"
+        return f"[SelfTeacher not available for topic: {topic}]"
+
+    # ─────────────────────────────────
+    def _handle_idea_implement(self, cmd):
+        """Handle idea-implement command — uses SelfIdeaImplementation directly."""
+        if not self.core:
+            return "[Core not available]"
+        prompt = cmd[len("idea-implement"):].strip() if cmd.lower().startswith("idea-implement") else cmd.strip()
+        idea_impl = getattr(self.core, "idea_implementation", None)
+        if idea_impl:
+            if prompt and hasattr(idea_impl, "implement_idea"):
+                result = safe_call(idea_impl.implement_idea, prompt)
+                return str(result) if result else f"✅ Idea processed: {prompt[:80]}"
+            if not prompt and hasattr(idea_impl, "implement_ideas"):
+                result = safe_call(idea_impl.implement_ideas, 5)
+                return str(result) if result else "✅ Batch idea implementation completed"
+        return "Usage: idea-implement <idea prompt>  (or 'idea-implement' to run batch)"
 
     # ─────────────────────────────────
     # AUTONOMOUS LEARNING
@@ -1258,11 +1306,11 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         if lower.startswith("summary "):
             return self._run_research(cmd[len("summary "):].strip())
 
-        # REFLECTION & IDEAS
-        if lower.startswith("reflect "):
+        # REFLECTION & IDEAS — use direct module access
+        if lower == "reflect" or lower.startswith("reflect "):
+            topic = cmd[len("reflect"):].strip()
             if self.core and getattr(self.core, "reflect", None):
-                text = cmd[len("reflect "):]
-                return safe_call(self.core.reflect.collect_and_summarize, text)
+                return safe_call(self.core.reflect.collect_and_summarize, topic or None) or "[Reflection completed]"
             return "[Reflect module not available]"
 
         if lower.startswith("auto-reflect"):
@@ -1271,9 +1319,32 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 return safe_call(self.core.reflect.auto_reflect, events)
             return "[Reflect module not available]"
 
-        if lower.startswith(("self-idea", "self-implement", "evolve")):
-            prompt = cmd
+        if lower.startswith("self-idea"):
+            prompt = cmd[len("self-idea"):].strip() or "system improvement"
             return self._self_idea_implementation(prompt)
+
+        if lower.startswith("self-implement"):
+            plan = cmd[len("self-implement"):].strip()
+            if self.core and getattr(self.core, "self_implementer", None):
+                implementer = self.core.self_implementer
+                if plan and hasattr(implementer, "enqueue_plan"):
+                    safe_call(implementer.enqueue_plan, plan)
+                    return f"✅ Plan enqueued: {plan[:100]}"
+                queue_len = len(getattr(implementer, "queue", []))
+                return f"SelfImplementer running. Queue depth: {queue_len}"
+            return self._self_idea_implementation(cmd)
+
+        if lower.startswith("self-teach"):
+            return self._handle_self_teach(cmd)
+
+        if lower.startswith("idea-implement"):
+            return self._handle_idea_implement(cmd)
+
+        if lower.startswith("evolve"):
+            # Route evolve commands to core
+            if self.core:
+                return safe_call(self.core.handle, cmd) or "[Evolve failed]"
+            return "[Core not available]"
 
         # MEMORY & LEARNING
         if lower.startswith("remember "):
@@ -1337,7 +1408,15 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "=== INTERNET & RESEARCH ===",
             "search <query>               — Search internet",
             "summary <query>              — Quick summary",
-            "self-research <topic>        — Autonomous research",
+            "self-research <topic>        — Research topic using researcher + internet",
+            "",
+            "=== SELF-IMPROVEMENT COMMANDS ===",
+            "self-idea <prompt>           — Generate & implement idea via SelfIdeaImplementation",
+            "self-implement [plan]        — Enqueue a plan to SelfImplementer",
+            "self-teach <topic>           — Teach a topic using SelfTeacher + research",
+            "idea-implement [prompt]      — Generate and implement ideas (batch if no prompt)",
+            "reflect [topic]              — Reflect using ReflectModule directly",
+            "auto-reflect                 — Reflect on recent interactions",
             "",
             "=== AUTONOMOUS LEARNING ===",
             "autonomous-learn start       — Start learning",
@@ -1397,7 +1476,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "what have i studied          — Show what I've studied this session",
             "",
             "=== EVOLUTION ENGINE ===",
-            "evolve                       — Run one self-evolution step (research+code+teach+reflect)",
+            "evolve                       — Run one self-evolution step (all modules: research+internet+code+teach+reflect+impl+slsa)",
             "evolve start                 — Start background continuous evolution",
             "evolve stop                  — Stop background evolution",
             "evolve status                — Show evolution status + available modules",

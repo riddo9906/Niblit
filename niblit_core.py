@@ -280,9 +280,12 @@ DEBUG_MODE = True
 COMMANDS = [
     "help", "status", "memory", "search", "summary",
     "learn about", "self-heal", "self-teach", "self-research",
+    "self-idea", "self-implement", "reflect", "idea-implement",
     "debug on", "debug off", "threads",
     "show improvements", "run improvement-cycle", "improvement-status",
-    "autonomous-learn start", "autonomous-learn stop", "autonomous-learn status", "autonomous-learn add-topic"
+    "autonomous-learn start", "autonomous-learn stop", "autonomous-learn status", "autonomous-learn add-topic",
+    "evolve", "evolve start", "evolve stop", "evolve status", "evolve history",
+    "research code",
 ]
 
 # ============================================================
@@ -648,6 +651,12 @@ SelfHealer_mod = safe_import("self_healer", Stub)
 SelfTeacher_mod = safe_import("self_teacher", Stub)
 SelfImplementer = safe_import("self_implementer", Stub)
 SelfIdeaGenerator = safe_import("self_idea_generator", Stub)
+
+try:
+    from modules.self_idea_implementation import SelfIdeaImplementation
+except Exception as _e:
+    log.debug(f"SelfIdeaImplementation not available: {_e}")
+    SelfIdeaImplementation = None
 
 try:
     from modules.reflect import ReflectModule as Reflect_mod
@@ -1016,6 +1025,9 @@ class NiblitCore:
         self.file_manager: Optional[FileManager] = None
         self.software_studier: Optional[SoftwareStudier] = None
         self.evolve_engine: Optional[EvolveEngine] = None
+
+        # NEW: SelfIdeaImplementation (research + implement + SLSA + memory)
+        self.idea_implementation = None
         
         log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
         
@@ -1197,6 +1209,12 @@ class NiblitCore:
         )
         self.command_registry.register(
             "self-implement", self._cmd_self_implement, "Implement concept", "brain", priority=85
+        )
+        self.command_registry.register(
+            "self-teach", self._cmd_self_teach, "Teach a topic", "brain", priority=85
+        )
+        self.command_registry.register(
+            "idea-implement", self._cmd_idea_implement, "Generate and implement idea", "brain", priority=85
         )
         
         # Internet commands
@@ -1772,51 +1790,134 @@ Uptime: {stats['uptime_seconds']}s
         return self._restart_slsa_engine(topics)
 
     def _cmd_self_research(self, text: str) -> str:
-        """Self-research command (uses internet, NOT LLM)."""
-        if not self.brain:
-            return "[Brain not available]"
-        try:
-            topic = text[len("self-research"):].strip() or "general"
-            response = self.brain.handle_command(f"self-research {topic}")
-            return response if response else "[Research failed]"
-        except Exception as e:
-            log.error(f"Self-research failed: {e}")
-            return f"[Self-research failed: {e}]"
+        """Self-research command — uses self_researcher + internet directly, NOT LLM."""
+        topic = text[len("self-research"):].strip() or "general"
+        # Direct module path: use researcher directly
+        if self.researcher and hasattr(self.researcher, "search"):
+            try:
+                results = self.researcher.search(topic, max_results=5, use_llm=False,
+                                                  enable_autonomous_learning=True)
+                if results:
+                    return "\n".join(str(r) for r in results[:3]) or "[No results]"
+            except Exception as e:
+                log.debug(f"Researcher search failed: {e}")
+        # Fallback: internet
+        if self.internet:
+            try:
+                results = self.internet.search(topic, max_results=3)
+                if results:
+                    return "\n".join(
+                        r.get("text", str(r)) if isinstance(r, dict) else str(r)
+                        for r in results[:3]
+                    ) or "[No results]"
+            except Exception as e:
+                log.debug(f"Internet search failed: {e}")
+        # Last fallback: brain
+        if self.brain:
+            try:
+                return self.brain.handle_command(f"self-research {topic}") or "[Research failed]"
+            except Exception as e:
+                log.debug(f"Brain fallback failed: {e}")
+        return "[Research failed — no modules available]"
 
     def _cmd_self_idea(self, text: str) -> str:
-        """Self-idea command (uses internet, NOT LLM)."""
-        if not self.brain:
-            return "[Brain not available]"
-        try:
-            prompt = text[len("self-idea"):].strip()
-            response = self.brain.handle_command(f"self-idea {prompt}")
-            return response if response else "[Idea generation failed]"
-        except Exception as e:
-            log.error(f"Self-idea failed: {e}")
-            return f"[Self-idea failed: {e}]"
+        """Self-idea command — uses SelfIdeaImplementation directly, NOT LLM."""
+        prompt = text[len("self-idea"):].strip() or "system improvement"
+        # Direct module path: use idea_implementation
+        if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
+            try:
+                result = self.idea_implementation.implement_idea(prompt)
+                return str(result) if result else "[Idea generation failed]"
+            except Exception as e:
+                log.debug(f"idea_implementation failed: {e}")
+        # Fallback: idea_generator
+        if self.idea_generator and hasattr(self.idea_generator, "generate_plan"):
+            try:
+                result = self.idea_generator.generate_plan(prompt)
+                return str(result) if result else "[Idea generation failed]"
+            except Exception as e:
+                log.debug(f"idea_generator failed: {e}")
+        # Last fallback: brain
+        if self.brain:
+            try:
+                return self.brain.handle_command(f"self-idea {prompt}") or "[Idea generation failed]"
+            except Exception as e:
+                log.debug(f"Brain fallback failed: {e}")
+        return "[Idea generation failed — no modules available]"
 
     def _cmd_reflect(self, text: str) -> str:
-        """Reflect command (uses internet/modules, NOT LLM)."""
-        if not self.brain:
-            return "[Brain not available]"
-        try:
-            topic = text[len("reflect"):].strip()
-            response = self.brain.handle_command(f"reflect {topic}")
-            return response if response else "[Reflection failed]"
-        except Exception as e:
-            log.error(f"Reflect failed: {e}")
-            return f"[Reflect failed: {e}]"
+        """Reflect command — uses ReflectModule directly, NOT LLM."""
+        topic = text[len("reflect"):].strip() or ""
+        # Direct module path: use reflect directly
+        if self.reflect and hasattr(self.reflect, "collect_and_summarize"):
+            try:
+                result = self.reflect.collect_and_summarize(topic or None)
+                return str(result) if result else "[Reflection completed]"
+            except Exception as e:
+                log.debug(f"Reflect module failed: {e}")
+        # Fallback: brain
+        if self.brain:
+            try:
+                return self.brain.handle_command(f"reflect {topic}") or "[Reflection failed]"
+            except Exception as e:
+                log.debug(f"Brain fallback failed: {e}")
+        return "[Reflect module not available]"
 
     def _cmd_self_implement(self, text: str) -> str:
-        """Self-implement command."""
-        if not self.brain:
-            return "[Brain not available]"
-        try:
-            response = self.brain.handle_command("self-implement")
-            return response if response else "[Self-implement failed]"
-        except Exception as e:
-            log.error(f"Self-implement failed: {e}")
-            return f"[Self-implement failed: {e}]"
+        """Self-implement command — uses SelfImplementer directly."""
+        plan = text[len("self-implement"):].strip() or ""
+        # Direct module path: enqueue to self_implementer
+        if self.self_implementer and hasattr(self.self_implementer, "enqueue_plan"):
+            try:
+                if plan:
+                    self.self_implementer.enqueue_plan(plan)
+                    return f"✅ Plan enqueued for implementation: {plan[:100]}"
+                # No plan given — show queue status
+                queue_len = len(getattr(self.self_implementer, "queue", []))
+                return f"SelfImplementer running. Queue depth: {queue_len}"
+            except Exception as e:
+                log.debug(f"self_implementer failed: {e}")
+        # Fallback: brain
+        if self.brain:
+            try:
+                cmd = f"self-implement {plan}" if plan else "self-implement"
+                return self.brain.handle_command(cmd) or "[Self-implement failed]"
+            except Exception as e:
+                log.debug(f"Brain fallback failed: {e}")
+        return "[SelfImplementer not available]"
+
+    def _cmd_self_teach(self, text: str) -> str:
+        """Self-teach command — teaches a topic using SelfTeacher + internet research."""
+        topic = text[len("self-teach"):].strip() if text.lower().startswith("self-teach") else text.strip()
+        if not topic:
+            return "Usage: self-teach <topic>"
+        if self.self_teacher and hasattr(self.self_teacher, "teach"):
+            try:
+                result = self.self_teacher.teach(topic)
+                return str(result) if result else f"✅ Teaching completed for: {topic}"
+            except Exception as e:
+                log.debug(f"self_teacher.teach failed: {e}")
+        return f"[SelfTeacher not available for topic: {topic}]"
+
+    def _cmd_idea_implement(self, text: str) -> str:
+        """Generate and implement an idea using SelfIdeaImplementation."""
+        prompt = text[len("idea-implement"):].strip() if text.lower().startswith("idea-implement") else text.strip()
+        if not prompt:
+            # Run batch implementation of stored ideas
+            if self.idea_implementation and hasattr(self.idea_implementation, "implement_ideas"):
+                try:
+                    result = self.idea_implementation.implement_ideas(limit=5)
+                    return str(result) if result else "✅ Idea implementation batch completed"
+                except Exception as e:
+                    log.debug(f"implement_ideas failed: {e}")
+            return "Usage: idea-implement <idea prompt>"
+        if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
+            try:
+                result = self.idea_implementation.implement_idea(prompt)
+                return str(result) if result else f"✅ Idea implemented: {prompt[:80]}"
+            except Exception as e:
+                log.debug(f"idea_implementation failed: {e}")
+        return f"[SelfIdeaImplementation not available for: {prompt}]"
 
     def _cmd_search(self, text: str) -> str:
         """Search command (uses internet directly, NOT LLM)."""
@@ -1994,6 +2095,13 @@ Uptime: {stats['uptime_seconds']}s
                 researcher=None,
                 reflector=self.reflect
             ) if SelfTeacher_mod else None
+
+            # Wire reflect with self_teacher now that both are initialized
+            if self.reflect and self.self_teacher:
+                try:
+                    self.reflect.self_teacher = self.self_teacher
+                except Exception:
+                    pass
             
             self.self_implementer = safe_call(
                 SelfImplementer,
@@ -2089,6 +2197,34 @@ Uptime: {stats['uptime_seconds']}s
             
             if self.idea_generator and hasattr(self.idea_generator, "autonomous_loop"):
                 threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
+
+            # Initialize SelfIdeaImplementation with db + self_implementer
+            if SelfIdeaImplementation:
+                try:
+                    self.idea_implementation = SelfIdeaImplementation(
+                        db=self.db,
+                        implementer=self.self_implementer,
+                    )
+                    log.info("✅ SelfIdeaImplementation initialized")
+                    self.startup_report.add("idea_implementation", "ready")
+                except Exception as e:
+                    log.debug(f"SelfIdeaImplementation init failed: {e}")
+                    self.idea_implementation = None
+                    self.startup_report.add("idea_implementation", "degraded", str(e))
+
+            # Wire reflect's learner to idea_implementation now that it's ready
+            if self.reflect and self.idea_implementation:
+                try:
+                    self.reflect.learner = self.idea_implementation
+                except Exception:
+                    pass
+
+            # Wire self_teacher's learner to idea_implementation
+            if self.self_teacher and self.idea_implementation:
+                try:
+                    self.self_teacher.learner = self.idea_implementation
+                except Exception:
+                    pass
             
             self.startup_report.add("learning", "ready")
             log.info("✅ Learning systems initialized")
@@ -2153,6 +2289,9 @@ Uptime: {stats['uptime_seconds']}s
                         self_teacher=getattr(self, "self_teacher", None),
                         slsa_manager=getattr(self, "slsa_manager", None),
                         knowledge_db=self.db,
+                        evolve_engine=getattr(self, "evolve_engine", None),
+                        self_implementer=getattr(self, "self_implementer", None),
+                        idea_implementation=getattr(self, "idea_implementation", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -2254,8 +2393,16 @@ Uptime: {stats['uptime_seconds']}s
                         self_teacher=getattr(self, "self_teacher", None),
                         reflect_module=getattr(self, "reflect", None),
                         idea_generator=getattr(self, "idea_generator", None),
+                        implementer=getattr(self, "self_implementer", None),
                         knowledge_db=self.db,
+                        internet=getattr(self, "internet", None),
+                        idea_implementation=getattr(self, "idea_implementation", None),
+                        slsa=getattr(self, "slsa_engine", None),
+                        autonomous_engine=getattr(self, "autonomous_engine", None),
                     )
+                    # Back-wire autonomous_engine → evolve_engine once both are available
+                    if self.autonomous_engine and not self.autonomous_engine.evolve_engine:
+                        self.autonomous_engine.evolve_engine = self.evolve_engine
                     log.info("✅ EvolveEngine initialized")
                     self.startup_report.add("evolve_engine", "ready")
                 except Exception as e:
@@ -2956,13 +3103,28 @@ Uptime: {stats['uptime_seconds']}s
         # ============================
         # LAYER 2: BRAIN COMMANDS (uses modules, NOT LLM)
         # ============================
-        if self.brain:
-            brain_commands = (
-                "self-research", "self-heal", "self-idea", "self-implement",
-                "reflect", "auto-reflect"
-            )
-            if any(ltext.startswith(cmd) for cmd in brain_commands):
-                log.debug(f"[BRAIN-CMD] Intercepted: {ltext.split()[0]}")
+        # Direct module commands — handled by _cmd_* methods which use modules directly
+        direct_module_commands = (
+            "self-research", "self-heal", "self-idea", "self-implement",
+            "reflect", "auto-reflect", "self-teach", "idea-implement",
+        )
+        if any(ltext.startswith(cmd) for cmd in direct_module_commands):
+            log.debug(f"[MODULE-CMD] Intercepted: {ltext.split()[0]}")
+            # Try direct module handlers first
+            if ltext.startswith("self-research"):
+                return self._cmd_self_research(text)
+            if ltext.startswith("self-idea"):
+                return self._cmd_self_idea(text)
+            if ltext.startswith("self-implement"):
+                return self._cmd_self_implement(text)
+            if ltext.startswith("reflect"):
+                return self._cmd_reflect(text)
+            if ltext.startswith("self-teach"):
+                return self._cmd_self_teach(text)
+            if ltext.startswith("idea-implement"):
+                return self._cmd_idea_implement(text)
+            # Remaining (self-heal, auto-reflect): fall through to brain
+            if self.brain:
                 try:
                     response = safe_call(self.brain.handle_command, text)
                     if response:

@@ -3,12 +3,13 @@
 AUTONOMOUS LEARNING ENGINE
 Runs when Niblit is idle to autonomously improve itself through:
 1. Research new topics (self-research)
-2. Generate ideas (self-idea)
-3. Implement ideas (self-implement)
-4. Learn from research (learn)
+2. Generate ideas from research (self-idea via SelfIdeaImplementation)
+3. Implement ideas (self-implement via SelfImplementer)
+4. Learn from research (learn via SelfTeacher)
 5. Reflect on findings (reflect)
 6. Auto-run SLSA for knowledge generation
-7. Feed everything back into the knowledge base
+7. Run evolution step (EvolveEngine)
+8. Feed everything back into the knowledge base
 
 Creates a continuous self-improvement loop.
 """
@@ -29,24 +30,28 @@ logging.basicConfig(
 
 class AutonomousLearningEngine:
     """
-    Orchestrates autonomous learning across all Niblit modules.
+    Orchestrates autonomous learning across ALL Niblit modules.
     Runs in background when system is idle.
     """
 
     def __init__(self, core, researcher=None, idea_generator=None,
                  reflect_module=None, self_teacher=None, slsa_manager=None,
-                 knowledge_db=None, idle_threshold=300, poll_interval=60):
+                 knowledge_db=None, idle_threshold=300, poll_interval=60,
+                 evolve_engine=None, self_implementer=None, idea_implementation=None):
         """
         Args:
             core: NiblitCore instance
             researcher: SelfResearcher module
-            idea_generator: SelfIdeaImplementation module
+            idea_generator: SelfIdeaImplementation or SelfIdeaGenerator module
             reflect_module: ReflectModule
             self_teacher: SelfTeacher module
             slsa_manager: SLSAManager for SLSA auto-run
             knowledge_db: KnowledgeDB for persistence
             idle_threshold: Time (sec) before considering system idle
             poll_interval: How often to check for idle state
+            evolve_engine: EvolveEngine for self-evolution step
+            self_implementer: SelfImplementer for plan execution
+            idea_implementation: SelfIdeaImplementation for idea generation + implementation
         """
         self.core = core
         self.researcher = researcher
@@ -55,6 +60,9 @@ class AutonomousLearningEngine:
         self.self_teacher = self_teacher
         self.slsa_manager = slsa_manager
         self.knowledge_db = knowledge_db
+        self.evolve_engine = evolve_engine
+        self.self_implementer = self_implementer
+        self.idea_implementation = idea_implementation
 
         self.idle_threshold = idle_threshold
         self.poll_interval = poll_interval
@@ -92,6 +100,7 @@ class AutonomousLearningEngine:
             "ideas_implemented": 0,
             "reflections_conducted": 0,
             "slsa_runs": 0,
+            "evolve_steps": 0,
             "last_research_topic": None,
             "last_idea": None,
             "learning_rate": 0.0,
@@ -158,84 +167,110 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _autonomous_idea_generation(self) -> str:
-        """Step 2: Generate ideas based on research"""
-        if not self.idea_generator:
-            return "[Idea generator unavailable]"
+        """Step 2: Generate ideas based on research using SelfIdeaImplementation when available."""
+        topic = self.learning_history.get("last_research_topic") or "system improvement"
+        prompt = f"Generate an innovative idea based on research about: {topic}"
 
-        try:
-            # Generate idea based on recent research
-            topic = self.learning_history.get("last_research_topic") or "system improvement"
-            prompt = f"Generate an innovative idea for: {topic}"
+        log.info(f"💡 [AUTONOMOUS IDEAS] Generating idea: {prompt[:60]}")
 
-            log.info(f"💡 [AUTONOMOUS IDEAS] Generating idea: {prompt}")
+        # Prefer SelfIdeaImplementation (richer: research + implement + SLSA + memory)
+        if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
+            try:
+                result = self.idea_implementation.implement_idea(prompt)
+                idea_text = str(result)[:200] if result else None
+                if idea_text:
+                    self.pending_ideas.append(idea_text)
+                    self.learning_history["ideas_generated"] += 1
+                    self.learning_history["last_idea"] = idea_text[:100]
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.log_event(f"Autonomous idea (SelfIdeaImpl): {idea_text[:50]}")
+                        except Exception:
+                            pass
+                    log.info(f"✅ [AUTONOMOUS IDEAS] SelfIdeaImpl generated: {idea_text[:50]}")
+                    return f"Idea generated (SelfIdeaImpl): {idea_text[:100]}"
+            except Exception as e:
+                log.debug(f"SelfIdeaImplementation idea failed: {e}")
 
-            idea = None
-            if hasattr(self.idea_generator, "generate_idea"):
-                idea = self.idea_generator.generate_idea(prompt)
-            elif hasattr(self.idea_generator, "generate_ideas"):
-                ideas = self.idea_generator.generate_ideas(prompt, count=1)
-                idea = ideas[0] if ideas else None
+        # Fallback: legacy idea_generator (SelfIdeaGenerator or similar)
+        if self.idea_generator:
+            try:
+                idea = None
+                if hasattr(self.idea_generator, "generate_plan"):
+                    idea = self.idea_generator.generate_plan(prompt)
+                elif hasattr(self.idea_generator, "generate_idea"):
+                    idea = self.idea_generator.generate_idea(prompt)
+                elif hasattr(self.idea_generator, "generate_ideas"):
+                    ideas = self.idea_generator.generate_ideas(prompt, count=1)
+                    idea = ideas[0] if ideas else None
 
-            if idea:
-                self.pending_ideas.append(idea)
-                self.learning_history["ideas_generated"] += 1
-                self.learning_history["last_idea"] = idea[:100] if isinstance(idea, str) else str(idea)[:100]
+                if idea:
+                    idea_str = str(idea)[:200]
+                    self.pending_ideas.append(idea_str)
+                    self.learning_history["ideas_generated"] += 1
+                    self.learning_history["last_idea"] = idea_str[:100]
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.log_event(f"Autonomous idea generated: {idea_str[:50]}")
+                        except Exception:
+                            pass
+                    log.info(f"✅ [AUTONOMOUS IDEAS] Generated: {idea_str[:50]}")
+                    return f"Idea generated: {idea_str[:100]}"
+            except Exception as e:
+                log.error(f"❌ Autonomous idea generation failed: {e}")
+                return f"[Idea generation error: {e}]"
 
-                # Log to knowledge base
-                if self.knowledge_db:
-                    try:
-                        self.knowledge_db.log_event(f"Autonomous idea generated: {str(idea or '')[:50]}")
-                    except Exception as e:
-                        log.debug(f"Knowledge DB logging failed: {e}")
-
-                log.info(f"✅ [AUTONOMOUS IDEAS] Generated: {str(idea or '')[:50]}...")
-                return f"Idea generated: {str(idea or '')[:100]}"
-
-            return "[No idea generated]"
-
-        except Exception as e:
-            log.error(f"❌ Autonomous idea generation failed: {e}")
-            return f"[Idea generation error: {e}]"
+        return "[Idea generator unavailable]"
 
     # ─────────────────────────────────────────────
     def _autonomous_implementation(self) -> str:
-        """Step 3: Implement pending ideas"""
-        if not self.idea_generator or not self.pending_ideas:
+        """Step 3: Implement pending ideas using SelfImplementer when available."""
+        if not self.pending_ideas:
             return "[No ideas to implement]"
 
-        try:
-            idea = self.pending_ideas.pop(0)
+        idea = self.pending_ideas.pop(0)
+        idea_str = str(idea)
 
-            log.info(f"🚀 [AUTONOMOUS IMPLEMENT] Implementing: {str(idea or '')[:50]}...")
+        log.info(f"🚀 [AUTONOMOUS IMPLEMENT] Implementing: {idea_str[:50]}...")
 
-            plan = None
-            # Try implement_idea first, then generate_plan as fallback
-            if hasattr(self.idea_generator, "implement_idea"):
-                plan = self.idea_generator.implement_idea(idea)
-            elif hasattr(self.idea_generator, "generate_plan"):
-                plan = self.idea_generator.generate_plan(str(idea))
-            elif hasattr(self.idea_generator, "enqueue_plan"):
-                self.idea_generator.enqueue_plan(str(idea))
-                plan = f"Queued: {str(idea)[:50]}"
-
-            if plan:
+        # Prefer SelfImplementer.enqueue_plan (runs plans in background thread)
+        if self.self_implementer and hasattr(self.self_implementer, "enqueue_plan"):
+            try:
+                self.self_implementer.enqueue_plan(idea_str)
                 self.learning_history["ideas_implemented"] += 1
-
-                # Store plan in knowledge DB
                 if self.knowledge_db:
                     try:
-                        self.knowledge_db.log_event(f"Autonomous implementation executed: {str(idea or '')[:50]}")
-                    except Exception as e:
-                        log.debug(f"Knowledge DB logging failed: {e}")
+                        self.knowledge_db.log_event(f"Autonomous implement queued: {idea_str[:50]}")
+                    except Exception:
+                        pass
+                log.info(f"✅ [AUTONOMOUS IMPLEMENT] Enqueued to SelfImplementer")
+                return f"Idea enqueued to SelfImplementer: {idea_str[:50]}"
+            except Exception as e:
+                log.debug(f"SelfImplementer enqueue failed: {e}")
 
-                log.info(f"✅ [AUTONOMOUS IMPLEMENT] Executed")
-                return f"Idea implemented: {str(idea or '')[:50]}..."
+        # Fallback: legacy idea_generator
+        if self.idea_generator:
+            try:
+                plan = None
+                if hasattr(self.idea_generator, "implement_idea"):
+                    plan = self.idea_generator.implement_idea(idea_str)
+                elif hasattr(self.idea_generator, "generate_plan"):
+                    plan = self.idea_generator.generate_plan(idea_str)
 
-            return "[Implementation generated no plan]"
+                if plan:
+                    self.learning_history["ideas_implemented"] += 1
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.log_event(f"Autonomous implementation: {idea_str[:50]}")
+                        except Exception:
+                            pass
+                    log.info(f"✅ [AUTONOMOUS IMPLEMENT] Executed")
+                    return f"Idea implemented: {idea_str[:50]}"
+            except Exception as e:
+                log.error(f"❌ Autonomous implementation failed: {e}")
+                return f"[Implementation error: {e}]"
 
-        except Exception as e:
-            log.error(f"❌ Autonomous implementation failed: {e}")
-            return f"[Implementation error: {e}]"
+        return "[No implementation module available]"
 
     # ─────────────────────────────────────────────
     def _autonomous_reflection(self) -> str:
@@ -340,6 +375,38 @@ Autonomous Learning Summary:
             return f"[Learning error: {e}]"
 
     # ─────────────────────────────────────────────
+    def _autonomous_evolve_step(self) -> str:
+        """Step 7: Run one EvolveEngine step to improve all capabilities."""
+        if not self.evolve_engine:
+            # Try to get from core
+            if self.core:
+                self.evolve_engine = getattr(self.core, "evolve_engine", None)
+        if not self.evolve_engine:
+            return "[EvolveEngine unavailable]"
+
+        try:
+            log.info("🧬 [AUTONOMOUS EVOLVE] Running evolution step...")
+            record = self.evolve_engine.step()
+            self.learning_history["evolve_steps"] += 1
+            actions_count = len(record.get("actions", []))
+
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.log_event(
+                        f"Autonomous evolve step {record.get('iteration', '?')}: "
+                        f"{record.get('direction', '')} ({actions_count} actions)"
+                    )
+                except Exception:
+                    pass
+
+            log.info(f"✅ [AUTONOMOUS EVOLVE] Step {record.get('iteration', '?')}: {actions_count} actions")
+            return f"Evolution step {record.get('iteration', '?')}: {record.get('direction', '')} ({actions_count} actions)"
+
+        except Exception as e:
+            log.error(f"❌ Autonomous evolve step failed: {e}")
+            return f"[Evolve error: {e}]"
+
+    # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle"""
         log.info("=" * 70)
@@ -365,6 +432,9 @@ Autonomous Learning Summary:
         time.sleep(2)
 
         results.append(("SLSA", self._autonomous_slsa_run()))
+        time.sleep(2)
+
+        results.append(("Evolve", self._autonomous_evolve_step()))
 
         # Log cycle summary — str() wraps any non-string results to prevent slice errors
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
@@ -376,7 +446,8 @@ Autonomous Learning Summary:
         elapsed = (datetime.utcnow() - datetime.fromisoformat(self.learning_history["start_time"])).total_seconds()
         total_actions = (self.learning_history["research_completed"] +
                         self.learning_history["ideas_implemented"] +
-                        self.learning_history["reflections_conducted"])
+                        self.learning_history["reflections_conducted"] +
+                        self.learning_history.get("evolve_steps", 0))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
         # Log stats to knowledge base
@@ -490,7 +561,9 @@ def get_autonomous_engine() -> Optional[AutonomousLearningEngine]:
 
 def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  reflect_module=None, self_teacher=None,
-                                 slsa_manager=None, knowledge_db=None) -> AutonomousLearningEngine:
+                                 slsa_manager=None, knowledge_db=None,
+                                 evolve_engine=None, self_implementer=None,
+                                 idea_implementation=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -501,7 +574,10 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         reflect_module=reflect_module,
         self_teacher=self_teacher,
         slsa_manager=slsa_manager,
-        knowledge_db=knowledge_db
+        knowledge_db=knowledge_db,
+        evolve_engine=evolve_engine,
+        self_implementer=self_implementer,
+        idea_implementation=idea_implementation,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")
