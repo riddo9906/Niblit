@@ -183,23 +183,64 @@ def get_core():
 # MAIN.PY HELPERS  (mirrors the helpers in main.py exactly)
 # ══════════════════════════════════════════════════════════════
 
-# Commands list used by suggest_command — same as main.py.
-# Direct command keys (help, status, memory, self-heal, self-teach, threads)
-# plus routed-prefix stems and a few extras mirror main.py COMMANDS list.
+# Direct command keys handled in _direct_commands() (exact-match shortcut).
 _DIRECT_CMD_KEYS = ("help", "commands", "status", "health", "memory",
                     "self-heal", "self-teach", "threads")
-# Prefixes handled by NiblitRouter — module-level constant used by both
-# suggest_command and _shell_process to ensure a single source of truth.
+# Prefixes routed to NiblitRouter — single source of truth shared with
+# _shell_process to avoid duplication.
 _ROUTED_PREFIXES = ("search ", "summary ", "self-research ", "learn about ")
+# Full command vocabulary used by suggest_command() — mirrors every command
+# exposed in niblit_core.help_text() so the suggestion engine covers them all.
 _SHELL_COMMANDS = list(_DIRECT_CMD_KEYS) + [
-    "search", "summary", "self-research", "learn about",
+    # core
+    "time", "metrics", "dump",
+    # memory & learning
+    "remember", "learn about", "ideas about",
+    # knowledge
+    "recall", "acquired data", "knowledge stats", "ale processes", "kb stats",
+    # internet / research
+    "search", "summary", "self-research", "research code",
+    # self-improvement
+    "self-idea", "self-implement", "self-teach", "idea-implement",
+    "reflect", "auto-reflect",
+    # autonomous learning
+    "autonomous-learn start", "autonomous-learn stop",
+    "autonomous-learn status", "autonomous-learn add-topic",
+    "autonomous-learn code-status",
+    # improvements
+    "show improvements", "run improvement-cycle", "improvement-status",
+    # evolution
+    "evolve", "evolve start", "evolve stop", "evolve status", "evolve history",
+    # code generation
+    "generate code", "run code", "validate", "execute file",
+    "code templates", "study language", "available languages",
+    # file manager
+    "read file", "write file", "list files", "file environment",
+    # software study
+    "study software", "software categories", "analyze architecture",
+    "design software", "what have i studied",
+    # structural introspection
+    "my structure", "my threads", "my loops", "my modules", "my commands",
+    "dashboard", "operational flow", "resource usage",
+    # SLSA
+    "slsa-status", "start_slsa", "stop_slsa", "restart_slsa",
+    # live update
+    "reload", "upgrade", "update-history",
+    # settings / system
+    "toggle-llm on", "toggle-llm off", "shutdown",
+    # diagnostics
+    "run-diagnostics", "run-live-test", "loop-errors",
+    # orchestrator
+    "orchestrate audit", "orchestrate self-heal", "orchestrate fix-guide",
+    "orchestrate verify", "orchestrate pipeline", "hf-task",
+    # debug
     "debug on", "debug off",
 ]
 
 
 def _ts():
-    """Return a timestamp string matching NiblitIO.timestamp() format."""
-    return datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
+    """Return a timestamp string matching NiblitIO.timestamp() format (UTC)."""
+    return datetime.datetime.now(datetime.timezone.utc).strftime("[%Y-%m-%d %H:%M:%S]")
 
 
 def suggest_command(user_input):
@@ -352,91 +393,206 @@ def _shell_process(core, user_input: str) -> dict:
 
 
 
+# ══════════════════════════════════════════════════════════════
+# COMMAND CATALOGUE  — every command from niblit_core.help_text()
+# Used by the sidebar menu (/api/commands) and JS quick-actions.
+# ══════════════════════════════════════════════════════════════
+
 COMMAND_GROUPS = [
     {
-        "group": "Conversation",
-        "icon": "💬",
+        "group": "Core",
+        "icon": "🏠",
         "commands": [
-            {"label": "hi / hello / hey",        "cmd": "hi",            "desc": "Casual greeting"},
-            {"label": "how are you?",             "cmd": "how are you",   "desc": "Check in"},
-            {"label": "thanks",                   "cmd": "thanks",        "desc": "Say thank you"},
+            {"label": "help",                     "cmd": "help",           "desc": "Show all commands"},
+            {"label": "time",                     "cmd": "time",           "desc": "Show current time"},
+            {"label": "status",                   "cmd": "status",         "desc": "System status"},
+            {"label": "health",                   "cmd": "health",         "desc": "Comprehensive health check"},
+            {"label": "metrics",                  "cmd": "metrics",        "desc": "Performance metrics"},
+            {"label": "dump",                     "cmd": "dump",           "desc": "Show dump loop stats"},
+        ],
+    },
+    {
+        "group": "Memory & Learning",
+        "icon": "📝",
+        "commands": [
+            {"label": "remember key:value",       "cmd": "remember ",      "desc": "Store a fact",              "has_input": True},
+            {"label": "learn about <topic>",      "cmd": "learn about ",   "desc": "Queue topic for research",  "has_input": True},
+            {"label": "ideas about <topic>",      "cmd": "ideas about ",   "desc": "Get creative ideas",        "has_input": True},
         ],
     },
     {
         "group": "Knowledge & Recall",
         "icon": "🧠",
         "commands": [
-            {"label": "recall <topic>",           "cmd": "recall ",        "desc": "Search KnowledgeDB for any stored fact", "has_input": True},
-            {"label": "acquired data",            "cmd": "acquired data",  "desc": "Browse all facts acquired by ALE processes"},
+            {"label": "recall <topic>",           "cmd": "recall ",        "desc": "Search KnowledgeDB for stored facts",  "has_input": True},
+            {"label": "acquired data",            "cmd": "acquired data",  "desc": "Browse all ALE-acquired facts"},
+            {"label": "acquired data <category>", "cmd": "acquired data ", "desc": "Filter: research/ideas/code/…",        "has_input": True},
             {"label": "knowledge stats",          "cmd": "knowledge stats","desc": "Full KnowledgeDB summary"},
-            {"label": "ale processes",            "cmd": "ale processes",  "desc": "Explain all 12 ALE steps + module status"},
-            {"label": "kb stats",                 "cmd": "kb stats",       "desc": "KnowledgeDB statistics"},
-        ],
-    },
-    {
-        "group": "Research & Search",
-        "icon": "🔍",
-        "commands": [
-            {"label": "search <query>",           "cmd": "search ",        "desc": "Search internet (primary data source)", "has_input": True, "is_search": True},
-            {"label": "summary <query>",          "cmd": "summary ",       "desc": "Quick summary via internet", "has_input": True},
-            {"label": "self-research <topic>",    "cmd": "self-research ", "desc": "Deep research using researcher + internet", "has_input": True},
-        ],
-    },
-    {
-        "group": "Self-Improvement",
-        "icon": "⚡",
-        "commands": [
-            {"label": "self-idea <prompt>",       "cmd": "self-idea ",     "desc": "Generate & implement idea via SelfIdeaImplementation", "has_input": True},
-            {"label": "self-implement <plan>",    "cmd": "self-implement ","desc": "Enqueue a plan to SelfImplementer", "has_input": True},
-            {"label": "self-teach <topic>",       "cmd": "self-teach ",    "desc": "Teach a topic using SelfTeacher + research", "has_input": True},
-            {"label": "idea-implement <prompt>",  "cmd": "idea-implement ","desc": "Generate and implement ideas", "has_input": True},
-            {"label": "reflect <topic>",          "cmd": "reflect ",       "desc": "Reflect using ReflectModule", "has_input": True},
-            {"label": "auto-reflect",             "cmd": "auto-reflect",   "desc": "Reflect on recent interactions"},
+            {"label": "ale processes",            "cmd": "ale processes",  "desc": "Explain all 12 ALE steps + status"},
         ],
     },
     {
         "group": "Autonomous Learning",
         "icon": "🤖",
         "commands": [
-            {"label": "autonomous-learn start",   "cmd": "autonomous-learn start",       "desc": "Start autonomous learning"},
-            {"label": "autonomous-learn stop",    "cmd": "autonomous-learn stop",        "desc": "Stop autonomous learning"},
-            {"label": "autonomous-learn status",  "cmd": "autonomous-learn status",      "desc": "View learning statistics"},
-            {"label": "autonomous-learn code-status","cmd": "autonomous-learn code-status","desc": "Programming literacy loop status"},
-            {"label": "add-topic <topic>",        "cmd": "autonomous-learn add-topic ",  "desc": "Add research topic", "has_input": True},
+            {"label": "autonomous-learn start",   "cmd": "autonomous-learn start",          "desc": "Start background learning (incl. code loop)"},
+            {"label": "autonomous-learn stop",    "cmd": "autonomous-learn stop",           "desc": "Stop background learning"},
+            {"label": "autonomous-learn status",  "cmd": "autonomous-learn status",         "desc": "View full learning statistics"},
+            {"label": "add-topic <topic>",        "cmd": "autonomous-learn add-topic ",     "desc": "Add a research topic", "has_input": True},
+            {"label": "code-status",              "cmd": "autonomous-learn code-status",    "desc": "Programming literacy loop status"},
         ],
     },
     {
-        "group": "Improvements",
-        "icon": "🔧",
+        "group": "Self-Improvement",
+        "icon": "⚡",
         "commands": [
-            {"label": "show improvements",        "cmd": "show improvements",      "desc": "View 10 improvement modules"},
-            {"label": "run improvement-cycle",    "cmd": "run improvement-cycle",  "desc": "Execute improvement cycle"},
-            {"label": "improvement-status",       "cmd": "improvement-status",     "desc": "View improvement status"},
+            {"label": "show improvements",        "cmd": "show improvements",       "desc": "View all 10 improvements"},
+            {"label": "run improvement-cycle",    "cmd": "run improvement-cycle",   "desc": "Execute improvement cycle"},
+            {"label": "improvement-status",       "cmd": "improvement-status",      "desc": "View improvement status"},
         ],
     },
     {
-        "group": "System",
+        "group": "Research & Internet",
+        "icon": "🔍",
+        "commands": [
+            {"label": "search <query>",           "cmd": "search ",        "desc": "Search the internet",                   "has_input": True, "is_search": True},
+            {"label": "summary <query>",          "cmd": "summary ",       "desc": "Get quick internet summary",             "has_input": True},
+            {"label": "self-research <topic>",    "cmd": "self-research ", "desc": "Research autonomously",                  "has_input": True},
+            {"label": "research code <lang>",     "cmd": "research code ", "desc": "Research language → CodeGenerator",      "has_input": True},
+        ],
+    },
+    {
+        "group": "Brain & Self-Improvement",
+        "icon": "🧬",
+        "commands": [
+            {"label": "self-idea <prompt>",       "cmd": "self-idea ",     "desc": "Generate & implement idea",              "has_input": True},
+            {"label": "self-implement <plan>",    "cmd": "self-implement ","desc": "Enqueue plan to SelfImplementer",         "has_input": True},
+            {"label": "self-teach <topic>",       "cmd": "self-teach ",    "desc": "Teach topic via SelfTeacher + research", "has_input": True},
+            {"label": "idea-implement <prompt>",  "cmd": "idea-implement ","desc": "Generate and implement ideas",            "has_input": True},
+            {"label": "reflect <text>",           "cmd": "reflect ",       "desc": "Reflect on topic via ReflectModule",      "has_input": True},
+            {"label": "auto-reflect",             "cmd": "auto-reflect",   "desc": "Auto-reflect on recent interactions"},
+            {"label": "self-heal",                "cmd": "self-heal",      "desc": "Run self-healing"},
+        ],
+    },
+    {
+        "group": "Evolution Engine",
+        "icon": "🌱",
+        "commands": [
+            {"label": "evolve",                   "cmd": "evolve",             "desc": "Run one self-evolution step"},
+            {"label": "evolve start",             "cmd": "evolve start",       "desc": "Start continuous background evolution"},
+            {"label": "evolve stop",              "cmd": "evolve stop",        "desc": "Stop background evolution"},
+            {"label": "evolve status",            "cmd": "evolve status",      "desc": "Show evolution status"},
+            {"label": "evolve history",           "cmd": "evolve history",     "desc": "Show recent evolution steps"},
+        ],
+    },
+    {
+        "group": "Code Generation",
+        "icon": "💻",
+        "commands": [
+            {"label": "generate code <lang>",     "cmd": "generate code ",   "desc": "Generate code (lang + optional template)", "has_input": True},
+            {"label": "run code <lang> <code>",   "cmd": "run code ",        "desc": "Execute code inline",                     "has_input": True},
+            {"label": "validate <lang> <code>",   "cmd": "validate ",        "desc": "Validate code syntax",                    "has_input": True},
+            {"label": "execute file <path>",      "cmd": "execute file ",    "desc": "Execute a script file",                   "has_input": True},
+            {"label": "code templates [lang]",    "cmd": "code templates",   "desc": "List available templates"},
+            {"label": "study language <lang>",    "cmd": "study language ",  "desc": "Best practices for language",             "has_input": True},
+            {"label": "available languages",      "cmd": "available languages","desc": "Show supported languages"},
+        ],
+    },
+    {
+        "group": "File Manager",
+        "icon": "📁",
+        "commands": [
+            {"label": "read file <path>",         "cmd": "read file ",     "desc": "Read a file",                "has_input": True},
+            {"label": "write file <path> <content>","cmd": "write file ", "desc": "Write a file",               "has_input": True},
+            {"label": "list files [dir]",         "cmd": "list files",     "desc": "List directory contents"},
+            {"label": "file environment",         "cmd": "file environment","desc": "Filesystem info"},
+        ],
+    },
+    {
+        "group": "Software Study",
+        "icon": "📚",
+        "commands": [
+            {"label": "study software <cat>",     "cmd": "study software ",  "desc": "Study a software category",       "has_input": True},
+            {"label": "software categories",      "cmd": "software categories","desc": "List all study categories"},
+            {"label": "analyze architecture <n>", "cmd": "analyze architecture ","desc": "Analyze architecture pattern","has_input": True},
+            {"label": "design software <desc>",   "cmd": "design software ", "desc": "Generate a software design",      "has_input": True},
+            {"label": "what have i studied",      "cmd": "what have i studied","desc": "Show studied this session"},
+        ],
+    },
+    {
+        "group": "Introspection",
+        "icon": "🔬",
+        "commands": [
+            {"label": "my structure",             "cmd": "my structure",      "desc": "Full component inventory"},
+            {"label": "my threads",               "cmd": "my threads",        "desc": "All active threads"},
+            {"label": "my loops",                 "cmd": "my loops",          "desc": "Background loop status"},
+            {"label": "my modules",               "cmd": "my modules",        "desc": "Loaded modules"},
+            {"label": "my commands",              "cmd": "my commands",       "desc": "All registered commands"},
+            {"label": "dashboard",                "cmd": "dashboard",         "desc": "Full runtime dashboard"},
+            {"label": "operational flow",         "cmd": "operational flow",  "desc": "How loops & routing work"},
+            {"label": "resource usage",           "cmd": "resource usage",    "desc": "RAM, CPU, uptime"},
+        ],
+    },
+    {
+        "group": "SLSA Engine",
+        "icon": "🛡️",
+        "commands": [
+            {"label": "slsa-status",              "cmd": "slsa-status",         "desc": "SLSA engine status"},
+            {"label": "start_slsa [topics]",      "cmd": "start_slsa",          "desc": "Start SLSA engine"},
+            {"label": "stop_slsa",                "cmd": "stop_slsa",           "desc": "Stop SLSA engine"},
+            {"label": "restart_slsa [topics]",    "cmd": "restart_slsa",        "desc": "Restart SLSA engine"},
+        ],
+    },
+    {
+        "group": "Live Update",
+        "icon": "🔄",
+        "commands": [
+            {"label": "reload <module>",          "cmd": "reload ",        "desc": "Hot-reload a module",      "has_input": True},
+            {"label": "upgrade",                  "cmd": "upgrade",        "desc": "Reload all changed modules"},
+            {"label": "update-history",           "cmd": "update-history", "desc": "Show reload history"},
+        ],
+    },
+    {
+        "group": "Settings",
         "icon": "⚙️",
         "commands": [
-            {"label": "status / health",          "cmd": "status",         "desc": "System status"},
             {"label": "toggle-llm on",            "cmd": "toggle-llm on",  "desc": "Enable LLM (use AI)"},
-            {"label": "toggle-llm off",           "cmd": "toggle-llm off", "desc": "Disable LLM (use research mode)"},
-            {"label": "help / commands",          "cmd": "help",           "desc": "Show all commands"},
-            {"label": "start_slsa",               "cmd": "start_slsa",     "desc": "Start SLSA engine"},
-            {"label": "stop_slsa",                "cmd": "stop_slsa",      "desc": "Stop SLSA engine"},
-            {"label": "slsa-status",              "cmd": "slsa-status",    "desc": "SLSA status"},
+            {"label": "toggle-llm off",           "cmd": "toggle-llm off", "desc": "Disable LLM (research mode)"},
+            {"label": "shutdown",                 "cmd": "shutdown",        "desc": "Graceful shutdown"},
+        ],
+    },
+    {
+        "group": "Diagnostics",
+        "icon": "🩺",
+        "commands": [
+            {"label": "run-diagnostics",          "cmd": "run-diagnostics","desc": "Run full diagnostic suite"},
+            {"label": "run-live-test",            "cmd": "run-live-test",  "desc": "Run live command tester"},
+            {"label": "loop-errors",              "cmd": "loop-errors",    "desc": "Background loop error summary"},
+        ],
+    },
+    {
+        "group": "Orchestrator",
+        "icon": "🎛️",
+        "commands": [
+            {"label": "orchestrate audit",        "cmd": "orchestrate audit",      "desc": "Run repository audit"},
+            {"label": "orchestrate self-heal",    "cmd": "orchestrate self-heal",  "desc": "Run orchestrated self-healing"},
+            {"label": "orchestrate fix-guide",    "cmd": "orchestrate fix-guide",  "desc": "Generate fix guide"},
+            {"label": "orchestrate verify",       "cmd": "orchestrate verify",     "desc": "Verify imports"},
+            {"label": "orchestrate pipeline",     "cmd": "orchestrate pipeline",   "desc": "Run full pipeline"},
+            {"label": "hf-task <prompt>",         "cmd": "hf-task ",               "desc": "Execute HF task",     "has_input": True},
         ],
     },
 ]
 
 
+
+
 # ══════════════════════════════════════════════════════════════
-# DASHBOARD HTML  (terminal-style web AI frontend)
+# DASHBOARD HTML  — modern web-browser style AI assistant
 #
-# On load the UI calls /api/boot which returns the same messages
-# that main.py boot() prints to the Termux terminal, then drops
-# the user into an interactive "Niblit > " prompt — identical to
-# running Niblit locally.
+# Layout:  top nav-bar  |  collapsible left sidebar  |  chat panel
+# On page-load the /api/boot sequence plays (same as main.py boot()),
+# then Niblit is ready for interactive input — full runtime logic intact.
 # ══════════════════════════════════════════════════════════════
 
 DASHBOARD_HTML = r"""<!doctype html>
@@ -446,337 +602,591 @@ DASHBOARD_HTML = r"""<!doctype html>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Niblit AIOS</title>
   <style>
+    /* ── design tokens ── */
     :root{
-      --bg:#0b0e14;--panel:#0d1117;--border:#1a2640;
-      --accent:#0ea5a4;--accent2:#134e4a;
-      --green:#39d353;--yellow:#fbcf6b;--red:#f87171;--dim:#566a7f;
-      --font:'Courier New',Courier,monospace;
+      --clr-bg:#f0f2f5;--clr-surface:#ffffff;--clr-sidebar:#1e2533;
+      --clr-sidebar-text:#c8cfe0;--clr-sidebar-hover:rgba(255,255,255,.08);
+      --clr-sidebar-active:rgba(255,255,255,.14);
+      --clr-primary:#2563eb;--clr-primary-dark:#1d4ed8;
+      --clr-accent:#0ea5a4;--clr-accent-dark:#0d9090;
+      --clr-text:#111827;--clr-text-muted:#6b7280;
+      --clr-border:#e5e7eb;--clr-danger:#ef4444;--clr-warn:#f59e0b;
+      --clr-success:#10b981;--clr-code-bg:#1e2533;--clr-code-text:#e2e8f0;
+      --radius:10px;--shadow:0 2px 12px rgba(0,0,0,.08);
+      --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      --font-mono:"SFMono-Regular","Cascadia Code",Consolas,"Liberation Mono",monospace;
+      --sidebar-w:270px;--topbar-h:56px;
     }
     *{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%;background:var(--bg);color:var(--green);
-              font-family:var(--font);font-size:13px;line-height:1.55}
+    html,body{height:100%;background:var(--clr-bg);color:var(--clr-text);
+              font-family:var(--font-sans);font-size:14px}
+    a{color:var(--clr-primary);text-decoration:none}
 
-    /* ── top bar ── */
-    #topbar{background:var(--panel);border-bottom:1px solid var(--border);
-            padding:6px 14px;display:flex;align-items:center;gap:12px;
-            font-size:11px;color:var(--dim);flex-shrink:0}
-    #topbar .title{color:var(--accent);font-weight:bold;font-size:13px;letter-spacing:.06em}
-    #status-pill{padding:2px 9px;border-radius:10px;background:var(--accent2);
-                 color:var(--green);font-size:10px;font-weight:bold}
-    #topbar-right{margin-left:auto;display:flex;gap:8px;align-items:center}
-    .tb-btn{background:none;border:1px solid var(--border);color:var(--dim);
-            padding:3px 10px;border-radius:4px;cursor:pointer;font-size:10px;
-            font-family:var(--font)}
-    .tb-btn:hover{border-color:var(--accent);color:var(--accent)}
+    /* ── scrollbars ── */
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-thumb{background:#c1c8d4;border-radius:3px}
+    ::-webkit-scrollbar-track{background:transparent}
 
-    /* ── layout ── */
-    #layout{display:flex;height:calc(100vh - 33px)}
-
-    /* ── sidebar ── */
-    #sidebar{width:240px;background:var(--panel);border-right:1px solid var(--border);
-             overflow-y:auto;display:flex;flex-direction:column;flex-shrink:0;
-             transition:width .2s}
-    #sidebar.collapsed{width:0;overflow:hidden}
-    .sb-section{border-bottom:1px solid var(--border)}
-    .sb-toggle{width:100%;background:none;border:none;color:var(--yellow);
-               padding:7px 10px;text-align:left;cursor:pointer;
-               font-family:var(--font);font-size:11px;font-weight:bold;
-               display:flex;align-items:center;gap:6px}
-    .sb-toggle:hover{background:rgba(14,165,164,.08)}
-    .sb-toggle .arr{margin-left:auto;font-size:9px;transition:transform .2s}
-    .sb-toggle.open .arr{transform:rotate(90deg)}
-    .sb-list{display:none;padding-bottom:4px}
-    .sb-list.vis{display:block}
-    .sb-item{padding:4px 10px 4px 24px;color:var(--dim);cursor:pointer;
-             font-size:11px;line-height:1.4}
-    .sb-item:hover{color:var(--green);background:rgba(57,211,83,.06)}
-    .sb-item .desc{font-size:10px;color:#3a4a5a;display:block;margin-top:1px}
-
-    /* ── terminal main area ── */
-    #main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-
-    /* ── search bar ── */
-    #search-bar{background:#0a0f1a;border-bottom:1px solid var(--border);
-                padding:7px 12px;display:none;gap:8px;align-items:center}
-    #search-bar.vis{display:flex}
-    #search-input{flex:1;background:var(--bg);border:1px solid var(--border);
-                  color:var(--green);padding:5px 10px;border-radius:4px;
-                  font-family:var(--font);font-size:12px;outline:none}
-    #search-input:focus{border-color:var(--accent)}
-    #search-input::placeholder{color:var(--dim)}
-    #s-btn{background:var(--accent);color:#012;border:none;padding:5px 14px;
-           border-radius:4px;cursor:pointer;font-family:var(--font);font-weight:bold;font-size:11px}
-    #s-btn:hover{opacity:.85}
-
-    /* ── terminal output ── */
-    #terminal{flex:1;overflow-y:auto;padding:12px 16px;
-              display:flex;flex-direction:column;gap:2px}
-    .tline{white-space:pre-wrap;word-break:break-word;line-height:1.5}
-    .tline.boot{color:#4a90d9}
-    .tline.debug{color:var(--dim);font-size:11px}
-    .tline.prompt{color:var(--yellow)}
-    .tline.response{color:var(--green)}
-    .tline.suggestion{color:var(--accent);font-style:italic;font-size:11px}
-    .tline.err{color:var(--red)}
-    .tline.sep{color:#1e2d3d}
-    .cursor-blink{display:inline-block;width:7px;height:13px;background:var(--green);
-                  vertical-align:bottom;animation:blink 1s step-end infinite}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-
-    /* ── typing indicator ── */
-    #thinking{color:var(--dim);font-size:11px;padding:4px 16px;
-              display:none;font-style:italic}
-
-    /* ── input row ── */
-    #input-row{background:#0a0f1a;border-top:1px solid var(--border);
-               padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0}
-    #prompt-label{color:var(--yellow);white-space:nowrap;font-weight:bold;font-size:13px}
-    #chat-input{flex:1;background:transparent;border:none;color:var(--green);
-                font-family:var(--font);font-size:13px;outline:none;
-                caret-color:var(--green)}
-    #chat-input::placeholder{color:var(--dim)}
-    #send-btn{background:var(--accent);color:#012;border:none;padding:6px 16px;
-              border-radius:4px;cursor:pointer;font-family:var(--font);
-              font-weight:bold;font-size:12px;white-space:nowrap}
-    #send-btn:hover{opacity:.85}
-    #send-btn:disabled{opacity:.35;cursor:not-allowed}
-
-    /* ── scrollbar ── */
-    ::-webkit-scrollbar{width:5px}
-    ::-webkit-scrollbar-thumb{background:#1a2640;border-radius:3px}
-
-    /* ── mobile ── */
-    @media(max-width:640px){
-      #sidebar{width:0}#sidebar.open{width:220px}
-      #menu-btn{display:flex!important}
+    /* ══════ TOP BAR ══════ */
+    #topbar{
+      position:fixed;top:0;left:0;right:0;height:var(--topbar-h);z-index:100;
+      background:var(--clr-surface);border-bottom:1px solid var(--clr-border);
+      display:flex;align-items:center;padding:0 16px;gap:12px;
+      box-shadow:0 1px 4px rgba(0,0,0,.06);
     }
-    #menu-btn{display:none;background:none;border:none;color:var(--dim);
-              font-size:1.2rem;cursor:pointer}
+    #menu-btn{background:none;border:none;cursor:pointer;padding:6px;
+              color:var(--clr-text-muted);font-size:20px;border-radius:6px;
+              display:flex;align-items:center}
+    #menu-btn:hover{background:var(--clr-bg);color:var(--clr-text)}
+    .brand{display:flex;align-items:center;gap:8px}
+    .brand-logo{width:32px;height:32px;background:linear-gradient(135deg,var(--clr-primary),var(--clr-accent));
+                border-radius:8px;display:flex;align-items:center;justify-content:center;
+                color:#fff;font-weight:800;font-size:14px;letter-spacing:-.5px;flex-shrink:0}
+    .brand-name{font-weight:700;font-size:16px;color:var(--clr-text);letter-spacing:-.3px}
+    .brand-tag{font-size:11px;color:var(--clr-text-muted);font-weight:400}
+    #topbar-mid{flex:1;max-width:480px;margin:0 auto}
+    #search-bar-top{
+      display:flex;align-items:center;background:var(--clr-bg);
+      border:1px solid var(--clr-border);border-radius:20px;padding:6px 14px;gap:8px;
+    }
+    #search-bar-top input{
+      border:none;background:transparent;outline:none;flex:1;font-size:13px;
+      color:var(--clr-text);font-family:var(--font-sans);
+    }
+    #search-bar-top input::placeholder{color:var(--clr-text-muted)}
+    #search-bar-top .s-icon{color:var(--clr-text-muted);font-size:15px;flex-shrink:0}
+    #topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+    #status-badge{
+      display:flex;align-items:center;gap:6px;padding:5px 12px;
+      border-radius:20px;font-size:12px;font-weight:600;
+      background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;
+      cursor:default;user-select:none;
+    }
+    #status-badge.degraded{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+    #status-badge.offline{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+    #status-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;flex-shrink:0}
+    #status-badge.degraded #status-dot{background:#f59e0b}
+    #status-badge.offline #status-dot{background:#ef4444}
+    .tb-btn{
+      background:none;border:1px solid var(--clr-border);color:var(--clr-text-muted);
+      padding:6px 13px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:500;
+      display:flex;align-items:center;gap:5px;
+    }
+    .tb-btn:hover{border-color:var(--clr-primary);color:var(--clr-primary)}
+    .tb-btn.primary{background:var(--clr-primary);color:#fff;border-color:var(--clr-primary)}
+    .tb-btn.primary:hover{background:var(--clr-primary-dark);border-color:var(--clr-primary-dark)}
+
+    /* ══════ LAYOUT ══════ */
+    #layout{display:flex;height:100vh;padding-top:var(--topbar-h)}
+
+    /* ══════ SIDEBAR ══════ */
+    #sidebar{
+      width:var(--sidebar-w);background:var(--clr-sidebar);
+      display:flex;flex-direction:column;flex-shrink:0;
+      overflow:hidden;transition:width .22s ease;
+      border-right:1px solid rgba(255,255,255,.05);
+    }
+    #sidebar.collapsed{width:0}
+    #sidebar-inner{width:var(--sidebar-w);overflow-y:auto;height:100%;padding-bottom:16px}
+
+    .sb-section-label{
+      padding:20px 16px 6px;font-size:10px;font-weight:700;letter-spacing:.1em;
+      color:rgba(200,207,224,.4);text-transform:uppercase;
+    }
+    .sb-group{margin-bottom:2px}
+    .sb-toggle{
+      width:100%;background:none;border:none;color:var(--clr-sidebar-text);
+      padding:8px 16px;text-align:left;cursor:pointer;font-size:12.5px;font-weight:600;
+      display:flex;align-items:center;gap:9px;border-radius:0;
+      transition:background .15s;
+    }
+    .sb-toggle:hover{background:var(--clr-sidebar-hover)}
+    .sb-toggle .g-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center}
+    .sb-toggle .g-arr{margin-left:auto;font-size:10px;opacity:.5;
+                      transition:transform .2s;transform:rotate(0)}
+    .sb-toggle.open .g-arr{transform:rotate(90deg)}
+    .sb-list{display:none;margin:0 8px}
+    .sb-list.vis{display:block}
+    .sb-item{
+      padding:6px 10px 6px 16px;color:rgba(200,207,224,.7);cursor:pointer;
+      font-size:12px;border-radius:6px;display:flex;align-items:baseline;gap:6px;
+      transition:background .12s,color .12s;
+    }
+    .sb-item:hover{background:var(--clr-sidebar-hover);color:#fff}
+    .sb-item .i-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sb-item .i-desc{font-size:10px;color:rgba(200,207,224,.4);flex-shrink:0;
+                     max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* ══════ MAIN AREA ══════ */
+    #main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+    /* ══════ CHAT AREA ══════ */
+    #chat-area{
+      flex:1;overflow-y:auto;padding:24px 0;
+      display:flex;flex-direction:column;gap:0;
+    }
+
+    /* ── welcome / boot banner ── */
+    #boot-banner{
+      max-width:680px;margin:0 auto 8px;padding:0 20px;
+      display:flex;flex-direction:column;gap:12px;
+    }
+    .boot-card{
+      background:var(--clr-code-bg);color:var(--clr-code-text);
+      border-radius:var(--radius);padding:16px 20px;font-family:var(--font-mono);
+      font-size:12px;line-height:1.7;border-left:3px solid var(--clr-accent);
+    }
+    .boot-line.dim{color:#8892a4}
+    .boot-line.ok{color:#4ade80}
+    .boot-line.warn{color:#fbbf24}
+
+    /* ── message rows ── */
+    .msg-row{max-width:760px;margin:0 auto;padding:8px 20px;width:100%;display:flex;gap:12px}
+    .msg-row.user-row{flex-direction:row-reverse}
+    .msg-avatar{
+      width:34px;height:34px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:15px;
+      font-weight:700;user-select:none;
+    }
+    .msg-avatar.niblit{
+      background:linear-gradient(135deg,var(--clr-primary),var(--clr-accent));
+      color:#fff;font-size:13px;letter-spacing:-.3px;
+    }
+    .msg-avatar.user{background:#e0e7ff;color:var(--clr-primary);font-size:15px}
+    .msg-body{flex:1;min-width:0}
+    .msg-meta{font-size:11px;color:var(--clr-text-muted);margin-bottom:4px;display:flex;gap:8px}
+    .msg-row.user-row .msg-meta{justify-content:flex-end}
+    .msg-bubble{
+      background:var(--clr-surface);border:1px solid var(--clr-border);
+      border-radius:12px;padding:12px 16px;font-size:13.5px;line-height:1.7;
+      box-shadow:var(--shadow);white-space:pre-wrap;word-break:break-word;
+    }
+    .msg-row.user-row .msg-bubble{
+      background:var(--clr-primary);color:#fff;border-color:var(--clr-primary);
+    }
+    .msg-bubble.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+    .msg-bubble code{
+      background:var(--clr-code-bg);color:var(--clr-code-text);
+      padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px;
+    }
+    .msg-bubble pre{
+      background:var(--clr-code-bg);color:var(--clr-code-text);
+      border-radius:8px;padding:14px 16px;margin-top:8px;overflow-x:auto;
+      font-family:var(--font-mono);font-size:12px;line-height:1.6;
+    }
+    .msg-debug{
+      font-size:11px;color:var(--clr-text-muted);font-family:var(--font-mono);
+      padding:4px 0 0;display:flex;flex-direction:column;gap:1px;
+    }
+    .msg-suggestion{
+      font-size:12px;color:var(--clr-accent-dark);margin-top:6px;font-style:italic;
+    }
+
+    /* ── thinking indicator ── */
+    #thinking-row{max-width:760px;margin:0 auto;padding:4px 20px;
+                  display:none;align-items:center;gap:12px;width:100%}
+    .thinking-dots{display:flex;gap:5px;padding:10px 0}
+    .thinking-dots span{width:7px;height:7px;border-radius:50%;background:var(--clr-primary);
+                        animation:bounce .9s ease-in-out infinite}
+    .thinking-dots span:nth-child(2){animation-delay:.2s}
+    .thinking-dots span:nth-child(3){animation-delay:.4s}
+    @keyframes bounce{0%,100%{transform:translateY(0);opacity:.4}
+                      50%{transform:translateY(-4px);opacity:1}}
+
+    /* ══════ INPUT BAR ══════ */
+    #input-bar{
+      background:var(--clr-surface);border-top:1px solid var(--clr-border);
+      padding:12px 20px 14px;display:flex;align-items:flex-end;gap:10px;
+      max-width:760px;width:100%;margin:0 auto;align-self:center;
+    }
+    #chat-input{
+      flex:1;border:1.5px solid var(--clr-border);border-radius:10px;
+      padding:10px 14px;font-size:13.5px;font-family:var(--font-sans);
+      outline:none;resize:none;min-height:44px;max-height:140px;
+      line-height:1.55;color:var(--clr-text);background:var(--clr-bg);
+      transition:border-color .15s;
+    }
+    #chat-input:focus{border-color:var(--clr-primary)}
+    #chat-input::placeholder{color:var(--clr-text-muted)}
+    #send-btn{
+      background:var(--clr-primary);color:#fff;border:none;
+      border-radius:10px;padding:10px 20px;cursor:pointer;font-size:14px;
+      font-weight:600;font-family:var(--font-sans);white-space:nowrap;
+      align-self:flex-end;min-height:44px;transition:background .15s;
+    }
+    #send-btn:hover:not(:disabled){background:var(--clr-primary-dark)}
+    #send-btn:disabled{opacity:.4;cursor:not-allowed}
+    .input-hint{
+      max-width:760px;margin:0 auto;padding:0 20px 10px;
+      font-size:11px;color:var(--clr-text-muted);text-align:center;
+    }
+
+    /* ══════ QUICK ACTIONS CHIPS ══════ */
+    #quick-chips{
+      max-width:760px;margin:0 auto;padding:0 20px 6px;
+      display:flex;flex-wrap:wrap;gap:6px;
+    }
+    .chip{
+      padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;
+      border:1px solid var(--clr-border);background:var(--clr-surface);
+      color:var(--clr-text-muted);cursor:pointer;transition:all .15s;white-space:nowrap;
+    }
+    .chip:hover{border-color:var(--clr-primary);color:var(--clr-primary);
+                background:#eff6ff}
+
+    /* ══════ MOBILE ══════ */
+    @media(max-width:640px){
+      :root{--sidebar-w:240px}
+      #sidebar{position:fixed;top:var(--topbar-h);left:0;bottom:0;z-index:90;
+               width:0!important}
+      #sidebar.mobile-open{width:var(--sidebar-w)!important}
+      #topbar-mid{display:none}
+    }
   </style>
 </head>
 <body>
 
-<!-- top bar -->
+<!-- ══ TOP BAR ══ -->
 <div id="topbar">
-  <button id="menu-btn" aria-label="menu">☰</button>
-  <span class="title">NIBLIT AIOS</span>
-  <span id="status-pill">booting…</span>
+  <button id="menu-btn" title="Toggle sidebar" onclick="toggleSidebar()">☰</button>
+  <div class="brand">
+    <div class="brand-logo">N</div>
+    <div>
+      <div class="brand-name">Niblit AIOS</div>
+    </div>
+  </div>
+  <div id="topbar-mid">
+    <div id="search-bar-top">
+      <span class="s-icon">🔍</span>
+      <input id="top-search" type="text" placeholder="Search via Niblit…" autocomplete="off"/>
+    </div>
+  </div>
   <div id="topbar-right">
-    <button class="tb-btn" onclick="toggleSearch()">🔍 Search</button>
-    <button class="tb-btn" onclick="toggleSidebar()">⌘ Commands</button>
+    <div id="status-badge" title="Niblit core status">
+      <span id="status-dot"></span>
+      <span id="status-text">booting…</span>
+    </div>
+    <button class="tb-btn" onclick="sendText('help')" title="Show all commands">📋 Commands</button>
   </div>
 </div>
 
-<!-- layout -->
+<!-- ══ LAYOUT ══ -->
 <div id="layout">
 
-  <!-- sidebar -->
-  <nav id="sidebar"><!-- populated by JS --></nav>
+  <!-- ══ SIDEBAR ══ -->
+  <nav id="sidebar">
+    <div id="sidebar-inner">
+      <div class="sb-section-label">Niblit Commands</div>
+      <!-- populated by JS from COMMAND_GROUPS -->
+    </div>
+  </nav>
 
-  <!-- terminal area -->
+  <!-- ══ MAIN ══ -->
   <div id="main">
 
-    <!-- search bar -->
-    <div id="search-bar">
-      <input id="search-input" type="text" placeholder="Search via Niblit…" autocomplete="off"/>
-      <button id="s-btn" onclick="runSearch()">Search</button>
+    <!-- chat / output -->
+    <div id="chat-area">
+      <div id="boot-banner"><!-- boot sequence injected here --></div>
+      <!-- messages appended here -->
     </div>
 
-    <!-- terminal output -->
-    <div id="terminal"></div>
-    <div id="thinking">Niblit is thinking…</div>
-
-    <!-- input row -->
-    <div id="input-row">
-      <span id="prompt-label">Niblit &gt;</span>
-      <input id="chat-input" type="text" placeholder="type a command…" autocomplete="off" spellcheck="false"/>
-      <button id="send-btn" onclick="sendChat()">Send</button>
+    <!-- thinking -->
+    <div id="thinking-row">
+      <div class="msg-avatar niblit">N</div>
+      <div class="thinking-dots">
+        <span></span><span></span><span></span>
+      </div>
     </div>
 
-  </div>
-</div>
+    <!-- quick chips -->
+    <div id="quick-chips">
+      <span class="chip" onclick="sendText('status')">⚡ status</span>
+      <span class="chip" onclick="sendText('help')">📋 help</span>
+      <span class="chip" onclick="sendText('my structure')">🔬 my structure</span>
+      <span class="chip" onclick="sendText('autonomous-learn status')">🤖 ale status</span>
+      <span class="chip" onclick="sendText('knowledge stats')">🧠 kb stats</span>
+      <span class="chip" onclick="sendText('evolve status')">🌱 evolve status</span>
+    </div>
+
+    <!-- input bar -->
+    <div id="input-bar">
+      <textarea id="chat-input" rows="1" placeholder="Type a command or ask Niblit anything…" autocomplete="off" spellcheck="false"></textarea>
+      <button id="send-btn" onclick="sendChat()">Send ↩</button>
+    </div>
+    <div class="input-hint">Enter to send · Shift+Enter for new line · <a onclick="sendText('help')" href="#">view all commands</a></div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
 
 <script>
-// ── command groups injected by Flask ──
+// ════════════════════════════════════════════════
+// DATA — command groups injected by Flask
+// ════════════════════════════════════════════════
 const GROUPS = __JSON_GROUPS__;
 
-// ── build sidebar ──
-const sbEl = document.getElementById('sidebar');
-GROUPS.forEach((g,gi)=>{
-  const sec = document.createElement('div'); sec.className='sb-section';
-  const tog = document.createElement('button'); tog.className='sb-toggle'+(gi===0?' open':'');
-  tog.innerHTML=`<span>${g.icon}</span><span>${g.group}</span><span class="arr">▶</span>`;
-  const lst = document.createElement('div'); lst.className='sb-list'+(gi===0?' vis':'');
-  tog.onclick=()=>{ tog.classList.toggle('open'); lst.classList.toggle('vis'); };
-  g.commands.forEach(c=>{
-    const it=document.createElement('div'); it.className='sb-item';
-    it.innerHTML=`${c.label}<span class="desc">${c.desc}</span>`;
-    it.onclick=()=>{
-      if(c.is_search){
-        document.getElementById('search-bar').classList.add('vis');
-        document.getElementById('search-input').focus();
-      } else if(c.has_input){
-        const inp=document.getElementById('chat-input');
-        inp.value=c.cmd; inp.focus();
-      } else { sendText(c.cmd); }
+// ════════════════════════════════════════════════
+// BUILD SIDEBAR
+// ════════════════════════════════════════════════
+(function buildSidebar(){
+  const sbEl = document.getElementById('sidebar-inner');
+  GROUPS.forEach((g, gi)=>{
+    const wrap = document.createElement('div');
+    wrap.className = 'sb-group';
+
+    const tog = document.createElement('button');
+    tog.className = 'sb-toggle' + (gi < 3 ? ' open' : '');
+    tog.innerHTML = `<span class="g-icon">${g.icon}</span><span>${g.group}</span><span class="g-arr">▶</span>`;
+
+    const lst = document.createElement('div');
+    lst.className = 'sb-list' + (gi < 3 ? ' vis' : '');
+
+    tog.onclick = ()=>{
+      tog.classList.toggle('open');
+      lst.classList.toggle('vis');
     };
-    lst.appendChild(it);
+
+    g.commands.forEach(c=>{
+      const item = document.createElement('div');
+      item.className = 'sb-item';
+      item.title = c.desc;
+      item.innerHTML = `<span class="i-label">${c.label}</span><span class="i-desc">${c.desc}</span>`;
+      item.onclick = ()=>{
+        if(c.is_search){
+          document.getElementById('top-search').focus();
+        } else if(c.has_input){
+          const ta = document.getElementById('chat-input');
+          ta.value = c.cmd;
+          ta.focus();
+          autoResize(ta);
+        } else {
+          sendText(c.cmd);
+        }
+        // close sidebar on mobile
+        if(window.innerWidth <= 640)
+          document.getElementById('sidebar').classList.remove('mobile-open');
+      };
+      lst.appendChild(item);
+    });
+    wrap.appendChild(tog);
+    wrap.appendChild(lst);
+    sbEl.appendChild(wrap);
   });
-  sec.appendChild(tog); sec.appendChild(lst); sbEl.appendChild(sec);
-});
+})();
 
+// ════════════════════════════════════════════════
+// SIDEBAR TOGGLE
+// ════════════════════════════════════════════════
 function toggleSidebar(){
-  document.getElementById('sidebar').classList.toggle('collapsed');
+  const sb = document.getElementById('sidebar');
+  if(window.innerWidth <= 640){
+    sb.classList.toggle('mobile-open');
+  } else {
+    sb.classList.toggle('collapsed');
+  }
 }
-document.getElementById('menu-btn').onclick=()=>
-  document.getElementById('sidebar').classList.toggle('open');
 
-// ── search bar ──
-function toggleSearch(){
-  const b=document.getElementById('search-bar');
-  b.classList.toggle('vis');
-  if(b.classList.contains('vis')) document.getElementById('search-input').focus();
-}
-document.getElementById('search-input').addEventListener('keydown',e=>{
-  if(e.key==='Enter'){e.preventDefault();runSearch();}
+// ════════════════════════════════════════════════
+// TOP SEARCH BAR
+// ════════════════════════════════════════════════
+document.getElementById('top-search').addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    const q = e.target.value.trim();
+    if(q){ e.target.value=''; sendText('search ' + q); }
+  }
 });
-async function runSearch(){
-  const q=document.getElementById('search-input').value.trim();
-  if(!q) return;
-  document.getElementById('search-input').value='';
-  document.getElementById('search-bar').classList.remove('vis');
-  await sendText('search '+q);
-}
 
-// ── terminal helpers ──
-const term = document.getElementById('terminal');
+// ════════════════════════════════════════════════
+// BOOT SEQUENCE
+// ════════════════════════════════════════════════
+async function runBoot(){
+  const banner = document.getElementById('boot-banner');
+  setStatus('booting…', '');
 
-function tline(text, cls){
-  const d=document.createElement('div'); d.className='tline '+(cls||'');
-  d.textContent=text;
-  term.appendChild(d);
-  term.scrollTop=term.scrollHeight;
-}
+  const card = document.createElement('div');
+  card.className = 'boot-card';
+  card.innerHTML = '<div class="boot-line dim">Niblit AIOS — True Autonomous Intelligence</div>';
+  banner.appendChild(card);
 
-function tlineHTML(html, cls){
-  const d=document.createElement('div'); d.className='tline '+(cls||'');
-  d.innerHTML=html;
-  term.appendChild(d);
-  term.scrollTop=term.scrollHeight;
-}
-
-function setThinking(on){
-  document.getElementById('thinking').style.display=on?'block':'none';
-  document.getElementById('send-btn').disabled=on;
-  document.getElementById('chat-input').disabled=on;
-}
-
-// ── boot sequence ──
-async function boot(){
-  tline('','sep');
-  tline('╔══════════════════════════════════════╗','boot');
-  tline('║   NIBLIT AIOS — TRUE AUTONOMOUS AI   ║','boot');
-  tline('╚══════════════════════════════════════╝','boot');
-  tline('','sep');
   setThinking(true);
   try {
-    const r=await fetch('/api/boot');
-    const j=await r.json();
+    const r = await fetch('/api/boot');
+    const j = await r.json();
     (j.messages||[]).forEach(m=>{
-      const cls=m.includes('[DEBUG]')?'debug':'boot';
-      tline(m,cls);
+      const d = document.createElement('div');
+      d.className = 'boot-line' + (m.includes('[DEBUG]')?' dim': m.includes('[WARN]')?' warn':' ok');
+      d.textContent = m;
+      card.appendChild(d);
     });
-    // update status pill
-    const pill=document.getElementById('status-pill');
     if(j.ready){
-      pill.textContent='online';
-      pill.style.background='var(--accent2)';
-      pill.style.color='var(--green)';
+      setStatus('online', 'ok');
     } else {
-      pill.textContent='degraded';
-      pill.style.background='#3d1515';
-      pill.style.color='var(--red)';
+      setStatus('degraded', 'degraded');
     }
   } catch(ex){
-    tline('[boot error] '+ex.message,'err');
-    document.getElementById('status-pill').textContent='offline';
+    const d = document.createElement('div');
+    d.className='boot-line warn';
+    d.textContent = '[boot error] '+ex.message;
+    card.appendChild(d);
+    setStatus('offline','offline');
   } finally {
     setThinking(false);
   }
-  tline('','sep');
-  tline('Type a command or ask me anything. Use the sidebar or 🔍 Search.','debug');
-  tline('','sep');
 }
 
-// ── send command ──
-document.getElementById('chat-input').addEventListener('keydown',e=>{
-  if(e.key==='Enter'){e.preventDefault();sendChat();}
+// ════════════════════════════════════════════════
+// STATUS BADGE
+// ════════════════════════════════════════════════
+function setStatus(label, state){
+  const badge = document.getElementById('status-badge');
+  document.getElementById('status-text').textContent = label;
+  badge.className = state ? 'status-badge '+state : '';
+  badge.id = 'status-badge';
+  if(state) badge.classList.add(state);
+}
+
+async function pollStatus(){
+  try {
+    const r = await fetch('/ping');
+    const j = await r.json();
+    const mood = j.personality&&j.personality.mood ? ' · '+j.personality.mood : '';
+    if(j.status==='ok'){
+      setStatus('online'+mood, 'ok'); // 'ok' class applied → green badge styling
+    } else {
+      setStatus(j.status||'degraded','degraded');
+    }
+  } catch(_){
+    setStatus('offline','offline');
+  }
+}
+setInterval(pollStatus, 10000);
+
+// ════════════════════════════════════════════════
+// MESSAGE RENDERING
+// ════════════════════════════════════════════════
+const chatArea = document.getElementById('chat-area');
+
+function fmtTime(){
+  return new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+}
+
+// Minimal markdown: wrap ```...``` in <pre><code>, inline `x` → <code>x</code>
+function renderMd(text){
+  let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // fenced code blocks
+  s = s.replace(/```([^`]*?)```/gs, (_,c)=>`<pre><code>${c}</code></pre>`);
+  // inline code
+  s = s.replace(/`([^`]+?)`/g, (_,c)=>`<code>${c}</code>`);
+  return s;
+}
+
+function addMsg(who, text, debugLines, suggestion){
+  const isUser = who==='user';
+  const isErr  = who==='err';
+  const row = document.createElement('div');
+  row.className = 'msg-row' + (isUser?' user-row':'');
+
+  const av = document.createElement('div');
+  av.className = 'msg-avatar ' + (isUser?'user':'niblit');
+  av.textContent = isUser ? '👤' : 'N';
+
+  const body = document.createElement('div');
+  body.className = 'msg-body';
+
+  const meta = document.createElement('div');
+  meta.className = 'msg-meta';
+  meta.textContent = (isUser?'You':'Niblit') + ' · ' + fmtTime();
+  body.appendChild(meta);
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble' + (isErr?' err':'');
+  bubble.innerHTML = isUser
+    ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    : renderMd(text);
+  body.appendChild(bubble);
+
+  if(debugLines && debugLines.length){
+    const dblock = document.createElement('div');
+    dblock.className = 'msg-debug';
+    debugLines.forEach(l=>{ const s=document.createElement('span'); s.textContent=l; dblock.appendChild(s); });
+    body.appendChild(dblock);
+  }
+  if(suggestion){
+    const sg = document.createElement('div');
+    sg.className = 'msg-suggestion';
+    sg.textContent = suggestion;
+    body.appendChild(sg);
+  }
+
+  if(isUser){ row.appendChild(body); row.appendChild(av); }
+  else       { row.appendChild(av);  row.appendChild(body); }
+
+  chatArea.appendChild(row);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+// ════════════════════════════════════════════════
+// THINKING INDICATOR
+// ════════════════════════════════════════════════
+function setThinking(on){
+  const tr = document.getElementById('thinking-row');
+  tr.style.display = on ? 'flex' : 'none';
+  document.getElementById('send-btn').disabled = on;
+  document.getElementById('chat-input').disabled = on;
+  if(on) chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+// ════════════════════════════════════════════════
+// INPUT AUTO-RESIZE
+// ════════════════════════════════════════════════
+function autoResize(el){
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight, 140)+'px';
+}
+document.getElementById('chat-input').addEventListener('input', function(){ autoResize(this); });
+document.getElementById('chat-input').addEventListener('keydown', function(e){
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendChat(); }
 });
 
+// ════════════════════════════════════════════════
+// SEND MESSAGE
+// ════════════════════════════════════════════════
 function sendChat(){
-  const inp=document.getElementById('chat-input');
-  const text=inp.value.trim();
+  const ta = document.getElementById('chat-input');
+  const text = ta.value.trim();
   if(!text) return;
-  inp.value='';
+  ta.value='';
+  autoResize(ta);
   sendText(text);
 }
 
 async function sendText(text){
-  // echo prompt + user input like a terminal
-  tline('Niblit > '+text,'prompt');
+  addMsg('user', text);
   setThinking(true);
   try {
-    const resp=await fetch('/chat',{
+    const resp = await fetch('/chat', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text})
     });
-    const j=await resp.json();
+    const j = await resp.json();
     if(j.error){
-      tline('[error] '+j.error,'err');
+      addMsg('err', j.error);
     } else {
-      // debug lines (shown as dim)
-      (j.debug_lines||[]).forEach(l=>tline(l,'debug'));
-      // main reply
-      if(j.reply) tline(j.reply,'response');
-      // suggestion
-      if(j.suggestion) tline(j.suggestion,'suggestion');
+      addMsg('niblit', j.reply||'[no reply]', j.debug_lines||[], j.suggestion||null);
     }
   } catch(ex){
-    tline('[network error] '+ex.message,'err');
+    addMsg('err', 'Network error: ' + ex.message);
   } finally {
     setThinking(false);
     document.getElementById('chat-input').focus();
   }
 }
 
-// ── status poll ──
-async function pollStatus(){
-  try {
-    const r=await fetch('/ping');
-    const j=await r.json();
-    const pill=document.getElementById('status-pill');
-    const mood=j.personality&&j.personality.mood?' · '+j.personality.mood:'';
-    if(j.status==='ok'){
-      pill.textContent='online'+mood;
-      pill.style.background='var(--accent2)';
-      pill.style.color='var(--green)';
-    } else {
-      pill.textContent=j.status||'degraded';
-      pill.style.background='#3d1515';
-      pill.style.color='var(--red)';
-    }
-  } catch(_){
-    const pill=document.getElementById('status-pill');
-    pill.textContent='offline';
-    pill.style.background='#3d1515';
-    pill.style.color='var(--red)';
-  }
-}
-setInterval(pollStatus,8000);
-
-// ── start ──
-boot();
+// ════════════════════════════════════════════════
+// START
+// ════════════════════════════════════════════════
+runBoot();
 </script>
 </body>
 </html>
@@ -787,9 +1197,6 @@ def _build_dashboard():
     """Inject Python-side data (COMMAND_GROUPS) into the dashboard HTML template."""
     groups_json = _json.dumps(COMMAND_GROUPS)
     return DASHBOARD_HTML.replace("__JSON_GROUPS__", groups_json)
-
-
-# ══════════════════════════════════════════════════════════════
 # FLASK ROUTES
 # ══════════════════════════════════════════════════════════════
 
