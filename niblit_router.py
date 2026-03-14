@@ -167,10 +167,13 @@ class NiblitRouter:
     COMMAND_PREFIXES = (
         "toggle-llm", "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
-        "self-heal", "status", "health", "time", "help", "commands",
+        "self-heal", "self-teach", "idea-implement",
+        "status", "health", "time", "help", "commands",
         "evolve", "exit", "quit", "shutdown",
         "start_slsa", "stop_slsa", "restart_slsa", "slsa-status", "status_slsa",
-        "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status"
+        "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status",
+        "recall", "acquired data", "acquired-data", "knowledge stats", "knowledge-stats",
+        "ale processes", "ale-processes", "kb stats", "kb-stats",
     )
 
     CHAT_RESPONSES = {
@@ -503,36 +506,59 @@ I'm constantly improving myself through autonomous learning cycles!"""
                     except Exception:
                         pass
 
+                # Also pull KB summary if available
+                kb_summary = ""
+                if db and hasattr(db, "get_knowledge_summary"):
+                    try:
+                        kb_summary = db.get_knowledge_summary()
+                    except Exception:
+                        pass
+
                 if stats:
+                    s = stats["stats"]
                     response = f"""🎓 **My Learning Progress:**
 
-📊 Research Cycles Completed: {stats['stats'].get('research_completed', 0)}
-💡 Ideas Generated: {stats['stats'].get('ideas_generated', 0)}
-🚀 Ideas Implemented: {stats['stats'].get('ideas_implemented', 0)}
-🧠 Reflections Conducted: {stats['stats'].get('reflections_conducted', 0)}
-🔄 SLSA Runs: {stats['stats'].get('slsa_runs', 0)}
+📊 Research Cycles Completed: {s.get('research_completed', 0)}
+💡 Ideas Generated: {s.get('ideas_generated', 0)}
+🚀 Ideas Implemented: {s.get('ideas_implemented', 0)}
+🧠 Reflections Conducted: {s.get('reflections_conducted', 0)}
+🔄 SLSA Runs: {s.get('slsa_runs', 0)}
+🧬 Evolve Steps: {s.get('evolve_steps', 0)}
+💻 Code Researched: {s.get('code_researched', 0)} | Generated: {s.get('code_generated', 0)} | Compiled: {s.get('code_compiled', 0)}
+📖 Software Categories Studied: {s.get('software_studied', 0)}
 
-Learning Rate: {stats['stats'].get('learning_rate', 0):.4f} actions/sec
-Active Research Topics: {stats['research_topics']}
-System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}"""
+Learning Rate: {s.get('learning_rate', 0):.6f} actions/sec
+Active Research Topics: {stats.get('research_topics', 0)}
+System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}
+
+All acquired data is stored in KnowledgeDB and can be recalled:
+  'recall <topic>'         — search stored facts
+  'acquired data'          — browse all acquired facts
+  'knowledge stats'        — full KB summary
+  'ale processes'          — explain all 12 ALE steps"""
                     return response
+                elif kb_summary:
+                    return kb_summary
                 else:
                     return "I'm learning continuously! Use 'autonomous-learn status' to see my progress."
 
             # Memory/capabilities
             if 'memory' in query_lower or 'capabilit' in query_lower or 'can you do' in query_lower:
                 mem_count = 0
+                fact_count = 0
                 try:
                     if hasattr(db, "recent_interactions"):
                         mem_count = len(safe_call(db.recent_interactions, 500) or [])
                     elif hasattr(db, "get_learning_log"):
                         mem_count = len(safe_call(db.get_learning_log) or [])
+                    if hasattr(db, "list_facts"):
+                        fact_count = len(safe_call(db.list_facts, 10000) or [])
                 except Exception:
                     pass
 
                 response = f"""📚 **My Capabilities:**
 
-✅ Store & Recall: {mem_count} memory entries
+✅ Store & Recall: {mem_count} interactions + {fact_count} acquired facts
 ✅ Research Topics: Using internet + DuckDuckGo
 ✅ Generate Ideas: Through autonomous idea generation
 ✅ Reflect on Learning: Analyze and synthesize knowledge
@@ -546,6 +572,13 @@ System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}""
 ✅ Hot-Reload Modules: Update myself without restarting
 ✅ Evolve Continuously: Research + code-gen + teach + reflect in every step
 ✅ Research Code: Fetch real programming language info from internet → feed CodeGenerator
+✅ Knowledge Recall: All ALE output stored in KnowledgeDB, searchable anytime
+
+Data Recall Commands:
+  'recall <topic>'       — search stored knowledge
+  'acquired data'        — browse acquired facts
+  'knowledge stats'      — KB summary
+  'ale processes'        — ALE process awareness
 
 I can work in two modes:
 - 🤖 With LLM: AI-powered conversations
@@ -651,11 +684,40 @@ Ask me about:
     # SELF-IDEA IMPLEMENTATION
     # ─────────────────────────────────
     def _self_idea_implementation(self, prompt):
+        """Generate and implement an idea — uses SelfIdeaImplementation directly when available."""
+        # Normalize prompt: strip command prefix and ensure it's not empty
+        if not isinstance(prompt, str):
+            prompt = str(prompt)
+        # Strip any leading command words (self-idea, self-implement, evolve)
+        for prefix in ("self-idea", "self-implement", "evolve"):
+            if prompt.lower().startswith(prefix):
+                prompt = prompt[len(prefix):].strip()
+                break
+        if not prompt:
+            prompt = "system improvement"
+
+        # Prefer direct SelfIdeaImplementation
+        if self.core:
+            idea_impl = getattr(self.core, "idea_implementation", None)
+            if idea_impl and hasattr(idea_impl, "implement_idea"):
+                result = safe_call(idea_impl.implement_idea, prompt)
+                if result:
+                    # Also store to memory
+                    if hasattr(self.memory, "store_learning"):
+                        safe_call(self.memory.store_learning, {
+                            "time": timestamp(),
+                            "input": f"self-idea: {prompt}",
+                            "response": str(result),
+                            "source": "self_idea_implementation"
+                        })
+                    return f"[Self-Idea Implemented]\n{result}"
+
+        # Fallback: brain + enqueue plan
         plan = ""
-        if hasattr(self.brain, "handle"):
-            plan = safe_call(self.brain.handle, f"self-idea-plan: {prompt}")
-        elif hasattr(self.brain, "think"):
-            plan = safe_call(self.brain.think, f"self-idea-plan: {prompt}")
+        if self.brain and hasattr(self.brain, "handle"):
+            plan = safe_call(self.brain.handle, f"self-idea-plan: {prompt}") or ""
+        elif self.brain and hasattr(self.brain, "think"):
+            plan = safe_call(self.brain.think, f"self-idea-plan: {prompt}") or ""
 
         if self.core and hasattr(self.memory, "store_learning"):
             safe_call(self.memory.store_learning, {
@@ -667,13 +729,42 @@ Ask me about:
 
         if self.core and getattr(self.core, "self_implementer", None):
             implementer = self.core.self_implementer
-            if hasattr(implementer, "enqueue_plan"):
+            if plan and hasattr(implementer, "enqueue_plan"):
                 safe_call(implementer.enqueue_plan, plan)
-            else:
-                if hasattr(implementer, "queue") and isinstance(implementer.queue, list):
-                    implementer.queue.append(plan)
+            elif plan and hasattr(implementer, "queue") and isinstance(implementer.queue, list):
+                implementer.queue.append(plan)
 
         return f"[Self-Idea Plan Generated]\n{plan}"
+
+    # ─────────────────────────────────
+    def _handle_self_teach(self, cmd):
+        """Handle self-teach command — uses SelfTeacher directly."""
+        if not self.core:
+            return "[Core not available]"
+        topic = cmd[len("self-teach"):].strip() if cmd.lower().startswith("self-teach") else cmd.strip()
+        if not topic:
+            return "Usage: self-teach <topic>"
+        self_teacher = getattr(self.core, "self_teacher", None)
+        if self_teacher and hasattr(self_teacher, "teach"):
+            result = safe_call(self_teacher.teach, topic)
+            return str(result) if result else f"✅ Teaching completed for: {topic}"
+        return f"[SelfTeacher not available for topic: {topic}]"
+
+    # ─────────────────────────────────
+    def _handle_idea_implement(self, cmd):
+        """Handle idea-implement command — uses SelfIdeaImplementation directly."""
+        if not self.core:
+            return "[Core not available]"
+        prompt = cmd[len("idea-implement"):].strip() if cmd.lower().startswith("idea-implement") else cmd.strip()
+        idea_impl = getattr(self.core, "idea_implementation", None)
+        if idea_impl:
+            if prompt and hasattr(idea_impl, "implement_idea"):
+                result = safe_call(idea_impl.implement_idea, prompt)
+                return str(result) if result else f"✅ Idea processed: {prompt[:80]}"
+            if not prompt and hasattr(idea_impl, "implement_ideas"):
+                result = safe_call(idea_impl.implement_ideas, 5)
+                return str(result) if result else "✅ Batch idea implementation completed"
+        return "Usage: idea-implement <idea prompt>  (or 'idea-implement' to run batch)"
 
     # ─────────────────────────────────
     # AUTONOMOUS LEARNING
@@ -695,23 +786,60 @@ Ask me about:
 
         if action in ("stop", "off"):
             result = engine.stop()
-            return "⏹️ Autonomous learning stopped ✅"
+            return "⏹️ Autonomous learning stopped ✅" if result else "ℹ️ Engine was not running"
+
+        if action == "code-status":
+            stats = engine.get_learning_stats()
+            s = stats["stats"]
+            mods = stats.get("modules_available", {})
+            return (
+                "💻 CODE LITERACY STATUS\n"
+                f"  Code Researched  : {s.get('code_researched', 0)}\n"
+                f"  Code Generated   : {s.get('code_generated', 0)}\n"
+                f"  Code Compiled    : {s.get('code_compiled', 0)}\n"
+                f"  Code Reflected   : {s.get('code_reflected', 0)}\n"
+                f"  Software Studied : {s.get('software_studied', 0)}\n"
+                f"  Last Language    : {s.get('last_language_studied', 'none')}\n"
+                f"  Last Category    : {s.get('last_software_category', 'none')}\n"
+                f"  internet         : {'✅' if mods.get('internet') else '❌'}\n"
+                f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}\n"
+                f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}\n"
+                f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}\n"
+                f"  Pending compiles : {stats.get('pending_compilations', 0)}\n"
+                f"  Pending reflects : {stats.get('pending_reflections', 0)}\n"
+            )
 
         if action == "status":
             stats = engine.get_learning_stats()
-            return f"""
-[AUTONOMOUS LEARNING STATUS]
-Running: {'✅' if stats['running'] else '❌'}
-System Idle: {'Yes' if stats['is_idle'] else 'No'}
-Research Cycles: {stats['stats']['research_completed']}
-Ideas Generated: {stats['stats']['ideas_generated']}
-Ideas Implemented: {stats['stats']['ideas_implemented']}
-Reflections: {stats['stats']['reflections_conducted']}
-SLSA Runs: {stats['stats']['slsa_runs']}
-Pending Ideas: {stats['pending_ideas']}
-Learning Rate: {stats['stats']['learning_rate']:.4f} actions/sec
-Research Topics: {stats['research_topics']}
-           """
+            s = stats["stats"]
+            mods = stats.get("modules_available", {})
+            return (
+                "[AUTONOMOUS LEARNING STATUS]\n"
+                f"Running: {'✅' if stats['running'] else '❌'}\n"
+                f"System Idle: {'Yes' if stats['is_idle'] else 'No'}\n"
+                f"Uptime: {stats['uptime_seconds']}s\n"
+                "\n📊 Learning:\n"
+                f"  Research Cycles  : {s.get('research_completed', 0)}\n"
+                f"  Ideas Generated  : {s.get('ideas_generated', 0)}\n"
+                f"  Ideas Implemented: {s.get('ideas_implemented', 0)}\n"
+                f"  Reflections      : {s.get('reflections_conducted', 0)}\n"
+                f"  SLSA Runs        : {s.get('slsa_runs', 0)}\n"
+                f"  Evolve Steps     : {s.get('evolve_steps', 0)}\n"
+                f"  Learning Rate    : {s.get('learning_rate', 0.0):.6f} actions/s\n"
+                "\n💻 Code Literacy:\n"
+                f"  Code Researched  : {s.get('code_researched', 0)}\n"
+                f"  Code Generated   : {s.get('code_generated', 0)}\n"
+                f"  Code Compiled    : {s.get('code_compiled', 0)}\n"
+                f"  Code Reflected   : {s.get('code_reflected', 0)}\n"
+                f"  Software Studied : {s.get('software_studied', 0)}\n"
+                "\n🔌 Modules:\n"
+                f"  internet         : {'✅' if mods.get('internet') else '❌'}\n"
+                f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}\n"
+                f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}\n"
+                f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}\n"
+                f"\nPending Ideas: {stats.get('pending_ideas', 0)} | "
+                f"Topics: {stats.get('research_topics', 0)}"
+            )
 
         if action.startswith("add-topic "):
             topic = action.replace("add-topic", "").strip()
@@ -728,12 +856,24 @@ Research Topics: {stats['research_topics']}
                 return f"✅ Added {len(added)} topics: {', '.join(added)}"
             return "Usage: autonomous-learn add-topics <topic1,topic2,...>"
 
-        return """Usage:
-autonomous-learn start              — Start autonomous learning
-autonomous-learn stop               — Stop autonomous learning
-autonomous-learn status             — View learning statistics
-autonomous-learn add-topic <topic>  — Add research topic
-autonomous-learn add-topics <t1,t2> — Add multiple topics"""
+        return (
+            "Usage:\n"
+            "autonomous-learn start              — Start autonomous learning (incl. code loop)\n"
+            "autonomous-learn stop               — Stop autonomous learning\n"
+            "autonomous-learn status             — View full learning statistics\n"
+            "autonomous-learn code-status        — View programming literacy status\n"
+            "autonomous-learn add-topic <topic>  — Add research topic\n"
+            "autonomous-learn add-topics <t1,t2> — Add multiple topics"
+        )
+
+    # ─────────────────────────────────
+    # KNOWLEDGE RECALL & ACQUIRED DATA
+    # ─────────────────────────────────
+    def _handle_knowledge(self, cmd):
+        """Route recall / acquired-data / knowledge-stats / ale-processes commands."""
+        if not self.core:
+            return "[Core not available — cannot access KnowledgeDB]"
+        return safe_call(self.core.handle, cmd)
 
     # ─────────────────────────────────
     # CHAT RESPONSE GENERATOR
@@ -1181,6 +1321,14 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         if lower.startswith("autonomous-learn"):
             return self._handle_autonomous_learn(cmd)
 
+        # KNOWLEDGE RECALL & ACQUIRED DATA COMMANDS
+        if (lower.startswith("recall") or lower.startswith("acquired data")
+                or lower.startswith("acquired-data") or lower in (
+                    "knowledge stats", "knowledge-stats", "kb stats", "kb-stats",
+                    "ale processes", "ale-processes",
+                )):
+            return self._handle_knowledge(cmd)
+
         # SLSA COMMANDS
         if lower.startswith("start_slsa"):
             parts = cmd.split(" ", 1)
@@ -1258,11 +1406,11 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         if lower.startswith("summary "):
             return self._run_research(cmd[len("summary "):].strip())
 
-        # REFLECTION & IDEAS
-        if lower.startswith("reflect "):
+        # REFLECTION & IDEAS — use direct module access
+        if lower.startswith("reflect"):
+            topic = cmd[len("reflect"):].strip() or None
             if self.core and getattr(self.core, "reflect", None):
-                text = cmd[len("reflect "):]
-                return safe_call(self.core.reflect.collect_and_summarize, text)
+                return safe_call(self.core.reflect.collect_and_summarize, topic) or "[Reflection completed]"
             return "[Reflect module not available]"
 
         if lower.startswith("auto-reflect"):
@@ -1271,9 +1419,32 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
                 return safe_call(self.core.reflect.auto_reflect, events)
             return "[Reflect module not available]"
 
-        if lower.startswith(("self-idea", "self-implement", "evolve")):
-            prompt = cmd
+        if lower.startswith("self-idea"):
+            prompt = cmd[len("self-idea"):].strip() or "system improvement"
             return self._self_idea_implementation(prompt)
+
+        if lower.startswith("self-implement"):
+            plan = cmd[len("self-implement"):].strip()
+            if self.core and getattr(self.core, "self_implementer", None):
+                implementer = self.core.self_implementer
+                if plan and hasattr(implementer, "enqueue_plan"):
+                    safe_call(implementer.enqueue_plan, plan)
+                    return f"✅ Plan enqueued: {plan[:100]}"
+                queue_len = len(getattr(implementer, "queue", []))
+                return f"SelfImplementer running. Queue depth: {queue_len}"
+            return self._self_idea_implementation(cmd)
+
+        if lower.startswith("self-teach"):
+            return self._handle_self_teach(cmd)
+
+        if lower.startswith("idea-implement"):
+            return self._handle_idea_implement(cmd)
+
+        if lower.startswith("evolve"):
+            # Route evolve commands to core
+            if self.core:
+                return safe_call(self.core.handle, cmd) or "[Evolve failed]"
+            return "[Core not available]"
 
         # MEMORY & LEARNING
         if lower.startswith("remember "):
@@ -1322,10 +1493,14 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "what would you improve?      — Hear about my improvement plans",
             "what are your limitations?   — My honest weaknesses",
             "how do you feel about yourself? — My self-reflection",
+            "what have you learned?       — Learning progress + KB summary",
+            "what can you do?             — Capabilities + acquired data counts",
+            "how do you work?             — Operational flow, ALE, all processes",
+            "ale processes                — Full ALE step-by-step process awareness",
             "",
             "=== ABOUT NIBLIT ===",
             "what are you?                — Learn about Niblit",
-            "what have you learned?       — See learning progress",
+            "what have you learned?       — See learning progress + stored facts",
             "what can you do?             — View capabilities",
             "how do you work?             — How I operate",
             "",
@@ -1334,15 +1509,45 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "how are you?                 — Check in",
             "thanks                       — Say thank you",
             "",
+            "=== KNOWLEDGE RECALL & ACQUIRED DATA ===",
+            "recall <topic>               — Search KnowledgeDB for any stored fact",
+            "                               (searches: facts, events, interactions, log)",
+            "acquired data                — Browse all facts acquired by ALE processes",
+            "acquired data <category>     — Filter: research|ideas|code|compiled|",
+            "                               reflection|software_study|implementation|all",
+            "knowledge stats              — Full KnowledgeDB summary with ALE breakdown",
+            "ale processes                — Explain all 12 ALE steps + module status",
+            "  Note: ALL ALE output is stored in KnowledgeDB and is recallable.",
+            "",
             "=== INTERNET & RESEARCH ===",
-            "search <query>               — Search internet",
-            "summary <query>              — Quick summary",
-            "self-research <topic>        — Autonomous research",
+            "search <query>               — Search internet (primary data source)",
+            "summary <query>              — Quick summary via internet",
+            "self-research <topic>        — Research topic using researcher + internet",
+            "research code <lang> [topic] — Research language from internet → feeds CodeGenerator",
+            "                               e.g. 'research code python async patterns'",
+            "",
+            "=== SELF-IMPROVEMENT COMMANDS ===",
+            "self-idea <prompt>           — Generate & implement idea via SelfIdeaImplementation",
+            "self-implement [plan]        — Enqueue a plan to SelfImplementer",
+            "self-teach <topic>           — Teach a topic using SelfTeacher + research",
+            "idea-implement [prompt]      — Generate and implement ideas (batch if no prompt)",
+            "reflect [topic]              — Reflect using ReflectModule directly",
+            "auto-reflect                 — Reflect on recent interactions",
             "",
             "=== AUTONOMOUS LEARNING ===",
-            "autonomous-learn start       — Start learning",
-            "autonomous-learn status      — View progress",
-            "autonomous-learn add-topic <t> — Add topic",
+            "autonomous-learn start              — Start learning (incl. programming-literacy loop)",
+            "autonomous-learn stop               — Stop learning",
+            "autonomous-learn status             — View full learning statistics",
+            "autonomous-learn code-status        — View programming literacy / code loop status",
+            "autonomous-learn add-topic <t>      — Add research topic",
+            "autonomous-learn add-topics <t1,t2> — Add multiple topics",
+            "",
+            "  Programming-literacy loop (internet is primary data source):",
+            "  Step 8:  Code Research   — researcher+internet → CodeGenerator (language data)",
+            "  Step 9:  Code Generation — idea+implementer produce compilable code",
+            "  Step 10: Code Compile    — CodeCompiler runs the generated code",
+            "  Step 11: Code Reflect    — ReflectModule studies compiled output",
+            "  Step 12: Software Study  — SoftwareStudier learns patterns via internet",
             "",
             "=== SELF-IMPROVEMENTS ===",
             "show improvements            — View 10 improvement modules",
@@ -1360,7 +1565,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "upgrade                      — Reload all modules changed on disk",
             "update-history               — Show recent update/reload history",
             "",
-            "=== STRUCTURAL SELF-AWARENESS ===",
+            "=== STRUCTURAL SELF-AWARENESS (INTROSPECTION) ===",
             "my structure                 — Full component inventory",
             "my threads                   — All active Python threads",
             "my loops                     — Background loop status",
@@ -1373,7 +1578,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "=== CODE GENERATION ===",
             "generate code <lang> [tpl] [key=val ...]",
             "                             — Generate code (python/bash/js/html/css/sql/json)",
-            "code templates               — List available templates",
+            "code templates [lang]        — List available templates",
             "study language <lang>        — Learn best practices for a language",
             "",
             "=== CODE COMPILER / EXECUTOR ===",
@@ -1386,26 +1591,21 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "read file <path>             — Read and display a file",
             "write file <path> <content>  — Write content to a file",
             "list files [dir]             — List files in a directory",
-            "execute file <path>          — Execute a script file",
             "file environment             — Show filesystem environment info",
             "",
             "=== SOFTWARE STUDY ===",
-            "study software <category>    — Study a software category in depth",
+            "study software <category>    — Study a software category in depth (uses internet)",
             "software categories          — List all software categories",
             "analyze architecture <name>  — Analyze an architecture pattern",
             "design software <desc>       — Generate a software design outline",
             "what have i studied          — Show what I've studied this session",
             "",
             "=== EVOLUTION ENGINE ===",
-            "evolve                       — Run one self-evolution step (research+code+teach+reflect)",
+            "evolve                       — Run one self-evolution step (research+internet+code+teach+reflect+impl+slsa)",
             "evolve start                 — Start background continuous evolution",
             "evolve stop                  — Stop background evolution",
             "evolve status                — Show evolution status + available modules",
             "evolve history               — Show recent evolution steps",
-            "",
-            "=== CODE RESEARCH ===",
-            "research code <lang> [topic] — Research a language from internet → feeds CodeGenerator",
-            "                               e.g. 'research code python async patterns'",
             "",
         ]
         return "\n".join(commands)

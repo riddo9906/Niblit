@@ -355,49 +355,200 @@ class KnowledgeDB:
             log.error(f"Search failed: {e}")
             return []
     
-    def recall(self, query: str, limit: int = 3, include_preferences=True):
+    def recall(self, query: str, limit: int = 10, include_preferences=True):
         """
         Recall information matching the query.
-        
+        Searches facts, events, learning_log, and optionally preferences.
+
         Args:
             query: Search query
             limit: Maximum results
             include_preferences: Whether to include preference data
-        
+
         Returns:
             List of matching results
         """
         if query is None:
             query = ""
-        
+
         results = []
-        
+        seen: set = set()
+
         if not query.strip():
-            recent = list(reversed(self.get_learning_log()))
-            return recent[:limit]
-        
+            # No query — return most recent facts + learning log entries
+            recent_facts = self.list_facts(limit)
+            recent_log = list(reversed(self.get_learning_log()))[:limit]
+            combined = recent_facts + recent_log
+            return combined[:limit]
+
         query_words = set(query.lower().split())
-        
+
+        def _matches(obj):
+            try:
+                text = json.dumps(obj).lower()
+                return any(word in text for word in query_words)
+            except Exception:
+                return False
+
+        def _add(obj):
+            nonlocal results
+            try:
+                key = json.dumps(obj, sort_keys=True)
+            except Exception:
+                key = str(obj)
+            if key not in seen and len(results) < limit:
+                seen.add(key)
+                results.append(obj)
+
+        # 1. Search facts (primary storage for ALE acquired data)
+        with self.lock:
+            for fact in reversed(self.data.get("facts", [])):
+                if _matches(fact):
+                    _add(fact)
+
+        # 2. Search learning log
         for entry in reversed(self.get_learning_log()):
-            text = json.dumps(entry).lower()
-            if query_words & set(text.split()):
-                results.append(entry)
-                if len(results) >= limit:
-                    break
-        
+            if _matches(entry):
+                _add(entry)
+
+        # 3. Search events
+        with self.lock:
+            for event in reversed(self.data.get("events", [])):
+                if _matches(event):
+                    _add(event)
+
+        # 4. Search interactions
+        with self.lock:
+            for interaction in reversed(self.data.get("interactions", [])):
+                if _matches(interaction):
+                    _add(interaction)
+
+        # 5. Preferences
         if include_preferences:
             prefs = self.get_preferences()
             for k, v in prefs.items():
                 if any(w in str(v).lower() for w in query_words):
-                    results.append({k: v})
-                    if len(results) >= limit:
-                        break
-        
+                    _add({k: v})
+
         return results[:limit]
-    
-    # ============================================================
-    # HFBrain COMPATIBILITY
-    # ============================================================
+
+    def get_acquired_data(self, category: str = None, limit: int = 50) -> list:
+        """
+        Return structured acquired data stored by the Autonomous Learning Engine.
+
+        ALE steps tag facts with prefixes like:
+          ale_research, ale_internet_code, ale_compiled, ale_code_reflection,
+          ale_software_study, ale_code_research — as well as generic tags such as
+          'autonomous', 'research', 'compiled', 'reflection', 'software_study', 'code'.
+
+        Args:
+            category: Optional filter ('research', 'ideas', 'code', 'compiled',
+                      'reflection', 'software_study', 'all').  None / 'all' returns everything.
+            limit: Maximum number of entries to return.
+
+        Returns:
+            List of fact dicts sorted newest-first.
+        """
+        with self.lock:
+            facts = list(self.data.get("facts", []))
+
+        facts_sorted = sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)
+
+        if not category or category.lower() in ("all", ""):
+            return facts_sorted[:limit]
+
+        cat_lower = category.lower()
+        filtered = []
+        for fact in facts_sorted:
+            tags = [str(t).lower() for t in fact.get("tags", [])]
+            key_lower = str(fact.get("key", "")).lower()
+            if any(cat_lower in t for t in tags) or cat_lower in key_lower:
+                filtered.append(fact)
+            if len(filtered) >= limit:
+                break
+        return filtered
+
+    def get_knowledge_summary(self) -> str:
+        """
+        Return a human-readable summary of everything stored in the KnowledgeDB.
+
+        Includes counts by category, most-recent items per category, and ALE
+        process awareness so Niblit can explain what it has learned and how.
+        """
+        with self.lock:
+            facts = list(self.data.get("facts", []))
+            events = list(self.data.get("events", []))
+            interactions = list(self.data.get("interactions", []))
+            learning_log = list(self.data.get("learning_log", []))
+            queue = list(self.data.get("learning_queue", []))
+
+        total_facts = len(facts)
+        total_events = len(events)
+        total_interactions = len(interactions)
+        total_log = len(learning_log)
+        pending_research = sum(1 for q in queue if isinstance(q, dict) and q.get("status") == "queued")
+
+        # Count by tag/category
+        tag_counts: dict = {}
+        for fact in facts:
+            for tag in fact.get("tags", []):
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+        # Build ALE category breakdown
+        ale_categories = {
+            "research": 0, "code": 0, "compiled": 0, "reflection": 0,
+            "software_study": 0, "autonomous": 0,
+        }
+        for tag, count in tag_counts.items():
+            for cat in ale_categories:
+                if cat in tag.lower():
+                    ale_categories[cat] += count
+
+        # Most recent fact per ALE category
+        recents = {}
+        for fact in sorted(facts, key=lambda x: x.get("ts", 0), reverse=True):
+            tags = [str(t).lower() for t in fact.get("tags", [])]
+            for cat in ale_categories:
+                if cat not in recents and any(cat in t for t in tags):
+                    snippet = str(fact.get("value", ""))[:80].replace("\n", " ")
+                    recents[cat] = snippet
+
+        lines = [
+            "📚 NIBLIT KNOWLEDGE BASE SUMMARY",
+            "",
+            f"📊 Storage counts:",
+            f"  Facts (acquired data)  : {total_facts}",
+            f"  Events                 : {total_events}",
+            f"  Interactions           : {total_interactions}",
+            f"  Learning log entries   : {total_log}",
+            f"  Pending research queue : {pending_research}",
+            "",
+            "🤖 Autonomous Learning Data (ALE) breakdown:",
+        ]
+        for cat, count in ale_categories.items():
+            label = cat.replace("_", " ").title()
+            recent_snippet = recents.get(cat, "—")
+            lines.append(f"  {label:<18}: {count} entries | latest: {recent_snippet[:60]}")
+
+        lines += [
+            "",
+            "🔖 Top tags stored:",
+        ]
+        for tag, count in sorted(tag_counts.items(), key=lambda x: -x[1])[:10]:
+            lines.append(f"  {tag:<30}: {count}")
+
+        lines += [
+            "",
+            "ℹ️  Niblit's ALE runs 12 steps every idle cycle:",
+            "  Steps 1-7 : Research → Ideas → Implement → Reflect → SLSA → Learn → Evolve",
+            "  Steps 8-12: Code Research → Code Generate → Compile → Code Reflect → SW Study",
+            "  Internet is the primary data source; all output lands in KnowledgeDB.",
+            "  Use 'recall <topic>' to query any stored fact.",
+            "  Use 'acquired data [category]' to browse by category.",
+        ]
+        return "\n".join(lines)
+
+
     
     def add_hf_context(self, *args, **kwargs):
         try:

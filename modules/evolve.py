@@ -4,13 +4,15 @@ EVOLVE MODULE — Niblit's Self-Evolution Engine
 
 Continuously improves Niblit over time by:
 1. Using all available modules to identify gaps
-2. Researching improvements via self_researcher
+2. Researching improvements via self_researcher + internet
 3. Generating new code/modules via code_generator
 4. Compiling and testing improvements via code_compiler
 5. Studying software patterns via software_studier
 6. Teaching itself what it learns via self_teacher
 7. Reflecting on improvements via reflect
-8. Storing all knowledge in the knowledge DB
+8. Implementing ideas via idea_implementation + implementer
+9. Running SLSA cycles to build semantic knowledge artifacts
+10. Storing all knowledge in the knowledge DB
 """
 
 import time
@@ -22,7 +24,7 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("EvolveEngine")
 
-# Possible evolution directions
+# Possible evolution directions — expanded to cover all module capabilities
 _EVOLUTION_DIRECTIONS = [
     "code generation quality",
     "autonomous research depth",
@@ -34,6 +36,11 @@ _EVOLUTION_DIRECTIONS = [
     "internet research speed",
     "module integration depth",
     "memory utilization",
+    "idea generation and implementation",
+    "semantic knowledge building",
+    "self-teaching effectiveness",
+    "code research from internet",
+    "autonomous learning efficiency",
 ]
 
 
@@ -41,8 +48,9 @@ class EvolveEngine:
     """
     Niblit's self-evolution engine.
 
-    Orchestrates all available modules to improve Niblit's capabilities
-    over time through research, code generation, teaching, and reflection.
+    Orchestrates ALL available modules to improve Niblit's capabilities
+    over time through research, code generation, teaching, reflection,
+    idea implementation, internet research, and SLSA semantic building.
 
     Usage:
         evolve = EvolveEngine(core=niblit_core)
@@ -62,6 +70,10 @@ class EvolveEngine:
         idea_generator=None,
         implementer=None,
         knowledge_db=None,
+        internet=None,
+        idea_implementation=None,
+        slsa=None,
+        autonomous_engine=None,
         evolution_interval: int = 300,
     ):
         self.core = core
@@ -74,6 +86,10 @@ class EvolveEngine:
         self.idea_generator = idea_generator
         self.implementer = implementer
         self.knowledge_db = knowledge_db
+        self.internet = internet
+        self.idea_implementation = idea_implementation
+        self.slsa = slsa
+        self.autonomous_engine = autonomous_engine
         self.evolution_interval = evolution_interval
 
         self.iteration = 0
@@ -87,6 +103,9 @@ class EvolveEngine:
             "code_generated": 0,
             "taught": 0,
             "reflected": 0,
+            "ideas_implemented": 0,
+            "code_researched": 0,
+            "slsa_cycles": 0,
         }
 
         log.info("[EvolveEngine] Initialized")
@@ -96,7 +115,7 @@ class EvolveEngine:
     # ──────────────────────────────────────────────
 
     def step(self) -> Dict[str, Any]:
-        """Execute one evolution step using all available modules."""
+        """Execute one evolution step using ALL available modules."""
         self.iteration += 1
         ts = datetime.now(timezone.utc).isoformat()
         direction = random.choice(_EVOLUTION_DIRECTIONS)
@@ -109,36 +128,56 @@ class EvolveEngine:
             "mutations": [],
         }
 
-        # Step 1: Research the improvement direction
+        # Step 1: Research the improvement direction via self_researcher
         research_result = self._research_direction(direction)
         if research_result:
             record["actions"].append(f"researched: {research_result[:60]}")
 
-        # Step 2: Study relevant software patterns
+        # Step 2: Direct internet research (no LLM, raw web data)
+        internet_result = self._internet_direct_research(direction)
+        if internet_result:
+            record["actions"].append(f"internet: {internet_result[:60]}")
+
+        # Step 3: Research code patterns from internet → feed CodeGenerator
+        code_research_result = self._research_code_direction(direction)
+        if code_research_result:
+            record["actions"].append(f"code_research: {code_research_result[:60]}")
+
+        # Step 4: Study relevant software patterns
         study_result = self._study_patterns(direction)
         if study_result:
             record["actions"].append(f"studied: {study_result[:60]}")
 
-        # Step 3: Generate code for the improvement
+        # Step 5: Generate code for the improvement
         code_result = self._generate_improvement_code(direction)
         if code_result:
             record["actions"].append(f"code_gen: {code_result[:60]}")
             record["mutations"].append(code_result)
 
-        # Step 4: Teach myself what I learned
+        # Step 6: Teach myself what I learned
         teach_result = self._teach_improvement(direction, research_result)
         if teach_result:
             record["actions"].append(f"taught: {teach_result[:60]}")
 
-        # Step 5: Reflect on the improvement
+        # Step 7: Reflect on the improvement
         reflect_result = self._reflect_on_step(direction, record)
         if reflect_result:
             record["actions"].append(f"reflected: {str(reflect_result or '')[:60]}")
 
-        # Step 6: Generate an implementation idea
+        # Step 8: Generate and implement an idea via idea_implementation
+        impl_result = self._implement_evolution_idea(direction, research_result)
+        if impl_result:
+            record["actions"].append(f"implemented: {impl_result[:60]}")
+
+        # Step 9: Generate an implementation plan via idea_generator
         idea_result = self._generate_idea(direction)
         if idea_result:
             record["actions"].append(f"idea: {idea_result[:60]}")
+
+        # Step 10: Run a SLSA semantic knowledge cycle
+        slsa_result = self._run_slsa_cycle(direction)
+        if slsa_result:
+            record["actions"].append(f"slsa: {slsa_result[:60]}")
 
         # Update stats
         self._stats["steps"] += 1
@@ -275,6 +314,86 @@ class EvolveEngine:
             log.debug("[EvolveEngine] Idea gen failed: %s", exc)
         return None
 
+    def _internet_direct_research(self, direction: str) -> Optional[str]:
+        """Use internet manager directly to fetch the latest info on the direction."""
+        if not self.internet:
+            return None
+        try:
+            query = f"latest advances in {direction} for AI systems"
+            results = self.internet.search(query, max_results=2)
+            if results:
+                first = results[0]
+                text = first.get("text", str(first)) if isinstance(first, dict) else str(first)
+                self._stats["researched"] += 1
+                # Store to knowledge DB
+                if self.knowledge_db and hasattr(self.knowledge_db, "add_fact"):
+                    self.knowledge_db.add_fact(
+                        f"internet_research:{direction}:{int(time.time())}",
+                        text[:400],
+                        tags=["internet", "evolution", "research"]
+                    )
+                return text[:200]
+        except Exception as exc:
+            log.debug("[EvolveEngine] Internet research failed: %s", exc)
+        return None
+
+    def _research_code_direction(self, direction: str) -> Optional[str]:
+        """Use self_researcher.research_code_and_feed_generator for code-related directions."""
+        if not self.researcher:
+            return None
+        if not hasattr(self.researcher, "research_code_and_feed_generator"):
+            return None
+        # Only run for code/language directions
+        code_keywords = ["code", "language", "compile", "pattern", "python", "generation"]
+        if not any(kw in direction.lower() for kw in code_keywords):
+            return None
+        try:
+            lang = "python"
+            # Build topic from direction by removing generic words
+            stop_words = {"code", "generation", "language", "pattern", "quality", "learning"}
+            topic_words = [w for w in direction.split() if w.lower() not in stop_words]
+            topic = " ".join(topic_words).strip() or "best practices"
+            result = self.researcher.research_code_and_feed_generator(
+                lang, topic, code_generator=self.code_generator
+            )
+            self._stats["code_researched"] += 1
+            return str(result)[:200] if result else None
+        except Exception as exc:
+            log.debug("[EvolveEngine] Code research failed: %s", exc)
+        return None
+
+    def _implement_evolution_idea(self, direction: str, research: Optional[str]) -> Optional[str]:
+        """Use idea_implementation to implement an idea derived from this evolution step."""
+        if not self.idea_implementation:
+            return None
+        try:
+            idea_prompt = f"Evolution improvement for {direction}"
+            if research:
+                idea_prompt += f": {research[:100]}"
+            if hasattr(self.idea_implementation, "implement_idea"):
+                result = self.idea_implementation.implement_idea(idea_prompt)
+                self._stats["ideas_implemented"] += 1
+                return str(result)[:200] if result else None
+        except Exception as exc:
+            log.debug("[EvolveEngine] Idea implementation failed: %s", exc)
+        return None
+
+    def _run_slsa_cycle(self, direction: str) -> Optional[str]:
+        """Trigger an SLSA semantic knowledge generation cycle for the direction."""
+        if not self.slsa:
+            return None
+        try:
+            if hasattr(self.slsa, "generate_cycle"):
+                topic = direction.replace(" ", "_")
+                result = self.slsa.generate_cycle(topic)
+                self._stats["slsa_cycles"] += 1
+                if result:
+                    return f"SLSA artifact: {str(result.get('concept', topic))[:80]}"
+                return f"SLSA cycle ran for: {topic[:60]}"
+        except Exception as exc:
+            log.debug("[EvolveEngine] SLSA cycle failed: %s", exc)
+        return None
+
     def _persist_step(self, record: Dict) -> None:
         """Store evolution step in knowledge DB."""
         if not self.knowledge_db:
@@ -335,8 +454,12 @@ class EvolveEngine:
         self.self_teacher = getattr(self.core, "self_teacher", self.self_teacher)
         self.reflect = getattr(self.core, "reflect", self.reflect)
         self.idea_generator = getattr(self.core, "idea_generator", self.idea_generator)
-        self.implementer = getattr(self.core, "implementer", self.implementer)
+        self.implementer = getattr(self.core, "self_implementer", self.implementer)
         self.knowledge_db = getattr(self.core, "db", self.knowledge_db)
+        self.internet = getattr(self.core, "internet", self.internet)
+        self.idea_implementation = getattr(self.core, "idea_implementation", self.idea_implementation)
+        self.slsa = getattr(self.core, "slsa_engine", self.slsa)
+        self.autonomous_engine = getattr(self.core, "autonomous_engine", self.autonomous_engine)
         log.info("[EvolveEngine] References refreshed from core")
 
     # ──────────────────────────────────────────────
@@ -353,7 +476,12 @@ class EvolveEngine:
             "self_teacher": bool(self.self_teacher),
             "reflect": bool(self.reflect),
             "idea_generator": bool(self.idea_generator),
+            "implementer": bool(self.implementer),
             "knowledge_db": bool(self.knowledge_db),
+            "internet": bool(self.internet),
+            "idea_implementation": bool(self.idea_implementation),
+            "slsa": bool(self.slsa),
+            "autonomous_engine": bool(self.autonomous_engine),
         }
         return {
             "running": self.running,
