@@ -1706,6 +1706,10 @@ Uptime: {stats['uptime_seconds']}s
             )
         return f"[research_code not available — upgrade self_researcher.py]"
 
+    def _cmd_help(self, text: str) -> str:
+        """Help command."""
+        return self.help_text()
+
     def _cmd_status(self, text: str) -> str:
         """Status command."""
         try:
