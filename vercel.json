@@ -27,7 +27,15 @@
       "dest": "app.py"
     },
     {
-      "src": "/api/commands",
+      "src": "/api/boot",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/suggest",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/threads",
       "dest": "app.py"
     },
     {
