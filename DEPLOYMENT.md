@@ -50,13 +50,18 @@ Once deployed, visit your Vercel URL and check the following endpoints:
 | Endpoint | Method | Expected Response |
 |---|---|---|
 | `/` | GET | Niblit Dashboard UI |
-| `/ping` | GET | `{"status": "ok", ...}` |
+| `/health` | GET | `{"status": "ok", "service": "niblit"}` |
+| `/ping` | GET | `{"status": "ok", "personality": {...}}` |
 | `/chat` | POST | `{"reply": "..."}` |
 | `/memory` | GET | `{"facts": [...]}` |
 
 ### Quick health check
 
 ```bash
+# Lightweight liveness probe (no AI init needed)
+curl https://<your-vercel-url>/health
+
+# Full status including personality data
 curl https://<your-vercel-url>/ping
 ```
 

@@ -11,8 +11,53 @@
   ],
   "routes": [
     {
+      "src": "/health",
+      "dest": "app.py"
+    },
+    {
+      "src": "/ping",
+      "dest": "app.py"
+    },
+    {
+      "src": "/chat",
+      "dest": "app.py"
+    },
+    {
+      "src": "/memory",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/boot",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/suggest",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/threads",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/status",
+      "dest": "app.py"
+    },
+    {
+      "src": "/api/search",
+      "dest": "app.py"
+    },
+    {
       "src": "/(.*)",
       "dest": "app.py"
     }
-  ]
+  ],
+  "functions": {
+    "app.py": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "FLASK_ENV": "production"
+  }
 }
