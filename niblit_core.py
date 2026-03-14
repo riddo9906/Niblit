@@ -753,8 +753,12 @@ except Exception as _e:
 try:
     from slsa_generator_full import SLSAGenerator
 except Exception as _e:
-    log.debug(f"SLSAGenerator not available: {_e}")
-    SLSAGenerator = None
+    log.debug(f"SLSAGenerator (full) not available: {_e}; trying modules.slsa_generator")
+    try:
+        from modules.slsa_generator import SLSAGenerator
+    except Exception as _e2:
+        log.debug(f"SLSAGenerator not available: {_e2}")
+        SLSAGenerator = None
 
 try:
     from self_maintenance_full import SelfMaintenance
@@ -2362,7 +2366,9 @@ Uptime: {stats['uptime_seconds']}s
         """Initialize brain and router."""
         try:
             self.researcher = safe_call(SelfResearcher, self.db, self.modules) if SelfResearcher else None
-            
+            # Alias used by structural_awareness.component_report() and live_updater
+            self.self_researcher = self.researcher
+
             if self.researcher and self.internet:
                 self.researcher.internet = self.internet
             if self.self_teacher:
@@ -2480,7 +2486,23 @@ Uptime: {stats['uptime_seconds']}s
             self.self_maintenance = safe_call(SelfMaintenance) if SelfMaintenance else None
             
             self.slsa_manager = slsa_manager
-            
+
+            # ============================
+            # SLSA ENGINE (initialized at startup so component report shows it)
+            # ============================
+            if SLSAGenerator:
+                try:
+                    self.slsa_engine = SLSAGenerator(
+                        interval=20,
+                        topics=["car", "computer", "phone"],
+                        internet=getattr(self, "internet", None),
+                    )
+                    log.info("✅ SLSAGenerator initialized")
+                    self.startup_report.add("slsa_engine", "ready")
+                except Exception as e:
+                    log.debug(f"SLSAGenerator init failed: {e}")
+                    self.startup_report.add("slsa_engine", "degraded", str(e))
+
             self.lifecycle = None
             if LifecycleEngine:
                 try:
