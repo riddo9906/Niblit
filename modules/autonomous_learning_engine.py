@@ -2,16 +2,22 @@
 """
 AUTONOMOUS LEARNING ENGINE
 Runs when Niblit is idle to autonomously improve itself through:
-1. Research new topics (self-research)
-2. Generate ideas from research (self-idea via SelfIdeaImplementation)
-3. Implement ideas (self-implement via SelfImplementer)
-4. Learn from research (learn via SelfTeacher)
-5. Reflect on findings (reflect)
-6. Auto-run SLSA for knowledge generation
-7. Run evolution step (EvolveEngine)
-8. Feed everything back into the knowledge base
+1.  Research new topics (self-research via SelfResearcher + internet)
+2.  Generate ideas from research (self-idea via SelfIdeaImplementation)
+3.  Implement ideas (self-implement via SelfImplementer)
+4.  Learn from research (learn via SelfTeacher)
+5.  Reflect on findings (reflect)
+6.  Auto-run SLSA for knowledge generation
+7.  Run evolution step (EvolveEngine)
+8.  Code Research — researcher+internet fetch real language/code data → CodeGenerator
+9.  Code Generation — idea_generator+implementer produce compilable code
+10. Code Compilation — CodeCompiler compiles generated code and stores results
+11. Code Reflection — ReflectModule studies compiled output so Niblit understands it
+12. Software Study — SoftwareStudier analyzes code patterns/functions via internet data
+13. Feed everything back into the knowledge base
 
 Creates a continuous self-improvement loop.
+Internet is the primary data-collection channel for steps 1, 8, 9, 12.
 """
 
 import threading
@@ -37,7 +43,9 @@ class AutonomousLearningEngine:
     def __init__(self, core, researcher=None, idea_generator=None,
                  reflect_module=None, self_teacher=None, slsa_manager=None,
                  knowledge_db=None, idle_threshold=300, poll_interval=60,
-                 evolve_engine=None, self_implementer=None, idea_implementation=None):
+                 evolve_engine=None, self_implementer=None, idea_implementation=None,
+                 code_generator=None, code_compiler=None, software_studier=None,
+                 internet=None):
         """
         Args:
             core: NiblitCore instance
@@ -52,6 +60,10 @@ class AutonomousLearningEngine:
             evolve_engine: EvolveEngine for self-evolution step
             self_implementer: SelfImplementer for plan execution
             idea_implementation: SelfIdeaImplementation for idea generation + implementation
+            code_generator: CodeGenerator — generates compilable code from internet data
+            code_compiler: CodeCompiler — compiles and executes generated code
+            software_studier: SoftwareStudier — analyzes software patterns via internet
+            internet: InternetManager — primary data collection channel (required for code research)
         """
         self.core = core
         self.researcher = researcher
@@ -63,6 +75,10 @@ class AutonomousLearningEngine:
         self.evolve_engine = evolve_engine
         self.self_implementer = self_implementer
         self.idea_implementation = idea_implementation
+        self.code_generator = code_generator
+        self.code_compiler = code_compiler
+        self.software_studier = software_studier
+        self.internet = internet
 
         self.idle_threshold = idle_threshold
         self.poll_interval = poll_interval
@@ -90,8 +106,35 @@ class AutonomousLearningEngine:
             "software architecture patterns",
         ]
 
+        # Code-literacy research topics (used by _autonomous_code_research)
+        self.code_research_topics = [
+            ("python", "data structures"),
+            ("python", "algorithms"),
+            ("python", "design patterns"),
+            ("python", "async programming"),
+            ("python", "error handling"),
+            ("javascript", "async patterns"),
+            ("javascript", "functional programming"),
+            ("bash", "scripting best practices"),
+        ]
+
+        # Software study categories (rotated each idle cycle)
+        self.software_study_categories = [
+            "ai_ml_systems",
+            "web_applications",
+            "databases",
+            "operating_systems",
+            "networking",
+            "security",
+            "distributed_systems",
+            "cloud_native",
+        ]
+
         # Ideas generated (to implement)
         self.pending_ideas = []
+
+        # Recently compiled code snippets waiting for reflection
+        self._pending_compiled: List[Dict[str, Any]] = []
 
         # Learning history
         self.learning_history = {
@@ -101,8 +144,15 @@ class AutonomousLearningEngine:
             "reflections_conducted": 0,
             "slsa_runs": 0,
             "evolve_steps": 0,
+            "code_researched": 0,
+            "code_generated": 0,
+            "code_compiled": 0,
+            "code_reflected": 0,
+            "software_studied": 0,
             "last_research_topic": None,
             "last_idea": None,
+            "last_language_studied": None,
+            "last_software_category": None,
             "learning_rate": 0.0,
             "start_time": datetime.utcnow().isoformat()
         }
@@ -375,6 +425,368 @@ Autonomous Learning Summary:
             return f"[Learning error: {e}]"
 
     # ─────────────────────────────────────────────
+    # PROGRAMMING LITERACY LOOP (steps 8-12)
+    # Uses internet as the primary data-collection channel.
+    # ─────────────────────────────────────────────
+
+    def _get_internet(self):
+        """Return internet manager — pull from core lazily if not set at init."""
+        if not self.internet and self.core:
+            self.internet = getattr(self.core, "internet", None)
+        return self.internet
+
+    def _get_code_generator(self):
+        """Lazily resolve CodeGenerator from core."""
+        if not self.code_generator and self.core:
+            self.code_generator = getattr(self.core, "code_generator", None)
+        return self.code_generator
+
+    def _get_code_compiler(self):
+        """Lazily resolve CodeCompiler from core."""
+        if not self.code_compiler and self.core:
+            self.code_compiler = getattr(self.core, "code_compiler", None)
+        return self.code_compiler
+
+    def _get_software_studier(self):
+        """Lazily resolve SoftwareStudier from core."""
+        if not self.software_studier and self.core:
+            self.software_studier = getattr(self.core, "software_studier", None)
+        return self.software_studier
+
+    def _autonomous_code_research(self) -> str:
+        """Step 8: Researcher + Internet fetch real programming-language data → feed CodeGenerator.
+
+        Internet is the primary source.  self_researcher provides semantic
+        search / caching on top.  Results are stored in the knowledge DB so
+        CodeGenerator can produce more informed code in step 9.
+        """
+        internet = self._get_internet()
+        researcher = self.researcher
+        code_gen = self._get_code_generator()
+
+        if not internet and not researcher:
+            return "[Code research skipped — no internet or researcher]"
+
+        # Rotate through code research topics
+        if not self.code_research_topics:
+            return "[No code research topics configured]"
+
+        lang, topic = random.choice(self.code_research_topics)
+        query = f"{lang} {topic} programming best practices examples"
+
+        log.info(f"💻 [CODE RESEARCH] Fetching: {query}")
+
+        snippets: List[str] = []
+
+        # 1. Researcher (semantic search + KB cache)
+        if researcher and hasattr(researcher, "research_code_and_feed_generator"):
+            try:
+                result = researcher.research_code_and_feed_generator(
+                    lang, topic, code_generator=code_gen
+                )
+                if result:
+                    snippets.append(str(result)[:300])
+                    self.learning_history["last_language_studied"] = lang
+            except Exception as exc:
+                log.debug(f"Researcher code research failed: {exc}")
+
+        # 2. Direct internet search (always run — it is the primary source)
+        if internet:
+            try:
+                results = internet.search(query, max_results=3)
+                for r in (results or []):
+                    text = r.get("text", str(r)) if isinstance(r, dict) else str(r)
+                    if text and len(text) > 30:
+                        snippets.append(text[:300])
+                        # Feed each snippet into CodeGenerator's knowledge store
+                        if code_gen and hasattr(code_gen, "_store"):
+                            code_gen._store(lang, "internet_research", text[:500],  # pylint: disable=protected-access
+                                            f"{lang}_{topic}_{int(time.time())}")
+            except Exception as exc:
+                log.debug(f"Internet code research failed: {exc}")
+
+        if not snippets:
+            return f"[No code research results for {lang}/{topic}]"
+
+        # Persist combined findings
+        combined = "\n---\n".join(snippets[:3])
+        if self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_code_research:{lang}:{topic}",
+                    combined,
+                    tags=["code", "research", "autonomous", lang]
+                )
+                self.knowledge_db.queue_learning(f"{lang} {topic} advanced patterns")
+            except Exception as exc:
+                log.debug(f"DB store failed: {exc}")
+
+        self.learning_history["code_researched"] = self.learning_history.get("code_researched", 0) + 1
+        log.info(f"✅ [CODE RESEARCH] {lang}/{topic}: {len(snippets)} snippet(s) collected")
+        return f"Code research: {lang}/{topic} — {len(snippets)} snippet(s) via internet"
+
+    def _autonomous_code_generation(self) -> str:
+        """Step 9: idea_generator + implementer produce compilable code from internet research.
+
+        Uses knowledge collected in step 8 to generate well-informed code
+        snippets.  The resulting code is queued for compilation in step 10.
+        """
+        code_gen = self._get_code_generator()
+        internet = self._get_internet()
+
+        if not code_gen:
+            return "[Code generation skipped — CodeGenerator not available]"
+
+        lang = self.learning_history.get("last_language_studied") or "python"
+        topic = "autonomous_improvement"
+
+        # Derive a richer docstring from recent internet research stored in KB
+        docstring = f"Auto-generated by Niblit ALE — {lang} module for {topic}"
+        if self.knowledge_db:
+            try:
+                # Pull most recent internet research snippet for context
+                facts = self.knowledge_db.list_facts(10) if hasattr(self.knowledge_db, "list_facts") else []
+                for f in reversed(facts):
+                    if isinstance(f, dict) and f.get("key", "").startswith("ale_code_research:"):
+                        docstring = f"Based on internet research: {str(f.get('value', ''))[:120]}"
+                        break
+            except Exception:
+                pass
+
+        try:
+            # Generate a module skeleton
+            result = code_gen.generate_niblit_module(
+                name=f"ale_{lang}_{topic}",
+                docstring=docstring,
+            )
+            code = result.get("code", "")
+            if not result.get("success") or not code:
+                return f"[Code generation failed: {result.get('error', 'unknown')}]"
+
+            # Also attempt idea-driven generation via implementer
+            if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
+                try:
+                    idea_prompt = f"Generate a {lang} utility for: {topic}"
+                    impl_result = self.idea_implementation.implement_idea(idea_prompt)
+                    if impl_result:
+                        code += f"\n# Idea-driven addition:\n# {str(impl_result)[:200]}"
+                except Exception as exc:
+                    log.debug(f"Idea-driven generation failed: {exc}")
+
+            # Queue the generated code for compilation
+            self._pending_compiled.append({"language": lang, "code": code, "topic": topic})
+
+            self.learning_history["code_generated"] = self.learning_history.get("code_generated", 0) + 1
+            log.info(f"✅ [CODE GEN] Generated {lang} code ({len(code)} chars)")
+
+            # Also enrich with internet context if available
+            if internet:
+                try:
+                    internet.search(f"{lang} module best practices", max_results=1)
+                except Exception:
+                    pass
+
+            return f"Code generated: {lang} module ({len(code)} chars) — queued for compilation"
+
+        except Exception as exc:
+            log.error(f"❌ Autonomous code generation failed: {exc}")
+            return f"[Code generation error: {exc}]"
+
+    def _autonomous_code_compilation(self) -> str:
+        """Step 10: CodeCompiler compiles the generated code and stores results."""
+        code_compiler = self._get_code_compiler()
+
+        if not code_compiler:
+            return "[Code compilation skipped — CodeCompiler not available]"
+
+        if not self._pending_compiled:
+            # Generate a minimal test snippet if queue is empty
+            self._pending_compiled.append({
+                "language": "python",
+                "code": "# ALE health-check\nprint('ALE compile check OK')\n",
+                "topic": "health_check",
+            })
+
+        item = self._pending_compiled.pop(0)
+        lang = item.get("language", "python")
+        code = item.get("code", "")
+        topic = item.get("topic", "unknown")
+
+        if not code.strip():
+            return "[Empty code — skipped compilation]"
+
+        try:
+            exec_result = code_compiler.run(lang, code)
+            success = getattr(exec_result, "success", False)
+            output = getattr(exec_result, "stdout", "") or ""
+            error = getattr(exec_result, "error", "") or getattr(exec_result, "stderr", "") or ""
+
+            status = "✅ success" if success else "❌ failed"
+            log.info(f"⚙️ [CODE COMPILE] {lang}/{topic}: {status}")
+
+            # Store result for reflection (step 11)
+            compiled_record = {
+                "language": lang,
+                "topic": topic,
+                "code": code[:400],
+                "output": output[:300],
+                "error": error[:200],
+                "success": success,
+            }
+
+            # Persist to KB
+            if self.knowledge_db:
+                try:
+                    key = f"ale_compiled:{lang}:{topic}:{int(time.time())}"
+                    self.knowledge_db.add_fact(key, str(compiled_record), tags=["compiled", "autonomous", lang])
+                except Exception as exc:
+                    log.debug(f"DB store compiled failed: {exc}")
+
+            # Queue for reflection
+            self._pending_compiled.insert(0, compiled_record) if not success else None
+            # Store a copy for reflect step
+            if not hasattr(self, "_compiled_for_reflection"):
+                self._compiled_for_reflection: List[Dict[str, Any]] = []
+            self._compiled_for_reflection.append(compiled_record)
+
+            self.learning_history["code_compiled"] = self.learning_history.get("code_compiled", 0) + 1
+
+            summary = f"{lang}/{topic}: {status}"
+            if output:
+                summary += f" | output: {output[:60]}"
+            if error and not success:
+                summary += f" | error: {error[:60]}"
+            return f"Code compiled: {summary}"
+
+        except Exception as exc:
+            log.error(f"❌ Autonomous code compilation failed: {exc}")
+            return f"[Compilation error: {exc}]"
+
+    def _autonomous_code_reflection(self) -> str:
+        """Step 11: ReflectModule studies compiled output so Niblit understands code."""
+        if not self.reflect:
+            return "[Code reflection skipped — ReflectModule not available]"
+
+        if not hasattr(self, "_compiled_for_reflection"):
+            self._compiled_for_reflection = []
+
+        if not self._compiled_for_reflection:
+            return "[No compiled code queued for reflection]"
+
+        record = self._compiled_for_reflection.pop(0)
+        lang = record.get("language", "python")
+        topic = record.get("topic", "unknown")
+        code = record.get("code", "")
+        output = record.get("output", "")
+        error = record.get("error", "")
+        success = record.get("success", False)
+
+        reflection_text = (
+            f"Compiled {lang} code for '{topic}'. "
+            f"Success: {success}. "
+            f"Output: {output[:150] if output else 'none'}. "
+            f"Error: {error[:100] if error else 'none'}. "
+            f"Code snippet: {code[:200]}"
+        )
+
+        try:
+            if hasattr(self.reflect, "collect_and_summarize"):
+                result = self.reflect.collect_and_summarize(reflection_text)
+            elif hasattr(self.reflect, "reflect"):
+                result = self.reflect.reflect(reflection_text)
+            else:
+                result = f"[Reflect method unavailable — stored: {reflection_text[:60]}]"
+
+            # Feed reflection back into the knowledge DB
+            if self.knowledge_db:
+                try:
+                    key = f"ale_code_reflection:{lang}:{topic}:{int(time.time())}"
+                    self.knowledge_db.add_fact(key, str(result or reflection_text), tags=["reflection", "code", lang])
+                except Exception as exc:
+                    log.debug(f"DB store reflection failed: {exc}")
+
+            self.learning_history["code_reflected"] = self.learning_history.get("code_reflected", 0) + 1
+            log.info(f"🔍 [CODE REFLECT] {lang}/{topic} — reflection stored")
+            return f"Code reflection: {lang}/{topic} — {'OK' if success else 'studied error'}"
+
+        except Exception as exc:
+            log.error(f"❌ Autonomous code reflection failed: {exc}")
+            return f"[Code reflection error: {exc}]"
+
+    def _autonomous_software_study(self) -> str:
+        """Step 12: SoftwareStudier analyzes code functions/patterns via internet data.
+
+        Uses internet to enrich its understanding beyond the static KB,
+        making Niblit progressively more software- and language-literate.
+        """
+        studier = self._get_software_studier()
+        internet = self._get_internet()
+
+        if not studier and not internet:
+            return "[Software study skipped — SoftwareStudier and internet not available]"
+
+        # Pick a category to study
+        if not self.software_study_categories:
+            return "[No software study categories configured]"
+
+        category = random.choice(self.software_study_categories)
+        log.info(f"📖 [SOFTWARE STUDY] Studying: {category}")
+
+        result_parts: List[str] = []
+
+        # 1. SoftwareStudier built-in analysis
+        if studier and hasattr(studier, "study_category"):
+            try:
+                study_result = studier.study_category(category)
+                if study_result:
+                    result_parts.append(study_result[:300])
+                    self.learning_history["last_software_category"] = category
+            except Exception as exc:
+                log.debug(f"SoftwareStudier.study_category failed: {exc}")
+
+        # 2. Internet enrichment — get up-to-date info about the category
+        if internet:
+            query = f"{category.replace('_', ' ')} software architecture patterns 2024"
+            try:
+                web_results = internet.search(query, max_results=2)
+                for r in (web_results or []):
+                    text = r.get("text", str(r)) if isinstance(r, dict) else str(r)
+                    if text and len(text) > 30:
+                        result_parts.append(text[:250])
+            except Exception as exc:
+                log.debug(f"Internet software study failed: {exc}")
+
+        # 3. Analyze code patterns from the last compiled item for this category
+        if hasattr(self, "_compiled_for_reflection") and self._compiled_for_reflection:
+            last = self._compiled_for_reflection[-1] if self._compiled_for_reflection else {}
+            code_snippet = last.get("code", "")
+            if code_snippet:
+                if studier and hasattr(studier, "analyze_architecture"):
+                    try:
+                        arch_result = studier.analyze_architecture("modular")
+                        result_parts.append(arch_result[:200])
+                    except Exception:
+                        pass
+
+        if not result_parts:
+            return f"[No software study results for '{category}']"
+
+        combined = "\n".join(result_parts[:2])
+
+        # Persist to KB for future language-literacy lookups
+        if self.knowledge_db:
+            try:
+                key = f"ale_software_study:{category}:{int(time.time())}"
+                self.knowledge_db.add_fact(key, combined, tags=["software_study", "autonomous", category])
+                self.knowledge_db.queue_learning(f"{category} software engineering principles")
+            except Exception as exc:
+                log.debug(f"DB store software study failed: {exc}")
+
+        self.learning_history["software_studied"] = self.learning_history.get("software_studied", 0) + 1
+        log.info(f"✅ [SOFTWARE STUDY] '{category}' complete — {len(result_parts)} source(s)")
+        return f"Software study: '{category}' — {len(result_parts)} source(s) via internet+KB"
+
+    # ─────────────────────────────────────────────
     def _autonomous_evolve_step(self) -> str:
         """Step 7: Run one EvolveEngine step to improve all capabilities."""
         if not self.evolve_engine:
@@ -415,7 +827,7 @@ Autonomous Learning Summary:
 
         results = []
 
-        # Execute in order
+        # Core learning loop
         results.append(("Research", self._autonomous_research()))
         time.sleep(2)
 
@@ -435,8 +847,24 @@ Autonomous Learning Summary:
         time.sleep(2)
 
         results.append(("Evolve", self._autonomous_evolve_step()))
+        time.sleep(2)
 
-        # Log cycle summary — str() wraps any non-string results to prevent slice errors
+        # Programming-literacy loop (uses internet as primary data source)
+        results.append(("CodeResearch", self._autonomous_code_research()))
+        time.sleep(2)
+
+        results.append(("CodeGeneration", self._autonomous_code_generation()))
+        time.sleep(2)
+
+        results.append(("CodeCompilation", self._autonomous_code_compilation()))
+        time.sleep(2)
+
+        results.append(("CodeReflection", self._autonomous_code_reflection()))
+        time.sleep(2)
+
+        results.append(("SoftwareStudy", self._autonomous_software_study()))
+
+        # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
         log.info(f"✅ [AUTONOMOUS CYCLE] Summary:\n{summary}")
@@ -444,10 +872,10 @@ Autonomous Learning Summary:
 
         # Update learning rate — use .get() consistently for all keys
         elapsed = (datetime.utcnow() - datetime.fromisoformat(self.learning_history["start_time"])).total_seconds()
-        total_actions = (self.learning_history.get("research_completed", 0) +
-                        self.learning_history.get("ideas_implemented", 0) +
-                        self.learning_history.get("reflections_conducted", 0) +
-                        self.learning_history.get("evolve_steps", 0))
+        total_actions = sum(self.learning_history.get(k, 0) for k in (
+            "research_completed", "ideas_implemented", "reflections_conducted",
+            "evolve_steps", "code_researched", "code_compiled", "software_studied",
+        ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
         # Log stats to knowledge base
@@ -525,7 +953,23 @@ Autonomous Learning Summary:
             "stats": self.learning_history,
             "pending_ideas": len(self.pending_ideas),
             "research_topics": len(self.research_topics),
+            "code_research_topics": len(self.code_research_topics),
+            "software_study_categories": len(self.software_study_categories),
+            "pending_compilations": len(getattr(self, "_pending_compiled", [])),
+            "pending_reflections": len(getattr(self, "_compiled_for_reflection", [])),
             "uptime_seconds": uptime,
+            "modules_available": {
+                "researcher": bool(self.researcher),
+                "reflect": bool(self.reflect),
+                "self_teacher": bool(self.self_teacher),
+                "evolve_engine": bool(self.evolve_engine),
+                "self_implementer": bool(self.self_implementer),
+                "idea_implementation": bool(self.idea_implementation),
+                "code_generator": bool(self._get_code_generator()),
+                "code_compiler": bool(self._get_code_compiler()),
+                "software_studier": bool(self._get_software_studier()),
+                "internet": bool(self._get_internet()),
+            },
         }
 
     # ─────────────────��───────────────────────────
@@ -563,7 +1007,9 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  reflect_module=None, self_teacher=None,
                                  slsa_manager=None, knowledge_db=None,
                                  evolve_engine=None, self_implementer=None,
-                                 idea_implementation=None) -> AutonomousLearningEngine:
+                                 idea_implementation=None,
+                                 code_generator=None, code_compiler=None,
+                                 software_studier=None, internet=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -578,6 +1024,10 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         evolve_engine=evolve_engine,
         self_implementer=self_implementer,
         idea_implementation=idea_implementation,
+        code_generator=code_generator,
+        code_compiler=code_compiler,
+        software_studier=software_studier,
+        internet=internet,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")

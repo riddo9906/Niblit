@@ -283,7 +283,8 @@ COMMANDS = [
     "self-idea", "self-implement", "reflect", "idea-implement",
     "debug on", "debug off", "threads",
     "show improvements", "run improvement-cycle", "improvement-status",
-    "autonomous-learn start", "autonomous-learn stop", "autonomous-learn status", "autonomous-learn add-topic",
+    "autonomous-learn start", "autonomous-learn stop", "autonomous-learn status",
+    "autonomous-learn add-topic", "autonomous-learn code-status",
     "evolve", "evolve start", "evolve stop", "evolve status", "evolve history",
     "research code",
 ]
@@ -1182,6 +1183,10 @@ class NiblitCore:
         self.command_registry.register(
             "autonomous-learn add-topic", self._cmd_autonomous_add_topic, "Add research topic", "autonomous", priority=98
         )
+        self.command_registry.register(
+            "autonomous-learn code-status", self._cmd_autonomous_code_status,
+            "View code literacy status", "autonomous", priority=98
+        )
         
         # SLSA commands
         self.command_registry.register(
@@ -1271,6 +1276,8 @@ class NiblitCore:
             return "[❌ Autonomous engine not available]"
         
         stats = self.autonomous_engine.get_learning_stats()
+        s = stats["stats"]
+        mods = stats.get("modules_available", {})
         result = f"""
 🧠 **AUTONOMOUS LEARNING STATUS:**
 
@@ -1278,18 +1285,60 @@ Running: {'✅' if stats['running'] else '❌'}
 System Idle: {'Yes' if stats['is_idle'] else 'No'}
 Uptime: {stats['uptime_seconds']}s
 
-📊 Statistics:
-  Research Cycles: {stats['stats']['research_completed']}
-  Ideas Generated: {stats['stats']['ideas_generated']}
-  Ideas Implemented: {stats['stats']['ideas_implemented']}
-  Reflections: {stats['stats']['reflections_conducted']}
-  Improvement Runs: {stats['stats']['slsa_runs']}
-  Learning Rate: {stats['stats']['learning_rate']:.4f} cycles/hour
+📊 Learning Statistics:
+  Research Cycles: {s.get('research_completed', 0)}
+  Ideas Generated: {s.get('ideas_generated', 0)}
+  Ideas Implemented: {s.get('ideas_implemented', 0)}
+  Reflections: {s.get('reflections_conducted', 0)}
+  SLSA Runs: {s.get('slsa_runs', 0)}
+  Evolve Steps: {s.get('evolve_steps', 0)}
+  Learning Rate: {s.get('learning_rate', 0.0):.6f} cycles/s
 
-📚 Active Topics: {stats['research_topics']}
-💡 Pending Ideas: {stats['pending_ideas']}
+💻 Programming Literacy:
+  Code Researched: {s.get('code_researched', 0)}
+  Code Generated: {s.get('code_generated', 0)}
+  Code Compiled: {s.get('code_compiled', 0)}
+  Code Reflected: {s.get('code_reflected', 0)}
+  Software Studied: {s.get('software_studied', 0)}
+  Last Language: {s.get('last_language_studied', 'none')}
+  Last Category: {s.get('last_software_category', 'none')}
+
+📚 Topics: {stats.get('research_topics', 0)} | Code Topics: {stats.get('code_research_topics', 0)} | SW Categories: {stats.get('software_study_categories', 0)}
+💡 Pending Ideas: {stats.get('pending_ideas', 0)}
+
+🔌 Modules Wired:
+  internet={mods.get('internet', False)} | code_generator={mods.get('code_generator', False)} | code_compiler={mods.get('code_compiler', False)} | software_studier={mods.get('software_studier', False)}
 """
         return result.strip()
+
+    def _cmd_autonomous_code_status(self, text: str) -> str:
+        """Show programming literacy / code loop status in detail."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        stats = self.autonomous_engine.get_learning_stats()
+        s = stats["stats"]
+        mods = stats.get("modules_available", {})
+        lines = [
+            "💻 **CODE LITERACY STATUS:**\n",
+            f"  Code Researched  : {s.get('code_researched', 0)} cycles",
+            f"  Code Generated   : {s.get('code_generated', 0)} snippets",
+            f"  Code Compiled    : {s.get('code_compiled', 0)} runs",
+            f"  Code Reflected   : {s.get('code_reflected', 0)} reflections",
+            f"  Software Studied : {s.get('software_studied', 0)} categories",
+            f"  Last Language    : {s.get('last_language_studied', 'none')}",
+            f"  Last SW Category : {s.get('last_software_category', 'none')}",
+            f"\n🔌 Module Availability:",
+            f"  internet         : {'✅' if mods.get('internet') else '❌'}",
+            f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}",
+            f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}",
+            f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}",
+            f"  researcher       : {'✅' if mods.get('researcher') else '❌'}",
+            f"\n📋 Pending:",
+            f"  Compilations     : {stats.get('pending_compilations', 0)}",
+            f"  Reflections      : {stats.get('pending_reflections', 0)}",
+            f"\n⚙️ Loop runs during idle time. Use 'autonomous-learn start' to enable.",
+        ]
+        return "\n".join(lines)
 
     def _cmd_autonomous_add_topic(self, text: str) -> str:
         """Add research topic to autonomous engine."""
@@ -2292,6 +2341,10 @@ Uptime: {stats['uptime_seconds']}s
                         evolve_engine=getattr(self, "evolve_engine", None),
                         self_implementer=getattr(self, "self_implementer", None),
                         idea_implementation=getattr(self, "idea_implementation", None),
+                        code_generator=getattr(self, "code_generator", None),
+                        code_compiler=getattr(self, "code_compiler", None),
+                        software_studier=getattr(self, "software_studier", None),
+                        internet=getattr(self, "internet", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -3219,6 +3272,8 @@ Uptime: {stats['uptime_seconds']}s
                 return self._cmd_autonomous_start(text)
             elif "stop" in ltext:
                 return self._cmd_autonomous_stop(text)
+            elif "code-status" in ltext:
+                return self._cmd_autonomous_code_status(text)
             elif "status" in ltext:
                 return self._cmd_autonomous_status(text)
             elif "add-topic" in ltext:
@@ -3510,10 +3565,18 @@ Uptime: {stats['uptime_seconds']}s
             "learn about <topic>      — Queue for research\n"
             "ideas about <topic>      — Get creative ideas\n"
             "\n--- AUTONOMOUS LEARNING ---\n"
-            "autonomous-learn start              — Start background learning\n"
+            "autonomous-learn start              — Start background learning (incl. code loop)\n"
             "autonomous-learn stop               — Stop background learning\n"
-            "autonomous-learn status             — View learning statistics\n"
+            "autonomous-learn status             — View full learning statistics\n"
             "autonomous-learn add-topic <topic>  — Add research topic\n"
+            "autonomous-learn code-status        — View programming literacy status\n"
+            "\n--- PROGRAMMING LITERACY (CODE LOOP) ---\n"
+            "  Runs during idle time — internet is the primary data source:\n"
+            "  Step 8:  Code Research   — researcher+internet → CodeGenerator\n"
+            "  Step 9:  Code Generation — idea+implementer produce compilable code\n"
+            "  Step 10: Code Compile    — CodeCompiler runs the generated code\n"
+            "  Step 11: Code Reflect    — ReflectModule studies compiled output\n"
+            "  Step 12: Software Study  — SoftwareStudier learns patterns via internet\n"
             "\n--- 10 SELF-IMPROVEMENTS ---\n"
             "show improvements        — View all 10 improvements\n"
             "run improvement-cycle    — Execute improvement cycle\n"
@@ -3522,17 +3585,58 @@ Uptime: {stats['uptime_seconds']}s
             "search <query>           — Search the internet\n"
             "summary <query>          — Get quick summary\n"
             "self-research <topic>    — Research autonomously\n"
-            "\n--- BRAIN COMMANDS ---\n"
-            "self-idea <prompt>       — Generate ideas\n"
-            "self-implement           — Implement concept\n"
-            "reflect <text>           — Reflect on topic\n"
-            "auto-reflect             — Auto reflection\n"
+            "research code <lang> [topic] — Research language from internet → CodeGenerator\n"
+            "\n--- BRAIN / SELF-IMPROVEMENT COMMANDS ---\n"
+            "self-idea <prompt>       — Generate & implement idea\n"
+            "self-implement [plan]    — Enqueue plan to SelfImplementer\n"
+            "self-teach <topic>       — Teach topic via SelfTeacher + research\n"
+            "idea-implement [prompt]  — Generate and implement ideas\n"
+            "reflect [text]           — Reflect on topic\n"
+            "auto-reflect             — Auto reflection on recent events\n"
             "self-heal                — Self-healing\n"
+            "\n--- EVOLUTION ENGINE ---\n"
+            "evolve                   — Run one self-evolution step\n"
+            "evolve start             — Start continuous background evolution\n"
+            "evolve stop              — Stop background evolution\n"
+            "evolve status            — Show evolution status\n"
+            "evolve history           — Show recent evolution steps\n"
+            "\n--- CODE GENERATION & COMPILATION ---\n"
+            "generate code <lang> [template] [key=val]  — Generate code\n"
+            "run code <lang> <code>          — Execute code inline\n"
+            "validate <lang> <code>          — Validate syntax\n"
+            "execute file <path>             — Execute a script file\n"
+            "code templates [lang]           — List templates\n"
+            "study language <lang>           — Best practices for language\n"
+            "available languages             — Show supported languages\n"
+            "\n--- FILE MANAGER ---\n"
+            "read file <path>         — Read file\n"
+            "write file <path> <content> — Write file\n"
+            "list files [dir]         — List files\n"
+            "file environment         — Filesystem info\n"
+            "\n--- SOFTWARE STUDY ---\n"
+            "study software <cat>     — Study a software category\n"
+            "software categories      — List all categories\n"
+            "analyze architecture <n> — Analyze architecture pattern\n"
+            "design software <desc>   — Generate software design\n"
+            "what have i studied      — Show studied this session\n"
+            "\n--- STRUCTURAL SELF-AWARENESS (INTROSPECTION) ---\n"
+            "my structure             — Full component inventory\n"
+            "my threads               — All active threads\n"
+            "my loops                 — Background loop status\n"
+            "my modules               — Loaded modules\n"
+            "my commands              — All registered commands\n"
+            "dashboard                — Full runtime dashboard\n"
+            "operational flow         — How loops/routing work\n"
+            "resource usage           — RAM, CPU, uptime\n"
             "\n--- SLSA ENGINE ---\n"
             "slsa-status              — SLSA status\n"
             "start_slsa [topics]      — Start SLSA\n"
             "stop_slsa                — Stop SLSA\n"
             "restart_slsa [topics]    — Restart SLSA\n"
+            "\n--- LIVE UPDATE ---\n"
+            "reload <module.name>     — Hot-reload a module\n"
+            "upgrade                  — Reload all changed modules\n"
+            "update-history           — Show reload history\n"
             "\n--- SETTINGS ---\n"
             "toggle-llm on/off        — Enable/disable LLM\n"
             "shutdown                 — Graceful shutdown\n"

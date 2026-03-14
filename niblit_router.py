@@ -753,24 +753,61 @@ Ask me about:
             return "🚀 Autonomous learning started ✅" if result else "ℹ️ Already running"
 
         if action in ("stop", "off"):
-            result = engine.stop()
+            engine.stop()
             return "⏹️ Autonomous learning stopped ✅"
+
+        if action == "code-status":
+            stats = engine.get_learning_stats()
+            s = stats["stats"]
+            mods = stats.get("modules_available", {})
+            return (
+                "💻 CODE LITERACY STATUS\n"
+                f"  Code Researched  : {s.get('code_researched', 0)}\n"
+                f"  Code Generated   : {s.get('code_generated', 0)}\n"
+                f"  Code Compiled    : {s.get('code_compiled', 0)}\n"
+                f"  Code Reflected   : {s.get('code_reflected', 0)}\n"
+                f"  Software Studied : {s.get('software_studied', 0)}\n"
+                f"  Last Language    : {s.get('last_language_studied', 'none')}\n"
+                f"  Last Category    : {s.get('last_software_category', 'none')}\n"
+                f"  internet wired   : {'✅' if mods.get('internet') else '❌'}\n"
+                f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}\n"
+                f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}\n"
+                f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}\n"
+                f"  Pending compiles : {stats.get('pending_compilations', 0)}\n"
+                f"  Pending reflects : {stats.get('pending_reflections', 0)}\n"
+            )
 
         if action == "status":
             stats = engine.get_learning_stats()
-            return f"""
-[AUTONOMOUS LEARNING STATUS]
-Running: {'✅' if stats['running'] else '❌'}
-System Idle: {'Yes' if stats['is_idle'] else 'No'}
-Research Cycles: {stats['stats']['research_completed']}
-Ideas Generated: {stats['stats']['ideas_generated']}
-Ideas Implemented: {stats['stats']['ideas_implemented']}
-Reflections: {stats['stats']['reflections_conducted']}
-SLSA Runs: {stats['stats']['slsa_runs']}
-Pending Ideas: {stats['pending_ideas']}
-Learning Rate: {stats['stats']['learning_rate']:.4f} actions/sec
-Research Topics: {stats['research_topics']}
-           """
+            s = stats["stats"]
+            mods = stats.get("modules_available", {})
+            return (
+                "[AUTONOMOUS LEARNING STATUS]\n"
+                f"Running: {'✅' if stats['running'] else '❌'}\n"
+                f"System Idle: {'Yes' if stats['is_idle'] else 'No'}\n"
+                f"Uptime: {stats['uptime_seconds']}s\n"
+                "\n📊 Learning:\n"
+                f"  Research Cycles  : {s.get('research_completed', 0)}\n"
+                f"  Ideas Generated  : {s.get('ideas_generated', 0)}\n"
+                f"  Ideas Implemented: {s.get('ideas_implemented', 0)}\n"
+                f"  Reflections      : {s.get('reflections_conducted', 0)}\n"
+                f"  SLSA Runs        : {s.get('slsa_runs', 0)}\n"
+                f"  Evolve Steps     : {s.get('evolve_steps', 0)}\n"
+                f"  Learning Rate    : {s.get('learning_rate', 0.0):.6f} actions/s\n"
+                "\n💻 Code Literacy:\n"
+                f"  Code Researched  : {s.get('code_researched', 0)}\n"
+                f"  Code Generated   : {s.get('code_generated', 0)}\n"
+                f"  Code Compiled    : {s.get('code_compiled', 0)}\n"
+                f"  Code Reflected   : {s.get('code_reflected', 0)}\n"
+                f"  Software Studied : {s.get('software_studied', 0)}\n"
+                "\n🔌 Modules:\n"
+                f"  internet={mods.get('internet', False)} "
+                f"code_gen={mods.get('code_generator', False)} "
+                f"compiler={mods.get('code_compiler', False)} "
+                f"studier={mods.get('software_studier', False)}\n"
+                f"\nPending Ideas: {stats.get('pending_ideas', 0)} | "
+                f"Topics: {stats.get('research_topics', 0)}"
+            )
 
         if action.startswith("add-topic "):
             topic = action.replace("add-topic", "").strip()
@@ -787,12 +824,15 @@ Research Topics: {stats['research_topics']}
                 return f"✅ Added {len(added)} topics: {', '.join(added)}"
             return "Usage: autonomous-learn add-topics <topic1,topic2,...>"
 
-        return """Usage:
-autonomous-learn start              — Start autonomous learning
-autonomous-learn stop               — Stop autonomous learning
-autonomous-learn status             — View learning statistics
-autonomous-learn add-topic <topic>  — Add research topic
-autonomous-learn add-topics <t1,t2> — Add multiple topics"""
+        return (
+            "Usage:\n"
+            "autonomous-learn start              — Start autonomous learning (incl. code loop)\n"
+            "autonomous-learn stop               — Stop autonomous learning\n"
+            "autonomous-learn status             — View full learning statistics\n"
+            "autonomous-learn code-status        — View programming literacy status\n"
+            "autonomous-learn add-topic <topic>  — Add research topic\n"
+            "autonomous-learn add-topics <t1,t2> — Add multiple topics"
+        )
 
     # ─────────────────────────────────
     # CHAT RESPONSE GENERATOR
@@ -1417,9 +1457,11 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "thanks                       — Say thank you",
             "",
             "=== INTERNET & RESEARCH ===",
-            "search <query>               — Search internet",
-            "summary <query>              — Quick summary",
+            "search <query>               — Search internet (primary data source)",
+            "summary <query>              — Quick summary via internet",
             "self-research <topic>        — Research topic using researcher + internet",
+            "research code <lang> [topic] — Research language from internet → feeds CodeGenerator",
+            "                               e.g. 'research code python async patterns'",
             "",
             "=== SELF-IMPROVEMENT COMMANDS ===",
             "self-idea <prompt>           — Generate & implement idea via SelfIdeaImplementation",
@@ -1430,9 +1472,19 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "auto-reflect                 — Reflect on recent interactions",
             "",
             "=== AUTONOMOUS LEARNING ===",
-            "autonomous-learn start       — Start learning",
-            "autonomous-learn status      — View progress",
-            "autonomous-learn add-topic <t> — Add topic",
+            "autonomous-learn start              — Start learning (incl. programming-literacy loop)",
+            "autonomous-learn stop               — Stop learning",
+            "autonomous-learn status             — View full learning statistics",
+            "autonomous-learn code-status        — View programming literacy / code loop status",
+            "autonomous-learn add-topic <t>      — Add research topic",
+            "autonomous-learn add-topics <t1,t2> — Add multiple topics",
+            "",
+            "  Programming-literacy loop (internet is primary data source):",
+            "  Step 8:  Code Research   — researcher+internet → CodeGenerator (language data)",
+            "  Step 9:  Code Generation — idea+implementer produce compilable code",
+            "  Step 10: Code Compile    — CodeCompiler runs the generated code",
+            "  Step 11: Code Reflect    — ReflectModule studies compiled output",
+            "  Step 12: Software Study  — SoftwareStudier learns patterns via internet",
             "",
             "=== SELF-IMPROVEMENTS ===",
             "show improvements            — View 10 improvement modules",
@@ -1450,7 +1502,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "upgrade                      — Reload all modules changed on disk",
             "update-history               — Show recent update/reload history",
             "",
-            "=== STRUCTURAL SELF-AWARENESS ===",
+            "=== STRUCTURAL SELF-AWARENESS (INTROSPECTION) ===",
             "my structure                 — Full component inventory",
             "my threads                   — All active Python threads",
             "my loops                     — Background loop status",
@@ -1463,7 +1515,7 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "=== CODE GENERATION ===",
             "generate code <lang> [tpl] [key=val ...]",
             "                             — Generate code (python/bash/js/html/css/sql/json)",
-            "code templates               — List available templates",
+            "code templates [lang]        — List available templates",
             "study language <lang>        — Learn best practices for a language",
             "",
             "=== CODE COMPILER / EXECUTOR ===",
@@ -1476,26 +1528,21 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "read file <path>             — Read and display a file",
             "write file <path> <content>  — Write content to a file",
             "list files [dir]             — List files in a directory",
-            "execute file <path>          — Execute a script file",
             "file environment             — Show filesystem environment info",
             "",
             "=== SOFTWARE STUDY ===",
-            "study software <category>    — Study a software category in depth",
+            "study software <category>    — Study a software category in depth (uses internet)",
             "software categories          — List all software categories",
             "analyze architecture <name>  — Analyze an architecture pattern",
             "design software <desc>       — Generate a software design outline",
             "what have i studied          — Show what I've studied this session",
             "",
             "=== EVOLUTION ENGINE ===",
-            "evolve                       — Run one self-evolution step (all modules: research+internet+code+teach+reflect+impl+slsa)",
+            "evolve                       — Run one self-evolution step (research+internet+code+teach+reflect+impl+slsa)",
             "evolve start                 — Start background continuous evolution",
             "evolve stop                  — Stop background evolution",
             "evolve status                — Show evolution status + available modules",
             "evolve history               — Show recent evolution steps",
-            "",
-            "=== CODE RESEARCH ===",
-            "research code <lang> [topic] — Research a language from internet → feeds CodeGenerator",
-            "                               e.g. 'research code python async patterns'",
             "",
         ]
         return "\n".join(commands)
