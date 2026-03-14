@@ -229,6 +229,21 @@ except Exception as e:
     AutonomousLearningEngine = None
 
 # ============================================================
+# LIVE UPDATER + STRUCTURAL AWARENESS IMPORTS
+# ============================================================
+try:
+    from modules.live_updater import LiveUpdater
+except Exception as e:
+    log.debug(f"LiveUpdater import failed: {e}")
+    LiveUpdater = None
+
+try:
+    from modules.structural_awareness import StructuralAwareness
+except Exception as e:
+    log.debug(f"StructuralAwareness import failed: {e}")
+    StructuralAwareness = None
+
+# ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
 DEBUG_MODE = True
@@ -960,6 +975,10 @@ class NiblitCore:
         
         # NEW: Autonomous Learning Engine
         self.autonomous_engine: Optional[AutonomousLearningEngine] = None
+
+        # NEW: Live Updater + Structural Awareness
+        self.live_updater: Optional[LiveUpdater] = None
+        self.structural_awareness: Optional[StructuralAwareness] = None
         
         log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
         
@@ -1288,6 +1307,102 @@ Uptime: {stats['uptime_seconds']}s
     # ============================
     # COMMAND HANDLERS (NO LLM)
     # ============================
+
+    # ──────────────────────────────────────
+    # LIVE UPDATER COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_reload_module(self, module_name: str) -> str:
+        """Hot-reload a module at runtime."""
+        if self.live_updater:
+            result = self.live_updater.reload_module(module_name)
+            return result["message"]
+        # Fallback: importlib.reload
+        try:
+            import importlib, sys as _sys
+            mod = _sys.modules.get(module_name)
+            if mod is None:
+                mod = importlib.import_module(module_name)
+            importlib.reload(mod)
+            return f"✅ Module '{module_name}' reloaded (direct fallback)."
+        except Exception as e:
+            return f"❌ Reload failed for '{module_name}': {e}"
+
+    def _cmd_upgrade(self) -> str:
+        """Reload all modules whose files changed on disk."""
+        if self.live_updater:
+            changed = self.live_updater.reload_all_changed()
+            if not changed:
+                return "✅ All modules are up-to-date — no changes detected on disk."
+            msgs = [r["message"] for r in changed]
+            return "🔄 **Self-Upgrade Complete:**\n" + "\n".join(f"  • {m}" for m in msgs)
+        return "[LiveUpdater not available — restart to pick up file changes]"
+
+    def _cmd_update_history(self) -> str:
+        """Show recent hot-reload history."""
+        if self.live_updater:
+            return self.live_updater.summarize_history()
+        return "[LiveUpdater not available]"
+
+    # ──────────────────────────────────────
+    # STRUCTURAL AWARENESS COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_sa_structure(self) -> str:
+        """Show full component inventory."""
+        if self.structural_awareness:
+            return self.structural_awareness.component_report(self)
+        return "[StructuralAwareness not available]"
+
+    def _cmd_sa_threads(self) -> str:
+        """Show all active threads."""
+        if self.structural_awareness:
+            return self.structural_awareness.thread_report()
+        import threading
+        lines = [f"🧵 Active threads ({threading.active_count()}):"]
+        for t in threading.enumerate():
+            lines.append(f"  • {t.name} ({'alive' if t.is_alive() else 'dead'})")
+        return "\n".join(lines)
+
+    def _cmd_sa_loops(self) -> str:
+        """Show background loop status."""
+        if self.structural_awareness:
+            return self.structural_awareness.loop_report(self)
+        return "[StructuralAwareness not available]"
+
+    def _cmd_sa_modules(self) -> str:
+        """Show loaded Niblit modules."""
+        if self.structural_awareness:
+            return self.structural_awareness.module_report()
+        return "[StructuralAwareness not available]"
+
+    def _cmd_sa_commands(self) -> str:
+        """Show all registered commands."""
+        if self.structural_awareness:
+            return self.structural_awareness.command_report(router=self.router)
+        if self.router and hasattr(self.router, "help_text"):
+            return self.router.help_text()
+        return self.help_text()
+
+    def _cmd_sa_dashboard(self) -> str:
+        """Show full runtime dashboard."""
+        if self.structural_awareness:
+            return self.structural_awareness.runtime_dashboard(
+                core=self, router=self.router
+            )
+        return self._cmd_status("")
+
+    def _cmd_sa_flow(self) -> str:
+        """Show operational flow description."""
+        if self.structural_awareness:
+            return self.structural_awareness.operational_flow()
+        return "[StructuralAwareness not available]"
+
+    def _cmd_sa_resources(self) -> str:
+        """Show resource usage."""
+        if self.structural_awareness:
+            return self.structural_awareness.resource_report()
+        return "[StructuralAwareness not available]"
 
     def _cmd_help(self, text: str) -> str:
         """Help command."""
@@ -1744,6 +1859,31 @@ Uptime: {stats['uptime_seconds']}s
             
             self.startup_report.add("optional_services", "ready")
             log.info("✅ Optional services initialized")
+
+            # ============================
+            # LIVE UPDATER
+            # ============================
+            if LiveUpdater:
+                try:
+                    self.live_updater = LiveUpdater(base_dir=str(self.config.memory_path.parent)
+                                                    if hasattr(self.config, "memory_path") else None)
+                    log.info("✅ LiveUpdater initialized")
+                    self.startup_report.add("live_updater", "ready")
+                except Exception as e:
+                    log.debug(f"LiveUpdater init failed: {e}")
+                    self.startup_report.add("live_updater", "degraded", str(e))
+
+            # ============================
+            # STRUCTURAL AWARENESS
+            # ============================
+            if StructuralAwareness:
+                try:
+                    self.structural_awareness = StructuralAwareness(core=self)
+                    log.info("✅ StructuralAwareness initialized")
+                    self.startup_report.add("structural_awareness", "ready")
+                except Exception as e:
+                    log.debug(f"StructuralAwareness init failed: {e}")
+                    self.startup_report.add("structural_awareness", "degraded", str(e))
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))
@@ -2555,7 +2695,59 @@ Uptime: {stats['uptime_seconds']}s
         if ltext == "improvement-status":
             log.debug("[IMPROVE-CMD] Intercepted: improvement-status")
             return self._cmd_improvement_status(text)
-        
+
+        # ============================
+        # LAYER 7b: LIVE UPDATER COMMANDS
+        # ============================
+        if ltext.startswith("reload "):
+            mod_name = text[len("reload "):].strip()
+            if mod_name:
+                log.debug(f"[UPDATER-CMD] Intercepted: reload {mod_name}")
+                return self._cmd_reload_module(mod_name)
+
+        if ltext in ("upgrade", "update-self", "update self"):
+            log.debug("[UPDATER-CMD] Intercepted: upgrade")
+            return self._cmd_upgrade()
+
+        if ltext in ("update-history", "reload-history"):
+            log.debug("[UPDATER-CMD] Intercepted: update-history")
+            return self._cmd_update_history()
+
+        # ============================
+        # LAYER 7c: STRUCTURAL AWARENESS COMMANDS
+        # ============================
+        if ltext in ("my structure", "show structure", "niblit structure", "struct"):
+            log.debug("[SA-CMD] Intercepted: my structure")
+            return self._cmd_sa_structure()
+
+        if ltext in ("my threads", "active threads", "threads"):
+            log.debug("[SA-CMD] Intercepted: my threads")
+            return self._cmd_sa_threads()
+
+        if ltext in ("my loops", "active loops", "loops", "background loops"):
+            log.debug("[SA-CMD] Intercepted: my loops")
+            return self._cmd_sa_loops()
+
+        if ltext in ("my modules", "loaded modules", "modules"):
+            log.debug("[SA-CMD] Intercepted: my modules")
+            return self._cmd_sa_modules()
+
+        if ltext in ("my commands", "all commands"):
+            log.debug("[SA-CMD] Intercepted: my commands")
+            return self._cmd_sa_commands()
+
+        if ltext in ("runtime status", "live status", "dashboard"):
+            log.debug("[SA-CMD] Intercepted: dashboard")
+            return self._cmd_sa_dashboard()
+
+        if ltext in ("how do i work", "operational flow", "my flow", "loop flow"):
+            log.debug("[SA-CMD] Intercepted: operational flow")
+            return self._cmd_sa_flow()
+
+        if ltext in ("resource usage", "my resources", "memory usage"):
+            log.debug("[SA-CMD] Intercepted: resource usage")
+            return self._cmd_sa_resources()
+
         # ============================
         # LAYER 8: INTENT PARSING & CORE COMMANDS
         # ============================

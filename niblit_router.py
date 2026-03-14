@@ -437,8 +437,35 @@ What aspect of my improvement interests you?"""
 
             db = getattr(self.core, "db", None)
             autonomous_engine = getattr(self.core, "autonomous_engine", None)
+            sa = getattr(self.core, "structural_awareness", None)
 
             query_lower = query.lower()
+
+            # ── Structural / runtime queries → delegate to StructuralAwareness ──
+            if any(kw in query_lower for kw in ("my structure", "your structure",
+                                                 "your components", "my components")):
+                return sa.component_report(self.core) if sa else None
+
+            if any(kw in query_lower for kw in ("your threads", "my threads",
+                                                 "active threads", "running threads")):
+                return sa.thread_report() if sa else None
+
+            if any(kw in query_lower for kw in ("your loops", "my loops",
+                                                 "active loops", "background loops",
+                                                 "running loops")):
+                return sa.loop_report(self.core) if sa else None
+
+            if any(kw in query_lower for kw in ("your modules", "loaded modules",
+                                                 "which modules")):
+                return sa.module_report() if sa else None
+
+            if any(kw in query_lower for kw in ("runtime", "dashboard",
+                                                 "live status", "everything running")):
+                return sa.runtime_dashboard(core=self.core, router=self) if sa else None
+
+            if any(kw in query_lower for kw in ("your resources", "memory usage",
+                                                 "cpu", "ram usage")):
+                return sa.resource_report() if sa else None
 
             # What are you / Who are you
             if 'what are you' in query_lower or 'who are you' in query_lower:
@@ -505,6 +532,9 @@ I can work in two modes:
 
             # How do you work
             if 'how do you work' in query_lower or 'your purpose' in query_lower or 'your role' in query_lower or 'your function' in query_lower:
+                # Use structural_awareness for the rich operational flow diagram
+                if sa:
+                    return sa.operational_flow()
                 response = """⚙️ **How I Work:**
 
 1. **User Interaction**: I receive and process your messages
@@ -523,17 +553,22 @@ I can work in two modes:
 You can control me with commands like:
 - 'autonomous-learn status' - See my learning progress
 - 'toggle-llm off' - Use me without AI (research-based)
-- 'self-research <topic>' - Make me research something"""
+- 'self-research <topic>' - Make me research something
+- 'dashboard' - Live view of all running components and threads"""
                 return response
 
             # Default self-referential response
             response = """I'm Niblit, an autonomous AI system. I learn continuously, reason without LLM when needed, and improve myself over time.
 
 Ask me about:
-- 'what are you' - Learn about me
+- 'what are you'      - Learn about me
 - 'what have you learned' - See my progress
-- 'what can you do' - My capabilities
-- 'how do you work' - How I operate
+- 'what can you do'   - My capabilities
+- 'how do you work'   - Detailed operational flow (loops, routing, threads)
+- 'dashboard'         - Live view of all running components
+- 'my threads'        - All active threads right now
+- 'my loops'          - Background loop status
+- 'my structure'      - Full component inventory
 - 'what would you improve' - My growth plans"""
             return response
 
@@ -890,6 +925,92 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         ts = timestamp()
         lower = cmd.lower().strip()
 
+        # ===== LIVE UPDATER COMMANDS =====
+        if lower.startswith("reload "):
+            module_name = cmd[len("reload "):].strip()
+            if not module_name:
+                return "Usage: reload <module.name>  e.g. reload modules.knowledge_db"
+            if self.core and getattr(self.core, "live_updater", None):
+                result = self.core.live_updater.reload_module(module_name)
+                return result["message"]
+            # Fallback: try importlib.reload directly
+            try:
+                import importlib, sys
+                mod = sys.modules.get(module_name)
+                if mod is None:
+                    mod = importlib.import_module(module_name)
+                importlib.reload(mod)
+                return f"✅ Module '{module_name}' reloaded (direct fallback)."
+            except Exception as e:
+                return f"❌ Reload failed for '{module_name}': {e}"
+
+        if lower in ("upgrade", "update-self", "update self"):
+            if self.core and getattr(self.core, "live_updater", None):
+                changed = self.core.live_updater.reload_all_changed()
+                if not changed:
+                    return "✅ All modules are up-to-date — no changes detected on disk."
+                msgs = [r["message"] for r in changed]
+                return "🔄 **Self-Upgrade Complete:**\n" + "\n".join(f"  • {m}" for m in msgs)
+            return "[LiveUpdater not available — restart to pick up file changes]"
+
+        if lower in ("update-history", "reload-history"):
+            if self.core and getattr(self.core, "live_updater", None):
+                return self.core.live_updater.summarize_history()
+            return "[LiveUpdater not available]"
+
+        # ===== STRUCTURAL AWARENESS COMMANDS =====
+        if lower in ("my structure", "show structure", "niblit structure", "struct"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.component_report(self.core)
+            return "[StructuralAwareness not available]"
+
+        if lower in ("my threads", "active threads", "threads"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.thread_report()
+            import threading
+            lines = [f"🧵 Active threads ({threading.active_count()}):"]
+            for t in threading.enumerate():
+                lines.append(f"  • {t.name} ({'alive' if t.is_alive() else 'dead'})")
+            return "\n".join(lines)
+
+        if lower in ("my loops", "active loops", "loops", "background loops"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.loop_report(self.core)
+            return "[StructuralAwareness not available]"
+
+        if lower in ("my modules", "loaded modules", "modules"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.module_report()
+            return "[StructuralAwareness not available]"
+
+        if lower in ("my commands", "all commands"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.command_report(router=self)
+            return self.help_text()
+
+        if lower in ("runtime status", "live status", "dashboard"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.runtime_dashboard(core=self.core, router=self)
+            return self.handle_command("status")
+
+        if lower in ("how do i work", "operational flow", "my flow", "loop flow"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.operational_flow()
+            return self._get_self_referential_response("how do you work")
+
+        if lower in ("resource usage", "my resources", "memory usage"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.resource_report()
+            return "[StructuralAwareness not available]"
+
         # ===== IMPROVEMENTS COMMANDS (NEW) =====
         if lower == "show improvements":
             if self.core and hasattr(self.core, "_cmd_show_improvements"):
@@ -1083,6 +1204,21 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "toggle-llm on                — Enable LLM (use AI)",
             "status, health               — System status",
             "time                         — Current time",
+            "",
+            "=== LIVE UPDATE & UPGRADE ===",
+            "reload <module.name>         — Hot-reload a module without restarting",
+            "upgrade                      — Reload all modules changed on disk",
+            "update-history               — Show recent update/reload history",
+            "",
+            "=== STRUCTURAL SELF-AWARENESS ===",
+            "my structure                 — Full component inventory",
+            "my threads                   — All active Python threads",
+            "my loops                     — Background loop status",
+            "my modules                   — Loaded modules list",
+            "my commands                  — All registered commands",
+            "dashboard                    — Full runtime dashboard",
+            "operational flow             — How my loops and routing work",
+            "resource usage               — RAM, CPU, uptime",
             "",
         ]
         return "\n".join(commands)
