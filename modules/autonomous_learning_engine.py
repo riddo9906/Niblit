@@ -440,12 +440,21 @@ Autonomous Learning Summary:
     # ─────────────────────────────────────────────
     def get_learning_stats(self) -> Dict[str, Any]:
         """Get learning statistics"""
+        uptime = 0
+        start_time_str = self.learning_history.get("start_time") or ""
+        if start_time_str:
+            try:
+                start_dt = datetime.fromisoformat(start_time_str)
+                uptime = int((datetime.utcnow() - start_dt).total_seconds())
+            except Exception:
+                uptime = 0
         return {
             "running": self.running,
             "is_idle": self.is_idle(),
             "stats": self.learning_history,
             "pending_ideas": len(self.pending_ideas),
-            "research_topics": len(self.research_topics)
+            "research_topics": len(self.research_topics),
+            "uptime_seconds": uptime,
         }
 
     # ─────────────────��───────────────────────────
