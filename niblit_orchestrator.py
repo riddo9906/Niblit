@@ -1,8 +1,24 @@
 #!/usr/bin/env python3
+"""
+niblit_orchestrator.py — Niblit Orchestration & Diagnostic Hub
+
+Provides:
+  - Repo audit (via tools/repo_audit.py)
+  - Self-heal (via tools/self_heal_auto.py)
+  - Fix guide generation and execution
+  - Import verification
+  - Full diagnostics (via run_diagnostics.py)
+  - Live command tester (via live_command_tester.py)
+  - HuggingFace task integration
+  - Full diagnostic pipeline that wires all of the above
+
+All functions print output in real-time (streaming) so progress is visible
+during long-running operations.
+"""
 import os
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Repo root
 REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -40,13 +56,51 @@ except Exception as _e:
 
 LOG_FILE = os.path.join(REPO_ROOT, "niblit_orchestrator.log")
 
+
 def log(msg):
-    ts = datetime.utcnow().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
     with open(LOG_FILE, "a") as f:
         f.write(f"[{ts}] {msg}\n")
     print(msg)
 
-# Audit
+
+def _run_subprocess_streaming(label: str, script_path: str, timeout: int = 180) -> int:
+    """
+    Run *script_path* as a subprocess and stream its stdout/stderr to the
+    console (and the orchestrator log) line-by-line in real time.
+
+    Returns the process exit code.
+    """
+    log(f">>> [{label}] Starting: {script_path}")
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            print(line)
+            with open(LOG_FILE, "a") as f:
+                f.write(line + "\n")
+        proc.wait(timeout=timeout)
+        log(f">>> [{label}] Finished with exit code {proc.returncode}")
+        return proc.returncode
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        log(f">>> [{label}] Timed out after {timeout} s")
+        return -1
+    except Exception as exc:
+        log(f">>> [{label}] Error: {exc}")
+        return -1
+
+
+# ─────────────────────────────────────────────────────
+# STEP 1: Repo Audit
+# ─────────────────────────────────────────────────────
+
 def run_audit():
     log("=== Step 1: Repo Audit Started ===")
     if RepoAuditor is None:
@@ -57,7 +111,11 @@ def run_audit():
     log("=== Step 1: Repo Audit Completed ===")
     return report
 
-# Self-Heal
+
+# ─────────────────────────────────────────────────────
+# STEP 2: Self-Heal
+# ─────────────────────────────────────────────────────
+
 def run_self_heal():
     log("=== Step 2: Self-Heal Auto Started ===")
     if self_heal_main is None:
@@ -69,7 +127,11 @@ def run_self_heal():
     except Exception as e:
         log(f"Self-Heal failed: {e}")
 
-# Fix Guide
+
+# ─────────────────────────────────────────────────────
+# STEP 3: Fix Guide
+# ─────────────────────────────────────────────────────
+
 def generate_fix_guide():
     log("=== Step 3: Generating Fix Guide ===")
     if FixGuideGenerator is None or LocalDB is None:
@@ -81,6 +143,7 @@ def generate_fix_guide():
     msg = fg.generate_fix_guide(fix_guide_path)
     log(msg)
     return fix_guide_path
+
 
 def execute_fix_guide(fix_guide_path):
     log("=== Step 4: Executing Fix Guide ===")
@@ -96,7 +159,11 @@ def execute_fix_guide(fix_guide_path):
     else:
         log("Fix Guide not found.")
 
-# Verification
+
+# ─────────────────────────────────────────────────────
+# STEP 5: Verify Imports
+# ─────────────────────────────────────────────────────
+
 def verify_imports():
     log("=== Step 5: Verifying Module Imports ===")
     modules_to_check = [
@@ -125,30 +192,128 @@ def verify_imports():
         "modules.self_teacher",
         "modules.slsa_generator",
         "modules.storage",
-        "modules.terminal_tools"
+        "modules.terminal_tools",
     ]
     success = 0
     fail = 0
     for mod in modules_to_check:
         try:
             __import__(mod)
-            log(f"SUCCESS: Imported {mod}")
+            log(f"  ✓  {mod}")
             success += 1
         except Exception as e:
-            log(f"FAILED: Import {mod}: {e}")
+            log(f"  ✗  {mod}: {e}")
             fail += 1
     log(f"Verification completed: {success} success, {fail} failed.")
+    return success, fail
 
-# -----------------------------
-# Example HF integration point in orchestrator
-# -----------------------------
+
+# ─────────────────────────────────────────────────────
+# STEP 6: Full Diagnostics (run_diagnostics.py)
+# ─────────────────────────────────────────────────────
+
+def run_diagnostics():
+    """
+    Run run_diagnostics.py as a subprocess, streaming all output in real time.
+    Returns the exit code (0 = all clear, non-zero = errors found).
+    """
+    log("=== Step 6: Full Diagnostics Started ===")
+    script = os.path.join(REPO_ROOT, "run_diagnostics.py")
+    if not os.path.exists(script):
+        log(f"run_diagnostics.py not found at {script}, skipping.")
+        return -1
+    rc = _run_subprocess_streaming("Diagnostics", script, timeout=120)
+    log(f"=== Step 6: Full Diagnostics Completed (exit={rc}) ===")
+    return rc
+
+
+# ─────────────────────────────────────────────────────
+# STEP 7: Live Command Tester (live_command_tester.py)
+# ─────────────────────────────────────────────────────
+
+def run_live_test():
+    """
+    Run live_command_tester.py as a subprocess, streaming all output in real
+    time.  Returns the exit code (0 = all passed, non-zero = failures).
+    """
+    log("=== Step 7: Live Command Tester Started ===")
+    script = os.path.join(REPO_ROOT, "live_command_tester.py")
+    if not os.path.exists(script):
+        log(f"live_command_tester.py not found at {script}, skipping.")
+        return -1
+    rc = _run_subprocess_streaming("LiveTest", script, timeout=180)
+    log(f"=== Step 7: Live Command Tester Completed (exit={rc}) ===")
+    return rc
+
+
+# ─────────────────────────────────────────────────────
+# HF Task
+# ─────────────────────────────────────────────────────
+
 def hf_task_example(task_prompt):
     log(f"[HF TASK] Sending prompt: {task_prompt}")
     response = hf_query(task_prompt)
     log(f"[HF TASK] Response: {response}")
     return response
 
+
+# ─────────────────────────────────────────────────────
+# FULL DIAGNOSTIC PIPELINE
+# ─────────────────────────────────────────────────────
+
+def run_full_pipeline():
+    """
+    Execute the complete Niblit orchestration + diagnostic pipeline:
+      1. Repo Audit
+      2. Self-Heal
+      3. Fix Guide generation (+ execution)
+      4. Import Verification
+      5. Full Diagnostics
+      6. Live Command Tester
+
+    Returns a summary dict: {step: exit_code_or_status, ...}
+    """
+    log("╔══════════════════════════════════════════════════╗")
+    log("║         NIBLIT FULL DIAGNOSTIC PIPELINE          ║")
+    log("╚══════════════════════════════════════════════════╝")
+    summary = {}
+
+    run_audit()
+    summary["repo_audit"] = "completed"
+
+    run_self_heal()
+    summary["self_heal"] = "completed"
+
+    fix_guide = generate_fix_guide()
+    execute_fix_guide(fix_guide)
+    summary["fix_guide"] = "completed"
+
+    ok, fail = verify_imports()
+    summary["verify_imports"] = f"{ok} ok / {fail} failed"
+
+    diag_rc = run_diagnostics()
+    summary["diagnostics"] = "ok" if diag_rc == 0 else f"exit={diag_rc}"
+
+    test_rc = run_live_test()
+    summary["live_test"] = "ok" if test_rc == 0 else f"exit={test_rc}"
+
+    # Dynamic column widths
+    w_step = max(len(k) for k in summary) + 2
+    w_status = max(len(str(v)) for v in summary.values()) + 2
+    border = "═" * (w_step + w_status + 6)
+    log(f"╔{border}╗")
+    log(f"║{'  PIPELINE SUMMARY':<{w_step + w_status + 4}}  ║")
+    log(f"╠{border}╣")
+    for step, status in summary.items():
+        log(f"║  {step:<{w_step}} {str(status):<{w_status}}║")
+    log(f"╚{border}╝")
+    return summary
+
+
+# ─────────────────────────────────────────────────────
 # Main
+# ─────────────────────────────────────────────────────
+
 def main():
     log("=== Niblit Orchestrator Started ===")
     run_audit()
@@ -160,7 +325,11 @@ def main():
     fix_guide = generate_fix_guide()
     execute_fix_guide(fix_guide)
     verify_imports()
+
+    run_diagnostics()
+
     log("=== Niblit Orchestrator Completed ===")
+
 
 if __name__ == "__main__":
     main()

@@ -267,6 +267,14 @@ def phase_direct_commands(core, io) -> list:
             "debug off",
             lambda: "Debug mode disabled.",
         ),
+        (
+            "loop-errors",
+            lambda: core.loop_tracer_summary(),
+        ),
+        (
+            "run-diagnostics",
+            lambda: core.handle("run-diagnostics"),
+        ),
     ]
 
     results = []
@@ -585,7 +593,7 @@ def print_full_report(boot_result, direct_results, routed_results,
 
     # ── DIRECT COMMANDS ──
     total_errors += _print_phase(
-        "PHASE 2 — DIRECT COMMANDS  (help / status / memory / self-heal / self-teach / threads)",
+        "PHASE 2 — DIRECT COMMANDS  (help / status / memory / self-heal / loop-errors / diagnostics)",
         direct_results,
     )
 

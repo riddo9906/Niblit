@@ -1161,6 +1161,16 @@ class NiblitCore:
                 "Run pipeline", "orchestrator", priority=70
             )
 
+        # Diagnostic / tester commands
+        self.command_registry.register(
+            "run-diagnostics", self._cmd_run_diagnostics,
+            "Run niblit diagnostic suite", "diagnostics", priority=65
+        )
+        self.command_registry.register(
+            "run-live-test", self._cmd_run_live_test,
+            "Run live command tester", "diagnostics", priority=65
+        )
+
     # ============================
     # AUTONOMOUS LEARNING COMMANDS
     # ============================
@@ -1417,6 +1427,58 @@ Uptime: {stats['uptime_seconds']}s
         except Exception as e:
             log.error(f"Summary failed: {e}")
             return f"[Summary failed: {e}]"
+
+    def _cmd_run_diagnostics(self, text: str) -> str:
+        """
+        Run the full niblit diagnostic suite (run_diagnostics.py) and return
+        its output as a string so it can be displayed inline during a session.
+        """
+        import subprocess
+        import sys
+        script = os.path.join(BASE_DIR, "run_diagnostics.py")
+        try:
+            log.info("[DIAGNOSTICS] Running run_diagnostics.py ...")
+            result = subprocess.run(
+                [sys.executable, script],
+                capture_output=True, text=True, timeout=120,
+                cwd=BASE_DIR,
+            )
+            output = result.stdout or ""
+            if result.stderr:
+                output += "\n[STDERR]\n" + result.stderr
+            log.info(f"[DIAGNOSTICS] Exited with code {result.returncode}")
+            return output.strip() or "[Diagnostics produced no output]"
+        except subprocess.TimeoutExpired:
+            return "[DIAGNOSTICS] Timed out after 120 s"
+        except Exception as e:
+            log.error(f"[DIAGNOSTICS] Failed: {e}")
+            return f"[DIAGNOSTICS] Failed: {e}"
+
+    def _cmd_run_live_test(self, text: str) -> str:
+        """
+        Run the live command tester (live_command_tester.py) and return its
+        output inline so results can be inspected without leaving the REPL.
+        """
+        import subprocess
+        import sys
+        script = os.path.join(BASE_DIR, "live_command_tester.py")
+        try:
+            log.info("[LIVE-TEST] Running live_command_tester.py ...")
+            result = subprocess.run(
+                [sys.executable, script],
+                capture_output=True, text=True, timeout=180,
+                cwd=BASE_DIR,
+            )
+            output = result.stdout or ""
+            if result.stderr:
+                output += "\n[STDERR]\n" + result.stderr
+            log.info(f"[LIVE-TEST] Exited with code {result.returncode}")
+            return output.strip() or "[Live-test produced no output]"
+        except subprocess.TimeoutExpired:
+            return "[LIVE-TEST] Timed out after 180 s"
+        except Exception as e:
+            log.error(f"[LIVE-TEST] Failed: {e}")
+            return f"[LIVE-TEST] Failed: {e}"
 
     # ============================
     # CORE INITIALIZATION (unchanged)
@@ -2435,6 +2497,21 @@ Uptime: {stats['uptime_seconds']}s
             log.debug("[HF-CMD] Intercepted")
             task_prompt = text[8:].strip()
             return self._hf_task(task_prompt)
+
+        # ============================
+        # LAYER 4b: DIAGNOSTIC / TESTER COMMANDS
+        # ============================
+        if ltext.startswith("run-diagnostics"):
+            log.debug("[DIAG-CMD] Intercepted: run-diagnostics")
+            return self._cmd_run_diagnostics(text)
+
+        if ltext.startswith("run-live-test"):
+            log.debug("[LIVE-TEST-CMD] Intercepted: run-live-test")
+            return self._cmd_run_live_test(text)
+
+        if ltext.startswith("loop-errors"):
+            log.debug("[DIAG-CMD] Intercepted: loop-errors")
+            return self.loop_tracer_summary()
         
         # ============================
         # LAYER 5: SYSTEM STATUS COMMANDS
@@ -2607,7 +2684,11 @@ Uptime: {stats['uptime_seconds']}s
             "restart_slsa [topics]    — Restart SLSA\n"
             "\n--- SETTINGS ---\n"
             "toggle-llm on/off        — Enable/disable LLM\n"
-            "shutdown                 — Graceful shutdown"
+            "shutdown                 — Graceful shutdown\n"
+            "\n--- DIAGNOSTICS ---\n"
+            "run-diagnostics          — Run full niblit diagnostic suite\n"
+            "run-live-test            — Run live command tester\n"
+            "loop-errors              — Show background loop error summary"
         )
 
         if self.orchestrator_available:
