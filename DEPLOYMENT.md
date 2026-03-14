@@ -1,188 +1,118 @@
-# Niblit – Vercel Deployment Guide
+# Niblit — Vercel Deployment Guide
 
-Deploy the Niblit AI web application to [Vercel](https://vercel.com) in a few minutes.
+This guide explains how to deploy Niblit to [Vercel](https://vercel.com) as a serverless web application.
 
 ---
 
 ## Prerequisites
 
-- A [Vercel account](https://vercel.com/signup) (free tier works)
-- A [Hugging Face account](https://huggingface.co/join) with an API token
-- Your Niblit repository forked or connected to Vercel
+- A [Vercel account](https://vercel.com/signup) (free tier is sufficient)
+- The Niblit repository forked or accessible on GitHub
+- A [Hugging Face](https://huggingface.co) account with an API token
 
 ---
 
-## Quick Deploy
+## Step 1 — Set Up Environment Variables
 
-### 1. Fork / clone the repository
+Niblit requires the following environment variables to run in production.
 
-```bash
-git clone https://github.com/riddo9906/Niblit.git
-cd Niblit
-```
+| Variable | Required | Description |
+|---|---|---|
+| `HF_TOKEN` | **Yes** | Hugging Face API token for LLM inference |
+| `NIBLIT_API_KEY` | No | Optional API key that protects `/chat` and `/memory` endpoints |
 
-### 2. Install the Vercel CLI (optional but recommended)
-
-```bash
-npm install -g vercel
-```
-
-### 3. Configure environment variables
-
-Copy the example file and fill in your values:
+Copy `.env.example` to `.env` for local development:
 
 ```bash
 cp .env.example .env
+# Edit .env and fill in your values
 ```
 
-Edit `.env`:
+On Vercel, set these variables via **Project → Settings → Environment Variables**.
 
-| Variable | Description | Required |
+---
+
+## Step 2 — Connect Repository to Vercel
+
+1. Log in to the [Vercel Dashboard](https://vercel.com/dashboard).
+2. Click **Add New Project**.
+3. Import your GitHub repository (your fork of Niblit, e.g. `your-username/Niblit`).
+4. Vercel will detect the `vercel.json` configuration automatically.
+5. Before clicking **Deploy**, add the required environment variables (see Step 1).
+6. Click **Deploy**.
+
+---
+
+## Step 3 — Verify the Deployment
+
+Once deployed, visit your Vercel URL and check the following endpoints:
+
+| Endpoint | Method | Expected Response |
 |---|---|---|
-| `HF_TOKEN` | Hugging Face API token (read access is enough) | ✅ Yes |
-| `SECRET_KEY` | Random secret key for Flask sessions | ✅ Yes |
-| `FLASK_ENV` | Set to `production` for Vercel | ✅ Yes |
-| `NIBLIT_NAME` | Custom AI name (default: `Niblit`) | No |
-| `NIBLIT_MOOD` | Default personality mood | No |
+| `/` | GET | Niblit Dashboard UI |
+| `/ping` | GET | `{"status": "ok", ...}` |
+| `/chat` | POST | `{"reply": "..."}` |
+| `/memory` | GET | `{"facts": [...]}` |
 
-Generate a secure `SECRET_KEY`:
+### Quick health check
 
 ```bash
-python -c "import secrets; print(secrets.token_hex(32))"
+curl https://<your-vercel-url>/ping
 ```
 
 ---
 
-## Deploying to Vercel
+## Step 4 — Cold Starts
 
-### Option A – Vercel Dashboard (recommended for first deploy)
+Vercel serverless functions may experience a cold start on the first request after a period of inactivity. Niblit handles this gracefully:
 
-1. Go to [vercel.com/new](https://vercel.com/new)
-2. Import your GitHub repository
-3. Vercel will auto-detect the Python project via `vercel.json`
-4. Under **Environment Variables**, add each variable from `.env.example`
-5. Click **Deploy**
-
-### Option B – Vercel CLI
-
-```bash
-vercel login
-vercel --prod
-```
-
-Follow the prompts. When asked about environment variables, set them in the
-Vercel dashboard at **Project → Settings → Environment Variables** or pass
-them with:
-
-```bash
-vercel env add HF_TOKEN
-vercel env add SECRET_KEY
-vercel env add FLASK_ENV
-```
+- `NiblitCore` is loaded lazily on first request, not at import time.
+- If `NiblitCore` fails to initialise, endpoints return structured error responses instead of crashing.
+- The `/ping` endpoint is safe to use as a warm-up probe.
 
 ---
 
-## Vercel Configuration Reference
+## Troubleshooting
 
-`vercel.json` settings used in this project:
+### `{"error": "core failed"}` on `/chat`
 
-| Setting | Value | Purpose |
-|---|---|---|
-| `maxLambdaSize` | `50mb` | Allows large ML dependencies |
-| `memory` | `1024 MB` | Enough RAM for NiblitCore |
-| `maxDuration` | `30 s` | Prevents timeouts on first chat request |
-| `FLASK_ENV` | `production` | Disables debug mode |
+The `NiblitCore` failed to initialise. Check:
+- That `HF_TOKEN` is set correctly in the Vercel environment variables.
+- Vercel function logs under **Project → Deployments → Functions → Logs**.
 
----
+### `{"error": "unauthorized"}` on `/chat` or `/memory`
 
-## Available Endpoints
-
-| Endpoint | Method | Description |
-|---|---|---|
-| `/` | GET | Web dashboard UI |
-| `/health` | GET | Lightweight health check (no AI init) |
-| `/ping` | GET | Status + personality data |
-| `/chat` | POST | Send a message, receive a reply |
-| `/memory` | GET | List stored facts |
-
-### `/chat` example
+`NIBLIT_API_KEY` is set but the request did not include the `X-API-Key` header.
+Either unset the variable or add the header to your request:
 
 ```bash
-curl -X POST https://your-app.vercel.app/chat \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hello Niblit!"}'
+curl -H "X-API-Key: <your-key>" https://<your-vercel-url>/chat \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"text": "hello"}'
 ```
 
-Response:
+### `{"error": "rate limit reached"}`
 
-```json
-{"reply": "Hello! How can I help you?"}
-```
+The simple in-memory rate limiter allows 10 requests per 60 seconds per IP. Reduce request frequency or increase `RATE_LIMIT` / `RATE_WINDOW` in `app.py` if needed.
+
+### Build size exceeds 50 MB
+
+Ensure unnecessary large files are excluded via `.vercelignore`. The project already excludes `*_full.py`, database files, and logs by default.
 
 ---
 
 ## Local Development
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Start the dev server
-python server.py
-# → http://localhost:5000
+cp .env.example .env   # fill in values
+python app.py
+# Open http://localhost:5000
 ```
 
-Or with gunicorn (mirrors the production WSGI server):
+To simulate the Vercel environment locally, install the Vercel CLI:
 
 ```bash
-gunicorn server:app --bind 0.0.0.0:5000
+npm i -g vercel
+vercel dev
 ```
-
----
-
-## Troubleshooting
-
-### "Function timeout" on first request
-
-The NiblitCore engine initializes lazily (on first request) to avoid
-increasing cold-start time. The `maxDuration` is set to 30 seconds to
-accommodate this. If your AI model is large, consider:
-- Reducing model complexity in `niblit_core.py`
-- Using a lighter Hugging Face model
-
-### "Module not found" errors
-
-Make sure all dependencies are listed in `requirements.txt`. Vercel installs
-them automatically during the build phase.
-
-### Environment variable not found
-
-Verify the variable is set in **Vercel → Project → Settings → Environment
-Variables** and that you selected the correct environment (Production,
-Preview, or Development).
-
-### 413 / payload too large
-
-Vercel's default request size limit is 4.5 MB. Keep chat messages concise.
-
----
-
-## Monitoring
-
-- **Vercel dashboard** → Deployments → Logs (real-time function logs)
-- **Health check**: `GET /health` returns `{"status": "ok", "service": "niblit"}`
-- Use an external monitor (e.g., [UptimeRobot](https://uptimerobot.com)) to
-  hit `/health` every minute and alert on failures.
-
----
-
-## CI/CD
-
-A GitHub Actions workflow (`.github/workflows/deploy.yml`) validates every
-push to `main`:
-
-1. Installs dependencies
-2. Runs a syntax check on `server.py`
-3. Verifies `vercel.json` is valid JSON
-
-On success, Vercel's own GitHub integration automatically deploys the branch.

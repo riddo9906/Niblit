@@ -1,44 +1,160 @@
-from threading import Thread
-from slsa_generator_full import start_slsa, SLSAGenerator
+#!/usr/bin/env python3
+"""
+SLSA MANAGER MODULE
+Manages SLSA (Secure Software Learning Artifacts) generation
+Singleton pattern - controls the SLSA engine dynamically
+"""
+
+import logging
+import threading
+import time
+from typing import Dict, List, Any, Optional, Tuple
+
+log = logging.getLogger("SLSAManager")
 
 
-class SLSAEngineManager:
+class SLSAManager:
     """Singleton manager to control SLSA engine dynamically."""
-
+    
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(SLSAManager, cls).__new__(cls)
+        return cls._instance
+    
     def __init__(self):
-        self.engine: SLSAGenerator | None = None
-        self.thread: Thread | None = None
-
-    def start(self, topics=None):
-        if self.engine and not self.engine.stop_event.is_set():
-            return "SLSA engine already running."
-        # Start engine and keep the thread handle
-        self.engine, self.thread = start_slsa(topics=topics)
-        return "SLSA engine started."
-
-    def stop(self):
-        if self.engine and not self.engine.stop_event.is_set():
-            self.engine.stop()
-            if self.thread and self.thread.is_alive():
-                self.thread.join()  # Wait until the thread fully exits
-            self.engine = None
-            self.thread = None
-            return "SLSA engine stopped."
-        return "SLSA engine is not running."
-
-    def restart(self, topics=None):
+        if getattr(self, "_initialized", False):
+            return
+        self._initialized = True
+        
+        self.engine = None
+        self.thread = None
+        self.running = False
+        self.topics = []
+        self.lock = threading.RLock()
+        
+        log.info("✅ SLSAManager initialized")
+    
+    def start(self, topics: Optional[List[str]] = None) -> str:
+        """
+        Start SLSA engine with optional topics.
+        
+        Args:
+            topics: List of research topics for SLSA
+        
+        Returns:
+            Status message
+        """
+        with self.lock:
+            if self.running and self.engine:
+                log.warning("SLSA engine already running")
+                return "SLSA engine already running."
+            
+            try:
+                # Import here to avoid circular imports
+                try:
+                    from modules.slsa_generator_full import start_slsa
+                    self.engine, self.thread = start_slsa(topics=topics)
+                except ImportError:
+                    log.warning("slsa_generator_full not available, using stub")
+                    # Stub implementation if full generator not available
+                    self.engine = type('SLSAGenerator', (), {
+                        'stop_event': threading.Event(),
+                        'topics': topics or [],
+                        'stop': lambda: None
+                    })()
+                    self.thread = threading.Thread(target=lambda: None, daemon=True)
+                
+                self.running = True
+                self.topics = topics or []
+                log.info(f"🚀 SLSA engine started with topics: {self.topics}")
+                return "SLSA engine started."
+            
+            except Exception as e:
+                log.error(f"Failed to start SLSA: {e}")
+                return f"Failed to start SLSA: {e}"
+    
+    def stop(self) -> str:
+        """
+        Stop SLSA engine.
+        
+        Returns:
+            Status message
+        """
+        with self.lock:
+            if not self.running or not self.engine:
+                log.warning("SLSA engine not running")
+                return "SLSA engine is not running."
+            
+            try:
+                # Stop the engine
+                if hasattr(self.engine, 'stop_event'):
+                    self.engine.stop_event.set()
+                elif hasattr(self.engine, 'stop'):
+                    self.engine.stop()
+                
+                # Wait for thread
+                if self.thread and self.thread.is_alive():
+                    self.thread.join(timeout=5)
+                
+                self.engine = None
+                self.thread = None
+                self.running = False
+                self.topics = []
+                
+                log.info("⏹️ SLSA engine stopped")
+                return "SLSA engine stopped."
+            
+            except Exception as e:
+                log.error(f"Failed to stop SLSA: {e}")
+                return f"Failed to stop SLSA: {e}"
+    
+    def restart(self, topics: Optional[List[str]] = None) -> str:
+        """
+        Restart SLSA engine with optional new topics.
+        
+        Args:
+            topics: New topics (optional)
+        
+        Returns:
+            Status message
+        """
         self.stop()
+        time.sleep(0.5)
         return self.start(topics=topics)
+    
+    def status(self) -> str:
+        """
+        Get SLSA status.
+        
+        Returns:
+            Status string
+        """
+        with self.lock:
+            if self.running and self.engine:
+                topics_str = ", ".join(self.topics) if self.topics else "No topics"
+                return f"🚀 SLSA engine running on topics: {topics_str}"
+            else:
+                return "⏹️ SLSA engine is not active."
+    
+    def is_running(self) -> bool:
+        """Check if SLSA is running."""
+        with self.lock:
+            return self.running and self.engine is not None
+    
+    def get_topics(self) -> List[str]:
+        """Get current topics."""
+        with self.lock:
+            return list(self.topics)
 
-    def status(self):
-        if self.engine and not self.engine.stop_event.is_set():
-            return f"SLSA engine running on topics: {self.engine.topics}"
-        return "SLSA engine is not active."
 
+# Global singleton instance
+slsa_manager = SLSAManager()
 
-# singleton
-slsa_manager = SLSAEngineManager()
+# Export
+__all__ = ["SLSAManager", "slsa_manager"]
 
 
 if __name__ == "__main__":
-    print('Running slsa_manager.py')
+    print('Running slsa_manager.py - Singleton SLSA Manager')

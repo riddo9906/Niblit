@@ -6,40 +6,14 @@ __pycache__/
 
 # Test files
 tests/
-test_*.py
-
-# Log files
 *.log
-niblit_*.log
+*.db
+*.jsonl
+*.key
 chat_logs/
-
-# Database files (runtime data, not needed for deployment)
-niblit.db
-niblit_memory.db
-local_llm.db
-
-# Runtime state files
-niblit_state.json
+# Accidentally committed file (git command fragment left in repo root)
+h -u origin main
 niblit_audit_report.json
-events.jsonl
-
-# Development and debug files
+niblit_state.json
 Fix_Guide.txt
-hf_test.py
-workspace_init.py
 *_full.py
-niblit_orphan_fix.log
-niblit_self_heal.log
-
-# Environment files
-.env
-.env.local
-
-# Vercel metadata
-.vercel
-
-# Editor and OS files
-.DS_Store
-*.swp
-*.swo
-Thumbs.db

@@ -116,6 +116,7 @@ class RepoAuditor:
         self.circular_imports = []
         self.orphaned_modules = []
         self.file_errors = defaultdict(list)
+        self.script_inventory: List[Dict[str, Any]] = []
         self.json_report_path = os.path.join(self.base_dir, "niblit_audit_report.json")
 
         # ─────── IMPROVEMENTS INITIALIZATION ───────
@@ -414,6 +415,7 @@ class RepoAuditor:
             self.detect_outdated_scripts()
             self.detect_missing_modules()
             self.detect_orphaned_modules()
+            self.audit_scripts()
 
             elapsed = time.time() - start_time
             self.metrics["audit_time"] = elapsed
@@ -468,6 +470,10 @@ class RepoAuditor:
                 print(f"  {i}")
 
             print(f"\n=== Audit Complete (took {elapsed:.2f}s) ===")
+
+            # Stream summary lines
+            for line in self.get_summary_lines():
+                print(line)
             
             if self.telemetry:
                 self.telemetry.increment_counter("audit_complete")
@@ -479,6 +485,137 @@ class RepoAuditor:
             if self.telemetry:
                 self.telemetry.increment_counter("audit_failed")
             return {}
+
+    def audit_scripts(self) -> Dict[str, Any]:
+        """
+        Probe every root-level Python script for importability and record
+        whether it has a ``__main__`` guard.
+
+        Populates ``self.script_inventory`` — a list of dicts:
+            {
+                "file":       str,   # relative path from base_dir
+                "importable": bool,
+                "has_main":   bool,
+                "error":      str | None,  # import error message if any
+            }
+
+        Returns the same list.
+        """
+        import importlib.util as _ilu
+        import ast as _ast
+        base = self.base_dir
+        root_scripts = [
+            f for f in os.listdir(base)
+            if f.endswith(".py") and os.path.isfile(os.path.join(base, f))
+        ]
+        inventory = []
+        for fname in sorted(root_scripts):
+            fpath = os.path.join(base, fname)
+            rel = os.path.relpath(fpath, base)
+            entry: Dict[str, Any] = {
+                "file": rel,
+                "importable": False,
+                "has_main": False,
+                "error": None,
+            }
+            # Use AST to reliably detect `if __name__ == "__main__":` guard
+            try:
+                with open(fpath, encoding="utf-8", errors="replace") as fh:
+                    src = fh.read()
+                try:
+                    tree = _ast.parse(src, filename=fpath)
+                    for node in _ast.walk(tree):
+                        if isinstance(node, _ast.If):
+                            test = node.test
+                            # Match: __name__ == "__main__" or "__main__" == __name__
+                            if isinstance(test, _ast.Compare):
+                                left = test.left
+                                ops = test.ops
+                                comps = test.comparators
+                                if (
+                                    len(ops) == 1
+                                    and isinstance(ops[0], _ast.Eq)
+                                    and len(comps) == 1
+                                ):
+                                    name_node = left
+                                    val_node = comps[0]
+                                    # handle either order
+                                    for a, b in [(name_node, val_node), (val_node, name_node)]:
+                                        if (
+                                            isinstance(a, _ast.Name)
+                                            and a.id == "__name__"
+                                            and isinstance(b, _ast.Constant)
+                                            and b.value == "__main__"
+                                        ):
+                                            entry["has_main"] = True
+                except SyntaxError:
+                    # Fall back to string search for unparseable files
+                    entry["has_main"] = (
+                        '__name__ == "__main__"' in src
+                        or "__name__ == '__main__'" in src
+                    )
+            except Exception as exc:
+                entry["error"] = f"read error: {exc}"
+                inventory.append(entry)
+                continue
+            # Try to load the module spec (doesn't execute the module)
+            try:
+                spec = _ilu.spec_from_file_location(fname[:-3], fpath)
+                if spec is not None:
+                    entry["importable"] = True
+                else:
+                    entry["error"] = "spec_from_file_location returned None"
+            except Exception as exc:
+                entry["error"] = str(exc)
+            inventory.append(entry)
+
+        self.script_inventory = inventory
+
+        # Print real-time output
+        print("\n-- Script Inventory (root-level .py files) --")
+        ok_count = sum(1 for e in inventory if e["importable"])
+        print(f"  {len(inventory)} scripts found, {ok_count} importable")
+        for entry in inventory:
+            icon = "✓" if entry["importable"] else "✗"
+            main_tag = "[__main__]" if entry["has_main"] else ""
+            err_tag = f"  ERROR: {entry['error']}" if entry["error"] else ""
+            print(f"  {icon}  {entry['file']} {main_tag}{err_tag}")
+
+        if self.telemetry:
+            try:
+                self.telemetry.increment_counter("script_inventory_complete")
+            except Exception:
+                pass
+        return inventory
+
+    def get_summary_lines(self) -> List[str]:
+        """
+        Return a compact list of human-readable summary lines that can be
+        iterated and streamed to any output (console, log file, API response).
+
+        Useful for the orchestrator and niblit_core commands that want to
+        capture audit output without re-running the full audit.
+        """
+        lines = ["=== RepoAuditor Summary ==="]
+        lines.append(f"  Python files scanned : {len(self.py_files)}")
+        lines.append(f"  Circular imports     : {len(self.circular_imports)}")
+        lines.append(f"  Scripts w/o __main__ : {len(self.scripts_without_main)}")
+        lines.append(f"  Outdated scripts     : {len(self.outdated_scripts)}")
+        lines.append(f"  Missing modules      : {len(self.missing_modules)}")
+        lines.append(f"  Orphaned modules     : {len(self.orphaned_modules)}")
+        lines.append(f"  File errors          : {len(self.file_errors)}")
+        audit_time = self.metrics.get("audit_time", 0)
+        lines.append(f"  Audit time           : {audit_time:.2f}s")
+        if self.circular_imports:
+            lines.append("  [!] Circular imports:")
+            for c in self.circular_imports:
+                lines.append(f"        {c}")
+        if self.missing_modules:
+            lines.append("  [!] Missing modules:")
+            for m in sorted(self.missing_modules):
+                lines.append(f"        {m}")
+        lines.append("=== End Summary ===")
+        return lines
 
     def get_stats(self) -> Dict[str, Any]:
         """Get audit statistics."""
