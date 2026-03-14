@@ -1268,7 +1268,7 @@ Uptime: {stats['uptime_seconds']}s
   Improvement Runs: {stats['stats']['slsa_runs']}
   Learning Rate: {stats['stats']['learning_rate']:.4f} cycles/hour
 
-📚 Active Topics: {len(stats['research_topics'])}
+📚 Active Topics: {stats['research_topics']}
 💡 Pending Ideas: {stats['pending_ideas']}
 """
         return result.strip()

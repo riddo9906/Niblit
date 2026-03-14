@@ -190,17 +190,6 @@ def run_shell(core, io):
                 io.out(resp)
                 continue
 
-            # ROUTER FALLBACK
-            if core.router:
-                try:
-                    debug(io, "ROUTER FALLBACK EXECUTING")
-                    resp = core.router.process(user_input)
-                    if resp:
-                        io.out(resp)
-                        continue
-                except Exception as e:
-                    io.error(f"[ROUTER ERROR] {e}")
-
             # FINAL TRACE
             debug(io, "Passing to core.handle()")
             response = core.handle(user_input)
