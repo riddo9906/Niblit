@@ -2,3 +2,14 @@ __pycache__/
 *.pyc
 *.pkl
 tests/
+*.log
+*.db
+*.jsonl
+*.key
+chat_logs/
+# Accidentally committed file (git command fragment left in repo root)
+h -u origin main
+niblit_audit_report.json
+niblit_state.json
+Fix_Guide.txt
+*_full.py
