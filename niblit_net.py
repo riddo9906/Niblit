@@ -13,4 +13,15 @@ def learn_from_data(text):
 
 
 if __name__ == "__main__":
-    print('Running niblit_net.py')
+    import sys
+    print("=== niblit_net self-test ===")
+    # Test learn_from_data locally (no network required)
+    result = learn_from_data("The quick brown fox jumps over the lazy dog")
+    print(f"learn_from_data summary: {result['summary']!r}")
+    # Attempt a real fetch only if a URL is passed as argument
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
+        print(f"Fetching {url} ...")
+        data = fetch_data(url)
+        print(data[:200])
+    print("niblit_net OK")

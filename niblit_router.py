@@ -1089,4 +1089,39 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
 
 
 if __name__ == "__main__":
-    print("Running fully enhanced niblit_router.py with self-awareness")
+    import sys, os, logging
+    logging.basicConfig(level=logging.WARNING)
+    print("=== NiblitRouter standalone shell ===")
+    print("Type 'help' for commands, 'exit' to quit.\n")
+    try:
+        from niblit_memory import MemoryManager
+        from niblit_brain import NiblitBrain
+        _mem = MemoryManager()
+        _brain = NiblitBrain(_mem)
+    except Exception as _e:
+        print(f"[WARN] Brain/memory unavailable ({_e}), router running in reduced mode.")
+        _mem = None
+        _brain = None
+
+    router = NiblitRouter(brain=_brain, memory=_mem)
+
+    while True:
+        try:
+            user_input = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nBye.")
+            break
+        if not user_input:
+            continue
+        if user_input.lower() in ("exit", "quit"):
+            print("Bye.")
+            break
+        try:
+            response = router.process(user_input)
+            if isinstance(response, dict):
+                import json
+                print("Niblit:", json.dumps(response, indent=2, default=str))
+            else:
+                print("Niblit:", response)
+        except Exception as e:
+            print(f"[ERROR] {e}")

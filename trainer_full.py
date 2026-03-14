@@ -29,4 +29,14 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    print('Running trainer_full.py')
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== Trainer self-test ===")
+    t = Trainer()
+    interactions = [
+        {"input": "hello", "response": "hi"},
+        {"input": "what time is it?", "response": "Now."},
+    ]
+    t.step_if_needed(interactions)
+    print(f"Trainer steps completed: {t.steps}")
+    print("Trainer OK")

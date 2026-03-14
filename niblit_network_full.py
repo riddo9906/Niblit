@@ -22,4 +22,11 @@ class NiblitNetwork:
         log.info("Network module shutdown")
 
 if __name__ == "__main__":
-    print('Running niblit_network_full.py')
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== NiblitNetwork self-test ===")
+    net = NiblitNetwork()
+    weather = net.get_weather()
+    print(f"Weather: {weather}")
+    net.shutdown()
+    print("NiblitNetwork OK")

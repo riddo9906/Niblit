@@ -125,4 +125,12 @@ class Collector:
 
 
 if __name__ == "__main__":
-    print("Running collector_full.py")
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== Collector self-test ===")
+    c = Collector()
+    c.capture("Hello world", "Hi there!", source="self-test")
+    c.capture("What is AI?", "AI is artificial intelligence.", source="research")
+    print(f"Buffer size: {len(c.buffer)}")
+    print(f"Last entry: {c.buffer[-1]['input']!r}")
+    print("Collector OK")

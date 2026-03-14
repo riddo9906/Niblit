@@ -200,4 +200,25 @@ class niblitcore:
         log.info("Niblit Core shutdown complete.")
 
 if __name__ == "__main__":
-    print('Running niblit_core_refactor_full.py')
+    import logging
+    logging.basicConfig(level=logging.WARNING, format="[%(levelname)s] %(message)s")
+    print("=== Niblit Core Refactor — interactive shell ===")
+    print("Type 'status' for system info, 'time', 'weather', 'remember key: value',")
+    print("or any message. 'exit' to quit.\n")
+    core = niblitcore()
+    while core.running:
+        try:
+            user = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nBye.")
+            break
+        if not user:
+            continue
+        if user.lower() in ("exit", "quit", "shutdown"):
+            core.shutdown()
+            break
+        try:
+            resp = core.respond(user)
+            print(f"Niblit: {resp}")
+        except Exception as e:
+            print(f"[ERROR] {e}")

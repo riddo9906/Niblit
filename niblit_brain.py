@@ -676,4 +676,18 @@ def hf_query(prompt: str, memory=None, llm_enabled=True):
 
 
 if __name__ == "__main__":
-    pass
+    import logging
+    logging.basicConfig(level=logging.WARNING)
+    print("=== NiblitBrain self-test ===")
+    try:
+        from niblit_memory import MemoryManager
+        mem = MemoryManager()
+    except Exception as e:
+        print(f"[WARN] Memory unavailable ({e}), using None.")
+        mem = None
+    brain = NiblitBrain(mem, llm_enabled=False)
+    response = brain.think("What is 2 + 2?")
+    print(f"Brain response: {response!r}")
+    stats = brain.get_stats()
+    print(f"Brain stats: {stats}")
+    print("NiblitBrain OK")

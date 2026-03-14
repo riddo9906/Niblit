@@ -17,4 +17,10 @@ class NiblitVoice:
             log.debug(f"[Voice Error] {e}")
 
 if __name__ == "__main__":
-    print('Running niblit_voice_full.py')
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== NiblitVoice self-test ===")
+    v = NiblitVoice()
+    v.speak("Hello, I am Niblit.")
+    v.speak("Voice module is operational.")
+    print("NiblitVoice OK")

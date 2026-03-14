@@ -9,4 +9,9 @@ class Membrane:
         log.info("[Membrane] Device abstraction initialized")
 
 if __name__ == "__main__":
-    print('Running membrane_full.py')
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== Membrane self-test ===")
+    m = Membrane()
+    print(f"Membrane instance: {m}")
+    print("Membrane OK")

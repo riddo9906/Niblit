@@ -11,4 +11,10 @@ class Generator:
         return result
 
 if __name__ == "__main__":
-    print('Running generator_full.py')
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== Generator self-test ===")
+    g = Generator()
+    out = g.generate_text("Tell me about Python")
+    print(f"Output: {out}")
+    print("Generator OK")

@@ -155,4 +155,29 @@ Self-Learning Neural Runtime • Modular • Expandable • Device-Adaptive
 
 
 if __name__ == "__main__":
-    print('Running orchestrator.py')
+    import sys
+    print("=== Niblit Orchestrator (NiblitOS v5.1) ===")
+    tokens = load_tokens()
+    hf_ok = bool(tokens.get("HF_TOKEN"))
+    print(f"HF token present: {hf_ok}")
+    print("Booting NiblitRouter via orchestrator...")
+    router = boot()
+    print(f"Router ready: {router.__class__.__name__}")
+    print("\nType a message, 'help' for commands, or 'exit' to quit.\n")
+    while True:
+        try:
+            user = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nBye.")
+            break
+        if not user:
+            continue
+        response = router.handle(user)
+        if response == "exit":
+            print("Bye.")
+            break
+        if isinstance(response, dict):
+            import json as _json
+            print("Niblit:", _json.dumps(response, indent=2, default=str))
+        else:
+            print("Niblit:", response)
