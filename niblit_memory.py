@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-niblit_memory.py — Unified MemoryManager with global singleton & enhanced features
+niblit_memory.py — Unified NiblitMemory (MemoryManager) with global singleton & enhanced features
 
 Production Enhancements:
 1. Circuit breakers for fault tolerance
@@ -81,7 +81,7 @@ def _get_loop_tracer():
     return _loop_tracer
 
 
-class MemoryManager:
+class NiblitMemory:
     """
     Unified memory management system with singleton pattern and persistent storage.
     
@@ -105,7 +105,7 @@ class MemoryManager:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(MemoryManager, cls).__new__(cls)
+                    cls._instance = super(NiblitMemory, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, filename=None, autosave_interval=60, dump_interval=300):
@@ -591,8 +591,8 @@ class MemoryManager:
 # ─────────────────────────────
 # GLOBAL SINGLETON
 # ─────────────────────────────
-GLOBAL_MEMORY = MemoryManager()
-NiblitMemory = MemoryManager
+MemoryManager = NiblitMemory  # backward-compatibility alias for existing imports
+GLOBAL_MEMORY = NiblitMemory()
 
 
 # ─────────────────────────────
