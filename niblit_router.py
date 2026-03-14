@@ -753,8 +753,8 @@ Ask me about:
             return "🚀 Autonomous learning started ✅" if result else "ℹ️ Already running"
 
         if action in ("stop", "off"):
-            engine.stop()
-            return "⏹️ Autonomous learning stopped ✅"
+            result = engine.stop()
+            return "⏹️ Autonomous learning stopped ✅" if result else "ℹ️ Engine was not running"
 
         if action == "code-status":
             stats = engine.get_learning_stats()
@@ -769,7 +769,7 @@ Ask me about:
                 f"  Software Studied : {s.get('software_studied', 0)}\n"
                 f"  Last Language    : {s.get('last_language_studied', 'none')}\n"
                 f"  Last Category    : {s.get('last_software_category', 'none')}\n"
-                f"  internet wired   : {'✅' if mods.get('internet') else '❌'}\n"
+                f"  internet         : {'✅' if mods.get('internet') else '❌'}\n"
                 f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}\n"
                 f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}\n"
                 f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}\n"
@@ -801,10 +801,10 @@ Ask me about:
                 f"  Code Reflected   : {s.get('code_reflected', 0)}\n"
                 f"  Software Studied : {s.get('software_studied', 0)}\n"
                 "\n🔌 Modules:\n"
-                f"  internet={mods.get('internet', False)} "
-                f"code_gen={mods.get('code_generator', False)} "
-                f"compiler={mods.get('code_compiler', False)} "
-                f"studier={mods.get('software_studier', False)}\n"
+                f"  internet         : {'✅' if mods.get('internet') else '❌'}\n"
+                f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}\n"
+                f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}\n"
+                f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}\n"
                 f"\nPending Ideas: {stats.get('pending_ideas', 0)} | "
                 f"Topics: {stats.get('research_topics', 0)}"
             )

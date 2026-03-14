@@ -498,10 +498,18 @@ Autonomous Learning Summary:
                     text = r.get("text", str(r)) if isinstance(r, dict) else str(r)
                     if text and len(text) > 30:
                         snippets.append(text[:300])
-                        # Feed each snippet into CodeGenerator's knowledge store
-                        if code_gen and hasattr(code_gen, "_store"):
-                            code_gen._store(lang, "internet_research", text[:500],  # pylint: disable=protected-access
-                                            f"{lang}_{topic}_{int(time.time())}")
+                        # Feed each internet snippet into the knowledge DB so CodeGenerator
+                        # can draw on it when generating code (use db directly to avoid
+                        # touching CodeGenerator internals).
+                        if self.knowledge_db:
+                            try:
+                                self.knowledge_db.add_fact(
+                                    f"ale_internet_code:{lang}:{topic}:{int(time.time())}",
+                                    text[:500],
+                                    tags=["code", "internet", lang],
+                                )
+                            except Exception:
+                                pass
             except Exception as exc:
                 log.debug(f"Internet code research failed: {exc}")
 
@@ -643,7 +651,8 @@ Autonomous Learning Summary:
                     log.debug(f"DB store compiled failed: {exc}")
 
             # Queue for reflection
-            self._pending_compiled.insert(0, compiled_record) if not success else None
+            if not success:
+                self._pending_compiled.insert(0, compiled_record)
             # Store a copy for reflect step
             if not hasattr(self, "_compiled_for_reflection"):
                 self._compiled_for_reflection: List[Dict[str, Any]] = []
