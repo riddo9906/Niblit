@@ -4,16 +4,43 @@ __pycache__/
 *.pyo
 *.pkl
 
-# Test files
+# Test and diagnostic files
 tests/
+live_command_tester.py
+run_diagnostics.py
+hf_test.py
+workspace_init.py
+
+# Generated report artifacts
+niblit_live_test_report.json
+niblit_diagnostics.json
+
+# Log files
 *.log
+
+# Database files (runtime data)
 *.db
 *.jsonl
 *.key
+
+# Uploaded/runtime data dirs
 chat_logs/
-# Accidentally committed file (git command fragment left in repo root)
-h -u origin main
+ProjectOne/
+
+# Runtime state files
 niblit_audit_report.json
 niblit_state.json
-Fix_Guide.txt
+
+# Development-only full-module drafts
 *_full.py
+
+# Misc files accidentally committed
+Fix_Guide.txt
+h -u origin main
+
+# Environment files
+.env
+.env.local
+
+# Vercel metadata
+.vercel

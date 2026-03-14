@@ -11,20 +11,20 @@
   ],
   "routes": [
     {
+      "src": "/health",
+      "dest": "app.py"
+    },
+    {
       "src": "/ping",
-      "dest": "server.py"
+      "dest": "app.py"
     },
     {
       "src": "/chat",
-      "dest": "server.py"
+      "dest": "app.py"
     },
     {
       "src": "/memory",
-      "dest": "server.py"
-    },
-    {
-      "src": "/health",
-      "dest": "server.py"
+      "dest": "app.py"
     },
     {
       "src": "/(.*)",
@@ -32,7 +32,7 @@
     }
   ],
   "functions": {
-    "server.py": {
+    "app.py": {
       "memory": 1024,
       "maxDuration": 30
     }

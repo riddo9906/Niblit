@@ -109,6 +109,11 @@ setInterval(status,5000); status();
 """
 
 if _flask_available:
+    @app.route("/health", methods=["GET"])
+    def health():
+        """Lightweight liveness probe — no NiblitCore init required."""
+        return jsonify({"status": "ok", "service": "niblit"})
+
     @app.route("/", methods=["GET"])
     def dashboard():
         return render_template_string(DASHBOARD_HTML)
