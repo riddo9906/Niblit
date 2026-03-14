@@ -38,7 +38,7 @@ jobs:
 
       - name: Run Pylint
         run: |
-          pylint \
+          PYTHONPATH="${PYTHONPATH}:$(pwd)" pylint \
             --exit-zero \
             --rcfile=.pylintrc \
             --output-format=json \
@@ -53,7 +53,7 @@ jobs:
 
       - name: Generate text report
         run: |
-          pylint \
+          PYTHONPATH="${PYTHONPATH}:$(pwd)" pylint \
             --exit-zero \
             --rcfile=.pylintrc \
             niblit_*.py \
@@ -92,7 +92,8 @@ jobs:
             const pythonVersion = '${{ matrix.python-version }}';
             try {
               const report = fs.readFileSync(`pylint-report-${pythonVersion}.txt`, 'utf8');
-              const lines = report.split('\n').slice(0, 50);
+              const PREVIEW_LINES = 50; // max lines in PR comment
+              const lines = report.split("\n").slice(0, PREVIEW_LINES);
               const comment = `## PyLint Results (Python ${pythonVersion})
             
             \`\`\`

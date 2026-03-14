@@ -38,4 +38,12 @@ class NiblitSensors:
             time.sleep(30)
 
 if __name__ == "__main__":
-    print('Running niblit_sensors_full.py')
+    import logging
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    print("=== NiblitSensors self-test ===")
+    import time
+    s = NiblitSensors()
+    time.sleep(0.2)  # let monitor thread do one read
+    s.update()
+    print(f"Sensor data: {SENSOR_STATUS}")
+    print("NiblitSensors OK")

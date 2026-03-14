@@ -437,8 +437,50 @@ What aspect of my improvement interests you?"""
 
             db = getattr(self.core, "db", None)
             autonomous_engine = getattr(self.core, "autonomous_engine", None)
+            sa = getattr(self.core, "structural_awareness", None)
 
             query_lower = query.lower()
+
+            # ── Structural / runtime queries → delegate to StructuralAwareness ──
+            if any(kw in query_lower for kw in ("my structure", "your structure",
+                                                 "your components", "my components")):
+                return sa.component_report(self.core) if sa else None
+
+            if any(kw in query_lower for kw in ("your threads", "my threads",
+                                                 "active threads", "running threads")):
+                return sa.thread_report() if sa else None
+
+            if any(kw in query_lower for kw in ("your loops", "my loops",
+                                                 "active loops", "background loops",
+                                                 "running loops")):
+                return sa.loop_report(self.core) if sa else None
+
+            if any(kw in query_lower for kw in ("your modules", "loaded modules",
+                                                 "which modules")):
+                return sa.module_report() if sa else None
+
+            if any(kw in query_lower for kw in ("runtime", "dashboard",
+                                                 "live status", "everything running")):
+                return sa.runtime_dashboard(core=self.core, router=self) if sa else None
+
+            if any(kw in query_lower for kw in ("your resources", "memory usage",
+                                                 "cpu", "ram usage")):
+                return sa.resource_report() if sa else None
+
+            # Code / software capability queries
+            if any(kw in query_lower for kw in ("generate code", "code generation",
+                                                 "write code", "create code")):
+                cg = getattr(self.core, "code_generator", None)
+                if cg:
+                    return cg.list_templates()
+                return "I have a CodeGenerator module. Try: generate code python module name=my_mod"
+
+            if any(kw in query_lower for kw in ("study software", "what software",
+                                                 "software categories", "software types")):
+                ss = getattr(self.core, "software_studier", None)
+                if ss:
+                    return ss.list_categories()
+                return "I can study software with: study software <category>"
 
             # What are you / Who are you
             if 'what are you' in query_lower or 'who are you' in query_lower:
@@ -497,6 +539,13 @@ System Status: {'Idle & Learning' if stats['is_idle'] else 'Active with User'}""
 ✅ Learn from Experience: Store facts for future reference
 ✅ Run SLSA: Generate knowledge artifacts automatically
 ✅ Answer without LLM: Use research + knowledge when LLM is disabled
+✅ Generate Code: Python, Bash, JS, HTML, CSS, SQL, JSON templates
+✅ Run Code: Execute Python, Bash, JS inline with compiler
+✅ Manage Files: Create, read, write, edit, execute all file types
+✅ Study Software: Learn OS, web apps, databases, AI systems, and more
+✅ Hot-Reload Modules: Update myself without restarting
+✅ Evolve Continuously: Research + code-gen + teach + reflect in every step
+✅ Research Code: Fetch real programming language info from internet → feed CodeGenerator
 
 I can work in two modes:
 - 🤖 With LLM: AI-powered conversations
@@ -505,6 +554,9 @@ I can work in two modes:
 
             # How do you work
             if 'how do you work' in query_lower or 'your purpose' in query_lower or 'your role' in query_lower or 'your function' in query_lower:
+                # Use structural_awareness for the rich operational flow diagram
+                if sa:
+                    return sa.operational_flow()
                 response = """⚙️ **How I Work:**
 
 1. **User Interaction**: I receive and process your messages
@@ -523,17 +575,24 @@ I can work in two modes:
 You can control me with commands like:
 - 'autonomous-learn status' - See my learning progress
 - 'toggle-llm off' - Use me without AI (research-based)
-- 'self-research <topic>' - Make me research something"""
+- 'self-research <topic>' - Make me research something
+- 'dashboard' - Live view of all running components and threads"""
                 return response
 
             # Default self-referential response
             response = """I'm Niblit, an autonomous AI system. I learn continuously, reason without LLM when needed, and improve myself over time.
 
 Ask me about:
-- 'what are you' - Learn about me
+- 'what are you'      - Learn about me
 - 'what have you learned' - See my progress
-- 'what can you do' - My capabilities
-- 'how do you work' - How I operate
+- 'what can you do'   - My capabilities
+- 'how do you work'   - Detailed operational flow (loops, routing, threads)
+- 'dashboard'         - Live view of all running components
+- 'my threads'        - All active threads right now
+- 'my loops'          - Background loop status
+- 'my structure'      - Full component inventory
+- 'generate code python module name=hello' - Generate code
+- 'study software ai_ml_systems'           - Study software types
 - 'what would you improve' - My growth plans"""
             return response
 
@@ -890,7 +949,219 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
         ts = timestamp()
         lower = cmd.lower().strip()
 
-        # ===== IMPROVEMENTS COMMANDS (NEW) =====
+        # ===== LIVE UPDATER COMMANDS =====
+        if lower.startswith("reload "):
+            module_name = cmd[len("reload "):].strip()
+            if not module_name:
+                return "Usage: reload <module.name>  e.g. reload modules.knowledge_db"
+            if self.core and getattr(self.core, "live_updater", None):
+                result = self.core.live_updater.reload_module(module_name)
+                return result["message"]
+            # Fallback: try importlib.reload directly
+            try:
+                import importlib, sys
+                mod = sys.modules.get(module_name)
+                if mod is None:
+                    mod = importlib.import_module(module_name)
+                importlib.reload(mod)
+                return f"✅ Module '{module_name}' reloaded (direct fallback)."
+            except Exception as e:
+                return f"❌ Reload failed for '{module_name}': {e}"
+
+        if lower in ("upgrade", "update-self", "update self"):
+            if self.core and getattr(self.core, "live_updater", None):
+                changed = self.core.live_updater.reload_all_changed()
+                if not changed:
+                    return "✅ All modules are up-to-date — no changes detected on disk."
+                msgs = [r["message"] for r in changed]
+                return "🔄 **Self-Upgrade Complete:**\n" + "\n".join(f"  • {m}" for m in msgs)
+            return "[LiveUpdater not available — restart to pick up file changes]"
+
+        if lower in ("update-history", "reload-history"):
+            if self.core and getattr(self.core, "live_updater", None):
+                return self.core.live_updater.summarize_history()
+            return "[LiveUpdater not available]"
+
+        # ===== STRUCTURAL AWARENESS COMMANDS =====
+        if lower in ("my structure", "show structure", "niblit structure", "struct"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.component_report(self.core)
+            return "[StructuralAwareness not available]"
+
+        if lower in ("my threads", "active threads", "threads"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.thread_report()
+            import threading
+            lines = [f"🧵 Active threads ({threading.active_count()}):"]
+            for t in threading.enumerate():
+                lines.append(f"  • {t.name} ({'alive' if t.is_alive() else 'dead'})")
+            return "\n".join(lines)
+
+        if lower in ("my loops", "active loops", "loops", "background loops"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.loop_report(self.core)
+            return "[StructuralAwareness not available]"
+
+        if lower in ("my modules", "loaded modules", "modules"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.module_report()
+            return "[StructuralAwareness not available]"
+
+        if lower in ("my commands", "all commands"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.command_report(router=self)
+            return self.help_text()
+
+        if lower in ("runtime status", "live status", "dashboard"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.runtime_dashboard(core=self.core, router=self)
+            return self.handle_command("status")
+
+        if lower in ("how do i work", "operational flow", "my flow", "loop flow"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.operational_flow()
+            return self._get_self_referential_response("how do you work")
+
+        if lower in ("resource usage", "my resources", "memory usage"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                return sa.resource_report()
+            return "[StructuralAwareness not available]"
+
+        # ===== CODE GENERATION & COMPILER COMMANDS =====
+        if lower.startswith("generate code ") or lower.startswith("generate-code "):
+            if self.core and hasattr(self.core, "_cmd_generate_code"):
+                rest = cmd[cmd.index(" ", cmd.index(" ") + 1):].strip()
+                return safe_call(self.core._cmd_generate_code, rest) or "[Code gen failed]"
+            return "[CodeGenerator not available]"
+
+        if lower.startswith("run code ") or lower.startswith("run-code "):
+            if self.core and hasattr(self.core, "_cmd_run_code"):
+                rest = cmd[cmd.index(" ", cmd.index(" ") + 1):].strip()
+                return safe_call(self.core._cmd_run_code, rest) or "[Code run failed]"
+            return "[CodeCompiler not available]"
+
+        if lower.startswith("validate "):
+            if self.core and hasattr(self.core, "_cmd_validate_code"):
+                rest = cmd[len("validate "):].strip()
+                return safe_call(self.core._cmd_validate_code, rest) or "[Validate failed]"
+            return "[CodeCompiler not available]"
+
+        if lower.startswith("execute file ") or lower.startswith("exec file "):
+            if self.core and hasattr(self.core, "_cmd_execute_file"):
+                filepath = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_execute_file, filepath) or "[Execute failed]"
+            return "[FilesystemManager not available]"
+
+        if lower.startswith("read file "):
+            if self.core and hasattr(self.core, "_cmd_read_file"):
+                filepath = cmd[len("read file "):].strip()
+                return safe_call(self.core._cmd_read_file, filepath) or "[Read failed]"
+            return "[FilesystemManager not available]"
+
+        if lower.startswith("write file "):
+            if self.core and hasattr(self.core, "_cmd_write_file"):
+                rest = cmd[len("write file "):].strip()
+                return safe_call(self.core._cmd_write_file, rest) or "[Write failed]"
+            return "[FilesystemManager not available]"
+
+        if lower.startswith("list files") or lower in ("ls", "list dir", "list directory"):
+            if self.core and hasattr(self.core, "_cmd_list_files"):
+                parts = cmd.split(None, 2)
+                dirpath = parts[-1].strip() if len(parts) > 2 else "."
+                return safe_call(self.core._cmd_list_files, dirpath) or "[List failed]"
+            return "[FilesystemManager not available]"
+
+        if lower in ("file environment", "filesystem info", "fs info"):
+            if self.core and hasattr(self.core, "_cmd_file_environment"):
+                return safe_call(self.core._cmd_file_environment) or "[File env failed]"
+            return "[FilesystemManager not available]"
+
+        if lower.startswith("study language ") or lower.startswith("learn language "):
+            if self.core and hasattr(self.core, "_cmd_study_language"):
+                lang = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_study_language, lang) or "[Study failed]"
+            return "[CodeGenerator not available]"
+
+        if lower.startswith("code templates") or lower == "list templates":
+            if self.core and hasattr(self.core, "_cmd_list_templates"):
+                lang = cmd.split(None, 2)[-1].strip() if len(cmd.split()) > 2 else ""
+                return safe_call(self.core._cmd_list_templates, lang) or "[Templates failed]"
+            return "[CodeGenerator not available]"
+
+        if lower in ("available languages", "compiler languages", "supported languages"):
+            if self.core and hasattr(self.core, "_cmd_available_languages"):
+                return safe_call(self.core._cmd_available_languages) or "[Languages failed]"
+            return "[Code modules not available]"
+
+        # ===== SOFTWARE STUDIER COMMANDS =====
+        if lower.startswith("study software ") or lower.startswith("learn software "):
+            if self.core and hasattr(self.core, "_cmd_study_software"):
+                cat = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_study_software, cat) or "[Study failed]"
+            return "[SoftwareStudier not available]"
+
+        if lower.startswith("software categories") or lower == "list software":
+            if self.core and hasattr(self.core, "_cmd_software_categories"):
+                return safe_call(self.core._cmd_software_categories) or "[Categories failed]"
+            return "[SoftwareStudier not available]"
+
+        if lower.startswith("analyze architecture ") or lower.startswith("study architecture "):
+            if self.core and hasattr(self.core, "_cmd_analyze_architecture"):
+                arch = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_analyze_architecture, arch) or "[Analysis failed]"
+            return "[SoftwareStudier not available]"
+
+        if lower.startswith("design software ") or lower.startswith("design-software "):
+            if self.core and hasattr(self.core, "_cmd_design_software"):
+                desc = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_design_software, desc) or "[Design failed]"
+            return "[SoftwareStudier not available]"
+
+        if lower in ("what have i studied", "studied software", "software studied"):
+            if self.core and hasattr(self.core, "_cmd_software_studied"):
+                return safe_call(self.core._cmd_software_studied) or "[Studied failed]"
+            return "[SoftwareStudier not available]"
+
+        # ===== EVOLVE ENGINE COMMANDS =====
+        if lower in ("evolve", "evolve step", "run evolve"):
+            if self.core and hasattr(self.core, "_cmd_evolve_step"):
+                return safe_call(self.core._cmd_evolve_step) or "[Evolve failed]"
+            return "[EvolveEngine not available]"
+
+        if lower in ("evolve start", "start evolving", "start evolution"):
+            if self.core and hasattr(self.core, "_cmd_evolve_start"):
+                return safe_call(self.core._cmd_evolve_start) or "[Evolve start failed]"
+            return "[EvolveEngine not available]"
+
+        if lower in ("evolve stop", "stop evolving", "stop evolution"):
+            if self.core and hasattr(self.core, "_cmd_evolve_stop"):
+                return safe_call(self.core._cmd_evolve_stop) or "[Evolve stop failed]"
+            return "[EvolveEngine not available]"
+
+        if lower in ("evolve status", "evolution status"):
+            if self.core and hasattr(self.core, "_cmd_evolve_status"):
+                return safe_call(self.core._cmd_evolve_status) or "[Evolve status failed]"
+            return "[EvolveEngine not available]"
+
+        if lower in ("evolve history", "evolution history"):
+            if self.core and hasattr(self.core, "_cmd_evolve_history"):
+                return safe_call(self.core._cmd_evolve_history) or "[Evolve history failed]"
+            return "[EvolveEngine not available]"
+
+        # ===== CODE RESEARCH COMMANDS =====
+        if lower.startswith("research code ") or lower.startswith("research-code "):
+            if self.core and hasattr(self.core, "_cmd_research_code"):
+                rest = cmd.split(None, 2)[-1].strip()
+                return safe_call(self.core._cmd_research_code, rest) or "[Research code failed]"
+            return "[Code research not available]"
         if lower == "show improvements":
             if self.core and hasattr(self.core, "_cmd_show_improvements"):
                 return safe_call(self.core._cmd_show_improvements, cmd)
@@ -1084,9 +1355,96 @@ autonomous-learn add-topics <t1,t2> — Add multiple topics"""
             "status, health               — System status",
             "time                         — Current time",
             "",
+            "=== LIVE UPDATE & UPGRADE ===",
+            "reload <module.name>         — Hot-reload a module without restarting",
+            "upgrade                      — Reload all modules changed on disk",
+            "update-history               — Show recent update/reload history",
+            "",
+            "=== STRUCTURAL SELF-AWARENESS ===",
+            "my structure                 — Full component inventory",
+            "my threads                   — All active Python threads",
+            "my loops                     — Background loop status",
+            "my modules                   — Loaded modules list",
+            "my commands                  — All registered commands",
+            "dashboard                    — Full runtime dashboard",
+            "operational flow             — How my loops and routing work",
+            "resource usage               — RAM, CPU, uptime",
+            "",
+            "=== CODE GENERATION ===",
+            "generate code <lang> [tpl] [key=val ...]",
+            "                             — Generate code (python/bash/js/html/css/sql/json)",
+            "code templates               — List available templates",
+            "study language <lang>        — Learn best practices for a language",
+            "",
+            "=== CODE COMPILER / EXECUTOR ===",
+            "run code <language> <code>   — Execute code inline (python/bash/js)",
+            "validate <language> <code>   — Check syntax without running",
+            "execute file <path>          — Execute a script file",
+            "available languages          — Show supported compile/run languages",
+            "",
+            "=== FILE MANAGER ===",
+            "read file <path>             — Read and display a file",
+            "write file <path> <content>  — Write content to a file",
+            "list files [dir]             — List files in a directory",
+            "execute file <path>          — Execute a script file",
+            "file environment             — Show filesystem environment info",
+            "",
+            "=== SOFTWARE STUDY ===",
+            "study software <category>    — Study a software category in depth",
+            "software categories          — List all software categories",
+            "analyze architecture <name>  — Analyze an architecture pattern",
+            "design software <desc>       — Generate a software design outline",
+            "what have i studied          — Show what I've studied this session",
+            "",
+            "=== EVOLUTION ENGINE ===",
+            "evolve                       — Run one self-evolution step (research+code+teach+reflect)",
+            "evolve start                 — Start background continuous evolution",
+            "evolve stop                  — Stop background evolution",
+            "evolve status                — Show evolution status + available modules",
+            "evolve history               — Show recent evolution steps",
+            "",
+            "=== CODE RESEARCH ===",
+            "research code <lang> [topic] — Research a language from internet → feeds CodeGenerator",
+            "                               e.g. 'research code python async patterns'",
+            "",
         ]
         return "\n".join(commands)
 
 
 if __name__ == "__main__":
-    print("Running fully enhanced niblit_router.py with self-awareness")
+    import sys, os, logging
+    logging.basicConfig(level=logging.WARNING)
+    print("=== NiblitRouter standalone shell ===")
+    print("Type 'help' for commands, 'exit' to quit.\n")
+    try:
+        from niblit_memory import MemoryManager
+        from niblit_brain import NiblitBrain
+        _mem = MemoryManager()
+        _brain = NiblitBrain(_mem)
+    except Exception as _e:
+        print(f"[WARN] Brain/memory unavailable ({_e}), router running in reduced mode.")
+        _mem = None
+        _brain = None
+
+    router = NiblitRouter(brain=_brain, memory=_mem)
+
+    while True:
+        try:
+            user_input = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nBye.")
+            break
+        if not user_input:
+            continue
+        if user_input.lower() in ("exit", "quit"):
+            print("Bye.")
+            break
+        try:
+            response = router.process(user_input)
+            if isinstance(response, dict):
+                import json
+                print("Niblit:", json.dumps(response, indent=2, default=str))
+            else:
+                print("Niblit:", response)
+        except Exception as e:
+            print(f"[ERROR] {e}")

@@ -7,9 +7,12 @@ Provides:
  - HFLLMAdapter.query_llm(messages, model=None, max_tokens=300)
 """
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed; rely on os.environ
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "") or os.environ.get("HUGGINGFACE_TOKEN", "")
 
