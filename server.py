@@ -1,10 +1,25 @@
 # server.py
-from flask import Flask, request, jsonify, render_template_string
-from niblit_core import NiblitCore
+try:
+    from flask import Flask, request, jsonify, render_template_string
+    _flask_available = True
+except ImportError:
+    Flask = request = jsonify = render_template_string = None
+    _flask_available = False
+    import logging as _logging
+    _logging.getLogger("NiblitServer").warning("Flask not installed — server.py web server unavailable")
+
+try:
+    from niblit_core import NiblitCore
+except Exception:
+    NiblitCore = None
 import threading
 
-app = Flask("niblit_server")
-n = NiblitCore()
+if _flask_available:
+    app = Flask("niblit_server")
+    n = NiblitCore() if NiblitCore else None
+else:
+    app = None
+    n = None
 
 # Simple HTML dashboard template
 DASHBOARD_HTML = """
@@ -64,31 +79,42 @@ checkStatus();
 </html>
 """
 
-@app.route("/")
-def dashboard():
-    return render_template_string(DASHBOARD_HTML)
+if _flask_available and app is not None:
+    @app.route("/")
+    def dashboard():
+        return render_template_string(DASHBOARD_HTML)
 
-@app.route("/ping", methods=["GET"])
-def ping():
-    return jsonify({"status":"ok","personality": n.db.get_personality()})
+    @app.route("/ping", methods=["GET"])
+    def ping():
+        return jsonify({"status":"ok","personality": n.db.get_personality() if n else {}})
 
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.get_json(force=True, silent=True) or {}
-    text = data.get("text","").strip()
-    if not text:
-        return jsonify({"error":"no text provided"}), 400
-    reply = n.handle(text)
-    return jsonify({"reply": reply})
+    @app.route("/chat", methods=["POST"])
+    def chat():
+        data = request.get_json(force=True, silent=True) or {}
+        text = data.get("text","").strip()
+        if not text:
+            return jsonify({"error":"no text provided"}), 400
+        if not n:
+            return jsonify({"error":"core unavailable"}), 500
+        reply = n.handle(text)
+        return jsonify({"reply": reply})
 
-@app.route("/memory", methods=["GET"])
-def memory():
-    facts = n.db.list_facts(limit=200)
-    return jsonify({"facts": facts})
+    @app.route("/memory", methods=["GET"])
+    def memory():
+        if not n:
+            return jsonify({"facts": []})
+        facts = n.db.list_facts(limit=200)
+        return jsonify({"facts": facts})
 
 def run_server():
+    if not _flask_available:
+        print("ERROR: Flask is not installed. Run: pip install flask")
+        return
     app.run(host="0.0.0.0", port=5000, debug=False)
 
 if __name__ == "__main__":
-    print("Starting Niblit HTTP server on http://0.0.0.0:5000")
-    run_server()
+    if not _flask_available:
+        print("ERROR: Flask is not installed. Run: pip install flask")
+    else:
+        print("Starting Niblit HTTP server on http://0.0.0.0:5000")
+        run_server()

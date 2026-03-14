@@ -6,7 +6,12 @@ import importlib
 import os
 import json
 import logging
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        pass  # python-dotenv not installed — env vars loaded from environment
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("NiblitOS")

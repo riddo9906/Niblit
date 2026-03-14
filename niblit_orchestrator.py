@@ -297,9 +297,12 @@ def run_full_pipeline():
     test_rc = run_live_test()
     summary["live_test"] = "ok" if test_rc == 0 else f"exit={test_rc}"
 
-    # Dynamic column widths
-    w_step = max(len(k) for k in summary) + 2
-    w_status = max(len(str(v)) for v in summary.values()) + 2
+    # Dynamic column widths (guard against empty summary)
+    if summary:
+        w_step = max(len(k) for k in summary) + 2
+        w_status = max(len(str(v)) for v in summary.values()) + 2
+    else:
+        w_step, w_status = 20, 12
     border = "═" * (w_step + w_status + 6)
     log(f"╔{border}╗")
     log(f"║{'  PIPELINE SUMMARY':<{w_step + w_status + 4}}  ║")

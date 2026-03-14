@@ -3,12 +3,66 @@ import threading, time, logging
 from datetime import datetime
 import json
 
-# Modules
-import niblit_network, self_maintenance, niblit_sensors, niblit_voice
-import collector, trainer, generator, membrane, healer, slsa_generator, niblit_memory
-
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 log = logging.getLogger("NiblitCoreRefactor")
+
+# ── Optional legacy modules — import gracefully ──────────────────────────────
+try:
+    import niblit_net as niblit_network
+except ImportError:
+    niblit_network = None
+
+try:
+    import self_maintenance
+except ImportError:
+    self_maintenance = None
+
+try:
+    import niblit_sensors
+except ImportError:
+    niblit_sensors = None
+
+try:
+    import niblit_voice
+except ImportError:
+    niblit_voice = None
+
+try:
+    import collector
+except ImportError:
+    collector = None
+
+try:
+    import trainer
+except ImportError:
+    trainer = None
+
+try:
+    import generator
+except ImportError:
+    generator = None
+
+try:
+    import membrane
+except ImportError:
+    membrane = None
+
+try:
+    import healer
+except ImportError:
+    healer = None
+
+try:
+    import slsa_generator
+except ImportError:
+    slsa_generator = None
+
+try:
+    from niblit_memory import MemoryManager as _MemoryManager
+except ImportError:
+    _MemoryManager = None
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 class niblitcore:
     def __init__(self):
@@ -17,23 +71,29 @@ class niblitcore:
 
         log.info("Initializing Niblit core...")
 
-        # Core modules
-        try:
-            self.network = niblit_network.network
-        except:
-            self.network = niblit_network.NiblitNetwork()
+        # Core modules — each wrapped so a missing module doesn't abort boot
+        if niblit_network:
+            try:
+                self.network = niblit_network.network
+            except AttributeError:
+                try:
+                    self.network = niblit_network.NiblitNetwork()
+                except Exception as e:
+                    log.warning(f"niblit_network unavailable: {e}")
+                    self.network = None
+        else:
+            self.network = None
 
-        self.sensors = niblit_sensors.NiblitSensors()
-        self.self_maintenance = self_maintenance.SelfMaintenance()
-        self.voice = niblit_voice.NiblitVoice()
-
-        self.collector = collector.Collector()
-        self.trainer = trainer.Trainer(self.collector)
-        self.generator = generator.Generator()
-        self.membrane = membrane.Membrane()
+        self.sensors = niblit_sensors.NiblitSensors() if niblit_sensors else None
+        self.self_maintenance = self_maintenance.SelfMaintenance() if self_maintenance else None
+        self.voice = niblit_voice.NiblitVoice() if niblit_voice else None
+        self.collector = collector.Collector() if collector else None
+        self.trainer = trainer.Trainer(self.collector) if (trainer and self.collector) else None
+        self.generator = generator.Generator() if generator else None
+        self.membrane = membrane.Membrane() if membrane else None
         self.healer = healer
         self.slsa = slsa_generator
-        self.memory = niblit_memory.MemoryManager()
+        self.memory = _MemoryManager() if _MemoryManager else None
 
         # Flags
         self.running = True

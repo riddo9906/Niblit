@@ -1,11 +1,20 @@
-from flask import Flask, request, jsonify, render_template_string
+try:
+    from flask import Flask, request, jsonify, render_template_string
+    _flask_available = True
+except ImportError:
+    Flask = request = jsonify = render_template_string = None
+    _flask_available = False
 import time, logging, os
 try:
     from niblit_core import NiblitCore
-except:
+except Exception:
     NiblitCore = None
 
-app = Flask(__name__)
+if _flask_available:
+    app = Flask(__name__)
+else:
+    app = None
+    logging.getLogger("NiblitApp").warning("Flask not installed — app.py web server unavailable")
 
 # ------------------------------
 # API Key Protection
@@ -99,53 +108,57 @@ setInterval(status,5000); status();
 </html>
 """
 
-@app.route("/", methods=["GET"])
-def dashboard():
-    return render_template_string(DASHBOARD_HTML)
+if _flask_available:
+    @app.route("/", methods=["GET"])
+    def dashboard():
+        return render_template_string(DASHBOARD_HTML)
 
-@app.route("/ping")
-def ping():
-    if rate_limited(request.remote_addr):
-        return jsonify({"error": "rate limit reached"}), 429
-    core = get_core()
-    if not core: return jsonify({"status":"no-core"})
-    try:
-        p = core.memory.get_personality()
-    except:
-        p = {}
-    return jsonify({"status":"ok","personality":p})
+    @app.route("/ping")
+    def ping():
+        if rate_limited(request.remote_addr):
+            return jsonify({"error": "rate limit reached"}), 429
+        core = get_core()
+        if not core: return jsonify({"status":"no-core"})
+        try:
+            p = core.memory.get_personality()
+        except:
+            p = {}
+        return jsonify({"status":"ok","personality":p})
 
-@app.route("/chat", methods=["POST"])
-def chat():
-    if not require_key():
-        return jsonify({"error":"unauthorized"}), 401
-    if rate_limited(request.remote_addr):
-        return jsonify({"error": "rate limit reached"}), 429
-    core = get_core()
-    if not core:
-        return jsonify({"error":"core failed"}), 500
-    data = request.get_json(force=True) or {}
-    text = data.get("text","")
-    try:
-        r = core.handle(text)
-    except Exception as e:
-        r = f"[error] {e}"
-    return jsonify({"reply":r})
+    @app.route("/chat", methods=["POST"])
+    def chat():
+        if not require_key():
+            return jsonify({"error":"unauthorized"}), 401
+        if rate_limited(request.remote_addr):
+            return jsonify({"error": "rate limit reached"}), 429
+        core = get_core()
+        if not core:
+            return jsonify({"error":"core failed"}), 500
+        data = request.get_json(force=True) or {}
+        text = data.get("text","")
+        try:
+            r = core.handle(text)
+        except Exception as e:
+            r = f"[error] {e}"
+        return jsonify({"reply":r})
 
-@app.route("/memory")
-def memory():
-    if not require_key():
-        return jsonify({"error":"unauthorized"}), 401
-    if rate_limited(request.remote_addr):
-        return jsonify({"error": "rate limit reached"}), 429
-    core = get_core()
-    if not core:
-        return jsonify({"facts":[]})
-    try:
-        f = core.memory.list_facts(limit=200)
-    except:
-        f = []
-    return jsonify({"facts":f})
+    @app.route("/memory")
+    def memory():
+        if not require_key():
+            return jsonify({"error":"unauthorized"}), 401
+        if rate_limited(request.remote_addr):
+            return jsonify({"error": "rate limit reached"}), 429
+        core = get_core()
+        if not core:
+            return jsonify({"facts":[]})
+        try:
+            f = core.memory.list_facts(limit=200)
+        except:
+            f = []
+        return jsonify({"facts":f})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT",5000)))
+    if not _flask_available:
+        print("ERROR: Flask is not installed. Run: pip install flask")
+    else:
+        app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
