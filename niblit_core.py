@@ -1609,7 +1609,7 @@ Uptime: {stats['uptime_seconds']}s
             "━━━ TOPIC SEEDING LOOP ━━━",
             f"  Step 15 — Topic Seeding : derive topics→ALE+SLSA+KB [{s.get('topic_seedings', 0)} cycles]",
             f"  Last Seeded Topics: {', '.join(s.get('last_seeded_topics') or []) or 'none'}",
-            f"  Current SLSA Topics: {', '.join(stats.get('slsa_topics', [])) or 'none'}",
+            f"  Current SLSA Topics: {', '.join(ale_stats.get('slsa_topics', [])) or 'none'}",
             "",
             "━━━ DATA STORAGE ━━━",
             "  Every step stores a structured fact in KnowledgeDB with:",
@@ -1730,7 +1730,7 @@ Uptime: {stats['uptime_seconds']}s
         record = self.agentic_workflows.run_workflow(workflow_name, context)
         return self.agentic_workflows.format_result(record)
 
-    def _cmd_agentic_list(self) -> str:
+    def _cmd_agentic_list(self, text: str = "") -> str:
         """List all registered agentic workflows."""
         if not self.agentic_workflows:
             return "[❌ AgenticWorkflow not available]"
@@ -1742,7 +1742,7 @@ Uptime: {stats['uptime_seconds']}s
         lines.append("Usage: agentic run <name> [topic=<topic>]")
         return "\n".join(lines)
 
-    def _cmd_agentic_status(self) -> str:
+    def _cmd_agentic_status(self, text: str = "") -> str:
         """Show agentic workflow module status."""
         if not self.agentic_workflows:
             return "[❌ AgenticWorkflow not available]"
@@ -1761,7 +1761,7 @@ Uptime: {stats['uptime_seconds']}s
     # ENTERPRISE UTILITY COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_enterprise_summary(self) -> str:
+    def _cmd_enterprise_summary(self, text: str = "") -> str:
         """Show enterprise operational summary."""
         if not self.enterprise_utility:
             return "[❌ EnterpriseUtility not available]"
@@ -1784,7 +1784,7 @@ Uptime: {stats['uptime_seconds']}s
                          + (f" — {e['details']}" if e.get('details') else ""))
         return "\n".join(lines)
 
-    def _cmd_enterprise_health(self) -> str:
+    def _cmd_enterprise_health(self, text: str = "") -> str:
         """Show component health report."""
         if not self.enterprise_utility:
             return "[❌ EnterpriseUtility not available]"
@@ -1798,7 +1798,7 @@ Uptime: {stats['uptime_seconds']}s
             lines.append(f"  {icon} {comp}: {info['status']}")
         return "\n".join(lines)
 
-    def _cmd_enterprise_sla(self) -> str:
+    def _cmd_enterprise_sla(self, text: str = "") -> str:
         """Show SLA metrics."""
         if not self.enterprise_utility:
             return "[❌ EnterpriseUtility not available]"
@@ -1829,7 +1829,7 @@ Uptime: {stats['uptime_seconds']}s
         result = self.multimodal_intelligence.process(content, modality=modality)
         return f"🧠 **MULTIMODAL [{result.modality.upper()}]:**\n{result.content}"
 
-    def _cmd_multimodal_status(self) -> str:
+    def _cmd_multimodal_status(self, text: str = "") -> str:
         """Show multimodal intelligence module status."""
         if not self.multimodal_intelligence:
             return "[❌ MultimodalIntelligence not available]"
@@ -1851,7 +1851,7 @@ Uptime: {stats['uptime_seconds']}s
     # REASONING ENGINE COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_reasoning_build(self) -> str:
+    def _cmd_reasoning_build(self, text: str = "") -> str:
         """Build knowledge graph from current KnowledgeDB facts."""
         if not self.reasoning_engine:
             return "[❌ ReasoningEngine not available]"
@@ -1867,7 +1867,7 @@ Uptime: {stats['uptime_seconds']}s
         except Exception as e:
             return f"[❌ Reasoning build failed: {e}]"
 
-    def _cmd_reasoning_status(self) -> str:
+    def _cmd_reasoning_status(self, text: str = "") -> str:
         """Show reasoning engine status."""
         if not self.reasoning_engine:
             return "[❌ ReasoningEngine not available]"
@@ -1887,7 +1887,7 @@ Uptime: {stats['uptime_seconds']}s
         chain = self.reasoning_engine.create_reasoning_chain(concept.strip())
         return f"🔗 **REASONING CHAIN from '{concept}':**\n{' → '.join(chain)}"
 
-    def _cmd_reasoning_infer(self) -> str:
+    def _cmd_reasoning_infer(self, text: str = "") -> str:
         """Infer new knowledge from the current knowledge graph."""
         if not self.reasoning_engine:
             return "[❌ ReasoningEngine not available]"
@@ -1905,7 +1905,7 @@ Uptime: {stats['uptime_seconds']}s
     # COLLABORATIVE SYSTEMS COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_collab_status(self) -> str:
+    def _cmd_collab_status(self, text: str = "") -> str:
         """Show collaborative learner status."""
         if not self.collaborative_learner:
             return "[❌ CollaborativeLearner not available]"
@@ -1963,7 +1963,7 @@ Uptime: {stats['uptime_seconds']}s
         except Exception as e:
             return f"❌ Reload failed for '{module_name}': {e}"
 
-    def _cmd_upgrade(self) -> str:
+    def _cmd_upgrade(self, text: str = "") -> str:
         """Reload all modules whose files changed on disk."""
         if self.live_updater:
             changed = self.live_updater.reload_all_changed()
@@ -1973,7 +1973,7 @@ Uptime: {stats['uptime_seconds']}s
             return "🔄 **Self-Upgrade Complete:**\n" + "\n".join(f"  • {m}" for m in msgs)
         return "[LiveUpdater not available — restart to pick up file changes]"
 
-    def _cmd_update_history(self) -> str:
+    def _cmd_update_history(self, text: str = "") -> str:
         """Show recent hot-reload history."""
         if self.live_updater:
             return self.live_updater.summarize_history()
@@ -1983,13 +1983,13 @@ Uptime: {stats['uptime_seconds']}s
     # STRUCTURAL AWARENESS COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_sa_structure(self) -> str:
+    def _cmd_sa_structure(self, text: str = "") -> str:
         """Show full component inventory."""
         if self.structural_awareness:
             return self.structural_awareness.component_report(self)
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_threads(self) -> str:
+    def _cmd_sa_threads(self, text: str = "") -> str:
         """Show all active threads."""
         if self.structural_awareness:
             return self.structural_awareness.thread_report()
@@ -1999,19 +1999,19 @@ Uptime: {stats['uptime_seconds']}s
             lines.append(f"  • {t.name} ({'alive' if t.is_alive() else 'dead'})")
         return "\n".join(lines)
 
-    def _cmd_sa_loops(self) -> str:
+    def _cmd_sa_loops(self, text: str = "") -> str:
         """Show background loop status."""
         if self.structural_awareness:
             return self.structural_awareness.loop_report(self)
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_modules(self) -> str:
+    def _cmd_sa_modules(self, text: str = "") -> str:
         """Show loaded Niblit modules."""
         if self.structural_awareness:
             return self.structural_awareness.module_report()
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_commands(self) -> str:
+    def _cmd_sa_commands(self, text: str = "") -> str:
         """Show all registered commands."""
         if self.structural_awareness:
             return self.structural_awareness.command_report(router=self.router)
@@ -2019,7 +2019,7 @@ Uptime: {stats['uptime_seconds']}s
             return self.router.help_text()
         return self.help_text()
 
-    def _cmd_sa_dashboard(self) -> str:
+    def _cmd_sa_dashboard(self, text: str = "") -> str:
         """Show full runtime dashboard."""
         if self.structural_awareness:
             return self.structural_awareness.runtime_dashboard(
@@ -2027,19 +2027,19 @@ Uptime: {stats['uptime_seconds']}s
             )
         return self._cmd_status("")
 
-    def _cmd_sa_flow(self) -> str:
+    def _cmd_sa_flow(self, text: str = "") -> str:
         """Show operational flow description."""
         if self.structural_awareness:
             return self.structural_awareness.operational_flow()
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_resources(self) -> str:
+    def _cmd_sa_resources(self, text: str = "") -> str:
         """Show resource usage."""
         if self.structural_awareness:
             return self.structural_awareness.resource_report()
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_awareness(self) -> str:
+    def _cmd_sa_awareness(self, text: str = "") -> str:
         """Show all structural awareness in one combined view."""
         if self.structural_awareness:
             sa = self.structural_awareness
@@ -2172,7 +2172,7 @@ Uptime: {stats['uptime_seconds']}s
             return "[CodeGenerator not available]"
         return self.code_generator.list_templates(language or None)
 
-    def _cmd_available_languages(self) -> str:
+    def _cmd_available_languages(self, text: str = "") -> str:
         """Show available languages for code compiler."""
         lines = []
         if self.code_generator:
@@ -2252,7 +2252,7 @@ Uptime: {stats['uptime_seconds']}s
             lines.append(f"\n❗ {result['error']}")
         return "\n".join(lines)
 
-    def _cmd_file_environment(self) -> str:
+    def _cmd_file_environment(self, text: str = "") -> str:
         """Show filesystem environment info."""
         if not self.file_manager:
             return "[FilesystemManager not available]"
@@ -2268,7 +2268,7 @@ Uptime: {stats['uptime_seconds']}s
             return "[SoftwareStudier not available]"
         return self.software_studier.study_category(category)
 
-    def _cmd_software_categories(self) -> str:
+    def _cmd_software_categories(self, text: str = "") -> str:
         """List software study categories."""
         if not self.software_studier:
             return "[SoftwareStudier not available]"
@@ -2286,7 +2286,7 @@ Uptime: {stats['uptime_seconds']}s
             return "[SoftwareStudier not available]"
         return self.software_studier.design_software(description)
 
-    def _cmd_software_studied(self) -> str:
+    def _cmd_software_studied(self, text: str = "") -> str:
         """Show what software has been studied."""
         if not self.software_studier:
             return "[SoftwareStudier not available]"
@@ -2296,7 +2296,7 @@ Uptime: {stats['uptime_seconds']}s
     # EVOLVE ENGINE COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_evolve_step(self) -> str:
+    def _cmd_evolve_step(self, text: str = "") -> str:
         """Run one evolution step."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
@@ -2314,7 +2314,7 @@ Uptime: {stats['uptime_seconds']}s
             log.error("Evolve step failed: %s", exc)
             return f"[Evolve error: {exc}]"
 
-    def _cmd_evolve_start(self) -> str:
+    def _cmd_evolve_start(self, text: str = "") -> str:
         """Start background evolution."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
@@ -2322,14 +2322,14 @@ Uptime: {stats['uptime_seconds']}s
         ok = self.evolve_engine.start_background_evolution()
         return "✅ Background evolution started." if ok else "⚠️ Evolution already running."
 
-    def _cmd_evolve_stop(self) -> str:
+    def _cmd_evolve_stop(self, text: str = "") -> str:
         """Stop background evolution."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
         self.evolve_engine.stop_background_evolution()
         return "✅ Background evolution stopped."
 
-    def _cmd_evolve_status(self) -> str:
+    def _cmd_evolve_status(self, text: str = "") -> str:
         """Show evolution status."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
@@ -2346,7 +2346,7 @@ Uptime: {stats['uptime_seconds']}s
             lines.append(f"    {'✅' if avail else '❌'} {mod}")
         return "\n".join(lines)
 
-    def _cmd_evolve_history(self) -> str:
+    def _cmd_evolve_history(self, text: str = "") -> str:
         """Show evolution history."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
