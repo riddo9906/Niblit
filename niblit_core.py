@@ -219,6 +219,24 @@ except Exception as e:
     log.debug(f"ImprovementIntegrator import failed: {e}")
     ImprovementIntegrator = None
 
+try:
+    from modules.agentic_workflows import AgenticWorkflow
+except Exception as e:
+    log.debug(f"AgenticWorkflow import failed: {e}")
+    AgenticWorkflow = None
+
+try:
+    from modules.enterprise_utility import EnterpriseUtility
+except Exception as e:
+    log.debug(f"EnterpriseUtility import failed: {e}")
+    EnterpriseUtility = None
+
+try:
+    from modules.multimodal_intelligence import MultimodalIntelligence
+except Exception as e:
+    log.debug(f"MultimodalIntelligence import failed: {e}")
+    MultimodalIntelligence = None
+
 # ============================================================
 # AUTONOMOUS LEARNING ENGINE IMPORT
 # ============================================================
@@ -1017,6 +1035,9 @@ class NiblitCore:
         self.adaptive_learning: Optional[AdaptiveLearning] = None
         self.metacognition: Optional[Metacognition] = None
         self.collaborative_learner: Optional[CollaborativeLearner] = None
+        self.agentic_workflows: Optional[AgenticWorkflow] = None
+        self.enterprise_utility: Optional[EnterpriseUtility] = None
+        self.multimodal_intelligence: Optional[MultimodalIntelligence] = None
         
         # NEW: Autonomous Learning Engine
         self.autonomous_engine: Optional[AutonomousLearningEngine] = None
@@ -1680,6 +1701,251 @@ Uptime: {stats['uptime_seconds']}s
     # ──────────────────────────────────────
     # LIVE UPDATER COMMANDS
     # ──────────────────────────────────────
+
+    # ──────────────────────────────────────
+    # AGENTIC WORKFLOW COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_agentic_run(self, spec: str) -> str:
+        """Run a named agentic workflow, optionally with context key=value pairs."""
+        if not self.agentic_workflows:
+            return "[❌ AgenticWorkflow not available]"
+        parts = spec.strip().split(None, 1)
+        workflow_name = parts[0] if parts else ""
+        context: dict = {}
+        if len(parts) > 1:
+            # Parse trailing key=value pairs or treat remainder as 'topic' / 'goal'
+            remainder = parts[1]
+            if "=" in remainder:
+                for kv in remainder.split():
+                    if "=" in kv:
+                        k, _, v = kv.partition("=")
+                        context[k] = v
+            else:
+                context["topic"] = remainder
+                context["goal"] = remainder
+        if not workflow_name:
+            available = ", ".join(self.agentic_workflows.list_workflows())
+            return f"Usage: agentic run <workflow> [key=val ...]\nAvailable: {available}"
+        record = self.agentic_workflows.run_workflow(workflow_name, context)
+        return self.agentic_workflows.format_result(record)
+
+    def _cmd_agentic_list(self) -> str:
+        """List all registered agentic workflows."""
+        if not self.agentic_workflows:
+            return "[❌ AgenticWorkflow not available]"
+        workflows = self.agentic_workflows.list_workflows()
+        lines = ["🤖 **REGISTERED AGENTIC WORKFLOWS:**", ""]
+        for i, name in enumerate(workflows, 1):
+            lines.append(f"  {i}. {name}")
+        lines.append("")
+        lines.append("Usage: agentic run <name> [topic=<topic>]")
+        return "\n".join(lines)
+
+    def _cmd_agentic_status(self) -> str:
+        """Show agentic workflow module status."""
+        if not self.agentic_workflows:
+            return "[❌ AgenticWorkflow not available]"
+        status = self.agentic_workflows.workflow_status()
+        lines = [
+            "🤖 **AGENTIC WORKFLOW STATUS:**",
+            f"Registered workflows: {status['registered_workflows']}",
+            f"Executions this session: {status['executions_this_session']}",
+            f"Last run: {status['last_run'] or 'none'}",
+            f"Capability: {status['capability']}",
+            f"Status: {status['status']}",
+        ]
+        return "\n".join(lines)
+
+    # ──────────────────────────────────────
+    # ENTERPRISE UTILITY COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_enterprise_summary(self) -> str:
+        """Show enterprise operational summary."""
+        if not self.enterprise_utility:
+            return "[❌ EnterpriseUtility not available]"
+        return self.enterprise_utility.format_summary()
+
+    def _cmd_enterprise_audit(self, spec: str) -> str:
+        """Show recent audit log entries."""
+        if not self.enterprise_utility:
+            return "[❌ EnterpriseUtility not available]"
+        try:
+            limit = int(spec.strip()) if spec.strip().isdigit() else 10
+        except ValueError:
+            limit = 10
+        entries = self.enterprise_utility.get_audit_log(limit=limit)
+        if not entries:
+            return "📋 Audit log is empty."
+        lines = [f"📋 **AUDIT LOG (last {len(entries)}):**", ""]
+        for e in entries:
+            lines.append(f"  [{e['ts']}] {e['event_type']} | {e['actor']} | {e['outcome']}"
+                         + (f" — {e['details']}" if e.get('details') else ""))
+        return "\n".join(lines)
+
+    def _cmd_enterprise_health(self) -> str:
+        """Show component health report."""
+        if not self.enterprise_utility:
+            return "[❌ EnterpriseUtility not available]"
+        report = self.enterprise_utility.get_health_report()
+        lines = [
+            f"🏥 **HEALTH REPORT — Overall: {report['overall'].upper()}**",
+            f"Components: {report['healthy']}/{report['total_components']} healthy",
+        ]
+        for comp, info in report["components"].items():
+            icon = "✅" if info["status"] == "healthy" else ("⚠️" if info["status"] == "degraded" else "❌")
+            lines.append(f"  {icon} {comp}: {info['status']}")
+        return "\n".join(lines)
+
+    def _cmd_enterprise_sla(self) -> str:
+        """Show SLA metrics."""
+        if not self.enterprise_utility:
+            return "[❌ EnterpriseUtility not available]"
+        sla = self.enterprise_utility.get_sla_report()
+        if not sla:
+            return "📈 No SLA metrics recorded yet."
+        lines = ["📈 **SLA METRICS:**", ""]
+        for op, m in sla.items():
+            lines.append(f"  • {op}: {m['total']} ops | err={m['error_rate_pct']}% | "
+                         f"avg={m['avg_latency_ms']}ms | max={m['max_latency_ms']}ms")
+        return "\n".join(lines)
+
+    # ──────────────────────────────────────
+    # MULTIMODAL INTELLIGENCE COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_multimodal_process(self, spec: str) -> str:
+        """Process content with multimodal intelligence."""
+        if not self.multimodal_intelligence:
+            return "[❌ MultimodalIntelligence not available]"
+        parts = spec.strip().split(None, 1)
+        if not parts:
+            return "Usage: multimodal process <content> OR multimodal process <modality> <content>"
+        if parts[0] in ("text", "code", "json", "numeric", "mixed") and len(parts) > 1:
+            modality, content = parts[0], parts[1]
+        else:
+            modality, content = "mixed", spec.strip()
+        result = self.multimodal_intelligence.process(content, modality=modality)
+        return f"🧠 **MULTIMODAL [{result.modality.upper()}]:**\n{result.content}"
+
+    def _cmd_multimodal_status(self) -> str:
+        """Show multimodal intelligence module status."""
+        if not self.multimodal_intelligence:
+            return "[❌ MultimodalIntelligence not available]"
+        status = self.multimodal_intelligence.get_status()
+        lines = [
+            "🧠 **MULTIMODAL INTELLIGENCE STATUS:**",
+            f"Supported modalities: {', '.join(status['supported_modalities'])}",
+            f"Inputs processed: {status['inputs_processed']}",
+            f"Capability: {status['capability']}",
+            f"Status: {status['status']}",
+        ]
+        if status["modality_breakdown"]:
+            lines.append("Breakdown:")
+            for mod, count in status["modality_breakdown"].items():
+                lines.append(f"  • {mod}: {count}")
+        return "\n".join(lines)
+
+    # ──────────────────────────────────────
+    # REASONING ENGINE COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_reasoning_build(self) -> str:
+        """Build knowledge graph from current KnowledgeDB facts."""
+        if not self.reasoning_engine:
+            return "[❌ ReasoningEngine not available]"
+        try:
+            facts = []
+            if self.db:
+                raw = self.db.get_facts()
+                facts = [{"key": k, "value": v} for k, v in raw.items()] if isinstance(raw, dict) else []
+            graph = self.reasoning_engine.build_knowledge_graph(facts)
+            return (f"🧠 **KNOWLEDGE GRAPH BUILT:**\n"
+                    f"Concepts: {len(graph)}\n"
+                    f"Sample nodes: {', '.join(list(graph.keys())[:10])}")
+        except Exception as e:
+            return f"[❌ Reasoning build failed: {e}]"
+
+    def _cmd_reasoning_status(self) -> str:
+        """Show reasoning engine status."""
+        if not self.reasoning_engine:
+            return "[❌ ReasoningEngine not available]"
+        graph_size = len(self.reasoning_engine.graph)
+        chain_count = len(self.reasoning_engine.reasoning_chains)
+        return (f"🧠 **REASONING ENGINE STATUS:**\n"
+                f"Knowledge graph concepts: {graph_size}\n"
+                f"Reasoning chains stored: {chain_count}\n"
+                f"Status: {'Ready — run \"reasoning build\" to populate graph' if graph_size == 0 else 'Active'}")
+
+    def _cmd_reasoning_chain(self, concept: str) -> str:
+        """Create a reasoning chain from the given concept."""
+        if not self.reasoning_engine:
+            return "[❌ ReasoningEngine not available]"
+        if not concept.strip():
+            return "Usage: reasoning chain <concept>"
+        chain = self.reasoning_engine.create_reasoning_chain(concept.strip())
+        return f"🔗 **REASONING CHAIN from '{concept}':**\n{' → '.join(chain)}"
+
+    def _cmd_reasoning_infer(self) -> str:
+        """Infer new knowledge from the current knowledge graph."""
+        if not self.reasoning_engine:
+            return "[❌ ReasoningEngine not available]"
+        inferences = self.reasoning_engine.infer_new_knowledge()
+        if not inferences:
+            return "🔮 No inferences yet — run 'reasoning build' first."
+        lines = ["🔮 **INFERRED KNOWLEDGE:**", ""]
+        for inf in inferences[:15]:
+            lines.append(f"  • {inf}")
+        if len(inferences) > 15:
+            lines.append(f"  … and {len(inferences) - 15} more")
+        return "\n".join(lines)
+
+    # ──────────────────────────────────────
+    # COLLABORATIVE SYSTEMS COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_collab_status(self) -> str:
+        """Show collaborative learner status."""
+        if not self.collaborative_learner:
+            return "[❌ CollaborativeLearner not available]"
+        status = self.collaborative_learner.get_collaboration_status()
+        lines = [
+            "🤝 **COLLABORATIVE SYSTEMS STATUS:**",
+            f"Peers connected: {status['peers_connected']}",
+            f"Knowledge shared: {status['total_knowledge_shared']}",
+            f"Peers: {', '.join(status['peers']) if status['peers'] else 'none'}",
+            f"Capability: {status['capability']}",
+            f"Status: {status['status']}",
+        ]
+        return "\n".join(lines)
+
+    def _cmd_collab_register(self, spec: str) -> str:
+        """Register a peer system: collab register <name> [cap1,cap2,...]"""
+        if not self.collaborative_learner:
+            return "[❌ CollaborativeLearner not available]"
+        parts = spec.strip().split(None, 1)
+        if not parts:
+            return "Usage: collab register <name> [capabilities]"
+        name = parts[0]
+        caps = [c.strip() for c in parts[1].split(",")] if len(parts) > 1 else []
+        self.collaborative_learner.register_peer(name, caps)
+        return f"✅ Peer '{name}' registered with {len(caps)} capabilities"
+
+    def _cmd_collab_request(self, spec: str) -> str:
+        """Request knowledge from a peer: collab request <peer> <topic>"""
+        if not self.collaborative_learner:
+            return "[❌ CollaborativeLearner not available]"
+        parts = spec.strip().split(None, 1)
+        if len(parts) < 2:
+            return "Usage: collab request <peer_name> <topic>"
+        peer, topic = parts[0], parts[1]
+        result = self.collaborative_learner.request_knowledge(peer, topic)
+        if "error" in result:
+            return f"❌ {result['error']}"
+        return (f"📥 **KNOWLEDGE FROM '{peer}':**\n"
+                f"Topic: {result['topic']}\n"
+                f"Data: {result['data']}")
 
     def _cmd_reload_module(self, module_name: str) -> str:
         """Hot-reload a module at runtime."""
@@ -2882,8 +3148,29 @@ Uptime: {stats['uptime_seconds']}s
                 log.info("[SELF-IMPROVEMENTS] ✅ ImprovementIntegrator")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] ImprovementIntegrator failed: {e}")
-        
-        log.info("[SELF-IMPROVEMENTS] ✅ All 10 modules initialized!")
+
+        try:
+            if AgenticWorkflow:
+                self.agentic_workflows = AgenticWorkflow(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ AgenticWorkflow")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] AgenticWorkflow failed: {e}")
+
+        try:
+            if EnterpriseUtility:
+                self.enterprise_utility = EnterpriseUtility(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ EnterpriseUtility")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] EnterpriseUtility failed: {e}")
+
+        try:
+            if MultimodalIntelligence:
+                self.multimodal_intelligence = MultimodalIntelligence(self.db)
+                log.info("[SELF-IMPROVEMENTS] ✅ MultimodalIntelligence")
+        except Exception as e:
+            log.debug(f"[SELF-IMPROVEMENTS] MultimodalIntelligence failed: {e}")
+
+        log.info("[SELF-IMPROVEMENTS] ✅ All modules initialized (13 total)!")
 
     def _start_background_services(self):
         """Start background services and loops."""
