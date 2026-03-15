@@ -191,6 +191,10 @@ class NiblitRouter:
         # New commands listing
         "new commands", "show new commands", "what's new", "whats new",
         "new features", "recent commands", "added commands",
+        # GitHub sync (self-updates to GitHub)
+        "github",
+        # Build scanner (self-knowledge from own source files)
+        "scan build", "read build", "build summary", "build path",
     )
 
     CHAT_RESPONSES = {
@@ -937,6 +941,66 @@ Ask me about:
         return safe_call(self.core.handle, cmd)
 
     # ─────────────────────────────────
+    # GITHUB SYNC
+    # ─────────────────────────────────
+    def _handle_github(self, cmd):
+        """Route github sync commands."""
+        if not self.core:
+            return "[Core not available]"
+        lower = cmd.strip().lower()
+        if lower in ("github status", "github"):
+            if hasattr(self.core, "_cmd_github_status"):
+                return safe_call(self.core._cmd_github_status, "")
+        if lower.startswith("github pull"):
+            if hasattr(self.core, "_cmd_github_pull"):
+                return safe_call(self.core._cmd_github_pull, "")
+        if lower.startswith("github push"):
+            rest = cmd.strip()[len("github push"):].strip()
+            if hasattr(self.core, "_cmd_github_push"):
+                return safe_call(self.core._cmd_github_push, rest)
+        if lower.startswith("github log"):
+            rest = cmd.strip()[len("github log"):].strip()
+            if hasattr(self.core, "_cmd_github_log"):
+                return safe_call(self.core._cmd_github_log, rest)
+        return (
+            "GitHub Sync commands:\n"
+            "  github status         — Git status of Niblit build directory\n"
+            "  github pull           — Pull latest changes from GitHub\n"
+            "  github push [msg]     — Push self-updates to GitHub\n"
+            "  github log [n]        — Show last n commits (default 5)"
+        )
+
+    # ─────────────────────────────────
+    # BUILD SCANNER
+    # ─────────────────────────────────
+    def _handle_build(self, cmd):
+        """Route build scanner commands."""
+        if not self.core:
+            return "[Core not available]"
+        lower = cmd.strip().lower()
+        if lower.startswith("scan build"):
+            rest = cmd.strip()[len("scan build"):].strip()
+            if hasattr(self.core, "_cmd_scan_build"):
+                return safe_call(self.core._cmd_scan_build, rest)
+        if lower.startswith("read build file"):
+            rest = cmd.strip()[len("read build file"):].strip()
+            if hasattr(self.core, "_cmd_read_build_file"):
+                return safe_call(self.core._cmd_read_build_file, rest)
+        if lower == "build summary":
+            if hasattr(self.core, "_cmd_build_summary"):
+                return safe_call(self.core._cmd_build_summary, "")
+        if lower == "build path":
+            if hasattr(self.core, "_cmd_build_path"):
+                return safe_call(self.core._cmd_build_path, "")
+        return (
+            "Build Scanner commands:\n"
+            "  scan build [subdir]       — List files in Niblit build directory\n"
+            "  read build file <name>    — Read a file from the build directory\n"
+            "  build summary             — Summary of the build directory\n"
+            "  build path                — Show build path and sync status"
+        )
+
+    # ─────────────────────────────────
     # CHAT RESPONSE GENERATOR
     # ─────────────────────────────────
     def _get_chat_response(self, query_type):
@@ -1487,6 +1551,15 @@ Ask me about:
         # AUTONOMOUS LEARNING COMMANDS
         if lower.startswith("autonomous-learn"):
             return self._handle_autonomous_learn(cmd)
+
+        # GITHUB SYNC COMMANDS
+        if lower.startswith("github ") or lower == "github":
+            return self._handle_github(cmd)
+
+        # BUILD SCANNER COMMANDS
+        if (lower.startswith("scan build") or lower.startswith("read build")
+                or lower in ("build summary", "build path")):
+            return self._handle_build(cmd)
 
         # KNOWLEDGE RECALL & ACQUIRED DATA COMMANDS
         if (lower.startswith("recall") or lower.startswith("acquired data")

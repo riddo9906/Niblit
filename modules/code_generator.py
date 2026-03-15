@@ -14,9 +14,23 @@ Features:
 import os
 import time
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("CodeGenerator")
+
+# ──────────────────────────────────────────────────────────
+# NIBLIT BUILD PATH
+# ──────────────────────────────────────────────────────────
+# The live Niblit installation directory inside Termux.  Autonomously
+# generated .py files are saved here so they can be hot-reloaded and
+# pushed to GitHub via GitHubSync.
+try:
+    from modules.evolve import TERMUX_DEPLOY_PATH as NIBLIT_BUILD_PATH
+except Exception:
+    NIBLIT_BUILD_PATH = Path(
+        "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
+    )
 
 # ──────────────────────────────────────────────────────────
 # LANGUAGE TEMPLATES
@@ -225,13 +239,21 @@ class CodeGenerator:
         stats = gen.get_stats()
     """
 
-    def __init__(self, db: Any = None):
+    def __init__(self, db: Any = None, deploy_path: Optional[str] = None):
         self.db = db
+        # Where to save autonomously-generated .py files.  Defaults to the
+        # Niblit build directory when running on Termux.
+        if deploy_path is not None:
+            self.deploy_path: Optional[Path] = Path(deploy_path)
+        elif NIBLIT_BUILD_PATH.exists():
+            self.deploy_path = NIBLIT_BUILD_PATH
+        else:
+            self.deploy_path = None
         self._stats: Dict[str, int] = {
             "generated": 0,
             "stored": 0,
         }
-        log.debug("[CodeGenerator] Initialized")
+        log.debug("[CodeGenerator] Initialized (deploy_path=%s)", self.deploy_path)
 
     # ──────────────────────────────────────────────────────
     # CORE GENERATION
@@ -309,6 +331,42 @@ class CodeGenerator:
             classname=classname,
             docstring=docstring or f"Niblit module: {name}",
         )
+
+    def save_to_deploy(self, name: str, code: str) -> Dict[str, Any]:
+        """Save generated Python code to the Niblit build (deploy) directory.
+
+        The file is written to *self.deploy_path/<name>.py* so it can be
+        hot-reloaded by the LiveUpdater and pushed to GitHub via GitHubSync.
+
+        Returns {"path": str, "success": bool, "error": Optional[str]}.
+        """
+        result: Dict[str, Any] = {"path": None, "success": False, "error": None}
+        if not self.deploy_path:
+            result["error"] = "deploy_path not set — not running on Termux"
+            return result
+
+        # Ensure the name is a valid filename
+        safe_name = name.replace(" ", "_").replace("-", "_")
+        if not safe_name.endswith(".py"):
+            safe_name = safe_name + ".py"
+
+        try:
+            self.deploy_path.mkdir(parents=True, exist_ok=True)
+            fpath = self.deploy_path / safe_name
+            fpath.write_text(code, encoding="utf-8")
+            result["path"] = str(fpath)
+            result["success"] = True
+            self._stats["stored"] = self._stats.get("stored", 0) + 1
+            log.info("[CodeGenerator] Saved %s to deploy path", safe_name)
+        except OSError as exc:
+            result["error"] = str(exc)
+            log.debug("[CodeGenerator] save_to_deploy failed: %s", exc)
+
+        return result
+
+    def get_deploy_path(self) -> Optional[str]:
+        """Return the current deploy path as a string, or None."""
+        return str(self.deploy_path) if self.deploy_path else None
 
     # ──────────────────────────────────────────────────────
     # LANGUAGE STUDY

@@ -31,8 +31,8 @@ class ReasoningEngine:
         
         # Extract concepts from facts
         for fact in facts:
-            key = fact.get("key", "")
-            value = fact.get("value", "")
+            key = str(fact.get("key", ""))
+            value = str(fact.get("value", ""))
             
             # Extract key concepts
             key_concepts = self._extract_concepts(key)
@@ -90,9 +90,9 @@ class ReasoningEngine:
         log.info(f"✅ [REASONING] Generated {len(inferences)} inferences")
         return inferences
     
-    def _extract_concepts(self, text: str) -> Set[str]:
+    def _extract_concepts(self, text) -> Set[str]:
         """Extract key concepts from text"""
-        words = text.lower().split()
+        words = str(text).lower().split()
         # Filter meaningful words
         stopwords = {'the', 'a', 'an', 'is', 'are', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for'}
         return {w.strip('.,!?;:') for w in words if w not in stopwords and len(w) > 3}
@@ -103,10 +103,10 @@ class ReasoningEngine:
         concept_lower = concept.lower()
         
         for fact in facts:
-            value = fact.get("value", "").lower()
+            value = str(fact.get("value", "")).lower()
             if concept_lower in value:
                 # Extract other concepts from same fact
-                key_concepts = self._extract_concepts(fact.get("key", ""))
+                key_concepts = self._extract_concepts(str(fact.get("key", "")))
                 related.update(key_concepts)
         
         return related

@@ -809,6 +809,26 @@ except Exception as _e:
     log.debug(f"InternetManager not available: {_e}")
     InternetManager = None
 
+try:
+    from modules.github_sync import GitHubSync
+except Exception as _e:
+    log.debug(f"GitHubSync not available: {_e}")
+    GitHubSync = None
+
+try:
+    from modules.build_scanner import BuildScanner
+except Exception as _e:
+    log.debug(f"BuildScanner not available: {_e}")
+    BuildScanner = None
+
+try:
+    from modules.evolve import TERMUX_DEPLOY_PATH as _NIBLIT_BUILD_PATH
+except Exception:
+    from pathlib import Path as _Path
+    _NIBLIT_BUILD_PATH = _Path(
+        "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
+    )
+
 slsa_manager = None
 try:
     from modules.slsa_manager import slsa_manager as sm
@@ -1063,6 +1083,10 @@ class NiblitCore:
         self.file_manager: Optional[FileManager] = None
         self.software_studier: Optional[SoftwareStudier] = None
         self.evolve_engine: Optional[EvolveEngine] = None
+
+        # NEW: GitHub sync and build scanner (self-knowledge + self-update to GitHub)
+        self.github_sync = None
+        self.build_scanner = None
 
         # NEW: SelfIdeaImplementation (research + implement + SLSA + memory)
         self.idea_implementation = None
@@ -1359,6 +1383,42 @@ class NiblitCore:
         self.command_registry.register(
             "autonomous-learn topic-seed", self._cmd_autonomous_topic_seed,
             "Derive & seed new topics to ALE + SLSA + KB queue (ALE Step 15)", "autonomous", priority=98
+        )
+
+        # GitHub sync commands
+        self.command_registry.register(
+            "github status", self._cmd_github_status,
+            "Git status of Niblit build directory", "github", priority=85
+        )
+        self.command_registry.register(
+            "github pull", self._cmd_github_pull,
+            "Pull latest changes from GitHub", "github", priority=85
+        )
+        self.command_registry.register(
+            "github push", self._cmd_github_push,
+            "Push self-updates to GitHub", "github", priority=85
+        )
+        self.command_registry.register(
+            "github log", self._cmd_github_log,
+            "Show recent git commits", "github", priority=85
+        )
+
+        # Build scanner commands
+        self.command_registry.register(
+            "scan build", self._cmd_scan_build,
+            "Scan Niblit build directory", "build", priority=85
+        )
+        self.command_registry.register(
+            "read build file", self._cmd_read_build_file,
+            "Read a file from the Niblit build directory", "build", priority=85
+        )
+        self.command_registry.register(
+            "build summary", self._cmd_build_summary,
+            "Summary of the Niblit build directory", "build", priority=85
+        )
+        self.command_registry.register(
+            "build path", self._cmd_build_path,
+            "Show Niblit build path and sync status", "build", priority=85
         )
 
     def _cmd_autonomous_start(self, text: str) -> str:
@@ -1758,6 +1818,16 @@ Uptime: {stats['uptime_seconds']}s
             "evolve start                       — Continuous background evolution\n"
             "evolve stop                        — Stop background evolution\n"
             "evolve status                      — Evolution status\n"
+            "\n--- GITHUB SYNC (self-updates) ---\n"
+            "github status                      — Git status of Niblit build directory\n"
+            "github pull                        — Pull latest changes from GitHub\n"
+            "github push [message]              — Push self-updates to GitHub\n"
+            "github log [n]                     — Show last n git commits (default 5)\n"
+            "\n--- BUILD SCANNER (self-knowledge) ---\n"
+            "scan build [subdir]                — List all files in the Niblit build directory\n"
+            "read build file <name>             — Read a file from the build directory\n"
+            "build summary                      — Summary of the build directory\n"
+            "build path                         — Show Niblit build path and sync status\n"
             "\n--- AGENTIC & ORCHESTRATION ---\n"
             "agentic run <workflow>             — Run a named agentic workflow\n"
             "agentic list                       — List available agentic workflows\n"
@@ -2058,6 +2128,100 @@ Uptime: {stats['uptime_seconds']}s
         if self.live_updater:
             return self.live_updater.summarize_history()
         return "[LiveUpdater not available]"
+
+    # ──────────────────────────────────────
+    # GITHUB SYNC COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_github_status(self, text: str = "") -> str:
+        """Show git status of the Niblit build directory."""
+        if not self.github_sync:
+            return "[❌ GitHubSync not available]"
+        return f"🐙 **GitHub Status:**\n{self.github_sync.status()}"
+
+    def _cmd_github_pull(self, text: str = "") -> str:
+        """Pull the latest changes from GitHub into the build directory."""
+        if not self.github_sync:
+            return "[❌ GitHubSync not available]"
+        result = self.github_sync.pull()
+        return f"⬇️ **GitHub Pull:**\n{result}"
+
+    def _cmd_github_push(self, text: str = "") -> str:
+        """Push self-updates to GitHub. Optionally: 'github push <commit message>'"""
+        if not self.github_sync:
+            return "[❌ GitHubSync not available]"
+        msg = text.strip() or None
+        result = self.github_sync.push(msg)
+        return f"⬆️ **GitHub Push:**\n{result}"
+
+    def _cmd_github_log(self, text: str = "") -> str:
+        """Show the last git commits from the build directory."""
+        if not self.github_sync:
+            return "[❌ GitHubSync not available]"
+        try:
+            n = int(text.strip()) if text.strip().isdigit() else 5
+        except ValueError:
+            n = 5
+        return f"📜 **GitHub Log (last {n}):**\n{self.github_sync.log(n)}"
+
+    # ──────────────────────────────────────
+    # BUILD SCANNER COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_scan_build(self, text: str = "") -> str:
+        """Scan the Niblit build directory: list all files and subdirs."""
+        if not self.build_scanner:
+            return "[❌ BuildScanner not available]"
+        subdir = text.strip()
+        scan = self.build_scanner.scan(subdir)
+        if scan.get("error"):
+            return f"❌ {scan['error']}"
+        lines = [f"🏗️ **Build scan:** `{scan['path']}`  ({scan['total']} entries)"]
+        if scan["dirs"]:
+            lines.append(f"  📁 Dirs ({len(scan['dirs'])}): {', '.join(scan['dirs'][:15])}")
+        files = scan["files"]
+        if files:
+            lines.append(f"  📄 Files ({len(files)}):")
+            for f in files[:30]:
+                size_str = f" ({f['size']} B)" if f["size"] < 100_000 else f" ({f['size']//1024} KB)"
+                lines.append(f"    {f['name']}{size_str}")
+            if len(files) > 30:
+                lines.append(f"    … and {len(files) - 30} more")
+        return "\n".join(lines)
+
+    def _cmd_read_build_file(self, filepath: str = "") -> str:
+        """Read a file from the Niblit build directory."""
+        if not self.build_scanner:
+            return "[❌ BuildScanner not available]"
+        if not filepath.strip():
+            return "Usage: read build file <filename>"
+        result = self.build_scanner.read_file(filepath.strip())
+        if not result["success"]:
+            return f"❌ {result['error']}"
+        content = result["content"]
+        preview = content[:1500]
+        suffix = "\n…[truncated]" if len(content) > 1500 else ""
+        return f"📄 **{filepath}** ({result['size']} bytes):\n```\n{preview}{suffix}\n```"
+
+    def _cmd_build_summary(self, text: str = "") -> str:
+        """Show a summary of the Niblit build directory."""
+        if not self.build_scanner:
+            return "[❌ BuildScanner not available]"
+        return self.build_scanner.summarize()
+
+    def _cmd_build_path(self, text: str = "") -> str:
+        """Show the Niblit build path used by evolve and code generator."""
+        lines = [
+            "🏗️ **Niblit Build Path:**",
+            f"  Path        : {_NIBLIT_BUILD_PATH}",
+            f"  Exists      : {'✅ Yes' if _NIBLIT_BUILD_PATH.exists() else '❌ No (not on Termux)'}",
+            f"  GitHub Sync : {'✅ Ready' if self.github_sync else '❌ Not available'}",
+            f"  Build Scanner: {'✅ Ready' if self.build_scanner else '❌ Not available'}",
+        ]
+        if self.code_generator and hasattr(self.code_generator, "get_deploy_path"):
+            dp = self.code_generator.get_deploy_path()
+            lines.append(f"  Code Generator deploy path: {dp or '(not set)'}")
+        return "\n".join(lines)
 
     # ──────────────────────────────────────
     # STRUCTURAL AWARENESS COMMANDS
@@ -3038,6 +3202,8 @@ Uptime: {stats['uptime_seconds']}s
                         reasoning_engine=getattr(self, "reasoning_engine", None),
                         metacognition=getattr(self, "metacognition", None),
                         improvement_integrator=getattr(self, "improvements", None),
+                        github_sync=getattr(self, "github_sync", None),
+                        build_scanner=getattr(self, "build_scanner", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -3117,6 +3283,30 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.debug(f"FilesystemManager init failed: {e}")
                     self.startup_report.add("file_manager", "degraded", str(e))
+
+            # ============================
+            # GITHUB SYNC
+            # ============================
+            if GitHubSync:
+                try:
+                    self.github_sync = GitHubSync(db=self.db)
+                    log.info("✅ GitHubSync initialized")
+                    self.startup_report.add("github_sync", "ready")
+                except Exception as e:
+                    log.debug(f"GitHubSync init failed: {e}")
+                    self.startup_report.add("github_sync", "degraded", str(e))
+
+            # ============================
+            # BUILD SCANNER
+            # ============================
+            if BuildScanner:
+                try:
+                    self.build_scanner = BuildScanner(db=self.db)
+                    log.info("✅ BuildScanner initialized")
+                    self.startup_report.add("build_scanner", "ready")
+                except Exception as e:
+                    log.debug(f"BuildScanner init failed: {e}")
+                    self.startup_report.add("build_scanner", "degraded", str(e))
 
             # ============================
             # SOFTWARE STUDIER
