@@ -55,11 +55,11 @@ jobs:
             --cov=niblit_sqlite_db \
             --cov=config \
             --cov=main \
-            --cov=modules/agentic_workflows \
-            --cov=modules/reflect \
-            --cov=modules/evolve \
-            --cov=modules/autonomous_learning_engine \
-            --cov=modules/termux_wakelock \
+            --cov=modules.agentic_workflows \
+            --cov=modules.reflect \
+            --cov=modules.evolve \
+            --cov=modules.autonomous_learning_engine \
+            --cov=modules.termux_wakelock \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             -v

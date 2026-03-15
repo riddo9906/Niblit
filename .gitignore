@@ -26,3 +26,4 @@ niblit_live_test_report.json
 
 # Python package metadata
 *.egg-info
+.coverage
