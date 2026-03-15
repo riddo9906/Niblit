@@ -1375,7 +1375,7 @@ class AutonomousLearningEngine:
                 )
                 for f in (raw or []):
                     if isinstance(f, dict):
-                        facts.append(f)
+                        facts.append({"key": str(f.get("key", "")), "value": str(f.get("value", ""))})
                     elif isinstance(f, (list, tuple)) and len(f) >= 2:
                         facts.append({"key": str(f[0]), "value": str(f[1])})
             except Exception as exc:
