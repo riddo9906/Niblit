@@ -1462,6 +1462,7 @@ class NiblitCore:
         )
 
 
+    def _cmd_autonomous_start(self, text: str) -> str:
         """Start autonomous learning engine."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
