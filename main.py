@@ -124,6 +124,13 @@ def boot():
     core = NiblitCore()
     io.out(f"{timestamp()} CORE READY")
 
+    # Report wake-lock status so the user knows whether the background loops
+    # will keep running while the screen is off / Termux is in the background.
+    if hasattr(core, "wakelock") and core.wakelock is not None:
+        io.out(f"{timestamp()} {core.wakelock.status()}")
+    else:
+        io.out(f"{timestamp()} ⚪ Wake-lock: not available (termux-api not installed)")
+
     debug(io, "Active Threads After Boot:")
     debug(io, list_threads())
 

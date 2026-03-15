@@ -46,6 +46,7 @@ jobs:
             test_server.py \
             test_niblit_db.py \
             test_main.py \
+            test_termux_wakelock.py \
             test_agentic_workflows.py \
             test_reflect.py \
             test_evolve.py \
@@ -58,6 +59,7 @@ jobs:
             --cov=modules/reflect \
             --cov=modules/evolve \
             --cov=modules/autonomous_learning_engine \
+            --cov=modules/termux_wakelock \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             -v

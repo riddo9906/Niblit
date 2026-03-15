@@ -13,6 +13,8 @@
         "python.testing.pytestArgs": [
           "test_server.py",
           "test_niblit_db.py",
+          "test_main.py",
+          "test_termux_wakelock.py",
           "test_agentic_workflows.py",
           "test_reflect.py",
           "test_evolve.py",
