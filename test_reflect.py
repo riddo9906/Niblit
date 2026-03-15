@@ -84,6 +84,14 @@ class TestCollectAndSummarize:
         result = reflect.collect_and_summarize(entry="")
         assert "No reflection" in result
 
+    def test_no_entry_with_deps_wired_does_not_call_teacher(self, reflect, teacher):
+        reflect.collect_and_summarize()
+        teacher.teach.assert_not_called()
+
+    def test_no_entry_with_deps_wired_does_not_call_learner(self, reflect, learner):
+        reflect.collect_and_summarize()
+        learner.learn.assert_not_called()
+
     def test_returns_string(self, reflect):
         result = reflect.collect_and_summarize(entry="Niblit learned Python today.")
         assert isinstance(result, str)

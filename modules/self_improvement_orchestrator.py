@@ -20,6 +20,7 @@ configured.
 """
 
 import logging
+import json
 import threading
 import time
 from datetime import datetime, timezone
@@ -228,10 +229,9 @@ class SelfImprovementOrchestrator:
         if not self.db:
             return
         try:
-            import json as _json
             self.db.add_fact(
                 f"orchestrator:cycle:{record['cycle']}:{record['ts']}",
-                _json.dumps(record),
+                json.dumps(record),
                 tags=["orchestrator", "autonomous"],
             )
         except Exception:
