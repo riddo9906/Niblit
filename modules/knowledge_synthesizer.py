@@ -70,7 +70,7 @@ Cross-Domain Insights:
         for category, values in list(categories.items())[:5]:
             summary += f"\n**{category}:**\n"
             for value in values[:2]:
-                summary += f"• {value[:100]}...\n"
+                summary += f"• {str(value)[:100]}...\n"
         
         log.info(f"✅ [SYNTHESIZE] Summary created")
         return summary

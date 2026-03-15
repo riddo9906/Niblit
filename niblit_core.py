@@ -1702,6 +1702,62 @@ Uptime: {stats['uptime_seconds']}s
         
         return result
 
+    def _cmd_show_new_commands(self, text: str = "") -> str:
+        """Show all commands added in recent updates."""
+        return (
+            "🆕 **NEW COMMANDS (Recent Updates)**\n\n"
+            "--- AUTONOMOUS LEARNING (Continuous — auto-starts with Niblit) ---\n"
+            "autonomous-learn start             — Resume continuous learning after a stop\n"
+            "autonomous-learn stop              — Pause continuous learning\n"
+            "autonomous-learn status            — View stats including improvement_cycles count\n"
+            "autonomous-learn add-topic <topic> — Seed a new research topic into ALE\n"
+            "autonomous-learn code-status       — Programming literacy stats\n"
+            "\n--- KNOWLEDGE RECALL (ALE Output) ---\n"
+            "recall <topic>                     — Search all KB facts for topic (ale_learned tags included)\n"
+            "acquired data                      — Browse all facts produced by ALE\n"
+            "acquired data <category>           — Filter: research, ideas, code, compiled, reflection,\n"
+            "                                     software_study, implementation, all\n"
+            "knowledge stats                    — KB summary: counts, tags, ALE breakdown\n"
+            "ale processes                      — Explain all 18 ALE steps + module status\n"
+            "\n--- 10 SELF-IMPROVEMENTS (Now Continuous) ---\n"
+            "run improvement-cycle              — Manually trigger full 10-module improvement cycle\n"
+            "show improvements                  — List all 10 improvement modules\n"
+            "improvement-status                 — Status of each improvement module\n"
+            "\n--- STRUCTURAL SELF-AWARENESS ---\n"
+            "my structure                       — Full component inventory\n"
+            "my threads                         — All active threads\n"
+            "my loops                           — Background loop status\n"
+            "my modules                         — Loaded modules\n"
+            "my commands                        — All registered commands\n"
+            "new commands                       — This listing of recently added commands\n"
+            "dashboard                          — Full runtime dashboard\n"
+            "resource usage                     — RAM, CPU, uptime\n"
+            "\n--- CODE & LEARNING ---\n"
+            "generate code <lang> [template]    — Generate code\n"
+            "run code <lang> <code>             — Execute code inline\n"
+            "study language <lang>              — Study language best practices\n"
+            "study software <category>          — Study a software category\n"
+            "research code <lang> [topic]       — Research lang from internet → CodeGenerator\n"
+            "\n--- REASONING & METACOGNITION ---\n"
+            "self-research <topic>              — Autonomous research + KB storage\n"
+            "reflect [text]                     — Reflect on topic (results stored in ale_learned)\n"
+            "auto-reflect                       — Auto reflection on recent events\n"
+            "\n--- EVOLUTION ---\n"
+            "evolve                             — One self-evolution step\n"
+            "evolve start                       — Continuous background evolution\n"
+            "evolve stop                        — Stop background evolution\n"
+            "evolve status                      — Evolution status\n"
+            "\n--- AGENTIC & ORCHESTRATION ---\n"
+            "agentic run <workflow>             — Run a named agentic workflow\n"
+            "agentic list                       — List available agentic workflows\n"
+            "orchestrate audit                  — Run repository audit\n"
+            "orchestrate self-heal              — Run self-healing\n"
+            "orchestrate pipeline               — Full orchestration pipeline\n"
+            "\nTip: 'help' shows the full command reference.\n"
+            "     All research, ideas, code, and improvement results are stored in\n"
+            "     KnowledgeDB — use 'recall <topic>' or 'acquired data' to browse them."
+        )
+
     # ============================
     # COMMAND HANDLERS (NO LLM)
     # ============================
@@ -2965,14 +3021,15 @@ Uptime: {stats['uptime_seconds']}s
                         internet=getattr(self, "internet", None),
                         reasoning_engine=getattr(self, "reasoning_engine", None),
                         metacognition=getattr(self, "metacognition", None),
+                        improvement_integrator=getattr(self, "improvements", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
                     # Auto-start: ALE runs in a daemon background thread so Niblit
-                    # continuously learns during idle periods without any manual command.
+                    # continuously learns at all times without any manual command.
                     # Use 'autonomous-learn stop' at the CLI to pause it if needed.
                     self.autonomous_engine.start()
-                    log.info("🚀 AutonomousLearningEngine auto-started (daemon background thread)")
+                    log.info("🚀 AutonomousLearningEngine auto-started (continuous background learning)")
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))
@@ -3940,6 +3997,11 @@ Uptime: {stats['uptime_seconds']}s
             log.debug("[IMPROVE-CMD] Intercepted: improvement-status")
             return self._cmd_improvement_status(text)
 
+        if ltext in ("new commands", "show new commands", "what's new", "whats new",
+                     "new features", "recent commands", "added commands"):
+            log.debug("[IMPROVE-CMD] Intercepted: new commands")
+            return self._cmd_show_new_commands(text)
+
         # ============================
         # LAYER 7b: LIVE UPDATER COMMANDS
         # ============================
@@ -4237,19 +4299,20 @@ Uptime: {stats['uptime_seconds']}s
             "acquired data <category> — Filter by: research, ideas, code, compiled,\n"
             "                           reflection, software_study, implementation, all\n"
             "knowledge stats          — Full KnowledgeDB summary (counts, top tags, ALE breakdown)\n"
-            "ale processes            — Explain all 12 ALE steps + data storage + module status\n"
+            "ale processes            — Explain all 18 ALE steps + data storage + module status\n"
             "\n--- AUTONOMOUS LEARNING ---\n"
-            "autonomous-learn start              — Start background learning (incl. code loop)\n"
-            "autonomous-learn stop               — Stop background learning\n"
+            "autonomous-learn start              — Resume learning after a stop (auto-starts with Niblit)\n"
+            "autonomous-learn stop               — Pause background learning\n"
             "autonomous-learn status             — View full learning statistics\n"
             "autonomous-learn add-topic <topic>  — Add research topic\n"
             "autonomous-learn code-status        — View programming literacy status\n"
-            "\n--- PROGRAMMING LITERACY (CODE LOOP) ---\n"
-            "  Runs during idle time — internet is the primary data source:\n"
+            "\n--- CONTINUOUS LEARNING (18 STEPS, RUNS ALL THE TIME) ---\n"
+            "  ALE runs every cycle regardless of idle state:\n"
             "  Step  1: Research       — researcher+internet → KB (tag: ale_step1)\n"
             "  Step  2: Ideas          — SelfIdeaImpl generates ideas    (tag: ale_step2)\n"
             "  Step  3: Implement      — SelfImplementer executes ideas  (tag: ale_step3)\n"
-            "  Step  4: Reflection     — ReflectModule summarizes        (tag: ale_step4)\n"
+            "  Step  4: Reflection     — ReflectModule summarizes+stores (tag: ale_step4)\n"
+            "                            Research results stored as ale_learned after reflection\n"
             "  Step  5: SLSA           — generates knowledge artifacts   (tag: ale_step5)\n"
             "  Step  6: Learning       — SelfTeacher internalizes        (tag: ale_step6)\n"
             "  Step  7: Evolve         — EvolveEngine self-evolves       (tag: ale_step7)\n"
@@ -4258,11 +4321,19 @@ Uptime: {stats['uptime_seconds']}s
             "  Step 10: Code Compile   — CodeCompiler runs it            (tag: ale_step10)\n"
             "  Step 11: Code Reflect   — ReflectModule studies output    (tag: ale_step11)\n"
             "  Step 12: SW Study       — SoftwareStudier+internet        (tag: ale_step12)\n"
+            "  Step 13: Cmd Awareness  — Catalogue all commands          (tag: ale_step13)\n"
+            "  Step 14: Cmd Execution  — Run safe diagnostic commands    (tag: ale_step14)\n"
+            "  Step 15: Topic Seeding  — Derive + feed new topics        (tag: ale_step15)\n"
+            "  Step 16: Reasoning      — Build knowledge graph+infer     (tag: ale_step16)\n"
+            "  Step 17: Metacognition  — Self-knowledge evaluation       (tag: ale_step17)\n"
+            "  Step 18: Improvement    — 10-module improvement cycle     (tag: ale_step18)\n"
             "  All output stored in KnowledgeDB.  Recall: 'recall <topic>'\n"
-            "\n--- 10 SELF-IMPROVEMENTS ---\n"
+            "\n--- 10 SELF-IMPROVEMENTS (NOW CONTINUOUS VIA STEP 18) ---\n"
             "show improvements        — View all 10 improvements\n"
-            "run improvement-cycle    — Execute improvement cycle\n"
+            "run improvement-cycle    — Manually trigger improvement cycle\n"
             "improvement-status       — View improvement status\n"
+            "\n--- NEW COMMANDS ---\n"
+            "new commands             — Show all recently added commands\n"
             "\n--- INTERNET & RESEARCH ---\n"
             "search <query>           — Search the internet\n"
             "summary <query>          — Get quick summary\n"

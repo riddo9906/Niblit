@@ -51,6 +51,7 @@ class AutonomousLearningEngine:
                  evolve_engine=None, self_implementer=None, idea_implementation=None,
                  code_generator=None, code_compiler=None, software_studier=None,
                  internet=None, reasoning_engine=None, metacognition=None,
+                 improvement_integrator=None,
                  step_timeout=120):
         """
         Args:
@@ -72,6 +73,7 @@ class AutonomousLearningEngine:
             internet: InternetManager — primary data collection channel (required for code research)
             reasoning_engine: ReasoningEngine — builds knowledge graphs and reasoning chains
             metacognition: Metacognition — evaluates self-knowledge and identifies learning gaps
+            improvement_integrator: ImprovementIntegrator — runs full 10-module improvement cycle
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -90,6 +92,7 @@ class AutonomousLearningEngine:
         self.internet = internet
         self.reasoning_engine = reasoning_engine
         self.metacognition = metacognition
+        self.improvement_integrator = improvement_integrator
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -173,6 +176,7 @@ class AutonomousLearningEngine:
             "topic_seedings": 0,
             "reasoning_cycles": 0,
             "metacognition_cycles": 0,
+            "improvement_cycles": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
@@ -387,7 +391,7 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _autonomous_reflection(self) -> str:
-        """Step 4: Reflect on learning"""
+        """Step 4: Reflect on learning and store consolidated research+reflection in memory."""
         if not self.reflect:
             return "[Reflect module unavailable]"
 
@@ -395,9 +399,34 @@ class AutonomousLearningEngine:
             last_topic = self.learning_history.get("last_research_topic") or "system learning"
             last_idea = self.learning_history.get("last_idea") or "system improvement"
 
+            # Pull the most recent research fact so reflection has real content
+            recent_research_summary = ""
+            if self.knowledge_db:
+                try:
+                    # list_facts() returns facts sorted newest-first (by ts descending),
+                    # so the first matching entry is always the most recent research result.
+                    facts = (
+                        self.knowledge_db.list_facts(20)
+                        if hasattr(self.knowledge_db, "list_facts") else []
+                    )
+                    for f in (facts or []):
+                        if isinstance(f, dict):
+                            key = str(f.get("key", ""))
+                            if "ale_research:" in key or "ale_internet_code:" in key:
+                                val = f.get("value", {})
+                                if isinstance(val, dict):
+                                    recent_research_summary = str(val.get("summary", ""))[:200]
+                                else:
+                                    recent_research_summary = str(val)[:200]
+                                if recent_research_summary:
+                                    break
+                except Exception:
+                    pass
+
             reflection_text = f"""
 Autonomous Learning Summary:
 - Researched: {last_topic}
+- Research findings: {recent_research_summary or '(pending)'}
 - Generated Idea: {last_idea}
 - Research Count: {self.learning_history['research_completed']}
 - Implementation Count: {self.learning_history['ideas_implemented']}
@@ -410,16 +439,35 @@ Autonomous Learning Summary:
 
             self.learning_history["reflections_conducted"] += 1
 
-            # Log to knowledge base
+            # Log to knowledge base — store both the raw research and the reflection
             if self.knowledge_db:
                 try:
+                    ts = int(time.time())
                     self.knowledge_db.log_event("Autonomous reflection completed")
+                    # Reflection record
                     self.knowledge_db.add_fact(
-                        f"ale_reflection:{int(time.time())}",
-                        {"topic": last_topic, "idea": last_idea,
-                         "summary": str(result or reflection_text)[:400],
-                         "step": "step4_reflection"},
+                        f"ale_reflection:{ts}",
+                        {
+                            "topic": last_topic,
+                            "idea": last_idea,
+                            "research_summary": recent_research_summary,
+                            "reflection": str(result or reflection_text)[:400],
+                            "step": "step4_reflection",
+                        },
                         tags=["ale_step4", "reflection", "autonomous"],
+                    )
+                    # Also store the consolidated research+reflection as a memory entry
+                    # so it is immediately recallable as a learning outcome
+                    self.knowledge_db.add_fact(
+                        f"ale_learned:{last_topic.replace(' ', '_')}:{ts}",
+                        {
+                            "topic": last_topic,
+                            "research": recent_research_summary,
+                            "reflection": str(result or "")[:300],
+                            "idea": last_idea,
+                            "source": "ale_reflection",
+                        },
+                        tags=["ale_learned", "memory", "autonomous", last_topic.split()[0].lower()],
                     )
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
@@ -545,6 +593,77 @@ Autonomous Learning Summary:
         if not self.metacognition and self.core:
             self.metacognition = getattr(self.core, "metacognition", None)
         return self.metacognition
+
+    def _get_improvement_integrator(self):
+        """Lazily resolve ImprovementIntegrator from core."""
+        if not self.improvement_integrator and self.core:
+            self.improvement_integrator = getattr(self.core, "improvements", None)
+        return self.improvement_integrator
+
+    # ─────────────────────────────────────────────
+    # IMPROVEMENT INTEGRATOR STEP (step 18)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_improvement_cycle(self) -> str:
+        """Step 18: Run the full 10-module improvement cycle via ImprovementIntegrator.
+
+        This integrates parallel learning, reasoning, gap analysis, synthesis,
+        prediction, memory optimization, adaptive learning, metacognition, and
+        collaborative learning into one atomic pass — executed on every ALE
+        background cycle so the improvements run *constantly*, not just once.
+
+        Results from every sub-module are stored in KnowledgeDB under the tag
+        ``ale_step18`` so they can be recalled, reasoned over, and acted on by
+        subsequent cycles.
+        """
+        integrator = self._get_improvement_integrator()
+        if not integrator:
+            return "[Improvement cycle skipped — ImprovementIntegrator not available]"
+
+        log.info("🔧 [IMPROVEMENT CYCLE] Starting 10-module improvement cycle...")
+
+        try:
+            results = integrator.run_full_improvement_cycle()
+
+            # Count successes
+            successful = sum(
+                1 for v in results.values()
+                if isinstance(v, dict) and str(v.get("status", "")).startswith("✅")
+            )
+            total = len(results)
+
+            # Persist cycle summary to KB
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_improvement_cycle:{int(time.time())}",
+                        {
+                            "results": {k: str(v)[:200] for k, v in results.items()},
+                            "successful": successful,
+                            "total": total,
+                            "step": "step18_improvement_cycle",
+                        },
+                        tags=["ale_step18", "improvement_cycle", "autonomous"],
+                    )
+                    self.knowledge_db.log_event(
+                        f"Autonomous improvement cycle: {successful}/{total} modules succeeded"
+                    )
+                except Exception as exc:
+                    log.debug(f"[IMPROVEMENT CYCLE] KB store failed: {exc}")
+
+            log.info(f"✅ [IMPROVEMENT CYCLE] {successful}/{total} modules succeeded")
+            return (
+                f"Improvement cycle: {successful}/{total} modules succeeded — "
+                + ", ".join(
+                    f"{k}={'✅' if isinstance(v, dict) and str(v.get('status','')).startswith('✅') else '⚠️'}"
+                    for k, v in results.items()
+                    if k != "cycle_summary"
+                )
+            )
+
+        except Exception as exc:
+            log.error(f"❌ Autonomous improvement cycle failed: {exc}")
+            return f"[Improvement cycle error: {exc}]"
 
     def _autonomous_code_research(self) -> str:
         """Step 8: Researcher + Internet fetch real programming-language data → feed CodeGenerator.
@@ -1714,6 +1833,10 @@ Autonomous Learning Summary:
         # Metacognition (step 17)
         _step("Metacognition", self._autonomous_metacognition)
 
+        # Full 10-module improvement cycle (step 18) — runs every cycle so improvements
+        # are applied *constantly* rather than only when triggered by a manual command.
+        _step("ImprovementCycle", self._autonomous_improvement_cycle)
+
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -1729,6 +1852,7 @@ Autonomous Learning Summary:
             "code_reflected", "software_studied",
             "command_awareness_cycles", "command_executions",
             "topic_seedings", "reasoning_cycles", "metacognition_cycles",
+            "improvement_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -1743,26 +1867,38 @@ Autonomous Learning Summary:
 
     # ─────────────────────────────────────────────
     def background_loop(self):
-        """Main background loop - runs autonomously when idle.
+        """Main background loop - runs autonomously, continuously.
+
+        Runs a full learning cycle on every iteration regardless of idle state.
+        When the system is *active* (user is interacting), a shorter wait is
+        used between cycles so the engine is always progressing.  When the
+        system is *idle*, the cycle runs immediately with the normal inter-cycle
+        pause.
 
         Uses *_interruptible_sleep* for all waits so that stop() wakes the
         loop immediately instead of waiting for the next poll tick.
         """
-        log.info("🚀 [BACKGROUND LOOP] Started")
+        log.info("🚀 [BACKGROUND LOOP] Started — continuous autonomous learning active")
         cycle_count = 0
 
         while self.running:
             try:
-                if self.is_idle():
-                    log.info(f"😴 System idle. Starting autonomous learning cycle #{cycle_count + 1}...")
-                    self._run_autonomous_cycle()
-                    cycle_count += 1
+                idle = self.is_idle()
+                log.info(
+                    f"🔄 [BACKGROUND LOOP] Starting cycle #{cycle_count + 1} "
+                    f"({'idle' if idle else 'active'} system)..."
+                )
+                self._run_autonomous_cycle()
+                cycle_count += 1
 
-                    # Wait before next cycle — interruptible so stop() works immediately
-                    self._interruptible_sleep(self.poll_interval * 5)
-                else:
-                    log.debug("System active, skipping autonomous cycle")
-                    self._interruptible_sleep(self.poll_interval)
+                # Wait before next cycle.
+                # During idle: longer pause (5× poll_interval) — no rush when no
+                # user is present, conserves resources.
+                # During active use: shorter pause (2× poll_interval) — keep the
+                # improvement loop responsive while the user is working.
+                # All waits are interruptible so stop() takes effect immediately.
+                wait = self.poll_interval * 5 if idle else self.poll_interval * 2
+                self._interruptible_sleep(wait)
 
             except Exception as e:
                 log.error(f"❌ Background loop error: {e}")
@@ -1836,6 +1972,7 @@ Autonomous Learning Summary:
                 "slsa_manager": bool(self.slsa_manager),
                 "reasoning_engine": bool(self._get_reasoning_engine()),
                 "metacognition": bool(self._get_metacognition()),
+                "improvement_integrator": bool(self._get_improvement_integrator()),
             },
         }
 
@@ -1877,7 +2014,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  idea_implementation=None,
                                  code_generator=None, code_compiler=None,
                                  software_studier=None, internet=None,
-                                 reasoning_engine=None, metacognition=None) -> AutonomousLearningEngine:
+                                 reasoning_engine=None, metacognition=None,
+                                 improvement_integrator=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -1898,6 +2036,7 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         internet=internet,
         reasoning_engine=reasoning_engine,
         metacognition=metacognition,
+        improvement_integrator=improvement_integrator,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")

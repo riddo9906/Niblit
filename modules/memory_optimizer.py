@@ -102,8 +102,10 @@ class MemoryOptimizer:
         log.info(f"✅ [OPTIMIZE] Index created with {len(index)} entries")
         return index
     
-    def _compress_text(self, text: str, sentences: int = 2) -> str:
+    def _compress_text(self, text, sentences: int = 2) -> str:
         """Compress text by keeping key sentences"""
+        if not isinstance(text, str):
+            text = str(text)
         if len(text) < 100:
             return text
         

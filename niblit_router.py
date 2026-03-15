@@ -188,6 +188,9 @@ class NiblitRouter:
         "multimodal",
         # Collaborative systems
         "collab",
+        # New commands listing
+        "new commands", "show new commands", "what's new", "whats new",
+        "new features", "recent commands", "added commands",
     )
 
     CHAT_RESPONSES = {
