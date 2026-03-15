@@ -41,6 +41,9 @@ logging.basicConfig(
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
 
+# Maximum characters stored from a failed code snippet in the KB / reflection queue.
+_MAX_FAILED_CODE_SNIPPET_LENGTH: int = 400
+
 
 class AutonomousLearningEngine:
     """
@@ -55,6 +58,7 @@ class AutonomousLearningEngine:
                  code_generator=None, code_compiler=None, software_studier=None,
                  internet=None, reasoning_engine=None, metacognition=None,
                  improvement_integrator=None, github_sync=None, build_scanner=None,
+                 binary_studier=None,
                  step_timeout=120):
         """
         Args:
@@ -79,6 +83,7 @@ class AutonomousLearningEngine:
             improvement_integrator: ImprovementIntegrator — runs full 10-module improvement cycle
             github_sync: GitHubSync — pushes self-updates to GitHub
             build_scanner: BuildScanner — scans own source files for self-knowledge
+            binary_studier: BinaryStudier — autonomous binary/hex/dex/firmware/kernel study
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -100,6 +105,7 @@ class AutonomousLearningEngine:
         self.improvement_integrator = improvement_integrator
         self.github_sync = github_sync
         self.build_scanner = build_scanner
+        self.binary_studier = binary_studier
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -117,6 +123,19 @@ class AutonomousLearningEngine:
             "code indentation and structure best practices",
             "proper code formatting standards for all languages",
             "code syntax correctness and linting",
+            # ── low-level / systems ─────────────────────────────────────────
+            "binary file formats ELF DEX PE Mach-O",
+            "hexadecimal binary number systems and conversions",
+            "assembly language x86-64 and ARM programming",
+            "Linux kernel module development",
+            "firmware and embedded systems programming",
+            "BIOS UEFI bootloader development",
+            "Android internals DEX smali ART",
+            "networking TCP IP sockets protocols",
+            "operating system internals process memory scheduling",
+            "kernel driver development char block network devices",
+            "binary exploitation and reverse engineering fundamentals",
+            "cross-compilation toolchains and build systems",
             # ── general AI/ML topics ────────────────────────────────────────
             "artificial intelligence advances",
             "machine learning techniques",
@@ -141,6 +160,30 @@ class AutonomousLearningEngine:
             ("python", "code structure and indentation"),
             ("bash", "proper script structure and indentation"),
             ("javascript", "code structure and formatting"),
+            # ── compiled / systems languages ─────────────────────────────────
+            ("java", "object-oriented design patterns"),
+            ("java", "Android development best practices"),
+            ("c", "memory management and pointers"),
+            ("c", "system calls and POSIX API"),
+            ("cpp", "RAII and smart pointers"),
+            ("cpp", "template metaprogramming"),
+            ("rust", "ownership and borrowing"),
+            ("rust", "async programming and tokio"),
+            ("go", "goroutines and channels"),
+            ("go", "error handling patterns"),
+            ("kotlin", "coroutines and Android development"),
+            ("typescript", "type system and generics"),
+            ("assembly", "x86-64 system call interface"),
+            ("assembly", "ARM Cortex-M bare metal programming"),
+            # ── networking & systems ──────────────────────────────────────────
+            ("python", "socket programming and networking"),
+            ("c", "Linux socket and epoll networking"),
+            ("bash", "network diagnostic scripting"),
+            # ── binary / low-level ───────────────────────────────────────────
+            ("python", "binary file parsing with struct"),
+            ("python", "ELF and DEX format analysis"),
+            ("c", "kernel module and device driver programming"),
+            ("c", "firmware bare-metal embedded programming"),
             # ── existing topics ─────────────────────────────────────────────
             ("python", "data structures"),
             ("python", "algorithms"),
@@ -154,14 +197,24 @@ class AutonomousLearningEngine:
 
         # Software study categories (rotated each idle cycle)
         self.software_study_categories = [
+            # ── systems & low-level ─────────────────────────────────────────
+            "binary_analysis",
+            "kernel_development",
+            "firmware_embedded",
+            "bios_uefi",
+            "android_internals",
+            "networking_protocols",
+            "operating_systems",
+            "assembly_programming",
+            # ── high-level / general ────────────────────────────────────────
             "ai_ml_systems",
             "web_applications",
             "databases",
-            "operating_systems",
-            "networking",
             "security",
             "distributed_systems",
             "cloud_native",
+            "cross_platform_development",
+            "reverse_engineering",
         ]
 
         # Ideas generated (to implement)
@@ -199,6 +252,7 @@ class AutonomousLearningEngine:
             "improvement_cycles": 0,
             "self_scan_cycles": 0,
             "github_push_cycles": 0,
+            "binary_study_cycles": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
@@ -943,7 +997,7 @@ class AutonomousLearningEngine:
                 failed_record = {
                     "language": lang,
                     "topic": topic,
-                    "code": code[:400],
+                    "code": code[:_MAX_FAILED_CODE_SNIPPET_LENGTH],
                     "output": "",
                     "error": f"SyntaxError: {syntax_err}"[:200],
                     "success": False,
@@ -2005,6 +2059,110 @@ class AutonomousLearningEngine:
             return f"[GitHub push error: {exc}]"
 
     # ─────────────────────────────────────────────
+    # BINARY / HEX / DEX / FIRMWARE / KERNEL STUDY (step 21)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_binary_study(self) -> str:
+        """Step 21: Binary domain study — seeds KB with binary/hex/firmware/kernel topics.
+
+        Workflow:
+          1. If a BinaryStudier instance is available, seed its topic list into KB.
+          2. If internet is available, fetch one random binary topic for deeper research.
+          3. If CodeGenerator is available, generate a binary utility Python module.
+        """
+        internet = self._get_internet()
+        code_gen = self._get_code_generator()
+
+        # Binary study topics sampled per cycle
+        binary_topics = [
+            "ELF binary format sections and segments",
+            "DEX Dalvik bytecode format and smali",
+            "hexadecimal binary number conversions",
+            "Linux kernel module init exit macros",
+            "ARM Cortex-M bare-metal firmware structure",
+            "BIOS UEFI boot sequence and EFI applications",
+            "Android APK structure and DEX files",
+            "TCP IP socket programming in C",
+            "networking epoll and async I/O",
+            "assembly language x86-64 calling conventions",
+            "cross-compilation for embedded targets",
+            "binary patching and dynamic instrumentation",
+        ]
+
+        results: List[str] = []
+
+        # 1. Seed BinaryStudier topics into KB
+        binary_studier = self.binary_studier
+        if not binary_studier and self.core:
+            binary_studier = getattr(self.core, "binary_studier", None)
+
+        if binary_studier and hasattr(binary_studier, "seed_topics"):
+            try:
+                count = binary_studier.seed_topics()
+                if count:
+                    results.append(f"seeded {count} binary topics")
+            except Exception as exc:
+                log.debug(f"BinaryStudier.seed_topics failed: {exc}")
+
+        # 2. Research a random binary topic via internet
+        topic = random.choice(binary_topics)
+        if internet:
+            try:
+                res = internet.search(f"{topic} tutorial guide", max_results=2)
+                snippets = []
+                for r in (res or []):
+                    text = r.get("text", str(r)) if isinstance(r, dict) else str(r)
+                    if text and len(text) > 30:
+                        snippets.append(text[:300])
+                if snippets and self.knowledge_db:
+                    try:
+                        self.knowledge_db.add_fact(
+                            f"ale_binary_study:{topic.replace(' ', '_')}:{int(time.time())}",
+                            "\n---\n".join(snippets[:2]),
+                            tags=["binary", "study", "autonomous"],
+                        )
+                    except Exception:
+                        pass
+                results.append(f"researched '{topic}' ({len(snippets)} snippet(s))")
+            except Exception as exc:
+                log.debug(f"Binary internet research failed: {exc}")
+
+        # 3. Queue the topic for further KB-based learning
+        if self.knowledge_db:
+            try:
+                self.knowledge_db.queue_learning(topic)
+            except Exception:
+                pass
+
+        # 4. Generate a binary-utility Python module
+        if code_gen and hasattr(code_gen, "generate_with_validation"):
+            try:
+                gen_result = code_gen.generate_with_validation(
+                    "binary",
+                    "reader",
+                    name="ale_binary_util",
+                    docstring=f"Auto-generated binary utility — {topic}",
+                )
+                if gen_result.get("success"):
+                    results.append("generated binary utility module")
+                    # Queue for compilation
+                    self._pending_compiled.append({
+                        "language": "python",
+                        "code": gen_result.get("code", ""),
+                        "topic": "binary_utility",
+                    })
+            except Exception as exc:
+                log.debug(f"Binary module generation failed: {exc}")
+
+        self.learning_history["binary_study_cycles"] = (
+            self.learning_history.get("binary_study_cycles", 0) + 1
+        )
+
+        summary = "; ".join(results) if results else "no external resources available"
+        log.info("✅ [BINARY STUDY] %s", summary)
+        return f"Binary study: {summary}"
+
+    # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle.
 
@@ -2064,6 +2222,9 @@ class AutonomousLearningEngine:
 
         # GitHub push — persist generated files to GitHub (step 20)
         _step("GitHubPush", self._autonomous_github_push)
+
+        # Binary/hex/dex/firmware/kernel/BIOS study (step 21)
+        _step("BinaryStudy", self._autonomous_binary_study)
 
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
@@ -2246,7 +2407,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  software_studier=None, internet=None,
                                  reasoning_engine=None, metacognition=None,
                                  improvement_integrator=None,
-                                 github_sync=None, build_scanner=None) -> AutonomousLearningEngine:
+                                 github_sync=None, build_scanner=None,
+                                 binary_studier=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -2270,6 +2432,7 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         improvement_integrator=improvement_integrator,
         github_sync=github_sync,
         build_scanner=build_scanner,
+        binary_studier=binary_studier,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")
