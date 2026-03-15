@@ -178,6 +178,16 @@ class NiblitRouter:
         "my", "sa-structure", "sa-threads", "sa-loops", "sa-modules",
         "sa-commands", "sa-dashboard", "sa-flow", "sa-resources", "sa-awareness",
         "dashboard", "struct",
+        # Intelligent reasoning
+        "reasoning",
+        # Agentic workflows
+        "agentic",
+        # Enterprise utility
+        "enterprise",
+        # Multimodal intelligence
+        "multimodal",
+        # Collaborative systems
+        "collab",
     )
 
     CHAT_RESPONSES = {
@@ -1380,6 +1390,97 @@ Ask me about:
                 return safe_call(self.core._cmd_improvement_status, cmd)
             return "[Improvements command handler not available]"
 
+        # ===== INTELLIGENT REASONING COMMANDS =====
+        if lower in ("reasoning build", "reasoning-build", "build knowledge graph"):
+            if self.core and hasattr(self.core, "_cmd_reasoning_build"):
+                return safe_call(self.core._cmd_reasoning_build)
+            return "[ReasoningEngine not available]"
+
+        if lower.startswith("reasoning chain ") or lower.startswith("reasoning-chain "):
+            concept = cmd.split(None, 2)[-1].strip()
+            if self.core and hasattr(self.core, "_cmd_reasoning_chain"):
+                return safe_call(self.core._cmd_reasoning_chain, concept)
+            return "[ReasoningEngine not available]"
+
+        if lower in ("reasoning infer", "reasoning-infer", "infer knowledge"):
+            if self.core and hasattr(self.core, "_cmd_reasoning_infer"):
+                return safe_call(self.core._cmd_reasoning_infer)
+            return "[ReasoningEngine not available]"
+
+        if lower in ("reasoning", "reasoning status", "reasoning-status"):
+            if self.core and hasattr(self.core, "_cmd_reasoning_status"):
+                return safe_call(self.core._cmd_reasoning_status)
+            return "[ReasoningEngine not available]"
+
+        # ===== AGENTIC WORKFLOW COMMANDS =====
+        if lower.startswith("agentic run ") or lower.startswith("agentic-run "):
+            spec = cmd.split(None, 2)[-1].strip()
+            if self.core and hasattr(self.core, "_cmd_agentic_run"):
+                return safe_call(self.core._cmd_agentic_run, spec)
+            return "[AgenticWorkflow not available]"
+
+        if lower in ("agentic list", "agentic-list", "list workflows", "agentic workflows"):
+            if self.core and hasattr(self.core, "_cmd_agentic_list"):
+                return safe_call(self.core._cmd_agentic_list)
+            return "[AgenticWorkflow not available]"
+
+        if lower in ("agentic", "agentic status", "agentic-status"):
+            if self.core and hasattr(self.core, "_cmd_agentic_status"):
+                return safe_call(self.core._cmd_agentic_status)
+            return "[AgenticWorkflow not available]"
+
+        # ===== ENTERPRISE UTILITY COMMANDS =====
+        if lower in ("enterprise", "enterprise summary", "enterprise-summary"):
+            if self.core and hasattr(self.core, "_cmd_enterprise_summary"):
+                return safe_call(self.core._cmd_enterprise_summary)
+            return "[EnterpriseUtility not available]"
+
+        if lower.startswith("enterprise audit") or lower.startswith("enterprise-audit"):
+            spec = lower.split(None, 2)[-1] if len(lower.split()) > 2 else ""
+            if self.core and hasattr(self.core, "_cmd_enterprise_audit"):
+                return safe_call(self.core._cmd_enterprise_audit, spec)
+            return "[EnterpriseUtility not available]"
+
+        if lower in ("enterprise health", "enterprise-health"):
+            if self.core and hasattr(self.core, "_cmd_enterprise_health"):
+                return safe_call(self.core._cmd_enterprise_health)
+            return "[EnterpriseUtility not available]"
+
+        if lower in ("enterprise sla", "enterprise-sla"):
+            if self.core and hasattr(self.core, "_cmd_enterprise_sla"):
+                return safe_call(self.core._cmd_enterprise_sla)
+            return "[EnterpriseUtility not available]"
+
+        # ===== MULTIMODAL INTELLIGENCE COMMANDS =====
+        if lower.startswith("multimodal process ") or lower.startswith("multimodal-process "):
+            spec = cmd.split(None, 2)[-1].strip()
+            if self.core and hasattr(self.core, "_cmd_multimodal_process"):
+                return safe_call(self.core._cmd_multimodal_process, spec)
+            return "[MultimodalIntelligence not available]"
+
+        if lower in ("multimodal", "multimodal status", "multimodal-status"):
+            if self.core and hasattr(self.core, "_cmd_multimodal_status"):
+                return safe_call(self.core._cmd_multimodal_status)
+            return "[MultimodalIntelligence not available]"
+
+        # ===== COLLABORATIVE SYSTEMS COMMANDS =====
+        if lower in ("collab", "collab status", "collab-status", "collaboration status"):
+            if self.core and hasattr(self.core, "_cmd_collab_status"):
+                return safe_call(self.core._cmd_collab_status)
+            return "[CollaborativeLearner not available]"
+
+        if lower.startswith("collab register ") or lower.startswith("collab-register "):
+            spec = cmd.split(None, 2)[-1].strip()
+            if self.core and hasattr(self.core, "_cmd_collab_register"):
+                return safe_call(self.core._cmd_collab_register, spec)
+            return "[CollaborativeLearner not available]"
+
+        if lower.startswith("collab request ") or lower.startswith("collab-request "):
+            spec = cmd.split(None, 2)[-1].strip()
+            if self.core and hasattr(self.core, "_cmd_collab_request"):
+                return safe_call(self.core._cmd_collab_request, spec)
+            return "[CollaborativeLearner not available]"
+
         # AUTONOMOUS LEARNING COMMANDS
         if lower.startswith("autonomous-learn"):
             return self._handle_autonomous_learn(cmd)
@@ -1688,6 +1789,36 @@ Ask me about:
             "evolve stop                  — Stop background evolution",
             "evolve status                — Show evolution status + available modules",
             "evolve history               — Show recent evolution steps",
+            "",
+            "=== INTELLIGENT REASONING ===",
+            "reasoning                    — Show reasoning engine status",
+            "reasoning status             — Show reasoning engine status",
+            "reasoning build              — Build knowledge graph from KnowledgeDB facts",
+            "reasoning chain <concept>    — Trace logical chain from a concept",
+            "reasoning infer              — Infer new knowledge from the graph",
+            "",
+            "=== AGENTIC WORKFLOWS ===",
+            "agentic                      — Show agentic workflow module status",
+            "agentic list                 — List all registered workflows",
+            "agentic run <name> [key=val] — Execute a named workflow with optional context",
+            "  Built-in workflows: research_and_summarise, goal_decomposition,",
+            "                      self_improvement_cycle",
+            "",
+            "=== ENTERPRISE UTILITY ===",
+            "enterprise                   — Full operational summary (health + SLA + audit)",
+            "enterprise health            — Component health report",
+            "enterprise audit [N]         — Last N audit log entries (default: 10)",
+            "enterprise sla               — SLA metrics for all tracked operations",
+            "",
+            "=== MULTIMODAL INTELLIGENCE ===",
+            "multimodal                   — Module status and breakdown",
+            "multimodal process <content> — Auto-detect modality and describe content",
+            "multimodal process <mod> <c> — Force modality: text|code|json|numeric",
+            "",
+            "=== COLLABORATIVE SYSTEMS ===",
+            "collab                       — Collaboration status and peer list",
+            "collab register <name> [caps]— Register a peer system",
+            "collab request <peer> <topic>— Request knowledge from a peer",
             "",
         ]
         return "\n".join(commands)
