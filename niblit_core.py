@@ -1921,9 +1921,14 @@ Uptime: {stats['uptime_seconds']}s
             return "[❌ ReasoningEngine not available]"
         try:
             facts = []
-            if self.db:
-                raw = self.db.get_facts()
-                facts = [{"key": k, "value": v} for k, v in raw.items()] if isinstance(raw, dict) else []
+            if self.db and hasattr(self.db, "list_facts"):
+                # list_facts() returns [{"key": ..., "value": ..., "tags": [...], "ts": ...}, ...]
+                raw = self.db.list_facts(200)
+                facts = [
+                    {"key": str(f.get("key", "")), "value": str(f.get("value", ""))}
+                    for f in (raw or [])
+                    if isinstance(f, dict)
+                ]
             graph = self.reasoning_engine.build_knowledge_graph(facts)
             return (f"🧠 **KNOWLEDGE GRAPH BUILT:**\n"
                     f"Concepts: {len(graph)}\n"
