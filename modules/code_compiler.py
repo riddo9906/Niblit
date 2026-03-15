@@ -8,7 +8,8 @@ Features:
 - Safe sandboxed execution with timeout
 - Capture stdout/stderr
 - Termux and standard Linux environment support
-- Syntax validation before running
+- Syntax validation before running (Python, Bash, JavaScript)
+- Pre-execution syntax gate: bash -n / py_compile / node --check
 - Store execution results in KnowledgeDB
 """
 
@@ -122,20 +123,20 @@ class CodeCompiler:
         """
         Execute a code string in the specified language.
 
-        Validates syntax (Python only) before executing.
-        Uses a temp file so no injection via stdin.
+        Runs a syntax-only check (bash -n / py_compile / node --check) before
+        executing so bad code never reaches the interpreter.  Uses a temp file
+        so no injection via stdin.
         """
         lang = language.lower()
 
-        # Validate syntax for Python
-        if lang in ("python", "python3"):
-            syntax_err = self._validate_python_syntax(code)
-            if syntax_err:
-                return ExecutionResult(
-                    success=False,
-                    language=lang,
-                    error=f"SyntaxError: {syntax_err}",
-                )
+        # Pre-execution syntax gate — fast, no side-effects
+        syntax_check = self.syntax_test(lang, code)
+        if not syntax_check["valid"]:
+            return ExecutionResult(
+                success=False,
+                language=lang,
+                error=f"SyntaxError: {syntax_check['error']}",
+            )
 
         runner = _RUNNERS.get(lang)
         if runner is None:
@@ -178,15 +179,43 @@ class CodeCompiler:
     def validate_syntax(self, language: str, code: str) -> Dict[str, Any]:
         """
         Validate code syntax without running it.
-        Currently supports Python; other languages return unknown.
+        Delegates to syntax_test() for a unified multi-language result.
+        """
+        return self.syntax_test(language, code)
+
+    def syntax_test(self, language: str, code: str) -> Dict[str, Any]:
+        """
+        Test the syntax of *code* for *language* without executing it.
+
+        Supported checks:
+          - python / python3  → ast.parse  (always available)
+          - bash / sh         → bash -n    (writes to temp file)
+          - javascript / js   → node --check (writes to temp file)
+
+        Returns:
+            {"valid": bool, "language": str, "error": Optional[str]}
         """
         lang = language.lower()
+
         if lang in ("python", "python3"):
             err = self._validate_python_syntax(code)
-            if err:
-                return {"valid": False, "language": lang, "error": err}
-            return {"valid": True, "language": lang, "error": None}
-        return {"valid": None, "language": lang, "error": "Syntax check not supported for this language"}
+            return {"valid": err is None, "language": lang, "error": err}
+
+        if lang in ("bash", "sh"):
+            err = self._validate_bash_syntax(code)
+            return {"valid": err is None, "language": lang, "error": err}
+
+        if lang in ("javascript", "js"):
+            err = self._validate_javascript_syntax(code)
+            if err is None:
+                return {"valid": True, "language": lang, "error": None}
+            # node --check may be unavailable; treat as unknown rather than failure
+            if err == "unavailable":
+                return {"valid": True, "language": lang, "error": None}
+            return {"valid": False, "language": lang, "error": err}
+
+        # Unknown language — cannot check, assume valid
+        return {"valid": True, "language": lang, "error": None}
 
     def available_languages(self) -> Dict[str, bool]:
         """Return dict of language → interpreter available."""
@@ -217,6 +246,67 @@ class CodeCompiler:
             return None
         except SyntaxError as exc:
             return str(exc)
+
+    def _validate_bash_syntax(self, code: str) -> Optional[str]:
+        """Return None if Bash syntax is valid (bash -n), else error string."""
+        if not self._check_interpreter("bash"):
+            return None  # bash not available — skip check
+        tmp_path: Optional[str] = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".sh", delete=False, encoding="utf-8"
+            ) as tmp:
+                tmp.write(code)
+                tmp_path = tmp.name
+            result = subprocess.run(
+                ["bash", "-n", tmp_path],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return (result.stderr or "bash syntax error").strip()
+            return None
+        except (subprocess.TimeoutExpired, OSError):
+            return None  # cannot check — assume valid
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+
+    def _validate_javascript_syntax(self, code: str) -> Optional[str]:
+        """Return None if JS syntax is valid (node --check), else error string.
+
+        Returns the string 'unavailable' if Node.js is not installed.
+        """
+        if not self._check_interpreter("node"):
+            return "unavailable"
+        tmp_path: Optional[str] = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".js", delete=False, encoding="utf-8"
+            ) as tmp:
+                tmp.write(code)
+                tmp_path = tmp.name
+            result = subprocess.run(
+                ["node", "--check", tmp_path],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return (result.stderr or "javascript syntax error").strip()
+            return None
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
     def _check_interpreter(self, runner: str) -> bool:
         """Check if an interpreter binary is available."""
