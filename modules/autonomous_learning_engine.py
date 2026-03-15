@@ -14,12 +14,17 @@ Runs when Niblit is idle to autonomously improve itself through:
 10. Code Compilation — CodeCompiler compiles generated code and stores results
 11. Code Reflection — ReflectModule studies compiled output so Niblit understands it
 12. Software Study — SoftwareStudier analyzes code patterns/functions via internet data
-13. Feed everything back into the knowledge base
+13. Command Awareness — catalogue all registered commands into KB
+14. Command Execution — exercise safe diagnostic commands and store observations
+15. Topic Seeding — derive new research topics from KB and feed them to all subsystems
+16. Reasoning — ReasoningEngine builds knowledge graph, chains, and infers new facts
+17. Metacognition — Metacognition evaluates self-knowledge and identifies learning gaps
 
 Creates a continuous self-improvement loop.
 Internet is the primary data-collection channel for steps 1, 8, 9, 12.
 """
 
+import concurrent.futures
 import threading
 import time
 import logging
@@ -45,7 +50,8 @@ class AutonomousLearningEngine:
                  knowledge_db=None, idle_threshold=300, poll_interval=60,
                  evolve_engine=None, self_implementer=None, idea_implementation=None,
                  code_generator=None, code_compiler=None, software_studier=None,
-                 internet=None):
+                 internet=None, reasoning_engine=None, metacognition=None,
+                 step_timeout=120):
         """
         Args:
             core: NiblitCore instance
@@ -64,6 +70,9 @@ class AutonomousLearningEngine:
             code_compiler: CodeCompiler — compiles and executes generated code
             software_studier: SoftwareStudier — analyzes software patterns via internet
             internet: InternetManager — primary data collection channel (required for code research)
+            reasoning_engine: ReasoningEngine — builds knowledge graphs and reasoning chains
+            metacognition: Metacognition — evaluates self-knowledge and identifies learning gaps
+            step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
         self.researcher = researcher
@@ -79,6 +88,9 @@ class AutonomousLearningEngine:
         self.code_compiler = code_compiler
         self.software_studier = software_studier
         self.internet = internet
+        self.reasoning_engine = reasoning_engine
+        self.metacognition = metacognition
+        self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
         self.poll_interval = poll_interval
@@ -86,6 +98,8 @@ class AutonomousLearningEngine:
         self.running = False
         self.last_user_interaction = datetime.utcnow()
         self.learning_thread = None
+        # Event used to wake up the inter-cycle sleep early (e.g. on stop())
+        self._stop_event = threading.Event()
 
         # Topics to autonomously research (grows over time)
         self.research_topics = [
@@ -157,12 +171,16 @@ class AutonomousLearningEngine:
             "self_learn_sequences": 0,
             "evolve_sequences": 0,
             "topic_seedings": 0,
+            "reasoning_cycles": 0,
+            "metacognition_cycles": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
             "last_software_category": None,
             "last_commands_studied": None,
             "last_seeded_topics": None,
+            "last_reasoning_inferences": 0,
+            "last_metacognition_confidence": None,
             "learning_rate": 0.0,
             "start_time": datetime.utcnow().isoformat()
         }
@@ -515,6 +533,18 @@ Autonomous Learning Summary:
         if not self.software_studier and self.core:
             self.software_studier = getattr(self.core, "software_studier", None)
         return self.software_studier
+
+    def _get_reasoning_engine(self):
+        """Lazily resolve ReasoningEngine from core."""
+        if not self.reasoning_engine and self.core:
+            self.reasoning_engine = getattr(self.core, "reasoning_engine", None)
+        return self.reasoning_engine
+
+    def _get_metacognition(self):
+        """Lazily resolve Metacognition from core."""
+        if not self.metacognition and self.core:
+            self.metacognition = getattr(self.core, "metacognition", None)
+        return self.metacognition
 
     def _autonomous_code_research(self) -> str:
         """Step 8: Researcher + Internet fetch real programming-language data → feed CodeGenerator.
@@ -1167,6 +1197,251 @@ Autonomous Learning Summary:
         )
 
     # ─────────────────────────────────────────────
+    # INTELLIGENT REASONING (step 16)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_reasoning(self) -> str:
+        """Step 16: Use ReasoningEngine to build a knowledge graph from recent facts,
+        create reasoning chains, and infer new knowledge.
+
+        The inferred facts are stored back into KnowledgeDB so every subsequent
+        cycle benefits from the connected understanding built here.
+        """
+        engine = self._get_reasoning_engine()
+        if not engine:
+            return "[Reasoning skipped — ReasoningEngine not available]"
+
+        log.info("🧠 [REASONING] Starting intelligent reasoning step...")
+
+        # Pull recent facts from knowledge DB to reason over
+        facts: List[Dict] = []
+        if self.knowledge_db:
+            try:
+                raw = (
+                    self.knowledge_db.list_facts(50)
+                    if hasattr(self.knowledge_db, "list_facts")
+                    else []
+                )
+                for f in (raw or []):
+                    if isinstance(f, dict):
+                        facts.append(f)
+                    elif isinstance(f, (list, tuple)) and len(f) >= 2:
+                        facts.append({"key": str(f[0]), "value": str(f[1])})
+            except Exception as exc:
+                log.debug(f"[REASONING] Failed to load facts from KB: {exc}")
+
+        if not facts:
+            # Nothing to reason over yet — seed with learning history
+            topic = self.learning_history.get("last_research_topic") or "artificial intelligence"
+            facts = [{"key": f"ale_seed:{topic}", "value": topic, "tags": ["ale"]}]
+
+        try:
+            # 1. Build knowledge graph
+            graph = engine.build_knowledge_graph(facts)
+            graph_size = len(graph)
+
+            # 2. Create reasoning chains from a starting concept
+            start_concept = (
+                self.learning_history.get("last_research_topic") or
+                next(iter(graph), "learning")
+            )
+            chain = engine.create_reasoning_chain(start_concept, depth=4)
+
+            # 3. Infer new knowledge
+            inferences = engine.infer_new_knowledge()
+            inference_count = len(inferences)
+
+            # Store graph summary and inferences in KB
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_reasoning:{int(time.time())}",
+                        {
+                            "graph_concepts": graph_size,
+                            "chain": chain,
+                            "inferences_count": inference_count,
+                            "sample_inferences": inferences[:3],
+                            "step": "step16_reasoning",
+                        },
+                        tags=["ale_step16", "reasoning", "autonomous"],
+                    )
+                    # Store each inference as a searchable fact
+                    for i, inference in enumerate(inferences[:5]):
+                        self.knowledge_db.add_fact(
+                            f"ale_inference:{int(time.time())}_{i}",
+                            inference,
+                            tags=["ale_step16", "inference", "reasoning"],
+                        )
+                    self.knowledge_db.log_event(
+                        f"Autonomous reasoning: {graph_size} concepts, "
+                        f"{len(chain)}-step chain, {inference_count} inferences"
+                    )
+                except Exception as exc:
+                    log.debug(f"[REASONING] KB store failed: {exc}")
+
+            self.learning_history["reasoning_cycles"] = (
+                self.learning_history.get("reasoning_cycles", 0) + 1
+            )
+            self.learning_history["last_reasoning_inferences"] = inference_count
+
+            log.info(
+                f"✅ [REASONING] Graph: {graph_size} concepts | "
+                f"Chain: {' → '.join(chain)} | Inferences: {inference_count}"
+            )
+            return (
+                f"Reasoning: {graph_size} concepts in graph, "
+                f"{len(chain)}-step chain from '{start_concept}', "
+                f"{inference_count} new inferences stored"
+            )
+
+        except Exception as exc:
+            log.error(f"❌ Autonomous reasoning failed: {exc}")
+            return f"[Reasoning error: {exc}]"
+
+    # ─────────────────────────────────────────────
+    # METACOGNITION (step 17)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_metacognition(self) -> str:
+        """Step 17: Use Metacognition to evaluate Niblit's own knowledge,
+        identify boundaries/gaps, and store the self-assessment in KB.
+
+        The evaluation guides which topics future ALE cycles should prioritise.
+        """
+        meta = self._get_metacognition()
+        if not meta:
+            return "[Metacognition skipped — Metacognition module not available]"
+
+        log.info("🔮 [METACOGNITION] Starting self-knowledge evaluation...")
+
+        # Pull facts for metacognitive analysis
+        facts: List[Dict] = []
+        if self.knowledge_db:
+            try:
+                raw = (
+                    self.knowledge_db.list_facts(100)
+                    if hasattr(self.knowledge_db, "list_facts")
+                    else []
+                )
+                for f in (raw or []):
+                    if isinstance(f, dict):
+                        facts.append(f)
+                    elif isinstance(f, (list, tuple)) and len(f) >= 2:
+                        facts.append({"key": str(f[0]), "value": str(f[1])})
+            except Exception as exc:
+                log.debug(f"[METACOGNITION] Failed to load facts from KB: {exc}")
+
+        # Topics attempted by the ALE so far — built in steps to keep it readable
+        recent_topics = [
+            self.learning_history.get("last_research_topic"),
+            self.learning_history.get("last_language_studied"),
+            self.learning_history.get("last_software_category"),
+        ]
+        recent_topics.extend(self.research_topics[:5])
+        attempted_topics = list(dict.fromkeys(t for t in recent_topics if t))
+
+        try:
+            # 1. Build knowledge map
+            knowledge_map = meta.build_knowledge_map(facts) if facts else {}
+
+            # 2. Identify knowledge boundaries
+            boundaries = meta.identify_knowledge_boundaries(attempted_topics)
+
+            # 3. Self-evaluate overall understanding
+            evaluation = meta.evaluate_understanding()
+
+            confidence = evaluation.get("overall_confidence", "unknown")
+            total_items = evaluation.get("total_knowledge_items", 0)
+            unknown_count = len(boundaries.get("unknown", []))
+            poorly_understood = boundaries.get("poorly_understood", [])
+
+            # Feed gaps back into ALE research queue so they get studied
+            for gap_topic in poorly_understood[:3]:
+                self.add_research_topic(gap_topic)
+                if self.knowledge_db:
+                    try:
+                        self.knowledge_db.queue_learning(gap_topic)
+                    except Exception:
+                        pass
+
+            # Persist self-assessment to KB
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_metacognition:{int(time.time())}",
+                        {
+                            "total_facts_assessed": total_items,
+                            "overall_confidence": confidence,
+                            "high_confidence": evaluation.get("high_confidence_facts", 0),
+                            "medium_confidence": evaluation.get("medium_confidence_facts", 0),
+                            "low_confidence": evaluation.get("low_confidence_facts", 0),
+                            "unknown_topics": unknown_count,
+                            "gaps_queued": poorly_understood[:3],
+                            "step": "step17_metacognition",
+                        },
+                        tags=["ale_step17", "metacognition", "autonomous"],
+                    )
+                    self.knowledge_db.log_event(
+                        f"Autonomous metacognition: {confidence} confidence over "
+                        f"{total_items} items; {unknown_count} unknown topics"
+                    )
+                except Exception as exc:
+                    log.debug(f"[METACOGNITION] KB store failed: {exc}")
+
+            self.learning_history["metacognition_cycles"] = (
+                self.learning_history.get("metacognition_cycles", 0) + 1
+            )
+            self.learning_history["last_metacognition_confidence"] = confidence
+
+            log.info(
+                f"✅ [METACOGNITION] Confidence: {confidence} | "
+                f"Total items: {total_items} | Gaps queued: {len(poorly_understood[:3])}"
+            )
+            return (
+                f"Metacognition: {confidence} overall confidence over {total_items} items; "
+                f"{unknown_count} unknown topics; {len(poorly_understood[:3])} gaps queued for research"
+            )
+
+        except Exception as exc:
+            log.error(f"❌ Autonomous metacognition failed: {exc}")
+            return f"[Metacognition error: {exc}]"
+
+    # ─────────────────────────────────────────────
+    # STEP TIMEOUT HELPER
+    # ─────────────────────────────────────────────
+
+    def _run_step_with_timeout(self, step_name: str, step_fn) -> str:
+        """Run a single ALE step in a thread pool with a timeout.
+
+        If the step does not complete within *self.step_timeout* seconds the
+        main cycle continues without waiting further. The worker thread is a
+        daemon thread (inherits from the ALE background thread) and will be
+        collected by the OS when the process exits. This prevents any single
+        stalled network call or slow module from blocking the entire ALE cycle
+        while still allowing all other steps to run on schedule.
+        """
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(step_fn)
+            try:
+                return future.result(timeout=self.step_timeout)
+            except concurrent.futures.TimeoutError:
+                log.warning(
+                    f"⏱️ [ALE] Step '{step_name}' timed out after {self.step_timeout}s — skipping"
+                )
+                return f"[{step_name} timed out after {self.step_timeout}s]"
+            except Exception as exc:
+                log.error(f"❌ [ALE] Step '{step_name}' raised: {exc}")
+                return f"[{step_name} error: {exc}]"
+
+    # ─────────────────────────────────────────────
+    # INTERRUPTIBLE SLEEP HELPER
+    # ─────────────────────────────────────────────
+
+    def _interruptible_sleep(self, seconds: float) -> None:
+        """Sleep for *seconds* but wake up immediately if stop() is called."""
+        self._stop_event.wait(timeout=seconds)
+
+    # ─────────────────────────────────────────────
     # PUBLIC SEQUENCES (callable on-demand or from cycle)
     # ─────────────────────────────────────────────
 
@@ -1390,60 +1665,54 @@ Autonomous Learning Summary:
 
     # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle"""
+        """Execute one complete autonomous learning cycle.
+
+        Every step is wrapped in *_run_step_with_timeout* so a stalled
+        network call or slow module can never freeze the whole loop.
+        A short interruptible sleep between steps lets stop() interrupt
+        the cycle immediately.
+        """
         log.info("=" * 70)
         log.info("🔄 [AUTONOMOUS CYCLE] Starting complete learning cycle...")
         log.info("=" * 70)
 
         results = []
 
-        # Core learning loop
-        results.append(("Research", self._autonomous_research()))
-        time.sleep(2)
+        def _step(name: str, fn) -> None:
+            if not self.running:
+                return
+            result = self._run_step_with_timeout(name, fn)
+            results.append((name, result))
+            self._interruptible_sleep(2)
 
-        results.append(("Ideas", self._autonomous_idea_generation()))
-        time.sleep(2)
+        # Core learning loop (steps 1-7)
+        _step("Research",       self._autonomous_research)
+        _step("Ideas",          self._autonomous_idea_generation)
+        _step("Learning",       self._autonomous_learning)
+        _step("Implementation", self._autonomous_implementation)
+        _step("Reflection",     self._autonomous_reflection)
+        _step("SLSA",           self._autonomous_slsa_run)
+        _step("Evolve",         self._autonomous_evolve_step)
 
-        results.append(("Learning", self._autonomous_learning()))
-        time.sleep(2)
-
-        results.append(("Implementation", self._autonomous_implementation()))
-        time.sleep(2)
-
-        results.append(("Reflection", self._autonomous_reflection()))
-        time.sleep(2)
-
-        results.append(("SLSA", self._autonomous_slsa_run()))
-        time.sleep(2)
-
-        results.append(("Evolve", self._autonomous_evolve_step()))
-        time.sleep(2)
-
-        # Programming-literacy loop (uses internet as primary data source)
-        results.append(("CodeResearch", self._autonomous_code_research()))
-        time.sleep(2)
-
-        results.append(("CodeGeneration", self._autonomous_code_generation()))
-        time.sleep(2)
-
-        results.append(("CodeCompilation", self._autonomous_code_compilation()))
-        time.sleep(2)
-
-        results.append(("CodeReflection", self._autonomous_code_reflection()))
-        time.sleep(2)
-
-        results.append(("SoftwareStudy", self._autonomous_software_study()))
-        time.sleep(2)
+        # Programming-literacy loop (steps 8-12)
+        _step("CodeResearch",    self._autonomous_code_research)
+        _step("CodeGeneration",  self._autonomous_code_generation)
+        _step("CodeCompilation", self._autonomous_code_compilation)
+        _step("CodeReflection",  self._autonomous_code_reflection)
+        _step("SoftwareStudy",   self._autonomous_software_study)
 
         # Structural self-awareness loop (steps 13-14)
-        results.append(("CommandAwareness", self._autonomous_command_awareness()))
-        time.sleep(2)
-
-        results.append(("CommandExecution", self._autonomous_command_execution()))
-        time.sleep(2)
+        _step("CommandAwareness", self._autonomous_command_awareness)
+        _step("CommandExecution", self._autonomous_command_execution)
 
         # Topic seeding loop (step 15)
-        results.append(("TopicSeeding", self._autonomous_topic_seeding()))
+        _step("TopicSeeding", self._autonomous_topic_seeding)
+
+        # Intelligent reasoning (step 16)
+        _step("Reasoning", self._autonomous_reasoning)
+
+        # Metacognition (step 17)
+        _step("Metacognition", self._autonomous_metacognition)
 
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
@@ -1459,7 +1728,7 @@ Autonomous Learning Summary:
             "code_researched", "code_generated", "code_compiled",
             "code_reflected", "software_studied",
             "command_awareness_cycles", "command_executions",
-            "topic_seedings",
+            "topic_seedings", "reasoning_cycles", "metacognition_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -1474,7 +1743,11 @@ Autonomous Learning Summary:
 
     # ─────────────────────────────────────────────
     def background_loop(self):
-        """Main background loop - runs autonomously when idle"""
+        """Main background loop - runs autonomously when idle.
+
+        Uses *_interruptible_sleep* for all waits so that stop() wakes the
+        loop immediately instead of waiting for the next poll tick.
+        """
         log.info("🚀 [BACKGROUND LOOP] Started")
         cycle_count = 0
 
@@ -1485,15 +1758,15 @@ Autonomous Learning Summary:
                     self._run_autonomous_cycle()
                     cycle_count += 1
 
-                    # Wait before next cycle
-                    time.sleep(self.poll_interval * 5)
+                    # Wait before next cycle — interruptible so stop() works immediately
+                    self._interruptible_sleep(self.poll_interval * 5)
                 else:
                     log.debug("System active, skipping autonomous cycle")
-                    time.sleep(self.poll_interval)
+                    self._interruptible_sleep(self.poll_interval)
 
             except Exception as e:
                 log.error(f"❌ Background loop error: {e}")
-                time.sleep(self.poll_interval)
+                self._interruptible_sleep(self.poll_interval)
 
         log.info(f"[BACKGROUND LOOP] Stopped after {cycle_count} cycles")
 
@@ -1504,8 +1777,11 @@ Autonomous Learning Summary:
             log.warning("⚠️  Autonomous learning engine already running")
             return False
 
+        self._stop_event.clear()
         self.running = True
-        self.learning_thread = threading.Thread(target=self.background_loop, daemon=True)
+        self.learning_thread = threading.Thread(
+            target=self.background_loop, daemon=True, name="ALE-BackgroundLoop"
+        )
         self.learning_thread.start()
 
         log.info("✅ Autonomous learning engine started")
@@ -1515,8 +1791,9 @@ Autonomous Learning Summary:
     def stop(self):
         """Stop the autonomous learning engine"""
         self.running = False
+        self._stop_event.set()  # Wake any sleeping background loop immediately
         if self.learning_thread:
-            self.learning_thread.join(timeout=5)
+            self.learning_thread.join(timeout=10)
 
         log.info("✅ Autonomous learning engine stopped")
         return True
@@ -1557,6 +1834,8 @@ Autonomous Learning Summary:
                 "internet": bool(self._get_internet()),
                 "structural_awareness": bool(self._get_structural_awareness()),
                 "slsa_manager": bool(self.slsa_manager),
+                "reasoning_engine": bool(self._get_reasoning_engine()),
+                "metacognition": bool(self._get_metacognition()),
             },
         }
 
@@ -1597,7 +1876,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  evolve_engine=None, self_implementer=None,
                                  idea_implementation=None,
                                  code_generator=None, code_compiler=None,
-                                 software_studier=None, internet=None) -> AutonomousLearningEngine:
+                                 software_studier=None, internet=None,
+                                 reasoning_engine=None, metacognition=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -1616,6 +1896,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         code_compiler=code_compiler,
         software_studier=software_studier,
         internet=internet,
+        reasoning_engine=reasoning_engine,
+        metacognition=metacognition,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")

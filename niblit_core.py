@@ -1413,6 +1413,12 @@ Uptime: {stats['uptime_seconds']}s
   ALE Topics: {stats.get('research_topics', 0)}
   SLSA Topics: {len(slsa_topics)} ({', '.join(slsa_topics[:3])}{'...' if len(slsa_topics) > 3 else ''})
 
+🧩 Intelligent Reasoning:
+  Reasoning Cycles: {s.get('reasoning_cycles', 0)}
+  Last Inferences: {s.get('last_reasoning_inferences', 0)}
+  Metacognition Cycles: {s.get('metacognition_cycles', 0)}
+  Last Confidence: {s.get('last_metacognition_confidence', 'none')}
+
 📚 Topics: {stats.get('research_topics', 0)} | Code Topics: {stats.get('code_research_topics', 0)} | SW Categories: {stats.get('software_study_categories', 0)}
 💡 Pending Ideas: {stats.get('pending_ideas', 0)}
 
@@ -1423,6 +1429,8 @@ Uptime: {stats['uptime_seconds']}s
   software_studier     : {mods.get('software_studier', False)}
   structural_awareness : {mods.get('structural_awareness', False)}
   slsa_manager         : {mods.get('slsa_manager', False)}
+  reasoning_engine     : {mods.get('reasoning_engine', False)}
+  metacognition        : {mods.get('metacognition', False)}
 """
         return result.strip()
 
@@ -2955,9 +2963,16 @@ Uptime: {stats['uptime_seconds']}s
                         code_compiler=getattr(self, "code_compiler", None),
                         software_studier=getattr(self, "software_studier", None),
                         internet=getattr(self, "internet", None),
+                        reasoning_engine=getattr(self, "reasoning_engine", None),
+                        metacognition=getattr(self, "metacognition", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
+                    # Auto-start: ALE runs in a daemon background thread so Niblit
+                    # continuously learns during idle periods without any manual command.
+                    # Use 'autonomous-learn stop' at the CLI to pause it if needed.
+                    self.autonomous_engine.start()
+                    log.info("🚀 AutonomousLearningEngine auto-started (daemon background thread)")
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))
