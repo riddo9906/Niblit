@@ -1956,7 +1956,7 @@ Uptime: {stats['uptime_seconds']}s
         return (f"🧠 **REASONING ENGINE STATUS:**\n"
                 f"Knowledge graph concepts: {graph_size}\n"
                 f"Reasoning chains stored: {chain_count}\n"
-                f"Status: {'Ready — run \"reasoning build\" to populate graph' if graph_size == 0 else 'Active'}")
+                f"Status: {'Ready — run `reasoning build` to populate graph' if graph_size == 0 else 'Active'}")
 
     def _cmd_reasoning_chain(self, concept: str) -> str:
         """Create a reasoning chain from the given concept."""
