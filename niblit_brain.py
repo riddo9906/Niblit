@@ -41,6 +41,7 @@ logging.basicConfig(
 )
 
 # ───────── Improvement Imports ─────────
+# pylint: disable=invalid-name
 try:
     from modules.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 except Exception as _e:
@@ -134,6 +135,7 @@ try:
 except Exception as _e:
     log.warning(f"InternetManager unavailable: {_e}")
     InternetManager = None
+# pylint: enable=invalid-name
 
 
 # ───────── Memory Adapter ─────────
@@ -148,12 +150,15 @@ class _DBMemoryAdapter:
         return getattr(self._memory, name)
 
     def store_learning(self, entry):
+        """Store a learning entry, delegating to memory or local DB."""
         if hasattr(self._memory, "store_learning"):
             return self._memory.store_learning(entry)
         if self._db:
             self._db.add_entry("learning", entry)
+        return None
 
     def recall(self, query, limit=5):
+        """Recall entries matching *query* from memory or local DB."""
         if hasattr(self._memory, "recall"):
             return self._memory.recall(query, limit)
         if not self._db:
@@ -168,13 +173,16 @@ class _DBMemoryAdapter:
         return results
 
     def get_preferences(self):
+        """Return stored user preferences."""
         if hasattr(self._memory, "get_preferences"):
             return self._memory.get_preferences()
         return {}
 
     def store_preferences(self, prefs):
+        """Persist user preferences, delegating to memory."""
         if hasattr(self._memory, "store_preferences"):
             return self._memory.store_preferences(prefs)
+        return None
 
 
 # ───────── NiblitBrain ─────────
@@ -195,8 +203,10 @@ class NiblitBrain:
     - Structured logging
     - 100% backward compatible
     """
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self, memory, llm_enabled=True, internet=None, enable_improvements=True):
+        # pylint: disable=too-many-branches,too-many-statements
         self.memory = memory
         self.llm_enabled = llm_enabled
         self.enable_improvements = enable_improvements
@@ -282,6 +292,7 @@ class NiblitBrain:
 
     def _init_improvements(self):
         """Initialize all production improvements."""
+        # pylint: disable=too-many-branches,too-many-statements
         log.info("[BRAIN-IMPROVEMENTS] Initializing enhancements...")
 
         # 1. Circuit Breakers for fault tolerance
@@ -357,6 +368,7 @@ class NiblitBrain:
 
         Uses LearningBatcher if available for efficient bulk operations.
         """
+        # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks
         try:
             if hasattr(self.memory, "store_learning"):
                 # If InternetManager structured search results exist, store them
@@ -431,6 +443,7 @@ class NiblitBrain:
         - Response caching
         - Telemetry
         """
+        # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks
         try:
             # Rate limiting check - skip if already in event loop
             if hasattr(self, 'rate_limiter') and self.rate_limiter:
@@ -527,6 +540,7 @@ class NiblitBrain:
         This method is kept for backward compatibility only.
         Commands should route through niblit_core.handle() instead.
         """
+        # pylint: disable=too-many-branches,too-many-statements,too-many-return-statements
         cmd = command.strip()
         lcmd = cmd.lower()
 
@@ -543,7 +557,7 @@ class NiblitBrain:
                     return f"Research failed: {e}"
             return "SelfResearcher module not available."
 
-        elif lcmd.startswith("self-heal"):
+        if lcmd.startswith("self-heal"):
             if self.self_healer:
                 try:
                     return self.self_healer.repair()
@@ -552,7 +566,7 @@ class NiblitBrain:
                     return f"Heal failed: {e}"
             return "SelfHealer module not available."
 
-        elif lcmd.startswith("self-idea"):
+        if lcmd.startswith("self-idea"):
             if self.self_idea:
                 prompt = cmd[len("self-idea"):].strip()
                 try:
@@ -564,7 +578,7 @@ class NiblitBrain:
                     return f"Idea failed: {e}"
             return "SelfIdeaImplementation not available."
 
-        elif lcmd.startswith("self-implement"):
+        if lcmd.startswith("self-implement"):
             if self.self_idea:
                 try:
                     return self.self_idea.implement_ideas()
@@ -573,7 +587,7 @@ class NiblitBrain:
                     return f"Implement failed: {e}"
             return "SelfIdeaImplementation not available."
 
-        elif lcmd.startswith("reflect"):
+        if lcmd.startswith("reflect"):
             if self.reflect:
                 text = cmd[len("reflect"):].strip()
                 try:
@@ -583,7 +597,7 @@ class NiblitBrain:
                     return f"Reflect failed: {e}"
             return "Reflect module not available."
 
-        elif lcmd.startswith("auto-reflect"):
+        if lcmd.startswith("auto-reflect"):
             if self.reflect and hasattr(self.memory, "recall"):
                 try:
                     recent = [str(x) for x in self.memory.recall("", 5)]
@@ -593,8 +607,7 @@ class NiblitBrain:
                     return f"Auto reflect failed: {e}"
             return "Auto reflection unavailable."
 
-        else:
-            return self.think(command)
+        return self.think(command)
 
     # ───────── Router-Compatible Handle ─────────
     def handle(self, text: str) -> str:
@@ -679,15 +692,15 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.WARNING)
     print("=== NiblitBrain self-test ===")
+    _mem = None
     try:
-        from niblit_memory import MemoryManager
-        mem = MemoryManager()
-    except Exception as e:
+        from niblit_memory import MemoryManager as _MemoryManager
+        _mem = _MemoryManager()
+    except Exception as e:  # pylint: disable=broad-except
         print(f"[WARN] Memory unavailable ({e}), using None.")
-        mem = None
-    brain = NiblitBrain(mem, llm_enabled=False)
-    response = brain.think("What is 2 + 2?")
-    print(f"Brain response: {response!r}")
-    stats = brain.get_stats()
-    print(f"Brain stats: {stats}")
+    _brain = NiblitBrain(_mem, llm_enabled=False)
+    _response = _brain.think("What is 2 + 2?")
+    print(f"Brain response: {_response!r}")
+    _stats = _brain.get_stats()
+    print(f"Brain stats: {_stats}")
     print("NiblitBrain OK")

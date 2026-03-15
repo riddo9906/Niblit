@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-# Niblit Action Module
+"""Niblit Action Module – file I/O, shell execution, and directory listing."""
 
 import subprocess
 import os
 from niblit_memory import MemoryManager
 
+
 class NiblitActions:
+    """Provides file I/O, shell execution, and directory listing actions."""
+
     def __init__(self):
         self.memory = MemoryManager()
 
@@ -20,18 +23,21 @@ class NiblitActions:
             return f"Error: {e}"
 
     def read_file(self, path):
+        """Read and return the text contents of the file at *path*."""
         if not os.path.exists(path):
             return "File does not exist."
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return f.read()
 
     def write_file(self, path, content):
-        with open(path, "w") as f:
+        """Write *content* to the file at *path* and log the event."""
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         self.memory.log_event(f"Wrote file: {path}")
         return "Write OK"
 
     def list_directory(self, path="."):
+        """Return a list of filenames in the directory at *path*."""
         try:
             return os.listdir(path)
         except Exception as e:
