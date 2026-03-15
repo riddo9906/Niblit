@@ -6,12 +6,15 @@ learn from templates, and improve code quality over time.
 
 Features:
 - Multi-language code generation (Python, JavaScript, Bash, etc.)
-- Template library for common patterns
+- Template library for common patterns with proper indentation/structure
+- Structural validation and auto-correction for all generated code
 - Study programming language idioms
 - Store generated code in KnowledgeDB for future reference
 """
 
 import os
+import re
+import textwrap
 import time
 import logging
 from pathlib import Path
@@ -228,6 +231,12 @@ _EXTENSIONS: Dict[str, str] = {
     "yaml": ".yaml",
 }
 
+# Structure-check constants
+# Pure Python scripts shorter than this line count don't require a def/class.
+_PY_MAX_LINES_WITHOUT_DEF: int = 10
+# Number of characters at the start of a JS file to scan for 'use strict'.
+_JS_HEADER_CHECK_SIZE: int = 300
+
 
 class CodeGenerator:
     """
@@ -369,8 +378,173 @@ class CodeGenerator:
         return str(self.deploy_path) if self.deploy_path else None
 
     # ──────────────────────────────────────────────────────
-    # LANGUAGE STUDY
+    # CODE STRUCTURE VALIDATION & CORRECTION
     # ──────────────────────────────────────────────────────
+
+    def validate_structure(self, language: str, code: str) -> Dict[str, Any]:
+        """Check whether *code* has proper structure for *language*.
+
+        Checks performed:
+          - python  : proper indentation (4 spaces), no mixed tabs/spaces,
+                      has at least one top-level definition
+          - bash    : starts with shebang, has ``set -euo pipefail``
+          - javascript: has ``'use strict'`` or ``"use strict"``, no var declarations
+
+        Returns:
+            {
+                "valid": bool,
+                "language": str,
+                "issues": List[str],   # empty when valid
+            }
+        """
+        lang = language.lower()
+        issues: List[str] = []
+
+        if lang in ("python", "python3"):
+            issues.extend(self._check_python_structure(code))
+        elif lang in ("bash", "sh"):
+            issues.extend(self._check_bash_structure(code))
+        elif lang in ("javascript", "js"):
+            issues.extend(self._check_javascript_structure(code))
+
+        return {"valid": len(issues) == 0, "language": lang, "issues": issues}
+
+    def ensure_structure(self, language: str, code: str) -> str:
+        """Return *code* with common structural issues automatically fixed.
+
+        Fixes applied per language:
+          - python  : convert tabs to 4-space indent, normalise CRLF → LF
+          - bash    : prepend ``#!/usr/bin/env bash`` if missing,
+                      prepend ``set -euo pipefail`` if missing
+          - javascript: prepend ``'use strict';`` if missing
+        """
+        lang = language.lower()
+        # Universal: normalise CRLF line endings
+        code = code.replace("\r\n", "\n")
+
+        if lang in ("python", "python3"):
+            code = self._fix_python_structure(code)
+        elif lang in ("bash", "sh"):
+            code = self._fix_bash_structure(code)
+        elif lang in ("javascript", "js"):
+            code = self._fix_javascript_structure(code)
+
+        return code
+
+    def generate_with_validation(
+        self,
+        language: str,
+        template: str = "module",
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Generate code and apply structural validation + auto-correction.
+
+        Runs ``generate()`` then ``ensure_structure()`` then
+        ``validate_structure()``.  Returns the same dict as ``generate()``
+        with two extra keys: ``structure_issues`` (list) and
+        ``structure_valid`` (bool).
+        """
+        result = self.generate(language, template, **kwargs)
+        if not result.get("success"):
+            result["structure_issues"] = []
+            result["structure_valid"] = False
+            return result
+
+        # Auto-fix structural issues before returning
+        fixed_code = self.ensure_structure(language, result["code"])
+        result["code"] = fixed_code
+
+        check = self.validate_structure(language, fixed_code)
+        result["structure_issues"] = check["issues"]
+        result["structure_valid"] = check["valid"]
+
+        if not check["valid"]:
+            log.warning(
+                "[CodeGenerator] %s/%s structural issues: %s",
+                language,
+                template,
+                check["issues"],
+            )
+        return result
+
+    # ── private structure helpers ──────────────────────────
+
+    def _check_python_structure(self, code: str) -> List[str]:
+        issues: List[str] = []
+        lines = code.splitlines()
+        has_tabs = any("\t" in ln for ln in lines)
+        if has_tabs:
+            issues.append("Mixed tabs detected — use 4-space indentation")
+        # Check for at least one def/class at module level
+        has_def = any(re.match(r"^(def |class )", ln) for ln in lines)
+        if lines and not has_def:
+            # Allow pure scripts (no def/class) only if short
+            if len(lines) > _PY_MAX_LINES_WITHOUT_DEF:
+                issues.append("No top-level def or class found")
+        # Check indented blocks use multiples of 4 spaces
+        for ln in lines:
+            stripped = ln.lstrip(" ")
+            indent = len(ln) - len(stripped)
+            if indent > 0 and indent % 4 != 0 and not ln.strip().startswith("#"):
+                issues.append(f"Non-4-space indent ({indent} spaces) on: {ln[:40]!r}")
+                break  # report once
+        return issues
+
+    def _check_bash_structure(self, code: str) -> List[str]:
+        issues: List[str] = []
+        lines = [ln for ln in code.splitlines() if ln.strip()]
+        if not lines:
+            return issues
+        if not lines[0].startswith("#!"):
+            issues.append("Missing shebang line (e.g. #!/usr/bin/env bash)")
+        if not any("set -" in ln for ln in lines[:10]):
+            issues.append("Missing 'set -euo pipefail' safety flags")
+        return issues
+
+    def _check_javascript_structure(self, code: str) -> List[str]:
+        issues: List[str] = []
+        header = code[:_JS_HEADER_CHECK_SIZE]
+        if "'use strict'" not in header and '"use strict"' not in header:
+            issues.append("Missing 'use strict' directive")
+        if re.search(r"\bvar\s+\w", code):
+            issues.append("Found 'var' declaration — prefer const/let")
+        return issues
+
+    def _fix_python_structure(self, code: str) -> str:
+        # Replace tab indentation with 4 spaces
+        lines = []
+        for ln in code.splitlines():
+            leading = len(ln) - len(ln.lstrip("\t"))
+            if leading:
+                ln = "    " * leading + ln.lstrip("\t")
+            lines.append(ln)
+        return "\n".join(lines) + ("\n" if code.endswith("\n") else "")
+
+    def _fix_bash_structure(self, code: str) -> str:
+        lines = code.splitlines()
+        non_empty = [ln for ln in lines if ln.strip()]
+        if not non_empty:
+            return code
+        # Ensure shebang
+        if not lines[0].startswith("#!"):
+            lines.insert(0, "#!/usr/bin/env bash")
+        # Ensure set -euo pipefail after shebang
+        has_set = any("set -" in ln for ln in lines[:10])
+        if not has_set:
+            insert_at = 1
+            # Insert after any comment block at top
+            while insert_at < len(lines) and lines[insert_at].startswith("#"):
+                insert_at += 1
+            lines.insert(insert_at, "set -euo pipefail")
+        return "\n".join(lines) + ("\n" if code.endswith("\n") else "")
+
+    def _fix_javascript_structure(self, code: str) -> str:
+        header = code[:_JS_HEADER_CHECK_SIZE]
+        if "'use strict'" not in header and '"use strict"' not in header:
+            code = "'use strict';\n\n" + code
+        return code
+
+
 
     def study_language(self, language: str) -> str:
         """Return idioms and best practices for a language."""

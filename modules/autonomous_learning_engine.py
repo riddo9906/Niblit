@@ -113,6 +113,11 @@ class AutonomousLearningEngine:
 
         # Topics to autonomously research (grows over time)
         self.research_topics = [
+            # ── TOP PRIORITY: code structure & quality ──────────────────────
+            "code indentation and structure best practices",
+            "proper code formatting standards for all languages",
+            "code syntax correctness and linting",
+            # ── general AI/ML topics ────────────────────────────────────────
             "artificial intelligence advances",
             "machine learning techniques",
             "data science trends",
@@ -132,6 +137,11 @@ class AutonomousLearningEngine:
 
         # Code-literacy research topics (used by _autonomous_code_research)
         self.code_research_topics = [
+            # ── TOP PRIORITY: structure/indentation ─────────────────────────
+            ("python", "code structure and indentation"),
+            ("bash", "proper script structure and indentation"),
+            ("javascript", "code structure and formatting"),
+            # ── existing topics ─────────────────────────────────────────────
             ("python", "data structures"),
             ("python", "algorithms"),
             ("python", "design patterns"),
@@ -791,6 +801,7 @@ class AutonomousLearningEngine:
 
         Uses knowledge collected in step 8 to generate well-informed code
         snippets.  The resulting code is queued for compilation in step 10.
+        Structural validation and auto-correction are applied before queuing.
         """
         code_gen = self._get_code_generator()
         internet = self._get_internet()
@@ -815,11 +826,24 @@ class AutonomousLearningEngine:
                 pass
 
         try:
-            # Generate a module skeleton
-            result = code_gen.generate_niblit_module(
-                name=f"ale_{lang}_{topic}",
-                docstring=docstring,
-            )
+            # Generate a module skeleton with structural validation
+            if hasattr(code_gen, "generate_with_validation"):
+                result = code_gen.generate_with_validation(
+                    lang,
+                    "module",
+                    name=f"ale_{lang}_{topic}",
+                    classname="".join(w.capitalize() for w in f"ale_{lang}_{topic}".split("_")),
+                    docstring=docstring,
+                )
+                structure_issues = result.get("structure_issues", [])
+                if structure_issues:
+                    log.info("[CODE GEN] Auto-corrected %d structural issue(s): %s",
+                             len(structure_issues), structure_issues)
+            else:
+                result = code_gen.generate_niblit_module(
+                    name=f"ale_{lang}_{topic}",
+                    docstring=docstring,
+                )
             code = result.get("code", "")
             if not result.get("success") or not code:
                 return f"[Code generation failed: {result.get('error', 'unknown')}]"
@@ -832,12 +856,19 @@ class AutonomousLearningEngine:
                     if impl_result:
                         impl_text = str(impl_result)[:200]
                         commented_lines = "\n".join(
-                            f"# {line}" if line else "#"
+                            f"# {line}" if line else "# "
                             for line in impl_text.splitlines()
                         )
                         code += f"\n# Idea-driven addition:\n{commented_lines}"
                 except Exception as exc:
                     log.debug(f"Idea-driven generation failed: {exc}")
+
+            # Apply structural correction to final code (covers any appended sections)
+            if hasattr(code_gen, "ensure_structure"):
+                try:
+                    code = code_gen.ensure_structure(lang, code)
+                except Exception as exc:
+                    log.debug(f"ensure_structure failed: {exc}")
 
             # Queue the generated code for compilation
             self._pending_compiled.append({"language": lang, "code": code, "topic": topic})
@@ -871,7 +902,13 @@ class AutonomousLearningEngine:
             return f"[Code generation error: {exc}]"
 
     def _autonomous_code_compilation(self) -> str:
-        """Step 10: CodeCompiler compiles the generated code and stores results."""
+        """Step 10: Syntax-test then compile generated code; store results.
+
+        Workflow (mirrors codeSL tester):
+          1. syntax_test  — fast, no side-effects (bash -n / ast / node --check)
+          2. If syntax fails → log, store failure record, skip execution
+          3. If syntax passes → code_compiler.run() (full execution)
+        """
         code_compiler = self._get_code_compiler()
 
         if not code_compiler:
@@ -894,6 +931,33 @@ class AutonomousLearningEngine:
             return "[Empty code — skipped compilation]"
 
         try:
+            # ── Phase 1: syntax-test (no execution) ──────────────────────
+            syntax_result = (
+                code_compiler.syntax_test(lang, code)
+                if hasattr(code_compiler, "syntax_test")
+                else {"valid": True, "error": None}
+            )
+            if not syntax_result.get("valid", True):
+                syntax_err = syntax_result.get("error", "syntax error")
+                log.warning(f"⚙️ [CODE SYNTAX] {lang}/{topic}: ❌ {syntax_err}")
+                failed_record = {
+                    "language": lang,
+                    "topic": topic,
+                    "code": code[:400],
+                    "output": "",
+                    "error": f"SyntaxError: {syntax_err}"[:200],
+                    "success": False,
+                }
+                if self.knowledge_db:
+                    try:
+                        key = f"ale_syntax_fail:{lang}:{topic}:{int(time.time())}"
+                        self.knowledge_db.add_fact(key, str(failed_record), tags=["syntax_fail", "autonomous", lang])
+                    except Exception:
+                        pass
+                self._compiled_for_reflection.append(failed_record)
+                return f"Code compiled: {lang}/{topic}: ❌ syntax failed | error: {syntax_err[:80]}"
+
+            # ── Phase 2: full execution ───────────────────────────────────
             exec_result = code_compiler.run(lang, code)
             success = getattr(exec_result, "success", False)
             output = getattr(exec_result, "stdout", "") or ""
