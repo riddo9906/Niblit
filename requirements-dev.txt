@@ -1,0 +1,15 @@
+# Development and testing dependencies
+# Install with: pip install -r requirements-dev.txt
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Linting
+pylint>=3.0.0
+
+# Type checking (optional)
+mypy>=1.7.0
+
+# Code formatting (optional)
+black>=23.11.0

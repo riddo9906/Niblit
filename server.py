@@ -11,12 +11,33 @@ except ImportError:
     _logging.getLogger("NiblitServer").warning("Flask not installed — server.py web server unavailable")
 
 try:
+    from flask_cors import CORS as _CORS
+    _cors_available = True
+except ImportError:
+    _CORS = None
+    _cors_available = False
+
+try:
     from niblit_core import NiblitCore
 except Exception:
     NiblitCore = None
 
+try:
+    from config import settings as _settings
+except Exception:
+    _settings = None
+
 if _flask_available:
     app = Flask("niblit_server")
+    # Enable CORS for mobile and web clients
+    if _cors_available and _CORS:
+        _origins = getattr(_settings, "CORS_ORIGINS", "*") if _settings else "*"
+        _CORS(app, resources={
+            r"/chat": {"origins": _origins},
+            r"/memory": {"origins": _origins},
+            r"/health": {"origins": _origins},
+            r"/ping": {"origins": _origins},
+        })
 else:
     app = None
 
@@ -89,6 +110,15 @@ checkStatus();
 """
 
 if _flask_available and app is not None:
+    @app.after_request
+    def _add_security_headers(response):
+        """Attach basic security headers to every response."""
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
+
     @app.route("/")
     def dashboard():
         return render_template_string(DASHBOARD_HTML)

@@ -158,6 +158,47 @@ class StructuralAwareness:
         lines.append("  (No command registry available — use 'help' for commands)")
         return "\n".join(lines)
 
+    def command_awareness_report(self, router: Any = None) -> Dict[str, Any]:
+        """
+        Return a structured dict of all commands with names, descriptions, and categories.
+        Used by the autonomous engine to study and understand available commands.
+        """
+        commands: List[Dict[str, str]] = []
+        core = self.core
+        r = router or (getattr(core, "router", None) if core else None)
+
+        # Primary: CommandRegistry — richest source (name + description + category)
+        if core and hasattr(core, "command_registry") and core.command_registry:
+            try:
+                registry = core.command_registry
+                if hasattr(registry, "commands"):
+                    for name, entry in registry.commands.items():
+                        commands.append({
+                            "name": name,
+                            "description": str(getattr(entry, "description", entry[1] if isinstance(entry, (list, tuple)) and len(entry) > 1 else "")),
+                            "category": str(getattr(entry, "category", entry[2] if isinstance(entry, (list, tuple)) and len(entry) > 2 else "core")),
+                        })
+            except Exception:
+                pass
+
+        # Secondary: COMMAND_PREFIXES from router
+        if not commands and r and hasattr(r, "COMMAND_PREFIXES"):
+            for prefix in r.COMMAND_PREFIXES:
+                commands.append({"name": prefix, "description": "", "category": "router"})
+
+        # Build category map
+        by_category: Dict[str, List[str]] = {}
+        for entry in commands:
+            cat = entry.get("category", "misc")
+            by_category.setdefault(cat, []).append(entry["name"])
+
+        return {
+            "total": len(commands),
+            "commands": commands,
+            "by_category": by_category,
+            "categories": sorted(by_category.keys()),
+        }
+
     # ──────────────────────────────────────────────────────
     # 5. RESOURCE USAGE
     # ──────────────────────────────────────────────────────

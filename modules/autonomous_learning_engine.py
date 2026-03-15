@@ -152,10 +152,17 @@ class AutonomousLearningEngine:
             "code_compiled": 0,
             "code_reflected": 0,
             "software_studied": 0,
+            "command_awareness_cycles": 0,
+            "command_executions": 0,
+            "self_learn_sequences": 0,
+            "evolve_sequences": 0,
+            "topic_seedings": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
             "last_software_category": None,
+            "last_commands_studied": None,
+            "last_seeded_topics": None,
             "learning_rate": 0.0,
             "start_time": datetime.utcnow().isoformat()
         }
@@ -847,8 +854,503 @@ Autonomous Learning Summary:
         return f"Software study: '{category}' — {len(result_parts)} source(s) via internet+KB"
 
     # ─────────────────────────────────────────────
+    # COMMAND AWARENESS & EXECUTION (steps 13 & 14)
+    # ─────────────────────────────────────────────
+
+    def _get_structural_awareness(self):
+        """Lazily resolve StructuralAwareness from core."""
+        if self.core:
+            return getattr(self.core, "structural_awareness", None)
+        return None
+
+    def _autonomous_command_awareness(self) -> str:
+        """Step 13: Study all registered commands, understand their purpose, store in KB.
+
+        Collects every command from the CommandRegistry (and router COMMAND_PREFIXES)
+        via StructuralAwareness.command_awareness_report().  Each command is stored as
+        a structured fact so Niblit can recall *what commands it has* during reflection
+        and planning.
+        """
+        sa = self._get_structural_awareness()
+        router = getattr(self.core, "router", None) if self.core else None
+
+        log.info("📋 [COMMAND AWARENESS] Studying registered commands...")
+
+        # Build awareness dict
+        if sa and hasattr(sa, "command_awareness_report"):
+            awareness = sa.command_awareness_report(router=router)
+        elif router and hasattr(router, "COMMAND_PREFIXES"):
+            awareness = {
+                "total": len(router.COMMAND_PREFIXES),
+                "commands": [{"name": c, "description": "", "category": "router"}
+                             for c in router.COMMAND_PREFIXES],
+                "by_category": {"router": list(router.COMMAND_PREFIXES)},
+                "categories": ["router"],
+            }
+        else:
+            return "[Command awareness skipped — StructuralAwareness and router unavailable]"
+
+        total = awareness.get("total", 0)
+        if total == 0:
+            return "[No commands found for command awareness]"
+
+        # Persist to knowledge base
+        if self.knowledge_db:
+            try:
+                # Store the full inventory once (keyed by timestamp to allow history)
+                self.knowledge_db.add_fact(
+                    f"ale_command_awareness:{int(time.time())}",
+                    {
+                        "total_commands": total,
+                        "categories": awareness.get("categories", []),
+                        "by_category": awareness.get("by_category", {}),
+                        "step": "step13_command_awareness",
+                    },
+                    tags=["ale_step13", "command_awareness", "autonomous"],
+                )
+                # Also store each category summary as a searchable fact
+                for cat, names in awareness.get("by_category", {}).items():
+                    self.knowledge_db.add_fact(
+                        f"ale_cmd_cat:{cat}",
+                        {"category": cat, "commands": names, "count": len(names)},
+                        tags=["ale_step13", "commands", cat],
+                    )
+                self.knowledge_db.log_event(
+                    f"Command awareness: catalogued {total} commands in "
+                    f"{len(awareness.get('categories', []))} categories"
+                )
+            except Exception as exc:
+                log.debug(f"Command awareness DB store failed: {exc}")
+
+        self.learning_history["command_awareness_cycles"] = (
+            self.learning_history.get("command_awareness_cycles", 0) + 1
+        )
+        self.learning_history["last_commands_studied"] = total
+
+        log.info(f"✅ [COMMAND AWARENESS] {total} commands catalogued across "
+                 f"{len(awareness.get('categories', []))} categories")
+        return (f"Command awareness: {total} commands catalogued in "
+                f"{len(awareness.get('categories', []))} categories")
+
+    # ─────────────────────────────────────────────
+    def _autonomous_command_execution(self) -> str:
+        """Step 14: Autonomously execute a selection of safe diagnostic commands.
+
+        After studying commands in step 13, Niblit runs a curated set of
+        *read-only* / *diagnostic* commands through the core or router to
+        observe their output, validate they work, and store results in KB.
+        This closes the loop: study → understand → verify.
+        """
+        core = self.core
+        router = getattr(core, "router", None) if core else None
+
+        # Safe, read-only commands to execute autonomously
+        SAFE_COMMANDS: List[Dict[str, str]] = [
+            {"cmd": "status",           "label": "system_status"},
+            {"cmd": "health",           "label": "health_check"},
+            {"cmd": "my structure",     "label": "component_inventory"},
+            {"cmd": "my loops",         "label": "loop_status"},
+            {"cmd": "my threads",       "label": "thread_status"},
+            {"cmd": "my modules",       "label": "loaded_modules"},
+            {"cmd": "my commands",      "label": "command_list"},
+            {"cmd": "resource usage",   "label": "resource_usage"},
+            {"cmd": "autonomous-learn status", "label": "ale_status"},
+            {"cmd": "knowledge stats",  "label": "knowledge_summary"},
+            {"cmd": "ale processes",    "label": "ale_process_awareness"},
+        ]
+
+        results: List[Dict[str, Any]] = []
+        handler = None
+        if core and hasattr(core, "handle"):
+            handler = core.handle
+        elif router and hasattr(router, "process"):
+            handler = router.process
+
+        if not handler:
+            return "[Command execution skipped — no core.handle or router.process available]"
+
+        log.info(f"⚡ [COMMAND EXEC] Executing {len(SAFE_COMMANDS)} diagnostic commands...")
+
+        for entry in SAFE_COMMANDS:
+            cmd = entry["cmd"]
+            label = entry["label"]
+            try:
+                output = handler(cmd)
+                snippet = str(output or "")[:200]
+                results.append({"command": cmd, "label": label, "ok": True, "output": snippet})
+                log.debug(f"  ✅ {cmd}: {snippet[:60]}")
+            except Exception as exc:
+                results.append({"command": cmd, "label": label, "ok": False, "error": str(exc)[:120]})
+                log.debug(f"  ❌ {cmd}: {exc}")
+
+        # Persist full execution report to KB
+        ok_count = sum(1 for r in results if r.get("ok"))
+        if self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_command_execution:{int(time.time())}",
+                    {
+                        "executed": len(results),
+                        "ok": ok_count,
+                        "failed": len(results) - ok_count,
+                        "results": results,
+                        "step": "step14_command_execution",
+                    },
+                    tags=["ale_step14", "command_execution", "autonomous"],
+                )
+                self.knowledge_db.log_event(
+                    f"Autonomous command execution: {ok_count}/{len(results)} commands succeeded"
+                )
+            except Exception as exc:
+                log.debug(f"Command execution DB store failed: {exc}")
+
+        self.learning_history["command_executions"] = (
+            self.learning_history.get("command_executions", 0) + 1
+        )
+
+        log.info(f"✅ [COMMAND EXEC] {ok_count}/{len(results)} commands succeeded")
+        return f"Command execution: {ok_count}/{len(results)} safe commands executed successfully"
+
+    # ─────────────────────────────────────────────
+    # AUTONOMOUS TOPIC SEEDING (step 15)
+    # ─────────────────────────────────────────────
+
+    def _derive_topics_from_kb(self, max_topics: int = 10) -> List[str]:
+        """Extract fresh topic candidates from recent KnowledgeDB facts.
+
+        Pulls keywords from the keys and values of the most recent ALE facts
+        so that Niblit's research scope grows organically from what it already
+        knows rather than staying frozen on the initial hard-coded list.
+        """
+        candidates: List[str] = []
+
+        # 1. Recent researched topics stored as ale_step1 facts (requires KB)
+        if self.knowledge_db:
+            try:
+                if hasattr(self.knowledge_db, "list_facts"):
+                    facts = self.knowledge_db.list_facts(30)
+                    for f in (facts or []):
+                        if not isinstance(f, dict):
+                            continue
+                        key = str(f.get("key", ""))
+                        val = f.get("value", {})
+                        # Extract topic from research facts
+                        if "ale_research:" in key or "ale_code_research:" in key:
+                            parts = key.split(":")
+                            if len(parts) >= 2:
+                                raw = parts[1].replace("_", " ")
+                                if raw and raw not in candidates:
+                                    candidates.append(raw)
+                        if isinstance(val, dict):
+                            t = val.get("topic", "")
+                            if t and t not in candidates:
+                                candidates.append(str(t))
+                            # Programming-literacy lang/topic combos
+                            lang = val.get("language", "")
+                            if lang and f"advanced {lang}" not in candidates:
+                                candidates.append(f"advanced {lang}")
+            except Exception as exc:
+                log.debug(f"Topic derivation from facts failed: {exc}")
+
+        # 2. Derive from the last research/idea (always runs, KB-independent)
+        last_topic = self.learning_history.get("last_research_topic") or ""
+        if last_topic:
+            words = [w for w in last_topic.split() if len(w) > 4]
+            for w in words:
+                variation = f"{w} techniques"
+                if variation not in candidates:
+                    candidates.append(variation)
+
+        # 3. Derive from code-research language list (always runs)
+        for lang, topic in self.code_research_topics[:5]:
+            combo = f"{lang} {topic}"
+            if combo not in candidates:
+                candidates.append(combo)
+
+        # 4. Derive from software study categories (always runs)
+        for cat in self.software_study_categories[:5]:
+            human = cat.replace("_", " ")
+            if human not in candidates:
+                candidates.append(human)
+
+        # Deduplicate and skip topics already in the research list
+        existing = set(self.research_topics)
+        fresh = [t for t in candidates if t and t not in existing]
+
+        # Trim to max_topics
+        return fresh[:max_topics]
+
+    def _autonomous_topic_seeding(self) -> str:
+        """Step 15: Derive new topics from knowledge and feed them to every
+        topic-accepting subsystem.
+
+        Topics are added to:
+          • ALE research queue (`add_research_topic`)
+          • KnowledgeDB learning queue (`queue_learning`)
+          • SLSA engine (`slsa_manager.add_topics` — no restart required)
+        """
+        log.info("🌱 [TOPIC SEEDING] Deriving new topics from KB...")
+
+        # 1. Derive candidate topics
+        new_topics = self._derive_topics_from_kb(max_topics=10)
+
+        if not new_topics:
+            log.info("[TOPIC SEEDING] No new topics derived this cycle")
+            return "Topic seeding: no new topics derived this cycle"
+
+        seeded_ale: List[str] = []
+        seeded_kb: List[str] = []
+        seeded_slsa: List[str] = []
+
+        for topic in new_topics:
+            # a. ALE research queue
+            if self.add_research_topic(topic):
+                seeded_ale.append(topic)
+
+            # b. KnowledgeDB learning queue
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.queue_learning(topic)
+                    seeded_kb.append(topic)
+                except Exception as exc:
+                    log.debug(f"KB queue_learning failed for '{topic}': {exc}")
+
+        # c. SLSA — add topics (prefers add_topics to avoid restart)
+        if self.slsa_manager:
+            try:
+                slsa_result = self.slsa_manager.add_topics(new_topics)
+                seeded_slsa = new_topics
+                log.debug(f"SLSA topic seeding: {slsa_result}")
+            except Exception as exc:
+                # Fallback: restart with merged topics
+                try:
+                    merged = list(set(self.slsa_manager.get_topics() + new_topics))
+                    self.slsa_manager.restart(merged)
+                    seeded_slsa = new_topics
+                except Exception:
+                    log.debug(f"SLSA topic seeding failed: {exc}")
+
+        # Persist record of what was seeded
+        if self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_topic_seeding:{int(time.time())}",
+                    {
+                        "new_topics": new_topics,
+                        "seeded_ale": seeded_ale,
+                        "seeded_kb": seeded_kb,
+                        "seeded_slsa": seeded_slsa,
+                        "step": "step15_topic_seeding",
+                    },
+                    tags=["ale_step15", "topic_seeding", "autonomous"],
+                )
+                self.knowledge_db.log_event(
+                    f"Autonomous topic seeding: {len(seeded_ale)} → ALE, "
+                    f"{len(seeded_kb)} → KB, {len(seeded_slsa)} → SLSA"
+                )
+            except Exception as exc:
+                log.debug(f"Topic seeding DB store failed: {exc}")
+
+        self.learning_history["topic_seedings"] = (
+            self.learning_history.get("topic_seedings", 0) + 1
+        )
+        self.learning_history["last_seeded_topics"] = new_topics[:5]
+
+        log.info(
+            f"✅ [TOPIC SEEDING] {len(seeded_ale)} → ALE | "
+            f"{len(seeded_kb)} → KB queue | {len(seeded_slsa)} → SLSA"
+        )
+        return (
+            f"Topic seeding: {len(seeded_ale)} new topics → ALE research, "
+            f"{len(seeded_kb)} → KB queue, {len(seeded_slsa)} → SLSA "
+            f"({', '.join(new_topics[:3])}{'...' if len(new_topics) > 3 else ''})"
+        )
+
+    # ─────────────────────────────────────────────
+    # PUBLIC SEQUENCES (callable on-demand or from cycle)
+    # ─────────────────────────────────────────────
+
+    def run_self_learn_sequence(self) -> str:
+        """
+        On-demand self-learn sequence: study architecture → study commands →
+        run all diagnostic commands → reflect on results.
+
+        This is the 'structural self-learning' cycle — Niblit reads its own
+        blueprint, studies what it can do, exercises each capability, and
+        stores everything back into the knowledge base.
+        """
+        log.info("🎓 [SELF-LEARN SEQUENCE] Starting...")
+        steps = []
+
+        # 1. Architecture / structural snapshot
+        sa = self._get_structural_awareness()
+        if sa:
+            try:
+                arch = sa.component_report(self.core)
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"self_learn_architecture:{int(time.time())}",
+                        arch[:800],
+                        tags=["self_learn", "architecture"],
+                    )
+                steps.append("Architecture ✅")
+            except Exception as exc:
+                steps.append(f"Architecture ❌ ({exc})")
+        else:
+            steps.append("Architecture — SA unavailable")
+
+        # 2. Operational flow
+        if sa:
+            try:
+                flow = sa.operational_flow()
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"self_learn_flow:{int(time.time())}",
+                        flow[:800],
+                        tags=["self_learn", "operational_flow"],
+                    )
+                steps.append("Operational flow ✅")
+            except Exception as exc:
+                steps.append(f"Operational flow ❌ ({exc})")
+        else:
+            steps.append("Operational flow — SA unavailable")
+
+        # 3. Command awareness
+        awareness_result = self._autonomous_command_awareness()
+        steps.append(f"Command awareness: {awareness_result[:60]}")
+
+        # 4. Command execution
+        exec_result = self._autonomous_command_execution()
+        steps.append(f"Command execution: {exec_result[:60]}")
+
+        # 5. Reflection on what was learned
+        if self.reflect:
+            reflection_prompt = (
+                "Self-learn sequence complete. "
+                f"Steps: {'; '.join(steps)}. "
+                "What did Niblit learn about its own structure and commands?"
+            )
+            try:
+                if hasattr(self.reflect, "collect_and_summarize"):
+                    refl = self.reflect.collect_and_summarize(reflection_prompt)
+                elif hasattr(self.reflect, "reflect"):
+                    refl = self.reflect.reflect(reflection_prompt)
+                else:
+                    refl = reflection_prompt
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"self_learn_reflection:{int(time.time())}",
+                        str(refl or "")[:600],
+                        tags=["self_learn", "reflection"],
+                    )
+                steps.append("Reflection ✅")
+            except Exception as exc:
+                steps.append(f"Reflection ❌ ({exc})")
+        else:
+            steps.append("Reflection — module unavailable")
+
+        self.learning_history["self_learn_sequences"] = (
+            self.learning_history.get("self_learn_sequences", 0) + 1
+        )
+
+        # 6. Topic seeding — grow the research frontier from what was just learned
+        seed_result = self._autonomous_topic_seeding()
+        steps.append(f"Topic seeding: {seed_result[:60]}")
+
+        summary = "\n".join(f"  • {s}" for s in steps)
+        log.info(f"✅ [SELF-LEARN SEQUENCE] Complete:\n{summary}")
+        return f"🎓 Self-learn sequence complete:\n{summary}"
+
+    def run_evolve_sequence(self) -> str:
+        """
+        Structured evolve sequence: study architecture and all commands →
+        run each command to understand what it does → evolve based on findings.
+
+        Order:
+          1. Component snapshot (what modules exist)
+          2. Command awareness (what commands exist + their purposes)
+          3. Command execution (run each safe command, observe output)
+          4. Research (pick one topic to deepen understanding)
+          5. Reflection (synthesise what was learned)
+          6. Evolution step (EvolveEngine acts on the new knowledge)
+        """
+        log.info("🧬 [EVOLVE SEQUENCE] Starting structured evolve sequence...")
+        steps = []
+
+        # 1. Structural snapshot
+        sa = self._get_structural_awareness()
+        if sa:
+            try:
+                snapshot = sa.component_report(self.core)
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"evolve_seq_snapshot:{int(time.time())}",
+                        snapshot[:800],
+                        tags=["evolve_sequence", "snapshot"],
+                    )
+                steps.append("Snapshot ✅")
+            except Exception as exc:
+                steps.append(f"Snapshot ❌ ({exc})")
+        else:
+            steps.append("Snapshot — SA unavailable")
+
+        # 2. Command awareness
+        awareness_result = self._autonomous_command_awareness()
+        steps.append(f"Command awareness: {awareness_result[:60]}")
+
+        # 3. Command execution — exercise all safe commands
+        exec_result = self._autonomous_command_execution()
+        steps.append(f"Command execution: {exec_result[:60]}")
+
+        # 4. Research a topic related to last findings
+        research_result = self._autonomous_research()
+        steps.append(f"Research: {research_result[:60]}")
+
+        # 5. Reflection
+        if self.reflect:
+            prompt = (
+                "Evolve sequence in progress. "
+                f"Component snapshot taken. Commands studied and executed. "
+                f"Recent research: {self.learning_history.get('last_research_topic', 'general')}. "
+                "What self-improvements should be prioritised?"
+            )
+            try:
+                if hasattr(self.reflect, "collect_and_summarize"):
+                    refl = self.reflect.collect_and_summarize(prompt)
+                elif hasattr(self.reflect, "reflect"):
+                    refl = self.reflect.reflect(prompt)
+                else:
+                    refl = prompt
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"evolve_seq_reflection:{int(time.time())}",
+                        str(refl or "")[:600],
+                        tags=["evolve_sequence", "reflection"],
+                    )
+                steps.append("Reflection ✅")
+            except Exception as exc:
+                steps.append(f"Reflection ❌ ({exc})")
+        else:
+            steps.append("Reflection — module unavailable")
+
+        # 6. Evolution step
+        evolve_result = self._autonomous_evolve_step()
+        steps.append(f"Evolution: {evolve_result[:60]}")
+
+        # 7. Topic seeding — feed new topics into ALE + SLSA + KB queue
+        seed_result = self._autonomous_topic_seeding()
+        steps.append(f"Topic seeding: {seed_result[:60]}")
+
+        self.learning_history["evolve_sequences"] = (
+            self.learning_history.get("evolve_sequences", 0) + 1
+        )
+
+        summary = "\n".join(f"  • {s}" for s in steps)
+        log.info(f"✅ [EVOLVE SEQUENCE] Complete:\n{summary}")
+        return f"🧬 Evolve sequence complete:\n{summary}"
+
+    # ─────────────────────────────────────────────
     def _autonomous_evolve_step(self) -> str:
-        """Step 7: Run one EvolveEngine step to improve all capabilities."""
         if not self.evolve_engine:
             # Try to get from core
             if self.core:
@@ -931,6 +1433,17 @@ Autonomous Learning Summary:
         time.sleep(2)
 
         results.append(("SoftwareStudy", self._autonomous_software_study()))
+        time.sleep(2)
+
+        # Structural self-awareness loop (steps 13-14)
+        results.append(("CommandAwareness", self._autonomous_command_awareness()))
+        time.sleep(2)
+
+        results.append(("CommandExecution", self._autonomous_command_execution()))
+        time.sleep(2)
+
+        # Topic seeding loop (step 15)
+        results.append(("TopicSeeding", self._autonomous_topic_seeding()))
 
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
@@ -945,6 +1458,8 @@ Autonomous Learning Summary:
             "reflections_conducted", "slsa_runs", "evolve_steps",
             "code_researched", "code_generated", "code_compiled",
             "code_reflected", "software_studied",
+            "command_awareness_cycles", "command_executions",
+            "topic_seedings",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -1028,6 +1543,7 @@ Autonomous Learning Summary:
             "pending_compilations": len(getattr(self, "_pending_compiled", [])),
             "pending_reflections": len(getattr(self, "_compiled_for_reflection", [])),
             "uptime_seconds": uptime,
+            "slsa_topics": self.slsa_manager.get_topics() if self.slsa_manager else [],
             "modules_available": {
                 "researcher": bool(self.researcher),
                 "reflect": bool(self.reflect),
@@ -1039,6 +1555,8 @@ Autonomous Learning Summary:
                 "code_compiler": bool(self._get_code_compiler()),
                 "software_studier": bool(self._get_software_studier()),
                 "internet": bool(self._get_internet()),
+                "structural_awareness": bool(self._get_structural_awareness()),
+                "slsa_manager": bool(self.slsa_manager),
             },
         }
 

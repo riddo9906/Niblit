@@ -1269,9 +1269,65 @@ class NiblitCore:
             "Run live command tester", "diagnostics", priority=65
         )
 
-    # ============================
-    # AUTONOMOUS LEARNING COMMANDS
-    # ============================
+        # Structural awareness commands — short-form aliases
+        self.command_registry.register(
+            "sa-structure", self._cmd_sa_structure,
+            "Full component inventory", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-threads", self._cmd_sa_threads,
+            "All active Python threads", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-loops", self._cmd_sa_loops,
+            "Background loop status", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-modules", self._cmd_sa_modules,
+            "Loaded Niblit modules", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-commands", self._cmd_sa_commands,
+            "All registered commands", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-dashboard", self._cmd_sa_dashboard,
+            "Full runtime dashboard", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-flow", self._cmd_sa_flow,
+            "Operational flow description", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-resources", self._cmd_sa_resources,
+            "RAM, CPU, uptime", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-awareness", self._cmd_sa_awareness,
+            "All structural awareness in one view", "structural_awareness", priority=75
+        )
+
+        # Extended autonomous learning commands
+        self.command_registry.register(
+            "autonomous-learn self-learn", self._cmd_autonomous_self_learn,
+            "Run structural self-learn sequence", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn evolve-sequence", self._cmd_autonomous_evolve_sequence,
+            "Run structured evolve sequence", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn command-awareness", self._cmd_autonomous_command_awareness,
+            "Catalogue all commands (ALE Step 13)", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn command-exec", self._cmd_autonomous_command_exec,
+            "Execute safe diagnostic commands (ALE Step 14)", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn topic-seed", self._cmd_autonomous_topic_seed,
+            "Derive & seed new topics to ALE + SLSA + KB queue (ALE Step 15)", "autonomous", priority=98
+        )
 
     def _cmd_autonomous_start(self, text: str) -> str:
         """Start autonomous learning engine."""
@@ -1297,6 +1353,7 @@ class NiblitCore:
         stats = self.autonomous_engine.get_learning_stats()
         s = stats["stats"]
         mods = stats.get("modules_available", {})
+        slsa_topics = stats.get("slsa_topics", [])
         result = f"""
 🧠 **AUTONOMOUS LEARNING STATUS:**
 
@@ -1322,11 +1379,29 @@ Uptime: {stats['uptime_seconds']}s
   Last Language: {s.get('last_language_studied', 'none')}
   Last Category: {s.get('last_software_category', 'none')}
 
+📋 Command Awareness:
+  Command Awareness Cycles: {s.get('command_awareness_cycles', 0)}
+  Command Executions: {s.get('command_executions', 0)}
+  Last Commands Studied: {s.get('last_commands_studied', 'none')}
+  Self-Learn Sequences: {s.get('self_learn_sequences', 0)}
+  Evolve Sequences: {s.get('evolve_sequences', 0)}
+
+🌱 Topic Seeding:
+  Topic Seedings: {s.get('topic_seedings', 0)}
+  Last Seeded: {', '.join(s.get('last_seeded_topics') or []) or 'none'}
+  ALE Topics: {stats.get('research_topics', 0)}
+  SLSA Topics: {len(slsa_topics)} ({', '.join(slsa_topics[:3])}{'...' if len(slsa_topics) > 3 else ''})
+
 📚 Topics: {stats.get('research_topics', 0)} | Code Topics: {stats.get('code_research_topics', 0)} | SW Categories: {stats.get('software_study_categories', 0)}
 💡 Pending Ideas: {stats.get('pending_ideas', 0)}
 
 🔌 Modules Wired:
-  internet={mods.get('internet', False)} | code_generator={mods.get('code_generator', False)} | code_compiler={mods.get('code_compiler', False)} | software_studier={mods.get('software_studier', False)}
+  internet             : {mods.get('internet', False)}
+  code_generator       : {mods.get('code_generator', False)}
+  code_compiler        : {mods.get('code_compiler', False)}
+  software_studier     : {mods.get('software_studier', False)}
+  structural_awareness : {mods.get('structural_awareness', False)}
+  slsa_manager         : {mods.get('slsa_manager', False)}
 """
         return result.strip()
 
@@ -1485,7 +1560,7 @@ Uptime: {stats['uptime_seconds']}s
 
         lines = [
             "🧠 **NIBLIT AUTONOMOUS LEARNING ENGINE — PROCESS AWARENESS**\n",
-            "Niblit runs 12 self-improvement steps every idle cycle.",
+            "Niblit runs 15 self-improvement steps every idle cycle.",
             "All output is stored as structured facts in KnowledgeDB.",
             "Internet is the primary data source for collection steps.\n",
             "━━━ CORE LEARNING LOOP ━━━",
@@ -1503,6 +1578,17 @@ Uptime: {stats['uptime_seconds']}s
             f"  Step 10 — Code Compile  : CodeCompiler runs it      [{s.get('code_compiled', 0)} compiled]",
             f"  Step 11 — Code Reflect  : ReflectModule studies it  [{s.get('code_reflected', 0)} reflected]",
             f"  Step 12 — SW Study      : SoftwareStudier+internet  [{s.get('software_studied', 0)} categories]",
+            "",
+            "━━━ STRUCTURAL AWARENESS LOOP ━━━",
+            f"  Step 13 — Cmd Awareness : catalogue all commands→KB [{s.get('command_awareness_cycles', 0)} cycles]",
+            f"  Step 14 — Cmd Execution : run safe commands→log     [{s.get('command_executions', 0)} runs]",
+            f"  On-Demand: Self-Learn Sequences  [{s.get('self_learn_sequences', 0)} runs]",
+            f"  On-Demand: Evolve Sequences      [{s.get('evolve_sequences', 0)} runs]",
+            "",
+            "━━━ TOPIC SEEDING LOOP ━━━",
+            f"  Step 15 — Topic Seeding : derive topics→ALE+SLSA+KB [{s.get('topic_seedings', 0)} cycles]",
+            f"  Last Seeded Topics: {', '.join(s.get('last_seeded_topics') or []) or 'none'}",
+            f"  Current SLSA Topics: {', '.join(stats.get('slsa_topics', [])) or 'none'}",
             "",
             "━━━ DATA STORAGE ━━━",
             "  Every step stores a structured fact in KnowledgeDB with:",
@@ -1687,9 +1773,70 @@ Uptime: {stats['uptime_seconds']}s
             return self.structural_awareness.resource_report()
         return "[StructuralAwareness not available]"
 
+    def _cmd_sa_awareness(self) -> str:
+        """Show all structural awareness in one combined view."""
+        if self.structural_awareness:
+            sa = self.structural_awareness
+            sections = [
+                sa.component_report(self),
+                "",
+                sa.loop_report(self),
+                "",
+                sa.command_report(router=self.router),
+                "",
+                sa.resource_report(),
+            ]
+            return "\n".join(sections)
+        return "[StructuralAwareness not available]"
+
     # ──────────────────────────────────────
-    # CODE GENERATION COMMANDS
+    # EXTENDED AUTONOMOUS LEARNING COMMANDS
     # ──────────────────────────────────────
+
+    def _cmd_autonomous_self_learn(self, text: str) -> str:
+        """Run the structural self-learn sequence immediately."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        if not hasattr(self.autonomous_engine, "run_self_learn_sequence"):
+            return "[❌ Self-learn sequence not available in this engine version]"
+        result = self.autonomous_engine.run_self_learn_sequence()
+        return result or "✅ Self-learn sequence completed"
+
+    def _cmd_autonomous_evolve_sequence(self, text: str) -> str:
+        """Run the structured evolve sequence immediately."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        if not hasattr(self.autonomous_engine, "run_evolve_sequence"):
+            return "[❌ Evolve sequence not available in this engine version]"
+        result = self.autonomous_engine.run_evolve_sequence()
+        return result or "✅ Evolve sequence completed"
+
+    def _cmd_autonomous_command_awareness(self, text: str) -> str:
+        """Trigger ALE Step 13: catalogue all registered commands into KnowledgeDB."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        if not hasattr(self.autonomous_engine, "_autonomous_command_awareness"):
+            return "[❌ Command awareness step not available]"
+        result = self.autonomous_engine._autonomous_command_awareness()
+        return result or "✅ Command awareness complete"
+
+    def _cmd_autonomous_command_exec(self, text: str) -> str:
+        """Trigger ALE Step 14: execute safe diagnostic commands autonomously."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        if not hasattr(self.autonomous_engine, "_autonomous_command_execution"):
+            return "[❌ Command execution step not available]"
+        result = self.autonomous_engine._autonomous_command_execution()
+        return result or "✅ Command execution complete"
+
+    def _cmd_autonomous_topic_seed(self, text: str) -> str:
+        """Trigger ALE Step 15: derive new topics from KB and seed to ALE + SLSA + KB queue."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        if not hasattr(self.autonomous_engine, "_autonomous_topic_seeding"):
+            return "[❌ Topic seeding step not available]"
+        result = self.autonomous_engine._autonomous_topic_seeding()
+        return result or "✅ Topic seeding complete"
 
     def _cmd_generate_code(self, spec: str) -> str:
         """Generate code: 'python module name=my_mod docstring=Does X'"""
