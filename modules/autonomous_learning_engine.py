@@ -156,11 +156,13 @@ class AutonomousLearningEngine:
             "command_executions": 0,
             "self_learn_sequences": 0,
             "evolve_sequences": 0,
+            "topic_seedings": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
             "last_software_category": None,
             "last_commands_studied": None,
+            "last_seeded_topics": None,
             "learning_rate": 0.0,
             "start_time": datetime.utcnow().isoformat()
         }
@@ -1010,6 +1012,161 @@ Autonomous Learning Summary:
         return f"Command execution: {ok_count}/{len(results)} safe commands executed successfully"
 
     # ─────────────────────────────────────────────
+    # AUTONOMOUS TOPIC SEEDING (step 15)
+    # ─────────────────────────────────────────────
+
+    def _derive_topics_from_kb(self, max_topics: int = 10) -> List[str]:
+        """Extract fresh topic candidates from recent KnowledgeDB facts.
+
+        Pulls keywords from the keys and values of the most recent ALE facts
+        so that Niblit's research scope grows organically from what it already
+        knows rather than staying frozen on the initial hard-coded list.
+        """
+        candidates: List[str] = []
+
+        # 1. Recent researched topics stored as ale_step1 facts (requires KB)
+        if self.knowledge_db:
+            try:
+                if hasattr(self.knowledge_db, "list_facts"):
+                    facts = self.knowledge_db.list_facts(30)
+                    for f in (facts or []):
+                        if not isinstance(f, dict):
+                            continue
+                        key = str(f.get("key", ""))
+                        val = f.get("value", {})
+                        # Extract topic from research facts
+                        if "ale_research:" in key or "ale_code_research:" in key:
+                            parts = key.split(":")
+                            if len(parts) >= 2:
+                                raw = parts[1].replace("_", " ")
+                                if raw and raw not in candidates:
+                                    candidates.append(raw)
+                        if isinstance(val, dict):
+                            t = val.get("topic", "")
+                            if t and t not in candidates:
+                                candidates.append(str(t))
+                            # Programming-literacy lang/topic combos
+                            lang = val.get("language", "")
+                            if lang and f"advanced {lang}" not in candidates:
+                                candidates.append(f"advanced {lang}")
+            except Exception as exc:
+                log.debug(f"Topic derivation from facts failed: {exc}")
+
+        # 2. Derive from the last research/idea (always runs, KB-independent)
+        last_topic = self.learning_history.get("last_research_topic") or ""
+        if last_topic:
+            words = [w for w in last_topic.split() if len(w) > 4]
+            for w in words:
+                variation = f"{w} techniques"
+                if variation not in candidates:
+                    candidates.append(variation)
+
+        # 3. Derive from code-research language list (always runs)
+        for lang, topic in self.code_research_topics[:5]:
+            combo = f"{lang} {topic}"
+            if combo not in candidates:
+                candidates.append(combo)
+
+        # 4. Derive from software study categories (always runs)
+        for cat in self.software_study_categories[:5]:
+            human = cat.replace("_", " ")
+            if human not in candidates:
+                candidates.append(human)
+
+        # Deduplicate and skip topics already in the research list
+        existing = set(self.research_topics)
+        fresh = [t for t in candidates if t and t not in existing]
+
+        # Trim to max_topics
+        return fresh[:max_topics]
+
+    def _autonomous_topic_seeding(self) -> str:
+        """Step 15: Derive new topics from knowledge and feed them to every
+        topic-accepting subsystem.
+
+        Topics are added to:
+          • ALE research queue (`add_research_topic`)
+          • KnowledgeDB learning queue (`queue_learning`)
+          • SLSA engine (`slsa_manager.add_topics` — no restart required)
+        """
+        log.info("🌱 [TOPIC SEEDING] Deriving new topics from KB...")
+
+        # 1. Derive candidate topics
+        new_topics = self._derive_topics_from_kb(max_topics=10)
+
+        if not new_topics:
+            log.info("[TOPIC SEEDING] No new topics derived this cycle")
+            return "Topic seeding: no new topics derived this cycle"
+
+        seeded_ale: List[str] = []
+        seeded_kb: List[str] = []
+        seeded_slsa: List[str] = []
+
+        for topic in new_topics:
+            # a. ALE research queue
+            if self.add_research_topic(topic):
+                seeded_ale.append(topic)
+
+            # b. KnowledgeDB learning queue
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.queue_learning(topic)
+                    seeded_kb.append(topic)
+                except Exception as exc:
+                    log.debug(f"KB queue_learning failed for '{topic}': {exc}")
+
+        # c. SLSA — add topics (prefers add_topics to avoid restart)
+        if self.slsa_manager:
+            try:
+                slsa_result = self.slsa_manager.add_topics(new_topics)
+                seeded_slsa = new_topics
+                log.debug(f"SLSA topic seeding: {slsa_result}")
+            except Exception as exc:
+                # Fallback: restart with merged topics
+                try:
+                    merged = list(set(self.slsa_manager.get_topics() + new_topics))
+                    self.slsa_manager.restart(merged)
+                    seeded_slsa = new_topics
+                except Exception:
+                    log.debug(f"SLSA topic seeding failed: {exc}")
+
+        # Persist record of what was seeded
+        if self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_topic_seeding:{int(time.time())}",
+                    {
+                        "new_topics": new_topics,
+                        "seeded_ale": seeded_ale,
+                        "seeded_kb": seeded_kb,
+                        "seeded_slsa": seeded_slsa,
+                        "step": "step15_topic_seeding",
+                    },
+                    tags=["ale_step15", "topic_seeding", "autonomous"],
+                )
+                self.knowledge_db.log_event(
+                    f"Autonomous topic seeding: {len(seeded_ale)} → ALE, "
+                    f"{len(seeded_kb)} → KB, {len(seeded_slsa)} → SLSA"
+                )
+            except Exception as exc:
+                log.debug(f"Topic seeding DB store failed: {exc}")
+
+        self.learning_history["topic_seedings"] = (
+            self.learning_history.get("topic_seedings", 0) + 1
+        )
+        self.learning_history["last_seeded_topics"] = new_topics[:5]
+
+        log.info(
+            f"✅ [TOPIC SEEDING] {len(seeded_ale)} → ALE | "
+            f"{len(seeded_kb)} → KB queue | {len(seeded_slsa)} → SLSA"
+        )
+        return (
+            f"Topic seeding: {len(seeded_ale)} new topics → ALE research, "
+            f"{len(seeded_kb)} → KB queue, {len(seeded_slsa)} → SLSA "
+            f"({', '.join(new_topics[:3])}{'...' if len(new_topics) > 3 else ''})"
+        )
+
+    # ─────────────────────────────────────────────
     # PUBLIC SEQUENCES (callable on-demand or from cycle)
     # ─────────────────────────────────────────────
 
@@ -1096,6 +1253,10 @@ Autonomous Learning Summary:
             self.learning_history.get("self_learn_sequences", 0) + 1
         )
 
+        # 6. Topic seeding — grow the research frontier from what was just learned
+        seed_result = self._autonomous_topic_seeding()
+        steps.append(f"Topic seeding: {seed_result[:60]}")
+
         summary = "\n".join(f"  • {s}" for s in steps)
         log.info(f"✅ [SELF-LEARN SEQUENCE] Complete:\n{summary}")
         return f"🎓 Self-learn sequence complete:\n{summary}"
@@ -1175,6 +1336,10 @@ Autonomous Learning Summary:
         # 6. Evolution step
         evolve_result = self._autonomous_evolve_step()
         steps.append(f"Evolution: {evolve_result[:60]}")
+
+        # 7. Topic seeding — feed new topics into ALE + SLSA + KB queue
+        seed_result = self._autonomous_topic_seeding()
+        steps.append(f"Topic seeding: {seed_result[:60]}")
 
         self.learning_history["evolve_sequences"] = (
             self.learning_history.get("evolve_sequences", 0) + 1
@@ -1275,6 +1440,10 @@ Autonomous Learning Summary:
         time.sleep(2)
 
         results.append(("CommandExecution", self._autonomous_command_execution()))
+        time.sleep(2)
+
+        # Topic seeding loop (step 15)
+        results.append(("TopicSeeding", self._autonomous_topic_seeding()))
 
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
@@ -1290,6 +1459,7 @@ Autonomous Learning Summary:
             "code_researched", "code_generated", "code_compiled",
             "code_reflected", "software_studied",
             "command_awareness_cycles", "command_executions",
+            "topic_seedings",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -1373,6 +1543,7 @@ Autonomous Learning Summary:
             "pending_compilations": len(getattr(self, "_pending_compiled", [])),
             "pending_reflections": len(getattr(self, "_compiled_for_reflection", [])),
             "uptime_seconds": uptime,
+            "slsa_topics": self.slsa_manager.get_topics() if self.slsa_manager else [],
             "modules_available": {
                 "researcher": bool(self.researcher),
                 "reflect": bool(self.reflect),
@@ -1385,6 +1556,7 @@ Autonomous Learning Summary:
                 "software_studier": bool(self._get_software_studier()),
                 "internet": bool(self._get_internet()),
                 "structural_awareness": bool(self._get_structural_awareness()),
+                "slsa_manager": bool(self.slsa_manager),
             },
         }
 

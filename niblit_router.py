@@ -817,6 +817,7 @@ Ask me about:
             stats = engine.get_learning_stats()
             s = stats["stats"]
             mods = stats.get("modules_available", {})
+            slsa_topics = stats.get("slsa_topics", [])
             return (
                 "[AUTONOMOUS LEARNING STATUS]\n"
                 f"Running: {'✅' if stats['running'] else '❌'}\n"
@@ -842,12 +843,18 @@ Ask me about:
                 f"  Last Cmds Studied: {s.get('last_commands_studied', 'none')}\n"
                 f"  Self-Learn Seqs  : {s.get('self_learn_sequences', 0)}\n"
                 f"  Evolve Seqs      : {s.get('evolve_sequences', 0)}\n"
+                "\n🌱 Topic Seeding:\n"
+                f"  Topic Seedings   : {s.get('topic_seedings', 0)} cycles\n"
+                f"  Last Seeded      : {', '.join(s.get('last_seeded_topics') or []) or 'none'}\n"
+                f"  ALE Topics       : {stats.get('research_topics', 0)}\n"
+                f"  SLSA Topics      : {len(slsa_topics)} ({', '.join(slsa_topics[:3])}{'...' if len(slsa_topics) > 3 else ''})\n"
                 "\n🔌 Modules:\n"
                 f"  internet             : {'✅' if mods.get('internet') else '❌'}\n"
                 f"  code_generator       : {'✅' if mods.get('code_generator') else '❌'}\n"
                 f"  code_compiler        : {'✅' if mods.get('code_compiler') else '❌'}\n"
                 f"  software_studier     : {'✅' if mods.get('software_studier') else '❌'}\n"
                 f"  structural_awareness : {'✅' if mods.get('structural_awareness') else '❌'}\n"
+                f"  slsa_manager         : {'✅' if mods.get('slsa_manager') else '❌'}\n"
                 f"\nPending Ideas: {stats.get('pending_ideas', 0)} | "
                 f"Topics: {stats.get('research_topics', 0)}"
             )
@@ -887,6 +894,11 @@ Ask me about:
                 return safe_call(engine._autonomous_command_execution) or "[Command execution failed]"
             return "[Command execution not available]"
 
+        if action in ("topic-seed", "topic seed", "topicseed", "seed-topics"):
+            if hasattr(engine, "_autonomous_topic_seeding"):
+                return safe_call(engine._autonomous_topic_seeding) or "[Topic seeding failed]"
+            return "[Topic seeding not available in this engine version]"
+
         return (
             "Usage:\n"
             "autonomous-learn start              — Start autonomous learning (incl. code loop)\n"
@@ -897,6 +909,7 @@ Ask me about:
             "autonomous-learn evolve-sequence    — Run structured evolve sequence now\n"
             "autonomous-learn command-awareness  — Study all registered commands\n"
             "autonomous-learn command-exec       — Execute safe diagnostic commands\n"
+            "autonomous-learn topic-seed         — Derive & seed new topics to ALE + SLSA + KB queue\n"
             "autonomous-learn add-topic <topic>  — Add research topic\n"
             "autonomous-learn add-topics <t1,t2> — Add multiple topics"
         )
@@ -1593,8 +1606,9 @@ Ask me about:
             "autonomous-learn evolve-sequence    — Run structured evolve sequence now",
             "autonomous-learn command-awareness  — Catalogue all commands (Step 13)",
             "autonomous-learn command-exec       — Execute safe diagnostic commands (Step 14)",
-            "autonomous-learn add-topic <t>      — Add research topic",
-            "autonomous-learn add-topics <t1,t2> — Add multiple topics",
+            "autonomous-learn topic-seed         — Derive & seed new topics to ALE + SLSA + KB (Step 15)",
+            "autonomous-learn add-topic <t>      — Manually add research topic",
+            "autonomous-learn add-topics <t1,t2> — Manually add multiple topics",
             "",
             "  Core learning loop (Steps 1-7):",
             "  Step 1:  Research       — researcher+internet → KB",
@@ -1613,6 +1627,8 @@ Ask me about:
             "  Structural awareness loop:",
             "  Step 13: Command Awareness — catalogue all commands → store in KB",
             "  Step 14: Command Execution — run safe commands autonomously → log results",
+            "  Topic seeding loop:",
+            "  Step 15: Topic Seeding   — derive topics from KB → add to ALE + SLSA + KB queue",
             "",
             "=== SELF-IMPROVEMENTS ===",
             "show improvements            — View 10 improvement modules",

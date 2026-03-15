@@ -1324,6 +1324,10 @@ class NiblitCore:
             "autonomous-learn command-exec", self._cmd_autonomous_command_exec,
             "Execute safe diagnostic commands (ALE Step 14)", "autonomous", priority=98
         )
+        self.command_registry.register(
+            "autonomous-learn topic-seed", self._cmd_autonomous_topic_seed,
+            "Derive & seed new topics to ALE + SLSA + KB queue (ALE Step 15)", "autonomous", priority=98
+        )
 
     def _cmd_autonomous_start(self, text: str) -> str:
         """Start autonomous learning engine."""
@@ -1349,6 +1353,7 @@ class NiblitCore:
         stats = self.autonomous_engine.get_learning_stats()
         s = stats["stats"]
         mods = stats.get("modules_available", {})
+        slsa_topics = stats.get("slsa_topics", [])
         result = f"""
 🧠 **AUTONOMOUS LEARNING STATUS:**
 
@@ -1381,6 +1386,12 @@ Uptime: {stats['uptime_seconds']}s
   Self-Learn Sequences: {s.get('self_learn_sequences', 0)}
   Evolve Sequences: {s.get('evolve_sequences', 0)}
 
+🌱 Topic Seeding:
+  Topic Seedings: {s.get('topic_seedings', 0)}
+  Last Seeded: {', '.join(s.get('last_seeded_topics') or []) or 'none'}
+  ALE Topics: {stats.get('research_topics', 0)}
+  SLSA Topics: {len(slsa_topics)} ({', '.join(slsa_topics[:3])}{'...' if len(slsa_topics) > 3 else ''})
+
 📚 Topics: {stats.get('research_topics', 0)} | Code Topics: {stats.get('code_research_topics', 0)} | SW Categories: {stats.get('software_study_categories', 0)}
 💡 Pending Ideas: {stats.get('pending_ideas', 0)}
 
@@ -1390,6 +1401,7 @@ Uptime: {stats['uptime_seconds']}s
   code_compiler        : {mods.get('code_compiler', False)}
   software_studier     : {mods.get('software_studier', False)}
   structural_awareness : {mods.get('structural_awareness', False)}
+  slsa_manager         : {mods.get('slsa_manager', False)}
 """
         return result.strip()
 
@@ -1548,7 +1560,7 @@ Uptime: {stats['uptime_seconds']}s
 
         lines = [
             "🧠 **NIBLIT AUTONOMOUS LEARNING ENGINE — PROCESS AWARENESS**\n",
-            "Niblit runs 14 self-improvement steps every idle cycle.",
+            "Niblit runs 15 self-improvement steps every idle cycle.",
             "All output is stored as structured facts in KnowledgeDB.",
             "Internet is the primary data source for collection steps.\n",
             "━━━ CORE LEARNING LOOP ━━━",
@@ -1572,6 +1584,11 @@ Uptime: {stats['uptime_seconds']}s
             f"  Step 14 — Cmd Execution : run safe commands→log     [{s.get('command_executions', 0)} runs]",
             f"  On-Demand: Self-Learn Sequences  [{s.get('self_learn_sequences', 0)} runs]",
             f"  On-Demand: Evolve Sequences      [{s.get('evolve_sequences', 0)} runs]",
+            "",
+            "━━━ TOPIC SEEDING LOOP ━━━",
+            f"  Step 15 — Topic Seeding : derive topics→ALE+SLSA+KB [{s.get('topic_seedings', 0)} cycles]",
+            f"  Last Seeded Topics: {', '.join(s.get('last_seeded_topics') or []) or 'none'}",
+            f"  Current SLSA Topics: {', '.join(stats.get('slsa_topics', [])) or 'none'}",
             "",
             "━━━ DATA STORAGE ━━━",
             "  Every step stores a structured fact in KnowledgeDB with:",
@@ -1811,6 +1828,15 @@ Uptime: {stats['uptime_seconds']}s
             return "[❌ Command execution step not available]"
         result = self.autonomous_engine._autonomous_command_execution()
         return result or "✅ Command execution complete"
+
+    def _cmd_autonomous_topic_seed(self, text: str) -> str:
+        """Trigger ALE Step 15: derive new topics from KB and seed to ALE + SLSA + KB queue."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        if not hasattr(self.autonomous_engine, "_autonomous_topic_seeding"):
+            return "[❌ Topic seeding step not available]"
+        result = self.autonomous_engine._autonomous_topic_seeding()
+        return result or "✅ Topic seeding complete"
 
     def _cmd_generate_code(self, spec: str) -> str:
         """Generate code: 'python module name=my_mod docstring=Does X'"""

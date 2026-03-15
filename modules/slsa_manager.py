@@ -148,6 +148,47 @@ class SLSAManager:
         with self.lock:
             return list(self.topics)
 
+    def add_topics(self, new_topics: List[str]) -> str:
+        """
+        Add new topics to the SLSA engine.
+
+        If the engine is running, topics are appended to the active list and
+        propagated to the engine object (no restart needed).  If the engine is
+        not running it is started with the supplied topics.
+
+        Args:
+            new_topics: Topics to add (duplicates are ignored).
+
+        Returns:
+            Status message.
+        """
+        if not new_topics:
+            return "No topics provided."
+
+        with self.lock:
+            added = []
+            for t in new_topics:
+                if t and t not in self.topics:
+                    self.topics.append(t)
+                    added.append(t)
+
+            if not added:
+                return "All topics already present."
+
+            # Propagate to the live engine object if it exposes a 'topics' attribute
+            if self.engine and hasattr(self.engine, "topics"):
+                try:
+                    # Always replace with a full copy to avoid aliasing issues
+                    self.engine.topics = list(self.topics)
+                except Exception:
+                    pass
+
+            log.info(f"📌 SLSA topics added: {added}")
+            if self.running:
+                return f"Topics added to running SLSA: {added}"
+            # Not running — start with all accumulated topics
+            return self.start(topics=list(self.topics))
+
 
 # Global singleton instance
 slsa_manager = SLSAManager()
