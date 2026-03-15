@@ -2355,7 +2355,7 @@ class AutonomousLearningEngine:
         return f"Evolve deploy: {summary}"
 
     # ─────────────────────────────────────────────
-
+    def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle.
 
         Every step is wrapped in *_run_step_with_timeout* so a stalled
