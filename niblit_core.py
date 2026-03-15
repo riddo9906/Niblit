@@ -1702,6 +1702,62 @@ Uptime: {stats['uptime_seconds']}s
         
         return result
 
+    def _cmd_show_new_commands(self, text: str = "") -> str:
+        """Show all commands added in recent updates."""
+        return (
+            "🆕 **NEW COMMANDS (Recent Updates)**\n\n"
+            "--- AUTONOMOUS LEARNING (Continuous — auto-starts with Niblit) ---\n"
+            "autonomous-learn start             — Resume continuous learning after a stop\n"
+            "autonomous-learn stop              — Pause continuous learning\n"
+            "autonomous-learn status            — View stats including improvement_cycles count\n"
+            "autonomous-learn add-topic <topic> — Seed a new research topic into ALE\n"
+            "autonomous-learn code-status       — Programming literacy stats\n"
+            "\n--- KNOWLEDGE RECALL (ALE Output) ---\n"
+            "recall <topic>                     — Search all KB facts for topic (ale_learned tags included)\n"
+            "acquired data                      — Browse all facts produced by ALE\n"
+            "acquired data <category>           — Filter: research, ideas, code, compiled, reflection,\n"
+            "                                     software_study, implementation, all\n"
+            "knowledge stats                    — KB summary: counts, tags, ALE breakdown\n"
+            "ale processes                      — Explain all 18 ALE steps + module status\n"
+            "\n--- 10 SELF-IMPROVEMENTS (Now Continuous) ---\n"
+            "run improvement-cycle              — Manually trigger full 10-module improvement cycle\n"
+            "show improvements                  — List all 10 improvement modules\n"
+            "improvement-status                 — Status of each improvement module\n"
+            "\n--- STRUCTURAL SELF-AWARENESS ---\n"
+            "my structure                       — Full component inventory\n"
+            "my threads                         — All active threads\n"
+            "my loops                           — Background loop status\n"
+            "my modules                         — Loaded modules\n"
+            "my commands                        — All registered commands\n"
+            "new commands                       — This listing of recently added commands\n"
+            "dashboard                          — Full runtime dashboard\n"
+            "resource usage                     — RAM, CPU, uptime\n"
+            "\n--- CODE & LEARNING ---\n"
+            "generate code <lang> [template]    — Generate code\n"
+            "run code <lang> <code>             — Execute code inline\n"
+            "study language <lang>              — Study language best practices\n"
+            "study software <category>          — Study a software category\n"
+            "research code <lang> [topic]       — Research lang from internet → CodeGenerator\n"
+            "\n--- REASONING & METACOGNITION ---\n"
+            "self-research <topic>              — Autonomous research + KB storage\n"
+            "reflect [text]                     — Reflect on topic (results stored in ale_learned)\n"
+            "auto-reflect                       — Auto reflection on recent events\n"
+            "\n--- EVOLUTION ---\n"
+            "evolve                             — One self-evolution step\n"
+            "evolve start                       — Continuous background evolution\n"
+            "evolve stop                        — Stop background evolution\n"
+            "evolve status                      — Evolution status\n"
+            "\n--- AGENTIC & ORCHESTRATION ---\n"
+            "agentic run <workflow>             — Run a named agentic workflow\n"
+            "agentic list                       — List available agentic workflows\n"
+            "orchestrate audit                  — Run repository audit\n"
+            "orchestrate self-heal              — Run self-healing\n"
+            "orchestrate pipeline               — Full orchestration pipeline\n"
+            "\nTip: 'help' shows the full command reference.\n"
+            "     All research, ideas, code, and improvement results are stored in\n"
+            "     KnowledgeDB — use 'recall <topic>' or 'acquired data' to browse them."
+        )
+
     # ============================
     # COMMAND HANDLERS (NO LLM)
     # ============================
@@ -1865,9 +1921,14 @@ Uptime: {stats['uptime_seconds']}s
             return "[❌ ReasoningEngine not available]"
         try:
             facts = []
-            if self.db:
-                raw = self.db.get_facts()
-                facts = [{"key": k, "value": v} for k, v in raw.items()] if isinstance(raw, dict) else []
+            if self.db and hasattr(self.db, "list_facts"):
+                # list_facts() returns [{"key": ..., "value": ..., "tags": [...], "ts": ...}, ...]
+                raw = self.db.list_facts(200)
+                facts = [
+                    {"key": str(f.get("key", "")), "value": str(f.get("value", ""))}
+                    for f in (raw or [])
+                    if isinstance(f, dict)
+                ]
             graph = self.reasoning_engine.build_knowledge_graph(facts)
             return (f"🧠 **KNOWLEDGE GRAPH BUILT:**\n"
                     f"Concepts: {len(graph)}\n"
@@ -2965,14 +3026,15 @@ Uptime: {stats['uptime_seconds']}s
                         internet=getattr(self, "internet", None),
                         reasoning_engine=getattr(self, "reasoning_engine", None),
                         metacognition=getattr(self, "metacognition", None),
+                        improvement_integrator=getattr(self, "improvements", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
                     # Auto-start: ALE runs in a daemon background thread so Niblit
-                    # continuously learns during idle periods without any manual command.
+                    # continuously learns at all times without any manual command.
                     # Use 'autonomous-learn stop' at the CLI to pause it if needed.
                     self.autonomous_engine.start()
-                    log.info("🚀 AutonomousLearningEngine auto-started (daemon background thread)")
+                    log.info("🚀 AutonomousLearningEngine auto-started (continuous background learning)")
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))
@@ -3313,7 +3375,10 @@ Uptime: {stats['uptime_seconds']}s
             await asyncio.sleep(90)
 
     async def _async_auto_research_loop(self):
-        """Async version of auto research loop."""
+        """Async version of auto research loop.
+
+        For each queued topic: search → reflect → teach → store ale_learned memory.
+        """
         while self.running:
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
@@ -3324,26 +3389,77 @@ Uptime: {stats['uptime_seconds']}s
                     ]
                     for item in pending[-5:]:
                         topic = item.get("topic")
-                        if topic:
-                            log.info(f"[AUTO RESEARCH] {topic}")
-                            if self.internet:
-                                self.researcher.internet = self.internet
-                            if hasattr(self.researcher, "search"):
-                                result = safe_call(self.researcher.search, topic)
-                                if result and self.db and hasattr(self.db, "add_fact"):
-                                    try:
-                                        self.db.add_fact(
-                                            f"auto_research:{topic}",
-                                            str(result),
-                                            tags=["research", "auto"]
-                                        )
-                                    except Exception:
-                                        pass
-                            if hasattr(self.db, "mark_learning_done"):
+                        if not topic:
+                            continue
+
+                        log.info(f"[AUTO RESEARCH] {topic}")
+                        if self.internet:
+                            self.researcher.internet = self.internet
+                        result = None
+                        if hasattr(self.researcher, "search"):
+                            result = safe_call(self.researcher.search, topic)
+
+                        if result and self.db and hasattr(self.db, "add_fact"):
+                            result_text = str(result)
+                            # Store raw research result
+                            try:
+                                self.db.add_fact(
+                                    f"auto_research:{topic}",
+                                    result_text,
+                                    tags=["research", "auto"]
+                                )
+                            except Exception:
+                                pass
+
+                            # Reflect on the research result
+                            reflection_output = ""
+                            reflect = getattr(self, "reflect", None)
+                            if reflect and hasattr(reflect, "collect_and_summarize"):
                                 try:
-                                    self.db.mark_learning_done(topic)
-                                except Exception:
-                                    pass
+                                    reflection_output = str(
+                                        reflect.collect_and_summarize(
+                                            f"Auto-research topic: {topic}\n\n"
+                                            f"Findings:\n{result_text[:600]}"
+                                        ) or ""
+                                    )
+                                    log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
+                                except Exception as _re:
+                                    log.debug(f"[AUTO RESEARCH] Reflection failed: {_re}")
+
+                            # Feed to self-teacher so the content is internalised
+                            self_teacher = getattr(self, "self_teacher", None)
+                            if self_teacher and hasattr(self_teacher, "teach"):
+                                try:
+                                    safe_call(
+                                        self_teacher.teach,
+                                        f"{topic}: {result_text[:300]}"
+                                    )
+                                    log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
+                                except Exception as _te:
+                                    log.debug(f"[AUTO RESEARCH] Teaching failed: {_te}")
+
+                            # Consolidated memory entry so 'recall <topic>' returns results.
+                            # Use millisecond timestamp to avoid same-second key collisions.
+                            try:
+                                topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                                self.db.add_fact(
+                                    f"ale_learned:{topic.replace(' ', '_')}:{int(time.time() * 1000)}",
+                                    {
+                                        "topic": topic,
+                                        "research": result_text[:500],
+                                        "reflection": reflection_output[:400],
+                                        "source": "async_auto_research_loop",
+                                    },
+                                    tags=["ale_learned", "memory", "auto_research", topic_tag],
+                                )
+                            except Exception:
+                                pass
+
+                        if hasattr(self.db, "mark_learning_done"):
+                            try:
+                                self.db.mark_learning_done(topic)
+                            except Exception:
+                                pass
             except Exception:
                 pass
             await asyncio.sleep(150)
@@ -3400,7 +3516,10 @@ Uptime: {stats['uptime_seconds']}s
             time.sleep(90)
 
     def _auto_research_loop(self):
-        """Run autonomous research loop periodically."""
+        """Run autonomous research loop periodically.
+
+        For each queued topic: search → reflect → teach → store ale_learned memory.
+        """
         while self.running:
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
@@ -3411,38 +3530,88 @@ Uptime: {stats['uptime_seconds']}s
                     ]
                     for item in pending[-self.config.research_queue_limit:]:
                         topic = item.get("topic")
-                        if topic:
-                            log.info(f"[AUTO RESEARCH] {topic}")
-                            
-                            cache_key = self.research_cache.cache_key(topic)
-                            cached = self.research_cache.get(cache_key)
-                            
-                            if cached:
-                                log.info(f"[AUTO RESEARCH] Cache hit for {topic}")
-                                result = cached
-                            else:
-                                if self.internet:
-                                    self.researcher.internet = self.internet
-                                if hasattr(self.researcher, "search"):
-                                    result = safe_call(self.researcher.search, topic)
-                                    if result:
-                                        self.research_cache.set(cache_key, result)
-                            
-                            if result and self.db and hasattr(self.db, "add_fact"):
+                        if not topic:
+                            continue
+
+                        log.info(f"[AUTO RESEARCH] {topic}")
+
+                        cache_key = self.research_cache.cache_key(topic)
+                        cached = self.research_cache.get(cache_key)
+                        result = None
+
+                        if cached:
+                            log.info(f"[AUTO RESEARCH] Cache hit for {topic}")
+                            result = cached
+                        else:
+                            if self.internet:
+                                self.researcher.internet = self.internet
+                            if hasattr(self.researcher, "search"):
+                                result = safe_call(self.researcher.search, topic)
+                                if result:
+                                    self.research_cache.set(cache_key, result)
+
+                        if result and self.db and hasattr(self.db, "add_fact"):
+                            # Store raw research result
+                            result_text = str(result)
+                            try:
+                                self.db.add_fact(
+                                    f"auto_research:{topic}",
+                                    result_text,
+                                    tags=["research", "auto"]
+                                )
+                            except Exception:
+                                pass
+
+                            # Reflect on the research result
+                            reflection_output = ""
+                            reflect = getattr(self, "reflect", None)
+                            if reflect and hasattr(reflect, "collect_and_summarize"):
                                 try:
-                                    self.db.add_fact(
-                                        f"auto_research:{topic}",
-                                        str(result),
-                                        tags=["research", "auto"]
+                                    reflection_output = str(
+                                        reflect.collect_and_summarize(
+                                            f"Auto-research topic: {topic}\n\n"
+                                            f"Findings:\n{result_text[:600]}"
+                                        ) or ""
                                     )
-                                except Exception:
-                                    pass
-                            
-                            if hasattr(self.db, "mark_learning_done"):
+                                    log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
+                                except Exception as _re:
+                                    log.debug(f"[AUTO RESEARCH] Reflection failed: {_re}")
+
+                            # Feed to self-teacher so the content is internalised
+                            self_teacher = getattr(self, "self_teacher", None)
+                            if self_teacher and hasattr(self_teacher, "teach"):
                                 try:
-                                    self.db.mark_learning_done(topic)
-                                except Exception:
-                                    pass
+                                    safe_call(
+                                        self_teacher.teach,
+                                        f"{topic}: {result_text[:300]}"
+                                    )
+                                    log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
+                                except Exception as _te:
+                                    log.debug(f"[AUTO RESEARCH] Teaching failed: {_te}")
+
+                            # Store consolidated memory entry (ale_learned) so that
+                            # 'recall <topic>' returns the full research+reflection pair.
+                            # Use millisecond timestamp to avoid same-second key collisions.
+                            try:
+                                topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                                self.db.add_fact(
+                                    f"ale_learned:{topic.replace(' ', '_')}:{int(time.time() * 1000)}",
+                                    {
+                                        "topic": topic,
+                                        "research": result_text[:500],
+                                        "reflection": reflection_output[:400],
+                                        "source": "auto_research_loop",
+                                    },
+                                    tags=["ale_learned", "memory", "auto_research", topic_tag],
+                                )
+                            except Exception:
+                                pass
+
+                        if hasattr(self.db, "mark_learning_done"):
+                            try:
+                                self.db.mark_learning_done(topic)
+                            except Exception:
+                                pass
             except Exception as e:
                 loop_tracer.record("ResearchLoop", e)
             time.sleep(150)
@@ -3940,6 +4109,11 @@ Uptime: {stats['uptime_seconds']}s
             log.debug("[IMPROVE-CMD] Intercepted: improvement-status")
             return self._cmd_improvement_status(text)
 
+        if ltext in ("new commands", "show new commands", "what's new", "whats new",
+                     "new features", "recent commands", "added commands"):
+            log.debug("[IMPROVE-CMD] Intercepted: new commands")
+            return self._cmd_show_new_commands(text)
+
         # ============================
         # LAYER 7b: LIVE UPDATER COMMANDS
         # ============================
@@ -4237,19 +4411,20 @@ Uptime: {stats['uptime_seconds']}s
             "acquired data <category> — Filter by: research, ideas, code, compiled,\n"
             "                           reflection, software_study, implementation, all\n"
             "knowledge stats          — Full KnowledgeDB summary (counts, top tags, ALE breakdown)\n"
-            "ale processes            — Explain all 12 ALE steps + data storage + module status\n"
+            "ale processes            — Explain all 18 ALE steps + data storage + module status\n"
             "\n--- AUTONOMOUS LEARNING ---\n"
-            "autonomous-learn start              — Start background learning (incl. code loop)\n"
-            "autonomous-learn stop               — Stop background learning\n"
+            "autonomous-learn start              — Resume learning after a stop (auto-starts with Niblit)\n"
+            "autonomous-learn stop               — Pause background learning\n"
             "autonomous-learn status             — View full learning statistics\n"
             "autonomous-learn add-topic <topic>  — Add research topic\n"
             "autonomous-learn code-status        — View programming literacy status\n"
-            "\n--- PROGRAMMING LITERACY (CODE LOOP) ---\n"
-            "  Runs during idle time — internet is the primary data source:\n"
+            "\n--- CONTINUOUS LEARNING (18 STEPS, RUNS ALL THE TIME) ---\n"
+            "  ALE runs every cycle regardless of idle state:\n"
             "  Step  1: Research       — researcher+internet → KB (tag: ale_step1)\n"
             "  Step  2: Ideas          — SelfIdeaImpl generates ideas    (tag: ale_step2)\n"
             "  Step  3: Implement      — SelfImplementer executes ideas  (tag: ale_step3)\n"
-            "  Step  4: Reflection     — ReflectModule summarizes        (tag: ale_step4)\n"
+            "  Step  4: Reflection     — ReflectModule summarizes+stores (tag: ale_step4)\n"
+            "                            Research results stored as ale_learned after reflection\n"
             "  Step  5: SLSA           — generates knowledge artifacts   (tag: ale_step5)\n"
             "  Step  6: Learning       — SelfTeacher internalizes        (tag: ale_step6)\n"
             "  Step  7: Evolve         — EvolveEngine self-evolves       (tag: ale_step7)\n"
@@ -4258,11 +4433,19 @@ Uptime: {stats['uptime_seconds']}s
             "  Step 10: Code Compile   — CodeCompiler runs it            (tag: ale_step10)\n"
             "  Step 11: Code Reflect   — ReflectModule studies output    (tag: ale_step11)\n"
             "  Step 12: SW Study       — SoftwareStudier+internet        (tag: ale_step12)\n"
+            "  Step 13: Cmd Awareness  — Catalogue all commands          (tag: ale_step13)\n"
+            "  Step 14: Cmd Execution  — Run safe diagnostic commands    (tag: ale_step14)\n"
+            "  Step 15: Topic Seeding  — Derive + feed new topics        (tag: ale_step15)\n"
+            "  Step 16: Reasoning      — Build knowledge graph+infer     (tag: ale_step16)\n"
+            "  Step 17: Metacognition  — Self-knowledge evaluation       (tag: ale_step17)\n"
+            "  Step 18: Improvement    — 10-module improvement cycle     (tag: ale_step18)\n"
             "  All output stored in KnowledgeDB.  Recall: 'recall <topic>'\n"
-            "\n--- 10 SELF-IMPROVEMENTS ---\n"
+            "\n--- 10 SELF-IMPROVEMENTS (NOW CONTINUOUS VIA STEP 18) ---\n"
             "show improvements        — View all 10 improvements\n"
-            "run improvement-cycle    — Execute improvement cycle\n"
+            "run improvement-cycle    — Manually trigger improvement cycle\n"
             "improvement-status       — View improvement status\n"
+            "\n--- NEW COMMANDS ---\n"
+            "new commands             — Show all recently added commands\n"
             "\n--- INTERNET & RESEARCH ---\n"
             "search <query>           — Search the internet\n"
             "summary <query>          — Get quick summary\n"
