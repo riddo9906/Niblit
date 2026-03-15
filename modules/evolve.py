@@ -75,6 +75,7 @@ class EvolveEngine:
         slsa=None,
         autonomous_engine=None,
         evolution_interval: int = 300,
+        sub_step_timeout: int = 10,
     ):
         self.core = core
         self.researcher = researcher
@@ -91,6 +92,7 @@ class EvolveEngine:
         self.slsa = slsa
         self.autonomous_engine = autonomous_engine
         self.evolution_interval = evolution_interval
+        self.sub_step_timeout = sub_step_timeout
 
         self.iteration = 0
         self.running = False
@@ -111,6 +113,46 @@ class EvolveEngine:
         log.info("[EvolveEngine] Initialized")
 
     # ──────────────────────────────────────────────
+    # TIMEOUT HELPER
+    # ──────────────────────────────────────────────
+
+    def _run_sub_step(self, name: str, fn) -> Optional[str]:
+        """Run *fn()* in a daemon thread with a per-sub-step timeout.
+
+        Returns the result on success, or None if the sub-step raises or
+        exceeds *self.sub_step_timeout* seconds.  Using a daemon thread
+        (rather than a ``ThreadPoolExecutor`` context manager) ensures
+        ``join(timeout=...)`` returns immediately without waiting for the
+        thread to finish — the thread will eventually complete or be
+        discarded when the process exits.
+        """
+        result_box: List[Any] = [None]
+        error_box: List[Any] = [None]
+
+        def _target():
+            try:
+                result_box[0] = fn()
+            except Exception as exc:
+                error_box[0] = exc
+
+        thread = threading.Thread(target=_target, daemon=True)
+        thread.start()
+        thread.join(timeout=self.sub_step_timeout)
+
+        if thread.is_alive():
+            log.warning(
+                "[EvolveEngine] Sub-step '%s' timed out after %ds — skipping",
+                name, self.sub_step_timeout,
+            )
+            return None
+
+        if error_box[0] is not None:
+            log.debug("[EvolveEngine] Sub-step '%s' failed: %s", name, error_box[0])
+            return None
+
+        return result_box[0]
+
+    # ──────────────────────────────────────────────
     # CORE STEP
     # ──────────────────────────────────────────────
 
@@ -129,53 +171,53 @@ class EvolveEngine:
         }
 
         # Step 1: Research the improvement direction via self_researcher
-        research_result = self._research_direction(direction)
+        research_result = self._run_sub_step("research", lambda: self._research_direction(direction))
         if research_result:
             record["actions"].append(f"researched: {research_result[:60]}")
 
         # Step 2: Direct internet research (no LLM, raw web data)
-        internet_result = self._internet_direct_research(direction)
+        internet_result = self._run_sub_step("internet_research", lambda: self._internet_direct_research(direction))
         if internet_result:
             record["actions"].append(f"internet: {internet_result[:60]}")
 
         # Step 3: Research code patterns from internet → feed CodeGenerator
-        code_research_result = self._research_code_direction(direction)
+        code_research_result = self._run_sub_step("code_research", lambda: self._research_code_direction(direction))
         if code_research_result:
             record["actions"].append(f"code_research: {code_research_result[:60]}")
 
         # Step 4: Study relevant software patterns
-        study_result = self._study_patterns(direction)
+        study_result = self._run_sub_step("study_patterns", lambda: self._study_patterns(direction))
         if study_result:
             record["actions"].append(f"studied: {study_result[:60]}")
 
         # Step 5: Generate code for the improvement
-        code_result = self._generate_improvement_code(direction)
+        code_result = self._run_sub_step("code_gen", lambda: self._generate_improvement_code(direction))
         if code_result:
             record["actions"].append(f"code_gen: {code_result[:60]}")
             record["mutations"].append(code_result)
 
         # Step 6: Teach myself what I learned
-        teach_result = self._teach_improvement(direction, research_result)
+        teach_result = self._run_sub_step("teach", lambda: self._teach_improvement(direction, research_result))
         if teach_result:
             record["actions"].append(f"taught: {teach_result[:60]}")
 
         # Step 7: Reflect on the improvement
-        reflect_result = self._reflect_on_step(direction, record)
+        reflect_result = self._run_sub_step("reflect", lambda: self._reflect_on_step(direction, record))
         if reflect_result:
             record["actions"].append(f"reflected: {str(reflect_result or '')[:60]}")
 
         # Step 8: Generate and implement an idea via idea_implementation
-        impl_result = self._implement_evolution_idea(direction, research_result)
+        impl_result = self._run_sub_step("implement_idea", lambda: self._implement_evolution_idea(direction, research_result))
         if impl_result:
             record["actions"].append(f"implemented: {impl_result[:60]}")
 
         # Step 9: Generate an implementation plan via idea_generator
-        idea_result = self._generate_idea(direction)
+        idea_result = self._run_sub_step("idea_gen", lambda: self._generate_idea(direction))
         if idea_result:
             record["actions"].append(f"idea: {idea_result[:60]}")
 
         # Step 10: Run a SLSA semantic knowledge cycle
-        slsa_result = self._run_slsa_cycle(direction)
+        slsa_result = self._run_sub_step("slsa_cycle", lambda: self._run_slsa_cycle(direction))
         if slsa_result:
             record["actions"].append(f"slsa: {slsa_result[:60]}")
 
