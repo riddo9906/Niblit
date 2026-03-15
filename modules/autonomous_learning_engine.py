@@ -942,6 +942,17 @@ class AutonomousLearningEngine:
                 except Exception as exc:
                     log.debug(f"save_to_deploy failed: {exc}")
 
+            # Save all generated code (all languages) to the structured builds/ folder.
+            build_note = ""
+            if code_gen and hasattr(code_gen, "save_to_builds"):
+                try:
+                    build_result = code_gen.save_to_builds(lang, f"ale_{lang}_{topic}", code)
+                    if build_result.get("success"):
+                        build_note = f" → builds/{lang}/"
+                        log.info("[CODE GEN] Saved %s code to builds/%s/", lang, lang)
+                except Exception as exc:
+                    log.debug(f"save_to_builds failed: {exc}")
+
             # Also enrich with internet context if available
             if internet:
                 try:
@@ -949,7 +960,7 @@ class AutonomousLearningEngine:
                 except Exception:
                     pass
 
-            return f"Code generated: {lang} module ({len(code)} chars) — queued for compilation{deploy_note}"
+            return f"Code generated: {lang} module ({len(code)} chars) — queued for compilation{deploy_note}{build_note}"
 
         except Exception as exc:
             log.error(f"❌ Autonomous code generation failed: {exc}")
@@ -983,6 +994,43 @@ class AutonomousLearningEngine:
 
         if not code.strip():
             return "[Empty code — skipped compilation]"
+
+        # Languages that CodeCompiler can execute directly.
+        _EXECUTABLE_LANGS = {"python", "python3", "bash", "sh", "javascript", "js"}
+
+        # For languages that require a native toolchain (e.g. rustc, javac, gcc)
+        # which may not be present, save the source to the builds/ folder so the
+        # program is available for later use in a Termux environment.
+        if lang not in _EXECUTABLE_LANGS:
+            build_note = ""
+            code_gen = self._get_code_generator()
+            if code_gen and hasattr(code_gen, "save_to_builds"):
+                try:
+                    save_result = code_gen.save_to_builds(lang, topic, code)
+                    if save_result.get("success"):
+                        build_note = f" → saved to builds/{lang}/"
+                        log.info("[CODE COMPILE] %s/%s source saved to builds/%s/", lang, topic, lang)
+                except Exception as exc:
+                    log.debug(f"save_to_builds in compilation step failed: {exc}")
+            # Store a record for reflection — mark as source-saved rather than executed
+            saved_record = {
+                "language": lang,
+                "topic": topic,
+                "code": code[:400],
+                "output": "",
+                "error": "",
+                "success": True,
+                "saved_only": True,  # source saved to builds/, not executed
+            }
+            self._compiled_for_reflection.append(saved_record)
+            if self.knowledge_db:
+                try:
+                    key = f"ale_compiled:{lang}:{topic}:{int(time.time())}"
+                    self.knowledge_db.add_fact(key, str(saved_record), tags=["compiled", "autonomous", lang, "source_saved"])
+                except Exception:
+                    pass
+            self.learning_history["code_compiled"] = self.learning_history.get("code_compiled", 0) + 1
+            return f"Code compiled: {lang}/{topic}: ✅ source saved{build_note}"
 
         try:
             # ── Phase 1: syntax-test (no execution) ──────────────────────
