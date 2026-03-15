@@ -830,7 +830,12 @@ class AutonomousLearningEngine:
                     idea_prompt = f"Generate a {lang} utility for: {topic}"
                     impl_result = self.idea_implementation.implement_idea(idea_prompt)
                     if impl_result:
-                        code += f"\n# Idea-driven addition:\n# {str(impl_result)[:200]}"
+                        impl_text = str(impl_result)[:200]
+                        commented_lines = "\n".join(
+                            f"# {line}" if line else "#"
+                            for line in impl_text.splitlines()
+                        )
+                        code += f"\n# Idea-driven addition:\n{commented_lines}"
                 except Exception as exc:
                     log.debug(f"Idea-driven generation failed: {exc}")
 
