@@ -150,6 +150,9 @@ class AutonomousLearningEngine:
         # Ideas generated (to implement)
         self.pending_ideas = []
 
+        # Raw research results from the last _autonomous_research call, forwarded to Step 4
+        self._last_research_results: List[Any] = []
+
         # Recently compiled code snippets waiting for reflection
         self._pending_compiled: List[Dict[str, Any]] = []
 
@@ -231,19 +234,28 @@ class AutonomousLearningEngine:
             self.learning_history["research_completed"] += 1
             self.learning_history["last_research_topic"] = topic
 
+            # Forward raw results to Step 4 (reflection) so it has full content.
+            # Guard against non-iterable or None return from researcher.
+            try:
+                self._last_research_results = list(results) if results else []
+            except TypeError:
+                self._last_research_results = [results] if results else []
+
             # Log to knowledge base
             if self.knowledge_db:
                 try:
                     self.knowledge_db.log_event(
                         f"Autonomous research completed: {topic} ({len(results) if results else 0} results)"
                     )
-                    # Store structured acquired data fact
+                    # Store structured acquired data fact including full results text
+                    all_text = "\n---\n".join(str(r)[:400] for r in (results or [])[:5])
                     self.knowledge_db.add_fact(
                         f"ale_research:{topic.replace(' ', '_')}:{int(time.time())}",
                         {
                             "topic": topic,
                             "results_count": len(results) if results else 0,
                             "summary": str(results[0])[:300] if results else "no results",
+                            "full_text": all_text[:800],
                             "step": "step1_research",
                         },
                         tags=["ale_step1", "research", "autonomous", topic.split()[0].lower()],
@@ -391,7 +403,7 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _autonomous_reflection(self) -> str:
-        """Step 4: Reflect on learning and store consolidated research+reflection in memory."""
+        """Step 4: Reflect on the actual research content and store as memory."""
         if not self.reflect:
             return "[Reflect module unavailable]"
 
@@ -399,12 +411,18 @@ class AutonomousLearningEngine:
             last_topic = self.learning_history.get("last_research_topic") or "system learning"
             last_idea = self.learning_history.get("last_idea") or "system improvement"
 
-            # Pull the most recent research fact so reflection has real content
-            recent_research_summary = ""
-            if self.knowledge_db:
+            # Primary source: raw results forwarded directly from Step 1 this cycle.
+            # These contain the full text returned by the researcher, not a truncated summary.
+            raw_content = ""
+            if self._last_research_results:
+                raw_content = "\n---\n".join(
+                    str(r)[:400] for r in self._last_research_results[:5]
+                )
+
+            # Fallback: pull from KB when raw results aren't available (e.g. engine restarted)
+            if not raw_content and self.knowledge_db:
                 try:
-                    # list_facts() returns facts sorted newest-first (by ts descending),
-                    # so the first matching entry is always the most recent research result.
+                    # list_facts() returns newest-first; first match is most recent.
                     facts = (
                         self.knowledge_db.list_facts(20)
                         if hasattr(self.knowledge_db, "list_facts") else []
@@ -415,64 +433,78 @@ class AutonomousLearningEngine:
                             if "ale_research:" in key or "ale_internet_code:" in key:
                                 val = f.get("value", {})
                                 if isinstance(val, dict):
-                                    recent_research_summary = str(val.get("summary", ""))[:200]
+                                    # Prefer full_text when available, else summary
+                                    raw_content = (
+                                        str(val.get("full_text") or val.get("summary", ""))[:600]
+                                    )
                                 else:
-                                    recent_research_summary = str(val)[:200]
-                                if recent_research_summary:
+                                    raw_content = str(val)[:600]
+                                if raw_content:
                                     break
                 except Exception:
                     pass
 
-            reflection_text = f"""
-Autonomous Learning Summary:
-- Researched: {last_topic}
-- Research findings: {recent_research_summary or '(pending)'}
-- Generated Idea: {last_idea}
-- Research Count: {self.learning_history['research_completed']}
-- Implementation Count: {self.learning_history['ideas_implemented']}
-- Reflection Count: {self.learning_history['reflections_conducted']}
-            """
+            # Build a content-rich reflection prompt so the module has real data to work with
+            reflection_text = (
+                f"Research topic: {last_topic}\n\n"
+                f"Research findings:\n{raw_content or '(no findings available)'}\n\n"
+                f"Generated idea: {last_idea}\n\n"
+                f"Research count: {self.learning_history['research_completed']} | "
+                f"Implementations: {self.learning_history['ideas_implemented']} | "
+                f"Reflections: {self.learning_history['reflections_conducted']}"
+            )
 
-            log.info(f"🧠 [AUTONOMOUS REFLECT] Reflecting...")
+            log.info(f"🧠 [AUTONOMOUS REFLECT] Reflecting on '{last_topic}'...")
 
             result = self.reflect.collect_and_summarize(reflection_text)
 
             self.learning_history["reflections_conducted"] += 1
 
-            # Log to knowledge base — store both the raw research and the reflection
+            # Build a condensed, recallable research+reflection record
+            research_text = raw_content[:500] if raw_content else "(no research findings)"
+            reflection_output = str(result or "")[:400]
+
+            # Persist to knowledge base
             if self.knowledge_db:
                 try:
                     ts = int(time.time())
-                    self.knowledge_db.log_event("Autonomous reflection completed")
-                    # Reflection record
+                    self.knowledge_db.log_event(
+                        f"Autonomous reflection completed: '{last_topic}'"
+                    )
+                    # Detailed reflection record (step-tagged for ALE tracing)
                     self.knowledge_db.add_fact(
                         f"ale_reflection:{ts}",
                         {
                             "topic": last_topic,
                             "idea": last_idea,
-                            "research_summary": recent_research_summary,
-                            "reflection": str(result or reflection_text)[:400],
+                            "research": research_text,
+                            "reflection": reflection_output,
                             "step": "step4_reflection",
                         },
                         tags=["ale_step4", "reflection", "autonomous"],
                     )
-                    # Also store the consolidated research+reflection as a memory entry
-                    # so it is immediately recallable as a learning outcome
+                    # ale_learned — the consolidated memory entry that 'recall' queries return.
+                    # This is the primary long-term storage for each research cycle.
+                    # Use millisecond timestamp to avoid key collisions within the same second.
+                    topic_tag = last_topic.split()[0].lower() if last_topic.split() else "general"
                     self.knowledge_db.add_fact(
                         f"ale_learned:{last_topic.replace(' ', '_')}:{ts}",
                         {
                             "topic": last_topic,
-                            "research": recent_research_summary,
-                            "reflection": str(result or "")[:300],
+                            "research": research_text,
+                            "reflection": reflection_output,
                             "idea": last_idea,
-                            "source": "ale_reflection",
+                            "source": "ale_step4_reflection",
                         },
-                        tags=["ale_learned", "memory", "autonomous", last_topic.split()[0].lower()],
+                        tags=["ale_learned", "memory", "autonomous", topic_tag],
                     )
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
-            log.info(f"✅ [AUTONOMOUS REFLECT] {str(result or '')[:50]}")
+            # Clear forwarded results now that they've been reflected on
+            self._last_research_results = []
+
+            log.info(f"✅ [AUTONOMOUS REFLECT] '{last_topic}' — stored in ale_learned")
             return str(result) if result is not None else "[No reflection result]"
 
         except Exception as e:

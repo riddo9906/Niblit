@@ -3370,7 +3370,10 @@ Uptime: {stats['uptime_seconds']}s
             await asyncio.sleep(90)
 
     async def _async_auto_research_loop(self):
-        """Async version of auto research loop."""
+        """Async version of auto research loop.
+
+        For each queued topic: search → reflect → teach → store ale_learned memory.
+        """
         while self.running:
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
@@ -3381,26 +3384,77 @@ Uptime: {stats['uptime_seconds']}s
                     ]
                     for item in pending[-5:]:
                         topic = item.get("topic")
-                        if topic:
-                            log.info(f"[AUTO RESEARCH] {topic}")
-                            if self.internet:
-                                self.researcher.internet = self.internet
-                            if hasattr(self.researcher, "search"):
-                                result = safe_call(self.researcher.search, topic)
-                                if result and self.db and hasattr(self.db, "add_fact"):
-                                    try:
-                                        self.db.add_fact(
-                                            f"auto_research:{topic}",
-                                            str(result),
-                                            tags=["research", "auto"]
-                                        )
-                                    except Exception:
-                                        pass
-                            if hasattr(self.db, "mark_learning_done"):
+                        if not topic:
+                            continue
+
+                        log.info(f"[AUTO RESEARCH] {topic}")
+                        if self.internet:
+                            self.researcher.internet = self.internet
+                        result = None
+                        if hasattr(self.researcher, "search"):
+                            result = safe_call(self.researcher.search, topic)
+
+                        if result and self.db and hasattr(self.db, "add_fact"):
+                            result_text = str(result)
+                            # Store raw research result
+                            try:
+                                self.db.add_fact(
+                                    f"auto_research:{topic}",
+                                    result_text,
+                                    tags=["research", "auto"]
+                                )
+                            except Exception:
+                                pass
+
+                            # Reflect on the research result
+                            reflection_output = ""
+                            reflect = getattr(self, "reflect", None)
+                            if reflect and hasattr(reflect, "collect_and_summarize"):
                                 try:
-                                    self.db.mark_learning_done(topic)
-                                except Exception:
-                                    pass
+                                    reflection_output = str(
+                                        reflect.collect_and_summarize(
+                                            f"Auto-research topic: {topic}\n\n"
+                                            f"Findings:\n{result_text[:600]}"
+                                        ) or ""
+                                    )
+                                    log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
+                                except Exception as _re:
+                                    log.debug(f"[AUTO RESEARCH] Reflection failed: {_re}")
+
+                            # Feed to self-teacher so the content is internalised
+                            self_teacher = getattr(self, "self_teacher", None)
+                            if self_teacher and hasattr(self_teacher, "teach"):
+                                try:
+                                    safe_call(
+                                        self_teacher.teach,
+                                        f"{topic}: {result_text[:300]}"
+                                    )
+                                    log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
+                                except Exception as _te:
+                                    log.debug(f"[AUTO RESEARCH] Teaching failed: {_te}")
+
+                            # Consolidated memory entry so 'recall <topic>' returns results.
+                            # Use millisecond timestamp to avoid same-second key collisions.
+                            try:
+                                topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                                self.db.add_fact(
+                                    f"ale_learned:{topic.replace(' ', '_')}:{int(time.time() * 1000)}",
+                                    {
+                                        "topic": topic,
+                                        "research": result_text[:500],
+                                        "reflection": reflection_output[:400],
+                                        "source": "async_auto_research_loop",
+                                    },
+                                    tags=["ale_learned", "memory", "auto_research", topic_tag],
+                                )
+                            except Exception:
+                                pass
+
+                        if hasattr(self.db, "mark_learning_done"):
+                            try:
+                                self.db.mark_learning_done(topic)
+                            except Exception:
+                                pass
             except Exception:
                 pass
             await asyncio.sleep(150)
@@ -3457,7 +3511,10 @@ Uptime: {stats['uptime_seconds']}s
             time.sleep(90)
 
     def _auto_research_loop(self):
-        """Run autonomous research loop periodically."""
+        """Run autonomous research loop periodically.
+
+        For each queued topic: search → reflect → teach → store ale_learned memory.
+        """
         while self.running:
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
@@ -3468,38 +3525,88 @@ Uptime: {stats['uptime_seconds']}s
                     ]
                     for item in pending[-self.config.research_queue_limit:]:
                         topic = item.get("topic")
-                        if topic:
-                            log.info(f"[AUTO RESEARCH] {topic}")
-                            
-                            cache_key = self.research_cache.cache_key(topic)
-                            cached = self.research_cache.get(cache_key)
-                            
-                            if cached:
-                                log.info(f"[AUTO RESEARCH] Cache hit for {topic}")
-                                result = cached
-                            else:
-                                if self.internet:
-                                    self.researcher.internet = self.internet
-                                if hasattr(self.researcher, "search"):
-                                    result = safe_call(self.researcher.search, topic)
-                                    if result:
-                                        self.research_cache.set(cache_key, result)
-                            
-                            if result and self.db and hasattr(self.db, "add_fact"):
+                        if not topic:
+                            continue
+
+                        log.info(f"[AUTO RESEARCH] {topic}")
+
+                        cache_key = self.research_cache.cache_key(topic)
+                        cached = self.research_cache.get(cache_key)
+                        result = None
+
+                        if cached:
+                            log.info(f"[AUTO RESEARCH] Cache hit for {topic}")
+                            result = cached
+                        else:
+                            if self.internet:
+                                self.researcher.internet = self.internet
+                            if hasattr(self.researcher, "search"):
+                                result = safe_call(self.researcher.search, topic)
+                                if result:
+                                    self.research_cache.set(cache_key, result)
+
+                        if result and self.db and hasattr(self.db, "add_fact"):
+                            # Store raw research result
+                            result_text = str(result)
+                            try:
+                                self.db.add_fact(
+                                    f"auto_research:{topic}",
+                                    result_text,
+                                    tags=["research", "auto"]
+                                )
+                            except Exception:
+                                pass
+
+                            # Reflect on the research result
+                            reflection_output = ""
+                            reflect = getattr(self, "reflect", None)
+                            if reflect and hasattr(reflect, "collect_and_summarize"):
                                 try:
-                                    self.db.add_fact(
-                                        f"auto_research:{topic}",
-                                        str(result),
-                                        tags=["research", "auto"]
+                                    reflection_output = str(
+                                        reflect.collect_and_summarize(
+                                            f"Auto-research topic: {topic}\n\n"
+                                            f"Findings:\n{result_text[:600]}"
+                                        ) or ""
                                     )
-                                except Exception:
-                                    pass
-                            
-                            if hasattr(self.db, "mark_learning_done"):
+                                    log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
+                                except Exception as _re:
+                                    log.debug(f"[AUTO RESEARCH] Reflection failed: {_re}")
+
+                            # Feed to self-teacher so the content is internalised
+                            self_teacher = getattr(self, "self_teacher", None)
+                            if self_teacher and hasattr(self_teacher, "teach"):
                                 try:
-                                    self.db.mark_learning_done(topic)
-                                except Exception:
-                                    pass
+                                    safe_call(
+                                        self_teacher.teach,
+                                        f"{topic}: {result_text[:300]}"
+                                    )
+                                    log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
+                                except Exception as _te:
+                                    log.debug(f"[AUTO RESEARCH] Teaching failed: {_te}")
+
+                            # Store consolidated memory entry (ale_learned) so that
+                            # 'recall <topic>' returns the full research+reflection pair.
+                            # Use millisecond timestamp to avoid same-second key collisions.
+                            try:
+                                topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                                self.db.add_fact(
+                                    f"ale_learned:{topic.replace(' ', '_')}:{int(time.time() * 1000)}",
+                                    {
+                                        "topic": topic,
+                                        "research": result_text[:500],
+                                        "reflection": reflection_output[:400],
+                                        "source": "auto_research_loop",
+                                    },
+                                    tags=["ale_learned", "memory", "auto_research", topic_tag],
+                                )
+                            except Exception:
+                                pass
+
+                        if hasattr(self.db, "mark_learning_done"):
+                            try:
+                                self.db.mark_learning_done(topic)
+                            except Exception:
+                                pass
             except Exception as e:
                 loop_tracer.record("ResearchLoop", e)
             time.sleep(150)
