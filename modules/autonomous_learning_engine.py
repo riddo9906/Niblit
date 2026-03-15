@@ -152,10 +152,15 @@ class AutonomousLearningEngine:
             "code_compiled": 0,
             "code_reflected": 0,
             "software_studied": 0,
+            "command_awareness_cycles": 0,
+            "command_executions": 0,
+            "self_learn_sequences": 0,
+            "evolve_sequences": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
             "last_software_category": None,
+            "last_commands_studied": None,
             "learning_rate": 0.0,
             "start_time": datetime.utcnow().isoformat()
         }
@@ -847,8 +852,340 @@ Autonomous Learning Summary:
         return f"Software study: '{category}' — {len(result_parts)} source(s) via internet+KB"
 
     # ─────────────────────────────────────────────
+    # COMMAND AWARENESS & EXECUTION (steps 13 & 14)
+    # ─────────────────────────────────────────────
+
+    def _get_structural_awareness(self):
+        """Lazily resolve StructuralAwareness from core."""
+        if self.core:
+            return getattr(self.core, "structural_awareness", None)
+        return None
+
+    def _autonomous_command_awareness(self) -> str:
+        """Step 13: Study all registered commands, understand their purpose, store in KB.
+
+        Collects every command from the CommandRegistry (and router COMMAND_PREFIXES)
+        via StructuralAwareness.command_awareness_report().  Each command is stored as
+        a structured fact so Niblit can recall *what commands it has* during reflection
+        and planning.
+        """
+        sa = self._get_structural_awareness()
+        router = getattr(self.core, "router", None) if self.core else None
+
+        log.info("📋 [COMMAND AWARENESS] Studying registered commands...")
+
+        # Build awareness dict
+        if sa and hasattr(sa, "command_awareness_report"):
+            awareness = sa.command_awareness_report(router=router)
+        elif router and hasattr(router, "COMMAND_PREFIXES"):
+            awareness = {
+                "total": len(router.COMMAND_PREFIXES),
+                "commands": [{"name": c, "description": "", "category": "router"}
+                             for c in router.COMMAND_PREFIXES],
+                "by_category": {"router": list(router.COMMAND_PREFIXES)},
+                "categories": ["router"],
+            }
+        else:
+            return "[Command awareness skipped — StructuralAwareness and router unavailable]"
+
+        total = awareness.get("total", 0)
+        if total == 0:
+            return "[No commands found for command awareness]"
+
+        # Persist to knowledge base
+        if self.knowledge_db:
+            try:
+                # Store the full inventory once (keyed by timestamp to allow history)
+                self.knowledge_db.add_fact(
+                    f"ale_command_awareness:{int(time.time())}",
+                    {
+                        "total_commands": total,
+                        "categories": awareness.get("categories", []),
+                        "by_category": awareness.get("by_category", {}),
+                        "step": "step13_command_awareness",
+                    },
+                    tags=["ale_step13", "command_awareness", "autonomous"],
+                )
+                # Also store each category summary as a searchable fact
+                for cat, names in awareness.get("by_category", {}).items():
+                    self.knowledge_db.add_fact(
+                        f"ale_cmd_cat:{cat}",
+                        {"category": cat, "commands": names, "count": len(names)},
+                        tags=["ale_step13", "commands", cat],
+                    )
+                self.knowledge_db.log_event(
+                    f"Command awareness: catalogued {total} commands in "
+                    f"{len(awareness.get('categories', []))} categories"
+                )
+            except Exception as exc:
+                log.debug(f"Command awareness DB store failed: {exc}")
+
+        self.learning_history["command_awareness_cycles"] = (
+            self.learning_history.get("command_awareness_cycles", 0) + 1
+        )
+        self.learning_history["last_commands_studied"] = total
+
+        log.info(f"✅ [COMMAND AWARENESS] {total} commands catalogued across "
+                 f"{len(awareness.get('categories', []))} categories")
+        return (f"Command awareness: {total} commands catalogued in "
+                f"{len(awareness.get('categories', []))} categories")
+
+    # ─────────────────────────────────────────────
+    def _autonomous_command_execution(self) -> str:
+        """Step 14: Autonomously execute a selection of safe diagnostic commands.
+
+        After studying commands in step 13, Niblit runs a curated set of
+        *read-only* / *diagnostic* commands through the core or router to
+        observe their output, validate they work, and store results in KB.
+        This closes the loop: study → understand → verify.
+        """
+        core = self.core
+        router = getattr(core, "router", None) if core else None
+
+        # Safe, read-only commands to execute autonomously
+        SAFE_COMMANDS: List[Dict[str, str]] = [
+            {"cmd": "status",           "label": "system_status"},
+            {"cmd": "health",           "label": "health_check"},
+            {"cmd": "my structure",     "label": "component_inventory"},
+            {"cmd": "my loops",         "label": "loop_status"},
+            {"cmd": "my threads",       "label": "thread_status"},
+            {"cmd": "my modules",       "label": "loaded_modules"},
+            {"cmd": "my commands",      "label": "command_list"},
+            {"cmd": "resource usage",   "label": "resource_usage"},
+            {"cmd": "autonomous-learn status", "label": "ale_status"},
+            {"cmd": "knowledge stats",  "label": "knowledge_summary"},
+            {"cmd": "ale processes",    "label": "ale_process_awareness"},
+        ]
+
+        results: List[Dict[str, Any]] = []
+        handler = None
+        if core and hasattr(core, "handle"):
+            handler = core.handle
+        elif router and hasattr(router, "process"):
+            handler = router.process
+
+        if not handler:
+            return "[Command execution skipped — no core.handle or router.process available]"
+
+        log.info(f"⚡ [COMMAND EXEC] Executing {len(SAFE_COMMANDS)} diagnostic commands...")
+
+        for entry in SAFE_COMMANDS:
+            cmd = entry["cmd"]
+            label = entry["label"]
+            try:
+                output = handler(cmd)
+                snippet = str(output or "")[:200]
+                results.append({"command": cmd, "label": label, "ok": True, "output": snippet})
+                log.debug(f"  ✅ {cmd}: {snippet[:60]}")
+            except Exception as exc:
+                results.append({"command": cmd, "label": label, "ok": False, "error": str(exc)[:120]})
+                log.debug(f"  ❌ {cmd}: {exc}")
+
+        # Persist full execution report to KB
+        ok_count = sum(1 for r in results if r.get("ok"))
+        if self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_command_execution:{int(time.time())}",
+                    {
+                        "executed": len(results),
+                        "ok": ok_count,
+                        "failed": len(results) - ok_count,
+                        "results": results,
+                        "step": "step14_command_execution",
+                    },
+                    tags=["ale_step14", "command_execution", "autonomous"],
+                )
+                self.knowledge_db.log_event(
+                    f"Autonomous command execution: {ok_count}/{len(results)} commands succeeded"
+                )
+            except Exception as exc:
+                log.debug(f"Command execution DB store failed: {exc}")
+
+        self.learning_history["command_executions"] = (
+            self.learning_history.get("command_executions", 0) + 1
+        )
+
+        log.info(f"✅ [COMMAND EXEC] {ok_count}/{len(results)} commands succeeded")
+        return f"Command execution: {ok_count}/{len(results)} safe commands executed successfully"
+
+    # ─────────────────────────────────────────────
+    # PUBLIC SEQUENCES (callable on-demand or from cycle)
+    # ─────────────────────────────────────────────
+
+    def run_self_learn_sequence(self) -> str:
+        """
+        On-demand self-learn sequence: study architecture → study commands →
+        run all diagnostic commands → reflect on results.
+
+        This is the 'structural self-learning' cycle — Niblit reads its own
+        blueprint, studies what it can do, exercises each capability, and
+        stores everything back into the knowledge base.
+        """
+        log.info("🎓 [SELF-LEARN SEQUENCE] Starting...")
+        steps = []
+
+        # 1. Architecture / structural snapshot
+        sa = self._get_structural_awareness()
+        if sa:
+            try:
+                arch = sa.component_report(self.core)
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"self_learn_architecture:{int(time.time())}",
+                        arch[:800],
+                        tags=["self_learn", "architecture"],
+                    )
+                steps.append("Architecture ✅")
+            except Exception as exc:
+                steps.append(f"Architecture ❌ ({exc})")
+        else:
+            steps.append("Architecture — SA unavailable")
+
+        # 2. Operational flow
+        if sa:
+            try:
+                flow = sa.operational_flow()
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"self_learn_flow:{int(time.time())}",
+                        flow[:800],
+                        tags=["self_learn", "operational_flow"],
+                    )
+                steps.append("Operational flow ✅")
+            except Exception as exc:
+                steps.append(f"Operational flow ❌ ({exc})")
+        else:
+            steps.append("Operational flow — SA unavailable")
+
+        # 3. Command awareness
+        awareness_result = self._autonomous_command_awareness()
+        steps.append(f"Command awareness: {awareness_result[:60]}")
+
+        # 4. Command execution
+        exec_result = self._autonomous_command_execution()
+        steps.append(f"Command execution: {exec_result[:60]}")
+
+        # 5. Reflection on what was learned
+        if self.reflect:
+            reflection_prompt = (
+                "Self-learn sequence complete. "
+                f"Steps: {'; '.join(steps)}. "
+                "What did Niblit learn about its own structure and commands?"
+            )
+            try:
+                if hasattr(self.reflect, "collect_and_summarize"):
+                    refl = self.reflect.collect_and_summarize(reflection_prompt)
+                elif hasattr(self.reflect, "reflect"):
+                    refl = self.reflect.reflect(reflection_prompt)
+                else:
+                    refl = reflection_prompt
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"self_learn_reflection:{int(time.time())}",
+                        str(refl or "")[:600],
+                        tags=["self_learn", "reflection"],
+                    )
+                steps.append("Reflection ✅")
+            except Exception as exc:
+                steps.append(f"Reflection ❌ ({exc})")
+        else:
+            steps.append("Reflection — module unavailable")
+
+        self.learning_history["self_learn_sequences"] = (
+            self.learning_history.get("self_learn_sequences", 0) + 1
+        )
+
+        summary = "\n".join(f"  • {s}" for s in steps)
+        log.info(f"✅ [SELF-LEARN SEQUENCE] Complete:\n{summary}")
+        return f"🎓 Self-learn sequence complete:\n{summary}"
+
+    def run_evolve_sequence(self) -> str:
+        """
+        Structured evolve sequence: study architecture and all commands →
+        run each command to understand what it does → evolve based on findings.
+
+        Order:
+          1. Component snapshot (what modules exist)
+          2. Command awareness (what commands exist + their purposes)
+          3. Command execution (run each safe command, observe output)
+          4. Research (pick one topic to deepen understanding)
+          5. Reflection (synthesise what was learned)
+          6. Evolution step (EvolveEngine acts on the new knowledge)
+        """
+        log.info("🧬 [EVOLVE SEQUENCE] Starting structured evolve sequence...")
+        steps = []
+
+        # 1. Structural snapshot
+        sa = self._get_structural_awareness()
+        if sa:
+            try:
+                snapshot = sa.component_report(self.core)
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"evolve_seq_snapshot:{int(time.time())}",
+                        snapshot[:800],
+                        tags=["evolve_sequence", "snapshot"],
+                    )
+                steps.append("Snapshot ✅")
+            except Exception as exc:
+                steps.append(f"Snapshot ❌ ({exc})")
+        else:
+            steps.append("Snapshot — SA unavailable")
+
+        # 2. Command awareness
+        awareness_result = self._autonomous_command_awareness()
+        steps.append(f"Command awareness: {awareness_result[:60]}")
+
+        # 3. Command execution — exercise all safe commands
+        exec_result = self._autonomous_command_execution()
+        steps.append(f"Command execution: {exec_result[:60]}")
+
+        # 4. Research a topic related to last findings
+        research_result = self._autonomous_research()
+        steps.append(f"Research: {research_result[:60]}")
+
+        # 5. Reflection
+        if self.reflect:
+            prompt = (
+                "Evolve sequence in progress. "
+                f"Component snapshot taken. Commands studied and executed. "
+                f"Recent research: {self.learning_history.get('last_research_topic', 'general')}. "
+                "What self-improvements should be prioritised?"
+            )
+            try:
+                if hasattr(self.reflect, "collect_and_summarize"):
+                    refl = self.reflect.collect_and_summarize(prompt)
+                elif hasattr(self.reflect, "reflect"):
+                    refl = self.reflect.reflect(prompt)
+                else:
+                    refl = prompt
+                if self.knowledge_db:
+                    self.knowledge_db.add_fact(
+                        f"evolve_seq_reflection:{int(time.time())}",
+                        str(refl or "")[:600],
+                        tags=["evolve_sequence", "reflection"],
+                    )
+                steps.append("Reflection ✅")
+            except Exception as exc:
+                steps.append(f"Reflection ❌ ({exc})")
+        else:
+            steps.append("Reflection — module unavailable")
+
+        # 6. Evolution step
+        evolve_result = self._autonomous_evolve_step()
+        steps.append(f"Evolution: {evolve_result[:60]}")
+
+        self.learning_history["evolve_sequences"] = (
+            self.learning_history.get("evolve_sequences", 0) + 1
+        )
+
+        summary = "\n".join(f"  • {s}" for s in steps)
+        log.info(f"✅ [EVOLVE SEQUENCE] Complete:\n{summary}")
+        return f"🧬 Evolve sequence complete:\n{summary}"
+
+    # ─────────────────────────────────────────────
     def _autonomous_evolve_step(self) -> str:
-        """Step 7: Run one EvolveEngine step to improve all capabilities."""
         if not self.evolve_engine:
             # Try to get from core
             if self.core:
@@ -931,6 +1268,13 @@ Autonomous Learning Summary:
         time.sleep(2)
 
         results.append(("SoftwareStudy", self._autonomous_software_study()))
+        time.sleep(2)
+
+        # Structural self-awareness loop (steps 13-14)
+        results.append(("CommandAwareness", self._autonomous_command_awareness()))
+        time.sleep(2)
+
+        results.append(("CommandExecution", self._autonomous_command_execution()))
 
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
@@ -945,6 +1289,7 @@ Autonomous Learning Summary:
             "reflections_conducted", "slsa_runs", "evolve_steps",
             "code_researched", "code_generated", "code_compiled",
             "code_reflected", "software_studied",
+            "command_awareness_cycles", "command_executions",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -1039,6 +1384,7 @@ Autonomous Learning Summary:
                 "code_compiler": bool(self._get_code_compiler()),
                 "software_studier": bool(self._get_software_studier()),
                 "internet": bool(self._get_internet()),
+                "structural_awareness": bool(self._get_structural_awareness()),
             },
         }
 

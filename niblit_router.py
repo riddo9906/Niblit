@@ -174,6 +174,10 @@ class NiblitRouter:
         "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status",
         "recall", "acquired data", "acquired-data", "knowledge stats", "knowledge-stats",
         "ale processes", "ale-processes", "kb stats", "kb-stats",
+        # Structural awareness shorthand commands
+        "my", "sa-structure", "sa-threads", "sa-loops", "sa-modules",
+        "sa-commands", "sa-dashboard", "sa-flow", "sa-resources", "sa-awareness",
+        "dashboard", "struct",
     )
 
     CHAT_RESPONSES = {
@@ -832,11 +836,18 @@ Ask me about:
                 f"  Code Compiled    : {s.get('code_compiled', 0)}\n"
                 f"  Code Reflected   : {s.get('code_reflected', 0)}\n"
                 f"  Software Studied : {s.get('software_studied', 0)}\n"
+                "\n📋 Command Awareness:\n"
+                f"  Cmd Awareness    : {s.get('command_awareness_cycles', 0)} cycles\n"
+                f"  Cmd Executions   : {s.get('command_executions', 0)} runs\n"
+                f"  Last Cmds Studied: {s.get('last_commands_studied', 'none')}\n"
+                f"  Self-Learn Seqs  : {s.get('self_learn_sequences', 0)}\n"
+                f"  Evolve Seqs      : {s.get('evolve_sequences', 0)}\n"
                 "\n🔌 Modules:\n"
-                f"  internet         : {'✅' if mods.get('internet') else '❌'}\n"
-                f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}\n"
-                f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}\n"
-                f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}\n"
+                f"  internet             : {'✅' if mods.get('internet') else '❌'}\n"
+                f"  code_generator       : {'✅' if mods.get('code_generator') else '❌'}\n"
+                f"  code_compiler        : {'✅' if mods.get('code_compiler') else '❌'}\n"
+                f"  software_studier     : {'✅' if mods.get('software_studier') else '❌'}\n"
+                f"  structural_awareness : {'✅' if mods.get('structural_awareness') else '❌'}\n"
                 f"\nPending Ideas: {stats.get('pending_ideas', 0)} | "
                 f"Topics: {stats.get('research_topics', 0)}"
             )
@@ -856,12 +867,36 @@ Ask me about:
                 return f"✅ Added {len(added)} topics: {', '.join(added)}"
             return "Usage: autonomous-learn add-topics <topic1,topic2,...>"
 
+        if action in ("self-learn", "selflearn", "self learn"):
+            if hasattr(engine, "run_self_learn_sequence"):
+                return safe_call(engine.run_self_learn_sequence) or "[Self-learn failed]"
+            return "[Self-learn sequence not available in this engine version]"
+
+        if action in ("evolve-sequence", "evolve sequence", "evolvesequence"):
+            if hasattr(engine, "run_evolve_sequence"):
+                return safe_call(engine.run_evolve_sequence) or "[Evolve sequence failed]"
+            return "[Evolve sequence not available in this engine version]"
+
+        if action in ("command-awareness", "command awareness"):
+            if hasattr(engine, "_autonomous_command_awareness"):
+                return safe_call(engine._autonomous_command_awareness) or "[Command awareness failed]"
+            return "[Command awareness not available]"
+
+        if action in ("command-exec", "command exec", "execute-commands"):
+            if hasattr(engine, "_autonomous_command_execution"):
+                return safe_call(engine._autonomous_command_execution) or "[Command execution failed]"
+            return "[Command execution not available]"
+
         return (
             "Usage:\n"
             "autonomous-learn start              — Start autonomous learning (incl. code loop)\n"
             "autonomous-learn stop               — Stop autonomous learning\n"
             "autonomous-learn status             — View full learning statistics\n"
             "autonomous-learn code-status        — View programming literacy status\n"
+            "autonomous-learn self-learn         — Run structural self-learn sequence now\n"
+            "autonomous-learn evolve-sequence    — Run structured evolve sequence now\n"
+            "autonomous-learn command-awareness  — Study all registered commands\n"
+            "autonomous-learn command-exec       — Execute safe diagnostic commands\n"
             "autonomous-learn add-topic <topic>  — Add research topic\n"
             "autonomous-learn add-topics <t1,t2> — Add multiple topics"
         )
@@ -1123,13 +1158,13 @@ Ask me about:
             return "[LiveUpdater not available]"
 
         # ===== STRUCTURAL AWARENESS COMMANDS =====
-        if lower in ("my structure", "show structure", "niblit structure", "struct"):
+        if lower in ("my structure", "show structure", "niblit structure", "struct", "sa-structure"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.component_report(self.core)
             return "[StructuralAwareness not available]"
 
-        if lower in ("my threads", "active threads", "threads"):
+        if lower in ("my threads", "active threads", "threads", "sa-threads"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.thread_report()
@@ -1139,40 +1174,55 @@ Ask me about:
                 lines.append(f"  • {t.name} ({'alive' if t.is_alive() else 'dead'})")
             return "\n".join(lines)
 
-        if lower in ("my loops", "active loops", "loops", "background loops"):
+        if lower in ("my loops", "active loops", "loops", "background loops", "sa-loops"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.loop_report(self.core)
             return "[StructuralAwareness not available]"
 
-        if lower in ("my modules", "loaded modules", "modules"):
+        if lower in ("my modules", "loaded modules", "modules", "sa-modules"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.module_report()
             return "[StructuralAwareness not available]"
 
-        if lower in ("my commands", "all commands"):
+        if lower in ("my commands", "all commands", "sa-commands"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.command_report(router=self)
             return self.help_text()
 
-        if lower in ("runtime status", "live status", "dashboard"):
+        if lower in ("runtime status", "live status", "dashboard", "sa-dashboard"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.runtime_dashboard(core=self.core, router=self)
             return self.handle_command("status")
 
-        if lower in ("how do i work", "operational flow", "my flow", "loop flow"):
+        if lower in ("how do i work", "operational flow", "my flow", "loop flow", "sa-flow"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.operational_flow()
             return self._get_self_referential_response("how do you work")
 
-        if lower in ("resource usage", "my resources", "memory usage"):
+        if lower in ("resource usage", "my resources", "memory usage", "sa-resources"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.resource_report()
+            return "[StructuralAwareness not available]"
+
+        if lower in ("sa-awareness", "my awareness", "structural awareness"):
+            sa = self.core and getattr(self.core, "structural_awareness", None)
+            if sa:
+                sections = [
+                    sa.component_report(self.core),
+                    "",
+                    sa.loop_report(self.core),
+                    "",
+                    sa.command_report(router=self),
+                    "",
+                    sa.resource_report(),
+                ]
+                return "\n".join(sections)
             return "[StructuralAwareness not available]"
 
         # ===== CODE GENERATION & COMPILER COMMANDS =====
@@ -1539,15 +1589,30 @@ Ask me about:
             "autonomous-learn stop               — Stop learning",
             "autonomous-learn status             — View full learning statistics",
             "autonomous-learn code-status        — View programming literacy / code loop status",
+            "autonomous-learn self-learn         — Run structural self-learn sequence now",
+            "autonomous-learn evolve-sequence    — Run structured evolve sequence now",
+            "autonomous-learn command-awareness  — Catalogue all commands (Step 13)",
+            "autonomous-learn command-exec       — Execute safe diagnostic commands (Step 14)",
             "autonomous-learn add-topic <t>      — Add research topic",
             "autonomous-learn add-topics <t1,t2> — Add multiple topics",
             "",
+            "  Core learning loop (Steps 1-7):",
+            "  Step 1:  Research       — researcher+internet → KB",
+            "  Step 2:  Ideas          — SelfIdeaImpl/Generator",
+            "  Step 3:  Implementation — SelfImplementer executes",
+            "  Step 4:  Reflection     — ReflectModule summarizes",
+            "  Step 5:  SLSA           — generates knowledge artifacts",
+            "  Step 6:  Learning       — SelfTeacher internalizes",
+            "  Step 7:  Evolution      — EvolveEngine self-evolves",
             "  Programming-literacy loop (internet is primary data source):",
             "  Step 8:  Code Research   — researcher+internet → CodeGenerator (language data)",
             "  Step 9:  Code Generation — idea+implementer produce compilable code",
             "  Step 10: Code Compile    — CodeCompiler runs the generated code",
             "  Step 11: Code Reflect    — ReflectModule studies compiled output",
             "  Step 12: Software Study  — SoftwareStudier learns patterns via internet",
+            "  Structural awareness loop:",
+            "  Step 13: Command Awareness — catalogue all commands → store in KB",
+            "  Step 14: Command Execution — run safe commands autonomously → log results",
             "",
             "=== SELF-IMPROVEMENTS ===",
             "show improvements            — View 10 improvement modules",
@@ -1566,14 +1631,15 @@ Ask me about:
             "update-history               — Show recent update/reload history",
             "",
             "=== STRUCTURAL SELF-AWARENESS (INTROSPECTION) ===",
-            "my structure                 — Full component inventory",
-            "my threads                   — All active Python threads",
-            "my loops                     — Background loop status",
-            "my modules                   — Loaded modules list",
-            "my commands                  — All registered commands",
-            "dashboard                    — Full runtime dashboard",
-            "operational flow             — How my loops and routing work",
-            "resource usage               — RAM, CPU, uptime",
+            "my structure  / sa-structure  — Full component inventory",
+            "my threads    / sa-threads    — All active Python threads",
+            "my loops      / sa-loops      — Background loop status",
+            "my modules    / sa-modules    — Loaded modules list",
+            "my commands   / sa-commands   — All registered commands",
+            "dashboard     / sa-dashboard  — Full runtime dashboard",
+            "operational flow / sa-flow    — How my loops and routing work",
+            "resource usage   / sa-resources — RAM, CPU, uptime",
+            "sa-awareness                  — All structural awareness in one view",
             "",
             "=== CODE GENERATION ===",
             "generate code <lang> [tpl] [key=val ...]",
