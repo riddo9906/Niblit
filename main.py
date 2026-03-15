@@ -7,6 +7,7 @@ Logic Fully Intact
 
 import os
 import sys
+import signal
 import traceback
 import difflib
 import datetime
@@ -15,6 +16,30 @@ import threading
 from niblit_core import NiblitCore
 from niblit_io import NiblitIO
 from niblit_router import safe_call
+
+# ─────────────────────────────
+# SIGNAL HANDLING
+# Ensures core.shutdown() is called when Termux closes the session
+# (SIGHUP), when the OS requests termination (SIGTERM), or when the
+# user presses Ctrl+C from outside the shell loop (SIGINT).
+# ─────────────────────────────
+_active_core = None  # set by run_shell so signal handlers can reach it
+
+
+def _shutdown_on_signal(sig, frame):
+    """Signal handler: flush autonomous-growth data then exit cleanly."""
+    try:
+        sig_name = signal.strsignal(sig) or str(sig)
+    except (ValueError, AttributeError):
+        sig_name = str(sig)
+    print(f"\n{timestamp()} [SIGNAL] {sig_name} received — saving state and exiting...",
+          flush=True)
+    if _active_core is not None:
+        try:
+            _active_core.shutdown()
+        except Exception:
+            pass
+    sys.exit(0)
 
 # ─────────────────────────────
 # DIRECTORY LOCK
@@ -99,6 +124,13 @@ def boot():
     core = NiblitCore()
     io.out(f"{timestamp()} CORE READY")
 
+    # Report wake-lock status so the user knows whether the background loops
+    # will keep running while the screen is off / Termux is in the background.
+    if hasattr(core, "wakelock") and core.wakelock is not None:
+        io.out(f"{timestamp()} {core.wakelock.status()}")
+    else:
+        io.out(f"{timestamp()} ⚪ Wake-lock: not available (termux-api not installed)")
+
     debug(io, "Active Threads After Boot:")
     debug(io, list_threads())
 
@@ -108,7 +140,8 @@ def boot():
 # COMMAND SHELL
 # ─────────────────────────────
 def run_shell(core, io):
-    global DEBUG_MODE
+    global DEBUG_MODE, _active_core
+    _active_core = core  # expose to signal handlers
 
     io.out(f"{timestamp()} READY\n")
 
@@ -200,6 +233,24 @@ def run_shell(core, io):
             if sug:
                 io.out(f"Did you mean: {sug[0]} ?")
 
+        except KeyboardInterrupt:
+            # Ctrl+C pressed while waiting for input — save state before exit
+            io.out(f"\n{timestamp()} [INTERRUPTED] Saving autonomous growth data...")
+            try:
+                core.shutdown()
+            except Exception:
+                pass
+            break
+
+        except EOFError:
+            # stdin closed (e.g. Termux session dropped) — save state before exit
+            io.out(f"\n{timestamp()} [EOF] Input stream closed. Saving state and exiting...")
+            try:
+                core.shutdown()
+            except Exception:
+                pass
+            break
+
         except Exception as e:
             io.error(f"{timestamp()} [RUNTIME ERROR] {e}")
             traceback.print_exc()
@@ -208,5 +259,30 @@ def run_shell(core, io):
 # MAIN
 # ─────────────────────────────
 if __name__ == "__main__":
+    # Register OS-level signal handlers so that SIGTERM (system kill) and
+    # SIGHUP (Termux session close) also trigger a clean shutdown instead
+    # of an abrupt process death that loses autonomous-growth data.
+    for sig in (signal.SIGTERM, signal.SIGHUP):
+        try:
+            signal.signal(sig, _shutdown_on_signal)
+        except (OSError, ValueError):
+            # SIGHUP is unavailable on Windows; SIGTERM may be restricted on
+            # some platforms — ignore gracefully.
+            pass
+
     core, io = boot()
-    run_shell(core, io)
+    try:
+        run_shell(core, io)
+    except Exception as e:
+        print(f"{timestamp()} [FATAL] {e}", file=sys.stderr)
+        traceback.print_exc()
+    finally:
+        # Last-resort shutdown: if run_shell exited without calling
+        # core.shutdown() (e.g. an unhandled exception escaped), ensure
+        # background threads and the autonomous engine are stopped so the
+        # process can exit cleanly and all DB writes are flushed.
+        if _active_core is not None and getattr(_active_core, "running", False):
+            try:
+                _active_core.shutdown()
+            except Exception:
+                pass

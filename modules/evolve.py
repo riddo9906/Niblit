@@ -15,14 +15,32 @@ Continuously improves Niblit over time by:
 10. Storing all knowledge in the knowledge DB
 """
 
+import os
 import time
 import random
 import logging
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("EvolveEngine")
+
+# Default Termux deployment path for Niblit self-updates.
+# When Niblit is running inside Termux this is the live installation directory.
+# Evolved code is written here so the running process can hot-reload it.
+TERMUX_DEPLOY_PATH = Path(
+    "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
+)
+
+
+def _detect_termux() -> bool:
+    """Return True if running inside a Termux environment."""
+    return (
+        "TERMUX_VERSION" in os.environ
+        or os.path.isdir("/data/data/com.termux")
+        or "termux" in os.environ.get("PREFIX", "").lower()
+    )
 
 # Possible evolution directions — expanded to cover all module capabilities
 _EVOLUTION_DIRECTIONS = [
@@ -75,7 +93,39 @@ class EvolveEngine:
         slsa=None,
         autonomous_engine=None,
         evolution_interval: int = 300,
+        sub_step_timeout: int = 10,
+        live_updater=None,
+        file_manager=None,
+        deploy_path: Optional[str] = None,
     ):
+        """Initialise the EvolveEngine.
+
+        Args:
+            core: NiblitCore instance; used by refresh_from_core() to pull references.
+            researcher: SelfResearcher — fetches info on improvement directions.
+            code_generator: CodeGenerator — produces new Python code artefacts.
+            code_compiler: CodeCompiler — validates/compiles generated code.
+            software_studier: SoftwareStudier — studies software patterns.
+            self_teacher: SelfTeacher — teaches Niblit what it learns.
+            reflect_module: ReflectModule — reflects on evolution steps.
+            idea_generator: SelfIdeaGenerator — generates implementation ideas.
+            implementer: SelfImplementer — raw implementation executor.
+            knowledge_db: KnowledgeDB — stores evolution facts/events.
+            internet: InternetManager — direct web research.
+            idea_implementation: SelfIdeaImplementation — full idea-to-code pipeline.
+            slsa: SLSAManager — builds semantic knowledge artefacts.
+            autonomous_engine: AutonomousLearningEngine — coordinates broader learning.
+            evolution_interval: Seconds between background evolution loop iterations.
+            sub_step_timeout: Maximum seconds any single sub-step may run before
+                being skipped (default 10).  With 12 sub-steps this bounds the
+                total runtime of step() to ≤120 s, safely within the ALE budget.
+            live_updater: LiveUpdater — hot-reloads changed modules at runtime.
+            file_manager: FilesystemManager — writes generated files to disk.
+            deploy_path: Explicit filesystem path where self-updates are written.
+                When None (default) the path is auto-detected: on Termux it
+                resolves to TERMUX_DEPLOY_PATH; on other environments no files
+                are written.
+        """
         self.core = core
         self.researcher = researcher
         self.code_generator = code_generator
@@ -91,6 +141,17 @@ class EvolveEngine:
         self.slsa = slsa
         self.autonomous_engine = autonomous_engine
         self.evolution_interval = evolution_interval
+        self.sub_step_timeout = sub_step_timeout
+        self.live_updater = live_updater
+        self.file_manager = file_manager
+
+        # Resolve the deploy path: explicit arg → Termux default if on Termux → None
+        if deploy_path is not None:
+            self.deploy_path: Optional[Path] = Path(deploy_path)
+        elif _detect_termux():
+            self.deploy_path = TERMUX_DEPLOY_PATH
+        else:
+            self.deploy_path = None
 
         self.iteration = 0
         self.running = False
@@ -106,9 +167,51 @@ class EvolveEngine:
             "ideas_implemented": 0,
             "code_researched": 0,
             "slsa_cycles": 0,
+            "deploy_writes": 0,
+            "live_upgrades": 0,
         }
 
         log.info("[EvolveEngine] Initialized")
+
+    # ──────────────────────────────────────────────
+    # TIMEOUT HELPER
+    # ──────────────────────────────────────────────
+
+    def _run_sub_step(self, name: str, func) -> Optional[str]:
+        """Run *func()* in a daemon thread with a per-sub-step timeout.
+
+        Returns the result on success, or None if the sub-step raises or
+        exceeds *self.sub_step_timeout* seconds.  Using a daemon thread
+        (rather than a ``ThreadPoolExecutor`` context manager) ensures
+        ``join(timeout=...)`` returns immediately without waiting for the
+        thread to finish — the thread will eventually complete or be
+        discarded when the process exits.
+        """
+        result_box: List[Any] = [None]
+        error_box: List[Any] = [None]
+
+        def _target():
+            try:
+                result_box[0] = func()
+            except Exception as exc:
+                error_box[0] = exc
+
+        thread = threading.Thread(target=_target, daemon=True)
+        thread.start()
+        thread.join(timeout=self.sub_step_timeout)
+
+        if thread.is_alive():
+            log.warning(
+                "[EvolveEngine] Sub-step '%s' timed out after %ds — skipping",
+                name, self.sub_step_timeout,
+            )
+            return None
+
+        if error_box[0] is not None:
+            log.debug("[EvolveEngine] Sub-step '%s' failed: %s", name, error_box[0])
+            return None
+
+        return result_box[0]
 
     # ──────────────────────────────────────────────
     # CORE STEP
@@ -129,55 +232,71 @@ class EvolveEngine:
         }
 
         # Step 1: Research the improvement direction via self_researcher
-        research_result = self._research_direction(direction)
+        research_result = self._run_sub_step("research", lambda: self._research_direction(direction))
         if research_result:
             record["actions"].append(f"researched: {research_result[:60]}")
 
         # Step 2: Direct internet research (no LLM, raw web data)
-        internet_result = self._internet_direct_research(direction)
+        internet_result = self._run_sub_step("internet_research", lambda: self._internet_direct_research(direction))
         if internet_result:
             record["actions"].append(f"internet: {internet_result[:60]}")
 
         # Step 3: Research code patterns from internet → feed CodeGenerator
-        code_research_result = self._research_code_direction(direction)
+        code_research_result = self._run_sub_step("code_research", lambda: self._research_code_direction(direction))
         if code_research_result:
             record["actions"].append(f"code_research: {code_research_result[:60]}")
 
         # Step 4: Study relevant software patterns
-        study_result = self._study_patterns(direction)
+        study_result = self._run_sub_step("study_patterns", lambda: self._study_patterns(direction))
         if study_result:
             record["actions"].append(f"studied: {study_result[:60]}")
 
         # Step 5: Generate code for the improvement
-        code_result = self._generate_improvement_code(direction)
+        code_result = self._run_sub_step("code_gen", lambda: self._generate_improvement_code(direction))
         if code_result:
             record["actions"].append(f"code_gen: {code_result[:60]}")
             record["mutations"].append(code_result)
 
         # Step 6: Teach myself what I learned
-        teach_result = self._teach_improvement(direction, research_result)
+        teach_result = self._run_sub_step("teach", lambda: self._teach_improvement(direction, research_result))
         if teach_result:
             record["actions"].append(f"taught: {teach_result[:60]}")
 
         # Step 7: Reflect on the improvement
-        reflect_result = self._reflect_on_step(direction, record)
+        reflect_result = self._run_sub_step("reflect", lambda: self._reflect_on_step(direction, record))
         if reflect_result:
             record["actions"].append(f"reflected: {str(reflect_result or '')[:60]}")
 
         # Step 8: Generate and implement an idea via idea_implementation
-        impl_result = self._implement_evolution_idea(direction, research_result)
+        impl_result = self._run_sub_step("implement_idea", lambda: self._implement_evolution_idea(direction, research_result))
         if impl_result:
             record["actions"].append(f"implemented: {impl_result[:60]}")
 
         # Step 9: Generate an implementation plan via idea_generator
-        idea_result = self._generate_idea(direction)
+        idea_result = self._run_sub_step("idea_gen", lambda: self._generate_idea(direction))
         if idea_result:
             record["actions"].append(f"idea: {idea_result[:60]}")
 
         # Step 10: Run a SLSA semantic knowledge cycle
-        slsa_result = self._run_slsa_cycle(direction)
+        slsa_result = self._run_sub_step("slsa_cycle", lambda: self._run_slsa_cycle(direction))
         if slsa_result:
             record["actions"].append(f"slsa: {slsa_result[:60]}")
+
+        # Step 11: Write generated code to deploy path (Termux live installation)
+        deploy_result = self._run_sub_step(
+            "deploy_write",
+            lambda: self._write_to_deploy_path(direction, record),
+        )
+        if deploy_result:
+            record["actions"].append(f"deployed: {deploy_result[:60]}")
+
+        # Step 12: Hot-reload any written improvements into the running process
+        upgrade_result = self._run_sub_step(
+            "live_upgrade",
+            lambda: self._live_upgrade_step(),
+        )
+        if upgrade_result:
+            record["actions"].append(f"live_upgraded: {upgrade_result[:60]}")
 
         # Update stats
         self._stats["steps"] += 1
@@ -394,6 +513,97 @@ class EvolveEngine:
             log.debug("[EvolveEngine] SLSA cycle failed: %s", exc)
         return None
 
+    def _write_to_deploy_path(self, direction: str, record: Dict) -> Optional[str]:
+        """Write generated code mutations to the Termux deployment directory.
+
+        Each evolution step that produced code mutations writes them as Python
+        files under *self.deploy_path / "evolved"* so they are ready for
+        hot-reload by the live updater or on the next process start.
+        """
+        if not self.deploy_path:
+            return None
+        mutations = record.get("mutations", [])
+        if not mutations:
+            return None
+
+        try:
+            evolved_dir = self.deploy_path / "evolved"
+            evolved_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            safe_dir = direction.replace(" ", "_")[:40]
+            step_dir = evolved_dir / f"step_{self.iteration:04d}_{safe_dir}_{ts}"
+            step_dir.mkdir(parents=True, exist_ok=True)
+
+            written: List[str] = []
+            for idx, code in enumerate(mutations):
+                fname = step_dir / f"improvement_{idx + 1}.py"
+                header = (
+                    f"# Auto-generated by EvolveEngine step {self.iteration}\n"
+                    f"# Direction: {direction}\n"
+                    f"# Timestamp: {ts}\n\n"
+                )
+                try:
+                    fname.write_text(header + str(code), encoding="utf-8")
+                    written.append(fname.name)
+                except OSError as exc:
+                    log.debug("[EvolveEngine] Deploy write failed for %s: %s", fname, exc)
+
+            if written:
+                self._stats["deploy_writes"] += 1
+                log.info(
+                    "[EvolveEngine] Wrote %d improvement file(s) to %s",
+                    len(written), step_dir,
+                )
+                # Also log to knowledge DB
+                if self.knowledge_db and hasattr(self.knowledge_db, "add_fact"):
+                    try:
+                        self.knowledge_db.add_fact(
+                            f"evolve_deploy:{self.iteration}:{int(time.time())}",
+                            {"path": str(step_dir), "files": written, "direction": direction},
+                            tags=["evolution", "deploy", "write"],
+                        )
+                    except Exception:
+                        pass
+                return f"Wrote {len(written)} file(s) to {str(step_dir)[-50:]}"
+
+        except Exception as exc:
+            log.debug("[EvolveEngine] Deploy write step failed: %s", exc)
+
+        return None
+
+    def _live_upgrade_step(self) -> Optional[str]:
+        """Hot-reload any evolution-generated code into the running process.
+
+        Uses *self.live_updater* (LiveUpdater) to:
+        1. Reload all modules whose source files have been modified since they
+           were last loaded (picks up improvements written by other steps).
+        2. Reload any module whose file now lives inside *self.deploy_path*
+           when the deploy path is set.
+
+        Returns a short summary string or None if nothing was reloaded.
+        """
+        if not self.live_updater:
+            return None
+
+        reloaded: List[str] = []
+
+        try:
+            # Reload all modules changed in the current base_dir
+            if hasattr(self.live_updater, "reload_all_changed"):
+                results = self.live_updater.reload_all_changed()
+                for r in results or []:
+                    if r.get("success"):
+                        reloaded.append(r.get("module", "?"))
+        except Exception as exc:
+            log.debug("[EvolveEngine] live_upgrade reload_all_changed failed: %s", exc)
+
+        if reloaded:
+            self._stats["live_upgrades"] += 1
+            log.info("[EvolveEngine] Live-upgraded %d module(s): %s", len(reloaded), reloaded)
+            return f"Hot-reloaded {len(reloaded)} module(s): {', '.join(reloaded[:3])}"
+
+        return None
+
     def _persist_step(self, record: Dict) -> None:
         """Store evolution step in knowledge DB."""
         if not self.knowledge_db:
@@ -460,6 +670,8 @@ class EvolveEngine:
         self.idea_implementation = getattr(self.core, "idea_implementation", self.idea_implementation)
         self.slsa = getattr(self.core, "slsa_engine", self.slsa)
         self.autonomous_engine = getattr(self.core, "autonomous_engine", self.autonomous_engine)
+        self.live_updater = getattr(self.core, "live_updater", self.live_updater)
+        self.file_manager = getattr(self.core, "file_manager", self.file_manager)
         log.info("[EvolveEngine] References refreshed from core")
 
     # ──────────────────────────────────────────────
@@ -482,6 +694,8 @@ class EvolveEngine:
             "idea_implementation": bool(self.idea_implementation),
             "slsa": bool(self.slsa),
             "autonomous_engine": bool(self.autonomous_engine),
+            "live_updater": bool(self.live_updater),
+            "file_manager": bool(self.file_manager),
         }
         return {
             "running": self.running,
@@ -490,6 +704,7 @@ class EvolveEngine:
             "available_modules": available,
             "history_count": len(self._history),
             "last_direction": self._history[-1]["direction"] if self._history else None,
+            "deploy_path": str(self.deploy_path) if self.deploy_path else None,
         }
 
     def summarize_history(self) -> str:

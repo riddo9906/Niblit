@@ -291,6 +291,12 @@ except Exception as e:
     log.debug(f"EvolveEngine import failed: {e}")
     EvolveEngine = None
 
+try:
+    from modules.termux_wakelock import TermuxWakeLock
+except Exception as e:
+    log.debug(f"TermuxWakeLock import failed: {e}")
+    TermuxWakeLock = None
+
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
@@ -1010,6 +1016,11 @@ class NiblitCore:
         # SLSA state
         self.slsa_engine = None
         self.slsa_thread = None
+
+        # Wake-lock: keeps CPU alive when screen is off / Termux is in background
+        self.wakelock: Optional["TermuxWakeLock"] = (
+            TermuxWakeLock() if TermuxWakeLock is not None else None
+        )
         
         # NEW: Production improvements
         self.command_registry: Optional[CommandRegistry] = None
@@ -1945,7 +1956,7 @@ Uptime: {stats['uptime_seconds']}s
         return (f"🧠 **REASONING ENGINE STATUS:**\n"
                 f"Knowledge graph concepts: {graph_size}\n"
                 f"Reasoning chains stored: {chain_count}\n"
-                f"Status: {'Ready — run \"reasoning build\" to populate graph' if graph_size == 0 else 'Active'}")
+                f"Status: {'Ready — run `reasoning build` to populate graph' if graph_size == 0 else 'Active'}")
 
     def _cmd_reasoning_chain(self, concept: str) -> str:
         """Create a reasoning chain from the given concept."""
@@ -3254,9 +3265,15 @@ Uptime: {stats['uptime_seconds']}s
         if not self.config.enable_background_loops:
             log.info("Background loops disabled via config")
             return
-        
+
+        # Acquire a Termux CPU wake-lock so Android does not freeze the
+        # background loops when the screen turns off or Termux goes to the
+        # background.  On non-Termux platforms this is a silent no-op.
+        if self.wakelock is not None:
+            self.wakelock.acquire()
+
         self._start_sync_loops()
-        
+
         if self.config.enable_async_loops:
             self._start_async_loops()
 
@@ -4539,6 +4556,14 @@ Uptime: {stats['uptime_seconds']}s
         log.info("✅ Shutdown initiated")
         self.running = False
         self._shutdown_event.set()
+
+        # Release Termux CPU wake-lock so Android can enter normal power-saving
+        # mode after Niblit exits.  No-op on non-Termux platforms.
+        if self.wakelock is not None:
+            try:
+                self.wakelock.release()
+            except Exception as e:
+                log.debug(f"Wake-lock release failed: {e}")
         
         # Stop autonomous engine first
         if self.autonomous_engine and self.autonomous_engine.running:

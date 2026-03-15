@@ -1,0 +1,45 @@
+{
+  "name": "Niblit Development",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": "pip install -r requirements.txt -r requirements-dev.txt",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": [
+          "test_server.py",
+          "test_niblit_db.py",
+          "test_main.py",
+          "test_termux_wakelock.py",
+          "test_agentic_workflows.py",
+          "test_reflect.py",
+          "test_evolve.py",
+          "test_autonomous_engine.py"
+        ],
+        "editor.formatOnSave": true,
+        "python.formatting.provider": "black"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
+        "github.vscode-github-actions"
+      ]
+    }
+  },
+  "remoteEnv": {
+    "FLASK_ENV": "development",
+    "HF_TOKEN": "${localEnv:HF_TOKEN}"
+  },
+  "forwardPorts": [5000],
+  "portsAttributes": {
+    "5000": {
+      "label": "Niblit Flask API",
+      "onAutoForward": "notify"
+    }
+  }
+}
