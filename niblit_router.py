@@ -195,6 +195,10 @@ class NiblitRouter:
         "github",
         # Build scanner (self-knowledge from own source files)
         "scan build", "read build", "build summary", "build path",
+        # Filesystem tree commands (scan/read/write/edit any path)
+        "tree scan", "tree read", "tree write", "tree edit",
+        # Import / deploy evolution improvements via hot-reload
+        "import improvements", "deploy improvements", "hot reload improvements",
     )
 
     CHAT_RESPONSES = {
@@ -992,12 +996,42 @@ Ask me about:
         if lower == "build path":
             if hasattr(self.core, "_cmd_build_path"):
                 return safe_call(self.core._cmd_build_path, "")
+        # ── Filesystem tree commands ─────────────────────────────────────
+        if lower.startswith("tree scan"):
+            rest = cmd.strip()[len("tree scan"):].strip()
+            if hasattr(self.core, "_cmd_tree_scan"):
+                return safe_call(self.core._cmd_tree_scan, rest)
+        if lower.startswith("tree read"):
+            rest = cmd.strip()[len("tree read"):].strip()
+            if hasattr(self.core, "_cmd_tree_read"):
+                return safe_call(self.core._cmd_tree_read, rest)
+        if lower.startswith("tree write"):
+            rest = cmd.strip()[len("tree write"):].strip()
+            if hasattr(self.core, "_cmd_tree_write"):
+                return safe_call(self.core._cmd_tree_write, rest)
+        if lower.startswith("tree edit"):
+            rest = cmd.strip()[len("tree edit"):].strip()
+            if hasattr(self.core, "_cmd_tree_edit"):
+                return safe_call(self.core._cmd_tree_edit, rest)
+        # ── Import / deploy improvements ─────────────────────────────────
+        if lower.startswith("import improvements") or lower.startswith("deploy improvements") or lower.startswith("hot reload improvements"):
+            if hasattr(self.core, "_cmd_import_improvements"):
+                return safe_call(self.core._cmd_import_improvements, "")
         return (
             "Build Scanner commands:\n"
-            "  scan build [subdir]       — List files in Niblit build directory\n"
-            "  read build file <name>    — Read a file from the build directory\n"
-            "  build summary             — Summary of the build directory\n"
-            "  build path                — Show build path and sync status"
+            "  scan build [subdir]           — List files in Niblit build directory\n"
+            "  read build file <name>        — Read a file from the build directory\n"
+            "  build summary                 — Summary of the build directory\n"
+            "  build path                    — Show build path and sync status\n"
+            "Tree / filesystem commands:\n"
+            "  tree scan [path]              — Recursively list a directory tree\n"
+            "  tree read <path>              — Read and display a file\n"
+            "  tree write <path> <content>   — Write content to a file\n"
+            "  tree edit <path> <old>||<new> — Find-and-replace text in a file\n"
+            "Improvement deployment:\n"
+            "  import improvements           — Hot-reload evolution improvements\n"
+            "  deploy improvements           — Alias for import improvements\n"
+            "  hot reload improvements       — Alias for import improvements"
         )
 
     # ─────────────────────────────────
@@ -1556,9 +1590,14 @@ Ask me about:
         if lower.startswith("github ") or lower == "github":
             return self._handle_github(cmd)
 
-        # BUILD SCANNER COMMANDS
+        # BUILD SCANNER COMMANDS + TREE / FILESYSTEM + IMPORT IMPROVEMENTS
         if (lower.startswith("scan build") or lower.startswith("read build")
-                or lower in ("build summary", "build path")):
+                or lower in ("build summary", "build path")
+                or lower.startswith("tree scan") or lower.startswith("tree read")
+                or lower.startswith("tree write") or lower.startswith("tree edit")
+                or lower.startswith("import improvements")
+                or lower.startswith("deploy improvements")
+                or lower.startswith("hot reload improvements")):
             return self._handle_build(cmd)
 
         # KNOWLEDGE RECALL & ACQUIRED DATA COMMANDS

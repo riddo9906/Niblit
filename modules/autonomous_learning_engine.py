@@ -253,6 +253,8 @@ class AutonomousLearningEngine:
             "self_scan_cycles": 0,
             "github_push_cycles": 0,
             "binary_study_cycles": 0,
+            "builds_update_cycles": 0,
+            "evolve_deploy_cycles": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
@@ -2211,7 +2213,149 @@ class AutonomousLearningEngine:
         return f"Binary study: {summary}"
 
     # ─────────────────────────────────────────────
-    def _run_autonomous_cycle(self):
+    # BUILDS UPDATE (step 22)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_builds_update(self) -> str:
+        """Step 22: Index the builds/ directory into KB each cycle.
+
+        Scans every language sub-directory under the local ``builds/`` folder,
+        reads recently modified files, and stores compact summaries in the
+        KnowledgeDB so Niblit can reason about what programs it has built.
+        """
+        try:
+            from modules.code_generator import NIBLIT_LOCAL_BUILDS_PATH
+        except Exception:
+            return "[Builds update skipped — NIBLIT_LOCAL_BUILDS_PATH unavailable]"
+
+        if not NIBLIT_LOCAL_BUILDS_PATH.exists():
+            return "[Builds update skipped — builds/ directory not found]"
+
+        indexed: List[str] = []
+        try:
+            for lang_dir in sorted(NIBLIT_LOCAL_BUILDS_PATH.iterdir()):
+                if not lang_dir.is_dir():
+                    continue
+                for fpath in sorted(lang_dir.iterdir()):
+                    if fpath.name.startswith("."):
+                        continue
+                    if not fpath.is_file():
+                        continue
+                    try:
+                        snippet = fpath.read_text(encoding="utf-8", errors="replace")[:300]
+                    except OSError:
+                        continue
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.add_fact(
+                                f"ale_builds:{lang_dir.name}:{fpath.stem}:{int(time.time())}",
+                                snippet,
+                                tags=["builds", "autonomous", lang_dir.name],
+                            )
+                        except Exception:
+                            pass
+                    indexed.append(f"{lang_dir.name}/{fpath.name}")
+        except Exception as exc:
+            log.debug("[BUILDS UPDATE] Scan failed: %s", exc)
+
+        self.learning_history["builds_update_cycles"] = (
+            self.learning_history.get("builds_update_cycles", 0) + 1
+        )
+        count = len(indexed)
+        log.info("✅ [BUILDS UPDATE] Indexed %d file(s) from builds/", count)
+        return f"Builds update: indexed {count} file(s) from builds/"
+
+    # ─────────────────────────────────────────────
+    # EVOLVE DEPLOY (step 23)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_evolve_deploy(self) -> str:
+        """Step 23: Read, understand, and hot-reload evolution improvements.
+
+        Scans the ``evolved/`` directory (inside the deploy path or the repo
+        root), reads ``improvement_*.py`` files, stores their content as
+        self-knowledge in the KB, and attempts to apply them via LiveUpdater
+        so improvements take effect in the current running process.
+        """
+        # Locate the evolved/ directory: prefer deploy path, fall back to repo root
+        evolved_dir = None
+
+        if self.evolve_engine:
+            dp = getattr(self.evolve_engine, "deploy_path", None)
+            if dp:
+                candidate = Path(dp) / "evolved"
+                if candidate.exists():
+                    evolved_dir = candidate
+
+        if evolved_dir is None:
+            try:
+                from modules.code_generator import NIBLIT_LOCAL_BUILDS_PATH
+                repo_root = NIBLIT_LOCAL_BUILDS_PATH.parent
+                candidate = repo_root / "evolved"
+                if candidate.exists():
+                    evolved_dir = candidate
+            except Exception:
+                pass
+
+        if evolved_dir is None:
+            return "[Evolve deploy skipped — no evolved/ directory found]"
+
+        # Resolve live_updater
+        live_updater = getattr(self, "live_updater", None) or (
+            getattr(self.core, "live_updater", None) if self.core else None
+        )
+
+        deployed: List[str] = []
+        understood: List[str] = []
+
+        try:
+            for step_dir in sorted(evolved_dir.iterdir()):
+                if not step_dir.is_dir():
+                    continue
+                for fpath in sorted(step_dir.glob("improvement_*.py")):
+                    try:
+                        content = fpath.read_text(encoding="utf-8", errors="replace")
+                    except OSError:
+                        continue
+
+                    # Store understanding in KB
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.add_fact(
+                                f"ale_evolve_deploy:{step_dir.name}:{fpath.stem}:{int(time.time())}",
+                                content[:400],
+                                tags=["evolve", "deploy", "improvement", "autonomous"],
+                            )
+                        except Exception:
+                            pass
+                    understood.append(fpath.name)
+
+                    # Attempt hot-reload via apply_patch
+                    if live_updater and hasattr(live_updater, "apply_patch"):
+                        module_key = f"evolved.{step_dir.name}.{fpath.stem}"
+                        try:
+                            result = live_updater.apply_patch(module_key, content)
+                            if result.get("success"):
+                                deployed.append(fpath.name)
+                                log.info("[EVOLVE DEPLOY] Applied patch: %s", fpath.name)
+                        except Exception as exc:
+                            log.debug("[EVOLVE DEPLOY] apply_patch failed for %s: %s", fpath.name, exc)
+        except Exception as exc:
+            log.debug("[EVOLVE DEPLOY] Directory scan failed: %s", exc)
+
+        self.learning_history["evolve_deploy_cycles"] = (
+            self.learning_history.get("evolve_deploy_cycles", 0) + 1
+        )
+
+        summary = (
+            f"read {len(understood)} improvement(s)"
+            + (f", deployed {len(deployed)}" if deployed else "")
+        )
+        log.info("✅ [EVOLVE DEPLOY] %s", summary)
+        return f"Evolve deploy: {summary}"
+
+    # ─────────────────────────────────────────────
+
         """Execute one complete autonomous learning cycle.
 
         Every step is wrapped in *_run_step_with_timeout* so a stalled
@@ -2273,6 +2417,12 @@ class AutonomousLearningEngine:
 
         # Binary/hex/dex/firmware/kernel/BIOS study (step 21)
         _step("BinaryStudy", self._autonomous_binary_study)
+
+        # Scan and index the builds/ folder into KB (step 22)
+        _step("BuildsUpdate", self._autonomous_builds_update)
+
+        # Read, understand, and hot-reload evolution improvements (step 23)
+        _step("EvolveDeploy", self._autonomous_evolve_deploy)
 
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])

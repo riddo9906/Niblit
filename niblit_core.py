@@ -547,6 +547,14 @@ def safe_call(fn: Callable, *a, **kw) -> Optional[Any]:
         return None
 
 
+def sorted_walk(base):
+    """os.walk wrapper that yields directories in sorted order."""
+    import os as _os
+    for root, dirs, files in _os.walk(base):
+        dirs.sort()
+        yield root, dirs, files
+
+
 def parse_intent(text: str) -> Tuple[str, Dict[str, str]]:
     """Parse a user command string into (intent, meta) tuple."""
     t = text.strip().lower()
@@ -1421,7 +1429,39 @@ class NiblitCore:
             "Show Niblit build path and sync status", "build", priority=85
         )
 
-    def _cmd_autonomous_start(self, text: str) -> str:
+        # Tree / filesystem commands
+        self.command_registry.register(
+            "tree scan", self._cmd_tree_scan,
+            "Scan and list a directory tree", "build", priority=85
+        )
+        self.command_registry.register(
+            "tree read", self._cmd_tree_read,
+            "Read a file from the filesystem tree", "build", priority=85
+        )
+        self.command_registry.register(
+            "tree write", self._cmd_tree_write,
+            "Write content to a file in the tree", "build", priority=85
+        )
+        self.command_registry.register(
+            "tree edit", self._cmd_tree_edit,
+            "Find-and-replace text in a file", "build", priority=85
+        )
+
+        # Import / deploy improvements command
+        self.command_registry.register(
+            "import improvements", self._cmd_import_improvements,
+            "Read evolved/ improvements and hot-reload them", "build", priority=85
+        )
+        self.command_registry.register(
+            "deploy improvements", self._cmd_import_improvements,
+            "Alias for import improvements", "build", priority=85
+        )
+        self.command_registry.register(
+            "hot reload improvements", self._cmd_import_improvements,
+            "Hot-reload evolution improvements into the running process", "build", priority=85
+        )
+
+
         """Start autonomous learning engine."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -2221,6 +2261,193 @@ Uptime: {stats['uptime_seconds']}s
         if self.code_generator and hasattr(self.code_generator, "get_deploy_path"):
             dp = self.code_generator.get_deploy_path()
             lines.append(f"  Code Generator deploy path: {dp or '(not set)'}")
+        return "\n".join(lines)
+
+    # ──────────────────────────────────────
+    # TREE / FILESYSTEM COMMANDS
+    # ──────────────────────────────────────
+
+    def _cmd_tree_scan(self, path: str = "") -> str:
+        """Recursively list all files under *path* (or the repo root)."""
+        from pathlib import Path as _Path
+        target = _Path(path.strip()) if path.strip() else _Path(".")
+        if not target.exists():
+            return f"❌ Path not found: {target}"
+        if self.file_manager and hasattr(self.file_manager, "list_dir"):
+            result = self.file_manager.list_dir(str(target))
+            if result.get("error"):
+                return f"❌ {result['error']}"
+            entries = result.get("entries", [])
+            lines = [f"🌲 **Tree: `{target}`** ({len(entries)} entries)"]
+            for e in entries[:60]:
+                icon = "📁" if e.get("type") == "dir" else "📄"
+                size = f" ({e['size']} B)" if e.get("size") is not None and e.get("type") != "dir" else ""
+                lines.append(f"  {icon} {e['name']}{size}")
+            if len(entries) > 60:
+                lines.append(f"  … and {len(entries) - 60} more")
+            return "\n".join(lines)
+        # Fallback: stdlib walk
+        lines = [f"🌲 **Tree: `{target}`**"]
+        try:
+            for root, dirs, files in sorted_walk(target):
+                depth = len(_Path(root).relative_to(target).parts)
+                indent = "  " * depth
+                lines.append(f"{indent}📁 {_Path(root).name}/")
+                for f in sorted(files)[:20]:
+                    lines.append(f"{indent}  📄 {f}")
+        except Exception as e:
+            return f"❌ {e}"
+        return "\n".join(lines[:100])
+
+    def _cmd_tree_read(self, path: str = "") -> str:
+        """Read and display the contents of a file at *path*."""
+        if not path.strip():
+            return "Usage: tree read <path/to/file>"
+        if self.file_manager and hasattr(self.file_manager, "read"):
+            result = self.file_manager.read(path.strip())
+            if result.get("error"):
+                return f"❌ {result['error']}"
+            content = result.get("content", "")
+            preview = content[:2000]
+            suffix = "\n…[truncated]" if len(content) > 2000 else ""
+            return f"📄 **{path}** ({result.get('size', '?')} bytes):\n```\n{preview}{suffix}\n```"
+        # Fallback
+        from pathlib import Path as _Path
+        try:
+            content = _Path(path.strip()).read_text(encoding="utf-8", errors="replace")
+            preview = content[:2000]
+            suffix = "\n…[truncated]" if len(content) > 2000 else ""
+            return f"📄 **{path}**:\n```\n{preview}{suffix}\n```"
+        except Exception as e:
+            return f"❌ {e}"
+
+    def _cmd_tree_write(self, spec: str = "") -> str:
+        """Write content to a file. Usage: tree write <path> <content>"""
+        parts = spec.strip().split(" ", 1)
+        if len(parts) < 2:
+            return "Usage: tree write <path> <content>"
+        filepath, content = parts[0], parts[1]
+        if self.file_manager and hasattr(self.file_manager, "write"):
+            result = self.file_manager.write(filepath, content)
+            if result.get("error"):
+                return f"❌ {result['error']}"
+            return f"✅ Written to `{filepath}` ({len(content)} chars)"
+        # Fallback
+        from pathlib import Path as _Path
+        try:
+            p = _Path(filepath)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content, encoding="utf-8")
+            return f"✅ Written to `{filepath}` ({len(content)} chars)"
+        except Exception as e:
+            return f"❌ {e}"
+
+    def _cmd_tree_edit(self, spec: str = "") -> str:
+        """Replace text in a file. Usage: tree edit <path> <old_text>||<new_text>"""
+        parts = spec.strip().split(" ", 1)
+        if len(parts) < 2 or "||" not in parts[1]:
+            return "Usage: tree edit <path> <old_text>||<new_text>"
+        filepath = parts[0]
+        old_text, new_text = parts[1].split("||", 1)
+        if self.file_manager and hasattr(self.file_manager, "replace_in_file"):
+            result = self.file_manager.replace_in_file(filepath, old_text, new_text)
+            if result.get("error"):
+                return f"❌ {result['error']}"
+            reps = result.get("replacements", 1)
+            return f"✅ Replaced {reps} occurrence(s) in `{filepath}`"
+        # Fallback
+        from pathlib import Path as _Path
+        try:
+            p = _Path(filepath)
+            original = p.read_text(encoding="utf-8")
+            updated = original.replace(old_text, new_text)
+            count = original.count(old_text)
+            p.write_text(updated, encoding="utf-8")
+            return f"✅ Replaced {count} occurrence(s) in `{filepath}`"
+        except Exception as e:
+            return f"❌ {e}"
+
+    # ──────────────────────────────────────
+    # IMPORT / DEPLOY IMPROVEMENTS COMMAND
+    # ──────────────────────────────────────
+
+    def _cmd_import_improvements(self, text: str = "") -> str:
+        """Scan the evolved/ directory, read improvement files, and hot-reload them.
+
+        This command:
+        1. Finds all ``improvement_*.py`` files under every step sub-directory
+           in the ``evolved/`` folder.
+        2. Reads and stores their content as self-knowledge in the KB.
+        3. Attempts to hot-reload each improvement via LiveUpdater.apply_patch()
+           so the improvement takes effect without restarting Niblit.
+        """
+        from pathlib import Path as _Path
+
+        # Locate evolved/ — prefer the evolve engine deploy path, then repo root
+        evolved_dir: Optional[Path] = None
+        if self.evolve_engine:
+            dp = getattr(self.evolve_engine, "deploy_path", None)
+            if dp and (_Path(dp) / "evolved").exists():
+                evolved_dir = _Path(dp) / "evolved"
+        if evolved_dir is None:
+            repo_root = _Path(__file__).resolve().parent
+            candidate = repo_root / "evolved"
+            if candidate.exists():
+                evolved_dir = candidate
+
+        if evolved_dir is None:
+            return "❌ No `evolved/` directory found. Run an evolution cycle first."
+
+        deployed: list = []
+        understood: list = []
+        errors: list = []
+
+        for step_dir in sorted(evolved_dir.iterdir()):
+            if not step_dir.is_dir():
+                continue
+            for fpath in sorted(step_dir.glob("improvement_*.py")):
+                try:
+                    content = fpath.read_text(encoding="utf-8", errors="replace")
+                except OSError as exc:
+                    errors.append(f"{fpath.name}: read error ({exc})")
+                    continue
+
+                understood.append(fpath.name)
+
+                # Store in KB for self-understanding
+                if self.db and hasattr(self.db, "add_fact"):
+                    try:
+                        self.db.add_fact(
+                            f"import_improvement:{step_dir.name}:{fpath.stem}",
+                            content[:400],
+                            tags=["improvement", "deploy", "hot_reload"],
+                        )
+                    except Exception:
+                        pass
+
+                # Hot-reload via LiveUpdater
+                if self.live_updater and hasattr(self.live_updater, "apply_patch"):
+                    module_key = f"evolved.{step_dir.name}.{fpath.stem}"
+                    try:
+                        result = self.live_updater.apply_patch(module_key, content)
+                        if result.get("success"):
+                            deployed.append(fpath.name)
+                        else:
+                            errors.append(f"{fpath.name}: {result.get('error', 'patch failed')}")
+                    except Exception as exc:
+                        errors.append(f"{fpath.name}: {exc}")
+
+        lines = [
+            f"📦 **Import Improvements** — `{evolved_dir}`",
+            f"  📖 Read     : {len(understood)} file(s)",
+            f"  🔄 Deployed : {len(deployed)} file(s)",
+        ]
+        if deployed:
+            lines.append("  ✅ " + ", ".join(deployed[:5]))
+        if errors:
+            lines.append(f"  ⚠️ Errors ({len(errors)}): " + "; ".join(errors[:3]))
+        if not understood and not errors:
+            lines.append("  ℹ️ No improvement files found yet.")
         return "\n".join(lines)
 
     # ──────────────────────────────────────
