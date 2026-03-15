@@ -35,6 +35,13 @@ except Exception:
         "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
     )
 
+# Local builds directory — structured storage for all generated programs,
+# available in every environment (not just Termux).
+# Layout: builds/{language}/{name}.{ext}
+_MODULE_DIR = Path(__file__).resolve().parent   # modules/
+_REPO_DIR = _MODULE_DIR.parent                  # repository root
+NIBLIT_LOCAL_BUILDS_PATH = _REPO_DIR / "builds"
+
 # ──────────────────────────────────────────────────────────
 # LANGUAGE TEMPLATES
 # ──────────────────────────────────────────────────────────
@@ -1261,6 +1268,49 @@ class CodeGenerator:
     def get_deploy_path(self) -> Optional[str]:
         """Return the current deploy path as a string, or None."""
         return str(self.deploy_path) if self.deploy_path else None
+
+    def save_to_builds(self, language: str, name: str, code: str) -> Dict[str, Any]:
+        """Save generated code to the local ``builds/{language}/`` directory.
+
+        Provides a structured build store that works in any environment
+        (Termux or standard Linux) and persists generated programs across
+        sessions.  The directory is created automatically if it does not exist.
+
+        Args:
+            language: Target language (e.g. ``"rust"``, ``"python"``).
+            name:     Base filename without extension (e.g. ``"ale_rust_module"``).
+            code:     Source code string to write.
+
+        Returns:
+            ``{"path": str, "success": bool, "error": Optional[str]}``
+        """
+        result: Dict[str, Any] = {"path": None, "success": False, "error": None}
+        lang = language.lower()
+        ext = _EXTENSIONS.get(lang, ".txt")
+
+        safe_name = name.replace(" ", "_").replace("-", "_")
+        # For languages like "makefile"/"cmake", _EXTENSIONS stores a full filename
+        # ("Makefile" / "CMakeLists.txt") rather than a dot-extension, so we use
+        # that filename directly instead of appending a suffix.
+        if ext in ("Makefile", "CMakeLists.txt"):
+            safe_name = ext
+        elif not safe_name.endswith(ext):
+            safe_name = safe_name + ext
+
+        try:
+            build_dir = NIBLIT_LOCAL_BUILDS_PATH / lang
+            build_dir.mkdir(parents=True, exist_ok=True)
+            fpath = build_dir / safe_name
+            fpath.write_text(code, encoding="utf-8")
+            result["path"] = str(fpath)
+            result["success"] = True
+            self._stats["stored"] = self._stats.get("stored", 0) + 1
+            log.info("[CodeGenerator] Saved %s to builds/%s/", safe_name, lang)
+        except OSError as exc:
+            result["error"] = str(exc)
+            log.debug("[CodeGenerator] save_to_builds failed: %s", exc)
+
+        return result
 
     # ──────────────────────────────────────────────────────
     # CODE STRUCTURE VALIDATION & CORRECTION
