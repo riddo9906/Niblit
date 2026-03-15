@@ -19,6 +19,9 @@ Runs when Niblit is idle to autonomously improve itself through:
 15. Topic Seeding — derive new research topics from KB and feed them to all subsystems
 16. Reasoning — ReasoningEngine builds knowledge graph, chains, and infers new facts
 17. Metacognition — Metacognition evaluates self-knowledge and identifies learning gaps
+18. Improvement Cycle — ImprovementIntegrator runs full 10-module self-improvement cycle
+19. Self Scan — BuildScanner reads own source files and stores self-knowledge in KB
+20. GitHub Push — GitHubSync pushes autonomously-generated files to GitHub
 
 Creates a continuous self-improvement loop.
 Internet is the primary data-collection channel for steps 1, 8, 9, 12.
@@ -51,7 +54,7 @@ class AutonomousLearningEngine:
                  evolve_engine=None, self_implementer=None, idea_implementation=None,
                  code_generator=None, code_compiler=None, software_studier=None,
                  internet=None, reasoning_engine=None, metacognition=None,
-                 improvement_integrator=None,
+                 improvement_integrator=None, github_sync=None, build_scanner=None,
                  step_timeout=120):
         """
         Args:
@@ -74,6 +77,8 @@ class AutonomousLearningEngine:
             reasoning_engine: ReasoningEngine — builds knowledge graphs and reasoning chains
             metacognition: Metacognition — evaluates self-knowledge and identifies learning gaps
             improvement_integrator: ImprovementIntegrator — runs full 10-module improvement cycle
+            github_sync: GitHubSync — pushes self-updates to GitHub
+            build_scanner: BuildScanner — scans own source files for self-knowledge
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -93,6 +98,8 @@ class AutonomousLearningEngine:
         self.reasoning_engine = reasoning_engine
         self.metacognition = metacognition
         self.improvement_integrator = improvement_integrator
+        self.github_sync = github_sync
+        self.build_scanner = build_scanner
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -180,6 +187,8 @@ class AutonomousLearningEngine:
             "reasoning_cycles": 0,
             "metacognition_cycles": 0,
             "improvement_cycles": 0,
+            "self_scan_cycles": 0,
+            "github_push_cycles": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
@@ -831,6 +840,18 @@ class AutonomousLearningEngine:
             self.learning_history["code_generated"] = self.learning_history.get("code_generated", 0) + 1
             log.info(f"✅ [CODE GEN] Generated {lang} code ({len(code)} chars)")
 
+            # Save generated .py to the Niblit deploy path so it can be
+            # hot-reloaded and pushed to GitHub via GitHubSync.
+            deploy_note = ""
+            if code_gen and hasattr(code_gen, "save_to_deploy") and lang == "python":
+                try:
+                    save_result = code_gen.save_to_deploy(f"ale_{lang}_{topic}", code)
+                    if save_result.get("success"):
+                        deploy_note = f" → saved to {save_result['path']}"
+                        log.info("[CODE GEN] Saved generated module to deploy path: %s", save_result["path"])
+                except Exception as exc:
+                    log.debug(f"save_to_deploy failed: {exc}")
+
             # Also enrich with internet context if available
             if internet:
                 try:
@@ -838,7 +859,7 @@ class AutonomousLearningEngine:
                 except Exception:
                     pass
 
-            return f"Code generated: {lang} module ({len(code)} chars) — queued for compilation"
+            return f"Code generated: {lang} module ({len(code)} chars) — queued for compilation{deploy_note}"
 
         except Exception as exc:
             log.error(f"❌ Autonomous code generation failed: {exc}")
@@ -1815,6 +1836,106 @@ class AutonomousLearningEngine:
             return f"[Evolve error: {e}]"
 
     # ─────────────────────────────────────────────
+    # SELF SCAN (step 19)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_self_scan(self) -> str:
+        """Step 19: BuildScanner reads Niblit's own source files for self-knowledge.
+
+        Scans the Niblit build directory, reads a sample of Python files,
+        and stores concise summaries in KnowledgeDB so subsequent reasoning
+        and metacognition steps can incorporate that self-understanding.
+        """
+        scanner = self.build_scanner
+        if not scanner:
+            # Try to get scanner from core
+            if self.core and hasattr(self.core, "build_scanner"):
+                scanner = self.core.build_scanner
+
+        if not scanner:
+            return "[Self-scan skipped — BuildScanner not available]"
+
+        log.info("🔍 [SELF SCAN] Scanning Niblit build directory…")
+
+        try:
+            summary = scanner.summarize()
+            log.info("[SELF SCAN] %s", summary.splitlines()[0] if summary else "(empty)")
+
+            # Read a few Python files and store their summaries
+            scan_result = scanner.scan()
+            if scan_result.get("error"):
+                return f"[Self-scan error: {scan_result['error']}]"
+
+            py_files = [f for f in scan_result.get("files", []) if f["ext"] == ".py"]
+            # Pick up to 3 files at random to keep the cycle fast
+            import random as _random
+            sample = _random.sample(py_files, min(3, len(py_files))) if py_files else []
+
+            files_read = []
+            for finfo in sample:
+                read_result = scanner.read_file(finfo["path"])
+                if read_result.get("success"):
+                    files_read.append(finfo["name"])
+                    # Store a fact summarising the file
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.add_fact(
+                                f"ale_self_scan:{finfo['name']}:{int(time.time())}",
+                                read_result["content"][:400],
+                                tags=["self_scan", "source", "ale_step19"],
+                            )
+                        except Exception:
+                            pass
+
+            self.learning_history["self_scan_cycles"] = (
+                self.learning_history.get("self_scan_cycles", 0) + 1
+            )
+            files_info = f", read {len(files_read)} file(s): {', '.join(files_read)}" if files_read else ""
+            log.info("✅ [SELF SCAN] Completed — %d total entries%s", scan_result["total"], files_info)
+            return f"Self-scan: {scan_result['total']} entries in build dir{files_info}"
+
+        except Exception as exc:
+            log.error("❌ Autonomous self-scan failed: %s", exc)
+            return f"[Self-scan error: {exc}]"
+
+    # ─────────────────────────────────────────────
+    # GITHUB PUSH (step 20)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_github_push(self) -> str:
+        """Step 20: GitHubSync pushes autonomously-generated files to GitHub.
+
+        Runs every cycle but only commits when there are actual changes
+        (git reports nothing-to-commit otherwise).  The commit message
+        includes a timestamp and the current cycle's learning highlights.
+        """
+        sync = self.github_sync
+        if not sync:
+            if self.core and hasattr(self.core, "github_sync"):
+                sync = self.core.github_sync
+
+        if not sync:
+            return "[GitHub push skipped — GitHubSync not available]"
+
+        log.info("🐙 [GITHUB PUSH] Pushing self-updates to GitHub…")
+
+        try:
+            last_topic = self.learning_history.get("last_research_topic") or "autonomous learning"
+            msg = (
+                f"Niblit autonomous self-update: {last_topic} "
+                f"(cycle {self.learning_history.get('self_scan_cycles', 0)})"
+            )
+            result = sync.push(msg)
+            self.learning_history["github_push_cycles"] = (
+                self.learning_history.get("github_push_cycles", 0) + 1
+            )
+            log.info("✅ [GITHUB PUSH] %s", result.splitlines()[0])
+            return result
+        except Exception as exc:
+            log.error("❌ Autonomous GitHub push failed: %s", exc)
+            return f"[GitHub push error: {exc}]"
+
+    # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle.
 
@@ -1869,6 +1990,12 @@ class AutonomousLearningEngine:
         # are applied *constantly* rather than only when triggered by a manual command.
         _step("ImprovementCycle", self._autonomous_improvement_cycle)
 
+        # Self-scan — read own source files and store self-knowledge (step 19)
+        _step("SelfScan", self._autonomous_self_scan)
+
+        # GitHub push — persist generated files to GitHub (step 20)
+        _step("GitHubPush", self._autonomous_github_push)
+
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -1884,7 +2011,7 @@ class AutonomousLearningEngine:
             "code_reflected", "software_studied",
             "command_awareness_cycles", "command_executions",
             "topic_seedings", "reasoning_cycles", "metacognition_cycles",
-            "improvement_cycles",
+            "improvement_cycles", "self_scan_cycles", "github_push_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -2005,6 +2132,8 @@ class AutonomousLearningEngine:
                 "reasoning_engine": bool(self._get_reasoning_engine()),
                 "metacognition": bool(self._get_metacognition()),
                 "improvement_integrator": bool(self._get_improvement_integrator()),
+                "github_sync": bool(self.github_sync or (self.core and getattr(self.core, "github_sync", None))),
+                "build_scanner": bool(self.build_scanner or (self.core and getattr(self.core, "build_scanner", None))),
             },
         }
 
@@ -2047,7 +2176,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  code_generator=None, code_compiler=None,
                                  software_studier=None, internet=None,
                                  reasoning_engine=None, metacognition=None,
-                                 improvement_integrator=None) -> AutonomousLearningEngine:
+                                 improvement_integrator=None,
+                                 github_sync=None, build_scanner=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -2069,6 +2199,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         reasoning_engine=reasoning_engine,
         metacognition=metacognition,
         improvement_integrator=improvement_integrator,
+        github_sync=github_sync,
+        build_scanner=build_scanner,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")
