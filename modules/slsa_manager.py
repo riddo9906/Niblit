@@ -54,7 +54,10 @@ class SLSAManager:
             try:
                 # Import here to avoid circular imports
                 try:
-                    from modules.slsa_generator_full import start_slsa
+                    try:
+                        from slsa_generator_full import start_slsa
+                    except ImportError:
+                        from modules.slsa_generator_full import start_slsa
                     self.engine, self.thread = start_slsa(topics=topics)
                 except ImportError:
                     log.warning("slsa_generator_full not available, using stub")
