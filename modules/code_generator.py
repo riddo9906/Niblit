@@ -1123,8 +1123,14 @@ _EXTENSIONS: Dict[str, str] = {
 _PY_MAX_LINES_WITHOUT_DEF: int = 10
 # Number of characters at the start of a JS file to scan for 'use strict'.
 _JS_HEADER_CHECK_SIZE: int = 300
-# Minimum character count for LLM-generated code to be considered substantive.
-_MIN_LLM_CODE_LENGTH: int = 50
+# Maximum length of the safe-name portion used in generated module names.
+_MAX_MODULE_NAME_LEN: int = 40
+# Maximum characters of research text embedded in Python module docstrings.
+_MAX_RESEARCH_SUMMARY_LEN: int = 300
+# Maximum width (chars) for research comment lines in Rust/Go/JS builders.
+_RESEARCH_SUMMARY_WIDTH: int = 120
+# Maximum length for Go package names (Go identifiers must be short).
+_MAX_GO_PACKAGE_NAME_LEN: int = 20
 
 
 class CodeGenerator:
@@ -1911,6 +1917,1088 @@ class CodeGenerator:
         for lang, tmpls in _TEMPLATES.items():
             lines.append(f"  {lang:<15}  {', '.join(tmpls.keys())}")
         return "\n".join(lines)
+
+    # ──────────────────────────────────────────────────────
+    # RESEARCH-DRIVEN CODE GENERATION
+    # ──────────────────────────────────────────────────────
+
+    # Map of topic keywords → real Python code snippet that implements the concept.
+    # Each entry is a (imports, constants, functions, class_body) tuple of code strings.
+    _PYTHON_TOPIC_SNIPPETS: Dict[str, Dict[str, str]] = {
+        "nlp": {
+            "imports": "import re\nimport string\nfrom collections import Counter",
+            "constants": (
+                "STOPWORDS = {\n"
+                "    'the', 'a', 'an', 'is', 'it', 'in', 'of', 'to', 'and', 'or',\n"
+                "    'for', 'on', 'at', 'by', 'with', 'that', 'this', 'was', 'are',\n"
+                "}\n"
+                "MAX_TOKENS = 512"
+            ),
+            "functions": (
+                "def tokenize(text: str) -> List[str]:\n"
+                "    \"\"\"Split text into tokens, removing punctuation and stopwords.\"\"\"\n"
+                "    text = text.lower()\n"
+                "    text = re.sub(r'[^\\w\\s]', '', text)\n"
+                "    return [w for w in text.split() if w and w not in STOPWORDS]\n"
+                "\n"
+                "def clean_text(text: str) -> str:\n"
+                "    \"\"\"Normalise whitespace and lowercase text.\"\"\"\n"
+                "    return re.sub(r'\\s+', ' ', text).strip().lower()\n"
+                "\n"
+                "def extract_keywords(text: str, top_n: int = 10) -> List[str]:\n"
+                "    \"\"\"Return the top-N most frequent tokens.\"\"\"\n"
+                "    tokens = tokenize(clean_text(text))\n"
+                "    freq = Counter(tokens)\n"
+                "    return [w for w, _ in freq.most_common(top_n)]\n"
+                "\n"
+                "def ngrams(tokens: List[str], n: int = 2) -> List[tuple]:\n"
+                "    \"\"\"Yield consecutive n-grams from a token list.\"\"\"\n"
+                "    return [tuple(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]"
+            ),
+            "class_body": (
+                "    def __init__(self, language: str = 'en') -> None:\n"
+                "        self.language = language\n"
+                "        self._docs: List[str] = []\n"
+                "        log.debug('[%s] Initialized (lang=%s)', __name__, language)\n"
+                "\n"
+                "    def process(self, text: str) -> Dict[str, Any]:\n"
+                "        \"\"\"Tokenise, clean, and extract features from *text*.\"\"\"\n"
+                "        cleaned = clean_text(text)\n"
+                "        tokens = tokenize(cleaned)\n"
+                "        keywords = extract_keywords(cleaned)\n"
+                "        bigrams = ngrams(tokens, 2)\n"
+                "        self._docs.append(cleaned)\n"
+                "        return {\n"
+                "            'original_length': len(text),\n"
+                "            'cleaned': cleaned,\n"
+                "            'tokens': tokens[:20],\n"
+                "            'keywords': keywords,\n"
+                "            'bigrams': [' '.join(b) for b in bigrams[:10]],\n"
+                "            'token_count': len(tokens),\n"
+                "        }\n"
+                "\n"
+                "    def batch_process(self, texts: List[str]) -> List[Dict[str, Any]]:\n"
+                "        \"\"\"Process a list of texts and return per-document results.\"\"\"\n"
+                "        return [self.process(t) for t in texts]\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return current statistics.\"\"\"\n"
+                "        return {'documents_processed': len(self._docs), 'language': self.language}"
+            ),
+        },
+        "chat": {
+            "imports": "import json\nimport time",
+            "constants": (
+                "VALID_ROLES = ('system', 'user', 'assistant')\n"
+                "DEFAULT_MAX_TOKENS = 2048\n"
+                "DEFAULT_TEMPERATURE = 0.7"
+            ),
+            "functions": (
+                "def build_message(role: str, content: str) -> Dict[str, str]:\n"
+                "    \"\"\"Validate and build a chat message dict.\"\"\"\n"
+                "    if role not in VALID_ROLES:\n"
+                "        raise ValueError(f'role must be one of {VALID_ROLES}')\n"
+                "    return {'role': role, 'content': content.strip()}\n"
+                "\n"
+                "def truncate_history(\n"
+                "    history: List[Dict[str, str]],\n"
+                "    max_messages: int = 20,\n"
+                ") -> List[Dict[str, str]]:\n"
+                "    \"\"\"Keep the system message plus the most-recent *max_messages* turns.\"\"\"\n"
+                "    system = [m for m in history if m.get('role') == 'system']\n"
+                "    turns = [m for m in history if m.get('role') != 'system']\n"
+                "    return system + turns[-max_messages:]"
+            ),
+            "class_body": (
+                "    def __init__(self, system_prompt: str = 'You are a helpful assistant.') -> None:\n"
+                "        self.history: List[Dict[str, str]] = [\n"
+                "            build_message('system', system_prompt)\n"
+                "        ]\n"
+                "        self._created_at: float = time.time()\n"
+                "        log.debug('[%s] Initialized', __name__)\n"
+                "\n"
+                "    def send(self, user_input: str) -> Dict[str, Any]:\n"
+                "        \"\"\"Append a user turn and return the payload for an LLM API call.\"\"\"\n"
+                "        self.history.append(build_message('user', user_input))\n"
+                "        payload = {\n"
+                "            'messages': self.history,\n"
+                "            'max_tokens': DEFAULT_MAX_TOKENS,\n"
+                "            'temperature': DEFAULT_TEMPERATURE,\n"
+                "        }\n"
+                "        return payload\n"
+                "\n"
+                "    def receive(self, assistant_reply: str) -> None:\n"
+                "        \"\"\"Record an assistant reply in the conversation history.\"\"\"\n"
+                "        self.history.append(build_message('assistant', assistant_reply))\n"
+                "        self.history = truncate_history(self.history)\n"
+                "\n"
+                "    def clear(self) -> None:\n"
+                "        \"\"\"Reset conversation history (keeps the system prompt).\"\"\"\n"
+                "        self.history = [m for m in self.history if m.get('role') == 'system']\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return conversation statistics.\"\"\"\n"
+                "        turns = [m for m in self.history if m.get('role') != 'system']\n"
+                "        return {\n"
+                "            'turns': len(turns),\n"
+                "            'history_bytes': len(json.dumps(self.history)),\n"
+                "            'uptime_s': round(time.time() - self._created_at, 1),\n"
+                "        }"
+            ),
+        },
+        "api": {
+            "imports": "import urllib.request\nimport urllib.error\nimport json\nimport time",
+            "constants": (
+                "DEFAULT_TIMEOUT = 30\n"
+                "MAX_RETRIES = 3\n"
+                "RETRY_DELAY = 2.0"
+            ),
+            "functions": (
+                "def http_get(url: str, headers: Optional[Dict[str, str]] = None,\n"
+                "             timeout: int = DEFAULT_TIMEOUT) -> Dict[str, Any]:\n"
+                "    \"\"\"Simple HTTP GET with retry logic; returns parsed JSON or raw text.\"\"\"\n"
+                "    req = urllib.request.Request(url, headers=headers or {})\n"
+                "    for attempt in range(1, MAX_RETRIES + 1):\n"
+                "        try:\n"
+                "            with urllib.request.urlopen(req, timeout=timeout) as resp:\n"
+                "                raw = resp.read().decode('utf-8', errors='replace')\n"
+                "                try:\n"
+                "                    return {'ok': True, 'data': json.loads(raw), 'status': resp.status}\n"
+                "                except json.JSONDecodeError:\n"
+                "                    return {'ok': True, 'data': raw, 'status': resp.status}\n"
+                "        except urllib.error.URLError as exc:\n"
+                "            if attempt == MAX_RETRIES:\n"
+                "                return {'ok': False, 'error': str(exc), 'status': None}\n"
+                "            time.sleep(RETRY_DELAY * attempt)\n"
+                "    return {'ok': False, 'error': 'max retries exceeded', 'status': None}"
+            ),
+            "class_body": (
+                "    def __init__(self, base_url: str = '', api_key: str = '') -> None:\n"
+                "        self.base_url = base_url.rstrip('/')\n"
+                "        self._headers: Dict[str, str] = {}\n"
+                "        if api_key:\n"
+                "            self._headers['Authorization'] = f'Bearer {api_key}'\n"
+                "        log.debug('[%s] Initialized (base=%s)', __name__, self.base_url)\n"
+                "\n"
+                "    def get(self, path: str, extra_headers: Optional[Dict[str, str]] = None\n"
+                "            ) -> Dict[str, Any]:\n"
+                "        \"\"\"Perform GET *base_url/path* and return parsed response.\"\"\"\n"
+                "        url = f'{self.base_url}/{path.lstrip(\"/\")}'\n"
+                "        headers = {**self._headers, **(extra_headers or {})}\n"
+                "        return http_get(url, headers=headers)\n"
+                "\n"
+                "    def health_check(self) -> bool:\n"
+                "        \"\"\"Return True if the API base URL is reachable.\"\"\"\n"
+                "        if not self.base_url:\n"
+                "            return False\n"
+                "        result = http_get(self.base_url, headers=self._headers, timeout=5)\n"
+                "        return result.get('ok', False)\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return client configuration summary.\"\"\"\n"
+                "        return {\n"
+                "            'base_url': self.base_url,\n"
+                "            'has_auth': bool(self._headers.get('Authorization')),\n"
+                "            'timeout': DEFAULT_TIMEOUT,\n"
+                "        }"
+            ),
+        },
+        "memory": {
+            "imports": "import json\nimport time\nimport threading",
+            "constants": (
+                "MAX_MEMORY_ENTRIES = 1000\n"
+                "MEMORY_TTL_SECONDS = 3600"
+            ),
+            "functions": (
+                "def _now() -> float:\n"
+                "    return time.time()\n"
+                "\n"
+                "def _expired(entry: Dict[str, Any], ttl: float = MEMORY_TTL_SECONDS) -> bool:\n"
+                "    \"\"\"Return True if the *entry* has exceeded its TTL.\"\"\"\n"
+                "    return (_now() - entry.get('ts', 0)) > ttl"
+            ),
+            "class_body": (
+                "    def __init__(self, max_entries: int = MAX_MEMORY_ENTRIES) -> None:\n"
+                "        self._store: Dict[str, Any] = {}\n"
+                "        self._max = max_entries\n"
+                "        self._lock = threading.Lock()\n"
+                "        log.debug('[%s] Initialized (max=%d)', __name__, max_entries)\n"
+                "\n"
+                "    def set(self, key: str, value: Any, ttl: float = MEMORY_TTL_SECONDS\n"
+                "            ) -> None:\n"
+                "        \"\"\"Store *value* under *key* with an optional TTL.\"\"\"\n"
+                "        with self._lock:\n"
+                "            self._evict()\n"
+                "            self._store[key] = {'value': value, 'ts': _now(), 'ttl': ttl}\n"
+                "\n"
+                "    def get(self, key: str, default: Any = None) -> Any:\n"
+                "        \"\"\"Retrieve a value; returns *default* if missing or expired.\"\"\"\n"
+                "        with self._lock:\n"
+                "            entry = self._store.get(key)\n"
+                "            if entry is None or _expired(entry, entry.get('ttl', MEMORY_TTL_SECONDS)):\n"
+                "                return default\n"
+                "            return entry['value']\n"
+                "\n"
+                "    def delete(self, key: str) -> bool:\n"
+                "        \"\"\"Remove *key*; returns True if the key existed.\"\"\"\n"
+                "        with self._lock:\n"
+                "            return self._store.pop(key, None) is not None\n"
+                "\n"
+                "    def _evict(self) -> None:\n"
+                "        \"\"\"Remove expired entries; trim to *_max* if still over capacity.\"\"\"\n"
+                "        self._store = {\n"
+                "            k: v for k, v in self._store.items()\n"
+                "            if not _expired(v, v.get('ttl', MEMORY_TTL_SECONDS))\n"
+                "        }\n"
+                "        if len(self._store) >= self._max:\n"
+                "            oldest = sorted(self._store.items(), key=lambda kv: kv[1]['ts'])\n"
+                "            for k, _ in oldest[:len(self._store) - self._max + 1]:\n"
+                "                del self._store[k]\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return current memory statistics.\"\"\"\n"
+                "        with self._lock:\n"
+                "            return {\n"
+                "                'entries': len(self._store),\n"
+                "                'max_entries': self._max,\n"
+                "                'oldest_ts': min(\n"
+                "                    (v['ts'] for v in self._store.values()), default=None\n"
+                "                ),\n"
+                "            }"
+            ),
+        },
+        "reasoning": {
+            "imports": "import re\nimport math\nfrom collections import defaultdict",
+            "constants": (
+                "LOGIC_OPS = {\n"
+                "    'and': lambda a, b: a and b,\n"
+                "    'or':  lambda a, b: a or b,\n"
+                "    'not': lambda a, _: not a,\n"
+                "    'xor': lambda a, b: bool(a) != bool(b),\n"
+                "}\n"
+                "CONFIDENCE_THRESHOLD = 0.6"
+            ),
+            "functions": (
+                "def chain_of_thought(premises: List[str]) -> List[str]:\n"
+                "    \"\"\"Apply simple forward chaining over a list of premise strings.\"\"\"\n"
+                "    derived: List[str] = list(premises)\n"
+                "    for i, p in enumerate(premises):\n"
+                "        for j, q in enumerate(premises):\n"
+                "            if i != j and q.startswith(p.split()[-1]):\n"
+                "                conclusion = f'{p.split()[0]} → {q.split()[-1]}'\n"
+                "                if conclusion not in derived:\n"
+                "                    derived.append(conclusion)\n"
+                "    return derived\n"
+                "\n"
+                "def score_confidence(evidence: List[float]) -> float:\n"
+                "    \"\"\"Aggregate evidence weights into a single confidence score 0–1.\"\"\"\n"
+                "    if not evidence:\n"
+                "        return 0.0\n"
+                "    return min(1.0, sum(evidence) / (len(evidence) * 1.0))\n"
+                "\n"
+                "def extract_facts(text: str) -> List[str]:\n"
+                "    \"\"\"Extract simple subject-verb-object facts from plain text.\"\"\"\n"
+                "    sentences = re.split(r'[.!?]', text)\n"
+                "    return [s.strip() for s in sentences if len(s.strip().split()) >= 3]"
+            ),
+            "class_body": (
+                "    def __init__(self) -> None:\n"
+                "        self._knowledge: Dict[str, List[str]] = defaultdict(list)\n"
+                "        self._inferences: List[str] = []\n"
+                "        log.debug('[%s] Initialized', __name__)\n"
+                "\n"
+                "    def add_fact(self, subject: str, predicate: str, obj: str) -> None:\n"
+                "        \"\"\"Store a (subject, predicate, object) triple.\"\"\"\n"
+                "        triple = f'{subject} {predicate} {obj}'\n"
+                "        self._knowledge[subject].append(triple)\n"
+                "\n"
+                "    def infer(self, query: str) -> List[str]:\n"
+                "        \"\"\"Return known facts whose subject matches *query*.\"\"\"\n"
+                "        results = self._knowledge.get(query, [])\n"
+                "        chains = chain_of_thought(results)\n"
+                "        self._inferences.extend(chains)\n"
+                "        return chains\n"
+                "\n"
+                "    def learn_from_text(self, text: str) -> int:\n"
+                "        \"\"\"Extract and store facts from free text; return count added.\"\"\"\n"
+                "        facts = extract_facts(text)\n"
+                "        for fact in facts:\n"
+                "            parts = fact.split(maxsplit=2)\n"
+                "            if len(parts) == 3:\n"
+                "                self.add_fact(*parts)\n"
+                "        return len(facts)\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return knowledge-base statistics.\"\"\"\n"
+                "        return {\n"
+                "            'subjects': len(self._knowledge),\n"
+                "            'total_facts': sum(len(v) for v in self._knowledge.values()),\n"
+                "            'inferences': len(self._inferences),\n"
+                "            'confidence_threshold': CONFIDENCE_THRESHOLD,\n"
+                "        }"
+            ),
+        },
+        "networking": {
+            "imports": "import socket\nimport struct\nimport select\nimport threading",
+            "constants": (
+                "DEFAULT_HOST = '127.0.0.1'\n"
+                "DEFAULT_PORT = 8080\n"
+                "BUFFER_SIZE = 4096\n"
+                "BACKLOG = 5"
+            ),
+            "functions": (
+                "def pack_message(data: bytes) -> bytes:\n"
+                "    \"\"\"Prefix *data* with a 4-byte big-endian length header.\"\"\"\n"
+                "    return struct.pack('>I', len(data)) + data\n"
+                "\n"
+                "def unpack_message(sock: 'socket.socket') -> Optional[bytes]:\n"
+                "    \"\"\"Read a length-prefixed message from *sock*; returns None on EOF.\"\"\"\n"
+                "    raw_len = _recv_all(sock, 4)\n"
+                "    if not raw_len:\n"
+                "        return None\n"
+                "    (msg_len,) = struct.unpack('>I', raw_len)\n"
+                "    return _recv_all(sock, msg_len)\n"
+                "\n"
+                "def _recv_all(sock: 'socket.socket', n: int) -> Optional[bytes]:\n"
+                "    \"\"\"Read exactly *n* bytes from *sock* or return None on connection loss.\"\"\"\n"
+                "    buf = bytearray()\n"
+                "    while len(buf) < n:\n"
+                "        chunk = sock.recv(n - len(buf))\n"
+                "        if not chunk:\n"
+                "            return None\n"
+                "        buf.extend(chunk)\n"
+                "    return bytes(buf)"
+            ),
+            "class_body": (
+                "    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT\n"
+                "                 ) -> None:\n"
+                "        self.host = host\n"
+                "        self.port = port\n"
+                "        self._sock: Optional[socket.socket] = None\n"
+                "        log.debug('[%s] Initialized (%s:%d)', __name__, host, port)\n"
+                "\n"
+                "    def connect(self) -> bool:\n"
+                "        \"\"\"Open a TCP connection; return True on success.\"\"\"\n"
+                "        try:\n"
+                "            self._sock = socket.create_connection((self.host, self.port),\n"
+                "                                                  timeout=10)\n"
+                "            log.info('[%s] Connected to %s:%d', __name__,\n"
+                "                     self.host, self.port)\n"
+                "            return True\n"
+                "        except OSError as exc:\n"
+                "            log.error('[%s] connect failed: %s', __name__, exc)\n"
+                "            return False\n"
+                "\n"
+                "    def send(self, data: bytes) -> bool:\n"
+                "        \"\"\"Send a length-prefixed message; return True on success.\"\"\"\n"
+                "        if not self._sock:\n"
+                "            return False\n"
+                "        try:\n"
+                "            self._sock.sendall(pack_message(data))\n"
+                "            return True\n"
+                "        except OSError as exc:\n"
+                "            log.error('[%s] send failed: %s', __name__, exc)\n"
+                "            return False\n"
+                "\n"
+                "    def close(self) -> None:\n"
+                "        \"\"\"Close the connection.\"\"\"\n"
+                "        if self._sock:\n"
+                "            self._sock.close()\n"
+                "            self._sock = None\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return connection status.\"\"\"\n"
+                "        return {\n"
+                "            'host': self.host,\n"
+                "            'port': self.port,\n"
+                "            'connected': self._sock is not None,\n"
+                "        }"
+            ),
+        },
+        "data": {
+            "imports": "import csv\nimport json\nimport os\nfrom pathlib import Path",
+            "constants": (
+                "DEFAULT_ENCODING = 'utf-8'\n"
+                "MAX_ROWS = 10_000"
+            ),
+            "functions": (
+                "def read_jsonl(path: str) -> List[Dict[str, Any]]:\n"
+                "    \"\"\"Read a newline-delimited JSON file and return a list of records.\"\"\"\n"
+                "    records: List[Dict[str, Any]] = []\n"
+                "    with open(path, encoding=DEFAULT_ENCODING) as fh:\n"
+                "        for line in fh:\n"
+                "            line = line.strip()\n"
+                "            if line:\n"
+                "                records.append(json.loads(line))\n"
+                "    return records[:MAX_ROWS]\n"
+                "\n"
+                "def write_jsonl(records: List[Dict[str, Any]], path: str) -> int:\n"
+                "    \"\"\"Write *records* to a JSONL file; returns number of records written.\"\"\"\n"
+                "    Path(path).parent.mkdir(parents=True, exist_ok=True)\n"
+                "    with open(path, 'w', encoding=DEFAULT_ENCODING) as fh:\n"
+                "        for rec in records:\n"
+                "            fh.write(json.dumps(rec, ensure_ascii=False) + '\\n')\n"
+                "    return len(records)\n"
+                "\n"
+                "def flatten(d: Dict[str, Any], prefix: str = '') -> Dict[str, Any]:\n"
+                "    \"\"\"Recursively flatten a nested dict with dot-separated keys.\"\"\"\n"
+                "    items: Dict[str, Any] = {}\n"
+                "    for k, v in d.items():\n"
+                "        key = f'{prefix}.{k}' if prefix else k\n"
+                "        if isinstance(v, dict):\n"
+                "            items.update(flatten(v, key))\n"
+                "        else:\n"
+                "            items[key] = v\n"
+                "    return items"
+            ),
+            "class_body": (
+                "    def __init__(self, data_dir: str = '.') -> None:\n"
+                "        self.data_dir = Path(data_dir)\n"
+                "        self._records: List[Dict[str, Any]] = []\n"
+                "        log.debug('[%s] Initialized (dir=%s)', __name__, data_dir)\n"
+                "\n"
+                "    def load(self, filename: str) -> int:\n"
+                "        \"\"\"Load records from a JSONL file under *data_dir*.\"\"\"\n"
+                "        path = str(self.data_dir / filename)\n"
+                "        self._records = read_jsonl(path)\n"
+                "        log.info('[%s] Loaded %d records from %s',\n"
+                "                 __name__, len(self._records), filename)\n"
+                "        return len(self._records)\n"
+                "\n"
+                "    def save(self, filename: str) -> int:\n"
+                "        \"\"\"Persist current records to *filename* under *data_dir*.\"\"\"\n"
+                "        path = str(self.data_dir / filename)\n"
+                "        n = write_jsonl(self._records, path)\n"
+                "        log.info('[%s] Saved %d records to %s', __name__, n, filename)\n"
+                "        return n\n"
+                "\n"
+                "    def filter(self, **kwargs: Any) -> List[Dict[str, Any]]:\n"
+                "        \"\"\"Return records where every key=value pair matches.\"\"\"\n"
+                "        result = self._records\n"
+                "        for key, val in kwargs.items():\n"
+                "            result = [r for r in result if r.get(key) == val]\n"
+                "        return result\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return dataset statistics.\"\"\"\n"
+                "        keys: set = set()\n"
+                "        for r in self._records:\n"
+                "            keys.update(r.keys())\n"
+                "        return {\n"
+                "            'records': len(self._records),\n"
+                "            'fields': sorted(keys),\n"
+                "            'data_dir': str(self.data_dir),\n"
+                "        }"
+            ),
+        },
+        "learning": {
+            "imports": "import math\nimport random\nfrom collections import deque",
+            "constants": (
+                "LEARNING_RATE = 0.01\n"
+                "DISCOUNT_FACTOR = 0.95\n"
+                "EPSILON = 0.1\n"
+                "MAX_MEMORY = 500"
+            ),
+            "functions": (
+                "def softmax(logits: List[float]) -> List[float]:\n"
+                "    \"\"\"Compute softmax probabilities from raw logits.\"\"\"\n"
+                "    max_l = max(logits)\n"
+                "    exps = [math.exp(x - max_l) for x in logits]\n"
+                "    s = sum(exps)\n"
+                "    return [e / s for e in exps]\n"
+                "\n"
+                "def epsilon_greedy(q_values: List[float], epsilon: float = EPSILON\n"
+                "                   ) -> int:\n"
+                "    \"\"\"Select an action using ε-greedy policy; returns action index.\"\"\"\n"
+                "    if random.random() < epsilon:\n"
+                "        return random.randrange(len(q_values))\n"
+                "    return q_values.index(max(q_values))\n"
+                "\n"
+                "def td_update(q: float, reward: float, next_q: float,\n"
+                "              lr: float = LEARNING_RATE,\n"
+                "              gamma: float = DISCOUNT_FACTOR) -> float:\n"
+                "    \"\"\"Apply a single temporal-difference Q-value update.\"\"\"\n"
+                "    return q + lr * (reward + gamma * next_q - q)"
+            ),
+            "class_body": (
+                "    def __init__(self, n_actions: int = 4) -> None:\n"
+                "        self.n_actions = n_actions\n"
+                "        self.q_table: Dict[str, List[float]] = {}\n"
+                "        self.memory: deque = deque(maxlen=MAX_MEMORY)\n"
+                "        self._steps = 0\n"
+                "        log.debug('[%s] Initialized (actions=%d)', __name__, n_actions)\n"
+                "\n"
+                "    def observe(self, state: str, action: int, reward: float,\n"
+                "                next_state: str) -> None:\n"
+                "        \"\"\"Store a (state, action, reward, next_state) experience.\"\"\"\n"
+                "        self.memory.append((state, action, reward, next_state))\n"
+                "        self._steps += 1\n"
+                "\n"
+                "    def act(self, state: str) -> int:\n"
+                "        \"\"\"Choose an action for *state* using ε-greedy policy.\"\"\"\n"
+                "        q_vals = self.q_table.setdefault(\n"
+                "            state, [0.0] * self.n_actions\n"
+                "        )\n"
+                "        return epsilon_greedy(q_vals)\n"
+                "\n"
+                "    def train_step(self) -> Optional[float]:\n"
+                "        \"\"\"Sample one experience and apply a TD update; return the loss.\"\"\"\n"
+                "        if not self.memory:\n"
+                "            return None\n"
+                "        s, a, r, ns = random.choice(self.memory)\n"
+                "        q = self.q_table.setdefault(s,  [0.0] * self.n_actions)[a]\n"
+                "        next_q = max(self.q_table.get(ns, [0.0] * self.n_actions))\n"
+                "        updated = td_update(q, r, next_q)\n"
+                "        self.q_table[s][a] = updated\n"
+                "        return abs(updated - q)\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return learning statistics.\"\"\"\n"
+                "        return {\n"
+                "            'states': len(self.q_table),\n"
+                "            'memory': len(self.memory),\n"
+                "            'steps': self._steps,\n"
+                "            'learning_rate': LEARNING_RATE,\n"
+                "        }"
+            ),
+        },
+        "binary": {
+            "imports": "import struct\nimport os\nfrom pathlib import Path",
+            "constants": (
+                "ELF_MAGIC = b'\\x7fELF'\n"
+                "PE_MAGIC  = b'MZ'\n"
+                "DEX_MAGIC = b'dex\\n'\n"
+                "WORD_SIZE = 4"
+            ),
+            "functions": (
+                "def hexdump(data: bytes, width: int = 16) -> str:\n"
+                "    \"\"\"Return a formatted hex dump of *data* (like xxd).\"\"\"\n"
+                "    lines: List[str] = []\n"
+                "    for i in range(0, len(data), width):\n"
+                "        chunk = data[i:i + width]\n"
+                "        hex_part = ' '.join(f'{b:02x}' for b in chunk).ljust(width * 3)\n"
+                "        asc_part = ''.join(chr(b) if 0x20 <= b < 0x7f else '.' for b in chunk)\n"
+                "        lines.append(f'{i:08x}  {hex_part}  |{asc_part}|')\n"
+                "    return '\\n'.join(lines)\n"
+                "\n"
+                "def detect_format(data: bytes) -> str:\n"
+                "    \"\"\"Heuristically identify a binary format from its magic bytes.\"\"\"\n"
+                "    if data[:4] == ELF_MAGIC:\n"
+                "        return 'ELF'\n"
+                "    if data[:2] == PE_MAGIC:\n"
+                "        return 'PE/MZ'\n"
+                "    if data[:4] == DEX_MAGIC:\n"
+                "        return 'DEX'\n"
+                "    if data[:4] in (b'\\xcf\\xfa\\xed\\xfe', b'\\xce\\xfa\\xed\\xfe'):\n"
+                "        return 'Mach-O'\n"
+                "    return 'unknown'"
+            ),
+            "class_body": (
+                "    def __init__(self) -> None:\n"
+                "        self._files_inspected: int = 0\n"
+                "        log.debug('[%s] Initialized', __name__)\n"
+                "\n"
+                "    def inspect(self, path: str) -> Dict[str, Any]:\n"
+                "        \"\"\"Read *path* and return format, size, and first-256-byte hexdump.\"\"\"\n"
+                "        data = Path(path).read_bytes()\n"
+                "        fmt = detect_format(data)\n"
+                "        self._files_inspected += 1\n"
+                "        return {\n"
+                "            'path': path,\n"
+                "            'format': fmt,\n"
+                "            'size': len(data),\n"
+                "            'hexdump': hexdump(data[:256]),\n"
+                "        }\n"
+                "\n"
+                "    def bytes_to_int(self, data: bytes, signed: bool = False) -> int:\n"
+                "        \"\"\"Interpret *data* as a little-endian integer.\"\"\"\n"
+                "        return int.from_bytes(data, byteorder='little', signed=signed)\n"
+                "\n"
+                "    def run(self) -> Dict[str, Any]:\n"
+                "        \"\"\"Return inspection statistics.\"\"\"\n"
+                "        return {\n"
+                "            'files_inspected': self._files_inspected,\n"
+                "            'formats_known': ['ELF', 'PE/MZ', 'DEX', 'Mach-O'],\n"
+                "        }"
+            ),
+        },
+    }
+
+    # Map of topic keywords to a snippet key in _PYTHON_TOPIC_SNIPPETS
+    _TOPIC_KEYWORD_MAP: List[tuple] = [
+        # keyword substring → snippet key
+        ("nlp",         "nlp"),
+        ("natural lang", "nlp"),
+        ("tokeniz",     "nlp"),
+        ("spacy",       "nlp"),
+        ("nltk",        "nlp"),
+        ("text gen",    "nlp"),
+        ("language mod","nlp"),
+        ("chat",        "chat"),
+        ("completion",  "chat"),
+        ("conversation","chat"),
+        ("dialogue",    "chat"),
+        ("llm",         "chat"),
+        ("prompt",      "chat"),
+        ("api",         "api"),
+        ("http",        "api"),
+        ("request",     "api"),
+        ("rest",        "api"),
+        ("client",      "api"),
+        ("memory",      "memory"),
+        ("cache",       "memory"),
+        ("storage",     "memory"),
+        ("store",       "memory"),
+        ("reasoning",   "reasoning"),
+        ("logic",       "reasoning"),
+        ("inference",   "reasoning"),
+        ("chain of",    "reasoning"),
+        ("knowledge gr","reasoning"),
+        ("network",     "networking"),
+        ("socket",      "networking"),
+        ("tcp",         "networking"),
+        ("ip ",         "networking"),
+        ("protocol",    "networking"),
+        ("data",        "data"),
+        ("dataset",     "data"),
+        ("json",        "data"),
+        ("csv",         "data"),
+        ("learning",    "learning"),
+        ("reinforcement","learning"),
+        ("train",       "learning"),
+        ("binary",      "binary"),
+        ("hex",         "binary"),
+        ("elf",         "binary"),
+        ("dex",         "binary"),
+        ("firmware",    "binary"),
+        ("kernel",      "binary"),
+    ]
+
+    def _select_snippet_key(self, topic: str, research_text: str) -> str:
+        """Pick the best snippet key for *topic* + *research_text*."""
+        combined = (topic + " " + research_text).lower()
+        for keyword, key in self._TOPIC_KEYWORD_MAP:
+            if keyword in combined:
+                return key
+        return "data"  # fallback: generic data-processing module
+
+    def generate_from_research(
+        self,
+        language: str,
+        topic: str,
+        research_text: str,
+        name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Generate **real, functional** code informed by *research_text*.
+
+        Unlike :meth:`generate` which fills a static template with ``pass``
+        bodies, this method:
+
+        1. Analyses *topic* and *research_text* to pick the best code pattern.
+        2. Builds a complete, working module with real constants, utility
+           functions, and a class whose methods perform genuine computation.
+        3. Saves the result to the builds directory.
+
+        Args:
+            language:      Target language (e.g. ``"python"``, ``"rust"``).
+            topic:         Human-readable topic from autonomous research.
+            research_text: Raw research snippet(s) collected by the ALE.
+            name:          Optional module/file base-name.  Auto-derived when
+                           omitted.
+
+        Returns:
+            Same ``{"code", "language", "template", "success", "error"}``
+            dict as :meth:`generate`, plus ``"snippet_key"`` indicating which
+            code pattern was applied.
+        """
+        lang = language.lower()
+        result: Dict[str, Any] = {
+            "language": lang,
+            "template": "research",
+            "success": False,
+            "code": "",
+            "error": None,
+            "snippet_key": "generic",
+        }
+
+        # Derive a safe module name from topic if not provided
+        if not name:
+            safe_name = re.sub(r"[^a-z0-9]+", "_", topic.lower())[:_MAX_MODULE_NAME_LEN].strip("_")
+            name = f"ale_{lang}_{safe_name}" if safe_name else f"ale_{lang}_module"
+
+        classname = "".join(
+            w.capitalize() for w in re.split(r"[_\s]+", name) if w
+        )
+
+        # Track the derived name so callers can use it (e.g. for save_to_builds)
+        result["name"] = name
+
+        try:
+            if lang in ("python", "python3"):
+                code = self._generate_python_from_research(
+                    name, classname, topic, research_text
+                )
+            elif lang in ("rust",):
+                code = self._generate_rust_from_research(
+                    name, classname, topic, research_text
+                )
+            elif lang in ("go",):
+                code = self._generate_go_from_research(
+                    name, classname, topic, research_text
+                )
+            elif lang in ("javascript", "js", "typescript", "ts"):
+                code = self._generate_js_from_research(
+                    name, classname, topic, research_text, lang
+                )
+            elif lang in ("bash", "sh"):
+                code = self._generate_bash_from_research(
+                    name, topic, research_text
+                )
+            else:
+                # Fall back to template-based generation for other languages
+                fallback = self.generate_with_validation(
+                    lang, "module",
+                    name=name,
+                    classname=classname,
+                    docstring=f"{topic}: {research_text[:120]}",
+                )
+                return {**fallback, "snippet_key": "template_fallback"}
+
+            code = self.ensure_structure(lang, code)
+            snippet_key = self._select_snippet_key(topic, research_text)
+            result.update({
+                "success": bool(code.strip()),
+                "code": code,
+                "snippet_key": snippet_key,
+            })
+            if result["success"]:
+                self._stats["generated"] += 1
+                self._store(lang, "research", code, name)
+                log.info(
+                    "[CodeGenerator] Research-driven %s module '%s' (%d chars) — pattern: %s",
+                    lang, name, len(code), snippet_key,
+                )
+        except Exception as exc:
+            result["error"] = str(exc)
+            log.error("[CodeGenerator] generate_from_research failed: %s", exc)
+
+        return result
+
+    # ── language-specific research-driven builders ─────────────────────────
+
+    def _generate_python_from_research(
+        self,
+        name: str,
+        classname: str,
+        topic: str,
+        research_text: str,
+    ) -> str:
+        """Build a complete Python module from research context."""
+        key = self._select_snippet_key(topic, research_text)
+        snippet = self._PYTHON_TOPIC_SNIPPETS.get(key, self._PYTHON_TOPIC_SNIPPETS["data"])
+
+        # Trim research text for embedding in the docstring
+        summary = research_text[:_MAX_RESEARCH_SUMMARY_LEN].replace('"""', "'''").strip()
+
+        lines: List[str] = [
+            "#!/usr/bin/env python3",
+            f'"""{name} — {topic}',
+            "",
+            "Auto-generated by Niblit ALE from autonomous research.",
+            f"Research summary:",
+            *[f"  {ln}" for ln in textwrap.wrap(summary, width=76)],
+            '"""',
+            "",
+            snippet["imports"],
+            "import logging",
+            "from typing import Any, Dict, List, Optional",
+            "",
+            f'log = logging.getLogger("{name}")',
+            "",
+            "# ── constants ────────────────────────────────────────────────────────",
+            snippet["constants"],
+            "",
+            "",
+            "# ── utility functions ────────────────────────────────────────────────",
+            snippet["functions"],
+            "",
+            "",
+            f"class {classname}:",
+            f'    """{classname} — {topic}"""',
+            "",
+            snippet["class_body"],
+            "",
+            "",
+            'if __name__ == "__main__":',
+            "    import logging as _logging",
+            "    _logging.basicConfig(level=_logging.INFO)",
+            f"    obj = {classname}()",
+            "    print(obj.run())",
+        ]
+        return "\n".join(lines)
+
+    def _generate_rust_from_research(
+        self,
+        name: str,
+        classname: str,
+        topic: str,
+        research_text: str,
+    ) -> str:
+        """Build a Rust module from research context."""
+        summary = textwrap.shorten(
+            research_text.replace('"', "'"), width=_RESEARCH_SUMMARY_WIDTH, placeholder="..."
+        )
+        snake = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+        struct_name = classname if classname else "AleModule"
+
+        code_lines: List[str] = [
+            f"//! {snake} — {topic}",
+            "//!",
+            f"//! Auto-generated by Niblit ALE.",
+            f"//! Research: {summary}",
+            "",
+            "use std::collections::HashMap;",
+            "use std::error::Error;",
+            "use std::time::{SystemTime, UNIX_EPOCH};",
+            "",
+            f"/// {struct_name} implements: {topic}",
+            f"pub struct {struct_name} {{",
+            "    name: String,",
+            "    data: HashMap<String, String>,",
+            "    created_at: u64,",
+            "}",
+            "",
+            f"impl {struct_name} {{",
+            "    /// Create a new instance.",
+            "    pub fn new(name: impl Into<String>) -> Self {",
+            "        let ts = SystemTime::now()",
+            "            .duration_since(UNIX_EPOCH)",
+            "            .map(|d| d.as_secs())",
+            "            .unwrap_or(0);",
+            "        Self {",
+            "            name: name.into(),",
+            "            data: HashMap::new(),",
+            "            created_at: ts,",
+            "        }",
+            "    }",
+            "",
+            "    /// Store a key-value pair.",
+            "    pub fn set(&mut self, key: impl Into<String>, value: impl Into<String>) {",
+            "        self.data.insert(key.into(), value.into());",
+            "    }",
+            "",
+            "    /// Retrieve a value by key.",
+            "    pub fn get(&self, key: &str) -> Option<&str> {",
+            "        self.data.get(key).map(String::as_str)",
+            "    }",
+            "",
+            "    /// Return basic statistics as a formatted string.",
+            "    pub fn stats(&self) -> String {",
+            "        format!(\"{}: {} entries, created={}\",",
+            "                self.name, self.data.len(), self.created_at)",
+            "    }",
+            "}",
+            "",
+            "fn main() -> Result<(), Box<dyn Error>> {",
+            f'    let mut m = {struct_name}::new("{snake}");',
+            '    m.set("topic", "' + topic[:60].replace('"', "'") + '");',
+            "    println!(\"{}\", m.stats());",
+            "    Ok(())",
+            "}",
+            "",
+            "#[cfg(test)]",
+            "mod tests {",
+            "    use super::*;",
+            "",
+            "    #[test]",
+            "    fn test_set_get() {",
+            f'        let mut m = {struct_name}::new("test");',
+            '        m.set("key", "value");',
+            '        assert_eq!(m.get("key"), Some("value"));',
+            "    }",
+            "}",
+        ]
+        return "\n".join(code_lines)
+
+    def _generate_go_from_research(
+        self,
+        name: str,
+        classname: str,
+        topic: str,
+        research_text: str,
+    ) -> str:
+        """Build a Go package from research context."""
+        summary = textwrap.shorten(
+            research_text.replace('"', "'"), width=_RESEARCH_SUMMARY_WIDTH, placeholder="..."
+        )
+        pkg = re.sub(r"[^a-z0-9]+", "", name.lower())[:_MAX_GO_PACKAGE_NAME_LEN] or "alemodule"
+        struct_name = classname if classname else "AleModule"
+
+        code_lines: List[str] = [
+            f"// Package {pkg} — {topic}",
+            "//",
+            "// Auto-generated by Niblit ALE.",
+            f"// Research: {summary}",
+            f"package {pkg}",
+            "",
+            "import (",
+            '    "fmt"',
+            '    "time"',
+            ")",
+            "",
+            f"// {struct_name} implements {topic}.",
+            f"type {struct_name} struct {{",
+            "    Name      string",
+            "    Data      map[string]string",
+            "    CreatedAt time.Time",
+            "}",
+            "",
+            f"// New{struct_name} creates a new instance.",
+            f"func New{struct_name}(name string) *{struct_name} {{",
+            f"    return &{struct_name}{{",
+            "        Name:      name,",
+            "        Data:      make(map[string]string),",
+            "        CreatedAt: time.Now(),",
+            "    }",
+            "}",
+            "",
+            "// Set stores a key-value pair.",
+            f"func (m *{struct_name}) Set(key, value string) {{",
+            "    m.Data[key] = value",
+            "}",
+            "",
+            "// Get retrieves a value; returns empty string if not found.",
+            f"func (m *{struct_name}) Get(key string) string {{",
+            "    return m.Data[key]",
+            "}",
+            "",
+            "// Stats returns a summary string.",
+            f"func (m *{struct_name}) Stats() string {{",
+            '    return fmt.Sprintf("%s: %d entries, age=%s",',
+            "        m.Name, len(m.Data), time.Since(m.CreatedAt).Round(time.Second))",
+            "}",
+            "",
+            "func main() {",
+            f'    m := New{struct_name}("{pkg}")',
+            '    m.Set("topic", "' + topic[:60].replace('"', "'") + '")',
+            "    fmt.Println(m.Stats())",
+            "}",
+        ]
+        return "\n".join(code_lines)
+
+    def _generate_js_from_research(
+        self,
+        name: str,
+        classname: str,
+        topic: str,
+        research_text: str,
+        lang: str = "javascript",
+    ) -> str:
+        """Build a JavaScript/TypeScript module from research context."""
+        summary = textwrap.shorten(
+            research_text.replace("`", "'"), width=_RESEARCH_SUMMARY_WIDTH, placeholder="..."
+        )
+        is_ts = lang in ("typescript", "ts")
+
+        if is_ts:
+            type_annotation = ": Record<string, unknown>"
+            constructor_type = ""
+            method_ret = ": Record<string, unknown>"
+        else:
+            type_annotation = ""
+            constructor_type = ""
+            method_ret = ""
+
+        code_lines: List[str] = [
+            "'use strict';",
+            "",
+            f"/**",
+            f" * {name} — {topic}",
+            f" *",
+            f" * Auto-generated by Niblit ALE.",
+            f" * Research: {summary}",
+            f" */",
+            "",
+            f"class {classname} {{",
+            f"  constructor(name{constructor_type}) {{",
+            "    this.name = name || '" + name + "';",
+            "    this.data = {};",
+            "    this.createdAt = Date.now();",
+            "  }",
+            "",
+            f"  set(key, value){method_ret} {{",
+            "    this.data[key] = value;",
+            "    return this;",
+            "  }",
+            "",
+            f"  get(key){method_ret} {{",
+            "    return this.data[key] ?? null;",
+            "  }",
+            "",
+            f"  run(){method_ret} {{",
+            "    return {",
+            "      name: this.name,",
+            "      entries: Object.keys(this.data).length,",
+            "      uptime: Date.now() - this.createdAt,",
+            "    };",
+            "  }",
+            "}",
+            "",
+            f"// Example usage",
+            f"const instance = new {classname}('{name}');",
+            "instance.set('topic', '" + topic[:60].replace("'", "\\'") + "');",
+            "console.log(instance.run());",
+            "",
+            f"module.exports = {{ {classname} }};",
+        ]
+        return "\n".join(code_lines)
+
+    def _generate_bash_from_research(
+        self,
+        name: str,
+        topic: str,
+        research_text: str,
+    ) -> str:
+        """Build a Bash script from research context."""
+        summary = textwrap.shorten(
+            research_text.replace('"', "'"), width=100, placeholder="..."
+        )
+        snake = re.sub(r"[^a-z0-9_]+", "_", name.lower()).strip("_")
+
+        code_lines: List[str] = [
+            "#!/usr/bin/env bash",
+            "# " + snake + " — " + topic,
+            "#",
+            "# Auto-generated by Niblit ALE.",
+            "# Research: " + summary[:100],
+            "set -euo pipefail",
+            "",
+            '# ── config ───────────────────────────────────────────────────────────',
+            f'readonly SCRIPT_NAME="{snake}"',
+            f'readonly LOG_FILE="/tmp/${{SCRIPT_NAME}}.log"',
+            'readonly TIMESTAMP=$(date +%Y%m%d_%H%M%S)',
+            "",
+            "# ── logging ──────────────────────────────────────────────────────────",
+            'log() { echo "[$(date +%T)] $*" | tee -a "$LOG_FILE"; }',
+            'die() { log "ERROR: $*" >&2; exit 1; }',
+            "",
+            "# ── main ─────────────────────────────────────────────────────────────",
+            "main() {",
+            '    log "Starting $SCRIPT_NAME at $TIMESTAMP"',
+            "",
+            "    # Check required commands",
+            "    for cmd in grep awk sed; do",
+            '        command -v "$cmd" > /dev/null 2>&1 \\',
+            '            || die "Required command not found: $cmd"',
+            "    done",
+            "",
+            '    log "All checks passed."',
+            '    log "Done."',
+            "}",
+            "",
+            "main \"$@\"",
+        ]
+        return "\n".join(code_lines)
 
     # ──────────────────────────────────────────────────────
     # STATS
