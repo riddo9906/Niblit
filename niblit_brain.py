@@ -18,16 +18,15 @@ Enhancements:
 7. Structured logging with correlation IDs
 """
 
-__all__ = ["NiblitBrain", "hf_query"]
+__all__ = ["NiblitBrain", "BrainTrainer", "hf_query"]
 
 import sys
 import os
 import datetime
 import logging
-import json
 import asyncio
-import inspect
-from typing import Optional, Any, Dict, List
+import threading
+from typing import Any, Dict
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.abspath(os.path.join(BASE_DIR, ".."))
@@ -47,6 +46,7 @@ try:
 except Exception as _e:
     log.debug(f"CircuitBreaker unavailable: {_e}")
     CircuitBreaker = None
+    CircuitBreakerConfig = None
 
 try:
     from modules.metrics_observability import TelemetryCollector
@@ -185,6 +185,189 @@ class _DBMemoryAdapter:
         return None
 
 
+# ───────── BrainTrainer ─────────
+class BrainTrainer:
+    """
+    Autonomous Brain Trainer and Updater.
+
+    Collects research data and learned interactions from autonomous_learning
+    and stores them as LLM training context. Enriches every brain query with
+    relevant accumulated knowledge so the brain continuously improves without
+    requiring a GPU fine-tuning run.
+
+    Key capabilities:
+    - Record chat exchanges (user prompt + assistant response) as training pairs
+    - Ingest research data and KB facts from AutonomousLearningEngine
+    - Build a dynamic system-prompt context from accumulated training data
+    - Provide topic-specific context snippets for each incoming query
+    - Persist training data to memory for use across sessions
+    """
+
+    _TRAINING_KEY = "brain_trainer:llm_data"
+    _MAX_PAIRS = 500          # cap stored pairs to avoid unbounded growth
+    _CONTEXT_PAIRS = 8        # pairs injected into each think() call
+    _CONTEXT_FACTS = 5        # knowledge facts injected per query
+
+    def __init__(self, memory, knowledge_db=None):
+        self.memory = memory
+        self.knowledge_db = knowledge_db
+        self._pairs: list = []          # in-memory training pairs
+        self._facts: list = []          # in-memory knowledge facts
+        self._lock = threading.Lock()
+        self._load_from_memory()
+
+    # ── Persistence ──────────────────────────────────────────────────────
+    def _load_from_memory(self):
+        """Restore training data from persistent memory on start-up."""
+        try:
+            if self.memory and hasattr(self.memory, "recall"):
+                items = self.memory.recall(self._TRAINING_KEY, limit=self._MAX_PAIRS)
+                for item in items:
+                    if isinstance(item, dict):
+                        p = item.get("value") or item.get("input")
+                        if isinstance(p, dict) and "prompt" in p and "response" in p:
+                            self._pairs.append(p)
+        except Exception as _e:
+            log.debug(f"[BrainTrainer] load failed: {_e}")
+
+    def _persist_pair(self, pair: dict):
+        """Persist a single training pair to memory."""
+        try:
+            if self.memory and hasattr(self.memory, "store_learning"):
+                self.memory.store_learning({
+                    "time": datetime.datetime.utcnow().isoformat(),
+                    "input": self._TRAINING_KEY,
+                    "value": pair,
+                    "source": "brain_trainer",
+                })
+        except Exception as _e:
+            log.debug(f"[BrainTrainer] persist failed: {_e}")
+
+    # ── Training data ingestion ───────────────────────────────────────────
+    def record_exchange(self, user_prompt: str, assistant_response: str):
+        """Store a chat exchange as a training pair."""
+        pair = {
+            "prompt": str(user_prompt)[:500],
+            "response": str(assistant_response)[:500],
+            "ts": datetime.datetime.utcnow().isoformat(),
+        }
+        with self._lock:
+            self._pairs.append(pair)
+            if len(self._pairs) > self._MAX_PAIRS:
+                self._pairs = self._pairs[-self._MAX_PAIRS:]
+        self._persist_pair(pair)
+
+    def ingest_research(self, topic: str, text: str):
+        """Ingest a research snippet from autonomous_learning into training data."""
+        fact = {
+            "topic": str(topic)[:120],
+            "text": str(text)[:600],
+            "ts": datetime.datetime.utcnow().isoformat(),
+        }
+        with self._lock:
+            self._facts.append(fact)
+            if len(self._facts) > self._MAX_PAIRS:
+                self._facts = self._facts[-self._MAX_PAIRS:]
+        try:
+            if self.memory and hasattr(self.memory, "store_learning"):
+                self.memory.store_learning({
+                    "time": datetime.datetime.utcnow().isoformat(),
+                    "input": f"brain_trainer:fact:{topic}",
+                    "value": fact,
+                    "source": "brain_trainer:research",
+                })
+        except Exception as _e:
+            log.debug(f"[BrainTrainer] ingest_research persist failed: {_e}")
+
+    def ingest_knowledge_db(self, limit: int = 50):
+        """Pull recent facts from KnowledgeDB into the trainer's fact store."""
+        if not self.knowledge_db:
+            return
+        try:
+            if hasattr(self.knowledge_db, "get_acquired_data"):
+                items = self.knowledge_db.get_acquired_data("ale_learned", limit=limit)
+            elif hasattr(self.knowledge_db, "recall"):
+                items = self.knowledge_db.recall("ale_learned", limit=limit)
+            else:
+                return
+            for item in (items or []):
+                if isinstance(item, dict):
+                    text = item.get("value") or item.get("content") or item.get("input") or ""
+                    topic = item.get("key") or item.get("topic") or "knowledge"
+                    if text:
+                        self.ingest_research(str(topic), str(text))
+        except Exception as _e:
+            log.debug(f"[BrainTrainer] ingest_knowledge_db failed: {_e}")
+
+    # ── Context generation ────────────────────────────────────────────────
+    def get_context_for(self, query: str) -> str:
+        """
+        Build a context prefix for the given query using stored training data.
+
+        Returns an empty string when no relevant data is available.
+        """
+        lines = []
+
+        # Relevant knowledge facts
+        try:
+            q_lower = query.lower()
+            with self._lock:
+                scored = []
+                for f in self._facts:
+                    topic_hit = q_lower in f.get("topic", "").lower()
+                    text_hit = q_lower[:20] in f.get("text", "").lower()
+                    if topic_hit or text_hit:
+                        scored.append(f)
+                relevant_facts = scored[-self._CONTEXT_FACTS:]
+            if relevant_facts:
+                lines.append("[Learned knowledge]")
+                for f in relevant_facts:
+                    lines.append(f"- {f.get('topic','')}: {f.get('text','')[:200]}")
+                lines.append("")
+        except Exception:
+            pass
+
+        # Recent relevant exchanges
+        try:
+            with self._lock:
+                recent_pairs = self._pairs[-self._CONTEXT_PAIRS:]
+            if recent_pairs:
+                lines.append("[Recent conversations]")
+                for p in recent_pairs:
+                    lines.append(f"User: {p.get('prompt','')}")
+                    lines.append(f"Assistant: {p.get('response','')}")
+                lines.append("")
+        except Exception:
+            pass
+
+        return "\n".join(lines) if lines else ""
+
+    def get_llm_data_summary(self) -> dict:
+        """Return a summary of the accumulated LLM training data."""
+        with self._lock:
+            return {
+                "training_pairs": len(self._pairs),
+                "knowledge_facts": len(self._facts),
+                "latest_pair_ts": self._pairs[-1].get("ts") if self._pairs else None,
+                "latest_fact_ts": self._facts[-1].get("ts") if self._facts else None,
+            }
+
+    def run_training_cycle(self) -> str:
+        """
+        Execute one training cycle: pull from knowledge_db, refresh facts.
+
+        Called by AutonomousLearningEngine step 24 (BrainTraining).
+        Returns a summary string.
+        """
+        before = len(self._pairs) + len(self._facts)
+        self.ingest_knowledge_db(limit=100)
+        after = len(self._pairs) + len(self._facts)
+        added = after - before
+        summary = f"BrainTrainer cycle: {added} new items ingested, total={after}"
+        log.info("[BrainTrainer] %s", summary)
+        return summary
+
+
 # ───────── NiblitBrain ─────────
 class NiblitBrain:
     """
@@ -290,6 +473,10 @@ class NiblitBrain:
         if self.enable_improvements:
             self._init_improvements()
 
+        # ─────── BRAIN TRAINER ───────
+        self.brain_trainer = BrainTrainer(self.memory)
+        log.debug("[BRAIN] BrainTrainer initialized")
+
     def _init_improvements(self):
         """Initialize all production improvements."""
         # pylint: disable=too-many-branches,too-many-statements
@@ -298,7 +485,15 @@ class NiblitBrain:
         # 1. Circuit Breakers for fault tolerance
         try:
             if CircuitBreaker:
-                self.cb_think = CircuitBreaker("brain_think", failure_threshold=5)
+                if CircuitBreakerConfig:
+                    cb_config = CircuitBreakerConfig(
+                        failure_threshold=5,
+                        success_threshold=2,
+                        timeout_seconds=30,
+                    )
+                    self.cb_think = CircuitBreaker("brain_think", config=cb_config)
+                else:
+                    self.cb_think = CircuitBreaker("brain_think", failure_threshold=5)
                 log.debug("[BRAIN] Circuit breaker initialized")
             else:
                 self.cb_think = None
@@ -360,6 +555,17 @@ class NiblitBrain:
         except Exception as e:
             log.warning(f"[BRAIN] Event store init failed: {e}")
             self.event_store = None
+
+        # 7. Structured Logging for cognitive trace
+        try:
+            if StructuredLogger:
+                self.structured_log = StructuredLogger("NiblitBrain")
+                log.debug("[BRAIN] Structured logger initialized")
+            else:
+                self.structured_log = None
+        except Exception as e:
+            log.warning(f"[BRAIN] Structured logger init failed: {e}")
+            self.structured_log = None
 
     # ───────── Learning ─────────
     def learn(self, user_input):
@@ -429,6 +635,24 @@ class NiblitBrain:
         except Exception as e:
             log.debug(f"Learning failed: {e}")
 
+        # Emit learning event if event_store and EventType are available
+        try:
+            if hasattr(self, 'event_store') and self.event_store and EventType and Event:
+                import uuid as _uuid
+                evt = Event(
+                    timestamp=datetime.datetime.utcnow().timestamp(),
+                    event_type=EventType.LEARNING_TRIGGERED,
+                    source="NiblitBrain.learn",
+                    data={"input_type": type(user_input).__name__},
+                    correlation_id=str(_uuid.uuid4()),
+                )
+                try:
+                    self.event_store.append(evt)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     # ───────── Thinking (GENERAL CHAT ONLY) ─────────
     def think(self, user_input):
         """
@@ -442,9 +666,19 @@ class NiblitBrain:
         - Automatic retry
         - Response caching
         - Telemetry
+        - Structured request tracing
         """
         # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks
         try:
+            # Structured request tracing
+            _ctx = None
+            if RequestContext and hasattr(self, 'structured_log') and self.structured_log:
+                try:
+                    _ctx = RequestContext("brain_think")
+                    _ctx.__enter__()
+                except Exception:
+                    _ctx = None
+
             # Rate limiting check - skip if already in event loop
             if hasattr(self, 'rate_limiter') and self.rate_limiter:
                 try:
@@ -466,6 +700,11 @@ class NiblitBrain:
                         cached = asyncio.run(self.cache.get(f"think:{user_input[:50]}"))
                         if cached:
                             log.debug("[BRAIN] Cache hit on think")
+                            if _ctx:
+                                try:
+                                    _ctx.__exit__(None, None, None)
+                                except Exception:
+                                    pass
                             return cached
                 except Exception as e:
                     log.debug(f"Cache lookup failed: {e}")
@@ -487,10 +726,24 @@ class NiblitBrain:
             except Exception:
                 context = ""
 
+            # Augment context with brain trainer knowledge if available
+            if hasattr(self, 'brain_trainer') and self.brain_trainer:
+                try:
+                    trainer_ctx = self.brain_trainer.get_context_for(user_input)
+                    if trainer_ctx:
+                        context = trainer_ctx + context
+                except Exception as _e:
+                    log.debug(f"[BRAIN] Brain trainer context failed: {_e}")
+
             prompt = context + user_input
 
             if not self.llm_enabled:
                 log.debug("LLM disabled, returning neutral response")
+                if _ctx:
+                    try:
+                        _ctx.__exit__(None, None, None)
+                    except Exception:
+                        pass
                 return f"[LLM disabled] '{user_input}'"
 
             response = None
@@ -502,6 +755,13 @@ class NiblitBrain:
 
                     if response and isinstance(response, str):
                         response = response.strip()
+
+                        # Feed successful response back to brain trainer for learning
+                        if hasattr(self, 'brain_trainer') and self.brain_trainer:
+                            try:
+                                self.brain_trainer.record_exchange(user_input, response)
+                            except Exception:
+                                pass
 
                         # Cache the response - skip if already in event loop
                         if hasattr(self, 'cache') and self.cache:
@@ -518,12 +778,22 @@ class NiblitBrain:
                         if hasattr(self, 'telemetry') and self.telemetry:
                             self.telemetry.increment_counter("brain_think_success")
 
+                        if _ctx:
+                            try:
+                                _ctx.__exit__(None, None, None)
+                            except Exception:
+                                pass
                         return response
                 except Exception as e:
                     log.warning(f"HFBrain ask failed: {e}")
                     if hasattr(self, 'telemetry') and self.telemetry:
                         self.telemetry.increment_counter("brain_think_failure")
 
+            if _ctx:
+                try:
+                    _ctx.__exit__(None, None, None)
+                except Exception:
+                    pass
             return f"[neutral] I hear you: '{user_input}'"
 
         except Exception as e:
@@ -689,7 +959,6 @@ def hf_query(prompt: str, memory=None, llm_enabled=True):
 
 
 if __name__ == "__main__":
-    import logging
     logging.basicConfig(level=logging.WARNING)
     print("=== NiblitBrain self-test ===")
     _mem = None

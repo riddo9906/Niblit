@@ -25,6 +25,7 @@ Runs when Niblit is idle to autonomously improve itself through:
 21. Binary Study — BinaryStudier seeds KB with binary/hex/firmware/kernel topics
 22. Builds Update — indexes the builds/ directory into KB each cycle
 23. Evolve Deploy — reads evolved/improvement_*.py, stores in KB, hot-reloads via LiveUpdater
+24. Brain Training — BrainTrainer fine-tunes brain on research data, KB facts, and chat history
 
 Creates a continuous self-improvement loop.
 Internet is the primary data-collection channel for steps 1, 8, 9, 12.
@@ -62,7 +63,7 @@ class AutonomousLearningEngine:
                  code_generator=None, code_compiler=None, software_studier=None,
                  internet=None, reasoning_engine=None, metacognition=None,
                  improvement_integrator=None, github_sync=None, build_scanner=None,
-                 binary_studier=None,
+                 binary_studier=None, brain_trainer=None,
                  step_timeout=120):
         """
         Args:
@@ -88,6 +89,7 @@ class AutonomousLearningEngine:
             github_sync: GitHubSync — pushes self-updates to GitHub
             build_scanner: BuildScanner — scans own source files for self-knowledge
             binary_studier: BinaryStudier — autonomous binary/hex/dex/firmware/kernel study
+            brain_trainer: BrainTrainer — fine-tunes brain on research data and learned material
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -110,6 +112,7 @@ class AutonomousLearningEngine:
         self.github_sync = github_sync
         self.build_scanner = build_scanner
         self.binary_studier = binary_studier
+        self.brain_trainer = brain_trainer
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -259,6 +262,7 @@ class AutonomousLearningEngine:
             "binary_study_cycles": 0,
             "builds_update_cycles": 0,
             "evolve_deploy_cycles": 0,
+            "brain_training_cycles": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
@@ -2382,6 +2386,50 @@ class AutonomousLearningEngine:
         return f"Evolve deploy: {summary}"
 
     # ─────────────────────────────────────────────
+    # BRAIN TRAINING (step 24)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_brain_training(self) -> str:
+        """Step 24: Autonomous brain trainer — fine-tune brain on research data.
+
+        Pulls accumulated knowledge from KnowledgeDB into the BrainTrainer so
+        every subsequent chat query benefits from what Niblit has learned.
+        Also ingests any recent research results stored by earlier ALE steps
+        so general chatting responses improve continuously.
+        """
+        if not self.brain_trainer:
+            return "BrainTraining: no brain_trainer available"
+
+        try:
+            # Wire knowledge_db into trainer if not already set
+            if self.knowledge_db and not self.brain_trainer.knowledge_db:
+                self.brain_trainer.knowledge_db = self.knowledge_db
+
+            # Ingest recent research results from Step 1 if available.
+            # _last_research_results is set by _autonomous_research() (step 1)
+            # and holds the raw list of research items from that cycle.
+            last_results = getattr(self, "_last_research_results", None)
+            if last_results:
+                if isinstance(last_results, list):
+                    for item in last_results[:20]:
+                        topic = str(item.get("topic", "research")) if isinstance(item, dict) else "research"
+                        text = str(item.get("content", item)) if isinstance(item, dict) else str(item)
+                        self.brain_trainer.ingest_research(topic, text)
+                elif isinstance(last_results, str):
+                    self.brain_trainer.ingest_research("research", last_results[:600])
+
+            # Run the main training cycle (pulls from KB)
+            summary = self.brain_trainer.run_training_cycle()
+
+            self.learning_history["brain_training_cycles"] = (
+                self.learning_history.get("brain_training_cycles", 0) + 1
+            )
+            return summary
+        except Exception as exc:
+            log.debug("[BRAIN TRAINING] step failed: %s", exc)
+            return f"BrainTraining: error — {exc}"
+
+    # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle.
 
@@ -2451,6 +2499,9 @@ class AutonomousLearningEngine:
         # Read, understand, and hot-reload evolution improvements (step 23)
         _step("EvolveDeploy", self._autonomous_evolve_deploy)
 
+        # Autonomous brain training — fine-tune on research+chat data (step 24)
+        _step("BrainTraining", self._autonomous_brain_training)
+
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -2467,6 +2518,7 @@ class AutonomousLearningEngine:
             "command_awareness_cycles", "command_executions",
             "topic_seedings", "reasoning_cycles", "metacognition_cycles",
             "improvement_cycles", "self_scan_cycles", "github_push_cycles",
+            "brain_training_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
