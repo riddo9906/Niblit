@@ -225,7 +225,35 @@ MODULE_IMPORTS = [
     ("modules.db",             "LocalDB"),
     ("modules.storage",        "KnowledgeDB"),
     ("modules.analytics",      "AnalyticsModule"),
+    # Code tools
+    ("modules.code_compiler",  "CodeCompiler"),
+    ("modules.code_generator", "CodeGenerator"),
+    ("modules.code_error_fixer", "CodeErrorFixer"),
 ]
+
+def probe_code_autofix():
+    """Probe that CodeErrorFixer can fix a simple broken Python snippet."""
+    result = {}
+    try:
+        import importlib
+        fixer_mod = importlib.import_module("modules.code_error_fixer")
+        compiler_mod = importlib.import_module("modules.code_compiler")
+        fixer = fixer_mod.CodeErrorFixer()
+        compiler = compiler_mod.CodeCompiler()
+        broken = "def foo()\n    return 1\n"
+        fixed_code, ok, explanation = fixer.fix_syntax_errors("python", broken, "SyntaxError", compiler)
+        result["code_autofix"] = {
+            "status": "ok" if ok else "warning",
+            "error": None if ok else f"Auto-fix did not succeed: {explanation}",
+            "tb": None,
+        }
+    except Exception as exc:
+        result["code_autofix"] = {
+            "status": "error",
+            "error": str(exc),
+            "tb": traceback.format_exc(),
+        }
+    return result
 
 def probe_modules():
     results = {}
@@ -252,7 +280,7 @@ def probe_modules():
 # ─────────────────────────────
 # PRINT REPORT
 # ─────────────────────────────
-def print_report(import_results, boot_result, runtime_checks, module_results, elapsed):
+def print_report(import_results, boot_result, runtime_checks, module_results, autofix_results, elapsed):
     total_errors = 0
 
     _section("1. CORE IMPORT CHECKS")
@@ -299,6 +327,16 @@ def print_report(import_results, boot_result, runtime_checks, module_results, el
             total_errors += 1
             _fail(label, res["error"], res.get("tb", ""))
 
+    _section("5. CODE AUTO-FIX PROBE")
+    for label, res in autofix_results.items():
+        if res["status"] == "ok":
+            _ok(label)
+        elif res["status"] == "warning":
+            print(f"  ⚠  {label} — {res['error']}")
+        else:
+            total_errors += 1
+            _fail(label, res["error"], res.get("tb", ""))
+
     _section("SUMMARY")
     print(f"  Elapsed : {elapsed:.2f}s")
     if total_errors == 0:
@@ -311,7 +349,7 @@ def print_report(import_results, boot_result, runtime_checks, module_results, el
 # ─────────────────────────────
 # SAVE JSON REPORT
 # ─────────────────────────────
-def save_report(import_results, boot_result, runtime_checks, module_results, elapsed, total_errors):
+def save_report(import_results, boot_result, runtime_checks, module_results, autofix_results, elapsed, total_errors):
     report = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "elapsed_seconds": round(elapsed, 3),
@@ -320,6 +358,7 @@ def save_report(import_results, boot_result, runtime_checks, module_results, ela
         "boot_sequence": boot_result,
         "runtime_checks": runtime_checks or {},
         "module_imports": module_results,
+        "code_autofix_probe": autofix_results,
     }
     try:
         with open(REPORT_PATH, "w", encoding="utf-8") as f:
@@ -350,13 +389,16 @@ def main():
     # 4. Module import probes
     module_results = probe_modules()
 
+    # 5. Code auto-fix probe
+    autofix_results = probe_code_autofix()
+
     elapsed = time.time() - start
 
-    # 5. Print structured report
-    total_errors = print_report(import_results, boot_result, runtime_checks, module_results, elapsed)
+    # 6. Print structured report
+    total_errors = print_report(import_results, boot_result, runtime_checks, module_results, autofix_results, elapsed)
 
-    # 6. Save JSON report
-    save_report(import_results, boot_result, runtime_checks, module_results, elapsed, total_errors)
+    # 7. Save JSON report
+    save_report(import_results, boot_result, runtime_checks, module_results, autofix_results, elapsed, total_errors)
 
     sys.exit(1 if total_errors > 0 else 0)
 

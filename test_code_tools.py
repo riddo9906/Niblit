@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 from modules.code_compiler import CodeCompiler
 from modules.code_generator import CodeGenerator
+from modules.code_error_fixer import CodeErrorFixer
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -548,6 +549,158 @@ class TestALEExpandedTopics:
 
     def test_software_study_categories_include_android(self, ale):
         assert "android_internals" in ale.software_study_categories
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CodeErrorFixer
+# ─────────────────────────────────────────────────────────────────────────────
+
+@pytest.fixture()
+def fixer():
+    return CodeErrorFixer()
+
+
+@pytest.fixture()
+def fixer_with_compiler():
+    return CodeErrorFixer(), CodeCompiler()
+
+
+class TestCodeErrorFixerInit:
+    def test_creates_instance(self, fixer):
+        assert fixer is not None
+
+    def test_initial_stats_are_zero(self, fixer):
+        stats = fixer.get_stats()
+        assert stats["attempts"] == 0
+        assert stats["fixed"] == 0
+        assert stats["unfixed"] == 0
+
+    def test_get_stats_returns_dict(self, fixer):
+        assert isinstance(fixer.get_stats(), dict)
+
+
+class TestCodeErrorFixerPython:
+    def test_fix_missing_colon(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        broken = "def foo()\n    return 1\n"
+        fixed, ok, explanation = fixer.fix_syntax_errors("python", broken, "SyntaxError: expected ':'", compiler)
+        assert ok is True
+        assert ":" in fixed
+
+    def test_fix_tab_indentation(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        broken = "def foo():\n\treturn 1\n"
+        fixed, ok, explanation = fixer.fix_syntax_errors("python", broken, "TabError", compiler)
+        assert ok is True
+        assert "\t" not in fixed
+
+    def test_attempts_counter_incremented(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        fixer.fix_syntax_errors("python", "def foo()\n    pass\n", "SyntaxError", compiler)
+        assert fixer.get_stats()["attempts"] == 1
+
+    def test_explanation_is_string(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        _, _, explanation = fixer.fix_syntax_errors("python", "def foo()\n    pass\n", "SyntaxError", compiler)
+        assert isinstance(explanation, str)
+
+    def test_fix_unmatched_paren(self, fixer):
+        broken = "x = foo(\n"
+        fixed, ok, _ = fixer.fix_syntax_errors("python", broken, "SyntaxError")
+        assert fixed.count("(") <= fixed.count(")")
+
+    def test_returns_code_even_on_failure(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        # Completely garbage code — fixer may not fix it but must return code
+        broken = "!@#$%^&*()"
+        fixed_code, ok, explanation = fixer.fix_syntax_errors("python", broken, "SyntaxError", compiler)
+        assert isinstance(fixed_code, str)
+        assert isinstance(ok, bool)
+
+
+class TestCodeErrorFixerBash:
+    def test_fix_adds_shebang(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        broken = "echo hello"
+        fixed, ok, _ = fixer.fix_syntax_errors("bash", broken, "missing shebang", compiler)
+        assert fixed.startswith("#!")
+
+    def test_fix_adds_set_flags(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        broken = "#!/usr/bin/env bash\necho hello\n"
+        fixed, ok, _ = fixer.fix_syntax_errors("bash", broken, "")
+        assert "set -euo pipefail" in fixed
+
+
+class TestCodeErrorFixerJavaScript:
+    def test_fix_adds_use_strict(self, fixer):
+        broken = "function foo() { return 1; }"
+        fixed, ok, _ = fixer.fix_syntax_errors("javascript", broken, "")
+        assert "'use strict'" in fixed or '"use strict"' in fixed
+
+    def test_fix_replaces_var_with_let(self, fixer):
+        broken = "'use strict';\nvar x = 1;\n"
+        fixed, ok, _ = fixer.fix_syntax_errors("javascript", broken, "")
+        assert "var " not in fixed
+        assert "let " in fixed
+
+
+class TestCodeErrorFixerUnknownLanguage:
+    def test_unknown_language_returns_code_unchanged(self, fixer):
+        code = "some code"
+        fixed, ok, _ = fixer.fix_syntax_errors("cobol", code, "error")
+        assert fixed == code
+
+
+class TestCodeErrorFixerAutoFixAndRun:
+    def test_auto_fix_and_run_returns_dict(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        result = fixer.auto_fix_and_run("python", "print('hello')\n", compiler)
+        assert isinstance(result, dict)
+
+    def test_auto_fix_and_run_required_keys(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        result = fixer.auto_fix_and_run("python", "print('hello')\n", compiler)
+        for key in ("success", "language", "original_code", "final_code", "fix_applied", "explanation", "output", "error", "elapsed_ms"):
+            assert key in result, f"Missing key: {key}"
+
+    def test_auto_fix_and_run_valid_code_succeeds(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        result = fixer.auto_fix_and_run("python", "print('niblit ok')\n", compiler)
+        assert result["success"] is True
+
+    def test_auto_fix_and_run_broken_code_applies_fix(self, fixer_with_compiler):
+        fixer, compiler = fixer_with_compiler
+        broken = "def foo()\n    return 1\n"
+        result = fixer.auto_fix_and_run("python", broken, compiler)
+        # fix_applied may or may not succeed depending on how broken the code is
+        assert isinstance(result["fix_applied"], bool)
+
+
+class TestCompileWithAutofix:
+    """Test CodeCompiler.compile_with_autofix()."""
+
+    def test_compile_with_autofix_exists(self):
+        compiler = CodeCompiler()
+        assert hasattr(compiler, "compile_with_autofix")
+
+    def test_compile_with_autofix_valid_python(self):
+        compiler = CodeCompiler()
+        result = compiler.compile_with_autofix("python", "print('autofix ok')\n")
+        assert result.success is True
+
+    def test_compile_with_autofix_broken_python_returns_execution_result(self):
+        compiler = CodeCompiler()
+        result = compiler.compile_with_autofix("python", "def broken()\n    pass\n")
+        # Result may succeed (fixed) or fail, but must be an ExecutionResult
+        from modules.code_compiler import ExecutionResult
+        assert isinstance(result, ExecutionResult)
+
+    def test_compile_with_autofix_returns_execution_result_type(self):
+        from modules.code_compiler import ExecutionResult
+        compiler = CodeCompiler()
+        result = compiler.compile_with_autofix("python", "x = 1 + 1\nprint(x)\n")
+        assert isinstance(result, ExecutionResult)
 
 
 if __name__ == "__main__":

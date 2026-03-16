@@ -11,6 +11,8 @@ Features:
 - Syntax validation before running (Python, Bash, JavaScript)
 - Pre-execution syntax gate: bash -n / py_compile / node --check
 - Store execution results in KnowledgeDB
+- compile_with_autofix(): automatically repairs syntax errors via
+  CodeErrorFixer before attempting execution
 """
 
 import ast
@@ -226,6 +228,25 @@ class CodeCompiler:
                 seen[runner] = self._check_interpreter(runner)
             result[lang] = seen[runner]
         return result
+
+    def compile_with_autofix(self, language: str, code: str) -> "ExecutionResult":
+        """Execute code, automatically fixing syntax errors via CodeErrorFixer.
+
+        If the initial syntax check fails, CodeErrorFixer attempts up to
+        MAX_FIX_ATTEMPTS targeted repairs before re-running.  The final
+        ExecutionResult reflects the outcome of the (possibly repaired) code.
+
+        This is the recommended entry point for autonomous code execution
+        because it allows Niblit to self-correct generated code.
+        """
+        try:
+            from modules.code_error_fixer import CodeErrorFixer  # pylint: disable=import-outside-toplevel
+            fixer = CodeErrorFixer(db=self.db)
+            return fixer.fix_and_compile(language, code, self)
+        except ImportError:
+            # CodeErrorFixer not available — fall back to plain run()
+            log.debug("[CodeCompiler] CodeErrorFixer unavailable, using plain run()")
+            return self.run(language, code)
 
     def get_stats(self) -> Dict[str, Any]:
         """Return execution statistics."""

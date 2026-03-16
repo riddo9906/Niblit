@@ -45,6 +45,13 @@ try:
 except Exception as _e:
     LocalDB = None
 
+try:
+    from modules.code_error_fixer import CodeErrorFixer as _CodeErrorFixer
+    from modules.code_compiler import CodeCompiler as _CodeCompiler
+except Exception as _e:
+    _CodeErrorFixer = None
+    _CodeCompiler = None
+
 # HF query — optional, provided as a stub if niblit_brain doesn't export it
 try:
     from niblit_brain import hf_query
@@ -314,6 +321,40 @@ def run_full_pipeline():
 
 
 # ─────────────────────────────────────────────────────
+# STEP 8: Code Error Fix Audit
+# ─────────────────────────────────────────────────────
+
+def run_code_fix_audit():
+    """Run CodeErrorFixer against a set of known-broken snippets and report results."""
+    log("=== Step 8: Code Error Fix Audit Started ===")
+    if _CodeErrorFixer is None or _CodeCompiler is None:
+        log("CodeErrorFixer or CodeCompiler unavailable, skipping code fix audit.")
+        return
+
+    fixer = _CodeErrorFixer()
+    compiler = _CodeCompiler()
+
+    test_cases = [
+        ("python", "def foo()\n    return 1\n", "SyntaxError: expected ':'"),
+        ("python", "x = 1\n    y = 2\n", "IndentationError"),
+        ("bash", "echo hello", "missing shebang"),
+    ]
+
+    passed = 0
+    failed = 0
+    for lang, broken_code, error_hint in test_cases:
+        fixed_code, ok, explanation = fixer.fix_syntax_errors(lang, broken_code, error_hint, compiler)
+        status = "✅ fixed" if ok else "❌ not fixed"
+        log(f"  [{lang}] {status}: {explanation[:80]}")
+        if ok:
+            passed += 1
+        else:
+            failed += 1
+
+    log(f"=== Step 8: Code Error Fix Audit Completed — {passed} fixed, {failed} unfixed ===")
+
+
+# ─────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────
 
@@ -330,6 +371,8 @@ def main():
     verify_imports()
 
     run_diagnostics()
+
+    run_code_fix_audit()
 
     log("=== Niblit Orchestrator Completed ===")
 

@@ -22,6 +22,9 @@ Runs when Niblit is idle to autonomously improve itself through:
 18. Improvement Cycle — ImprovementIntegrator runs full 10-module self-improvement cycle
 19. Self Scan — BuildScanner reads own source files and stores self-knowledge in KB
 20. GitHub Push — GitHubSync pushes autonomously-generated files to GitHub
+21. Binary Study — BinaryStudier seeds KB with binary/hex/firmware/kernel topics
+22. Builds Update — indexes the builds/ directory into KB each cycle
+23. Evolve Deploy — reads evolved/improvement_*.py, stores in KB, hot-reloads via LiveUpdater
 
 Creates a continuous self-improvement loop.
 Internet is the primary data-collection channel for steps 1, 8, 9, 12.
@@ -1036,7 +1039,7 @@ class AutonomousLearningEngine:
             return f"Code compiled: {lang}/{topic}: ✅ source saved{build_note}"
 
         try:
-            # ── Phase 1: syntax-test (no execution) ──────────────────────
+            # ── Phase 1: syntax-test; auto-fix on failure ─────────────────
             syntax_result = (
                 code_compiler.syntax_test(lang, code)
                 if hasattr(code_compiler, "syntax_test")
@@ -1044,26 +1047,49 @@ class AutonomousLearningEngine:
             )
             if not syntax_result.get("valid", True):
                 syntax_err = syntax_result.get("error", "syntax error")
-                log.warning(f"⚙️ [CODE SYNTAX] {lang}/{topic}: ❌ {syntax_err}")
-                failed_record = {
-                    "language": lang,
-                    "topic": topic,
-                    "code": code[:_MAX_FAILED_CODE_SNIPPET_LENGTH],
-                    "output": "",
-                    "error": f"SyntaxError: {syntax_err}"[:200],
-                    "success": False,
-                }
-                if self.knowledge_db:
-                    try:
-                        key = f"ale_syntax_fail:{lang}:{topic}:{int(time.time())}"
-                        self.knowledge_db.add_fact(key, str(failed_record), tags=["syntax_fail", "autonomous", lang])
-                    except Exception:
-                        pass
-                self._compiled_for_reflection.append(failed_record)
-                return f"Code compiled: {lang}/{topic}: ❌ syntax failed | error: {syntax_err[:80]}"
+                log.warning(f"⚙️ [CODE SYNTAX] {lang}/{topic}: ❌ {syntax_err} — attempting auto-fix")
 
-            # ── Phase 2: full execution ───────────────────────────────────
-            exec_result = code_compiler.run(lang, code)
+                # ── Auto-fix via CodeErrorFixer ───────────────────────────
+                fix_applied = False
+                fix_explanation = ""
+                try:
+                    from modules.code_error_fixer import CodeErrorFixer  # pylint: disable=import-outside-toplevel
+                    fixer = CodeErrorFixer(db=self.knowledge_db)
+                    fixed_code, fix_ok, fix_explanation = fixer.fix_syntax_errors(
+                        lang, code, syntax_err, code_compiler
+                    )
+                    if fix_ok:
+                        log.info(f"🔧 [AUTO-FIX] {lang}/{topic}: fixed — {fix_explanation}")
+                        code = fixed_code
+                        fix_applied = True
+                    else:
+                        log.warning(f"🔧 [AUTO-FIX] {lang}/{topic}: fix failed — {fix_explanation}")
+                except Exception as fix_exc:
+                    log.debug(f"CodeErrorFixer unavailable: {fix_exc}")
+
+                if not fix_applied:
+                    failed_record = {
+                        "language": lang,
+                        "topic": topic,
+                        "code": code[:_MAX_FAILED_CODE_SNIPPET_LENGTH],
+                        "output": "",
+                        "error": f"SyntaxError: {syntax_err}"[:200],
+                        "success": False,
+                    }
+                    if self.knowledge_db:
+                        try:
+                            key = f"ale_syntax_fail:{lang}:{topic}:{int(time.time())}"
+                            self.knowledge_db.add_fact(key, str(failed_record), tags=["syntax_fail", "autonomous", lang])
+                        except Exception:
+                            pass
+                    self._compiled_for_reflection.append(failed_record)
+                    return f"Code compiled: {lang}/{topic}: ❌ syntax failed | error: {syntax_err[:80]}"
+
+            # ── Phase 2: full execution via compile_with_autofix ──────────
+            if hasattr(code_compiler, "compile_with_autofix"):
+                exec_result = code_compiler.compile_with_autofix(lang, code)
+            else:
+                exec_result = code_compiler.run(lang, code)
             success = getattr(exec_result, "success", False)
             output = getattr(exec_result, "stdout", "") or ""
             error = getattr(exec_result, "error", "") or getattr(exec_result, "stderr", "") or ""
@@ -2563,6 +2589,7 @@ class AutonomousLearningEngine:
                 "improvement_integrator": bool(self._get_improvement_integrator()),
                 "github_sync": bool(self.github_sync or (self.core and getattr(self.core, "github_sync", None))),
                 "build_scanner": bool(self.build_scanner or (self.core and getattr(self.core, "build_scanner", None))),
+                "binary_studier": bool(self.binary_studier or (self.core and getattr(self.core, "binary_studier", None))),
             },
         }
 
