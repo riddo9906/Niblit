@@ -65,6 +65,7 @@ python server.py
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `HF_TOKEN` | ✅ Yes | — | HuggingFace API token |
+| `SERPEX_API_KEY` | No | `""` | SerpEx search API key for autonomous research (see [serpex.dev](https://serpex.dev)). When set, used as the primary internet search backend; falls back to DuckDuckGo/Wikipedia if absent. |
 | `NIBLIT_API_KEY` | No | `""` | Optional API key for endpoint protection |
 | `PORT` | No | `5000` | Server port (local use) |
 | `FLASK_ENV` | No | `development` | `development` / `testing` / `production` |
