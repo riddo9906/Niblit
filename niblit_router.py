@@ -199,6 +199,8 @@ class NiblitRouter:
         "tree scan", "tree read", "tree write", "tree edit",
         # Import / deploy evolution improvements via hot-reload
         "import improvements", "deploy improvements", "hot reload improvements",
+        # Code error fixing and self-repair
+        "fix code", "fix-code",
     )
 
     CHAT_RESPONSES = {
@@ -1361,6 +1363,13 @@ Ask me about:
                 rest = cmd[cmd.index(" ", cmd.index(" ") + 1):].strip()
                 return safe_call(self.core._cmd_run_code, rest) or "[Code run failed]"
             return "[CodeCompiler not available]"
+
+        if lower.startswith("fix code ") or lower.startswith("fix-code "):
+            if self.core and hasattr(self.core, "_cmd_fix_code"):
+                prefix = "fix code " if lower.startswith("fix code ") else "fix-code "
+                rest = cmd[len(prefix):].strip()
+                return safe_call(self.core._cmd_fix_code, rest) or "[Code fix failed]"
+            return "[CodeErrorFixer not available]"
 
         if lower.startswith("validate "):
             if self.core and hasattr(self.core, "_cmd_validate_code"):

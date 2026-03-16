@@ -274,6 +274,12 @@ except Exception as e:
     CodeCompiler = None
 
 try:
+    from modules.code_error_fixer import CodeErrorFixer
+except Exception as e:
+    log.debug(f"CodeErrorFixer import failed: {e}")
+    CodeErrorFixer = None
+
+try:
     from modules.filesystem_manager import FilesystemManager as FileManager
 except Exception as e:
     log.debug(f"FilesystemManager import failed: {e}")
@@ -1094,6 +1100,7 @@ class NiblitCore:
         # NEW: Code capabilities + enhanced filesystem + software studier
         self.code_generator: Optional[CodeGenerator] = None
         self.code_compiler: Optional[CodeCompiler] = None
+        self.code_error_fixer = None
         self.file_manager: Optional[FileManager] = None
         self.software_studier: Optional[SoftwareStudier] = None
         self.evolve_engine: Optional[EvolveEngine] = None
@@ -2614,14 +2621,40 @@ Uptime: {stats['uptime_seconds']}s
         return f"✅ Generated {language}/{template}:\n\n```\n{code[:600]}\n```"
 
     def _cmd_run_code(self, spec: str) -> str:
-        """Run code: 'python print(\"hello\")'"""
+        """Run code: 'python print(\"hello\")' — auto-fixes syntax errors if needed."""
         if not self.code_compiler:
             return "[CodeCompiler not available]"
         parts = spec.split(None, 1)
         if len(parts) < 2:
             return "Usage: run code <language> <code>"
         language, code = parts[0], parts[1]
-        result = self.code_compiler.run(language, code)
+        # Use compile_with_autofix so syntax errors are corrected before execution
+        result = self.code_compiler.compile_with_autofix(language, code)
+        return result.format_output()
+
+    def _cmd_fix_code(self, spec: str) -> str:
+        """Fix and run code: 'fix code python <code>' — diagnoses and auto-repairs errors."""
+        if not self.code_compiler:
+            return "[CodeCompiler not available]"
+        parts = spec.split(None, 1)
+        if len(parts) < 2:
+            return "Usage: fix code <language> <code>"
+        language, code = parts[0], parts[1]
+        if self.code_error_fixer:
+            report = self.code_error_fixer.auto_fix_and_run(language, code, self.code_compiler)
+            lines = []
+            icon = "✅" if report["success"] else "❌"
+            lines.append(f"{icon} Fix & Run ({language}) — {report['elapsed_ms']:.0f}ms")
+            if report["fix_applied"]:
+                lines.append(f"🔧 Fix applied: {report['explanation']}")
+                lines.append(f"📋 Fixed code:\n```\n{report['final_code'][:400]}\n```")
+            if report["output"]:
+                lines.append(f"📤 Output:\n{report['output'].strip()}")
+            if report["error"] and not report["success"]:
+                lines.append(f"❗ Error: {report['error']}")
+            return "\n".join(lines)
+        # Fallback to plain compile_with_autofix
+        result = self.code_compiler.compile_with_autofix(language, code)
         return result.format_output()
 
     def _cmd_validate_code(self, spec: str) -> str:
@@ -3503,6 +3536,18 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.debug(f"CodeCompiler init failed: {e}")
                     self.startup_report.add("code_compiler", "degraded", str(e))
+
+            # ============================
+            # CODE ERROR FIXER
+            # ============================
+            if CodeErrorFixer:
+                try:
+                    self.code_error_fixer = CodeErrorFixer(db=self.db)
+                    log.info("✅ CodeErrorFixer initialized")
+                    self.startup_report.add("code_error_fixer", "ready")
+                except Exception as e:
+                    log.debug(f"CodeErrorFixer init failed: {e}")
+                    self.startup_report.add("code_error_fixer", "degraded", str(e))
 
             # ============================
             # FILE MANAGER (enhanced)
