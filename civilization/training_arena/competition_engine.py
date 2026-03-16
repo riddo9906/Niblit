@@ -37,7 +37,10 @@ class CompetitionEngine:
         """Run all *agents* against *challenge*; return [(agent_id, score)]."""
         results: List[Tuple[str, float]] = []
         for agent in agents:
-            agent_id = agent if isinstance(agent, str) else agent.get("agent_id", str(agent))
+            agent_id = agent if isinstance(agent, str) else (
+                agent.get("agent_id", str(agent)) if isinstance(agent, dict)
+                else getattr(agent, "agent_id", getattr(agent, "_agent_id", str(agent)))
+            )
             solution = _MOCK_SOLUTIONS.get(agent_id, _MOCK_SOLUTIONS["default"])
             score = self.evaluate_solution(solution, challenge)
             results.append((agent_id, score))

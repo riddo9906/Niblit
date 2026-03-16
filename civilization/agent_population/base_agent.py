@@ -32,6 +32,16 @@ class BaseAgent:
         self._tasks_completed: int = 0
         self._last_task_at: Optional[float] = None
 
+    @property
+    def agent_id(self) -> str:
+        """Public agent identifier."""
+        return self._agent_id
+
+    @property
+    def role(self) -> str:
+        """Agent role label."""
+        return self._role
+
     # ── public API ──
 
     def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:

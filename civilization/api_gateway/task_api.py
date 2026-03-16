@@ -36,7 +36,7 @@ class TaskAPI:
             "submitted_at": time.time(),
         }
         log.info("TaskAPI: goal submitted %s", goal_id)
-        return {"goal_id": goal_id, "status": "queued"}
+        return {"goal_id": goal_id, "status": "processing"}
 
     def submit_task(
         self, task_type: str, payload: Dict[str, Any]
