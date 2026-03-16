@@ -3474,6 +3474,7 @@ Uptime: {stats['uptime_seconds']}s
                         build_scanner=getattr(self, "build_scanner", None),
                         binary_studier=getattr(self, "binary_studier", None),
                         brain_trainer=getattr(self.brain, "brain_trainer", None) if getattr(self, "brain", None) else None,
+                        llm=getattr(self, "llm", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
