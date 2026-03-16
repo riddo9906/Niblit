@@ -32,6 +32,41 @@ class Config:
     # GitHub Code Search API token (PAT with public_repo scope)
     GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
 
+    # ── Phase 4 LLM providers ─────────────────────────────────────────────────
+    # OpenAI (https://platform.openai.com/api-keys)
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    # Anthropic (https://console.anthropic.com/account/keys)
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+
+    # ── Phase 4 Research APIs ────────────────────────────────────────────────
+    # Stack Exchange / Stack Overflow API
+    # Register at https://stackapps.com/apps/oauth/register
+    STACKOVERFLOW_API_KEY: str = os.getenv("STACKOVERFLOW_API_KEY", "")
+
+    # PyPI simple index (no key required; base URL configurable for mirrors)
+    PYPI_API_URL: str = os.getenv("PYPI_API_URL", "https://pypi.org/pypi")
+
+    # ── Phase 3 Knowledge / Vector Database ──────────────────────────────────
+    # Qdrant vector store (https://cloud.qdrant.io)
+    QDRANT_URL: str = os.getenv("QDRANT_URL", "")
+    QDRANT_API_KEY: str = os.getenv("QDRANT_API_KEY", "")
+    QDRANT_COLLECTION: str = os.getenv("QDRANT_COLLECTION", "niblit_knowledge")
+
+    # Embedding model for vector store (local sentence-transformers model name
+    # or HF repo ID; used when Qdrant is enabled)
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+
+    # ── Phase 5 Sandbox Execution ─────────────────────────────────────────────
+    # Docker socket / host — set to empty string to disable sandboxed execution
+    DOCKER_HOST: str = os.getenv("DOCKER_HOST", "unix:///var/run/docker.sock")
+    SANDBOX_ENABLED: bool = os.getenv("SANDBOX_ENABLED", "False").lower() in ("1", "true", "yes")
+    SANDBOX_IMAGE: str = os.getenv("SANDBOX_IMAGE", "python:3.12-slim")
+    SANDBOX_TIMEOUT: int = int(os.getenv("SANDBOX_TIMEOUT", "30"))
+    SANDBOX_MEMORY_MB: int = int(os.getenv("SANDBOX_MEMORY_MB", "256"))
+
     # API security
     NIBLIT_API_KEY: str = os.getenv("NIBLIT_API_KEY", "")
 

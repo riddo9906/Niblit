@@ -40,7 +40,7 @@ import logging
 import random
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 
 log = logging.getLogger("AutonomousLearning")
 logging.basicConfig(
@@ -71,6 +71,7 @@ class AutonomousLearningEngine:
                  improvement_integrator=None, github_sync=None, build_scanner=None,
                  binary_studier=None, brain_trainer=None, llm=None,
                  github_code_search=None,
+                 stackoverflow_search=None, pypi_search=None,
                  step_timeout=120):
         """
         Args:
@@ -99,6 +100,8 @@ class AutonomousLearningEngine:
             brain_trainer: BrainTrainer — fine-tunes brain on research data and learned material
             llm:          LLM adapter (e.g. HFLLMAdapter) — used to synthesise real code from research
             github_code_search: GitHubCodeSearch — code pattern discovery, training datasets, refactoring
+            stackoverflow_search: StackOverflowSearch — bug solutions and code-pattern lookup via SO API
+            pypi_search: PyPISearch — PyPI package intelligence for dependency graphs and new libraries
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -124,6 +127,8 @@ class AutonomousLearningEngine:
         self.brain_trainer = brain_trainer
         self.llm = llm
         self.github_code_search = github_code_search
+        self.stackoverflow_search = stackoverflow_search
+        self.pypi_search = pypi_search
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -755,6 +760,18 @@ class AutonomousLearningEngine:
             self.github_code_search = getattr(self.core, "github_code_search", None)
         return self.github_code_search
 
+    def _get_stackoverflow_search(self):
+        """Lazily resolve StackOverflowSearch from core."""
+        if not self.stackoverflow_search and self.core:
+            self.stackoverflow_search = getattr(self.core, "stackoverflow_search", None)
+        return self.stackoverflow_search
+
+    def _get_pypi_search(self):
+        """Lazily resolve PyPISearch from core."""
+        if not self.pypi_search and self.core:
+            self.pypi_search = getattr(self.core, "pypi_search", None)
+        return self.pypi_search
+
     def _get_software_studier(self):
         """Lazily resolve SoftwareStudier from core."""
         if not self.software_studier and self.core:
@@ -926,6 +943,49 @@ class AutonomousLearningEngine:
             except Exception as exc:
                 log.debug(f"GitHub code research failed: {exc}")
 
+        # 4. Stack Overflow — bug solutions and code explanations
+        so = self._get_stackoverflow_search()
+        if so:
+            try:
+                so_results = so.research_for_code_generation(lang, topic, max_results=3)
+                for r in (so_results or []):
+                    text = r.get("text", "") if isinstance(r, dict) else str(r)
+                    if text and len(text) > 20:
+                        snippets.append(text[:_MAX_RESEARCH_SNIPPET_LENGTH])
+                        if self.knowledge_db:
+                            try:
+                                self.knowledge_db.add_fact(
+                                    f"ale_so_code:{lang}:{topic}:{int(time.time())}",
+                                    text[:500],
+                                    tags=["code", "stackoverflow", lang, "pattern"],
+                                )
+                            except Exception:
+                                pass
+            except Exception as exc:
+                log.debug(f"Stack Overflow code research failed: {exc}")
+
+        # 5. PyPI — package intelligence (Python only)
+        if lang == "python":
+            pypi = self._get_pypi_search()
+            if pypi:
+                try:
+                    pypi_results = pypi.research_for_code_generation(lang, topic, max_results=3)
+                    for r in (pypi_results or []):
+                        text = r.get("text", "") if isinstance(r, dict) else str(r)
+                        if text and len(text) > 20:
+                            snippets.append(text[:_MAX_RESEARCH_SNIPPET_LENGTH])
+                            if self.knowledge_db:
+                                try:
+                                    self.knowledge_db.add_fact(
+                                        f"ale_pypi_code:{lang}:{topic}:{int(time.time())}",
+                                        text[:500],
+                                        tags=["code", "pypi", lang, "library"],
+                                    )
+                                except Exception:
+                                    pass
+                except Exception as exc:
+                    log.debug(f"PyPI code research failed: {exc}")
+
         if not snippets:
             return f"[No code research results for {lang}/{topic}]"
 
@@ -950,6 +1010,10 @@ class AutonomousLearningEngine:
             active_sources.append("internet")
         if gcs:
             active_sources.append("GitHub")
+        if so:
+            active_sources.append("StackOverflow")
+        if lang == "python" and self._get_pypi_search():
+            active_sources.append("PyPI")
         sources = ", ".join(active_sources) if active_sources else "researcher"
         log.info(f"✅ [CODE RESEARCH] {lang}/{topic}: {len(snippets)} snippet(s) collected")
         return f"Code research: {lang}/{topic} — {len(snippets)} snippet(s) via {sources}"
@@ -2743,7 +2807,7 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
 
     # Rotate through these (language, pattern_type) pairs for pattern discovery
-    _GCS_PATTERN_TOPICS: List[tuple] = [
+    _GCS_PATTERN_TOPICS: List[Tuple[str, str]] = [
         ("python",     "decorator"),
         ("python",     "context_manager"),
         ("python",     "async"),
@@ -2770,7 +2834,7 @@ class AutonomousLearningEngine:
     ]
 
     # (language, technique) pairs for refactoring discovery
-    _GCS_REFACTOR_TOPICS: List[tuple] = [
+    _GCS_REFACTOR_TOPICS: List[Tuple[str, str]] = [
         ("python", "list_comprehension"),
         ("python", "dict_comprehension"),
         ("python", "fstring"),
@@ -3174,7 +3238,9 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  improvement_integrator=None,
                                  github_sync=None, build_scanner=None,
                                  binary_studier=None, llm=None,
-                                 github_code_search=None) -> AutonomousLearningEngine:
+                                 github_code_search=None,
+                                 stackoverflow_search=None,
+                                 pypi_search=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -3201,6 +3267,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         binary_studier=binary_studier,
         llm=llm,
         github_code_search=github_code_search,
+        stackoverflow_search=stackoverflow_search,
+        pypi_search=pypi_search,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")
