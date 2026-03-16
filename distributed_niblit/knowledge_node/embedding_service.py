@@ -26,7 +26,7 @@ def _hash_text(text: str, dim: int = _DIM) -> List[float]:
     """Produce a deterministic *dim*-dimensional float vector for *text*."""
     vec: List[float] = []
     for i in range(dim):
-        digest = hashlib.md5(f"{text}:{i}".encode()).hexdigest()
+        digest = hashlib.sha256(f"{text}::{i}".encode()).hexdigest()
         raw = int(digest[:8], 16)
         vec.append((raw / 0xFFFFFFFF) * 2.0 - 1.0)
     norm = math.sqrt(sum(x * x for x in vec)) or 1.0

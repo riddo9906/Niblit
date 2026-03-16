@@ -56,6 +56,31 @@ _BANNED_PATTERNS = [
     "os.", "sys.", "subprocess", "socket", "importlib",
 ]
 
+_BANNED_AST_CALLS = {"__import__", "exec", "eval", "compile", "open"}
+_BANNED_AST_ATTRS = {"__class__", "__subclasses__", "__bases__", "__globals__"}
+
+
+def _ast_is_safe(code: str) -> bool:
+    """Return True if *code* AST contains no dangerous call/attribute nodes."""
+    import ast as _ast
+    try:
+        tree = _ast.parse(code)
+    except SyntaxError:
+        return True  # syntax errors handled separately
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Call):
+            func = node.func
+            name = None
+            if isinstance(func, _ast.Name):
+                name = func.id
+            elif isinstance(func, _ast.Attribute):
+                name = func.attr
+            if name in _BANNED_AST_CALLS:
+                return False
+        if isinstance(node, _ast.Attribute) and node.attr in _BANNED_AST_ATTRS:
+            return False
+    return True
+
 
 class SandboxExecutor:
     """Executes Python code strings in a restricted environment."""
@@ -68,6 +93,9 @@ class SandboxExecutor:
             if pattern in code:
                 log.warning("SandboxExecutor: banned pattern %r in code", pattern)
                 return False
+        if not _ast_is_safe(code):
+            log.warning("SandboxExecutor: dangerous AST node detected")
+            return False
         return True
 
     def run(self, code: str, timeout: float = 5.0) -> Dict[str, Any]:

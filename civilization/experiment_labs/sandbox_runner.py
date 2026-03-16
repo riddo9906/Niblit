@@ -21,6 +21,31 @@ _BANNED = [
     "os.", "sys.", "subprocess", "socket", "importlib",
 ]
 
+_BANNED_AST_CALLS = {"__import__", "exec", "eval", "compile", "open"}
+_BANNED_AST_ATTRS = {"__class__", "__subclasses__", "__bases__", "__globals__"}
+
+
+def _ast_is_safe(code: str) -> bool:
+    """Return True if *code* AST contains no dangerous call/attribute nodes."""
+    import ast as _ast
+    try:
+        tree = _ast.parse(code)
+    except SyntaxError:
+        return True  # syntax errors handled separately
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Call):
+            func = node.func
+            name = None
+            if isinstance(func, _ast.Name):
+                name = func.id
+            elif isinstance(func, _ast.Attribute):
+                name = func.attr
+            if name in _BANNED_AST_CALLS:
+                return False
+        if isinstance(node, _ast.Attribute) and node.attr in _BANNED_AST_ATTRS:
+            return False
+    return True
+
 _SAFE_BUILTINS: Dict[str, Any] = {
     "print": print, "range": range, "len": len,
     "int": int, "float": float, "str": str, "bool": bool,
@@ -39,7 +64,9 @@ class SandboxRunner:
 
     def is_safe(self, code: str) -> bool:
         """Return True if *code* passes safety checks."""
-        return not any(p in code for p in _BANNED)
+        if any(p in code for p in _BANNED):
+            return False
+        return _ast_is_safe(code)
 
     def run(self, code: str, timeout: float = 5.0) -> Dict[str, Any]:
         """Execute *code* safely; return stdout/stderr/success dict."""
