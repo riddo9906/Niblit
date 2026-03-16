@@ -343,11 +343,11 @@ class NiblitConfig:
     enable_improvements: bool = True
     enable_self_improvements: bool = True
     enable_autonomous_engine: bool = True
-    
+
     def __post_init__(self):
         if self.tools_dir is None:
             self.tools_dir = self.base_dir / "tools"
-    
+
     @classmethod
     def from_env(cls) -> "NiblitConfig":
         """Load configuration from environment variables."""
@@ -368,19 +368,19 @@ class NiblitConfig:
 class StartupReport:
     """Track initialization status of each component."""
     results: Dict[str, Dict[str, Optional[str]]] = field(default_factory=dict)
-    
+
     def add(self, name: str, status: str, error: Optional[str] = None):
         """Record component initialization result."""
         self.results[name] = {"status": status, "error": error}
-    
+
     def is_healthy(self) -> bool:
         """Return True if all critical components initialized."""
         critical = ["db", "identity", "guard"]
         return all(
-            self.results.get(c, {}).get("status") == "ready" 
+            self.results.get(c, {}).get("status") == "ready"
             for c in critical
         )
-    
+
     def summary(self) -> str:
         """Generate startup summary."""
         ready = sum(1 for r in self.results.values() if r.get("status") == "ready")
@@ -405,14 +405,14 @@ class PerformanceMetrics:
     operation_times: Dict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
     operation_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
     error_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
-    
+
     def record_operation(self, name: str, duration_ms: float, success: bool = True):
         """Record operation execution."""
         self.operation_times[name].append(duration_ms)
         self.operation_counts[name] += 1
         if not success:
             self.error_counts[name] += 1
-    
+
     def get_stats(self, name: str) -> Dict[str, float]:
         """Get statistics for an operation."""
         times = self.operation_times.get(name, [])
@@ -429,11 +429,11 @@ class PerformanceMetrics:
 
 class NiblitLogger:
     """Structured logging with context tracking."""
-    
+
     def __init__(self, name: str):
         self.log = logging.getLogger(name)
         self.context_stack: List[Dict[str, Any]] = []
-    
+
     @contextmanager
     def context(self, operation: str, **details):
         """Log operation entry/exit with context."""
@@ -448,7 +448,7 @@ class NiblitLogger:
         finally:
             self.context_stack.pop()
             self.log.info(f"[EXIT] {operation}", extra=ctx)
-    
+
     def get_context_depth(self) -> int:
         """Get current context stack depth."""
         return len(self.context_stack)
@@ -456,12 +456,12 @@ class NiblitLogger:
 
 class CachedOperation:
     """Simple cache with TTL for expensive operations."""
-    
+
     def __init__(self, ttl_seconds: int = 3600):
         self.cache: Dict[str, Any] = {}
         self.ttl = ttl_seconds
         self.timestamps: Dict[str, float] = {}
-    
+
     def get(self, key: str) -> Optional[Any]:
         """Get cached value if not expired."""
         if key not in self.cache:
@@ -471,23 +471,23 @@ class CachedOperation:
             del self.timestamps[key]
             return None
         return self.cache[key]
-    
+
     def set(self, key: str, value: Any):
         """Set cached value with timestamp."""
         self.cache[key] = value
         self.timestamps[key] = time.time()
-    
+
     @staticmethod
     def cache_key(*args, **kwargs) -> str:
         """Generate cache key from arguments."""
         data = str(args) + str(sorted(kwargs.items()))
         return hashlib.md5(data.encode()).hexdigest()
-    
+
     def clear_expired(self):
         """Remove all expired entries."""
         current_time = time.time()
         expired_keys = [
-            k for k in self.timestamps 
+            k for k in self.timestamps
             if current_time - self.timestamps[k] > self.ttl
         ]
         for k in expired_keys:
@@ -497,21 +497,21 @@ class CachedOperation:
 
 class ModuleRegistry:
     """Registry for dynamically loaded modules with plugin support."""
-    
+
     def __init__(self):
         self._modules: Dict[str, type] = {}
-    
+
     def register(self, name: str, module_class: type):
         """Register a module class."""
         self._modules[name] = module_class
         log.info(f"[REGISTRY] Registered module: {name}")
-    
+
     def load_from_directory(self, plugin_dir: Path):
         """Auto-discover and load modules from directory."""
         if not plugin_dir.exists():
             log.debug(f"Plugin directory not found: {plugin_dir}")
             return
-        
+
         for plugin_file in plugin_dir.glob("*.py"):
             if plugin_file.name.startswith("_"):
                 continue
@@ -522,13 +522,13 @@ class ModuleRegistry:
                 if spec and spec.loader:
                     module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(module)
-                    
+
                     for name, obj in inspect.getmembers(module, inspect.isclass):
                         if name.startswith("Niblit"):
                             self.register(name, obj)
             except Exception as e:
                 log.debug(f"Failed to load plugin {plugin_file}: {e}")
-    
+
     def get(self, name: str, *args, **kwargs) -> Optional[Any]:
         """Instantiate a registered module."""
         if name not in self._modules:
@@ -1008,10 +1008,10 @@ class NiblitCore:
     - 17 enterprise production improvements
     - 10 self-improvement modules
     - Autonomous Learning Engine (background learning when idle)
-    
+
     Architecture:
     User Input → CommandRegistry → Router → Improvements → Autonomous Learning → LLM
-    
+
     Compatible with main.py, server.py, and app.py.
     """
 
@@ -1021,26 +1021,26 @@ class NiblitCore:
         self.config = config or NiblitConfig.from_env()
         if memory_path:
             self.config.memory_path = Path(memory_path)
-        
+
         # Logging & Metrics
         self.logger = NiblitLogger("NiblitCore")
         self.metrics = PerformanceMetrics()
         self.startup_report = StartupReport()
-        
+
         # Module registry for plugins
         self.module_registry = ModuleRegistry()
-        
+
         # Caching
         self.research_cache = CachedOperation(ttl_seconds=3600)
         self.internet_cache = CachedOperation(ttl_seconds=1800)
-        
+
         # Threading
         self._lock = threading.RLock()
         self._shutdown_event = threading.Event()
         self._background_threads: List[threading.Thread] = []
         self._event_loop: Optional[asyncio.AbstractEventLoop] = None
         self._async_tasks: set = set()
-        
+
         # State
         self.start_ts = time.time()
         self._routing = False
@@ -1048,11 +1048,11 @@ class NiblitCore:
         self.llm_enabled = True
         self.running = True
         self.orchestrator_available = ORCHESTRATOR_AVAILABLE
-        
+
         # Last dump check time
         self._last_dump_check = time.time()
         self._dump_loop_count = 0
-        
+
         # SLSA state
         self.slsa_engine = None
         self.slsa_thread = None
@@ -1061,7 +1061,7 @@ class NiblitCore:
         self.wakelock: Optional["TermuxWakeLock"] = (
             TermuxWakeLock() if TermuxWakeLock is not None else None
         )
-        
+
         # NEW: Production improvements
         self.command_registry: Optional[CommandRegistry] = None
         self.task_coordinator: Optional[AsyncTaskCoordinator] = None
@@ -1074,7 +1074,7 @@ class NiblitCore:
         self.learning_batcher: Optional[LearningBatcher] = None
         self.plugin_manager: Optional[PluginManager] = None
         self.alert_manager: Optional[AlertManager] = None
-        
+
         # NEW: 10 Self-Improvement Modules
         self.improvements: Optional[ImprovementIntegrator] = None
         self.parallel_learner: Optional[ParallelLearner] = None
@@ -1089,7 +1089,7 @@ class NiblitCore:
         self.agentic_workflows: Optional[AgenticWorkflow] = None
         self.enterprise_utility: Optional[EnterpriseUtility] = None
         self.multimodal_intelligence: Optional[MultimodalIntelligence] = None
-        
+
         # NEW: Autonomous Learning Engine
         self.autonomous_engine: Optional[AutonomousLearningEngine] = None
 
@@ -1112,17 +1112,17 @@ class NiblitCore:
 
         # NEW: SelfIdeaImplementation (research + implement + SLSA + memory)
         self.idea_implementation = None
-        
+
         log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
-        
+
         try:
             if self.config.enable_improvements:
                 self._init_improvements()
-            
+
             self._initialize_core()
             self._initialize_modules()
             self._start_background_services()
-            
+
             if self.startup_report.is_healthy():
                 log.info("✅ NIBLIT READY (All Systems Go)")
             else:
@@ -1138,7 +1138,7 @@ class NiblitCore:
     def _init_improvements(self):
         """Initialize all production improvements."""
         log.info("[IMPROVEMENTS] Initializing 17 production enhancements...")
-        
+
         try:
             # 1. CommandRegistry
             if CommandRegistry:
@@ -1147,7 +1147,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ CommandRegistry initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CommandRegistry failed: {e}")
-        
+
         try:
             # 2. AsyncTaskCoordinator
             if AsyncTaskCoordinator:
@@ -1155,7 +1155,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ AsyncTaskCoordinator initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] AsyncTaskCoordinator failed: {e}")
-        
+
         try:
             # 3. EventStore
             if EventStore:
@@ -1163,7 +1163,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ EventStore initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] EventStore failed: {e}")
-        
+
         try:
             # 4. RateLimiter
             if RateLimiter:
@@ -1171,7 +1171,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ RateLimiter initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] RateLimiter failed: {e}")
-        
+
         try:
             # 5. TelemetryCollector
             if TelemetryCollector:
@@ -1179,7 +1179,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ TelemetryCollector initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] TelemetryCollector failed: {e}")
-        
+
         try:
             # 6. CircuitBreakers
             self.circuit_breakers["brain"] = CircuitBreaker(failure_threshold=5)
@@ -1188,7 +1188,7 @@ class NiblitCore:
             log.info("[IMPROVEMENTS] ✅ CircuitBreakers initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CircuitBreakers failed: {e}")
-        
+
         try:
             # 7. ConnectionPool
             if ConnectionPool:
@@ -1196,7 +1196,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ ConnectionPool initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] ConnectionPool failed: {e}")
-        
+
         try:
             # 8. CacheStrategy
             if CacheStrategy:
@@ -1204,7 +1204,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ CacheStrategy initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] CacheStrategy failed: {e}")
-        
+
         try:
             # 9. LearningBatcher
             if LearningBatcher:
@@ -1212,7 +1212,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ LearningBatcher initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] LearningBatcher failed: {e}")
-        
+
         try:
             # 10. PluginManager
             if PluginManager:
@@ -1220,7 +1220,7 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ PluginManager initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] PluginManager failed: {e}")
-        
+
         try:
             # 11. AlertManager
             if AlertManager:
@@ -1228,14 +1228,14 @@ class NiblitCore:
                 log.info("[IMPROVEMENTS] ✅ AlertManager initialized")
         except Exception as e:
             log.warning(f"[IMPROVEMENTS] AlertManager failed: {e}")
-        
+
         log.info("[IMPROVEMENTS] ✅ 17 production enhancements initialized")
 
     def _register_commands(self):
         """Register commands with CommandRegistry."""
         if not self.command_registry:
             return
-        
+
         # Core commands (no LLM)
         self.command_registry.register(
             "help", self._cmd_help, "Show available commands", "core", priority=100
@@ -1252,7 +1252,7 @@ class NiblitCore:
         self.command_registry.register(
             "time", self._cmd_time, "Show current time", "core", priority=100
         )
-        
+
         # Autonomous Learning Commands
         self.command_registry.register(
             "autonomous-learn start", self._cmd_autonomous_start, "Start autonomous learning", "autonomous", priority=98
@@ -1284,7 +1284,7 @@ class NiblitCore:
         self.command_registry.register(
             "ale processes", self._cmd_ale_process_awareness, "ALE process awareness", "knowledge", priority=95
         )
-        
+
         # SLSA commands
         self.command_registry.register(
             "slsa-status", self._cmd_slsa_status, "SLSA status", "slsa", priority=90
@@ -1298,7 +1298,7 @@ class NiblitCore:
         self.command_registry.register(
             "restart_slsa", self._cmd_slsa_restart, "Restart SLSA", "slsa", priority=90
         )
-        
+
         # Brain commands (use internet, NOT LLM)
         self.command_registry.register(
             "self-research", self._cmd_self_research, "Research topic", "brain", priority=85
@@ -1318,7 +1318,7 @@ class NiblitCore:
         self.command_registry.register(
             "idea-implement", self._cmd_idea_implement, "Generate and implement idea", "brain", priority=85
         )
-        
+
         # Internet commands
         self.command_registry.register(
             "search", self._cmd_search, "Search internet", "internet", priority=80
@@ -1326,14 +1326,14 @@ class NiblitCore:
         self.command_registry.register(
             "summary", self._cmd_summary, "Get summary", "internet", priority=80
         )
-        
+
         # Orchestrator commands
         if ORCHESTRATOR_AVAILABLE:
             self.command_registry.register(
                 "orchestrate audit", self._run_audit, "Run audit", "orchestrator", priority=70
             )
             self.command_registry.register(
-                "orchestrate pipeline", self._run_orchestration_pipeline, 
+                "orchestrate pipeline", self._run_orchestration_pipeline,
                 "Run pipeline", "orchestrator", priority=70
             )
 
@@ -1480,7 +1480,7 @@ class NiblitCore:
         """Start autonomous learning engine."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
-        
+
         result = self.autonomous_engine.start()
         return "🚀 [AUTONOMOUS] Learning started ✅" if result else "ℹ️ [AUTONOMOUS] Already running"
 
@@ -1488,7 +1488,7 @@ class NiblitCore:
         """Stop autonomous learning engine."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
-        
+
         result = self.autonomous_engine.stop()
         return "⏹️ [AUTONOMOUS] Learning stopped ✅" if result else "ℹ️ [AUTONOMOUS] Not running"
 
@@ -1496,7 +1496,7 @@ class NiblitCore:
         """Show autonomous learning status."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
-        
+
         stats = self.autonomous_engine.get_learning_stats()
         s = stats["stats"]
         mods = stats.get("modules_available", {})
@@ -1593,11 +1593,11 @@ Uptime: {stats['uptime_seconds']}s
         """Add research topic to autonomous engine."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
-        
+
         topic = text[len("autonomous-learn add-topic"):].strip()
         if not topic:
             return "Usage: autonomous-learn add-topic <topic>"
-        
+
         result = self.autonomous_engine.add_research_topic(topic)
         return f"✅ Topic added: {topic}" if result else "ℹ️ Topic already exists"
 
@@ -1780,31 +1780,31 @@ Uptime: {stats['uptime_seconds']}s
         """Show all 10 self-improvement modules."""
         if not self.improvements:
             return "[❌ Self-improvements not available]"
-        
+
         status = self.improvements.get_improvement_status()
         result = "🚀 **10 SELF-IMPROVEMENT MODULES:**\n\n"
-        
+
         for i, (name, desc) in enumerate(status.items(), 1):
             result += f"{i}. {desc}\n"
-        
+
         return result
 
     def _cmd_run_improvement_cycle(self, text: str) -> str:
         """Run complete improvement cycle."""
         if not self.improvements:
             return "[❌ Self-improvements not available]"
-        
+
         try:
             log.info("🔄 [NIBLIT] Starting full improvement cycle...")
             results = self.improvements.run_full_improvement_cycle()
-            
+
             output = "🔄 **IMPROVEMENT CYCLE RESULTS:**\n\n"
             for module, result in results.items():
                 if isinstance(result, dict):
                     output += f"✅ {module.upper()}: {result}\n"
                 else:
                     output += f"❌ {module.upper()}: {result}\n"
-            
+
             return output
         except Exception as e:
             log.error(f"[IMPROVEMENTS] Improvement cycle failed: {e}", exc_info=True)
@@ -1814,18 +1814,18 @@ Uptime: {stats['uptime_seconds']}s
         """Show improvement system status."""
         if not self.improvements:
             return "[❌ Self-improvements not available]"
-        
+
         status = self.improvements.get_improvement_status()
         result = "📊 **IMPROVEMENT SYSTEM STATUS:**\n\n"
-        
+
         active = sum(1 for s in status.values() if "✅" in str(s))
         total = len(status)
-        
+
         result += f"Active Improvements: {active}/{total}\n\n"
         result += "Details:\n"
         for name, state in status.items():
             result += f"  {state}\n"
-        
+
         return result
 
     def _cmd_show_new_commands(self, text: str = "") -> str:
@@ -3170,7 +3170,7 @@ Uptime: {stats['uptime_seconds']}s
             else:
                 log.warning("No persistent DB available; using fallback")
                 self.db = _FallbackDB()
-            
+
             self.memory = self.db
             self.startup_report.add("db", "ready")
             log.info("✅ Database initialized successfully")
@@ -3185,12 +3185,12 @@ Uptime: {stats['uptime_seconds']}s
         try:
             self.env = safe_call(NiblitEnv) if NiblitEnv else None
             self.identity = safe_call(NiblitIdentity) if NiblitIdentity else None
-            
+
             if self.identity:
                 safe_call(self.identity.verify)
-            
+
             self.guard = safe_call(NiblitGuard) if NiblitGuard else None
-            
+
             self.startup_report.add("identity", "ready")
             self.startup_report.add("guard", "ready")
             log.info("✅ Identity and security initialized")
@@ -3223,14 +3223,14 @@ Uptime: {stats['uptime_seconds']}s
         with self.logger.context("initialize_modules"):
             # Phase 1: Foundation modules
             self._init_ai_adapters()
-            
+
             # Phase 2: Intelligent systems
             self._init_brain_and_router()
             self._init_learning_systems()
-            
+
             # Phase 3: System services
             self._init_system_services()
-            
+
             # Phase 4: Optional heavy modules
             self._init_optional_services()
 
@@ -3241,7 +3241,7 @@ Uptime: {stats['uptime_seconds']}s
             self.self_healer = safe_call(SelfHealer_mod, self.db) if SelfHealer_mod else None
             self.llm = safe_call(LLMAdapter) if LLMAdapter else None
             self.trainer = safe_call(Trainer, self.db) if Trainer else None
-            
+
             self.self_teacher = safe_call(
                 SelfTeacher_mod,
                 db=self.db,
@@ -3255,32 +3255,32 @@ Uptime: {stats['uptime_seconds']}s
                     self.reflect.self_teacher = self.self_teacher
                 except Exception as _e:
                     log.debug(f"[INIT] reflect.self_teacher wire failed (non-critical): {_e}")
-            
+
             self.self_implementer = safe_call(
                 SelfImplementer,
                 db=self.db,
                 core=self
             ) if SelfImplementer else None
-            
+
             self.collector = safe_call(
                 Collector,
                 db=self.db,
                 trainer=self.trainer,
                 self_teacher=self.self_teacher
             ) if Collector else None
-            
+
             self.modules = {
                 "llm": self.llm,
                 "reflect": self.reflect,
                 "implementer": self.self_implementer
             }
-            
+
             try:
                 from modules.hf_brain import HFBrain
                 self.hf = HFBrain(db=self.db)
             except Exception:
                 self.hf = None
-            
+
             self.startup_report.add("ai_adapters", "ready")
             log.info("✅ AI adapters initialized")
         except Exception as e:
@@ -3298,7 +3298,7 @@ Uptime: {stats['uptime_seconds']}s
                 self.researcher.internet = self.internet
             if self.self_teacher:
                 self.self_teacher.researcher = self.researcher
-            
+
             try:
                 self.brain = NiblitBrain(self.db, llm_enabled=True, internet=self.internet) if NiblitBrain else None
                 if self.brain:
@@ -3311,7 +3311,7 @@ Uptime: {stats['uptime_seconds']}s
             except Exception as e:
                 log.debug(f"NiblitBrain failed: {e}")
                 self.brain = None
-            
+
             if NiblitRouter:
                 try:
                     self.router = NiblitRouter(self, self.db, self)
@@ -3321,7 +3321,7 @@ Uptime: {stats['uptime_seconds']}s
                     self.router = None
             else:
                 self.router = None
-            
+
             self.startup_report.add("brain_router", "ready")
             log.info("✅ Brain and router initialized")
         except Exception as e:
@@ -3333,7 +3333,7 @@ Uptime: {stats['uptime_seconds']}s
         try:
             self.niblit_hf = safe_call(NiblitHF) if NiblitHF else None
             self.learning = safe_call(NiblitLearning, self.db) if NiblitLearning else None
-            
+
             if NiblitTasks and self.brain and self.db:
                 try:
                     self.tasks = NiblitTasks(self.brain, self.db)
@@ -3343,13 +3343,13 @@ Uptime: {stats['uptime_seconds']}s
                     self.tasks = None
             else:
                 self.tasks = None
-            
+
             self.idea_generator = safe_call(
                 SelfIdeaGenerator,
                 db=self.db,
                 collector=self.collector
             ) if SelfIdeaGenerator else None
-            
+
             if self.idea_generator and hasattr(self.idea_generator, "autonomous_loop"):
                 threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
 
@@ -3380,7 +3380,7 @@ Uptime: {stats['uptime_seconds']}s
                     self.self_teacher.learner = self.idea_implementation
                 except Exception:
                     pass
-            
+
             self.startup_report.add("learning", "ready")
             log.info("✅ Learning systems initialized")
         except Exception as e:
@@ -3395,7 +3395,7 @@ Uptime: {stats['uptime_seconds']}s
             self.voice = safe_call(NiblitVoice) if NiblitVoice else None
             self.actions = safe_call(NiblitActions) if NiblitActions else None
             self.manager = safe_call(NiblitManager) if NiblitManager else None
-            
+
             self.startup_report.add("system_services", "ready")
             log.info("✅ System services initialized")
         except Exception as e:
@@ -3409,7 +3409,7 @@ Uptime: {stats['uptime_seconds']}s
             self.healer_obj = safe_call(Healer) if Healer else None
             self.generator = safe_call(Generator) if Generator else None
             self.self_maintenance = safe_call(SelfMaintenance) if SelfMaintenance else None
-            
+
             self.slsa_manager = slsa_manager
 
             # ============================
@@ -3434,19 +3434,19 @@ Uptime: {stats['uptime_seconds']}s
                     self.lifecycle = LifecycleEngine()
                 except Exception as e:
                     log.debug(f"LifecycleEngine failed to start: {e}")
-            
+
             if load_modules:
                 try:
                     load_modules()
                 except Exception as e:
                     log.debug(f"load_modules failed: {e}")
-            
+
             # ============================
             # INITIALIZE 10 SELF-IMPROVEMENTS
             # ============================
             if self.config.enable_self_improvements:
                 self._init_self_improvements()
-            
+
             # ============================
             # INITIALIZE AUTONOMOUS LEARNING ENGINE
             # ============================
@@ -3473,6 +3473,7 @@ Uptime: {stats['uptime_seconds']}s
                         github_sync=getattr(self, "github_sync", None),
                         build_scanner=getattr(self, "build_scanner", None),
                         binary_studier=getattr(self, "binary_studier", None),
+                        brain_trainer=getattr(self.brain, "brain_trainer", None) if getattr(self, "brain", None) else None,
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -3484,7 +3485,7 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))
-            
+
             self.startup_report.add("optional_services", "ready")
             log.info("✅ Optional services initialized")
 
@@ -3649,70 +3650,70 @@ Uptime: {stats['uptime_seconds']}s
     def _init_self_improvements(self):
         """Initialize 10 self-improvement modules."""
         log.info("[SELF-IMPROVEMENTS] Initializing 10 modules...")
-        
+
         try:
             if ParallelLearner and self.researcher:
                 self.parallel_learner = ParallelLearner(self.researcher, max_workers=3)
                 log.info("[SELF-IMPROVEMENTS] ✅ ParallelLearner")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] ParallelLearner failed: {e}")
-        
+
         try:
             if ReasoningEngine and self.db:
                 self.reasoning_engine = ReasoningEngine(self.db)
                 log.info("[SELF-IMPROVEMENTS] ✅ ReasoningEngine")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] ReasoningEngine failed: {e}")
-        
+
         try:
             if GapAnalyzer and self.db and self.researcher:
                 self.gap_analyzer = GapAnalyzer(self.db, self.researcher)
                 log.info("[SELF-IMPROVEMENTS] ✅ GapAnalyzer")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] GapAnalyzer failed: {e}")
-        
+
         try:
             if KnowledgeSynthesizer and self.db:
                 self.synthesizer = KnowledgeSynthesizer(self.db)
                 log.info("[SELF-IMPROVEMENTS] ✅ KnowledgeSynthesizer")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] KnowledgeSynthesizer failed: {e}")
-        
+
         try:
             if PredictionEngine and self.db:
                 self.predictor = PredictionEngine(self.db)
                 log.info("[SELF-IMPROVEMENTS] ✅ PredictionEngine")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] PredictionEngine failed: {e}")
-        
+
         try:
             if MemoryOptimizer and self.db:
                 self.memory_optimizer = MemoryOptimizer(self.db)
                 log.info("[SELF-IMPROVEMENTS] ✅ MemoryOptimizer")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] MemoryOptimizer failed: {e}")
-        
+
         try:
             if AdaptiveLearning:
                 self.adaptive_learning = AdaptiveLearning()
                 log.info("[SELF-IMPROVEMENTS] ✅ AdaptiveLearning")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] AdaptiveLearning failed: {e}")
-        
+
         try:
             if Metacognition and self.db:
                 self.metacognition = Metacognition(self.db)
                 log.info("[SELF-IMPROVEMENTS] ✅ Metacognition")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] Metacognition failed: {e}")
-        
+
         try:
             if CollaborativeLearner:
                 self.collaborative_learner = CollaborativeLearner()
                 log.info("[SELF-IMPROVEMENTS] ✅ CollaborativeLearner")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] CollaborativeLearner failed: {e}")
-        
+
         try:
             if ImprovementIntegrator:
                 self.improvements = ImprovementIntegrator(self, self.db, self.researcher)
@@ -3774,17 +3775,17 @@ Uptime: {stats['uptime_seconds']}s
         try:
             self._event_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._event_loop)
-            
+
             tasks = [
                 self._async_health_loop(),
                 self._async_trainer_loop(),
                 self._async_auto_research_loop(),
                 self._async_self_heal_loop(),
             ]
-            
+
             for task in tasks:
                 self._async_tasks.add(asyncio.create_task(task))
-            
+
             self._start_background_loop(
                 lambda: self._event_loop.run_forever(),
                 "AsyncEventLoop"
@@ -3810,37 +3811,37 @@ Uptime: {stats['uptime_seconds']}s
         """Monitor dump loop health and log periodically. NO DUMP AT STARTUP."""
         log.info("[DUMP LOOP] Monitoring started (delayed start, no initial dump)")
         check_count = 0
-        
+
         while self.running:
             try:
                 current_time = time.time()
                 elapsed = current_time - self._last_dump_check
-                
+
                 if elapsed >= self.config.dump_loop_log_interval:
                     self._dump_loop_count += 1
                     mem_count = self._get_memory_count()
-                    
+
                     log.info(
                         f"[DUMP LOOP] Cycle #{self._dump_loop_count}: "
                         f"elapsed={int(elapsed)}s, memory_entries={mem_count}"
                     )
-                    
+
                     try:
                         if self.db and hasattr(self.db, "dump_state"):
                             safe_call(self.db.dump_state)
                             log.debug("[DUMP LOOP] Database state dumped successfully")
                     except Exception as e:
                         log.warning(f"[DUMP LOOP] Database dump failed: {e}")
-                    
+
                     self._last_dump_check = current_time
                     check_count += 1
-                
+
                 time.sleep(10)
             except Exception as e:
                 loop_tracer.record("DumpMonitoringLoop", e)
                 log.error(f"[DUMP LOOP] Monitoring error: {e}")
                 time.sleep(10)
-        
+
         log.info(f"[DUMP LOOP] Monitoring stopped after {self._dump_loop_count} cycles")
 
     # ============================
@@ -4267,10 +4268,10 @@ Uptime: {stats['uptime_seconds']}s
         try:
             if not SLSAGenerator:
                 return "[SLSAGenerator not available]"
-            
+
             if self.slsa_engine and self.slsa_thread and self.slsa_thread.is_alive():
                 return "[SLSA engine already running]"
-            
+
             log.info(f"[SLSA] Starting SLSA engine with topics: {topics}")
             self.slsa_engine = SLSAGenerator(interval=20, topics=topics or ["car", "computer", "phone"], internet=self.internet)
             self.slsa_thread = threading.Thread(target=self.slsa_engine.run, daemon=True, name="SLSA-Generator")
@@ -4286,15 +4287,15 @@ Uptime: {stats['uptime_seconds']}s
         try:
             if not self.slsa_engine:
                 return "[SLSA engine not running]"
-            
+
             log.info("[SLSA] Stopping SLSA engine...")
             self.slsa_engine.stop()
-            
+
             if self.slsa_thread:
                 self.slsa_thread.join(timeout=5)
                 if self.slsa_thread.is_alive():
                     log.warning("[SLSA] Engine thread did not stop within timeout")
-            
+
             self.slsa_engine = None
             self.slsa_thread = None
             log.info("[SLSA] SLSA engine stopped successfully")
@@ -4319,7 +4320,7 @@ Uptime: {stats['uptime_seconds']}s
         try:
             if not self.slsa_engine:
                 return "[SLSA] Engine not initialized"
-            
+
             if self.slsa_thread and self.slsa_thread.is_alive():
                 topics = self.slsa_engine.topics if self.slsa_engine else []
                 return f"[SLSA] Generator is running with topics: {topics}"
@@ -4358,7 +4359,7 @@ Uptime: {stats['uptime_seconds']}s
                     self.autonomous_engine.record_user_activity()
             except Exception as e:
                 log.debug(f"Failed to record user activity: {e}")
-        
+
         if self.learning:
             try:
                 self.learning.process_interaction(user_input, response)
@@ -4375,7 +4376,7 @@ Uptime: {stats['uptime_seconds']}s
         """Comprehensive system health check."""
         components = {}
         errors = []
-        
+
         checks = [
             ("database", self.db),
             ("brain", self.brain),
@@ -4388,7 +4389,7 @@ Uptime: {stats['uptime_seconds']}s
             ("improvements", self.improvements),
             ("autonomous_engine", self.autonomous_engine),
         ]
-        
+
         for name, component in checks:
             if component is None:
                 components[name] = "unavailable"
@@ -4402,12 +4403,12 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     components[name] = "error"
                     errors.append(f"{name}: {e}")
-        
+
         if errors:
             status = "critical" if len(errors) > 2 else "degraded"
         else:
             status = "healthy"
-        
+
         return HealthCheckResult(
             status=status,
             components=components,
@@ -4437,7 +4438,7 @@ Uptime: {stats['uptime_seconds']}s
     def _handle_impl(self, text: str) -> str:
         """
         Main handler with clean layered architecture.
-        
+
         Flow:
         1. CommandRegistry (commands only - zero LLM)
         2. Brain commands (self-research, self-idea, reflect - uses modules, NOT LLM)
@@ -4452,9 +4453,9 @@ Uptime: {stats['uptime_seconds']}s
         11. Brain.think() (ONLY for general chat)
         """
         ltext = text.lower().strip()
-        
+
         log.debug(f"[HANDLE] Input: '{text[:50]}...' | Normalized: '{ltext[:50]}...'")
-        
+
         # ============================
         # LAYER 1: COMMAND REGISTRY (if enabled)
         # ============================
@@ -4467,7 +4468,7 @@ Uptime: {stats['uptime_seconds']}s
                     return result
             except Exception as e:
                 log.debug(f"[COMMAND_REGISTRY] Failed: {e}")
-        
+
         # ============================
         # LAYER 2: BRAIN COMMANDS (uses modules, NOT LLM)
         # ============================
@@ -4501,7 +4502,7 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.warning(f"Brain command failed: {e}")
                     return f"[Brain command failed: {e}]"
-        
+
         # ============================
         # LAYER 3: SLSA COMMANDS
         # ============================
@@ -4524,7 +4525,7 @@ Uptime: {stats['uptime_seconds']}s
             rest = ltext[len("restart_slsa"):].strip()
             topics = rest.split() if rest else None
             return self._restart_slsa_engine(topics)
-        
+
         # ============================
         # LAYER 4: ORCHESTRATOR COMMANDS
         # ============================
@@ -4563,7 +4564,7 @@ Uptime: {stats['uptime_seconds']}s
         if ltext.startswith("loop-errors"):
             log.debug("[DIAG-CMD] Intercepted: loop-errors")
             return self.loop_tracer_summary()
-        
+
         # ============================
         # LAYER 5: SYSTEM STATUS COMMANDS
         # ============================
@@ -4578,7 +4579,7 @@ Uptime: {stats['uptime_seconds']}s
         if ltext.startswith("dump"):
             log.debug("[STATUS-CMD] Intercepted: dump")
             return f"[DUMP] Loop cycles: {self._dump_loop_count}, Memory: {self._get_memory_count()}"
-        
+
         # ============================
         # LAYER 6: AUTONOMOUS LEARNING COMMANDS
         # ============================
@@ -4593,18 +4594,18 @@ Uptime: {stats['uptime_seconds']}s
                 return self._cmd_autonomous_status(text)
             elif "add-topic" in ltext:
                 return self._cmd_autonomous_add_topic(text)
-        
+
         # ============================
         # LAYER 7: SELF-IMPROVEMENT COMMANDS (BEFORE INTENT PARSING)
         # ============================
         if ltext == "show improvements":
             log.debug("[IMPROVE-CMD] Intercepted: show improvements")
             return self._cmd_show_improvements(text)
-        
+
         if ltext == "run improvement-cycle":
             log.debug("[IMPROVE-CMD] Intercepted: run improvement-cycle")
             return self._cmd_run_improvement_cycle(text)
-        
+
         if ltext == "improvement-status":
             log.debug("[IMPROVE-CMD] Intercepted: improvement-status")
             return self._cmd_improvement_status(text)
@@ -4836,18 +4837,18 @@ Uptime: {stats['uptime_seconds']}s
             log.debug("[CORE-CMD] Intercepted: ideas")
             topic = meta.get("topic", "")
             return f"Ideas for {topic}: Prototype -> Test -> Evolve"
-        
+
         # ============================
         # LAYER 9: INTERNET COMMANDS (uses internet directly, NOT LLM)
         # ============================
         if ltext.startswith("summary ") and self.internet:
             log.debug("[INTERNET-CMD] Intercepted: summary")
             return self._cmd_summary(text)
-        
+
         if ltext.startswith("search ") and self.internet:
             log.debug("[INTERNET-CMD] Intercepted: search")
             return self._cmd_search(text)
-        
+
         # ============================
         # LAYER 10: SHUTDOWN
         # ============================
@@ -4855,7 +4856,7 @@ Uptime: {stats['uptime_seconds']}s
             log.debug("[CORE-CMD] Intercepted: shutdown")
             threading.Thread(target=self.shutdown, daemon=True).start()
             return "Shutdown scheduled."
-        
+
         # ============================
         # LAYER 11: ROUTER FALLBACK
         # ============================
@@ -4871,13 +4872,13 @@ Uptime: {stats['uptime_seconds']}s
                 log.warning(f"Router failed: {e}")
             finally:
                 self._routing = False
-        
+
         # ============================
         # LAYER 12: GENERAL CONVERSATION (brain.think ONLY)
         # ============================
         log.debug("[BRAIN] General chat fallback - brain.think() only")
         response = None
-        
+
         if self.brain:
             try:
                 response = safe_call(self.brain.think, text)
@@ -5047,21 +5048,21 @@ Uptime: {stats['uptime_seconds']}s
                 self.wakelock.release()
             except Exception as e:
                 log.debug(f"Wake-lock release failed: {e}")
-        
+
         # Stop autonomous engine first
         if self.autonomous_engine and self.autonomous_engine.running:
             try:
                 self.autonomous_engine.stop()
             except Exception as e:
                 log.error(f"Autonomous engine shutdown failed: {e}")
-        
+
         # Stop SLSA engine
         if self.slsa_engine:
             try:
                 self._stop_slsa_engine()
             except Exception as e:
                 log.error(f"SLSA engine shutdown failed: {e}")
-        
+
         # Stop all background threads with timeout
         total_threads = len(self._background_threads)
         if total_threads > 0:
@@ -5073,11 +5074,11 @@ Uptime: {stats['uptime_seconds']}s
                         log.warning(f"Thread {thread.name} did not shutdown in time")
                 except Exception as e:
                     log.error(f"Error joining thread {thread.name}: {e}")
-        
+
         # Stop async event loop
         if self._event_loop and self._event_loop.is_running():
             self._event_loop.call_soon_threadsafe(self._event_loop.stop)
-        
+
         # Shutdown services in reverse order
         services = [
             ("tasks", self.tasks),
@@ -5087,7 +5088,7 @@ Uptime: {stats['uptime_seconds']}s
             ("internet", self.internet),
             ("db", self.db),
         ]
-        
+
         for name, service in services:
             if service:
                 try:
@@ -5096,7 +5097,7 @@ Uptime: {stats['uptime_seconds']}s
                     log.info(f"[SHUTDOWN] {name} shut down")
                 except Exception as e:
                     log.error(f"[SHUTDOWN] {name} failed: {e}")
-        
+
         time.sleep(0.5)
         log.info("✅ Shutdown complete")
 
