@@ -25,7 +25,8 @@ def load_tokens():
         "HF_TOKEN": os.getenv("HF_TOKEN", None),
         "HF_API": os.getenv("HF_API", "https://api-inference.huggingface.co/models"),
         "OPENAI_KEY": os.getenv("OPENAI_API_KEY", None),
-        "LOCAL_MODEL_PATH": os.getenv("LOCAL_MODEL_PATH", None)
+        "LOCAL_MODEL_PATH": os.getenv("LOCAL_MODEL_PATH", None),
+        "SERPEX_API_KEY": os.getenv("SERPEX_API_KEY", None),
     }
 
     for key, value in tokens.items():

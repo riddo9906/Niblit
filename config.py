@@ -26,6 +26,9 @@ class Config:
     # HuggingFace
     HF_TOKEN: str = os.getenv("HF_TOKEN", "")
 
+    # SerpEx search API (https://serpex.dev)
+    SERPEX_API_KEY: str = os.getenv("SERPEX_API_KEY", "")
+
     # API security
     NIBLIT_API_KEY: str = os.getenv("NIBLIT_API_KEY", "")
 
