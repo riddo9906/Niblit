@@ -70,6 +70,7 @@ class AutonomousLearningEngine:
                  internet=None, reasoning_engine=None, metacognition=None,
                  improvement_integrator=None, github_sync=None, build_scanner=None,
                  binary_studier=None, brain_trainer=None, llm=None,
+                 github_code_search=None,
                  step_timeout=120):
         """
         Args:
@@ -97,6 +98,7 @@ class AutonomousLearningEngine:
             binary_studier: BinaryStudier — autonomous binary/hex/dex/firmware/kernel study
             brain_trainer: BrainTrainer — fine-tunes brain on research data and learned material
             llm:          LLM adapter (e.g. HFLLMAdapter) — used to synthesise real code from research
+            github_code_search: GitHubCodeSearch — code pattern discovery, training datasets, refactoring
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -121,6 +123,7 @@ class AutonomousLearningEngine:
         self.binary_studier = binary_studier
         self.brain_trainer = brain_trainer
         self.llm = llm
+        self.github_code_search = github_code_search
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -746,6 +749,12 @@ class AutonomousLearningEngine:
             self.llm = getattr(self.core, "llm", None)
         return self.llm
 
+    def _get_github_code_search(self):
+        """Lazily resolve GitHubCodeSearch from core."""
+        if not self.github_code_search and self.core:
+            self.github_code_search = getattr(self.core, "github_code_search", None)
+        return self.github_code_search
+
     def _get_software_studier(self):
         """Lazily resolve SoftwareStudier from core."""
         if not self.software_studier and self.core:
@@ -845,9 +854,10 @@ class AutonomousLearningEngine:
         internet = self._get_internet()
         researcher = self.researcher
         code_gen = self._get_code_generator()
+        gcs = self._get_github_code_search()
 
-        if not internet and not researcher:
-            return "[Code research skipped — no internet or researcher]"
+        if not internet and not researcher and not gcs:
+            return "[Code research skipped — no internet, researcher, or GitHub Code Search]"
 
         # Rotate through code research topics
         if not self.code_research_topics:
@@ -895,6 +905,27 @@ class AutonomousLearningEngine:
             except Exception as exc:
                 log.debug(f"Internet code research failed: {exc}")
 
+        # 3. GitHub Code Search — idiomatic patterns from real open-source repos
+        gcs = self._get_github_code_search()
+        if gcs:
+            try:
+                gh_results = gcs.research_for_code_generation(lang, topic, max_results=3)
+                for r in (gh_results or []):
+                    text = r.get("text", "") if isinstance(r, dict) else str(r)
+                    if text and len(text) > 20:
+                        snippets.append(text[:_MAX_RESEARCH_SNIPPET_LENGTH])
+                        if self.knowledge_db:
+                            try:
+                                self.knowledge_db.add_fact(
+                                    f"ale_github_code:{lang}:{topic}:{int(time.time())}",
+                                    text[:500],
+                                    tags=["code", "github", lang, "pattern"],
+                                )
+                            except Exception:
+                                pass
+            except Exception as exc:
+                log.debug(f"GitHub code research failed: {exc}")
+
         if not snippets:
             return f"[No code research results for {lang}/{topic}]"
 
@@ -914,8 +945,14 @@ class AutonomousLearningEngine:
         self.learning_history["code_researched"] = self.learning_history.get("code_researched", 0) + 1
         # Store the most-recently researched topic so generation can use it
         self.learning_history["last_topic_researched"] = topic
+        active_sources = []
+        if internet:
+            active_sources.append("internet")
+        if gcs:
+            active_sources.append("GitHub")
+        sources = ", ".join(active_sources) if active_sources else "researcher"
         log.info(f"✅ [CODE RESEARCH] {lang}/{topic}: {len(snippets)} snippet(s) collected")
-        return f"Code research: {lang}/{topic} — {len(snippets)} snippet(s) via internet"
+        return f"Code research: {lang}/{topic} — {len(snippets)} snippet(s) via {sources}"
 
     def _autonomous_code_generation(self) -> str:
         """Step 9: Generate real code from research, using LLM when available.
@@ -2701,6 +2738,177 @@ class AutonomousLearningEngine:
         return summary
 
     # ─────────────────────────────────────────────
+    # GITHUB CODE DISCOVERY (step 26)
+    # Code pattern discovery · training datasets · automated refactoring
+    # ─────────────────────────────────────────────
+
+    # Rotate through these (language, pattern_type) pairs for pattern discovery
+    _GCS_PATTERN_TOPICS: List[tuple] = [
+        ("python",     "decorator"),
+        ("python",     "context_manager"),
+        ("python",     "async"),
+        ("python",     "error_handling"),
+        ("python",     "type_hints"),
+        ("python",     "generator"),
+        ("python",     "dataclass"),
+        ("javascript", "async"),
+        ("javascript", "error_handling"),
+        ("typescript", "type_hints"),
+        ("go",         "error_handling"),
+        ("rust",       "error_handling"),
+    ]
+
+    # Training dataset topics to cycle through
+    _GCS_DATASET_TOPICS: List[str] = [
+        "nlp text classification",
+        "code generation pairs",
+        "question answering",
+        "sentiment analysis",
+        "named entity recognition",
+        "machine translation",
+        "conversational ai dialogue",
+    ]
+
+    # (language, technique) pairs for refactoring discovery
+    _GCS_REFACTOR_TOPICS: List[tuple] = [
+        ("python", "list_comprehension"),
+        ("python", "dict_comprehension"),
+        ("python", "fstring"),
+        ("python", "pathlib"),
+        ("python", "type_annotations"),
+        ("python", "dataclass_migration"),
+        ("python", "async_migration"),
+        ("python", "exception_chaining"),
+    ]
+
+    def _autonomous_github_code_discovery(self) -> str:
+        """Step 26: GitHub Code Search — patterns, training data, refactoring.
+
+        On each cycle one sub-task from each of the three categories is run:
+
+        * **Code pattern discovery** — finds idiomatic real-world patterns for a
+          language/pattern-type pair and stores them under
+          ``ale_github_pattern:{lang}:{pattern_type}:`` KB keys.  The ALE
+          code-generation step picks these up in the next cycle so generated
+          code uses idioms from high-quality open-source repos.
+
+        * **Training datasets** — locates annotated dataset files and starred
+          dataset repos; stored under ``ale_github_dataset:{topic}:`` keys so
+          the brain-trainer and self-teacher can extend their training corpora.
+
+        * **Automated refactoring** — discovers best-practice rewrites (e.g.
+          f-string migration, list comprehension, type annotation) stored under
+          ``ale_github_refactor:{lang}:{technique}:`` keys so the code-reflection
+          step can improve generated code quality.
+        """
+        gcs = self._get_github_code_search()
+        if not gcs:
+            return "[GitHub code discovery skipped — GitHubCodeSearch not available]"
+
+        collected: List[str] = []
+        errors: List[str] = []
+        ts = int(time.time())
+
+        # ── 1. Code pattern discovery ─────────────────────────────────────
+        try:
+            pattern_topics = self._GCS_PATTERN_TOPICS
+            lang, pattern_type = pattern_topics[
+                ts % len(pattern_topics)
+            ]
+            pattern_results = gcs.discover_patterns(lang, pattern_type, max_results=4)
+            stored_count = 0
+            for r in pattern_results:
+                text = r.get("text", "")
+                if text and len(text) > 20:
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.add_fact(
+                                f"ale_github_pattern:{lang}:{pattern_type}:{ts}",
+                                text[:500],
+                                tags=["github", "pattern", lang, pattern_type, "ale_step26"],
+                            )
+                            stored_count += 1
+                        except Exception:
+                            pass
+            if pattern_results:
+                collected.append(f"patterns:{lang}/{pattern_type}({stored_count})")
+                log.info("[GH DISCOVERY] Patterns %s/%s: %d results", lang, pattern_type, len(pattern_results))
+        except Exception as exc:
+            errors.append(f"pattern:{exc}")
+            log.debug("[GH DISCOVERY] Pattern discovery failed: %s", exc)
+
+        # ── 2. Training dataset discovery ─────────────────────────────────
+        try:
+            dataset_topics = self._GCS_DATASET_TOPICS
+            dataset_topic = dataset_topics[ts % len(dataset_topics)]
+            dataset_results = gcs.find_training_data(dataset_topic, max_results=4)
+            stored_ds = 0
+            for r in dataset_results:
+                text = r.get("text", "")
+                if text and len(text) > 20:
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.add_fact(
+                                f"ale_github_dataset:{dataset_topic}:{ts}",
+                                text[:500],
+                                tags=["github", "dataset", "training", "ale_step26"],
+                            )
+                            stored_ds += 1
+                        except Exception:
+                            pass
+                    # Feed richer training corpora into the brain trainer
+                    if self.brain_trainer:
+                        try:
+                            self.brain_trainer.ingest_research(text[:300])
+                        except Exception:
+                            pass
+            if dataset_results:
+                collected.append(f"datasets:{dataset_topic}({stored_ds})")
+                log.info("[GH DISCOVERY] Datasets %r: %d results", dataset_topic, len(dataset_results))
+        except Exception as exc:
+            errors.append(f"dataset:{exc}")
+            log.debug("[GH DISCOVERY] Dataset discovery failed: %s", exc)
+
+        # ── 3. Refactoring pattern discovery ──────────────────────────────
+        try:
+            refactor_topics = self._GCS_REFACTOR_TOPICS
+            r_lang, technique = refactor_topics[ts % len(refactor_topics)]
+            refactor_results = gcs.find_refactoring_patterns(r_lang, technique, max_results=4)
+            stored_rf = 0
+            for r in refactor_results:
+                text = r.get("text", "")
+                if text and len(text) > 20:
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.add_fact(
+                                f"ale_github_refactor:{r_lang}:{technique}:{ts}",
+                                text[:500],
+                                tags=["github", "refactor", r_lang, technique, "ale_step26"],
+                            )
+                            stored_rf += 1
+                        except Exception:
+                            pass
+            if refactor_results:
+                collected.append(f"refactor:{r_lang}/{technique}({stored_rf})")
+                log.info("[GH DISCOVERY] Refactor %s/%s: %d results", r_lang, technique, len(refactor_results))
+        except Exception as exc:
+            errors.append(f"refactor:{exc}")
+            log.debug("[GH DISCOVERY] Refactoring discovery failed: %s", exc)
+
+        self.learning_history["github_code_discovery_cycles"] = (
+            self.learning_history.get("github_code_discovery_cycles", 0) + 1
+        )
+
+        if not collected:
+            return "[GitHub code discovery — no results this cycle]"
+
+        summary = "GitHubCodeDiscovery: " + ", ".join(collected)
+        if errors:
+            summary += f" (errors: {len(errors)})"
+        log.info("✅ [GH DISCOVERY] %s", summary)
+        return summary
+
+    # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle.
 
@@ -2776,6 +2984,9 @@ class AutonomousLearningEngine:
         # Cognitive enhancement — language/communication/reasoning/calculating/chat (step 25)
         _step("CognitiveEnhancement", self._autonomous_cognitive_enhancement)
 
+        # GitHub Code Search — pattern discovery, training datasets, refactoring (step 26)
+        _step("GitHubCodeDiscovery", self._autonomous_github_code_discovery)
+
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -2793,6 +3004,7 @@ class AutonomousLearningEngine:
             "topic_seedings", "reasoning_cycles", "metacognition_cycles",
             "improvement_cycles", "self_scan_cycles", "github_push_cycles",
             "brain_training_cycles", "cognitive_enhancement_cycles",
+            "github_code_discovery_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -2916,6 +3128,7 @@ class AutonomousLearningEngine:
                 "github_sync": bool(self.github_sync or (self.core and getattr(self.core, "github_sync", None))),
                 "build_scanner": bool(self.build_scanner or (self.core and getattr(self.core, "build_scanner", None))),
                 "binary_studier": bool(self.binary_studier or (self.core and getattr(self.core, "binary_studier", None))),
+                "github_code_search": bool(self._get_github_code_search()),
             },
         }
 
@@ -2960,7 +3173,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  reasoning_engine=None, metacognition=None,
                                  improvement_integrator=None,
                                  github_sync=None, build_scanner=None,
-                                 binary_studier=None, llm=None) -> AutonomousLearningEngine:
+                                 binary_studier=None, llm=None,
+                                 github_code_search=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -2986,6 +3200,7 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         build_scanner=build_scanner,
         binary_studier=binary_studier,
         llm=llm,
+        github_code_search=github_code_search,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")

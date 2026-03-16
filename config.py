@@ -29,6 +29,9 @@ class Config:
     # SerpEx search API (https://serpex.dev)
     SERPEX_API_KEY: str = os.getenv("SERPEX_API_KEY", "")
 
+    # GitHub Code Search API token (PAT with public_repo scope)
+    GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
+
     # API security
     NIBLIT_API_KEY: str = os.getenv("NIBLIT_API_KEY", "")
 
