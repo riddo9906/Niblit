@@ -116,9 +116,11 @@ class EvolveEngine:
             slsa: SLSAManager — builds semantic knowledge artefacts.
             autonomous_engine: AutonomousLearningEngine — coordinates broader learning.
             evolution_interval: Seconds between background evolution loop iterations.
-            sub_step_timeout: Maximum seconds any single sub-step may run before
-                being skipped (default 10).  With 12 sub-steps this bounds the
-                total runtime of step() to ≤120 s, safely within the ALE budget.
+            sub_step_timeout: Default maximum seconds any single sub-step may
+                run before being skipped (default 10).  Individual calls to
+                ``_run_sub_step`` can override this with a *timeout* argument —
+                network-heavy sub-steps like 'research' and 'slsa_cycle' use
+                60 s so they are not prematurely cancelled.
             live_updater: LiveUpdater — hot-reloads changed modules at runtime.
             file_manager: FilesystemManager — writes generated files to disk.
             deploy_path: Explicit filesystem path where self-updates are written.
@@ -177,16 +179,22 @@ class EvolveEngine:
     # TIMEOUT HELPER
     # ──────────────────────────────────────────────
 
-    def _run_sub_step(self, name: str, func) -> Optional[str]:
+    def _run_sub_step(self, name: str, func, timeout: Optional[int] = None) -> Optional[str]:
         """Run *func()* in a daemon thread with a per-sub-step timeout.
 
         Returns the result on success, or None if the sub-step raises or
-        exceeds *self.sub_step_timeout* seconds.  Using a daemon thread
-        (rather than a ``ThreadPoolExecutor`` context manager) ensures
-        ``join(timeout=...)`` returns immediately without waiting for the
-        thread to finish — the thread will eventually complete or be
-        discarded when the process exits.
+        exceeds the effective timeout.  Using a daemon thread (rather than a
+        ``ThreadPoolExecutor`` context manager) ensures ``join(timeout=...)``
+        returns immediately without waiting for the thread to finish — the
+        thread will eventually complete or be discarded when the process exits.
+
+        Args:
+            name: Human-readable name used in log messages.
+            func: Zero-argument callable to execute in the worker thread.
+            timeout: Override timeout in seconds for this sub-step.  When
+                *None* (default) ``self.sub_step_timeout`` is used.
         """
+        effective_timeout = timeout if timeout is not None else self.sub_step_timeout
         result_box: List[Any] = [None]
         error_box: List[Any] = [None]
 
@@ -198,12 +206,12 @@ class EvolveEngine:
 
         thread = threading.Thread(target=_target, daemon=True)
         thread.start()
-        thread.join(timeout=self.sub_step_timeout)
+        thread.join(timeout=effective_timeout)
 
         if thread.is_alive():
             log.warning(
                 "[EvolveEngine] Sub-step '%s' timed out after %ds — skipping",
-                name, self.sub_step_timeout,
+                name, effective_timeout,
             )
             return None
 
@@ -232,7 +240,7 @@ class EvolveEngine:
         }
 
         # Step 1: Research the improvement direction via self_researcher
-        research_result = self._run_sub_step("research", lambda: self._research_direction(direction))
+        research_result = self._run_sub_step("research", lambda: self._research_direction(direction), timeout=60)
         if research_result:
             record["actions"].append(f"researched: {research_result[:60]}")
 
@@ -278,7 +286,7 @@ class EvolveEngine:
             record["actions"].append(f"idea: {idea_result[:60]}")
 
         # Step 10: Run a SLSA semantic knowledge cycle
-        slsa_result = self._run_sub_step("slsa_cycle", lambda: self._run_slsa_cycle(direction))
+        slsa_result = self._run_sub_step("slsa_cycle", lambda: self._run_slsa_cycle(direction), timeout=60)
         if slsa_result:
             record["actions"].append(f"slsa: {slsa_result[:60]}")
 
