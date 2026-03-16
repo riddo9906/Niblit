@@ -200,7 +200,9 @@ class BrainTrainer:
     - Ingest research data and KB facts from AutonomousLearningEngine
     - Build a dynamic system-prompt context from accumulated training data
     - Provide topic-specific context snippets for each incoming query
-    - Persist training data to memory for use across sessions
+    - Live update and persist cognitive domain improvements (language,
+      communication, reasoning, calculating, chat completions, responses)
+    - Persist all training data to memory for use across sessions
     """
 
     _TRAINING_KEY = "brain_trainer:llm_data"
@@ -208,11 +210,23 @@ class BrainTrainer:
     _CONTEXT_PAIRS = 8        # pairs injected into each think() call
     _CONTEXT_FACTS = 5        # knowledge facts injected per query
 
+    # Core cognitive domains tracked and improved during autonomous runtime
+    COGNITIVE_TOPICS = [
+        "language",
+        "communication",
+        "reasoning",
+        "calculating",
+        "chat_completions",
+        "responses",
+    ]
+
     def __init__(self, memory, knowledge_db=None):
         self.memory = memory
         self.knowledge_db = knowledge_db
         self._pairs: list = []          # in-memory training pairs
         self._facts: list = []          # in-memory knowledge facts
+        # Per-domain cognitive data store: domain → list of update dicts
+        self._cognitive: dict = {d: [] for d in self.COGNITIVE_TOPICS}
         self._lock = threading.Lock()
         self._load_from_memory()
 
@@ -304,13 +318,41 @@ class BrainTrainer:
         """
         Build a context prefix for the given query using stored training data.
 
-        Returns an empty string when no relevant data is available.
+        Includes relevant knowledge facts, cognitive domain data, and recent
+        conversation exchanges.  Returns an empty string when no data matches.
         """
         lines = []
+        q_lower = query.lower()
 
-        # Relevant knowledge facts
+        # ── Cognitive domain context (highest priority) ───────────────────
         try:
-            q_lower = query.lower()
+            # Map query keywords to cognitive domains for targeted context
+            _domain_keywords = {
+                "language": ["language", "grammar", "syntax", "word", "text", "linguistic"],
+                "communication": ["communicat", "talk", "convers", "speak", "tell", "explain"],
+                "reasoning": ["reason", "logic", "infer", "deduc", "analyz", "think", "why", "how"],
+                "calculating": ["calculat", "math", "number", "add", "subtract", "multipl",
+                                "divid", "equat", "sum", "total", "percent"],
+                "chat_completions": ["chat", "complet", "prompt", "llm", "model", "api", "gpt"],
+                "responses": ["respond", "response", "answer", "reply", "output", "generat"],
+            }
+            with self._lock:
+                relevant_cognitive = []
+                for domain, keywords in _domain_keywords.items():
+                    if any(kw in q_lower for kw in keywords):
+                        entries = self._cognitive.get(domain, [])
+                        if entries:
+                            relevant_cognitive.append((domain, entries[-1]))
+            if relevant_cognitive:
+                lines.append("[Cognitive knowledge]")
+                for domain, entry in relevant_cognitive:
+                    lines.append(f"- {domain}: {entry.get('data', '')[:200]}")
+                lines.append("")
+        except Exception:
+            pass
+
+        # ── Relevant knowledge facts ──────────────────────────────────────
+        try:
             with self._lock:
                 scored = []
                 for f in self._facts:
@@ -327,7 +369,7 @@ class BrainTrainer:
         except Exception:
             pass
 
-        # Recent relevant exchanges
+        # ── Recent relevant exchanges ─────────────────────────────────────
         try:
             with self._lock:
                 recent_pairs = self._pairs[-self._CONTEXT_PAIRS:]
@@ -345,25 +387,105 @@ class BrainTrainer:
     def get_llm_data_summary(self) -> dict:
         """Return a summary of the accumulated LLM training data."""
         with self._lock:
+            cognitive_counts = {d: len(v) for d, v in self._cognitive.items()}
             return {
                 "training_pairs": len(self._pairs),
                 "knowledge_facts": len(self._facts),
+                "cognitive_domains": cognitive_counts,
                 "latest_pair_ts": self._pairs[-1].get("ts") if self._pairs else None,
                 "latest_fact_ts": self._facts[-1].get("ts") if self._facts else None,
             }
 
+    # ── Cognitive domain live updates ─────────────────────────────────────
+    def update_cognitive_domain(self, domain: str, data: str):
+        """
+        Register and persist a live improvement for the given cognitive domain.
+
+        Called by ALE step 25 (CognitiveEnhancement) during each autonomous
+        cycle to immediately register language, communication, reasoning,
+        calculating, chat_completions, and responses improvements in the brain.
+
+        The update is:
+        1. Stored in the in-memory `_cognitive` store for fast context retrieval.
+        2. Ingested into `_facts` so `get_context_for()` can use it.
+        3. Persisted to memory storage so it survives restarts.
+        """
+        domain = str(domain).lower().replace(" ", "_")
+        entry = {
+            "domain": domain,
+            "data": str(data)[:600],
+            "ts": datetime.datetime.utcnow().isoformat(),
+        }
+        with self._lock:
+            if domain not in self._cognitive:
+                self._cognitive[domain] = []
+            self._cognitive[domain].append(entry)
+            # Cap per-domain history to 100 entries
+            if len(self._cognitive[domain]) > 100:
+                self._cognitive[domain] = self._cognitive[domain][-100:]
+
+        # Also push to general facts store so context retrieval sees it
+        self.ingest_research(f"cognitive:{domain}", data)
+
+        # Persist to memory immediately
+        try:
+            if self.memory and hasattr(self.memory, "store_learning"):
+                self.memory.store_learning({
+                    "time": datetime.datetime.utcnow().isoformat(),
+                    "input": f"brain_trainer:cognitive:{domain}",
+                    "value": entry,
+                    "source": "brain_trainer:cognitive",
+                })
+        except Exception as _e:
+            log.debug(f"[BrainTrainer] cognitive persist failed for {domain}: {_e}")
+
+        log.debug("[BrainTrainer] cognitive domain updated live: %s", domain)
+
+    def get_cognitive_summary(self) -> dict:
+        """Return per-domain counts and latest update timestamps."""
+        with self._lock:
+            return {
+                domain: {
+                    "updates": len(entries),
+                    "latest_ts": entries[-1].get("ts") if entries else None,
+                }
+                for domain, entries in self._cognitive.items()
+            }
+
     def run_training_cycle(self) -> str:
         """
-        Execute one training cycle: pull from knowledge_db, refresh facts.
+        Execute one training cycle: pull from knowledge_db and refresh all data.
 
         Called by AutonomousLearningEngine step 24 (BrainTraining).
         Returns a summary string.
         """
         before = len(self._pairs) + len(self._facts)
         self.ingest_knowledge_db(limit=100)
+
+        # Also pull cognitive-domain-tagged facts from KB
+        if self.knowledge_db:
+            for domain in self.COGNITIVE_TOPICS:
+                try:
+                    if hasattr(self.knowledge_db, "recall"):
+                        items = self.knowledge_db.recall(f"cognitive:{domain}", limit=20)
+                        for item in (items or []):
+                            if isinstance(item, dict):
+                                text = (
+                                    item.get("value") or item.get("content")
+                                    or item.get("input") or ""
+                                )
+                                if text:
+                                    self.update_cognitive_domain(domain, str(text)[:400])
+                except Exception as _e:
+                    log.debug("[BrainTrainer] cognitive KB pull failed for %s: %s", domain, _e)
+
         after = len(self._pairs) + len(self._facts)
         added = after - before
-        summary = f"BrainTrainer cycle: {added} new items ingested, total={after}"
+        cognitive_total = sum(len(v) for v in self._cognitive.values())
+        summary = (
+            f"BrainTrainer cycle: {added} new items ingested, "
+            f"total={after}, cognitive_updates={cognitive_total}"
+        )
         log.info("[BrainTrainer] %s", summary)
         return summary
 
@@ -474,7 +596,11 @@ class NiblitBrain:
             self._init_improvements()
 
         # ─────── BRAIN TRAINER ───────
-        self.brain_trainer = BrainTrainer(self.memory)
+        # Pass memory as knowledge_db if it supports add_fact / recall (e.g. KnowledgeDB adapter)
+        _kdb = self.memory if (
+            self.memory and hasattr(self.memory, "add_fact")
+        ) else None
+        self.brain_trainer = BrainTrainer(self.memory, knowledge_db=_kdb)
         log.debug("[BRAIN] BrainTrainer initialized")
 
     def _init_improvements(self):

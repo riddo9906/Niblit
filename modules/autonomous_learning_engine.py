@@ -26,6 +26,8 @@ Runs when Niblit is idle to autonomously improve itself through:
 22. Builds Update — indexes the builds/ directory into KB each cycle
 23. Evolve Deploy — reads evolved/improvement_*.py, stores in KB, hot-reloads via LiveUpdater
 24. Brain Training — BrainTrainer fine-tunes brain on research data, KB facts, and chat history
+25. Cognitive Enhancement — research language/communication/reasoning/calculating/chat completions/responses
+                          and register findings live in KB and BrainTrainer each cycle
 
 Creates a continuous self-improvement loop.
 Internet is the primary data-collection channel for steps 1, 8, 9, 12.
@@ -130,6 +132,35 @@ class AutonomousLearningEngine:
             "code indentation and structure best practices",
             "proper code formatting standards for all languages",
             "code syntax correctness and linting",
+            # ── cognitive / language / communication ─────────────────────────
+            "natural language understanding and generation",
+            "language model prompt engineering and chat completions",
+            "conversational AI response quality and fluency",
+            "human communication styles and pragmatics",
+            "language grammar syntax and semantics",
+            "multilingual language translation techniques",
+            "dialogue management and context tracking",
+            "question answering and information retrieval",
+            "text summarization and generation best practices",
+            "sentiment analysis and tone detection",
+            # ── reasoning / logic / mathematics ──────────────────────────────
+            "logical reasoning and deductive inference",
+            "mathematical reasoning and arithmetic problem solving",
+            "symbolic AI planning and constraint solving",
+            "common-sense reasoning and world knowledge",
+            "causal reasoning and counterfactual thinking",
+            "chain-of-thought prompting and multi-step reasoning",
+            "numerical computation and floating point arithmetic",
+            "algebra calculus and statistical mathematics",
+            "probabilistic reasoning and Bayesian inference",
+            "formal verification and theorem proving",
+            # ── chat completions / response quality ──────────────────────────
+            "chat completion API design and usage patterns",
+            "LLM response formatting and structured output",
+            "context window management and long conversation handling",
+            "retrieval-augmented generation and knowledge grounding",
+            "response coherence consistency and factual accuracy",
+            "instruction following and alignment techniques",
             # ── low-level / systems ─────────────────────────────────────────
             "binary file formats ELF DEX PE Mach-O",
             "hexadecimal binary number systems and conversions",
@@ -167,6 +198,17 @@ class AutonomousLearningEngine:
             ("python", "code structure and indentation"),
             ("bash", "proper script structure and indentation"),
             ("javascript", "code structure and formatting"),
+            # ── cognitive / language / NLP ───────────────────────────────────
+            ("python", "natural language processing with NLTK and spaCy"),
+            ("python", "text generation with transformers and language models"),
+            ("python", "chat completion API client implementations"),
+            ("python", "conversation history management and context windows"),
+            ("python", "tokenization stemming and lemmatization"),
+            ("python", "reasoning chains and multi-step problem solving"),
+            ("python", "arithmetic and mathematical expression evaluation"),
+            ("python", "string formatting and template rendering"),
+            ("javascript", "chat UI components and streaming responses"),
+            ("typescript", "LLM API integration and response handling"),
             # ── compiled / systems languages ─────────────────────────────────
             ("java", "object-oriented design patterns"),
             ("java", "Android development best practices"),
@@ -263,6 +305,7 @@ class AutonomousLearningEngine:
             "builds_update_cycles": 0,
             "evolve_deploy_cycles": 0,
             "brain_training_cycles": 0,
+            "cognitive_enhancement_cycles": 0,
             "last_research_topic": None,
             "last_idea": None,
             "last_language_studied": None,
@@ -2430,6 +2473,148 @@ class AutonomousLearningEngine:
             return f"BrainTraining: error — {exc}"
 
     # ─────────────────────────────────────────────
+    # COGNITIVE ENHANCEMENT (step 25)
+    # ─────────────────────────────────────────────
+
+    # Cognitive domains researched and continuously updated in the brain
+    _COGNITIVE_DOMAINS = [
+        "language",
+        "communication",
+        "reasoning",
+        "calculating",
+        "chat_completions",
+        "responses",
+    ]
+
+    # Detailed research queries for each cognitive domain
+    _COGNITIVE_QUERIES = {
+        "language": [
+            "natural language understanding grammar syntax semantics",
+            "language model tokenization vocabulary techniques",
+            "multilingual translation and language detection",
+            "linguistic pragmatics and discourse analysis",
+        ],
+        "communication": [
+            "effective conversational AI communication patterns",
+            "human computer interaction dialogue design",
+            "active listening and empathetic response generation",
+            "tone style and register in AI communication",
+        ],
+        "reasoning": [
+            "logical deductive inductive reasoning AI",
+            "chain-of-thought reasoning in language models",
+            "causal and counterfactual reasoning techniques",
+            "common sense reasoning and world knowledge",
+        ],
+        "calculating": [
+            "numerical reasoning and arithmetic problem solving AI",
+            "mathematical expression parsing and evaluation",
+            "algebra calculus symbolic computation",
+            "probabilistic and statistical reasoning",
+        ],
+        "chat_completions": [
+            "chat completion API best practices and prompt design",
+            "context window management in LLM conversations",
+            "system prompt design for AI assistants",
+            "retrieval augmented generation for chat",
+        ],
+        "responses": [
+            "LLM response quality coherence and factual accuracy",
+            "response formatting structured output generation",
+            "hallucination reduction in AI responses",
+            "instruction following and alignment in AI responses",
+        ],
+    }
+
+    def _autonomous_cognitive_enhancement(self) -> str:
+        """Step 25: Cognitive enhancement — research language, communication,
+        reasoning, calculating, chat completions, and responses, then register
+        the findings live in both KnowledgeDB and BrainTrainer.
+
+        This step ensures that Niblit continuously improves its core cognitive
+        capabilities during every autonomous cycle, with all learned data
+        persisted to storage immediately.
+        """
+        updated_domains = []
+        errors = []
+
+        for domain in self._COGNITIVE_DOMAINS:
+            try:
+                queries = self._COGNITIVE_QUERIES.get(domain, [domain])
+                query = random.choice(queries)
+
+                # ── Fetch data via internet if available ──────────────────
+                research_text = ""
+                if self.internet:
+                    try:
+                        result = self.internet.search(query)
+                        if isinstance(result, list):
+                            research_text = " ".join(str(r) for r in result[:3])[:800]
+                        elif isinstance(result, str):
+                            research_text = result[:800]
+                    except Exception as _e:
+                        log.debug("[COGNITIVE] internet search failed for %s: %s", domain, _e)
+
+                # ── Fallback: use researcher if available ─────────────────
+                if not research_text and self.researcher:
+                    try:
+                        result = self.researcher.search(query)
+                        if isinstance(result, list):
+                            research_text = " ".join(str(r) for r in result[:3])[:800]
+                        elif isinstance(result, str):
+                            research_text = result[:800]
+                    except Exception as _e:
+                        log.debug("[COGNITIVE] researcher failed for %s: %s", domain, _e)
+
+                # ── Always generate a minimal structural entry ────────────
+                if not research_text:
+                    research_text = (
+                        f"Core cognitive domain: {domain}. "
+                        f"Research query: {query}. "
+                        f"This domain covers the ability to {domain.replace('_', ' ')} "
+                        f"effectively in AI-driven conversational systems."
+                    )
+
+                ts = int(time.time())
+
+                # ── Persist to KnowledgeDB immediately ───────────────────
+                if self.knowledge_db:
+                    try:
+                        fact_key = f"cognitive:{domain}:{ts}"
+                        self.knowledge_db.add_fact(
+                            fact_key,
+                            research_text,
+                            tags=["cognitive", domain, "brain_core", "ale_learned"],
+                        )
+                    except Exception as _e:
+                        log.debug("[COGNITIVE] KB store failed for %s: %s", domain, _e)
+
+                # ── Feed into BrainTrainer immediately ────────────────────
+                if self.brain_trainer:
+                    try:
+                        self.brain_trainer.update_cognitive_domain(domain, research_text)
+                    except Exception as _e:
+                        log.debug("[COGNITIVE] BrainTrainer update failed for %s: %s", domain, _e)
+
+                updated_domains.append(domain)
+                log.info("[COGNITIVE] ✅ Updated domain: %s", domain)
+
+            except Exception as exc:
+                errors.append(f"{domain}:{exc}")
+                log.debug("[COGNITIVE] domain update failed %s: %s", domain, exc)
+
+        self.learning_history["cognitive_enhancement_cycles"] = (
+            self.learning_history.get("cognitive_enhancement_cycles", 0) + 1
+        )
+
+        summary = (
+            f"CognitiveEnhancement: updated {len(updated_domains)}/{len(self._COGNITIVE_DOMAINS)} domains"
+            + (f" (errors: {len(errors)})" if errors else "")
+        )
+        log.info("✅ [COGNITIVE] %s", summary)
+        return summary
+
+    # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle.
 
@@ -2502,6 +2687,9 @@ class AutonomousLearningEngine:
         # Autonomous brain training — fine-tune on research+chat data (step 24)
         _step("BrainTraining", self._autonomous_brain_training)
 
+        # Cognitive enhancement — language/communication/reasoning/calculating/chat (step 25)
+        _step("CognitiveEnhancement", self._autonomous_cognitive_enhancement)
+
         # Log cycle summary
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -2518,7 +2706,7 @@ class AutonomousLearningEngine:
             "command_awareness_cycles", "command_executions",
             "topic_seedings", "reasoning_cycles", "metacognition_cycles",
             "improvement_cycles", "self_scan_cycles", "github_push_cycles",
-            "brain_training_cycles",
+            "brain_training_cycles", "cognitive_enhancement_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
