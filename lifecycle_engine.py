@@ -206,7 +206,16 @@ class LifecycleEngine:
             self.memory = MemoryManager()
         except Exception as e:
             log.warning(f"NiblitMemory failed, using stub: {e}")
-            self.memory = MemoryManager()
+            class _MemFallback:
+                def get_learning_log(self):
+                    return []
+                def get_preferences(self):
+                    return {}
+                def store_preferences(self, prefs):
+                    pass
+                def log_event(self, *a, **kw):
+                    pass
+            self.memory = _MemFallback()
 
         self.trainer = Trainer(db=self.memory)
         self.tasks = NiblitTasks(brain=None, memory=self.memory)

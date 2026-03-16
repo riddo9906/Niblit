@@ -101,7 +101,10 @@ class NiblitHF:
             self.memory = MemoryManager()
         except Exception as e:
             log.warning(f"Memory failed, using stub: {e}")
-            self.memory = MemoryManager()
+            class _MemFallback:
+                def log_event(self, *a, **kw):
+                    pass
+            self.memory = _MemFallback()
 
         self.api = "https://api-inference.huggingface.co/models"
         self.timeout = 30  # API timeout in seconds
