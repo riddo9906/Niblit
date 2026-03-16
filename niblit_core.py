@@ -830,6 +830,12 @@ except Exception as _e:
     BuildScanner = None
 
 try:
+    from modules.binary_tools import BinaryStudier
+except Exception as _e:
+    log.debug(f"BinaryStudier not available: {_e}")
+    BinaryStudier = None
+
+try:
     from modules.evolve import TERMUX_DEPLOY_PATH as _NIBLIT_BUILD_PATH
 except Exception:
     from pathlib import Path as _Path
@@ -1095,6 +1101,7 @@ class NiblitCore:
         # NEW: GitHub sync and build scanner (self-knowledge + self-update to GitHub)
         self.github_sync = None
         self.build_scanner = None
+        self.binary_studier = None
 
         # NEW: SelfIdeaImplementation (research + implement + SLSA + memory)
         self.idea_implementation = None
@@ -3432,6 +3439,7 @@ Uptime: {stats['uptime_seconds']}s
                         improvement_integrator=getattr(self, "improvements", None),
                         github_sync=getattr(self, "github_sync", None),
                         build_scanner=getattr(self, "build_scanner", None),
+                        binary_studier=getattr(self, "binary_studier", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -3535,6 +3543,18 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.debug(f"BuildScanner init failed: {e}")
                     self.startup_report.add("build_scanner", "degraded", str(e))
+
+            # ============================
+            # BINARY STUDIER
+            # ============================
+            if BinaryStudier:
+                try:
+                    self.binary_studier = BinaryStudier(db=self.db)
+                    log.info("✅ BinaryStudier initialized")
+                    self.startup_report.add("binary_studier", "ready")
+                except Exception as e:
+                    log.debug(f"BinaryStudier init failed: {e}")
+                    self.startup_report.add("binary_studier", "degraded", str(e))
 
             # ============================
             # SOFTWARE STUDIER

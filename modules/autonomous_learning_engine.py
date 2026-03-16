@@ -22,6 +22,9 @@ Runs when Niblit is idle to autonomously improve itself through:
 18. Improvement Cycle — ImprovementIntegrator runs full 10-module self-improvement cycle
 19. Self Scan — BuildScanner reads own source files and stores self-knowledge in KB
 20. GitHub Push — GitHubSync pushes autonomously-generated files to GitHub
+21. Binary Study — BinaryStudier seeds KB with binary/hex/firmware/kernel topics
+22. Builds Update — indexes the builds/ directory into KB each cycle
+23. Evolve Deploy — reads evolved/improvement_*.py, stores in KB, hot-reloads via LiveUpdater
 
 Creates a continuous self-improvement loop.
 Internet is the primary data-collection channel for steps 1, 8, 9, 12.
@@ -2563,6 +2566,7 @@ class AutonomousLearningEngine:
                 "improvement_integrator": bool(self._get_improvement_integrator()),
                 "github_sync": bool(self.github_sync or (self.core and getattr(self.core, "github_sync", None))),
                 "build_scanner": bool(self.build_scanner or (self.core and getattr(self.core, "build_scanner", None))),
+                "binary_studier": bool(self.binary_studier or (self.core and getattr(self.core, "binary_studier", None))),
             },
         }
 

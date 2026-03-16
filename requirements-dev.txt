@@ -5,6 +5,10 @@
 pytest>=7.4.0
 pytest-cov>=4.1.0
 
+# Web server dependencies (needed for test_server.py)
+Flask==2.3.3
+flask-cors>=4.0.0
+
 # Linting
 pylint>=3.0.0
 
