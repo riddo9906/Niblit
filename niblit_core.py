@@ -824,6 +824,24 @@ except Exception as _e:
     InternetManager = None
 
 try:
+    from modules.github_code_search import GitHubCodeSearch
+except Exception as _e:
+    log.debug(f"GitHubCodeSearch not available: {_e}")
+    GitHubCodeSearch = None
+
+try:
+    from modules.stackoverflow_search import StackOverflowSearch
+except Exception as _e:
+    log.debug(f"StackOverflowSearch not available: {_e}")
+    StackOverflowSearch = None
+
+try:
+    from modules.pypi_search import PyPISearch
+except Exception as _e:
+    log.debug(f"PyPISearch not available: {_e}")
+    PyPISearch = None
+
+try:
     from modules.github_sync import GitHubSync
 except Exception as _e:
     log.debug(f"GitHubSync not available: {_e}")
@@ -3200,7 +3218,7 @@ Uptime: {stats['uptime_seconds']}s
             self.startup_report.add("guard", "degraded", str(e))
 
     def _init_internet(self):
-        """Initialize internet manager."""
+        """Initialize internet manager and GitHub Code Search client."""
         try:
             self.internet = InternetManager(db=self.db) if InternetManager else None
             if self.internet:
@@ -3217,6 +3235,42 @@ Uptime: {stats['uptime_seconds']}s
             log.debug(f"InternetManager failed: {e}")
             self.internet = None
             self.startup_report.add("internet", "unavailable", str(e))
+
+        # GitHub Code Search — instantiated unconditionally; is_available() gates
+        # actual API calls so it degrades gracefully without a token.
+        try:
+            self.github_code_search = GitHubCodeSearch() if GitHubCodeSearch else None
+            if self.github_code_search and self.github_code_search.is_available():
+                log.info("✅ GitHubCodeSearch loaded (token present)")
+            else:
+                log.debug("GitHubCodeSearch loaded (no token — rate-limited mode)")
+            self.startup_report.add("github_code_search", "ready")
+        except Exception as e:
+            log.debug(f"GitHubCodeSearch failed: {e}")
+            self.github_code_search = None
+            self.startup_report.add("github_code_search", "unavailable", str(e))
+
+        # Stack Overflow Search — always available (unauthenticated tier)
+        try:
+            self.stackoverflow_search = StackOverflowSearch() if StackOverflowSearch else None
+            if self.stackoverflow_search:
+                log.info("✅ StackOverflowSearch loaded")
+            self.startup_report.add("stackoverflow_search", "ready")
+        except Exception as e:
+            log.debug(f"StackOverflowSearch failed: {e}")
+            self.stackoverflow_search = None
+            self.startup_report.add("stackoverflow_search", "unavailable", str(e))
+
+        # PyPI Search — always available (public API)
+        try:
+            self.pypi_search = PyPISearch() if PyPISearch else None
+            if self.pypi_search:
+                log.info("✅ PyPISearch loaded")
+            self.startup_report.add("pypi_search", "ready")
+        except Exception as e:
+            log.debug(f"PyPISearch failed: {e}")
+            self.pypi_search = None
+            self.startup_report.add("pypi_search", "unavailable", str(e))
 
     def _initialize_modules(self):
         """Initialize all modules with dependency management."""
@@ -3474,6 +3528,10 @@ Uptime: {stats['uptime_seconds']}s
                         build_scanner=getattr(self, "build_scanner", None),
                         binary_studier=getattr(self, "binary_studier", None),
                         brain_trainer=getattr(self.brain, "brain_trainer", None) if getattr(self, "brain", None) else None,
+                        llm=getattr(self, "llm", None),
+                        github_code_search=getattr(self, "github_code_search", None),
+                        stackoverflow_search=getattr(self, "stackoverflow_search", None),
+                        pypi_search=getattr(self, "pypi_search", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
