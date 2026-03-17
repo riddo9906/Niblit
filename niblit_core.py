@@ -3466,6 +3466,36 @@ Uptime: {stats['uptime_seconds']}s
             self.vector_store = None
             self.startup_report.add("vector_store", "degraded", str(exc))
 
+        # ── SemanticAgent singleton (shared across all components) ────────────
+        self.semantic_agent = None
+        try:
+            from niblit_agents.semantic_agent import SemanticAgent as _SemanticAgent
+            self.semantic_agent = _SemanticAgent(
+                vector_store=self.vector_store,
+            )
+            log.info(
+                "✅ SemanticAgent initialised (available=%s)",
+                self.semantic_agent.is_available(),
+            )
+            self.startup_report.add("semantic_agent", "ready")
+        except Exception as exc:
+            log.debug("SemanticAgent init failed: %s", exc)
+            self.startup_report.add("semantic_agent", "degraded", str(exc))
+
+        # ── ClaudeEngine singleton ────────────────────────────────────────────
+        self.claude_engine = None
+        try:
+            from niblit_models.claude_engine import ClaudeEngine as _ClaudeEngine
+            self.claude_engine = _ClaudeEngine()
+            log.info(
+                "✅ ClaudeEngine initialised (available=%s)",
+                self.claude_engine.is_available(),
+            )
+            self.startup_report.add("claude_engine", "ready")
+        except Exception as exc:
+            log.debug("ClaudeEngine init failed: %s", exc)
+            self.startup_report.add("claude_engine", "degraded", str(exc))
+
     def _init_ai_adapters(self):
         """Initialize AI adapter modules."""
         try:
@@ -3568,6 +3598,13 @@ Uptime: {stats['uptime_seconds']}s
                     except Exception as _e:
                         log.debug("[INIT] researcher.vector_store injection failed: %s", _e)
 
+            # Inject shared SemanticAgent into the researcher for enriched storage.
+            if self.researcher and getattr(self, "semantic_agent", None):
+                try:
+                    self.researcher.semantic_agent = self.semantic_agent
+                except Exception as _e:
+                    log.debug("[INIT] researcher.semantic_agent injection failed: %s", _e)
+
             if self.self_teacher:
                 self.self_teacher.researcher = self.researcher
 
@@ -3580,6 +3617,11 @@ Uptime: {stats['uptime_seconds']}s
                         self.collector.self_teacher = self.self_teacher
                     if hasattr(self.brain, "self_implementer"):
                         self.brain.self_implementer = self.self_implementer
+                    # Wire shared SemanticAgent + ClaudeEngine into brain
+                    if getattr(self, "semantic_agent", None) and hasattr(self.brain, "semantic"):
+                        self.brain.semantic = self.semantic_agent
+                    if getattr(self, "claude_engine", None) and hasattr(self.brain, "claude"):
+                        self.brain.claude = self.claude_engine
             except Exception as e:
                 log.debug(f"NiblitBrain failed: {e}")
                 self.brain = None
@@ -3700,6 +3742,22 @@ Uptime: {stats['uptime_seconds']}s
 
             self.slsa_manager = slsa_manager
 
+            # ── Late-inject SemanticAgent + SearchcodeSearch into InternetManager ──
+            # (InternetManager is built in _init_internet before SemanticAgent exists)
+            if getattr(self, "internet", None):
+                if getattr(self, "semantic_agent", None) and not getattr(self.internet, "semantic_agent", None):
+                    try:
+                        self.internet.semantic_agent = self.semantic_agent
+                        log.info("✅ SemanticAgent wired into InternetManager")
+                    except Exception as _e:
+                        log.debug("[INIT] internet.semantic_agent injection failed: %s", _e)
+                if getattr(self, "searchcode_search", None) and not getattr(self.internet, "searchcode_search", None):
+                    try:
+                        self.internet.searchcode_search = self.searchcode_search
+                        log.info("✅ SearchcodeSearch wired into InternetManager")
+                    except Exception as _e:
+                        log.debug("[INIT] internet.searchcode_search injection failed: %s", _e)
+
             # ============================
             # SLSA ENGINE (initialized at startup so component report shows it)
             # ============================
@@ -3709,6 +3767,8 @@ Uptime: {stats['uptime_seconds']}s
                         interval=20,
                         topics=["car", "computer", "phone"],
                         internet=getattr(self, "internet", None),
+                        semantic_agent=getattr(self, "semantic_agent", None),
+                        searchcode_search=getattr(self, "searchcode_search", None),
                     )
                     log.info("✅ SLSAGenerator initialized")
                     self.startup_report.add("slsa_engine", "ready")
@@ -3789,6 +3849,8 @@ Uptime: {stats['uptime_seconds']}s
                         pypi_search=getattr(self, "pypi_search", None),
                         searchcode_search=getattr(self, "searchcode_search", None),
                         serpex_research_agent=_serpex_agent,
+                        semantic_agent=getattr(self, "semantic_agent", None),
+                        claude_engine=getattr(self, "claude_engine", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -3961,6 +4023,7 @@ Uptime: {stats['uptime_seconds']}s
                         idea_implementation=getattr(self, "idea_implementation", None),
                         slsa=getattr(self, "slsa_engine", None),
                         autonomous_engine=getattr(self, "autonomous_engine", None),
+                        semantic_agent=getattr(self, "semantic_agent", None),
                     )
                     # Back-wire autonomous_engine → evolve_engine once both are available
                     if self.autonomous_engine and not self.autonomous_engine.evolve_engine:

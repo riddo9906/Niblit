@@ -232,6 +232,8 @@ class SelfResearcher:
         # from the modules registry.  niblit_core injects them after init.
         self._serpex_agent = self.registry.get("serpex_agent")
         self._searchcode_search = self.registry.get("searchcode_search")
+        # SemanticAgent for vector-store backed knowledge storage/retrieval
+        self._semantic_agent = self.registry.get("semantic_agent")
 
         # Optional modules
         self.engine = research_engine
@@ -287,6 +289,14 @@ class SelfResearcher:
     def searchcode_search(self, value):
         self._searchcode_search = value
 
+    @property
+    def semantic_agent(self):
+        return self._semantic_agent
+
+    @semantic_agent.setter
+    def semantic_agent(self, value):
+        self._semantic_agent = value
+
     def _ensure_serpex_agent(self) -> None:
         """Lazy-construct a ResearchAgent if one was not injected at init time."""
         if self._serpex_agent is not None:
@@ -327,6 +337,8 @@ class SelfResearcher:
             backends.append("Searchcode")
         if self._internet:
             backends.append("Internet")
+        if self._semantic_agent and self._semantic_agent.is_available():
+            backends.append("SemanticStore")
         return (
             f"Auto-research: {state} | "
             f"Backends: {', '.join(backends) or 'none'} | "
@@ -665,6 +677,21 @@ class SelfResearcher:
                 self._store_research_in_knowledge_db(query, collected_results)
             else:
                 log.warning("[REFLECT] Skipped due to low-quality data for query %r", query)
+
+        # ✨ SEMANTIC STORAGE — persist into vector store for future semantic retrieval
+        if self._semantic_agent and collected_results:
+            try:
+                # Convert mixed results (str/dict) to store-compatible format
+                docs = []
+                for r in collected_results:
+                    if isinstance(r, str) and r:
+                        docs.append({"snippet": r})
+                    elif isinstance(r, dict):
+                        docs.append(r)
+                if docs:
+                    self._semantic_agent.store_knowledge(docs, source="self_researcher", query=query)
+            except Exception as _e:
+                log.debug("[SEARCH] SemanticAgent storage failed: %s", _e)
 
         # 9️⃣ AUTO-LEARN (persist every result to KB)
         try:

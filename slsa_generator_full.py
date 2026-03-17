@@ -23,12 +23,17 @@ DEFAULT_TOPICS = ["car", "computer", "phone"]
 class SLSAGenerator:
     """Continuous semantic emergence engine integrated with DB."""
 
-    def __init__(self, interval=30, db_path="niblit.db", topics=None, internet=None):
+    def __init__(self, interval=30, db_path="niblit.db", topics=None, internet=None,
+                 semantic_agent=None, searchcode_search=None, serpex_agent=None):
         self.interval = interval
         self.stop_event = threading.Event()  # Thread-safe stop signal
         self.db = LocalDB(db_path)
         self.topics = topics or DEFAULT_TOPICS
         self.internet = internet or InternetManager(db=self.db)
+        # Optional backends for richer data collection
+        self.semantic_agent = semantic_agent
+        self.searchcode_search = searchcode_search
+        self.serpex_agent = serpex_agent
 
     # ───────── RAW DATA COLLECTION ─────────
     def fetch_wikipedia(self, topic: str) -> Optional[Dict]:
@@ -147,6 +152,47 @@ class SLSAGenerator:
         if self.internet and not self.stop_event.is_set():
             structured_results = self.internet.search(topic)
 
+        # ── Serpex enrichment ───────────────────────────────────────────────
+        if self.serpex_agent and not self.stop_event.is_set():
+            try:
+                serpex_results = self.serpex_agent.search_web(topic)
+                if serpex_results:
+                    if structured_results is None:
+                        structured_results = []
+                    for r in serpex_results:
+                        if isinstance(r, dict) and "error" not in r:
+                            text = r.get("snippet", "") or r.get("text", "")
+                            if text:
+                                structured_results.append({
+                                    "source": "serpex",
+                                    "text": text,
+                                    "url": r.get("url"),
+                                })
+            except Exception as _e:
+                log.debug("[SLSA] Serpex enrichment failed: %s", _e)
+
+        # ── Searchcode enrichment (code topics) ─────────────────────────────
+        if self.searchcode_search and not self.stop_event.is_set():
+            try:
+                sc_results = self.searchcode_search.search_code(topic, per_page=3)
+                if sc_results:
+                    if structured_results is None:
+                        structured_results = []
+                    for r in sc_results:
+                        text = r.get("snippet") or r.get("text", "")
+                        if not text and "lines" in r:
+                            lines = r.get("lines", {})
+                            if isinstance(lines, dict):
+                                text = " ".join(str(v) for v in lines.values())[:400]
+                        if text:
+                            structured_results.append({
+                                "source": "searchcode",
+                                "text": text,
+                                "url": r.get("url", ""),
+                            })
+            except Exception as _e:
+                log.debug("[SLSA] Searchcode enrichment failed: %s", _e)
+
         if self.stop_event.is_set():
             return
         wiki = self.fetch_wikipedia(topic)
@@ -168,6 +214,25 @@ class SLSAGenerator:
             log.info(f"[ARTIFACT EMERGED] {topic}")
             log.info(f"[DEFINITION] {artifact['definition']}")
             self.feed_modules(artifact)
+
+            # ── Semantic storage — embed the artifact into the vector store ──
+            if self.semantic_agent:
+                try:
+                    summary_text = " | ".join(
+                        filter(None, [
+                            artifact.get("definition", ""),
+                            artifact.get("function", ""),
+                            artifact.get("structure", ""),
+                        ])
+                    )
+                    if summary_text:
+                        self.semantic_agent.store_knowledge(
+                            [{"snippet": summary_text[:600], "title": topic, "url": ""}],
+                            source="slsa",
+                            query=topic,
+                        )
+                except Exception as _e:
+                    log.debug("[SLSA] SemanticAgent store failed: %s", _e)
 
     # ───────── BACKGROUND LOOP ─────────
     def run(self):

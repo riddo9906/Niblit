@@ -621,6 +621,25 @@ class NiblitBrain:
         if _SERPEX_TOOL_AVAILABLE:
             log.debug("[BRAIN] niblit_serpex_search tool registered")
 
+        # ─────── QDRANT INFERENCE PIPELINE ───────
+        # SemanticAgent — vector-store backed knowledge retrieval
+        self.semantic = None
+        try:
+            from niblit_agents.semantic_agent import SemanticAgent as _SemanticAgent
+            self.semantic = _SemanticAgent()
+            log.debug("[BRAIN] SemanticAgent ready (available=%s)", self.semantic.is_available())
+        except Exception as _e:
+            log.debug("[BRAIN] SemanticAgent unavailable: %s", _e)
+
+        # ClaudeEngine — Anthropic Claude with context injection
+        self.claude = None
+        try:
+            from niblit_models.claude_engine import ClaudeEngine as _ClaudeEngine
+            self.claude = _ClaudeEngine()
+            log.debug("[BRAIN] ClaudeEngine ready (available=%s)", self.claude.is_available())
+        except Exception as _e:
+            log.debug("[BRAIN] ClaudeEngine unavailable: %s", _e)
+
     def get_tools(self):
         """
         Return a list of GPT tool definition dicts for all registered tool functions.
@@ -636,6 +655,53 @@ class NiblitBrain:
         if self.serpex_tool_def is not None:
             tools.append(self.serpex_tool_def)
         return tools
+
+    def process_query(self, query: str) -> dict:
+        """
+        Full Qdrant inference pipeline: retrieve semantic context then generate
+        a response with Claude (falls back to ``think()`` when Claude is unavailable).
+
+        Flow::
+
+            1. SemanticAgent.retrieve_context(query) → context from Qdrant
+            2. ClaudeEngine.generate(query, context)  → grounded response
+            3. Fallback to self.think(query)           → HF / rule-based response
+
+        Args:
+            query: The user's question or task.
+
+        Returns:
+            Dict with keys ``"query"``, ``"context_used"``, and ``"response"``.
+        """
+        context_used = []
+        response = ""
+
+        # Step 1: Retrieve semantic memory
+        if self.semantic:
+            try:
+                context_used = self.semantic.retrieve_context(query) or []
+            except Exception as _e:
+                log.debug("[BRAIN] process_query: context retrieval failed: %s", _e)
+
+        # Step 2: Claude generation with context injection
+        if self.claude and self.claude.is_available():
+            try:
+                response = self.claude.generate(query, context=context_used) or ""
+            except Exception as _e:
+                log.debug("[BRAIN] process_query: Claude generation failed: %s", _e)
+
+        # Step 3: Fallback to existing think() when Claude unavailable / empty
+        if not response:
+            try:
+                response = self.think(query) or ""
+            except Exception as _e:
+                log.debug("[BRAIN] process_query: think() fallback failed: %s", _e)
+
+        return {
+            "query": query,
+            "context_used": context_used,
+            "response": response,
+        }
 
     def _init_improvements(self):
         """Initialize all production improvements."""
