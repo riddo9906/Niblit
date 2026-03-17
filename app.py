@@ -1356,6 +1356,17 @@ if _flask_available:
                 pass
         return render_response({"facts": facts, "count": len(facts)})
 
+    # ── MCP — Model Context Protocol ───────────────────────────────────────
+    # Register /mcp (JSON-RPC POST) and /mcp/sse (SSE notifications).
+    # Any MCP-compatible client (Claude Desktop, VS Code Copilot, Cursor …)
+    # can connect to Niblit through these endpoints.
+    try:
+        from modules.mcp_server import register_flask_routes as _mcp_register
+        _mcp_register(app)
+    except Exception as _mcp_exc:
+        import logging as _lg
+        _lg.getLogger("NiblitApp").debug("MCP routes not registered: %s", _mcp_exc)
+
 
 # ══════════════════════════════════════════════════════════════
 # LOCAL DEV ENTRY POINT

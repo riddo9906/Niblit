@@ -5,6 +5,26 @@ huggingface-hub==0.19.4  # stable across Python 3.8–3.12
 gunicorn>=20.1.0
 flask-cors>=4.0.0
 
+# ── Vector Database / Semantic Search (optional) ─────────────────────────────
+# Install these to enable Qdrant-backed semantic knowledge retrieval.
+# Niblit falls back to FAISS (if installed) then in-memory linear scan.
+#
+# Qdrant client — connects to cloud.qdrant.io or a self-hosted Qdrant instance.
+# Set QDRANT_URL and QDRANT_API_KEY in .env to activate.
+qdrant-client>=1.7.0
+# Sentence-transformers — local embedding generation for vector search.
+# Used by VectorStore, KnowledgeStore, LLMAdapter, and ResearcherEngine.
+sentence-transformers>=2.2.2
+# numpy — required by sentence-transformers and the in-memory vector backend.
+numpy>=1.24.0
+
+# ── MCP (Model Context Protocol) ─────────────────────────────────────────────
+# Enables /mcp and /mcp/sse endpoints + stdio transport so MCP clients
+# (Claude Desktop, VS Code Copilot, Cursor, …) can use Niblit as a tool server.
+# The built-in JSON-RPC handler works without this package; install it to get
+# the official MCP SDK helpers and type stubs.
+mcp>=1.0.0
+
 # ── Full Upgrade Pipeline (optional) ─────────────────────────────────────────
 # Install these to unlock advanced features in niblit_full_upgrade_pipeline.py
 # pip install -r requirements-pipeline.txt

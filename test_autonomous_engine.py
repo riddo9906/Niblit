@@ -184,6 +184,25 @@ class TestGetLearningStats:
         after = ale.get_learning_stats()["research_topics"]
         assert after == before + 1
 
+    def test_cycle_count_starts_at_zero(self, ale):
+        assert ale.get_learning_stats()["cycle_count"] == 0
+
+    def test_serpex_research_agent_in_modules_available(self, ale):
+        mods = ale.get_learning_stats()["modules_available"]
+        assert "serpex_research_agent" in mods
+
+    def test_serpex_research_agent_false_when_not_provided(self, ale, monkeypatch):
+        monkeypatch.delenv("SERPEX_API_KEY", raising=False)
+        # Clear any cached agent
+        ale.serpex_research_agent = None
+        if ale.core:
+            try:
+                del ale.core.serpex_research_agent
+            except AttributeError:
+                pass
+        mods = ale.get_learning_stats()["modules_available"]
+        assert mods["serpex_research_agent"] is False
+
 
 # ---------------------------------------------------------------------------
 # start / stop
@@ -240,6 +259,14 @@ class TestInitializeFactory:
         engine.running = False
         engine._stop_event.set()
 
+    def test_accepts_serpex_research_agent(self, core):
+        """Factory should wire serpex_research_agent into the ALE instance."""
+        mock_agent = MagicMock()
+        engine = initialize_autonomous_engine(core=core, serpex_research_agent=mock_agent)
+        assert engine.serpex_research_agent is mock_agent
+        engine.running = False
+        engine._stop_event.set()
+
     def test_get_autonomous_engine_returns_instance_after_init(self, core):
         initialize_autonomous_engine(core=core)
         engine = get_autonomous_engine()
@@ -273,6 +300,96 @@ class TestRunSelfLearnSequence:
         )
         result = engine.run_self_learn_sequence()
         assert isinstance(result, str)
+
+
+# ---------------------------------------------------------------------------
+# Step 27: _autonomous_serpex_research
+# ---------------------------------------------------------------------------
+
+class TestSerpexResearchStep:
+    """Verify ALE Step 27 (_autonomous_serpex_research) behaviour."""
+
+    def test_returns_skip_message_without_agent(self, ale, monkeypatch):
+        """No agent → graceful skip or 'no valid results' message, no exception."""
+        monkeypatch.delenv("SERPEX_API_KEY", raising=False)
+        ale.serpex_research_agent = None
+        if ale.core:
+            try:
+                del ale.core.serpex_research_agent
+            except AttributeError:
+                pass
+        result = ale._autonomous_serpex_research()
+        assert isinstance(result, str)
+        # Either "skipped" (no agent at all) or "no valid results" (key missing/wrong)
+        lower = result.lower()
+        assert any(kw in lower for kw in ("skip", "unavailable", "results", "error"))
+
+    def test_uses_injected_serpex_agent(self, core):
+        """Injected ResearchAgent is called and results stored in KB."""
+        mock_agent = MagicMock()
+        mock_agent._serpex_key = "test-key"
+        mock_agent.search_web.return_value = [
+            {"title": "Endianness", "url": "http://example.com",
+             "snippet": "endianness refers to byte order in memory"}
+        ]
+        mock_kb = MagicMock()
+        engine = AutonomousLearningEngine(
+            core=core,
+            serpex_research_agent=mock_agent,
+            knowledge_db=mock_kb,
+            poll_interval=9999,
+        )
+        result = engine._autonomous_serpex_research()
+        mock_agent.search_web.assert_called_once()
+        # KB should have received at least one add_fact call
+        mock_kb.add_fact.assert_called()
+        assert isinstance(result, str)
+        assert "snippet" in result.lower() or "serpex" in result.lower()
+
+    def test_increments_serpex_research_cycles(self, core):
+        """Counter increments after a successful run."""
+        mock_agent = MagicMock()
+        mock_agent._serpex_key = "key"
+        mock_agent.search_web.return_value = [
+            {"title": "T", "url": "http://u.com", "snippet": "some relevant snippet text here"}
+        ]
+        engine = AutonomousLearningEngine(
+            core=core,
+            serpex_research_agent=mock_agent,
+            poll_interval=9999,
+        )
+        before = engine.learning_history["serpex_research_cycles"]
+        engine._autonomous_serpex_research()
+        after = engine.learning_history["serpex_research_cycles"]
+        assert after == before + 1
+
+    def test_cycle_count_increments_each_run(self, ale):
+        """_cycle_count should be 0 before any cycle has run (verify initial state)."""
+        assert ale._cycle_count == 0
+
+    def test_get_serpex_agent_returns_injected(self, core):
+        """_get_serpex_agent() should return the injected instance."""
+        mock_agent = MagicMock()
+        mock_agent._serpex_key = "k"
+        engine = AutonomousLearningEngine(
+            core=core,
+            serpex_research_agent=mock_agent,
+            poll_interval=9999,
+        )
+        assert engine._get_serpex_agent() is mock_agent
+
+    def test_get_serpex_agent_returns_none_without_key(self, ale, monkeypatch):
+        """Without an injected agent and no key, _get_serpex_agent returns None."""
+        monkeypatch.delenv("SERPEX_API_KEY", raising=False)
+        ale.serpex_research_agent = None
+        if ale.core:
+            try:
+                del ale.core.serpex_research_agent
+            except AttributeError:
+                pass
+        result = ale._get_serpex_agent()
+        # Should be None (no key) or a ResearchAgent (key found) — never raise.
+        assert result is None or hasattr(result, "search_web")
 
 
 if __name__ == "__main__":

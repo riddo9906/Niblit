@@ -175,7 +175,8 @@ class TestResearchAgent:
         agent._serpex = mock_api
         agent._knowledge_store = MagicMock()
         agent.search_news("AI trends")
-        call_kwargs = mock_api.search.call_args[1]
+        # check the *first* call (the original news search), not any retry
+        call_kwargs = mock_api.search.call_args_list[0][1]
         assert call_kwargs["category"] == "news"
         assert call_kwargs["engine"] == "google"
 
@@ -184,8 +185,9 @@ class TestResearchAgent:
         agent._knowledge_store = MagicMock()
         data = {
             "results": [
-                {"title": "T1", "url": "http://a.com", "snippet": "snip1"},
-                {"title": "T2", "link": "http://b.com", "description": "snip2"},
+                # snippets contain the query word so they pass the relevance gate
+                {"title": "T1", "url": "http://a.com", "snippet": "test snip1"},
+                {"title": "T2", "link": "http://b.com", "description": "test snip2"},
             ]
         }
         extracted = agent._process_results(data, query="test")
@@ -212,8 +214,9 @@ class TestResearchAgent:
         mock_vs = MagicMock()
         agent._vector_store = mock_vs
         agent._knowledge_store = MagicMock()
-        agent._process_results(_serpex_response(), query="test")
-        # add() should be called for each item with a snippet
+        # query="asyncio" matches the default snippet "asyncio intro"
+        agent._process_results(_serpex_response(), query="asyncio")
+        # add() should be called for each relevant item with a snippet
         assert mock_vs.add.call_count >= 1
 
     def test_process_results_skips_empty_snippets(self):
@@ -237,6 +240,78 @@ class TestResearchAgent:
         with patch.object(agent, "_knowledge_store_client", return_value=None):
             results = agent.search_web("test")
         assert isinstance(results, list)
+
+    # ── relevance-filter tests ──────────────────────────────────────────────
+
+    def test_is_relevant_returns_true_for_matching_text(self):
+        from niblit_agents.research_agent import is_relevant
+        assert is_relevant("endianness big endian", "endianness refers to byte order big-endian") is True
+
+    def test_is_relevant_returns_false_for_unrelated_text(self):
+        from niblit_agents.research_agent import is_relevant
+        assert is_relevant("endianness big endian", "GUID Partition Table GPT drive standard") is False
+
+    def test_is_relevant_respects_threshold(self):
+        from niblit_agents.research_agent import is_relevant
+        # 1 of 3 query terms present -> score=0.33, below default 0.5
+        assert is_relevant("alpha beta gamma", "only alpha here") is False
+        # same but with threshold=0.3 -> passes
+        assert is_relevant("alpha beta gamma", "only alpha here", threshold=0.3) is True
+
+    def test_is_relevant_empty_query_always_true(self):
+        from niblit_agents.research_agent import is_relevant
+        assert is_relevant("", "anything") is True
+
+    def test_should_reflect_true_with_results(self):
+        from niblit_agents.research_agent import should_reflect
+        assert should_reflect(["result1", "result2"]) is True
+
+    def test_should_reflect_false_with_empty_list(self):
+        from niblit_agents.research_agent import should_reflect
+        assert should_reflect([]) is False
+
+    def test_process_results_filters_irrelevant_snippets(self):
+        """Snippets unrelated to the query should be dropped."""
+        agent = self._make_agent()
+        mock_api = MagicMock()
+        # retry returns empty so the test stays self-contained
+        mock_api.search.return_value = {"results": []}
+        agent._serpex = mock_api
+        agent._knowledge_store = MagicMock()
+        data = {
+            "results": [
+                {"title": "Relevant", "url": "http://r.com",
+                 "snippet": "endianness refers to byte order in memory"},
+                {"title": "Irrelevant", "url": "http://i.com",
+                 "snippet": "GUID Partition Table GPT drive"},
+            ]
+        }
+        extracted = agent._process_results(data, query="endianness")
+        titles = [e["title"] for e in extracted]
+        assert "Relevant" in titles
+        assert "Irrelevant" not in titles
+
+    def test_process_results_retries_on_no_relevant_results(self):
+        """When all snippets are irrelevant a refined-query retry is issued."""
+        agent = self._make_agent()
+        mock_api = MagicMock()
+        # The retry call returns a relevant result
+        mock_api.search.return_value = {
+            "results": [{"title": "Endianness", "url": "http://e.com",
+                         "snippet": "endianness byte order explanation"}]
+        }
+        agent._serpex = mock_api
+        agent._knowledge_store = MagicMock()
+        # Feed irrelevant data directly to _process_results to trigger the retry
+        results = agent._process_results(
+            {"results": [{"title": "Junk", "url": "http://j.com",
+                          "snippet": "GUID Partition Table GPT"}]},
+            query="endianness",
+        )
+        # The retry search should have been called exactly once
+        assert mock_api.search.call_count == 1
+        # Result should come from the retry
+        assert any("Endianness" in r.get("title", "") for r in results)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

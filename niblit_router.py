@@ -871,6 +871,9 @@ Ask me about:
                 f"  Last Seeded      : {', '.join(s.get('last_seeded_topics') or []) or 'none'}\n"
                 f"  ALE Topics       : {stats.get('research_topics', 0)}\n"
                 f"  SLSA Topics      : {len(slsa_topics)} ({', '.join(slsa_topics[:3])}{'...' if len(slsa_topics) > 3 else ''})\n"
+                "\n🌐 Serpex Research (Step 27):\n"
+                f"  Serpex Cycles    : {s.get('serpex_research_cycles', 0)}\n"
+                f"  Last Query       : {s.get('last_serpex_query', 'none')}\n"
                 "\n🔌 Modules:\n"
                 f"  internet             : {'✅' if mods.get('internet') else '❌'}\n"
                 f"  code_generator       : {'✅' if mods.get('code_generator') else '❌'}\n"
@@ -878,7 +881,10 @@ Ask me about:
                 f"  software_studier     : {'✅' if mods.get('software_studier') else '❌'}\n"
                 f"  structural_awareness : {'✅' if mods.get('structural_awareness') else '❌'}\n"
                 f"  slsa_manager         : {'✅' if mods.get('slsa_manager') else '❌'}\n"
-                f"\nPending Ideas: {stats.get('pending_ideas', 0)} | "
+                f"  github_code_search   : {'✅' if mods.get('github_code_search') else '❌'}\n"
+                f"  serpex_research_agent: {'✅' if mods.get('serpex_research_agent') else '❌'}\n"
+                f"\nTotal Cycles: {stats.get('cycle_count', 0)} | "
+                f"Pending Ideas: {stats.get('pending_ideas', 0)} | "
                 f"Topics: {stats.get('research_topics', 0)}"
             )
 
@@ -922,6 +928,29 @@ Ask me about:
                 return safe_call(engine._autonomous_topic_seeding) or "[Topic seeding failed]"
             return "[Topic seeding not available in this engine version]"
 
+        if action in ("serpex-research", "serpex research", "serpex"):
+            if hasattr(engine, "_autonomous_serpex_research"):
+                return safe_call(engine._autonomous_serpex_research) or "[Serpex research failed]"
+            return "[Serpex research not available — niblit_agents.ResearchAgent not wired]"
+
+        if action.startswith("serpex-search "):
+            query = action.replace("serpex-search", "").strip()
+            if not query:
+                return "Usage: autonomous-learn serpex-search <query>"
+            agent = engine._get_serpex_agent() if hasattr(engine, "_get_serpex_agent") else None
+            if not agent:
+                return "[Serpex agent unavailable — set SERPEX_API_KEY]"
+            try:
+                results = agent.search_web(query)
+                valid = [r for r in (results or []) if isinstance(r, dict) and "error" not in r]
+                if not valid:
+                    return f"No relevant Serpex results for: {query}"
+                lines = [f"  [{i+1}] {r.get('title','(no title)')} — {r.get('snippet','')[:120]}"
+                         for i, r in enumerate(valid[:5])]
+                return f"🌐 Serpex results for {query!r}:\n" + "\n".join(lines)
+            except Exception as exc:
+                return f"[Serpex search error: {exc}]"
+
         return (
             "Usage:\n"
             "autonomous-learn start              — Start autonomous learning (incl. code loop)\n"
@@ -933,6 +962,8 @@ Ask me about:
             "autonomous-learn command-awareness  — Study all registered commands\n"
             "autonomous-learn command-exec       — Execute safe diagnostic commands\n"
             "autonomous-learn topic-seed         — Derive & seed new topics to ALE + SLSA + KB queue\n"
+            "autonomous-learn serpex-research    — Run ALE Step 27 (Serpex validated research) now\n"
+            "autonomous-learn serpex-search <q>  — Live Serpex web search for <q> with relevance filter\n"
             "autonomous-learn add-topic <topic>  — Add research topic\n"
             "autonomous-learn add-topics <t1,t2> — Add multiple topics"
         )

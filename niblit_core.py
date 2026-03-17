@@ -842,6 +842,12 @@ except Exception as _e:
     PyPISearch = None
 
 try:
+    from modules.searchcode_search import SearchcodeSearch
+except Exception as _e:
+    log.debug(f"SearchcodeSearch not available: {_e}")
+    SearchcodeSearch = None
+
+try:
     from modules.github_sync import GitHubSync
 except Exception as _e:
     log.debug(f"GitHubSync not available: {_e}")
@@ -874,6 +880,28 @@ try:
     log.debug("slsa_manager imported from modules.slsa_manager")
 except Exception as _e:
     log.debug(f"slsa_manager not available: {_e}")
+
+# ── Qdrant / VectorStore (shared singleton) ──────────────────────────────────
+try:
+    from modules.vector_store import VectorStore as _VectorStore
+except Exception as _e:
+    log.debug(f"VectorStore not available: {_e}")
+    _VectorStore = None
+
+# ── MCP server ────────────────────────────────────────────────────────────────
+try:
+    from modules.mcp_server import (
+        register_flask_routes as _mcp_register_flask_routes,
+        attach_core as _mcp_attach_core,
+        MCP_ENABLED as _MCP_ENABLED,
+    )
+    _MCP_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"MCP server module unavailable: {_e}")
+    _MCP_AVAILABLE = False
+    _mcp_register_flask_routes = None
+    _mcp_attach_core = None
+    _MCP_ENABLED = False
 
 ORCHESTRATOR_AVAILABLE = False
 RepoAuditor = None
@@ -1423,6 +1451,14 @@ class NiblitCore:
         self.command_registry.register(
             "autonomous-learn topic-seed", self._cmd_autonomous_topic_seed,
             "Derive & seed new topics to ALE + SLSA + KB queue (ALE Step 15)", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "autonomous-learn serpex-research", self._cmd_autonomous_serpex_research,
+            "Run ALE Step 27: Serpex validated web research with relevance filter", "autonomous", priority=97
+        )
+        self.command_registry.register(
+            "autonomous-learn serpex-search", self._cmd_autonomous_serpex_search,
+            "Live Serpex web search with relevance filter (pass query after command)", "autonomous", priority=97
         )
 
         # GitHub sync commands
@@ -2608,6 +2644,46 @@ Uptime: {stats['uptime_seconds']}s
         result = self.autonomous_engine._autonomous_topic_seeding()
         return result or "✅ Topic seeding complete"
 
+    def _cmd_autonomous_serpex_research(self, text: str) -> str:
+        """Trigger ALE Step 27: Serpex-backed validated web research with relevance filter."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        if not hasattr(self.autonomous_engine, "_autonomous_serpex_research"):
+            return "[❌ Serpex research step not available]"
+        return self.autonomous_engine._autonomous_serpex_research()
+
+    def _cmd_autonomous_serpex_search(self, text: str) -> str:
+        """Live Serpex search with relevance filter.  Pass the query after 'serpex-search'."""
+        query = text.strip()
+        # Allow "autonomous-learn serpex-search <query>" — strip prefix if present
+        for prefix in ("autonomous-learn serpex-search", "serpex-search"):
+            if query.lower().startswith(prefix):
+                query = query[len(prefix):].strip()
+                break
+        if not query:
+            return "Usage: autonomous-learn serpex-search <query>"
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        agent = (
+            self.autonomous_engine._get_serpex_agent()
+            if hasattr(self.autonomous_engine, "_get_serpex_agent")
+            else None
+        )
+        if not agent:
+            return "[Serpex agent unavailable — set SERPEX_API_KEY]"
+        try:
+            results = agent.search_web(query)
+            valid = [r for r in (results or []) if isinstance(r, dict) and "error" not in r]
+            if not valid:
+                return f"No relevant Serpex results for: {query!r}"
+            lines = [
+                f"  [{i+1}] {r.get('title','(no title)')} — {r.get('snippet','')[:120]}"
+                for i, r in enumerate(valid[:5])
+            ]
+            return f"🌐 Serpex results for {query!r}:\n" + "\n".join(lines)
+        except Exception as exc:
+            return f"[Serpex search error: {exc}]"
+
     def _cmd_generate_code(self, spec: str) -> str:
         """Generate code: 'python module name=my_mod docstring=Does X'"""
         if not self.code_generator:
@@ -3272,9 +3348,23 @@ Uptime: {stats['uptime_seconds']}s
             self.pypi_search = None
             self.startup_report.add("pypi_search", "unavailable", str(e))
 
+        # Searchcode Search — public code search API + MCP endpoint; no key required
+        try:
+            self.searchcode_search = SearchcodeSearch() if SearchcodeSearch else None
+            if self.searchcode_search:
+                log.info("✅ SearchcodeSearch loaded (MCP: %s)", self.searchcode_search.mcp_is_available())
+            self.startup_report.add("searchcode_search", "ready")
+        except Exception as e:
+            log.debug(f"SearchcodeSearch failed: {e}")
+            self.searchcode_search = None
+            self.startup_report.add("searchcode_search", "unavailable", str(e))
+
     def _initialize_modules(self):
         """Initialize all modules with dependency management."""
         with self.logger.context("initialize_modules"):
+            # Phase 0: Shared infrastructure (VectorStore / Qdrant)
+            self._init_vector_store()
+
             # Phase 1: Foundation modules
             self._init_ai_adapters()
 
@@ -3288,12 +3378,63 @@ Uptime: {stats['uptime_seconds']}s
             # Phase 4: Optional heavy modules
             self._init_optional_services()
 
+    def _init_vector_store(self) -> None:
+        """
+        Create a shared :class:`~modules.vector_store.VectorStore` singleton
+        that is passed to the LLM adapter, the ResearcherEngine, and any other
+        module that wants semantic search over Niblit's knowledge base.
+
+        The store selects its backend automatically:
+        * **Qdrant** — when ``QDRANT_URL`` env var is set
+        * **FAISS**  — when ``faiss-cpu`` and ``sentence-transformers`` are installed
+        * **in-memory linear scan** — always available, no dependencies
+        """
+        self.vector_store = None
+        if _VectorStore is None:
+            log.debug("[INIT] VectorStore module not available")
+            return
+        try:
+            self.vector_store = _VectorStore(
+                collection=getattr(self.config, "QDRANT_COLLECTION", "niblit_knowledge"),
+                qdrant_url=getattr(self.config, "QDRANT_URL", ""),
+                qdrant_api_key=getattr(self.config, "QDRANT_API_KEY", ""),
+            )
+            log.info(
+                "✅ VectorStore initialised (backend: %s)",
+                self.vector_store.backend,
+            )
+            self.startup_report.add("vector_store", "ready")
+        except Exception as exc:
+            log.warning("VectorStore init failed: %s", exc)
+            self.vector_store = None
+            self.startup_report.add("vector_store", "degraded", str(exc))
+
     def _init_ai_adapters(self):
         """Initialize AI adapter modules."""
         try:
             self.reflect = safe_call(Reflect_mod, self.db) if Reflect_mod else None
             self.self_healer = safe_call(SelfHealer_mod, self.db) if SelfHealer_mod else None
-            self.llm = safe_call(LLMAdapter) if LLMAdapter else None
+
+            # Pass shared VectorStore so the LLM adapter enriches code-generation
+            # context with semantically-relevant KB facts (Qdrant / FAISS / memory).
+            if LLMAdapter:
+                _vs = getattr(self, "vector_store", None)
+                try:
+                    _params = inspect.signature(LLMAdapter.__init__).parameters
+                    if "vector_store" in _params:
+                        self.llm = LLMAdapter(vector_store=_vs)
+                    else:
+                        self.llm = safe_call(LLMAdapter)
+                        if _vs and self.llm and not getattr(self.llm, "vector_store", None):
+                            try:
+                                self.llm.vector_store = _vs
+                            except Exception:
+                                pass
+                except Exception:
+                    self.llm = safe_call(LLMAdapter)
+            else:
+                self.llm = None
+
             self.trainer = safe_call(Trainer, self.db) if Trainer else None
 
             self.self_teacher = safe_call(
@@ -3350,6 +3491,16 @@ Uptime: {stats['uptime_seconds']}s
 
             if self.researcher and self.internet:
                 self.researcher.internet = self.internet
+
+            # Inject shared VectorStore into the researcher so semantic caching
+            # and Qdrant-backed retrieval are available during autonomous research.
+            if self.researcher and getattr(self, "vector_store", None):
+                if not getattr(self.researcher, "vector_store", None):
+                    try:
+                        self.researcher.vector_store = self.vector_store
+                    except Exception as _e:
+                        log.debug("[INIT] researcher.vector_store injection failed: %s", _e)
+
             if self.self_teacher:
                 self.self_teacher.researcher = self.researcher
 
@@ -3506,6 +3657,18 @@ Uptime: {stats['uptime_seconds']}s
             # ============================
             if self.config.enable_autonomous_engine and AutonomousLearningEngine:
                 try:
+                    # Build a niblit_agents.ResearchAgent (Serpex-backed, relevance-filtered)
+                    # and expose it on self so other components can access it.
+                    _serpex_agent = None
+                    try:
+                        from niblit_agents.research_agent import ResearchAgent as _NiblitResearchAgent
+                        _serpex_agent = _NiblitResearchAgent()
+                        self.serpex_research_agent = _serpex_agent
+                        log.info("✅ niblit_agents.ResearchAgent (Serpex) ready for ALE step 27")
+                    except Exception as _e:
+                        log.debug("niblit_agents.ResearchAgent unavailable: %s", _e)
+                        self.serpex_research_agent = None
+
                     self.autonomous_engine = AutonomousLearningEngine(
                         core=self,
                         researcher=getattr(self, "researcher", None),
@@ -3532,6 +3695,8 @@ Uptime: {stats['uptime_seconds']}s
                         github_code_search=getattr(self, "github_code_search", None),
                         stackoverflow_search=getattr(self, "stackoverflow_search", None),
                         pypi_search=getattr(self, "pypi_search", None),
+                        searchcode_search=getattr(self, "searchcode_search", None),
+                        serpex_research_agent=_serpex_agent,
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -3543,6 +3708,18 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))
+
+            # ============================
+            # MCP SERVER — attach NiblitCore so tools work
+            # ============================
+            if _MCP_AVAILABLE and _MCP_ENABLED and _mcp_attach_core:
+                try:
+                    _mcp_attach_core(self)
+                    log.info("✅ MCP server wired to NiblitCore")
+                    self.startup_report.add("mcp_server", "ready")
+                except Exception as e:
+                    log.debug(f"MCP attach_core failed: {e}")
+                    self.startup_report.add("mcp_server", "degraded", str(e))
 
             self.startup_report.add("optional_services", "ready")
             log.info("✅ Optional services initialized")
