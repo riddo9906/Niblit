@@ -12,10 +12,6 @@
 # Requires Docker Desktop or Docker Engine on the host.
 docker>=6.0.0
 
-# Neo4j driver — enables graph database relationship mapping.
-# Requires a running Neo4j instance (cloud or self-hosted).
-py2neo>=2021.2.4
-
 # Prometheus metrics client — exposes /metrics endpoint for Grafana.
 prometheus-client>=0.19.0
 

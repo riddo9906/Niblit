@@ -3466,6 +3466,22 @@ Uptime: {stats['uptime_seconds']}s
             self.vector_store = None
             self.startup_report.add("vector_store", "degraded", str(exc))
 
+        # ── FusedMemory singleton (Qdrant + SQLite hybrid backend) ────────────
+        self.fused_memory = None
+        try:
+            from modules.fused_memory import FusedMemory as _FusedMemory
+            self.fused_memory = _FusedMemory(
+                vector_store=self.vector_store,
+            )
+            log.info(
+                "✅ FusedMemory initialised (vector_backend=%s)",
+                self.fused_memory.vector_backend,
+            )
+            self.startup_report.add("fused_memory", "ready")
+        except Exception as exc:
+            log.debug("FusedMemory init failed: %s", exc)
+            self.startup_report.add("fused_memory", "degraded", str(exc))
+
         # ── SemanticAgent singleton (shared across all components) ────────────
         self.semantic_agent = None
         try:
