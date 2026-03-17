@@ -212,6 +212,16 @@ class NiblitMemory:
             "cache_misses": 0,
         }
 
+        # 7. Fused Memory (SQLite + Qdrant) — primary persistent backend
+        try:
+            from modules.fused_memory import FusedMemory as _FusedMemory
+            self.fused_memory = _FusedMemory()
+            log.debug("[MEMORY] FusedMemory backend initialised (vector_backend=%s)",
+                      self.fused_memory.vector_backend)
+        except Exception as _e:
+            log.debug("[MEMORY] FusedMemory unavailable: %s", _e)
+            self.fused_memory = None
+
     def _ensure_integrity(self):
         """Ensures required keys always exist. Prevents runtime crashes in other modules."""
         with self.lock:
@@ -374,6 +384,13 @@ class NiblitMemory:
                     })
                 except Exception as e:
                     log.debug(f"Event store append failed: {e}")
+
+            # Mirror to fused memory (SQLite + Qdrant)
+            if getattr(self, "fused_memory", None):
+                try:
+                    self.fused_memory.log_event("memory_event", {"text": text})
+                except Exception as _e:
+                    log.debug("[MEMORY] fused_memory.log_event failed: %s", _e)
         except Exception as e:
             log.error(f"Event logging failed: {e}")
             self.metrics["errors"] += 1
@@ -394,11 +411,21 @@ class NiblitMemory:
             if self.telemetry:
                 self.telemetry.increment_counter("memory_learn_store")
             self.save()
+
+            # Mirror to fused memory (SQLite + Qdrant)
+            if getattr(self, "fused_memory", None):
+                try:
+                    key = f"learning:{id(data)}"
+                    value = data if isinstance(data, str) else str(data)
+                    self.fused_memory.store_knowledge(key, value[:1000], source="learning_log")
+                except Exception as _e:
+                    log.debug("[MEMORY] fused_memory.store_knowledge failed: %s", _e)
         except Exception as e:
             log.error(f"Learning store failed: {e}")
             self.metrics["errors"] += 1
             if self.telemetry:
                 self.telemetry.increment_counter("memory_learn_error")
+
 
     def get_learning_log(self):
         """
