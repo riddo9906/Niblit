@@ -2,14 +2,14 @@
 """
 AUTONOMOUS LEARNING ENGINE
 Runs when Niblit is idle to autonomously improve itself through:
-1.  Research new topics (self-research via SelfResearcher + internet)
+1.  Research new topics (self-research via SelfResearcher + SerpexResearchAgent + internet)
 2.  Generate ideas from research (self-idea via SelfIdeaImplementation)
 3.  Implement ideas (self-implement via SelfImplementer)
 4.  Learn from research (learn via SelfTeacher)
 5.  Reflect on findings (reflect)
 6.  Auto-run SLSA for knowledge generation
 7.  Run evolution step (EvolveEngine)
-8.  Code Research — researcher+internet fetch real language/code data → CodeGenerator
+8.  Code Research — researcher+internet+Serpex fetch real language/code data → CodeGenerator
 9.  Code Generation — idea_generator+implementer produce compilable code
 10. Code Compilation — CodeCompiler compiles generated code and stores results
 11. Code Reflection — ReflectModule studies compiled output so Niblit understands it
@@ -20,6 +20,7 @@ Runs when Niblit is idle to autonomously improve itself through:
 16. Reasoning — ReasoningEngine builds knowledge graph, chains, and infers new facts
 17. Metacognition — Metacognition evaluates self-knowledge and identifies learning gaps
 18. Improvement Cycle — ImprovementIntegrator runs full 10-module self-improvement cycle
+                        (throttled: executes every 3 cycles to prevent resource contention)
 19. Self Scan — BuildScanner reads own source files and stores self-knowledge in KB
 20. GitHub Push — GitHubSync pushes autonomously-generated files to GitHub
 21. Binary Study — BinaryStudier seeds KB with binary/hex/firmware/kernel topics
@@ -28,9 +29,22 @@ Runs when Niblit is idle to autonomously improve itself through:
 24. Brain Training — BrainTrainer fine-tunes brain on research data, KB facts, and chat history
 25. Cognitive Enhancement — research language/communication/reasoning/calculating/chat completions/responses
                           and register findings live in KB and BrainTrainer each cycle
+26. GitHub Code Discovery — GitHubCodeSearch: pattern discovery, training datasets, refactoring hints
+27. Serpex Research — niblit_agents.ResearchAgent uses Serpex API + relevance filter to gather
+                      validated web research and feed it directly into KB, BrainTrainer, and Step 2
 
-Creates a continuous self-improvement loop.
-Internet is the primary data-collection channel for steps 1, 8, 9, 12.
+Cycle Efficiency Rules
+----------------------
+* Each step is wrapped in _run_step_with_timeout; a stalled step never blocks the cycle.
+* A 3-second interruptible sleep between steps lets the OS process I/O between network calls.
+* Step 18 (ImprovementCycle) is throttled to every 3 cycles — it is the most expensive step.
+* Step 20 (GitHubPush) is throttled to every 5 cycles — network push; not needed every cycle.
+* Results from Step 1 (Research) and Step 27 (SerpexResearch) are carried forward to Steps 2-6
+  so each subsequent step is boosted by the context collected in the current cycle.
+* Step 27 (SerpexResearch) feeds results directly to Step 1 context and BrainTrainer so the
+  validated, relevance-filtered data enriches every downstream step in the same cycle.
+
+Internet is the primary data-collection channel for steps 1, 8, 9, 12, 27.
 """
 
 import concurrent.futures
@@ -62,6 +76,15 @@ class AutonomousLearningEngine:
     Runs in background when system is idle.
     """
 
+    # Throttle constants — increase these numbers to reduce frequency of expensive steps.
+    # ImprovementCycle (step 18) runs every N cycles (10 sub-modules; resource-intensive).
+    _IMPROVEMENT_CYCLE_EVERY: int = 3
+    # GitHubPush (step 20) runs every N cycles (network push; not needed every cycle).
+    _GITHUB_PUSH_EVERY: int = 5
+    # Seconds to sleep between consecutive steps for I/O breathing room.
+    # 27 steps × 3 s = ~81 s aggregate, acceptable for a multi-minute background cycle.
+    _INTER_STEP_SLEEP: float = 3.0
+
     def __init__(self, core, researcher=None, idea_generator=None,
                  reflect_module=None, self_teacher=None, slsa_manager=None,
                  knowledge_db=None, idle_threshold=300, poll_interval=60,
@@ -72,6 +95,7 @@ class AutonomousLearningEngine:
                  binary_studier=None, brain_trainer=None, llm=None,
                  github_code_search=None,
                  stackoverflow_search=None, pypi_search=None,
+                 serpex_research_agent=None,
                  step_timeout=120):
         """
         Args:
@@ -102,6 +126,10 @@ class AutonomousLearningEngine:
             github_code_search: GitHubCodeSearch — code pattern discovery, training datasets, refactoring
             stackoverflow_search: StackOverflowSearch — bug solutions and code-pattern lookup via SO API
             pypi_search: PyPISearch — PyPI package intelligence for dependency graphs and new libraries
+            serpex_research_agent: niblit_agents.ResearchAgent — Serpex-backed web search with
+                                   relevance filtering (is_relevant) and automatic KnowledgeStore
+                                   + Qdrant persistence (step 27).  Falls back to lazy construction
+                                   from SERPEX_API_KEY env var when None.
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -129,6 +157,7 @@ class AutonomousLearningEngine:
         self.github_code_search = github_code_search
         self.stackoverflow_search = stackoverflow_search
         self.pypi_search = pypi_search
+        self.serpex_research_agent = serpex_research_agent
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -320,7 +349,9 @@ class AutonomousLearningEngine:
             "evolve_deploy_cycles": 0,
             "brain_training_cycles": 0,
             "cognitive_enhancement_cycles": 0,
+            "serpex_research_cycles": 0,
             "last_research_topic": None,
+            "last_serpex_query": None,
             "last_idea": None,
             "last_language_studied": None,
             "last_software_category": None,
@@ -331,6 +362,9 @@ class AutonomousLearningEngine:
             "learning_rate": 0.0,
             "start_time": datetime.utcnow().isoformat()
         }
+
+        # Internal cycle counter used for step throttling (e.g. ImprovementCycle).
+        self._cycle_count: int = 0
 
         log.info("✅ AutonomousLearningEngine initialized")
 
@@ -352,8 +386,14 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _autonomous_research(self) -> str:
-        """Step 1: Autonomously research interesting topics"""
-        if not self.researcher:
+        """Step 1: Autonomously research interesting topics.
+
+        Uses SelfResearcher as the primary source and falls back to the
+        Serpex ResearchAgent (niblit_agents) when SelfResearcher is absent
+        or returns empty results.  Results are forwarded to Step 4 (reflection)
+        and also used by Steps 2-6 in the current cycle.
+        """
+        if not self.researcher and not self._get_serpex_agent():
             return "[Researcher unavailable]"
 
         try:
@@ -362,38 +402,58 @@ class AutonomousLearningEngine:
 
             log.info(f"🔍 [AUTONOMOUS RESEARCH] Starting: {topic}")
 
-            # Run research with autonomous learning enabled
-            results = self.researcher.search(
-                topic,
-                max_results=5,
-                use_history=True,
-                synthesize=True,
-                enable_autonomous_learning=True
-            )
+            results = []
+
+            # Primary: SelfResearcher (semantic search + KB cache + internet)
+            if self.researcher:
+                try:
+                    results = self.researcher.search(
+                        topic,
+                        max_results=5,
+                        use_history=True,
+                        synthesize=True,
+                        enable_autonomous_learning=True
+                    )
+                    try:
+                        results = list(results) if results else []
+                    except TypeError:
+                        results = [results] if results else []
+                except Exception as exc:
+                    log.debug("[RESEARCH] SelfResearcher failed: %s", exc)
+
+            # Fallback / enrichment: Serpex ResearchAgent (relevance-filtered)
+            if not results:
+                agent = self._get_serpex_agent()
+                if agent:
+                    try:
+                        serpex_results = agent.search_web(topic)
+                        for r in (serpex_results or []):
+                            if isinstance(r, dict) and "error" not in r:
+                                snippet = r.get("snippet", "")
+                                if snippet:
+                                    results.append(snippet)
+                    except Exception as exc:
+                        log.debug("[RESEARCH] Serpex fallback failed: %s", exc)
 
             self.learning_history["research_completed"] += 1
             self.learning_history["last_research_topic"] = topic
 
             # Forward raw results to Step 4 (reflection) so it has full content.
-            # Guard against non-iterable or None return from researcher.
-            try:
-                self._last_research_results = list(results) if results else []
-            except TypeError:
-                self._last_research_results = [results] if results else []
+            self._last_research_results = results
 
             # Log to knowledge base
             if self.knowledge_db:
                 try:
                     self.knowledge_db.log_event(
-                        f"Autonomous research completed: {topic} ({len(results) if results else 0} results)"
+                        f"Autonomous research completed: {topic} ({len(results)} results)"
                     )
                     # Store structured acquired data fact including full results text
-                    all_text = "\n---\n".join(str(r)[:400] for r in (results or [])[:5])
+                    all_text = "\n---\n".join(str(r)[:400] for r in results[:5])
                     self.knowledge_db.add_fact(
                         f"ale_research:{topic.replace(' ', '_')}:{int(time.time())}",
                         {
                             "topic": topic,
-                            "results_count": len(results) if results else 0,
+                            "results_count": len(results),
                             "summary": str(results[0])[:300] if results else "no results",
                             "full_text": all_text[:800],
                             "step": "step1_research",
@@ -403,7 +463,7 @@ class AutonomousLearningEngine:
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
-            log.info(f"✅ [AUTONOMOUS RESEARCH] Completed: {topic}")
+            log.info(f"✅ [AUTONOMOUS RESEARCH] Completed: {topic} ({len(results)} results)")
             return f"Researched: {topic}"
 
         except Exception as e:
@@ -772,6 +832,124 @@ class AutonomousLearningEngine:
             self.pypi_search = getattr(self.core, "pypi_search", None)
         return self.pypi_search
 
+    def _get_serpex_agent(self):
+        """Lazily resolve or construct the niblit_agents.ResearchAgent (Serpex-backed).
+
+        Resolution order:
+        1. self.serpex_research_agent (injected at construction time)
+        2. core.serpex_research_agent (set by niblit_core)
+        3. Lazy construction from SERPEX_API_KEY env var (silent on failure)
+        """
+        if self.serpex_research_agent:
+            return self.serpex_research_agent
+        if self.core:
+            agent = getattr(self.core, "serpex_research_agent", None)
+            if agent:
+                self.serpex_research_agent = agent
+                return agent
+        # Attempt lazy construction — only succeeds when SERPEX_API_KEY is set
+        try:
+            from niblit_agents.research_agent import ResearchAgent
+            agent = ResearchAgent()
+            if agent._serpex_key:  # has a key
+                self.serpex_research_agent = agent
+                return agent
+        except Exception:
+            pass
+        return None
+
+    def _autonomous_serpex_research(self) -> str:
+        """Step 27: Use niblit_agents.ResearchAgent (Serpex + relevance filter) for validated research.
+
+        This step:
+        1. Picks a topic from research_topics (prioritising recently-used ones for continuity).
+        2. Calls ResearchAgent.search_web() which applies is_relevant() filtering so only
+           semantically related snippets reach the knowledge base.
+        3. Stores each validated snippet in the knowledge DB with 'ale_serpex_research:' prefix.
+        4. Feeds validated snippets to BrainTrainer.ingest_research() so they immediately
+           improve response quality.
+        5. Appends the validated text to self._last_research_results so Steps 2-6 in the
+           *current* cycle are boosted by the freshly-gathered, relevance-checked data.
+        6. Adds any new topic titles found in result titles to the research queue.
+        """
+        agent = self._get_serpex_agent()
+        if not agent:
+            return "[SerpexResearch skipped — niblit_agents.ResearchAgent unavailable or no API key]"
+
+        # Pick a topic — prefer the topic last researched so Serpex data deepens the same thread
+        topic = (
+            self.learning_history.get("last_research_topic")
+            or (random.choice(self.research_topics) if self.research_topics else None)
+        )
+        if not topic:
+            return "[SerpexResearch skipped — no research topics]"
+
+        log.info("🌐 [SERPEX RESEARCH] Querying: %r", topic)
+
+        try:
+            results = agent.search_web(topic)
+        except Exception as exc:
+            log.debug("[SERPEX RESEARCH] search_web failed: %s", exc)
+            return f"[SerpexResearch error: {exc}]"
+
+        # Filter out error-only responses
+        valid = [r for r in (results or []) if isinstance(r, dict) and "error" not in r]
+        if not valid:
+            return f"[SerpexResearch] No valid results for {topic!r}"
+
+        stored = 0
+        for item in valid:
+            snippet = item.get("snippet", "")
+            title = item.get("title", "")
+            url = item.get("url", "")
+            if not snippet:
+                continue
+
+            # Persist to knowledge DB
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_serpex_research:{topic.replace(' ', '_')}:{int(time.time())}",
+                        {
+                            "topic": topic,
+                            "title": title,
+                            "url": url,
+                            "snippet": snippet[:500],
+                            "step": "step27_serpex_research",
+                        },
+                        tags=["ale_step27", "serpex", "research", "autonomous",
+                              topic.split()[0].lower()],
+                    )
+                    stored += 1
+                except Exception as exc:
+                    log.debug("[SERPEX RESEARCH] KB store failed: %s", exc)
+
+            # Feed to BrainTrainer for immediate training improvement
+            bt = self.brain_trainer or (
+                getattr(self.core, "brain", None) and
+                getattr(self.core.brain, "brain_trainer", None)
+            )
+            if bt and hasattr(bt, "ingest_research"):
+                try:
+                    bt.ingest_research(topic, snippet[:400])
+                except Exception as exc:
+                    log.debug("[SERPEX RESEARCH] BrainTrainer ingest failed: %s", exc)
+
+            # Boost downstream steps (2-6) with validated content
+            self._last_research_results.append(snippet[:400])
+
+            # Enqueue fresh topic titles as new research seeds
+            if title and title not in self.research_topics:
+                self.add_research_topic(title)
+
+        self.learning_history["serpex_research_cycles"] = (
+            self.learning_history.get("serpex_research_cycles", 0) + 1
+        )
+        self.learning_history["last_serpex_query"] = topic
+
+        log.info("✅ [SERPEX RESEARCH] %r — %d snippet(s) stored", topic, stored)
+        return f"SerpexResearch: {topic!r} — {stored}/{len(valid)} snippet(s) validated + stored"
+
     def _get_software_studier(self):
         """Lazily resolve SoftwareStudier from core."""
         if not self.software_studier and self.core:
@@ -862,19 +1040,22 @@ class AutonomousLearningEngine:
             return f"[Improvement cycle error: {exc}]"
 
     def _autonomous_code_research(self) -> str:
-        """Step 8: Researcher + Internet fetch real programming-language data → feed CodeGenerator.
+        """Step 8: Researcher + Internet + Serpex fetch real programming-language data.
 
         Internet is the primary source.  self_researcher provides semantic
-        search / caching on top.  Results are stored in the knowledge DB so
-        CodeGenerator can produce more informed code in step 9.
+        search / caching on top.  The niblit_agents.ResearchAgent (Serpex,
+        with relevance filtering) adds a validated web-search layer.
+        Results are stored in the knowledge DB so CodeGenerator can produce
+        more informed code in step 9.
         """
         internet = self._get_internet()
         researcher = self.researcher
         code_gen = self._get_code_generator()
         gcs = self._get_github_code_search()
+        serpex = self._get_serpex_agent()
 
-        if not internet and not researcher and not gcs:
-            return "[Code research skipped — no internet, researcher, or GitHub Code Search]"
+        if not internet and not researcher and not gcs and not serpex:
+            return "[Code research skipped — no internet, researcher, GitHub Code Search, or Serpex]"
 
         # Rotate through code research topics
         if not self.code_research_topics:
@@ -886,6 +1067,27 @@ class AutonomousLearningEngine:
         log.info(f"💻 [CODE RESEARCH] Fetching: {query}")
 
         snippets: List[str] = []
+
+        # 0. Serpex ResearchAgent — relevance-filtered, validated web search (new source)
+        if serpex:
+            try:
+                serpex_results = serpex.search_web(query)
+                for r in (serpex_results or []):
+                    if isinstance(r, dict) and "error" not in r:
+                        snippet = r.get("snippet", "")
+                        if snippet and len(snippet) > 20:
+                            snippets.append(snippet[:_MAX_RESEARCH_SNIPPET_LENGTH])
+                            if self.knowledge_db:
+                                try:
+                                    self.knowledge_db.add_fact(
+                                        f"ale_serpex_code:{lang}:{topic}:{int(time.time())}",
+                                        snippet[:500],
+                                        tags=["code", "serpex", lang, "validated"],
+                                    )
+                                except Exception:
+                                    pass
+            except Exception as exc:
+                log.debug(f"Serpex code research failed: {exc}")
 
         # 1. Researcher (semantic search + KB cache)
         if researcher and hasattr(researcher, "research_code_and_feed_generator"):
@@ -2974,15 +3176,29 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle.
+        """Execute one complete autonomous learning cycle (27 steps).
 
-        Every step is wrapped in *_run_step_with_timeout* so a stalled
-        network call or slow module can never freeze the whole loop.
-        A short interruptible sleep between steps lets stop() interrupt
-        the cycle immediately.
+        Design principles
+        -----------------
+        * Step 27 (SerpexResearch) runs FIRST so validated, relevance-filtered
+          web data is in self._last_research_results before Step 1 (Research)
+          and the rest of the core learning loop.  Each subsequent step is
+          therefore boosted by the freshest external knowledge.
+        * Every step is wrapped in _run_step_with_timeout (default 120 s) so a
+          stalled network call can never freeze the whole cycle.
+        * A 3-second interruptible sleep between steps gives the OS time to
+          process network I/O between calls, reducing contention.
+        * Step 18 (ImprovementCycle) is throttled to every 3 cycles — it
+          launches 10 sub-modules and is the most CPU/memory-intensive step.
+        * Step 20 (GitHubPush) is throttled to every 5 cycles — a network push
+          is expensive and not useful every cycle.
+        * stop() wakes the engine from any inter-step sleep immediately.
         """
+        self._cycle_count += 1
+        cycle = self._cycle_count
+
         log.info("=" * 70)
-        log.info("🔄 [AUTONOMOUS CYCLE] Starting complete learning cycle...")
+        log.info("🔄 [AUTONOMOUS CYCLE #%d] Starting...", cycle)
         log.info("=" * 70)
 
         results = []
@@ -2992,9 +3208,15 @@ class AutonomousLearningEngine:
                 return
             result = self._run_step_with_timeout(name, fn)
             results.append((name, result))
-            self._interruptible_sleep(2)
+            self._interruptible_sleep(self._INTER_STEP_SLEEP)
 
-        # Core learning loop (steps 1-7)
+        # ── PRE-LOAD: validated web data boosts ALL downstream steps ──────
+        # Step 27 runs before core loop so _last_research_results is populated
+        # with relevance-filtered Serpex content before Steps 1-6 run.
+        _step("SerpexResearch", self._autonomous_serpex_research)
+
+        # ── Core learning loop (steps 1-7) ─────────────────────────────────
+        # Step 1 now falls back to Serpex data populated above.
         _step("Research",       self._autonomous_research)
         _step("Ideas",          self._autonomous_idea_generation)
         _step("Learning",       self._autonomous_learning)
@@ -3003,58 +3225,65 @@ class AutonomousLearningEngine:
         _step("SLSA",           self._autonomous_slsa_run)
         _step("Evolve",         self._autonomous_evolve_step)
 
-        # Programming-literacy loop (steps 8-12)
+        # ── Programming-literacy loop (steps 8-12) ──────────────────────────
+        # Step 8 now also queries Serpex for code-specific validated snippets.
         _step("CodeResearch",    self._autonomous_code_research)
         _step("CodeGeneration",  self._autonomous_code_generation)
         _step("CodeCompilation", self._autonomous_code_compilation)
         _step("CodeReflection",  self._autonomous_code_reflection)
         _step("SoftwareStudy",   self._autonomous_software_study)
 
-        # Structural self-awareness loop (steps 13-14)
+        # ── Structural self-awareness loop (steps 13-14) ────────────────────
         _step("CommandAwareness", self._autonomous_command_awareness)
         _step("CommandExecution", self._autonomous_command_execution)
 
-        # Topic seeding loop (step 15)
+        # ── Topic seeding (step 15) — grows the research frontier ───────────
         _step("TopicSeeding", self._autonomous_topic_seeding)
 
-        # Intelligent reasoning (step 16)
+        # ── Intelligent reasoning (step 16) ─────────────────────────────────
         _step("Reasoning", self._autonomous_reasoning)
 
-        # Metacognition (step 17)
+        # ── Metacognition (step 17) ──────────────────────────────────────────
         _step("Metacognition", self._autonomous_metacognition)
 
-        # Full 10-module improvement cycle (step 18) — runs every cycle so improvements
-        # are applied *constantly* rather than only when triggered by a manual command.
-        _step("ImprovementCycle", self._autonomous_improvement_cycle)
+        # ── ImprovementCycle (step 18) — throttled: every _IMPROVEMENT_CYCLE_EVERY cycles ──
+        # Running this every cycle creates resource contention (10 sub-modules).
+        if cycle % self._IMPROVEMENT_CYCLE_EVERY == 0:
+            _step("ImprovementCycle", self._autonomous_improvement_cycle)
+        else:
+            log.debug("[AUTONOMOUS CYCLE] ImprovementCycle skipped (cycle %d/%d)", cycle, self._IMPROVEMENT_CYCLE_EVERY)
 
-        # Self-scan — read own source files and store self-knowledge (step 19)
+        # ── Self-scan (step 19) ──────────────────────────────────────────────
         _step("SelfScan", self._autonomous_self_scan)
 
-        # GitHub push — persist generated files to GitHub (step 20)
-        _step("GitHubPush", self._autonomous_github_push)
+        # ── GitHub push (step 20) — throttled: every _GITHUB_PUSH_EVERY cycles ───────────
+        if cycle % self._GITHUB_PUSH_EVERY == 0:
+            _step("GitHubPush", self._autonomous_github_push)
+        else:
+            log.debug("[AUTONOMOUS CYCLE] GitHubPush skipped (cycle %d/%d)", cycle, self._GITHUB_PUSH_EVERY)
 
-        # Binary/hex/dex/firmware/kernel/BIOS study (step 21)
+        # ── Binary study (step 21) ───────────────────────────────────────────
         _step("BinaryStudy", self._autonomous_binary_study)
 
-        # Scan and index the builds/ folder into KB (step 22)
+        # ── Builds update (step 22) ──────────────────────────────────────────
         _step("BuildsUpdate", self._autonomous_builds_update)
 
-        # Read, understand, and hot-reload evolution improvements (step 23)
+        # ── Evolve deploy (step 23) ──────────────────────────────────────────
         _step("EvolveDeploy", self._autonomous_evolve_deploy)
 
-        # Autonomous brain training — fine-tune on research+chat data (step 24)
+        # ── Brain training (step 24) ─────────────────────────────────────────
         _step("BrainTraining", self._autonomous_brain_training)
 
-        # Cognitive enhancement — language/communication/reasoning/calculating/chat (step 25)
+        # ── Cognitive enhancement (step 25) ──────────────────────────────────
         _step("CognitiveEnhancement", self._autonomous_cognitive_enhancement)
 
-        # GitHub Code Search — pattern discovery, training datasets, refactoring (step 26)
+        # ── GitHub Code Discovery (step 26) ──────────────────────────────────
         _step("GitHubCodeDiscovery", self._autonomous_github_code_discovery)
 
-        # Log cycle summary
+        # ── Log cycle summary ─────────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
-        log.info(f"✅ [AUTONOMOUS CYCLE] Summary:\n{summary}")
+        log.info(f"✅ [AUTONOMOUS CYCLE #%d] Summary:\n{summary}", cycle)
         log.info("=" * 70)
 
         # Update learning rate — count every discrete learning action
@@ -3068,7 +3297,7 @@ class AutonomousLearningEngine:
             "topic_seedings", "reasoning_cycles", "metacognition_cycles",
             "improvement_cycles", "self_scan_cycles", "github_push_cycles",
             "brain_training_cycles", "cognitive_enhancement_cycles",
-            "github_code_discovery_cycles",
+            "github_code_discovery_cycles", "serpex_research_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -3164,6 +3393,7 @@ class AutonomousLearningEngine:
         return {
             "running": self.running,
             "is_idle": self.is_idle(),
+            "cycle_count": self._cycle_count,
             "stats": self.learning_history,
             "pending_ideas": len(self.pending_ideas),
             "research_topics": len(self.research_topics),
@@ -3193,6 +3423,7 @@ class AutonomousLearningEngine:
                 "build_scanner": bool(self.build_scanner or (self.core and getattr(self.core, "build_scanner", None))),
                 "binary_studier": bool(self.binary_studier or (self.core and getattr(self.core, "binary_studier", None))),
                 "github_code_search": bool(self._get_github_code_search()),
+                "serpex_research_agent": bool(self._get_serpex_agent()),
             },
         }
 
@@ -3240,7 +3471,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  binary_studier=None, llm=None,
                                  github_code_search=None,
                                  stackoverflow_search=None,
-                                 pypi_search=None) -> AutonomousLearningEngine:
+                                 pypi_search=None,
+                                 serpex_research_agent=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -3269,6 +3501,7 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         github_code_search=github_code_search,
         stackoverflow_search=stackoverflow_search,
         pypi_search=pypi_search,
+        serpex_research_agent=serpex_research_agent,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")

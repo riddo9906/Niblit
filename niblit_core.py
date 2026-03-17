@@ -1424,6 +1424,14 @@ class NiblitCore:
             "autonomous-learn topic-seed", self._cmd_autonomous_topic_seed,
             "Derive & seed new topics to ALE + SLSA + KB queue (ALE Step 15)", "autonomous", priority=98
         )
+        self.command_registry.register(
+            "autonomous-learn serpex-research", self._cmd_autonomous_serpex_research,
+            "Run ALE Step 27: Serpex validated web research with relevance filter", "autonomous", priority=97
+        )
+        self.command_registry.register(
+            "autonomous-learn serpex-search", self._cmd_autonomous_serpex_search,
+            "Live Serpex web search with relevance filter (pass query after command)", "autonomous", priority=97
+        )
 
         # GitHub sync commands
         self.command_registry.register(
@@ -2608,6 +2616,46 @@ Uptime: {stats['uptime_seconds']}s
         result = self.autonomous_engine._autonomous_topic_seeding()
         return result or "✅ Topic seeding complete"
 
+    def _cmd_autonomous_serpex_research(self, text: str) -> str:
+        """Trigger ALE Step 27: Serpex-backed validated web research with relevance filter."""
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        if not hasattr(self.autonomous_engine, "_autonomous_serpex_research"):
+            return "[❌ Serpex research step not available]"
+        return self.autonomous_engine._autonomous_serpex_research()
+
+    def _cmd_autonomous_serpex_search(self, text: str) -> str:
+        """Live Serpex search with relevance filter.  Pass the query after 'serpex-search'."""
+        query = text.strip()
+        # Allow "autonomous-learn serpex-search <query>" — strip prefix if present
+        for prefix in ("autonomous-learn serpex-search", "serpex-search"):
+            if query.lower().startswith(prefix):
+                query = query[len(prefix):].strip()
+                break
+        if not query:
+            return "Usage: autonomous-learn serpex-search <query>"
+        if not self.autonomous_engine:
+            return "[❌ Autonomous engine not available]"
+        agent = (
+            self.autonomous_engine._get_serpex_agent()
+            if hasattr(self.autonomous_engine, "_get_serpex_agent")
+            else None
+        )
+        if not agent:
+            return "[Serpex agent unavailable — set SERPEX_API_KEY]"
+        try:
+            results = agent.search_web(query)
+            valid = [r for r in (results or []) if isinstance(r, dict) and "error" not in r]
+            if not valid:
+                return f"No relevant Serpex results for: {query!r}"
+            lines = [
+                f"  [{i+1}] {r.get('title','(no title)')} — {r.get('snippet','')[:120]}"
+                for i, r in enumerate(valid[:5])
+            ]
+            return f"🌐 Serpex results for {query!r}:\n" + "\n".join(lines)
+        except Exception as exc:
+            return f"[Serpex search error: {exc}]"
+
     def _cmd_generate_code(self, spec: str) -> str:
         """Generate code: 'python module name=my_mod docstring=Does X'"""
         if not self.code_generator:
@@ -3506,6 +3554,18 @@ Uptime: {stats['uptime_seconds']}s
             # ============================
             if self.config.enable_autonomous_engine and AutonomousLearningEngine:
                 try:
+                    # Build a niblit_agents.ResearchAgent (Serpex-backed, relevance-filtered)
+                    # and expose it on self so other components can access it.
+                    _serpex_agent = None
+                    try:
+                        from niblit_agents.research_agent import ResearchAgent as _NiblitResearchAgent
+                        _serpex_agent = _NiblitResearchAgent()
+                        self.serpex_research_agent = _serpex_agent
+                        log.info("✅ niblit_agents.ResearchAgent (Serpex) ready for ALE step 27")
+                    except Exception as _e:
+                        log.debug("niblit_agents.ResearchAgent unavailable: %s", _e)
+                        self.serpex_research_agent = None
+
                     self.autonomous_engine = AutonomousLearningEngine(
                         core=self,
                         researcher=getattr(self, "researcher", None),
@@ -3532,6 +3592,7 @@ Uptime: {stats['uptime_seconds']}s
                         github_code_search=getattr(self, "github_code_search", None),
                         stackoverflow_search=getattr(self, "stackoverflow_search", None),
                         pypi_search=getattr(self, "pypi_search", None),
+                        serpex_research_agent=_serpex_agent,
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
