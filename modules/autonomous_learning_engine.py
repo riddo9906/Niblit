@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
 AUTONOMOUS LEARNING ENGINE
-Runs when Niblit is idle to autonomously improve itself through:
-1.  Research new topics (self-research via SelfResearcher + SerpexResearchAgent + internet)
+Runs continuously in the background to autonomously improve Niblit through:
+1.  Research new topics (Serpex + Searchcode + SelfResearcher — NOT raw internet scraping)
 2.  Generate ideas from research (self-idea via SelfIdeaImplementation)
 3.  Implement ideas (self-implement via SelfImplementer)
 4.  Learn from research (learn via SelfTeacher)
 5.  Reflect on findings (reflect)
 6.  Auto-run SLSA for knowledge generation
 7.  Run evolution step (EvolveEngine)
-8.  Code Research — researcher+internet+Serpex fetch real language/code data → CodeGenerator
+8.  Code Research — Searchcode + Serpex + researcher fetch real language/code data → CodeGenerator
 9.  Code Generation — idea_generator+implementer produce compilable code
 10. Code Compilation — CodeCompiler compiles generated code and stores results
 11. Code Reflection — ReflectModule studies compiled output so Niblit understands it
-12. Software Study — SoftwareStudier analyzes code patterns/functions via internet data
+12. Software Study — SoftwareStudier analyzes code patterns/functions via structured sources
 13. Command Awareness — catalogue all registered commands into KB
 14. Command Execution — exercise safe diagnostic commands and store observations
 15. Topic Seeding — derive new research topics from KB and feed them to all subsystems
@@ -32,19 +32,29 @@ Runs when Niblit is idle to autonomously improve itself through:
 26. GitHub Code Discovery — GitHubCodeSearch: pattern discovery, training datasets, refactoring hints
 27. Serpex Research — niblit_agents.ResearchAgent uses Serpex API + relevance filter to gather
                       validated web research and feed it directly into KB, BrainTrainer, and Step 2
+28. Searchcode Discovery — searchcode.com REST+MCP index for open-source code patterns
 
 Cycle Efficiency Rules
 ----------------------
+* ONE TOPIC PER CYCLE: a single research topic is selected at the start of each cycle
+  via _select_next_topic() and pinned to _current_cycle_topic.  All research steps
+  (SerpexResearch, Research) use this topic so the full pipeline — research, reflect,
+  understand, store — focuses on one subject before moving to the next.
+* After each external research step (SerpexResearch and Research) a 30-second
+  interruptible pause (_RESEARCH_INGEST_WAIT) lets the ingestion → reflection →
+  KB-store pipeline complete before any new fetch starts.
 * Each step is wrapped in _run_step_with_timeout; a stalled step never blocks the cycle.
-* A 3-second interruptible sleep between steps lets the OS process I/O between network calls.
+* A 3-second interruptible sleep between all other steps lets the OS process I/O.
 * Step 18 (ImprovementCycle) is throttled to every 3 cycles — it is the most expensive step.
 * Step 20 (GitHubPush) is throttled to every 5 cycles — network push; not needed every cycle.
-* Results from Step 1 (Research) and Step 27 (SerpexResearch) are carried forward to Steps 2-6
-  so each subsequent step is boosted by the context collected in the current cycle.
-* Step 27 (SerpexResearch) feeds results directly to Step 1 context and BrainTrainer so the
-  validated, relevance-filtered data enriches every downstream step in the same cycle.
+* stop() wakes the engine from any inter-step or ingestion sleep immediately.
 
-Internet is the primary data-collection channel for steps 1, 8, 9, 12, 27.
+Research backends (preferred order, from SelfResearcher.search())
+-----------------------------------------------------------------
+1. Serpex (niblit_agents.ResearchAgent) — validated, relevance-filtered web results
+2. Searchcode (SearchcodeSearch) — structured open-source code index
+3. ResearcherEngine — semantic KB cache
+4. InternetManager — direct web scrape (last-resort fallback only)
 """
 
 import concurrent.futures
@@ -84,6 +94,11 @@ class AutonomousLearningEngine:
     # Seconds to sleep between consecutive steps for I/O breathing room.
     # 27 steps × 3 s = ~81 s aggregate, acceptable for a multi-minute background cycle.
     _INTER_STEP_SLEEP: float = 3.0
+    # Seconds to wait after a research step so the full ingestion → reflection →
+    # KB-store pipeline has time to settle before a new topic is fetched.
+    # Set to 0 to disable; the wait is always interruptible via stop().
+    _RESEARCH_INGEST_WAIT: float = 30.0
+    _CODE_TOPIC_INGEST_WAIT: float = 30.0
 
     def __init__(self, core, researcher=None, idea_generator=None,
                  reflect_module=None, self_teacher=None, slsa_manager=None,
@@ -370,6 +385,16 @@ class AutonomousLearningEngine:
         # Internal cycle counter used for step throttling (e.g. ImprovementCycle).
         self._cycle_count: int = 0
 
+        # Topic rotation: every cycle dedicates itself to ONE topic so all steps
+        # research, reflect, and store knowledge about the same subject before
+        # moving on.  _topic_index advances by 1 at the start of each cycle.
+        self._topic_index: int = 0
+        self._current_cycle_topic: Optional[str] = None
+
+        # Code-step topic lock: all code steps 8-12 share one topic per cycle
+        self._code_topic_index: int = 0
+        self._current_code_topic: Optional[str] = None
+
         log.info("✅ AutonomousLearningEngine initialized")
 
     # ─────────────────────────────────────────────
@@ -389,11 +414,35 @@ class AutonomousLearningEngine:
             log.debug("[INTERACTION] User activity detected - resetting idle timer")
 
     # ─────────────────────────────────────────────
-    def _autonomous_research(self) -> str:
-        """Step 1: Autonomously research interesting topics.
+    def _select_next_topic(self) -> str:
+        """Rotate through research_topics in order and return the next one.
 
-        Uses SelfResearcher as the primary source and falls back to the
-        Serpex ResearchAgent (niblit_agents) when SelfResearcher is absent
+        Using sequential rotation (instead of random.choice) guarantees that
+        every topic is deeply studied before another is picked, and that the
+        same topic is shared by all research steps within one full cycle.
+        """
+        if not self.research_topics:
+            return "autonomous learning"
+        idx = self._topic_index % len(self.research_topics)
+        topic = self.research_topics[idx]
+        self._topic_index = (idx + 1) % len(self.research_topics)
+        return topic
+
+    def _select_next_code_topic(self) -> Tuple[str, str]:
+        """Rotate through code_research_topics sequentially (one per cycle)."""
+        if not self.code_research_topics:
+            return ("python", "best practices")
+        topic = self.code_research_topics[self._code_topic_index % len(self.code_research_topics)]
+        self._code_topic_index += 1
+        return topic
+
+    # ─────────────────────────────────────────────
+    def _autonomous_research(self) -> str:
+        """Step 1: Autonomously research the current cycle topic.
+
+        Uses the topic selected at the start of this cycle (_current_cycle_topic)
+        so all downstream steps in the same cycle work on the same subject.
+        Falls back to the Serpex ResearchAgent when SelfResearcher is absent
         or returns empty results.  Results are forwarded to Step 4 (reflection)
         and also used by Steps 2-6 in the current cycle.
         """
@@ -401,8 +450,8 @@ class AutonomousLearningEngine:
             return "[Researcher unavailable]"
 
         try:
-            # Pick random or trending topic
-            topic = random.choice(self.research_topics)
+            # Use the topic pinned for this cycle (set in _run_autonomous_cycle)
+            topic = self._current_cycle_topic or self._select_next_topic()
 
             log.info(f"🔍 [AUTONOMOUS RESEARCH] Starting: {topic}")
 
@@ -872,7 +921,8 @@ class AutonomousLearningEngine:
         """Step 27: Use niblit_agents.ResearchAgent (Serpex + relevance filter) for validated research.
 
         This step:
-        1. Picks a topic from research_topics (prioritising recently-used ones for continuity).
+        1. Uses _current_cycle_topic (set at the start of every cycle) so Serpex
+           data deepens the same subject that all other steps are researching.
         2. Calls ResearchAgent.search_web() which applies is_relevant() filtering so only
            semantically related snippets reach the knowledge base.
         3. Stores each validated snippet in the knowledge DB with 'ale_serpex_research:' prefix.
@@ -886,10 +936,12 @@ class AutonomousLearningEngine:
         if not agent:
             return "[SerpexResearch skipped — niblit_agents.ResearchAgent unavailable or no API key]"
 
-        # Pick a topic — prefer the topic last researched so Serpex data deepens the same thread
+        # Use the cycle's pinned topic so Serpex data is about the same subject
+        # as all other research steps in this cycle.
         topic = (
-            self.learning_history.get("last_research_topic")
-            or (random.choice(self.research_topics) if self.research_topics else None)
+            self._current_cycle_topic
+            or self.learning_history.get("last_research_topic")
+            or (self._select_next_topic() if self.research_topics else None)
         )
         if not topic:
             return "[SerpexResearch skipped — no research topics]"
@@ -1071,7 +1123,8 @@ class AutonomousLearningEngine:
         if not self.code_research_topics:
             return "[No code research topics configured]"
 
-        lang, topic = random.choice(self.code_research_topics)
+        self._current_code_topic = self._select_next_code_topic()
+        lang, topic = self._current_code_topic
         query = f"{lang} {topic} programming best practices examples"
 
         log.info(f"💻 [CODE RESEARCH] Fetching: {query}")
@@ -3263,18 +3316,26 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle (27 steps).
+        """Execute one complete autonomous learning cycle (28 steps).
 
         Design principles
         -----------------
+        * ONE TOPIC PER CYCLE: a single topic is selected at the start of each
+          cycle via _select_next_topic() and pinned to self._current_cycle_topic.
+          Every research step in the cycle uses this topic so the full pipeline
+          (research → ideas → learning → implementation → reflection → KB store)
+          all concern the same subject before advancing to the next topic.
         * Step 27 (SerpexResearch) runs FIRST so validated, relevance-filtered
           web data is in self._last_research_results before Step 1 (Research)
-          and the rest of the core learning loop.  Each subsequent step is
-          therefore boosted by the freshest external knowledge.
+          and the rest of the core learning loop.
+        * After each external research step (SerpexResearch and Research) a
+          _RESEARCH_INGEST_WAIT (30 s) interruptible pause is inserted so the
+          full ingestion → reflection → KB-store pipeline has time to settle
+          before the next query is made.
         * Every step is wrapped in _run_step_with_timeout (default 120 s) so a
           stalled network call can never freeze the whole cycle.
-        * A 3-second interruptible sleep between steps gives the OS time to
-          process network I/O between calls, reducing contention.
+        * A 3-second interruptible sleep between all other steps gives the OS
+          time to process network I/O between calls, reducing contention.
         * Step 18 (ImprovementCycle) is throttled to every 3 cycles — it
           launches 10 sub-modules and is the most CPU/memory-intensive step.
         * Step 20 (GitHubPush) is throttled to every 5 cycles — a network push
@@ -3284,8 +3345,10 @@ class AutonomousLearningEngine:
         self._cycle_count += 1
         cycle = self._cycle_count
 
+        # ── Pin the research topic for this entire cycle ───────────────────
+        self._current_cycle_topic = self._select_next_topic()
         log.info("=" * 70)
-        log.info("🔄 [AUTONOMOUS CYCLE #%d] Starting...", cycle)
+        log.info("🔄 [AUTONOMOUS CYCLE #%d] Topic: %r", cycle, self._current_cycle_topic)
         log.info("=" * 70)
 
         results = []
@@ -3297,14 +3360,30 @@ class AutonomousLearningEngine:
             results.append((name, result))
             self._interruptible_sleep(self._INTER_STEP_SLEEP)
 
+        def _research_step(name: str, fn) -> None:
+            """Like _step but adds the ingestion-wait after the research completes."""
+            if not self.running:
+                return
+            result = self._run_step_with_timeout(name, fn)
+            results.append((name, result))
+            # Brief I/O pause first, then the full ingest wait
+            self._interruptible_sleep(self._INTER_STEP_SLEEP)
+            if self._RESEARCH_INGEST_WAIT > 0 and self.running:
+                log.info(
+                    "⏳ [%s] Waiting %.0fs for ingestion pipeline to settle...",
+                    name, self._RESEARCH_INGEST_WAIT,
+                )
+                self._interruptible_sleep(self._RESEARCH_INGEST_WAIT)
+
         # ── PRE-LOAD: validated web data boosts ALL downstream steps ──────
         # Step 27 runs before core loop so _last_research_results is populated
         # with relevance-filtered Serpex content before Steps 1-6 run.
-        _step("SerpexResearch", self._autonomous_serpex_research)
+        # A 30 s ingest wait follows so the KB settles before Step 1.
+        _research_step("SerpexResearch", self._autonomous_serpex_research)
 
         # ── Core learning loop (steps 1-7) ─────────────────────────────────
-        # Step 1 now falls back to Serpex data populated above.
-        _step("Research",       self._autonomous_research)
+        # Step 1 uses _current_cycle_topic and receives a 30 s ingest wait.
+        _research_step("Research",       self._autonomous_research)
         _step("Ideas",          self._autonomous_idea_generation)
         _step("Learning",       self._autonomous_learning)
         _step("Implementation", self._autonomous_implementation)
@@ -3317,7 +3396,7 @@ class AutonomousLearningEngine:
         _step("CodeResearch",    self._autonomous_code_research)
         _step("CodeGeneration",  self._autonomous_code_generation)
         _step("CodeCompilation", self._autonomous_code_compilation)
-        _step("CodeReflection",  self._autonomous_code_reflection)
+        _research_step("CodeReflection",  self._autonomous_code_reflection)
         _step("SoftwareStudy",   self._autonomous_software_study)
 
         # ── Structural self-awareness loop (steps 13-14) ────────────────────
@@ -3472,6 +3551,15 @@ class AutonomousLearningEngine:
 
         log.info("✅ Autonomous learning engine stopped")
         return True
+
+    # ─────────────────────────────────────────────
+    def get_current_topic(self) -> Optional[str]:
+        """Return the research topic pinned to the current (or last) cycle."""
+        return self._current_cycle_topic
+
+    def get_research_ingest_wait(self) -> float:
+        """Return the configured ingestion-wait duration in seconds."""
+        return self._RESEARCH_INGEST_WAIT
 
     # ─────────────────────────────────────────────
     def get_learning_stats(self) -> Dict[str, Any]:

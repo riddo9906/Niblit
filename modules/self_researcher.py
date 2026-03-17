@@ -2,6 +2,18 @@
 """
 ENHANCED SELF-RESEARCHER MODULE
 Autonomous learning + Knowledge-based conversation without LLM
+
+Research priority order
+-----------------------
+1. Serpex (niblit_agents.ResearchAgent) — validated, relevance-filtered web results
+2. Searchcode (SearchcodeSearch) — structured code search (for code-related queries)
+3. ResearcherEngine — semantic KB cache
+4. Internet (InternetManager) — direct scrape, used only as last-resort fallback
+5. History cache — previously seen results
+
+Auto-research can be paused/resumed via ``stop_auto_research()`` /
+``start_auto_research()``, which map to the ``auto-research stop/start``
+CLI commands.
 """
 
 from datetime import datetime
@@ -9,6 +21,7 @@ import json
 import math
 import html
 import re
+import time
 import logging
 from typing import List, Dict, Tuple, Optional, Any
 
@@ -197,6 +210,11 @@ class KnowledgeBasedResponder:
 
 
 class SelfResearcher:
+    # Seconds to wait between consecutive auto-research queries so the full
+    # ingestion → reflection → KB-store pipeline has time to settle before a
+    # new topic is fetched.
+    _AUTO_RESEARCH_INGEST_WAIT: float = 30.0
+
     def __init__(self, db, modules_registry=None, research_engine=None, llm_adapter=None,
                  max_history=100, relevance_threshold=0.7):
         self.db = db
@@ -208,6 +226,12 @@ class SelfResearcher:
             self._internet = self.registry["internet"]
         elif hasattr(db, "internet"):
             self._internet = db.internet
+
+        # ── Modern research backends (preferred over raw internet scraping) ──
+        # These can be injected post-init via the property setters or directly
+        # from the modules registry.  niblit_core injects them after init.
+        self._serpex_agent = self.registry.get("serpex_agent")
+        self._searchcode_search = self.registry.get("searchcode_search")
 
         # Optional modules
         self.engine = research_engine
@@ -226,6 +250,9 @@ class SelfResearcher:
         self.learning_patterns = {}
         self.query_feedback = {}
 
+        # Auto-research enable/disable flag (start/stop commands)
+        self._auto_research_enabled: bool = True
+
         # Knowledge-based responder
         self.knowledge_responder = KnowledgeBasedResponder(db, self._internet)
 
@@ -234,7 +261,7 @@ class SelfResearcher:
 
         log.info("✅ SelfResearcher initialized with knowledge-based responses + autonomous learning")
 
-    # ────────────��────────────────────────────────
+    # ─────────────────────────────────────────────
     @property
     def internet(self):
         return self._internet
@@ -243,6 +270,68 @@ class SelfResearcher:
     def internet(self, value):
         self._internet = value
         self.knowledge_responder.internet = value
+
+    @property
+    def serpex_agent(self):
+        return self._serpex_agent
+
+    @serpex_agent.setter
+    def serpex_agent(self, value):
+        self._serpex_agent = value
+
+    @property
+    def searchcode_search(self):
+        return self._searchcode_search
+
+    @searchcode_search.setter
+    def searchcode_search(self, value):
+        self._searchcode_search = value
+
+    def _ensure_serpex_agent(self) -> None:
+        """Lazy-construct a ResearchAgent if one was not injected at init time."""
+        if self._serpex_agent is not None:
+            return
+        try:
+            from niblit_agents.research_agent import ResearchAgent as _RA
+            self._serpex_agent = _RA()
+            log.debug("[SelfResearcher] Lazily constructed ResearchAgent (Serpex)")
+        except Exception as _e:
+            log.debug("[SelfResearcher] ResearchAgent unavailable: %s", _e)
+
+    # ─────────────────────────────────────────────
+    # AUTO-RESEARCH CONTROL
+    # ─────────────────────────────────────────────
+    def start_auto_research(self) -> str:
+        """Re-enable automatic research after a previous stop."""
+        if self._auto_research_enabled:
+            return "ℹ️  Auto-research is already running"
+        self._auto_research_enabled = True
+        log.info("[AUTO-RESEARCH] Enabled")
+        return "✅ Auto-research started"
+
+    def stop_auto_research(self) -> str:
+        """Pause automatic research (manual ``search()`` calls still work)."""
+        if not self._auto_research_enabled:
+            return "ℹ️  Auto-research is already stopped"
+        self._auto_research_enabled = False
+        log.info("[AUTO-RESEARCH] Disabled")
+        return "⏹️  Auto-research stopped"
+
+    def auto_research_status(self) -> str:
+        """Return a one-line status string."""
+        state = "running ✅" if self._auto_research_enabled else "stopped ⏹️"
+        backends = []
+        if self._serpex_agent:
+            backends.append("Serpex")
+        if self._searchcode_search:
+            backends.append("Searchcode")
+        if self._internet:
+            backends.append("Internet")
+        return (
+            f"Auto-research: {state} | "
+            f"Backends: {', '.join(backends) or 'none'} | "
+            f"Ingest wait: {self._AUTO_RESEARCH_INGEST_WAIT}s"
+        )
 
     # ─────────────────────────────────────────────
     def _compute_similarity(self, vec1, vec2):
@@ -433,26 +522,37 @@ class SelfResearcher:
     # MAIN SEARCH METHOD - FLEXIBLE PARAMETERS
     # ─────────────────────────────────────────────
     def search(self, query, max_results=5, **kwargs):
-        """
-        Enhanced search with autonomous learning.
-        
+        """Enhanced search that prefers Serpex and Searchcode over raw internet scraping.
+
+        Source priority
+        ---------------
+        1. History cache — previously seen results (no network cost)
+        2. Serpex (niblit_agents.ResearchAgent) — validated, relevance-filtered web results
+        3. Searchcode (SearchcodeSearch) — open-source code index (code-related queries)
+        4. ResearcherEngine — semantic KB cache / local research engine
+        5. InternetManager — direct web scrape (last-resort fallback only)
+
+        The auto-research ingestion pipeline (reflection → KB store → teacher)
+        runs after results are collected so every successful search immediately
+        enriches the knowledge base.
+
         Args:
             query: Search query string
             max_results: Maximum results to return
-            **kwargs: Other optional parameters (ignored for flexibility)
-                - use_llm: Whether to use LLM for synthesis
-                - learn_in_background: Enable background learning
-                - use_history: Check history first
-                - synthesize: Synthesize results
-                - enable_autonomous_learning: Enable autonomous learning
-        
+            **kwargs: Optional flags
+                - use_llm (bool): Use LLM synthesis (default True)
+                - learn_in_background (bool): Background LLM learning (default True)
+                - use_history (bool): Check history first (default True)
+                - synthesize (bool): Synthesise results via LLM (default True)
+                - enable_autonomous_learning (bool): Run ingestion pipeline (default True)
+
         Returns:
             List of search results
         """
         if not query:
             return []
 
-        # Extract optional parameters with defaults
+        self._ensure_serpex_agent()
         use_llm = kwargs.get('use_llm', True)
         learn_in_background = kwargs.get('learn_in_background', True)
         use_history = kwargs.get('use_history', True)
@@ -461,11 +561,54 @@ class SelfResearcher:
 
         collected_results = []
 
-        # 1️⃣ HISTORY
+        # Helper: extract the most meaningful text from a result dict
+        def _result_text(r: Any) -> str:
+            if isinstance(r, dict):
+                return (
+                    r.get("snippet")
+                    or r.get("description")
+                    or r.get("content")
+                    or r.get("text")
+                    or r.get("summary")
+                    or str(r)
+                )
+            return str(r)
+
+        # 1️⃣ HISTORY (zero network cost)
         if use_history:
             collected_results.extend(self._check_history(query))
 
-        # 2️⃣ ENGINE
+        # 2️⃣ SERPEX — primary modern research backend
+        if self._serpex_agent and hasattr(self._serpex_agent, "search_web"):
+            try:
+                serpex_results = self._serpex_agent.search_web(query)
+                valid = [r for r in (serpex_results or [])
+                         if isinstance(r, dict) and "error" not in r]
+                for r in valid:
+                    snippet = r.get("snippet", "") or r.get("text", "")
+                    if snippet and is_relevant(query, snippet):
+                        collected_results.append(snippet)
+                if valid:
+                    log.debug("[SEARCH] Serpex: %d relevant result(s) for %r", len(valid), query)
+            except Exception as exc:
+                log.debug("Serpex search failed: %s", exc)
+
+        # 3️⃣ SEARCHCODE — code-specific open-source index
+        # Run for all queries so code patterns enrich general research too.
+        if self._searchcode_search and hasattr(self._searchcode_search, "search_code"):
+            try:
+                sc_results = self._searchcode_search.search_code(query, max_results=max_results)
+                for r in (sc_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("snippet", "")
+                        if text and len(text) > 20 and is_relevant(query, text):
+                            collected_results.append(text[:500])
+                if sc_results:
+                    log.debug("[SEARCH] Searchcode: %d result(s) for %r", len(sc_results), query)
+            except Exception as exc:
+                log.debug("Searchcode search failed: %s", exc)
+
+        # 4️⃣ ENGINE (ResearcherEngine — semantic KB cache)
         if self.engine and hasattr(self.engine, "run"):
             try:
                 r = self.engine.run(query)
@@ -476,26 +619,11 @@ class SelfResearcher:
             except Exception as e:
                 log.debug(f"Engine search failed: {e}")
 
-        # 3️⃣ INTERNET
-        if self._internet and hasattr(self._internet, "search"):
+        # 5️⃣ INTERNET — fallback only when modern backends returned nothing
+        if not collected_results and self._internet and hasattr(self._internet, "search"):
             try:
                 web_results = self._internet.search(query, max_results=max_results * 3)
                 if web_results:
-                    # Relevance gate: only accept results related to the query.
-                    # Extract the most meaningful text field from each result
-                    # (mirrors the field priority in ResearchAgent._process_results).
-                    def _result_text(r: Any) -> str:
-                        if isinstance(r, dict):
-                            return (
-                                r.get("snippet")
-                                or r.get("description")
-                                or r.get("content")
-                                or r.get("text")
-                                or r.get("summary")
-                                or str(r)
-                            )
-                        return str(r)
-
                     relevant_web = [
                         r for r in web_results
                         if is_relevant(query, _result_text(r))
@@ -512,7 +640,7 @@ class SelfResearcher:
         # Remove duplicates
         collected_results = self._deduplicate(collected_results)
 
-        # 4️⃣ SYNTHESIZE
+        # 6️⃣ SYNTHESIZE
         if synthesize and collected_results and use_llm and self.llm and hasattr(self.llm, "generate"):
             try:
                 combined_text = " ".join(str(item) for item in collected_results)
@@ -525,12 +653,12 @@ class SelfResearcher:
             except Exception as e:
                 log.debug(f"LLM synthesis failed: {e}")
 
-        # 5️⃣ FALLBACK
+        # 7️⃣ FALLBACK
         if not collected_results:
             collected_results = [f"No data found for '{query}'"]
 
-        # ✨ 6️⃣ AUTONOMOUS LEARNING LOOP
-        if enable_autonomous_learning:
+        # ✨ 8️⃣ AUTONOMOUS LEARNING LOOP (ingestion → reflection → KB)
+        if enable_autonomous_learning and self._auto_research_enabled:
             if should_reflect(collected_results):
                 self._feed_to_reflection(query, collected_results)
                 self._feed_to_teacher(query, results=collected_results)
@@ -538,7 +666,7 @@ class SelfResearcher:
             else:
                 log.warning("[REFLECT] Skipped due to low-quality data for query %r", query)
 
-        # 7️⃣ AUTO-LEARN
+        # 9️⃣ AUTO-LEARN (persist every result to KB)
         try:
             for r in collected_results[:max_results]:
                 self.db.add_fact(f"research:{query}", r, tags=["research", "web"])
@@ -549,10 +677,10 @@ class SelfResearcher:
         except Exception as e:
             log.debug(f"Learning storage failed: {e}")
 
-        # 8️⃣ UPDATE HISTORY
+        # 🔟 UPDATE HISTORY
         self._update_history(query, collected_results[:max_results])
 
-        # 9️⃣ BACKGROUND LEARNING
+        # 11. BACKGROUND LEARNING
         if learn_in_background and self.llm and hasattr(self.llm, "background_learning"):
             try:
                 for r in collected_results:
@@ -620,12 +748,15 @@ class SelfResearcher:
         }
 
     # ─────────────────────────────────────────────
-    # CODE RESEARCHER — feeds CodeGenerator with real internet data
+    # CODE RESEARCHER — feeds CodeGenerator with real data
     # ─────────────────────────────────────────────
     def research_code(self, language: str, topic: str = "best practices") -> Dict[str, Any]:
-        """
-        Research programming language information from the internet and
-        feed it directly into the CodeGenerator for concise, accurate code.
+        """Research programming language information, preferring Searchcode over internet scraping.
+
+        Source priority for code research:
+        1. SearchcodeSearch.research_for_code_generation() — structured open-source index
+        2. SearchcodeSearch.discover_patterns() — curated code-pattern queries
+        3. Generic search() fallback (which tries Serpex → engine → internet)
 
         Args:
             language: programming language (e.g., "python", "bash", "javascript")
@@ -634,30 +765,59 @@ class SelfResearcher:
         Returns:
             dict with keys: language, topic, snippets, idioms, sources
         """
-        queries = [
-            f"{language} {topic} code examples",
-            f"{language} programming best practices",
-            f"{language} idioms patterns",
-            f"how to write concise {language} code",
-        ]
-
         all_snippets: List[str] = []
         sources: List[str] = []
 
-        for q in queries[:2]:  # limit to 2 searches to be efficient
-            results = self.search(
-                q,
-                max_results=3,
-                use_llm=False,
-                learn_in_background=False,
-                use_history=True,
-                synthesize=False,
-                enable_autonomous_learning=True,
-            )
-            for r in results:
-                if r and isinstance(r, str) and len(r) > 20:
-                    all_snippets.append(r)
-                    sources.append(q)
+        # 1. Searchcode — structured code search (preferred for code queries)
+        if self._searchcode_search:
+            try:
+                sc_results = self._searchcode_search.research_for_code_generation(
+                    language, topic, max_results=5
+                )
+                for r in (sc_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("snippet", "")
+                        if text and len(text) > 20:
+                            all_snippets.append(text[:500])
+                            sources.append(f"searchcode:{language}:{topic}")
+                log.debug("[CODE RESEARCH] Searchcode: %d snippet(s) for %s/%s",
+                          len(all_snippets), language, topic)
+            except Exception as exc:
+                log.debug("Searchcode code research failed: %s", exc)
+
+        # 2. Searchcode pattern discovery (additional patterns if above returned few)
+        if self._searchcode_search and len(all_snippets) < 3:
+            try:
+                pat_results = self._searchcode_search.discover_patterns(language, topic[:30])
+                for r in (pat_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("snippet", "")
+                        if text and len(text) > 20 and text not in all_snippets:
+                            all_snippets.append(text[:500])
+                            sources.append(f"searchcode_pattern:{language}")
+            except Exception as exc:
+                log.debug("Searchcode pattern discovery failed: %s", exc)
+
+        # 3. Fallback: generic search (Serpex → engine → internet)
+        if len(all_snippets) < 2:
+            queries = [
+                f"{language} {topic} code examples",
+                f"{language} programming best practices",
+            ]
+            for q in queries[:2]:
+                results = self.search(
+                    q,
+                    max_results=3,
+                    use_llm=False,
+                    learn_in_background=False,
+                    use_history=True,
+                    synthesize=False,
+                    enable_autonomous_learning=True,
+                )
+                for r in results:
+                    if r and isinstance(r, str) and len(r) > 20:
+                        all_snippets.append(r)
+                        sources.append(q)
 
         # Store in KB for future use
         if all_snippets and self.db:
@@ -666,7 +826,7 @@ class SelfResearcher:
                 self.db.add_fact(
                     f"code_research:{language}:{topic}",
                     combined,
-                    tags=["code", "research", language, "internet"]
+                    tags=["code", "research", language, "searchcode"]
                 )
                 self.db.queue_learning(f"{language} {topic} programming patterns")
             except Exception as e:
