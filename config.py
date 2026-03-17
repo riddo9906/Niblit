@@ -49,6 +49,13 @@ class Config:
     # PyPI simple index (no key required; base URL configurable for mirrors)
     PYPI_API_URL: str = os.getenv("PYPI_API_URL", "https://pypi.org/pypi")
 
+    # ── Searchcode ────────────────────────────────────────────────────────────
+    # searchcode.com public code-search API (no authentication required).
+    # SEARCHCODE_MCP_URL: the official MCP endpoint; configure it in any
+    # MCP client with:  claude mcp add searchcode --transport http <url>
+    SEARCHCODE_API_URL: str = os.getenv("SEARCHCODE_API_URL", "https://searchcode.com/api")
+    SEARCHCODE_MCP_URL: str = os.getenv("SEARCHCODE_MCP_URL", "https://api.searchcode.com/v1/mcp")
+
     # ── Phase 3 Knowledge / Vector Database ──────────────────────────────────
     # Qdrant vector store (https://cloud.qdrant.io)
     QDRANT_URL: str = os.getenv("QDRANT_URL", "")

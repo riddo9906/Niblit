@@ -208,6 +208,34 @@ _TOOL_DEFINITIONS: List[Dict[str, Any]] = [
             "required": ["query"],
         },
     },
+    {
+        "name": "niblit_searchcode",
+        "description": "Search open-source code on searchcode.com. "
+                       "Covers GitHub, Bitbucket, GitLab, Google Code and more. "
+                       "Uses the searchcode MCP endpoint (https://api.searchcode.com/v1/mcp) "
+                       "when reachable, otherwise the public REST API. "
+                       "Returns real code snippets for a given query and optional language filter.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Code search query (e.g. 'async context manager python').",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Optional language filter (e.g. 'python', 'javascript', 'go').",
+                    "default": "",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of code snippets to return (default 5).",
+                    "default": 5,
+                },
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 _RESOURCE_DEFINITIONS: List[Dict[str, Any]] = [
@@ -355,6 +383,7 @@ class NiblitMCPHandler:
             "niblit_recall":        self._tool_recall,
             "niblit_generate_code": self._tool_generate_code,
             "niblit_serpex_search": self._tool_serpex_search,
+            "niblit_searchcode":     self._tool_searchcode,
         }
         fn = dispatchers.get(name)
         if fn is None:
@@ -598,6 +627,43 @@ class NiblitMCPHandler:
             return "\n".join(lines)
         except Exception as exc:
             return f"[Serpex search error: {exc}]"
+
+    def _tool_searchcode(self, args: Dict[str, Any]) -> str:
+        """Search open-source code via searchcode.com (MCP → REST fallback)."""
+        query = args.get("query", "")
+        language = args.get("language", "")
+        max_results = int(args.get("max_results", 5))
+        if not query:
+            return "[Error: query is required]"
+
+        # Try to get SearchcodeSearch from core first
+        sc = getattr(self._core, "searchcode_search", None) if self._core else None
+        if sc is None:
+            try:
+                from modules.searchcode_search import SearchcodeSearch
+                sc = SearchcodeSearch()
+            except Exception as exc:
+                return f"[Searchcode unavailable: {exc}]"
+
+        try:
+            results = sc.search_code(query, language=language, max_results=max_results)
+            if not results:
+                return f"[No searchcode results for: {query}]"
+            lines = []
+            for i, r in enumerate(results[:max_results]):
+                filename = r.get("filename", "")
+                lang = r.get("language", language)
+                text = r.get("text", "")[:200]
+                url = r.get("url", "")
+                header = f"[{i+1}] {filename}" + (f" ({lang})" if lang else "")
+                if url:
+                    header += f" — {url}"
+                lines.append(header)
+                if text:
+                    lines.append(f"  {text}")
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"[Searchcode error: {exc}]"
 
     # ── resource implementations ─────────────────────────────────────────────
 

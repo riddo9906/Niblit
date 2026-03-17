@@ -95,6 +95,7 @@ class TestToolsList:
             "niblit_chat", "niblit_search", "niblit_status",
             "niblit_learn", "niblit_remember", "niblit_recall",
             "niblit_generate_code", "niblit_serpex_search",
+            "niblit_searchcode",
         }
         assert expected.issubset(names)
 
@@ -152,6 +153,21 @@ class TestToolsCallWithoutCore:
     def test_niblit_serpex_graceful(self):
         resp = self._call("niblit_serpex_search", {"query": "asyncio"})
         assert resp["result"]["content"][0]["type"] == "text"
+
+    def test_niblit_searchcode_graceful(self):
+        """niblit_searchcode should degrade gracefully (no core, no network)."""
+        from unittest.mock import patch
+        # SearchcodeSearch will fall back to REST but requests will fail — still no exception
+        with patch("modules.searchcode_search.requests.get", side_effect=Exception("offline")):
+            with patch("modules.searchcode_search.requests.post", side_effect=Exception("offline")):
+                resp = self._call("niblit_searchcode", {"query": "asyncio python"})
+        text = resp["result"]["content"][0]["text"]
+        assert isinstance(text, str)
+
+    def test_niblit_searchcode_empty_query_returns_error(self):
+        resp = self._call("niblit_searchcode", {"query": ""})
+        text = resp["result"]["content"][0]["text"]
+        assert "error" in text.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +228,23 @@ class TestToolsCallWithCore:
         mock_ae.add_research_topic.assert_called_with("quantum computing")
         text = resp["result"]["content"][0]["text"]
         assert isinstance(text, str)
+
+    def test_niblit_searchcode_with_mocked_sc(self):
+        """niblit_searchcode tool uses core.searchcode_search when available."""
+        h = self._handler_with_core()
+        mock_sc = MagicMock()
+        mock_sc.search_code.return_value = [
+            {"filename": "util.py", "language": "Python", "text": "def helper(): pass", "url": "http://sc.test/u.py"},
+        ]
+        h._core.searchcode_search = mock_sc
+        resp = h.handle(_rpc("tools/call", {
+            "name": "niblit_searchcode",
+            "arguments": {"query": "helper function python", "language": "python", "max_results": 3},
+        }))
+        mock_sc.search_code.assert_called_once_with("helper function python", language="python", max_results=3)
+        text = resp["result"]["content"][0]["text"]
+        assert "util.py" in text
+        assert "helper" in text
 
 
 # ---------------------------------------------------------------------------

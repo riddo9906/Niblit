@@ -842,6 +842,12 @@ except Exception as _e:
     PyPISearch = None
 
 try:
+    from modules.searchcode_search import SearchcodeSearch
+except Exception as _e:
+    log.debug(f"SearchcodeSearch not available: {_e}")
+    SearchcodeSearch = None
+
+try:
     from modules.github_sync import GitHubSync
 except Exception as _e:
     log.debug(f"GitHubSync not available: {_e}")
@@ -3342,6 +3348,17 @@ Uptime: {stats['uptime_seconds']}s
             self.pypi_search = None
             self.startup_report.add("pypi_search", "unavailable", str(e))
 
+        # Searchcode Search — public code search API + MCP endpoint; no key required
+        try:
+            self.searchcode_search = SearchcodeSearch() if SearchcodeSearch else None
+            if self.searchcode_search:
+                log.info("✅ SearchcodeSearch loaded (MCP: %s)", self.searchcode_search.mcp_is_available())
+            self.startup_report.add("searchcode_search", "ready")
+        except Exception as e:
+            log.debug(f"SearchcodeSearch failed: {e}")
+            self.searchcode_search = None
+            self.startup_report.add("searchcode_search", "unavailable", str(e))
+
     def _initialize_modules(self):
         """Initialize all modules with dependency management."""
         with self.logger.context("initialize_modules"):
@@ -3678,6 +3695,7 @@ Uptime: {stats['uptime_seconds']}s
                         github_code_search=getattr(self, "github_code_search", None),
                         stackoverflow_search=getattr(self, "stackoverflow_search", None),
                         pypi_search=getattr(self, "pypi_search", None),
+                        searchcode_search=getattr(self, "searchcode_search", None),
                         serpex_research_agent=_serpex_agent,
                     )
                     log.info("✅ AutonomousLearningEngine initialized")

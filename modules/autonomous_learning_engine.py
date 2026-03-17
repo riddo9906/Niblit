@@ -95,6 +95,7 @@ class AutonomousLearningEngine:
                  binary_studier=None, brain_trainer=None, llm=None,
                  github_code_search=None,
                  stackoverflow_search=None, pypi_search=None,
+                 searchcode_search=None,
                  serpex_research_agent=None,
                  step_timeout=120):
         """
@@ -126,6 +127,8 @@ class AutonomousLearningEngine:
             github_code_search: GitHubCodeSearch — code pattern discovery, training datasets, refactoring
             stackoverflow_search: StackOverflowSearch — bug solutions and code-pattern lookup via SO API
             pypi_search: PyPISearch — PyPI package intelligence for dependency graphs and new libraries
+            searchcode_search: SearchcodeSearch — open-source code-search via searchcode.com REST API
+                               and/or its MCP endpoint (https://api.searchcode.com/v1/mcp)
             serpex_research_agent: niblit_agents.ResearchAgent — Serpex-backed web search with
                                    relevance filtering (is_relevant) and automatic KnowledgeStore
                                    + Qdrant persistence (step 27).  Falls back to lazy construction
@@ -157,6 +160,7 @@ class AutonomousLearningEngine:
         self.github_code_search = github_code_search
         self.stackoverflow_search = stackoverflow_search
         self.pypi_search = pypi_search
+        self.searchcode_search = searchcode_search
         self.serpex_research_agent = serpex_research_agent
         self.step_timeout = step_timeout
 
@@ -831,6 +835,12 @@ class AutonomousLearningEngine:
         if not self.pypi_search and self.core:
             self.pypi_search = getattr(self.core, "pypi_search", None)
         return self.pypi_search
+
+    def _get_searchcode_search(self):
+        """Lazily resolve SearchcodeSearch from core."""
+        if not self.searchcode_search and self.core:
+            self.searchcode_search = getattr(self.core, "searchcode_search", None)
+        return self.searchcode_search
 
     def _get_serpex_agent(self):
         """Lazily resolve or construct the niblit_agents.ResearchAgent (Serpex-backed).
@@ -3174,6 +3184,83 @@ class AutonomousLearningEngine:
         log.info("✅ [GH DISCOVERY] %s", summary)
         return summary
 
+    # ── SEARCHCODE DISCOVERY (step 28) ────────────────────────────────────────
+
+    # Topics for searchcode pattern discovery — (language, pattern_type) pairs
+    _SC_PATTERN_TOPICS = [
+        ("python", "decorator"),
+        ("python", "context_manager"),
+        ("python", "async"),
+        ("python", "error_handling"),
+        ("python", "type_hints"),
+        ("python", "generator"),
+        ("javascript", "async"),
+        ("javascript", "factory"),
+        ("java", "singleton"),
+        ("go", "error_handling"),
+        ("rust", "error_handling"),
+    ]
+
+    def _autonomous_searchcode_discovery(self) -> str:
+        """Step 28: Searchcode.com — code-pattern discovery via REST API and/or MCP.
+
+        Queries the searchcode.com public code-search index (which covers
+        GitHub, Bitbucket, GitLab, Google Code and more) for idiomatic language
+        patterns.  Results are stored in the knowledge base under
+        ``ale_searchcode:{lang}:{pattern_type}:{ts}`` keys, making them
+        available to the code-generation and code-reflection steps in the next
+        cycle.
+
+        The searchcode MCP endpoint (``https://api.searchcode.com/v1/mcp``)
+        is tried first; the public REST API is used as a fallback so the step
+        works even in offline/restricted environments.
+        """
+        sc = self._get_searchcode_search()
+        if not sc:
+            return "[Searchcode discovery skipped — SearchcodeSearch not available]"
+
+        collected: List[str] = []
+        errors: List[str] = []
+        ts = int(time.time())
+
+        try:
+            pattern_topics = self._SC_PATTERN_TOPICS
+            lang, pattern_type = pattern_topics[ts % len(pattern_topics)]
+            results = sc.discover_patterns(lang, pattern_type, max_results=4)
+            stored = 0
+            for r in results:
+                text = r.get("text", "")
+                if text and len(text) > 20:
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.add_fact(
+                                f"ale_searchcode:{lang}:{pattern_type}:{ts}",
+                                text[:500],
+                                tags=["searchcode", "pattern", lang, pattern_type, "ale_step28"],
+                            )
+                            stored += 1
+                        except Exception:
+                            pass
+            if stored:
+                collected.append(f"patterns:{lang}/{pattern_type}({stored})")
+            log.info("[SC DISCOVERY] Patterns %s/%s: %d stored", lang, pattern_type, stored)
+        except Exception as exc:
+            errors.append(f"patterns:{exc}")
+            log.debug("[SC DISCOVERY] Pattern discovery failed: %s", exc)
+
+        self.learning_history["searchcode_discovery_cycles"] = (
+            self.learning_history.get("searchcode_discovery_cycles", 0) + 1
+        )
+
+        if not collected:
+            return "[Searchcode discovery — no results this cycle]"
+
+        summary = "SearchcodeDiscovery: " + ", ".join(collected)
+        if errors:
+            summary += f" (errors: {len(errors)})"
+        log.info("✅ [SC DISCOVERY] %s", summary)
+        return summary
+
     # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle (27 steps).
@@ -3280,6 +3367,12 @@ class AutonomousLearningEngine:
         # ── GitHub Code Discovery (step 26) ──────────────────────────────────
         _step("GitHubCodeDiscovery", self._autonomous_github_code_discovery)
 
+        # ── Searchcode Discovery (step 28) ────────────────────────────────────
+        # Complements GitHub Code Search with results from the searchcode.com
+        # index (GitHub, Bitbucket, GitLab, Google Code, …).
+        # Uses the searchcode MCP endpoint when available, REST otherwise.
+        _step("SearchcodeDiscovery", self._autonomous_searchcode_discovery)
+
         # ── Log cycle summary ─────────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -3297,7 +3390,8 @@ class AutonomousLearningEngine:
             "topic_seedings", "reasoning_cycles", "metacognition_cycles",
             "improvement_cycles", "self_scan_cycles", "github_push_cycles",
             "brain_training_cycles", "cognitive_enhancement_cycles",
-            "github_code_discovery_cycles", "serpex_research_cycles",
+            "github_code_discovery_cycles", "searchcode_discovery_cycles",
+            "serpex_research_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -3423,6 +3517,7 @@ class AutonomousLearningEngine:
                 "build_scanner": bool(self.build_scanner or (self.core and getattr(self.core, "build_scanner", None))),
                 "binary_studier": bool(self.binary_studier or (self.core and getattr(self.core, "binary_studier", None))),
                 "github_code_search": bool(self._get_github_code_search()),
+                "searchcode_search": bool(self._get_searchcode_search()),
                 "serpex_research_agent": bool(self._get_serpex_agent()),
             },
         }
