@@ -875,6 +875,28 @@ try:
 except Exception as _e:
     log.debug(f"slsa_manager not available: {_e}")
 
+# ── Qdrant / VectorStore (shared singleton) ──────────────────────────────────
+try:
+    from modules.vector_store import VectorStore as _VectorStore
+except Exception as _e:
+    log.debug(f"VectorStore not available: {_e}")
+    _VectorStore = None
+
+# ── MCP server ────────────────────────────────────────────────────────────────
+try:
+    from modules.mcp_server import (
+        register_flask_routes as _mcp_register_flask_routes,
+        attach_core as _mcp_attach_core,
+        MCP_ENABLED as _MCP_ENABLED,
+    )
+    _MCP_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"MCP server module unavailable: {_e}")
+    _MCP_AVAILABLE = False
+    _mcp_register_flask_routes = None
+    _mcp_attach_core = None
+    _MCP_ENABLED = False
+
 ORCHESTRATOR_AVAILABLE = False
 RepoAuditor = None
 self_heal_main = None
@@ -3323,6 +3345,9 @@ Uptime: {stats['uptime_seconds']}s
     def _initialize_modules(self):
         """Initialize all modules with dependency management."""
         with self.logger.context("initialize_modules"):
+            # Phase 0: Shared infrastructure (VectorStore / Qdrant)
+            self._init_vector_store()
+
             # Phase 1: Foundation modules
             self._init_ai_adapters()
 
@@ -3336,12 +3361,63 @@ Uptime: {stats['uptime_seconds']}s
             # Phase 4: Optional heavy modules
             self._init_optional_services()
 
+    def _init_vector_store(self) -> None:
+        """
+        Create a shared :class:`~modules.vector_store.VectorStore` singleton
+        that is passed to the LLM adapter, the ResearcherEngine, and any other
+        module that wants semantic search over Niblit's knowledge base.
+
+        The store selects its backend automatically:
+        * **Qdrant** — when ``QDRANT_URL`` env var is set
+        * **FAISS**  — when ``faiss-cpu`` and ``sentence-transformers`` are installed
+        * **in-memory linear scan** — always available, no dependencies
+        """
+        self.vector_store = None
+        if _VectorStore is None:
+            log.debug("[INIT] VectorStore module not available")
+            return
+        try:
+            self.vector_store = _VectorStore(
+                collection=getattr(self.config, "QDRANT_COLLECTION", "niblit_knowledge"),
+                qdrant_url=getattr(self.config, "QDRANT_URL", ""),
+                qdrant_api_key=getattr(self.config, "QDRANT_API_KEY", ""),
+            )
+            log.info(
+                "✅ VectorStore initialised (backend: %s)",
+                self.vector_store.backend,
+            )
+            self.startup_report.add("vector_store", "ready")
+        except Exception as exc:
+            log.warning("VectorStore init failed: %s", exc)
+            self.vector_store = None
+            self.startup_report.add("vector_store", "degraded", str(exc))
+
     def _init_ai_adapters(self):
         """Initialize AI adapter modules."""
         try:
             self.reflect = safe_call(Reflect_mod, self.db) if Reflect_mod else None
             self.self_healer = safe_call(SelfHealer_mod, self.db) if SelfHealer_mod else None
-            self.llm = safe_call(LLMAdapter) if LLMAdapter else None
+
+            # Pass shared VectorStore so the LLM adapter enriches code-generation
+            # context with semantically-relevant KB facts (Qdrant / FAISS / memory).
+            if LLMAdapter:
+                _vs = getattr(self, "vector_store", None)
+                try:
+                    _params = inspect.signature(LLMAdapter.__init__).parameters
+                    if "vector_store" in _params:
+                        self.llm = LLMAdapter(vector_store=_vs)
+                    else:
+                        self.llm = safe_call(LLMAdapter)
+                        if _vs and self.llm and not getattr(self.llm, "vector_store", None):
+                            try:
+                                self.llm.vector_store = _vs
+                            except Exception:
+                                pass
+                except Exception:
+                    self.llm = safe_call(LLMAdapter)
+            else:
+                self.llm = None
+
             self.trainer = safe_call(Trainer, self.db) if Trainer else None
 
             self.self_teacher = safe_call(
@@ -3398,6 +3474,16 @@ Uptime: {stats['uptime_seconds']}s
 
             if self.researcher and self.internet:
                 self.researcher.internet = self.internet
+
+            # Inject shared VectorStore into the researcher so semantic caching
+            # and Qdrant-backed retrieval are available during autonomous research.
+            if self.researcher and getattr(self, "vector_store", None):
+                if not getattr(self.researcher, "vector_store", None):
+                    try:
+                        self.researcher.vector_store = self.vector_store
+                    except Exception as _e:
+                        log.debug("[INIT] researcher.vector_store injection failed: %s", _e)
+
             if self.self_teacher:
                 self.self_teacher.researcher = self.researcher
 
@@ -3604,6 +3690,18 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))
+
+            # ============================
+            # MCP SERVER — attach NiblitCore so tools work
+            # ============================
+            if _MCP_AVAILABLE and _MCP_ENABLED and _mcp_attach_core:
+                try:
+                    _mcp_attach_core(self)
+                    log.info("✅ MCP server wired to NiblitCore")
+                    self.startup_report.add("mcp_server", "ready")
+                except Exception as e:
+                    log.debug(f"MCP attach_core failed: {e}")
+                    self.startup_report.add("mcp_server", "degraded", str(e))
 
             self.startup_report.add("optional_services", "ready")
             log.info("✅ Optional services initialized")

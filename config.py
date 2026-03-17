@@ -88,6 +88,17 @@ class Config:
     # API security
     NIBLIT_API_KEY: str = os.getenv("NIBLIT_API_KEY", "")
 
+    # ── MCP (Model Context Protocol) ─────────────────────────────────────────
+    # Set MCP_ENABLED=true to activate the /mcp and /mcp/sse endpoints and
+    # the stdio transport (``python -m modules.mcp_server``).
+    MCP_ENABLED: bool = os.getenv("MCP_ENABLED", "true").lower() in ("1", "true", "yes")
+    # Bearer token that MCP clients must supply in the Authorization header.
+    # Leave blank to disable auth on the MCP endpoint (not recommended in production).
+    MCP_SECRET: str = os.getenv("MCP_SECRET", "")
+    # Host/port for the optional standalone HTTP MCP server.
+    MCP_HOST: str = os.getenv("MCP_HOST", "0.0.0.0")
+    MCP_PORT: int = int(os.getenv("MCP_PORT", "8765"))
+
     # Rate limiting
     RATE_LIMIT: int = int(os.getenv("RATE_LIMIT", "10"))
     RATE_WINDOW: int = int(os.getenv("RATE_WINDOW", "60"))

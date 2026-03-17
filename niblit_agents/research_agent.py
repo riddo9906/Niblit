@@ -116,6 +116,10 @@ class ResearchAgent:
 
     # ── public API ────────────────────────────────────────────────────────────
 
+    def is_configured(self) -> bool:
+        """Return True if a Serpex API key is available (agent can make real searches)."""
+        return bool(self._serpex_key)
+
     def search_web(self, query: str) -> List[Dict[str, Any]]:
         """Search the web and return normalised result items.
 

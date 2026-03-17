@@ -851,7 +851,7 @@ class AutonomousLearningEngine:
         try:
             from niblit_agents.research_agent import ResearchAgent
             agent = ResearchAgent()
-            if agent._serpex_key:  # has a key
+            if agent.is_configured():  # has a Serpex API key
                 self.serpex_research_agent = agent
                 return agent
         except Exception:
