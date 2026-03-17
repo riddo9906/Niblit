@@ -135,6 +135,16 @@ try:
 except Exception as _e:
     log.warning(f"InternetManager unavailable: {_e}")
     InternetManager = None
+
+try:
+    from niblit_tools.serpex_api import niblit_serpex_search as _niblit_serpex_search
+    from niblit_tools.serpex_api import NIBLIT_SERPEX_TOOL as _NIBLIT_SERPEX_TOOL
+    _SERPEX_TOOL_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"niblit_serpex_search unavailable: {_e}")
+    _niblit_serpex_search = None  # type: ignore[assignment]
+    _NIBLIT_SERPEX_TOOL = None  # type: ignore[assignment]
+    _SERPEX_TOOL_AVAILABLE = False
 # pylint: enable=invalid-name
 
 
@@ -602,6 +612,30 @@ class NiblitBrain:
         ) else None
         self.brain_trainer = BrainTrainer(self.memory, knowledge_db=_kdb)
         log.debug("[BRAIN] BrainTrainer initialized")
+
+        # ─────── SERPEX TOOL ───────
+        # Expose niblit_serpex_search() as a callable tool and its GPT definition
+        # so that the brain (or an orchestrator) can invoke or register it.
+        self.serpex_tool_fn = _niblit_serpex_search
+        self.serpex_tool_def = _NIBLIT_SERPEX_TOOL
+        if _SERPEX_TOOL_AVAILABLE:
+            log.debug("[BRAIN] niblit_serpex_search tool registered")
+
+    def get_tools(self):
+        """
+        Return a list of GPT tool definition dicts for all registered tool functions.
+
+        Currently registered tools:
+          - ``niblit_serpex_search`` — web / news search via Serpex API
+
+        Returns:
+            List of tool definition dicts suitable for passing to an OpenAI
+            chat completion ``tools`` parameter.
+        """
+        tools = []
+        if self.serpex_tool_def is not None:
+            tools.append(self.serpex_tool_def)
+        return tools
 
     def _init_improvements(self):
         """Initialize all production improvements."""
