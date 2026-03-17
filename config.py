@@ -67,6 +67,24 @@ class Config:
     SANDBOX_TIMEOUT: int = int(os.getenv("SANDBOX_TIMEOUT", "30"))
     SANDBOX_MEMORY_MB: int = int(os.getenv("SANDBOX_MEMORY_MB", "256"))
 
+    # ── NewsAPI ───────────────────────────────────────────────────────────────
+    # NewsAPI.org API key for top-headlines aggregation in the upgrade pipeline.
+    # Register at https://newsapi.org/register (free tier available).
+    NEWSAPI_KEY: str = os.getenv("NEWSAPI_KEY", "")
+
+    # ── Neo4j Graph Database ─────────────────────────────────────────────────
+    # Connection details for Neo4j (optional — pipeline falls back to SQLite).
+    # Cloud: https://neo4j.com/cloud/aura-free/  |  Self-host: docker run neo4j
+    NEO4J_URI: str = os.getenv("NEO4J_URI", "")
+    NEO4J_USER: str = os.getenv("NEO4J_USER", "neo4j")
+    NEO4J_PASS: str = os.getenv("NEO4J_PASS", "")
+
+    # ── Prometheus / Grafana Metrics ─────────────────────────────────────────
+    # Set PROMETHEUS_ENABLED=true to start a /metrics HTTP endpoint.
+    # Requires: pip install prometheus-client
+    PROMETHEUS_ENABLED: bool = os.getenv("PROMETHEUS_ENABLED", "False").lower() in ("1", "true", "yes")
+    PROMETHEUS_PORT: int = int(os.getenv("PROMETHEUS_PORT", "9090"))
+
     # API security
     NIBLIT_API_KEY: str = os.getenv("NIBLIT_API_KEY", "")
 

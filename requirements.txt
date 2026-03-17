@@ -4,3 +4,7 @@ python-dotenv>=1.0.0
 huggingface-hub==0.19.4  # stable across Python 3.8–3.12
 gunicorn>=20.1.0
 flask-cors>=4.0.0
+
+# ── Full Upgrade Pipeline (optional) ─────────────────────────────────────────
+# Install these to unlock advanced features in niblit_full_upgrade_pipeline.py
+# pip install -r requirements-pipeline.txt

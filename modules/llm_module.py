@@ -6,7 +6,10 @@ Provides:
  - HFLLMAdapter.is_online()
  - HFLLMAdapter.query_llm(messages, model=None, max_tokens=300)
  - HFLLMAdapter.generate_code(language, purpose, context, max_tokens=800)
+ - HFLLMAdapter.qdrant_client  — direct QdrantClient instance (or None)
+ - HFLLMAdapter.vector_store   — VectorStore instance for semantic context enrichment
 """
+import logging
 import os
 import re
 
@@ -15,6 +18,8 @@ try:
     load_dotenv()
 except ImportError:
     pass  # python-dotenv not installed; rely on os.environ
+
+log = logging.getLogger("HFLLMAdapter")
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "") or os.environ.get("HUGGINGFACE_TOKEN", "")
 
@@ -25,9 +30,21 @@ except Exception:
     InferenceClient = None
     HF_CLIENT_AVAILABLE = False
 
+# ── optional Qdrant client (direct access) ────────────────────────────────────
+try:
+    from qdrant_client import QdrantClient as _QdrantClient
+    _QDRANT_LIB_AVAILABLE = True
+except ImportError:
+    _QdrantClient = None  # type: ignore[assignment,misc]
+    _QDRANT_LIB_AVAILABLE = False
+
 DEFAULT_MODEL = "moonshotai/Kimi-K2-Instruct-0905"
 # Maximum characters of research context forwarded to the LLM in generate_code().
 _MAX_CONTEXT_LENGTH: int = 600
+# Maximum characters of vector-store context injected automatically.
+_MAX_VS_CONTEXT_LENGTH: int = 400
+# Number of vector-store hits to retrieve for context enrichment.
+_VS_CONTEXT_TOP_K: int = 3
 
 
 def _strip_code_fences(text: str) -> str:
@@ -41,15 +58,65 @@ def _strip_code_fences(text: str) -> str:
 
 
 class HFLLMAdapter:
-    def __init__(self, model: str = DEFAULT_MODEL):
+    """
+    Hugging Face LLM adapter with optional Qdrant-backed context enrichment.
+
+    When ``QDRANT_URL`` is set, a :class:`qdrant_client.QdrantClient` is
+    initialised and exposed via :attr:`qdrant_client`.  A
+    :class:`modules.vector_store.VectorStore` (which uses the same Qdrant
+    backend when available) is stored as :attr:`vector_store`.
+
+    ``generate_code()`` automatically queries the vector store to pull
+    semantically relevant snippets and injects them as extra context for the
+    LLM — unless the caller already supplies a ``context`` string.
+    """
+
+    def __init__(
+        self,
+        model: str = DEFAULT_MODEL,
+        qdrant_url: str = "",
+        qdrant_api_key: str = "",
+    ) -> None:
         self.model = model
         self.api_key = HF_TOKEN
+
+        # ── HuggingFace InferenceClient ───────────────────────────────────────
         self.client = None
         if HF_CLIENT_AVAILABLE and self.api_key:
             try:
                 self.client = InferenceClient(api_key=self.api_key)
             except Exception:
                 self.client = None
+
+        # ── Qdrant direct client ──────────────────────────────────────────────
+        _url = qdrant_url or os.environ.get("QDRANT_URL", "")
+        _key = qdrant_api_key or os.environ.get("QDRANT_API_KEY", "")
+        self.qdrant_client = None
+        if _url and _QDRANT_LIB_AVAILABLE and _QdrantClient is not None:
+            try:
+                kwargs = {"url": _url, "timeout": 10}
+                if _key:
+                    kwargs["api_key"] = _key
+                self.qdrant_client = _QdrantClient(**kwargs)
+                log.info(
+                    "HFLLMAdapter: Qdrant client connected (%s) — collections: %s",
+                    _url,
+                    ", ".join(c.name for c in self.qdrant_client.get_collections().collections),
+                )
+            except Exception as exc:
+                log.warning("HFLLMAdapter: Qdrant connection failed: %s", exc)
+                self.qdrant_client = None
+
+        # ── VectorStore (uses same Qdrant backend when available) ─────────────
+        self.vector_store = None
+        try:
+            from modules.vector_store import VectorStore
+            self.vector_store = VectorStore(
+                qdrant_url=_url,
+                qdrant_api_key=_key,
+            )
+        except Exception as exc:
+            log.debug("HFLLMAdapter: VectorStore unavailable: %s", exc)
 
     def is_online(self) -> bool:
         # Simple check: client present and api_key present
@@ -87,18 +154,39 @@ class HFLLMAdapter:
         except Exception as e:
             return f"[HF ERROR] {e}"
 
+    def _fetch_vector_context(self, query: str) -> str:
+        """Return a short context string pulled from the vector store."""
+        if self.vector_store is None:
+            return ""
+        try:
+            hits = self.vector_store.search(query, top_k=_VS_CONTEXT_TOP_K)
+            snippets = [h.get("text", "")[:200] for h in hits if h.get("text")]
+            combined = " | ".join(snippets)
+            return combined[:_MAX_VS_CONTEXT_LENGTH]
+        except Exception:
+            return ""
+
     def generate_code(self, language: str, purpose: str, context: str = "", max_tokens: int = 800) -> str:
         """Generate real, executable code using the LLM.
+
+        When ``context`` is empty and a vector store is available, semantically
+        relevant snippets are retrieved from the vector store and injected as
+        context automatically.
 
         Args:
             language:   Target programming language (e.g. "python", "bash").
             purpose:    Short description of what the code should do.
             context:    Optional research context to inform the implementation.
+                        When blank, the vector store is queried automatically.
             max_tokens: Maximum tokens for the LLM response.
 
         Returns:
             Generated source code as a string, or empty string on failure.
         """
+        # Auto-enrich context from vector store when not provided by caller
+        if not context:
+            context = self._fetch_vector_context(f"{language} {purpose}")
+
         system_prompt = (
             f"You are an expert {language} programmer. "
             f"Write real, executable {language} code. "

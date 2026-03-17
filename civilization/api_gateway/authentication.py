@@ -30,7 +30,7 @@ class Authentication:
         """Generate a token for *agent_id*."""
         raw = secrets.token_hex(32)
         hashed = hashlib.sha256(raw.encode()).hexdigest()
-        self._tokens[hashed] = {"agent_id": agent_id, "created_at": time.time(), "active": True}
+        self._tokens[hashed] = {"agent_id": agent_id, "created_at": time.time(), "active": True, "raw": raw}
         log.info("Authentication: token created for %s", agent_id)
         return raw
 
@@ -48,5 +48,5 @@ class Authentication:
             log.info("Authentication: token revoked")
 
     def list_active_tokens(self) -> List[str]:
-        """Return agent_ids with active tokens."""
-        return [str(v["agent_id"]) for v in self._tokens.values() if v.get("active")]
+        """Return raw tokens that are currently active."""
+        return [str(v["raw"]) for v in self._tokens.values() if v.get("active")]
