@@ -16,6 +16,9 @@ __pycache__/
 niblit_memory.db
 local_llm.db
 niblit.db
+niblit_fused.sqlite
+niblit_data.sqlite
+*.sqlite
 
 # Runtime and temporary files
 niblit_memory.json
