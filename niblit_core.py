@@ -5456,6 +5456,96 @@ Uptime: {stats['uptime_seconds']}s
         """Return a human-readable summary of all loop errors."""
         return loop_tracer.summary()
 
+    # ── Fused Memory API ─────────────────────────────────────────────────────
+
+    def store_task_result(
+        self,
+        task_id: str,
+        result: dict,
+        vector: Optional[List[float]] = None,
+    ) -> None:
+        """Persist a task result via the fused memory backend.
+
+        Writes the structured *result* dict to SQLite and, when *vector* is
+        provided, also upserts the embedding into Qdrant/FAISS so the task
+        can be retrieved by semantic similarity later.
+
+        Args:
+            task_id: Unique task identifier.
+            result:  Arbitrary result dict.
+            vector:  Optional pre-computed float embedding.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                fused.insert_record(task_id, result)
+                if vector:
+                    fused.insert_vector(task_id, vector, payload=result)
+                return
+            except Exception as exc:
+                log.debug("[NiblitCore] fused store_task_result failed: %s", exc)
+        # Fallback: store in NiblitMemory learning log
+        if hasattr(self.memory, "store_learning"):
+            self.memory.store_learning({"task_id": task_id, **result})
+
+    def retrieve_task_result(self, task_id: str) -> dict:
+        """Load a previously stored task result.
+
+        Args:
+            task_id: Unique task identifier.
+
+        Returns:
+            Result dict, or empty dict when not found.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                rec = fused.get_record(task_id)
+                if rec is not None:
+                    return rec
+            except Exception as exc:
+                log.debug("[NiblitCore] fused retrieve_task_result failed: %s", exc)
+        return {}
+
+    def search_related_tasks(
+        self,
+        embedding: List[float],
+        top_k: int = 5,
+    ) -> List[dict]:
+        """Find task results semantically similar to *embedding*.
+
+        Uses the fused Qdrant/FAISS vector search when available, returning
+        at most *top_k* results.
+
+        Args:
+            embedding: Query float vector.
+            top_k:     Maximum results.
+
+        Returns:
+            List of result dicts.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.query_vector(embedding, top_k=top_k)
+            except Exception as exc:
+                log.debug("[NiblitCore] fused search_related_tasks failed: %s", exc)
+        return []
+
+    def list_all_tasks(self) -> List[dict]:
+        """Return all stored task results from the fused backend.
+
+        Returns:
+            List of ``{"record_id": str, "data": dict, "created_at": str}`` dicts.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.list_records()
+            except Exception as exc:
+                log.debug("[NiblitCore] fused list_all_tasks failed: %s", exc)
+        return []
+
     def shutdown(self, timeout_seconds: Optional[float] = None):
         """Gracefully shutdown NiblitCore and all services."""
         timeout = timeout_seconds or self.config.shutdown_timeout_seconds

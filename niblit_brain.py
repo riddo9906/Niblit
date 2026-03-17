@@ -26,7 +26,7 @@ import datetime
 import logging
 import asyncio
 import threading
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.abspath(os.path.join(BASE_DIR, ".."))
@@ -1150,6 +1150,81 @@ class NiblitBrain:
             stats["learning_batcher"] = self.learning_batcher.get_stats()
 
         return stats
+
+    # ── Fused Memory API ─────────────────────────────────────────────────────
+
+    def save_knowledge(
+        self,
+        knowledge_id: str,
+        knowledge_data: dict,
+        embedding: Optional[List[float]] = None,
+    ) -> None:
+        """Store structured knowledge and an optional embedding via fused memory.
+
+        Writes *knowledge_data* to the SQLite records table and, when
+        *embedding* is provided, also upserts the vector into Qdrant/FAISS.
+
+        Args:
+            knowledge_id:   Unique identifier for this piece of knowledge.
+            knowledge_data: Arbitrary dict payload.
+            embedding:      Optional pre-computed float vector.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                fused.insert_record(knowledge_id, knowledge_data)
+                if embedding:
+                    fused.insert_vector(knowledge_id, embedding, payload=knowledge_data)
+                return
+            except Exception as exc:
+                log.debug("[NiblitBrain] fused save_knowledge failed: %s", exc)
+        # Fallback: store_learning
+        if hasattr(self.memory, "store_learning"):
+            self.memory.store_learning({"knowledge_id": knowledge_id, **knowledge_data})
+
+    def load_knowledge(self, knowledge_id: str) -> dict:
+        """Retrieve a piece of knowledge from the fused memory backend.
+
+        Args:
+            knowledge_id: Unique identifier.
+
+        Returns:
+            Knowledge dict, or empty dict when not found.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                rec = fused.get_record(knowledge_id)
+                if rec is not None:
+                    return rec
+            except Exception as exc:
+                log.debug("[NiblitBrain] fused load_knowledge failed: %s", exc)
+        return {}
+
+    def retrieve_similar(
+        self,
+        embedding: List[float],
+        top_k: int = 5,
+    ) -> List[dict]:
+        """Find knowledge entries semantically similar to *embedding*.
+
+        Queries the fused Qdrant/FAISS vector index.  Falls back to an empty
+        list when the fused backend is unavailable.
+
+        Args:
+            embedding: Query float vector.
+            top_k:     Maximum results.
+
+        Returns:
+            List of result dicts ordered by similarity (most similar first).
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.query_vector(embedding, top_k=top_k)
+            except Exception as exc:
+                log.debug("[NiblitBrain] fused retrieve_similar failed: %s", exc)
+        return []
 
 
 # ─────────── HF Shortcut ───────────

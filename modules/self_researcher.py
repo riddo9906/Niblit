@@ -774,6 +774,83 @@ class SelfResearcher:
             "patterns": self.learning_patterns
         }
 
+    # ── Fused Memory API ─────────────────────────────────────────────────────
+
+    def log_finding(
+        self,
+        research_id: str,
+        data: Dict[str, Any],
+        embedding: Optional[List[float]] = None,
+    ) -> None:
+        """Persist an autonomous research finding via the fused memory backend.
+
+        Writes the structured *data* dict to SQLite and, when *embedding* is
+        provided, also upserts the vector into Qdrant/FAISS for later
+        similarity-based retrieval.
+
+        Args:
+            research_id: Unique identifier for this research finding.
+            data:        Arbitrary result/finding dict.
+            embedding:   Optional pre-computed float embedding.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                fused.insert_record(research_id, data)
+                if embedding:
+                    fused.insert_vector(research_id, embedding, payload=data)
+                return
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused log_finding failed: %s", exc)
+        # Fallback: store via existing learning-log path
+        if hasattr(self.db, "store_learning"):
+            self.db.store_learning({"research_id": research_id, **data})
+
+    def get_finding(self, research_id: str) -> Dict[str, Any]:
+        """Retrieve a previously stored research finding by ID.
+
+        Args:
+            research_id: Unique finding identifier.
+
+        Returns:
+            Finding dict, or empty dict when not found.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                rec = fused.get_record(research_id)
+                if rec is not None:
+                    return rec
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused get_finding failed: %s", exc)
+        return {}
+
+    def query_past_findings(
+        self,
+        embedding: List[float],
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Find stored research findings similar to *embedding*.
+
+        Queries the fused Qdrant/FAISS vector index.  Returns at most *top_k*
+        results ordered by similarity.  Falls back to an empty list when the
+        fused backend is unavailable.
+
+        Args:
+            embedding: Query float vector.
+            top_k:     Maximum results.
+
+        Returns:
+            List of result dicts.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.query_vector(embedding, top_k=top_k)
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused query_past_findings failed: %s", exc)
+        return []
+
     # ─────────────────────────────────────────────
     # CODE RESEARCHER — feeds CodeGenerator with real data
     # ─────────────────────────────────────────────
