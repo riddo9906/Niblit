@@ -287,6 +287,17 @@ class SelfResearcher:
     def searchcode_search(self, value):
         self._searchcode_search = value
 
+    def _ensure_serpex_agent(self) -> None:
+        """Lazy-construct a ResearchAgent if one was not injected at init time."""
+        if self._serpex_agent is not None:
+            return
+        try:
+            from niblit_agents.research_agent import ResearchAgent as _RA
+            self._serpex_agent = _RA()
+            log.debug("[SelfResearcher] Lazily constructed ResearchAgent (Serpex)")
+        except Exception as _e:
+            log.debug("[SelfResearcher] ResearchAgent unavailable: %s", _e)
+
     # ─────────────────────────────────────────────
     # AUTO-RESEARCH CONTROL
     # ─────────────────────────────────────────────
@@ -541,6 +552,7 @@ class SelfResearcher:
         if not query:
             return []
 
+        self._ensure_serpex_agent()
         use_llm = kwargs.get('use_llm', True)
         learn_in_background = kwargs.get('learn_in_background', True)
         use_history = kwargs.get('use_history', True)

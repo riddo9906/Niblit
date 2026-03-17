@@ -203,6 +203,9 @@ class NiblitRouter:
         "import improvements", "deploy improvements", "hot reload improvements",
         # Code error fixing and self-repair
         "fix code", "fix-code",
+        "loops", "routing",
+        "study my code", "describe my architecture", "read my code",
+        "notifications",
     )
 
     CHAT_RESPONSES = {
@@ -1054,6 +1057,35 @@ Ask me about:
         return safe_call(self.core.handle, cmd)
 
     # ─────────────────────────────────
+    # LOOP VISIBILITY
+    # ─────────────────────────────────
+    def _handle_loops(self, cmd: str) -> str:
+        lower = cmd.lower().strip()
+        action = lower.replace("loops", "").strip()
+        core = getattr(self, 'core', None)
+        if not core:
+            return "❌ Core not available"
+        if action in ("show", "visible", "on"):
+            return safe_call(core._cmd_loops_show) or "✅ Loop output visible"
+        elif action in ("hide", "invisible", "off"):
+            return safe_call(core._cmd_loops_hide) or "⏹️ Loop output hidden"
+        else:
+            return safe_call(core._cmd_loops_status) or "Loop status unavailable"
+
+    def _handle_routing(self, cmd: str) -> str:
+        lower = cmd.lower().strip()
+        action = lower.replace("routing", "").strip()
+        core = getattr(self, 'core', None)
+        if not core:
+            return "❌ Core not available"
+        if action in ("show", "on"):
+            return safe_call(core._cmd_routing_show) or "✅ Routing detail visible"
+        elif action in ("hide", "off"):
+            return safe_call(core._cmd_routing_hide) or "⏹️ Routing detail hidden"
+        else:
+            return safe_call(core._cmd_routing_status) or "Routing status unavailable"
+
+    # ─────────────────────────────────
     # GITHUB SYNC
     # ─────────────────────────────────
     def _handle_github(self, cmd):
@@ -1699,6 +1731,26 @@ Ask me about:
             return "[CollaborativeLearner not available]"
 
         # AUTONOMOUS LEARNING COMMANDS
+        if lower.startswith("loops ") or lower == "loops":
+            return self._handle_loops(cmd)
+
+        if lower.startswith("routing ") or lower == "routing":
+            return self._handle_routing(cmd)
+
+        if lower.startswith("study my code") or lower.startswith("describe my architecture") or lower.startswith("read my code"):
+            if self.core and hasattr(self.core, 'personality') and self.core.personality:
+                parts = cmd.split(None, 3)
+                module = parts[-1] if len(parts) > 3 else ""
+                return self.core.personality.describe_architecture(module)
+            return "❌ Personality module not available"
+
+        if lower == "notifications":
+            core = getattr(self, 'core', None)
+            if core and hasattr(core, '_cmd_notifications'):
+                return safe_call(core._cmd_notifications)
+            return "No pending notifications"
+
+        # AUTONOMOUS LEARNING COMMANDS (original)
         if lower.startswith("autonomous-learn"):
             return self._handle_autonomous_learn(cmd)
 
@@ -1875,6 +1927,15 @@ Ask me about:
         # TIME
         if lower in ("time", "what time is it", "current time"):
             return timestamp()
+
+        # Personality: natural question detection
+        if self.core and hasattr(self.core, 'personality') and self.core.personality:
+            try:
+                personality_resp = self.core.personality.handle_natural_question(cmd)
+                if personality_resp:
+                    return personality_resp
+            except Exception:
+                pass
 
         # FALLBACK TO CORE
         if self.core:
@@ -2061,6 +2122,14 @@ Ask me about:
             "collab                       — Collaboration status and peer list",
             "collab register <name> [caps]— Register a peer system",
             "collab request <peer> <topic>— Request knowledge from a peer",
+            "",
+            "=== PERSONALITY & NOTIFICATIONS ===",
+            "what do you think about <X>  — Niblit's opinion on a topic",
+            "notifications                — View pending notifications",
+            "loops show/hide/status       — Toggle loop output verbosity",
+            "routing show/hide/status     — Toggle routing detail verbosity",
+            "study my code [module]       — Describe architecture or a specific module",
+            "describe my architecture     — Full architecture description",
             "",
         ]
         return "\n".join(commands)

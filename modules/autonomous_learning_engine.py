@@ -98,6 +98,7 @@ class AutonomousLearningEngine:
     # KB-store pipeline has time to settle before a new topic is fetched.
     # Set to 0 to disable; the wait is always interruptible via stop().
     _RESEARCH_INGEST_WAIT: float = 30.0
+    _CODE_TOPIC_INGEST_WAIT: float = 30.0
 
     def __init__(self, core, researcher=None, idea_generator=None,
                  reflect_module=None, self_teacher=None, slsa_manager=None,
@@ -390,6 +391,10 @@ class AutonomousLearningEngine:
         self._topic_index: int = 0
         self._current_cycle_topic: Optional[str] = None
 
+        # Code-step topic lock: all code steps 8-12 share one topic per cycle
+        self._code_topic_index: int = 0
+        self._current_code_topic: Optional[str] = None
+
         log.info("✅ AutonomousLearningEngine initialized")
 
     # ─────────────────────────────────────────────
@@ -421,6 +426,14 @@ class AutonomousLearningEngine:
         idx = self._topic_index % len(self.research_topics)
         topic = self.research_topics[idx]
         self._topic_index = (idx + 1) % len(self.research_topics)
+        return topic
+
+    def _select_next_code_topic(self) -> Tuple[str, str]:
+        """Rotate through code_research_topics sequentially (one per cycle)."""
+        if not self.code_research_topics:
+            return ("python", "best practices")
+        topic = self.code_research_topics[self._code_topic_index % len(self.code_research_topics)]
+        self._code_topic_index += 1
         return topic
 
     # ─────────────────────────────────────────────
@@ -1110,7 +1123,8 @@ class AutonomousLearningEngine:
         if not self.code_research_topics:
             return "[No code research topics configured]"
 
-        lang, topic = random.choice(self.code_research_topics)
+        self._current_code_topic = self._select_next_code_topic()
+        lang, topic = self._current_code_topic
         query = f"{lang} {topic} programming best practices examples"
 
         log.info(f"💻 [CODE RESEARCH] Fetching: {query}")
@@ -3382,7 +3396,7 @@ class AutonomousLearningEngine:
         _step("CodeResearch",    self._autonomous_code_research)
         _step("CodeGeneration",  self._autonomous_code_generation)
         _step("CodeCompilation", self._autonomous_code_compilation)
-        _step("CodeReflection",  self._autonomous_code_reflection)
+        _research_step("CodeReflection",  self._autonomous_code_reflection)
         _step("SoftwareStudy",   self._autonomous_software_study)
 
         # ── Structural self-awareness loop (steps 13-14) ────────────────────

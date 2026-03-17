@@ -188,8 +188,9 @@ class CodeErrorFixer:
         report = fixer.auto_fix_and_run("python", broken_code, compiler)
     """
 
-    def __init__(self, db: Any = None):
+    def __init__(self, db: Any = None, searchcode_search=None):
         self.db = db
+        self.searchcode_search = searchcode_search
         self._stats: Dict[str, int] = {
             "attempts": 0,
             "fixed": 0,
@@ -272,6 +273,23 @@ class CodeErrorFixer:
         self._stats["unfixed"] += 1
         self._store_fix_record(lang, code, current_code, explanation, False)
         log.warning("[CodeErrorFixer] Could not fix %s after %d attempts", lang, MAX_FIX_ATTEMPTS)
+
+        # Searchcode fallback: look for real fix patterns
+        sc = getattr(self, 'searchcode_search', None)
+        success = False
+        if sc and not success:
+            try:
+                error_type = "SyntaxError" if not error_msg else error_msg.split(":")[0].strip()[:30]
+                sc_results = sc.search_code(f"{lang} {error_type} fix", language=lang, max_results=2)
+                for r in (sc_results or []):
+                    if isinstance(r, dict):
+                        pattern = r.get("text", "") or r.get("snippet", "")
+                        if pattern and len(pattern) > 20:
+                            history.append(f"searchcode pattern found: {pattern[:60]}")
+                            break
+            except Exception as _sce:
+                log.debug("Searchcode fixer fallback failed: %s", _sce)
+
         return current_code, False, explanation
 
     def fix_and_compile(

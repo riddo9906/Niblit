@@ -61,6 +61,8 @@ _EVOLUTION_DIRECTIONS = [
     "autonomous learning efficiency",
 ]
 
+EVOLVE_DIRECTIONS = _EVOLUTION_DIRECTIONS  # public alias
+
 
 class EvolveEngine:
     """
@@ -156,6 +158,8 @@ class EvolveEngine:
             self.deploy_path = None
 
         self.iteration = 0
+        self._evolve_topic_index: int = 0
+        self._current_evolve_topic: Optional[str] = None
         self.running = False
         self._thread: Optional[threading.Thread] = None
         self._history: List[Dict[str, Any]] = []
@@ -178,6 +182,15 @@ class EvolveEngine:
     # ──────────────────────────────────────────────
     # TIMEOUT HELPER
     # ──────────────────────────────────────────────
+
+    def _select_next_evolve_direction(self) -> str:
+        """Rotate through EVOLVE_DIRECTIONS sequentially."""
+        directions = EVOLVE_DIRECTIONS or _EVOLUTION_DIRECTIONS
+        if not directions:
+            return "general improvement"
+        direction = directions[self._evolve_topic_index % len(directions)]
+        self._evolve_topic_index += 1
+        return direction
 
     def _run_sub_step(self, name: str, func, timeout: Optional[int] = None) -> Optional[str]:
         """Run *func()* in a daemon thread with a per-sub-step timeout.
@@ -229,7 +242,8 @@ class EvolveEngine:
         """Execute one evolution step using ALL available modules."""
         self.iteration += 1
         ts = datetime.now(timezone.utc).isoformat()
-        direction = random.choice(_EVOLUTION_DIRECTIONS)
+        self._current_evolve_topic = self._select_next_evolve_direction()
+        direction = self._current_evolve_topic
 
         record: Dict[str, Any] = {
             "iteration": self.iteration,
@@ -627,6 +641,10 @@ class EvolveEngine:
     # ──────────────────────────────────────────────
     # BACKGROUND LOOP
     # ──────────────────────────────────────────────
+
+    @property
+    def current_evolve_direction(self) -> Optional[str]:
+        return self._current_evolve_topic
 
     def start_background_evolution(self) -> bool:
         """Start the background evolution thread."""

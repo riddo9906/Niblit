@@ -1143,8 +1143,9 @@ class CodeGenerator:
         stats = gen.get_stats()
     """
 
-    def __init__(self, db: Any = None, deploy_path: Optional[str] = None):
+    def __init__(self, db: Any = None, deploy_path: Optional[str] = None, searchcode_search=None):
         self.db = db
+        self.searchcode_search = searchcode_search
         # Where to save autonomously-generated .py files.  Defaults to the
         # Niblit build directory when running on Termux.
         if deploy_path is not None:
@@ -2582,6 +2583,24 @@ class CodeGenerator:
                 return key
         return "data"  # fallback: generic data-processing module
 
+    def _enrich_from_searchcode(self, language: str, topic: str, research_text: str) -> str:
+        """Enrich research_text with real code snippets from searchcode."""
+        sc = getattr(self, 'searchcode_search', None)
+        if sc is None:
+            return research_text
+        try:
+            results = sc.research_for_code_generation(language, topic, max_results=3)
+            enriched = research_text
+            for r in (results or []):
+                if isinstance(r, dict):
+                    snippet = r.get("text", "") or r.get("snippet", "") or r.get("code", "")
+                    if snippet and len(snippet) > 20:
+                        enriched += f"\n\n# Searchcode snippet:\n{snippet[:500]}"
+            return enriched
+        except Exception as exc:
+            log.debug("Searchcode enrichment failed: %s", exc)
+            return research_text
+
     def generate_from_research(
         self,
         language: str,
@@ -2633,6 +2652,7 @@ class CodeGenerator:
         # Track the derived name so callers can use it (e.g. for save_to_builds)
         result["name"] = name
 
+        research_text = self._enrich_from_searchcode(lang, topic, research_text)
         try:
             if lang in ("python", "python3"):
                 code = self._generate_python_from_research(

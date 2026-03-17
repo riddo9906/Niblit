@@ -51,6 +51,7 @@ import contextvars
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Tuple, Optional, Callable
 from dataclasses import dataclass, field
+import collections
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -77,6 +78,7 @@ logging.basicConfig(
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
 log = logging.getLogger("NiblitCore")
+chat_log = logging.getLogger("NiblitChat")
 
 # Context variable for correlation ID
 correlation_id_var = contextvars.ContextVar('correlation_id', default=None)
@@ -691,6 +693,7 @@ SelfHealer_mod = safe_import("self_healer", Stub)
 SelfTeacher_mod = safe_import("self_teacher", Stub)
 SelfImplementer = safe_import("self_implementer", Stub)
 SelfIdeaGenerator = safe_import("self_idea_generator", Stub)
+NiblitPersonality = safe_import("niblit_personality", None)
 
 try:
     from modules.self_idea_implementation import SelfIdeaImplementation
@@ -1099,6 +1102,11 @@ class NiblitCore:
         self._last_dump_check = time.time()
         self._dump_loop_count = 0
 
+        # Loop visibility and notification state
+        self._loops_verbose: bool = True
+        self._notifications: collections.deque = collections.deque(maxlen=50)
+        self._show_routing: bool = False
+
         # SLSA state
         self.slsa_engine = None
         self.slsa_thread = None
@@ -1158,6 +1166,9 @@ class NiblitCore:
 
         # NEW: SelfIdeaImplementation (research + implement + SLSA + memory)
         self.idea_implementation = None
+
+        # Personality layer (conversational AI)
+        self.personality = None
 
         log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
 
@@ -2975,6 +2986,52 @@ Uptime: {stats['uptime_seconds']}s
         """Help command."""
         return self.help_text()
 
+    def _cmd_loops_show(self) -> str:
+        self._loops_verbose = True
+        return "✅ Loop output visible"
+
+    def _cmd_loops_hide(self) -> str:
+        self._loops_verbose = False
+        return "⏹️ Loop output hidden (loops still running)"
+
+    def _cmd_loops_status(self) -> str:
+        vis = "visible" if getattr(self, '_loops_verbose', True) else "hidden"
+        loops = ["health", "trainer", "auto_research", "dump_monitoring", "self_heal"]
+        return f"Loop output: {vis}\nActive loops: {', '.join(loops)}"
+
+    def _loop_notify(self, msg: str) -> None:
+        """Push a notification to the deque if loops_verbose is enabled."""
+        if getattr(self, '_loops_verbose', True):
+            notif_deque = getattr(self, '_notifications', None)
+            if notif_deque is not None:
+                notif_deque.append(msg)
+
+    def _cmd_routing_show(self) -> str:
+        self._show_routing = True
+        return "✅ Routing detail visible"
+
+    def _cmd_routing_hide(self) -> str:
+        self._show_routing = False
+        return "⏹️ Routing detail hidden"
+
+    def _cmd_routing_status(self) -> str:
+        state = "visible" if getattr(self, '_show_routing', False) else "hidden"
+        return f"Routing detail: {state}"
+
+    def _cmd_chat_status(self) -> str:
+        """Return recent chat exchange info."""
+        hist = getattr(self, 'history', [])
+        return f"Chat exchanges in history: {len(hist)}"
+
+    def _cmd_notifications(self) -> str:
+        """Return queued notifications."""
+        notifs = getattr(self, '_notifications', None)
+        if not notifs:
+            return "No pending notifications"
+        lines = list(notifs)
+        notifs.clear()
+        return "\n".join(lines) if lines else "No pending notifications"
+
     def _cmd_status(self, text: str) -> str:
         """Status command."""
         try:
@@ -3539,9 +3596,25 @@ Uptime: {stats['uptime_seconds']}s
 
             self.startup_report.add("brain_router", "ready")
             log.info("✅ Brain and router initialized")
+            self._init_personality()
         except Exception as e:
             log.error(f"Brain/router init failed: {e}")
             self.startup_report.add("brain_router", "degraded", str(e))
+
+    def _init_personality(self) -> None:
+        """Initialize NiblitPersonality for conversational responses."""
+        try:
+            if NiblitPersonality:
+                self.personality = NiblitPersonality(
+                    db=getattr(self, 'db', None),
+                    researcher=getattr(self, 'researcher', None),
+                    brain=getattr(self, 'brain', None),
+                    internet=getattr(self, 'internet', None),
+                    serpex_agent=getattr(self, 'serpex_research_agent', None),
+                )
+                log.info("✅ NiblitPersonality initialized")
+        except Exception as e:
+            log.debug(f"NiblitPersonality init failed: {e}")
 
     def _init_learning_systems(self):
         """Initialize learning-related systems."""
@@ -4177,7 +4250,8 @@ Uptime: {stats['uptime_seconds']}s
                                             f"Findings:\n{result_text[:600]}"
                                         ) or ""
                                     )
-                                    log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
+                                    if getattr(self, '_loops_verbose', True):
+                                        log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
                                 except Exception as _re:
                                     log.debug(f"[AUTO RESEARCH] Reflection failed: {_re}")
 
@@ -4189,7 +4263,8 @@ Uptime: {stats['uptime_seconds']}s
                                         self_teacher.teach,
                                         f"{topic}: {result_text[:300]}"
                                     )
-                                    log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
+                                    if getattr(self, '_loops_verbose', True):
+                                        log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
                                 except Exception as _te:
                                     log.debug(f"[AUTO RESEARCH] Teaching failed: {_te}")
 
@@ -4247,7 +4322,8 @@ Uptime: {stats['uptime_seconds']}s
                 if uptime // self.config.health_check_interval != last:
                     last = uptime // self.config.health_check_interval
                     mem = self._get_memory_count()
-                    log.info(f"[HEALTH] uptime={uptime}s mem={mem}")
+                    if getattr(self, '_loops_verbose', True):
+                        log.info(f"[HEALTH] uptime={uptime}s mem={mem}")
                 time.sleep(5)
             except Exception as e:
                 loop_tracer.record("HealthLoop", e)
@@ -4288,14 +4364,16 @@ Uptime: {stats['uptime_seconds']}s
                         if not topic:
                             continue
 
-                        log.info(f"[AUTO RESEARCH] {topic}")
+                        if getattr(self, '_loops_verbose', True):
+                            log.info(f"[AUTO RESEARCH] {topic}")
 
                         cache_key = self.research_cache.cache_key(topic)
                         cached = self.research_cache.get(cache_key)
                         result = None
 
                         if cached:
-                            log.info(f"[AUTO RESEARCH] Cache hit for {topic}")
+                            if getattr(self, '_loops_verbose', True):
+                                log.info(f"[AUTO RESEARCH] Cache hit for {topic}")
                             result = cached
                         else:
                             if self.internet:
@@ -4328,7 +4406,8 @@ Uptime: {stats['uptime_seconds']}s
                                             f"Findings:\n{result_text[:600]}"
                                         ) or ""
                                     )
-                                    log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
+                                    if getattr(self, '_loops_verbose', True):
+                                        log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
                                 except Exception as _re:
                                     log.debug(f"[AUTO RESEARCH] Reflection failed: {_re}")
 
@@ -4340,7 +4419,8 @@ Uptime: {stats['uptime_seconds']}s
                                         self_teacher.teach,
                                         f"{topic}: {result_text[:300]}"
                                     )
-                                    log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
+                                    if getattr(self, '_loops_verbose', True):
+                                        log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
                                 except Exception as _te:
                                     log.debug(f"[AUTO RESEARCH] Teaching failed: {_te}")
 
@@ -5110,6 +5190,15 @@ Uptime: {stats['uptime_seconds']}s
             log.debug("[CORE-CMD] Intercepted: shutdown")
             threading.Thread(target=self.shutdown, daemon=True).start()
             return "Shutdown scheduled."
+
+        # Check personality for natural questions
+        if self.personality and hasattr(self.personality, 'handle_natural_question'):
+            try:
+                personality_response = self.personality.handle_natural_question(text)
+                if personality_response:
+                    return personality_response
+            except Exception:
+                pass
 
         # ============================
         # LAYER 11: ROUTER FALLBACK
