@@ -3492,6 +3492,16 @@ Uptime: {stats['uptime_seconds']}s
             if self.researcher and self.internet:
                 self.researcher.internet = self.internet
 
+            # Inject Searchcode into SelfResearcher now (available at this phase).
+            # Serpex is injected later in _init_optional_services after the
+            # niblit_agents.ResearchAgent has been constructed.
+            if self.researcher:
+                if getattr(self, "searchcode_search", None):
+                    try:
+                        self.researcher.searchcode_search = self.searchcode_search
+                    except Exception as _e:
+                        log.debug("[INIT] researcher.searchcode_search injection failed: %s", _e)
+
             # Inject shared VectorStore into the researcher so semantic caching
             # and Qdrant-backed retrieval are available during autonomous research.
             if self.researcher and getattr(self, "vector_store", None):
@@ -3668,6 +3678,15 @@ Uptime: {stats['uptime_seconds']}s
                     except Exception as _e:
                         log.debug("niblit_agents.ResearchAgent unavailable: %s", _e)
                         self.serpex_research_agent = None
+
+                    # Wire Serpex agent into SelfResearcher so it is available as a
+                    # primary research backend (now that the agent has been constructed).
+                    if _serpex_agent and getattr(self, "researcher", None):
+                        try:
+                            self.researcher.serpex_agent = _serpex_agent
+                            log.info("✅ Serpex agent wired into SelfResearcher")
+                        except Exception as _e:
+                            log.debug("[INIT] Late researcher.serpex_agent injection failed: %s", _e)
 
                     self.autonomous_engine = AutonomousLearningEngine(
                         core=self,

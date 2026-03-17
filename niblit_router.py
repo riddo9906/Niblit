@@ -174,6 +174,8 @@ class NiblitRouter:
         "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status",
         "recall", "acquired data", "acquired-data", "knowledge stats", "knowledge-stats",
         "ale processes", "ale-processes", "kb stats", "kb-stats",
+        # Auto-research start/stop/status control
+        "auto-research",
         # Structural awareness shorthand commands
         "my", "sa-structure", "sa-threads", "sa-loops", "sa-modules",
         "sa-commands", "sa-dashboard", "sa-flow", "sa-resources", "sa-awareness",
@@ -969,6 +971,80 @@ Ask me about:
         )
 
     # ─────────────────────────────────
+    # AUTO-RESEARCH CONTROL
+    # ─────────────────────────────────
+    def _handle_auto_research(self, cmd):
+        """Handle auto-research start / stop / status commands.
+
+        These commands control the autonomous research sub-system independently:
+
+        * ``auto-research start``  — re-enable auto-research in SelfResearcher
+                                     and, if the ALE engine is stopped, start it too.
+        * ``auto-research stop``   — pause auto-research in SelfResearcher (manual
+                                     ``search()`` calls still work) and stop the ALE.
+        * ``auto-research status`` — show current state of both SelfResearcher and ALE.
+        * ``auto-research pause``  — alias for stop.
+        * ``auto-research resume`` — alias for start.
+        """
+        if not self.core:
+            return "[Core not available]"
+
+        lower = cmd.strip().lower()
+        action = lower.replace("auto-research", "").strip()
+
+        researcher = getattr(self.core, "researcher", None) or getattr(self.core, "self_researcher", None)
+        engine = getattr(self.core, "autonomous_engine", None)
+
+        if action in ("start", "on", "resume"):
+            lines = []
+            if researcher and hasattr(researcher, "start_auto_research"):
+                lines.append(safe_call(researcher.start_auto_research) or "✅ Auto-research started")
+            if engine and not engine.running:
+                result = engine.start()
+                lines.append("🚀 Autonomous learning engine started ✅" if result else "ℹ️ ALE already running")
+            elif engine and engine.running:
+                lines.append("ℹ️ Autonomous learning engine already running")
+            return "\n".join(lines) if lines else "✅ Auto-research started"
+
+        if action in ("stop", "off", "pause"):
+            lines = []
+            if researcher and hasattr(researcher, "stop_auto_research"):
+                lines.append(safe_call(researcher.stop_auto_research) or "⏹️ Auto-research stopped")
+            if engine and engine.running:
+                result = engine.stop()
+                lines.append("⏹️ Autonomous learning engine stopped ✅" if result else "ℹ️ ALE was not running")
+            return "\n".join(lines) if lines else "⏹️ Auto-research stopped"
+
+        if action in ("status", ""):
+            parts = []
+            if researcher and hasattr(researcher, "auto_research_status"):
+                parts.append(safe_call(researcher.auto_research_status) or "SelfResearcher: unknown")
+            if engine:
+                ale_state = "running ✅" if engine.running else "stopped ⏹️"
+                topic = (engine.get_current_topic() if hasattr(engine, "get_current_topic")
+                         else None) or "not started"
+                ingest_wait = (engine.get_research_ingest_wait()
+                               if hasattr(engine, "get_research_ingest_wait") else "?")
+                parts.append(
+                    f"ALE: {ale_state} | "
+                    f"Cycle: #{engine._cycle_count} | "
+                    f"Current topic: {topic!r} | "
+                    f"Ingest wait: {ingest_wait}s"
+                )
+            else:
+                parts.append("ALE: not initialized")
+            return "\n".join(parts) if parts else "[Auto-research: status unavailable]"
+
+        return (
+            "Usage:\n"
+            "  auto-research start   — Start / resume auto-research and ALE\n"
+            "  auto-research stop    — Stop / pause auto-research and ALE\n"
+            "  auto-research status  — Show auto-research and ALE state\n"
+            "  auto-research pause   — Alias for stop\n"
+            "  auto-research resume  — Alias for start"
+        )
+
+    # ─────────────────────────────────
     # KNOWLEDGE RECALL & ACQUIRED DATA
     # ─────────────────────────────────
     def _handle_knowledge(self, cmd):
@@ -1626,6 +1702,10 @@ Ask me about:
         if lower.startswith("autonomous-learn"):
             return self._handle_autonomous_learn(cmd)
 
+        # AUTO-RESEARCH CONTROL COMMANDS (start/stop/status/pause/resume)
+        if lower.startswith("auto-research"):
+            return self._handle_auto_research(cmd)
+
         # GITHUB SYNC COMMANDS
         if lower.startswith("github ") or lower == "github":
             return self._handle_github(cmd)
@@ -1853,6 +1933,13 @@ Ask me about:
             "reflect [topic]              — Reflect using ReflectModule directly",
             "auto-reflect                 — Reflect on recent interactions",
             "",
+            "=== AUTO-RESEARCH CONTROL ===",
+            "auto-research start   — Start / resume auto-research and the ALE engine",
+            "auto-research stop    — Pause auto-research and stop the ALE engine",
+            "auto-research status  — Show current research state, active topic, ingest wait",
+            "auto-research pause   — Alias for stop",
+            "auto-research resume  — Alias for start",
+            "",
             "=== AUTONOMOUS LEARNING ===",
             "autonomous-learn start              — Start learning (incl. programming-literacy loop)",
             "autonomous-learn stop               — Stop learning",
@@ -1867,19 +1954,19 @@ Ask me about:
             "autonomous-learn add-topics <t1,t2> — Manually add multiple topics",
             "",
             "  Core learning loop (Steps 1-7):",
-            "  Step 1:  Research       — researcher+internet → KB",
+            "  Step 1:  Research       — Serpex+Searchcode+researcher → KB (one topic/cycle)",
             "  Step 2:  Ideas          — SelfIdeaImpl/Generator",
             "  Step 3:  Implementation — SelfImplementer executes",
             "  Step 4:  Reflection     — ReflectModule summarizes",
             "  Step 5:  SLSA           — generates knowledge artifacts",
             "  Step 6:  Learning       — SelfTeacher internalizes",
             "  Step 7:  Evolution      — EvolveEngine self-evolves",
-            "  Programming-literacy loop (internet is primary data source):",
-            "  Step 8:  Code Research   — researcher+internet → CodeGenerator (language data)",
+            "  Programming-literacy loop (Searchcode+Serpex are primary sources):",
+            "  Step 8:  Code Research   — Searchcode+Serpex+researcher → CodeGenerator",
             "  Step 9:  Code Generation — idea+implementer produce compilable code",
             "  Step 10: Code Compile    — CodeCompiler runs the generated code",
             "  Step 11: Code Reflect    — ReflectModule studies compiled output",
-            "  Step 12: Software Study  — SoftwareStudier learns patterns via internet",
+            "  Step 12: Software Study  — SoftwareStudier learns patterns via structured sources",
             "  Structural awareness loop:",
             "  Step 13: Command Awareness — catalogue all commands → store in KB",
             "  Step 14: Command Execution — run safe commands autonomously → log results",
