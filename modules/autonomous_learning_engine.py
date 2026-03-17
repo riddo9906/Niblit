@@ -3319,11 +3319,17 @@ class AutonomousLearningEngine:
         collected: List[str] = []
         errors: List[str] = []
         ts = int(time.time())
+        _sc_results_for_semantic: List[dict] = []
+        _sc_lang = ""
+        _sc_pattern_type = ""
 
         try:
             pattern_topics = self._SC_PATTERN_TOPICS
             lang, pattern_type = pattern_topics[ts % len(pattern_topics)]
+            _sc_lang = lang
+            _sc_pattern_type = pattern_type
             results = sc.discover_patterns(lang, pattern_type, max_results=4)
+            _sc_results_for_semantic = results or []
             stored = 0
             for r in results:
                 text = r.get("text", "")
@@ -3351,16 +3357,15 @@ class AutonomousLearningEngine:
 
         # ── Semantic storage ─────────────────────────────────────────────────
         sa = self._get_semantic_agent()
-        if sa and collected:
+        if sa and _sc_results_for_semantic and _sc_lang:
             try:
-                # Re-run discovery results through SemanticAgent for embedding
-                for item in results if "results" in dir() else []:
+                for item in _sc_results_for_semantic:
                     text = item.get("text", "") if isinstance(item, dict) else str(item)
                     if text and len(text) > 20:
                         sa.store_knowledge(
                             [{"snippet": text[:500]}],
                             source="ale_searchcode",
-                            query=f"{lang} {pattern_type}",
+                            query=f"{_sc_lang} {_sc_pattern_type}",
                         )
             except Exception as _se:
                 log.debug("[SC DISCOVERY] SemanticAgent store failed: %s", _se)
