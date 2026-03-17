@@ -18,6 +18,20 @@ logging.basicConfig(
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
 
+try:
+    from niblit_agents.research_agent import is_relevant, should_reflect
+except ImportError:  # pragma: no cover – graceful degradation
+    def is_relevant(query: str, text: str, threshold: float = 0.5) -> bool:  # type: ignore[misc]
+        query_terms = set(query.lower().split())
+        if not query_terms:
+            return True
+        text_lower = text.lower()
+        overlap = sum(1 for term in query_terms if term in text_lower)
+        return (overlap / len(query_terms)) >= threshold
+
+    def should_reflect(results: list) -> bool:  # type: ignore[misc]
+        return len(results) > 0
+
 
 class IntentAnalyzer:
     """Analyzes user queries to understand intent without LLM"""
@@ -467,7 +481,31 @@ class SelfResearcher:
             try:
                 web_results = self._internet.search(query, max_results=max_results * 3)
                 if web_results:
-                    collected_results.extend(web_results)
+                    # Relevance gate: only accept results related to the query.
+                    # Extract the most meaningful text field from each result
+                    # (mirrors the field priority in ResearchAgent._process_results).
+                    def _result_text(r: Any) -> str:
+                        if isinstance(r, dict):
+                            return (
+                                r.get("snippet")
+                                or r.get("description")
+                                or r.get("content")
+                                or r.get("text")
+                                or r.get("summary")
+                                or str(r)
+                            )
+                        return str(r)
+
+                    relevant_web = [
+                        r for r in web_results
+                        if is_relevant(query, _result_text(r))
+                    ]
+                    if not relevant_web:
+                        log.warning(
+                            "[REFLECT] Skipped due to low-quality data — no relevant web results for %r",
+                            query,
+                        )
+                    collected_results.extend(relevant_web)
             except Exception as e:
                 log.debug(f"Internet search failed: {e}")
 
@@ -492,10 +530,13 @@ class SelfResearcher:
             collected_results = [f"No data found for '{query}'"]
 
         # ✨ 6️⃣ AUTONOMOUS LEARNING LOOP
-        if enable_autonomous_learning and collected_results:
-            self._feed_to_reflection(query, collected_results)
-            self._feed_to_teacher(query, results=collected_results)
-            self._store_research_in_knowledge_db(query, collected_results)
+        if enable_autonomous_learning:
+            if should_reflect(collected_results):
+                self._feed_to_reflection(query, collected_results)
+                self._feed_to_teacher(query, results=collected_results)
+                self._store_research_in_knowledge_db(query, collected_results)
+            else:
+                log.warning("[REFLECT] Skipped due to low-quality data for query %r", query)
 
         # 7️⃣ AUTO-LEARN
         try:

@@ -37,6 +37,41 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("Niblit.ResearchAgent")
 
 
+def is_relevant(query: str, text: str, threshold: float = 0.5) -> bool:
+    """Return *True* when *text* is semantically relevant to *query*.
+
+    Uses simple term-overlap: the fraction of query terms that appear in *text*
+    must meet or exceed *threshold*.
+
+    Args:
+        query:     The original search query.
+        text:      The candidate text (e.g. a snippet) to evaluate.
+        threshold: Minimum overlap score in ``[0, 1]``.  Defaults to ``0.5``.
+
+    Returns:
+        ``True`` if the overlap score ≥ threshold, ``False`` otherwise.
+    """
+    query_terms = set(query.lower().split())
+    if not query_terms:
+        return True  # nothing to filter on
+    text_lower = text.lower()
+    overlap = sum(1 for term in query_terms if term in text_lower)
+    score = overlap / len(query_terms)
+    return score >= threshold
+
+
+def should_reflect(results: list) -> bool:
+    """Return *True* only when *results* is non-empty (safe to reflect).
+
+    Args:
+        results: List of research result items.
+
+    Returns:
+        ``True`` if there is at least one result, ``False`` otherwise.
+    """
+    return len(results) > 0
+
+
 class ResearchAgent:
     """
     Research agent that queries Serpex and stores results in memory/Qdrant.
@@ -139,6 +174,7 @@ class ResearchAgent:
         self,
         data: Dict[str, Any],
         query: str = "",
+        _skip_relevance_check: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Extract structured knowledge from a Serpex response, persist to
@@ -146,7 +182,11 @@ class ResearchAgent:
 
         Args:
             data:  Raw Serpex API response dict.
-            query: Original query (used as the knowledge-store key prefix).
+            query: Original query (used as the knowledge-store key prefix and
+                   for relevance filtering).
+            _skip_relevance_check: Internal flag used by the retry path to
+                                   bypass the relevance filter on the second
+                                   pass so we don't loop indefinitely.
 
         Returns:
             List of ``{"title": str, "url": str, "snippet": str}`` dicts.
@@ -167,17 +207,43 @@ class ResearchAgent:
         for item in raw_items:
             if not isinstance(item, dict):
                 continue
+            snippet = (
+                item.get("snippet")
+                or item.get("description")
+                or item.get("content")
+                or item.get("text")
+                or ""
+            )
+
+            # Relevance gate: skip snippets that are unrelated to the query
+            if query and snippet and not _skip_relevance_check and not is_relevant(query, snippet):
+                logger.debug(
+                    "[ResearchAgent] Filtered irrelevant snippet for query %r: %.80s",
+                    query, snippet,
+                )
+                continue
+
             extracted.append({
                 "title": item.get("title", ""),
                 "url": item.get("link") or item.get("url", ""),
-                "snippet": (
-                    item.get("snippet")
-                    or item.get("description")
-                    or item.get("content")
-                    or item.get("text")
-                    or ""
-                ),
+                "snippet": snippet,
             })
+
+        # Fallback retry when every result was filtered out
+        if not extracted and query and not _skip_relevance_check:
+            refined_query = f"{query} explanation computer science"
+            logger.warning(
+                "[ResearchAgent] No relevant results for %r — retrying with refined query: %r",
+                query, refined_query,
+            )
+            retry_data = self._serpex_client().search(
+                query=refined_query,
+                category="web",
+                engine="auto",
+                time_range="day",
+            )
+            # Use _skip_relevance_check=True to avoid recursive retries
+            return self._process_results(retry_data, query=query, _skip_relevance_check=True)
 
         # 1. Persist to KnowledgeStore (SQLite)
         ks = self._knowledge_store_client()
