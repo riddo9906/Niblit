@@ -211,6 +211,8 @@ class NiblitRouter:
         "memory dump",
         # Trading Brain autonomous cycle
         "trading",
+        # Real-time Binance WebSocket stream
+        "stream",
     )
 
     CHAT_RESPONSES = {
@@ -1131,7 +1133,123 @@ Ask me about:
             "  trading cycle   — Run a single cycle now (manual trigger)"
         )
 
-    def _handle_memory_dump_visibility(self, cmd: str) -> str:
+    # ─────────────────────────────────
+    # REALTIME STREAM
+    # ─────────────────────────────────
+    def _handle_stream(self, cmd: str) -> str:
+        """Handle real-time Binance WebSocket stream commands.
+
+        Commands::
+
+            stream start [symbol] [interval]  — Start live kline stream
+            stream stop                        — Stop the stream gracefully
+            stream status                      — Show stream metrics
+            stream intra on/off                — Toggle intra-candle processing
+
+        The stream runs in a background asyncio thread so it does not block
+        the chat interface.  Each closed candle is processed through the full
+        feature engine → fused memory (SQLite + Qdrant) → decision pipeline.
+        Requires: pip install python-binance pandas websockets
+        """
+        lower = cmd.strip().lower()
+        action = lower.replace("stream", "").strip()
+
+        core = getattr(self, "core", None)
+
+        # ── start ──────────────────────────────────────────────────────────
+        if action.startswith("start") or action == "on":
+            parts = action.replace("start", "").strip().split()
+            symbol = parts[0] if parts else "btcusdt"
+            interval = parts[1] if len(parts) > 1 else "1m"
+            try:
+                import asyncio
+                import threading
+                from modules.realtime_stream import RealtimeStream
+                brain = getattr(core, "trading_brain", None) if core else None
+                stream = RealtimeStream(symbol=symbol, interval=interval, trading_brain=brain)
+                if core:
+                    core._realtime_stream = stream
+
+                def _run():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(stream.start())
+                    finally:
+                        loop.close()
+
+                t = threading.Thread(target=_run, daemon=True, name="RealtimeStream")
+                t.start()
+                return (
+                    f"🚀 Realtime stream started ✅\n"
+                    f"   Symbol: {symbol.upper()}  |  Interval: {interval}\n"
+                    f"   Processing: closed candles only (use 'stream intra on' for tick-level)\n"
+                    f"   Type 'stream status' to monitor  |  'stream stop' to halt\n"
+                    f"   Requires: pip install python-binance pandas websockets"
+                )
+            except ImportError:
+                return (
+                    "⚠️  python-binance is not installed.\n"
+                    "    Run: pip install python-binance pandas websockets\n"
+                    "    Then try 'stream start' again."
+                )
+            except Exception as exc:
+                return f"[Stream start failed: {exc}]"
+
+        # ── stop ───────────────────────────────────────────────────────────
+        if action in ("stop", "off"):
+            stream = getattr(core, "_realtime_stream", None) if core else None
+            if stream is None:
+                return "ℹ️  No active realtime stream found."
+            stream.stop()
+            return "⏹️  Realtime stream stopped ✅"
+
+        # ── status ─────────────────────────────────────────────────────────
+        if action in ("status", ""):
+            stream = getattr(core, "_realtime_stream", None) if core else None
+            if stream is None:
+                return (
+                    "[Realtime Stream: not started]\n"
+                    "  Use 'stream start' to begin live market intelligence."
+                )
+            st = stream.stats()
+            state = "✅ running" if st["running"] else "⏹️ stopped"
+            return (
+                f"[Realtime Stream Status]\n"
+                f"  State:         {state}\n"
+                f"  Symbol:        {st['symbol'].upper()}\n"
+                f"  Interval:      {st['interval']}\n"
+                f"  Intra-candle:  {'✅ on' if st['intra_candle'] else '⏹️ off'}\n"
+                f"  Ticks seen:    {st['tick_count']}\n"
+                f"  Candles closed:{st['close_count']}\n"
+                f"  Buffer size:   {st['buffer_size']}/200\n"
+                f"  Last price:    {st['last_price']:.4f}\n"
+                f"  Last decision: {st['last_decision']}\n"
+                f"  Last candle:   {st['last_ts'] or 'none'}"
+            )
+
+        # ── intra toggle ────────────────────────────────────────────────────
+        if action.startswith("intra"):
+            stream = getattr(core, "_realtime_stream", None) if core else None
+            if stream is None:
+                return "ℹ️  No active stream — start one first with 'stream start'."
+            on = "on" in action
+            stream.intra_candle = on
+            mode = "tick-level (every tick)" if on else "candle-close only"
+            return f"✅ Intra-candle processing {'enabled' if on else 'disabled'} — {mode}"
+
+        return (
+            "Usage:\n"
+            "  stream start [symbol] [interval]  — Start live stream (default: btcusdt 1m)\n"
+            "  stream stop                        — Stop the stream\n"
+            "  stream status                      — Show stream metrics\n"
+            "  stream intra on                    — Enable tick-level processing\n"
+            "  stream intra off                   — Process closed candles only (default)\n"
+            "\n"
+            "  Requires: pip install python-binance pandas websockets\n"
+            "  Env vars: BINANCE_API_KEY, BINANCE_API_SECRET (optional for public streams)"
+        )
+
         """Toggle the NiblitMemory periodic dump loop on or off.
 
         Commands::
@@ -1867,6 +1985,10 @@ Ask me about:
         if lower.startswith("trading"):
             return self._handle_trading(cmd)
 
+        # REALTIME STREAM COMMANDS
+        if lower.startswith("stream"):
+            return self._handle_stream(cmd)
+
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
                      "memory dump on", "memory dump off",
@@ -2079,13 +2201,16 @@ Ask me about:
 
     # ─────────────────────────────────
     def help_text(self):
-        """Return comprehensive help text."""
+        """Return comprehensive help text covering every command in Niblit."""
         commands = [
-            "[NIBLIT ROUTER COMMANDS]\n",
-            "=== SELF-AWARENESS (Ask when LLM is OFF) ===",
-            "what would you improve?      — Hear about my improvement plans",
-            "what are your limitations?   — My honest weaknesses",
-            "how do you feel about yourself? — My self-reflection",
+            "╔══════════════════════════════════════════════════════════════════════╗",
+            "║                     NIBLIT — FULL COMMAND REFERENCE                  ║",
+            "╚══════════════════════════════════════════════════════════════════════╝",
+            "",
+            "=== SELF-AWARENESS ===",
+            "what would you improve?      — Hear about improvement plans",
+            "what are your limitations?   — Honest weaknesses",
+            "how do you feel about yourself? — Self-reflection",
             "what have you learned?       — Learning progress + KB summary",
             "what can you do?             — Capabilities + acquired data counts",
             "how do you work?             — Operational flow, ALE, all processes",
@@ -2105,18 +2230,18 @@ Ask me about:
             "=== KNOWLEDGE RECALL & ACQUIRED DATA ===",
             "recall <topic>               — Search KnowledgeDB for any stored fact",
             "                               (searches: facts, events, interactions, log)",
-            "acquired data                — Browse all facts acquired by ALE processes",
+            "acquired data                — Browse all facts acquired by ALE",
             "acquired data <category>     — Filter: research|ideas|code|compiled|",
             "                               reflection|software_study|implementation|all",
             "knowledge stats              — Full KnowledgeDB summary with ALE breakdown",
-            "ale processes                — Explain all 12 ALE steps + module status",
+            "ale processes                — Explain all 27 ALE steps + module status",
             "  Note: ALL ALE output is stored in KnowledgeDB and is recallable.",
             "",
             "=== INTERNET & RESEARCH ===",
             "search <query>               — Search internet (primary data source)",
             "summary <query>              — Quick summary via internet",
             "self-research <topic>        — Research topic using researcher + internet",
-            "research code <lang> [topic] — Research language from internet → feeds CodeGenerator",
+            "research code <lang> [topic] — Research language → feeds CodeGenerator",
             "                               e.g. 'research code python async patterns'",
             "",
             "=== SELF-IMPROVEMENT COMMANDS ===",
@@ -2124,8 +2249,8 @@ Ask me about:
             "self-implement [plan]        — Enqueue a plan to SelfImplementer",
             "self-teach <topic>           — Teach a topic using SelfTeacher + research",
             "idea-implement [prompt]      — Generate and implement ideas (batch if no prompt)",
-            "reflect [topic]              — Reflect on topic (stores in ale_reflection: + BrainTrainer)",
-            "reflect trading              — Reflect on current market state (TradingBrain → KB)",
+            "reflect [topic]              — Reflect on topic (stores in ale_reflection:)",
+            "reflect trading              — Reflect on current market state → KB",
             "reflect code [lang]          — Reflect on latest code generation results",
             "reflect all                  — Comprehensive reflection across all subsystems",
             "auto-reflect                 — Auto-reflect on recent interactions + KB facts",
@@ -2136,47 +2261,76 @@ Ask me about:
             "auto-research status  — Show current research state, active topic, ingest wait",
             "auto-research pause   — Alias for stop",
             "auto-research resume  — Alias for start",
+            "  Note: ALE now uses ONE unified research step (all backends simultaneously).",
+            "        A new topic query runs every 60 s to allow full KB ingestion.",
             "",
             "=== TRADING BRAIN ===",
-            "trading start   — Launch autonomous trading cycle (Binance, every 60s by default)",
+            "trading start   — Launch autonomous trading cycle (Binance, every 60 s)",
             "trading stop    — Stop the autonomous trading cycle",
-            "trading status  — Show trading brain state (symbol, cycle count, last decision)",
-            "trading cycle   — Run a single observe→engineer→store→decide pass right now",
-            "  Env vars: BINANCE_API_KEY, BINANCE_API_SECRET, TRADING_SYMBOL (default BTCUSDT),",
-            "            TRADING_INTERVAL (default 1m), TRADING_CYCLE_SECS (default 60)",
+            "trading status  — Show trading brain state (symbol, cycles, last decision)",
+            "trading cycle   — Run a single observe→engineer→store→decide pass now",
+            "  Env vars: BINANCE_API_KEY, BINANCE_API_SECRET,",
+            "            TRADING_SYMBOL (default BTCUSDT), TRADING_INTERVAL (default 1m),",
+            "            TRADING_CYCLE_SECS (default 60)",
             "",
-            "=== AUTONOMOUS LEARNING ===",
-            "autonomous-learn start              — Start learning (incl. programming-literacy loop)",
+            "=== REALTIME STREAM (WebSocket Intelligence) ===",
+            "stream start [symbol] [interval]  — Start Binance WebSocket kline stream",
+            "                                     e.g. 'stream start btcusdt 1m'",
+            "stream stop                        — Stop the stream gracefully",
+            "stream status                      — Show stream metrics (ticks, closes, decision)",
+            "stream intra on                    — Enable tick-level (intra-candle) processing",
+            "stream intra off                   — Process closed candles only (default)",
+            "  Note: The stream feeds live candles into the full feature engine →",
+            "        fused memory (SQLite + Qdrant) → decision engine pipeline.",
+            "  Env vars: BINANCE_API_KEY, BINANCE_API_SECRET (optional for public streams)",
+            "  Requires: pip install python-binance pandas websockets",
+            "  Runner: python run_realtime.py [--symbol BTCUSDT] [--interval 1m] [--intra]",
+            "",
+            "=== AUTONOMOUS LEARNING ENGINE (ALE) ===",
+            "autonomous-learn start              — Start learning (all 27 steps)",
             "autonomous-learn stop               — Stop learning",
             "autonomous-learn status             — View full learning statistics",
-            "autonomous-learn code-status        — View programming literacy / code loop status",
+            "autonomous-learn code-status        — View programming literacy / code loop",
             "autonomous-learn self-learn         — Run structural self-learn sequence now",
             "autonomous-learn evolve-sequence    — Run structured evolve sequence now",
             "autonomous-learn command-awareness  — Catalogue all commands (Step 13)",
             "autonomous-learn command-exec       — Execute safe diagnostic commands (Step 14)",
-            "autonomous-learn topic-seed         — Derive & seed new topics to ALE + SLSA + KB (Step 15)",
+            "autonomous-learn topic-seed         — Derive & seed new topics (Step 15)",
+            "autonomous-learn serpex-research    — Run unified research step now",
+            "autonomous-learn serpex-search <q>  — Live Serpex web search with relevance filter",
             "autonomous-learn add-topic <t>      — Manually add research topic",
             "autonomous-learn add-topics <t1,t2> — Manually add multiple topics",
             "",
-            "  Core learning loop (Steps 1-7):",
-            "  Step 1:  Research       — Serpex+Searchcode+researcher → KB (one topic/cycle)",
-            "  Step 2:  Ideas          — SelfIdeaImpl/Generator",
-            "  Step 3:  Implementation — SelfImplementer executes",
-            "  Step 4:  Reflection     — ReflectModule summarizes",
-            "  Step 5:  SLSA           — generates knowledge artifacts",
-            "  Step 6:  Learning       — SelfTeacher internalizes",
-            "  Step 7:  Evolution      — EvolveEngine self-evolves",
-            "  Programming-literacy loop (Searchcode+Serpex are primary sources):",
-            "  Step 8:  Code Research   — Searchcode+Serpex+researcher → CodeGenerator",
-            "  Step 9:  Code Generation — idea+implementer produce compilable code",
-            "  Step 10: Code Compile    — CodeCompiler runs the generated code",
-            "  Step 11: Code Reflect    — ReflectModule studies compiled output",
-            "  Step 12: Software Study  — SoftwareStudier learns patterns via structured sources",
-            "  Structural awareness loop:",
-            "  Step 13: Command Awareness — catalogue all commands → store in KB",
-            "  Step 14: Command Execution — run safe commands autonomously → log results",
-            "  Topic seeding loop:",
-            "  Step 15: Topic Seeding   — derive topics from KB → add to ALE + SLSA + KB queue",
+            "  ALE Cycle Sequence (steps run 1 → 27 in order):",
+            "  Step  1: UnifiedResearch  — ALL backends together (Serpex + SelfResearcher +",
+            "                              Searchcode + GitHub + Qdrant) for ONE topic.",
+            "                              60 s ingest wait follows — one new query/minute.",
+            "  Step  2: Ideas            — SelfIdeaImplementation / IdeaGenerator",
+            "  Step  3: Learning         — SelfTeacher internalises research results",
+            "  Step  4: Implementation   — SelfImplementer executes enqueued plans",
+            "  Step  5: Reflection       — ReflectModule summarises + stores in KB",
+            "  Step  6: SLSA             — generates knowledge artifacts",
+            "  Step  7: Evolve           — EvolveEngine self-evolves",
+            "  Step  8: CodeResearch     — Searchcode + GitHub + researcher → CodeGenerator",
+            "  Step  9: CodeGeneration   — idea + implementer produce compilable code",
+            "  Step 10: CodeCompilation  — CodeCompiler runs the generated code",
+            "  Step 11: CodeReflection   — ReflectModule studies compiled output (30 s wait)",
+            "  Step 12: SoftwareStudy    — SoftwareStudier learns via structured sources",
+            "  Step 13: CommandAwareness — catalogue all commands → store in KB",
+            "  Step 14: CommandExecution — run safe commands autonomously → log results",
+            "  Step 15: TopicSeeding     — derive topics from KB → add to ALE + SLSA queue",
+            "  Step 16: Reasoning        — ReasoningEngine builds knowledge graph",
+            "  Step 17: Metacognition    — evaluate self-knowledge, identify gaps",
+            "  Step 18: ImprovementCycle — 10-module improvement (throttled: every 3 cycles)",
+            "  Step 19: SelfScan         — BuildScanner reads own source files",
+            "  Step 20: GitHubPush       — push generated files (throttled: every 5 cycles)",
+            "  Step 21: BinaryStudy      — seed KB with binary/hex/firmware topics",
+            "  Step 22: BuildsUpdate     — index builds/ directory",
+            "  Step 23: EvolveDeploy     — hot-reload evolved improvements",
+            "  Step 24: BrainTraining    — fine-tune brain on research data + KB facts",
+            "  Step 25: CognitiveEnhancement — research language/reasoning/chat quality",
+            "  Step 26: GitHubCodeDiscovery  — pattern discovery, datasets, refactoring",
+            "  Step 27: SearchcodeDiscovery  — searchcode.com code-pattern index",
             "",
             "=== SELF-IMPROVEMENTS ===",
             "show improvements            — View 10 improvement modules",
@@ -2188,6 +2342,17 @@ Ask me about:
             "toggle-llm on                — Enable LLM (use AI)",
             "status, health               — System status",
             "time                         — Current time",
+            "",
+            "=== LOOP & OUTPUT CONTROL ===",
+            "loops show                   — Make all background loop output visible",
+            "loops hide                   — Hide loop output (loops keep running)",
+            "loops status                 — Show visibility state + list of active loops",
+            "routing show                 — Show routing detail output",
+            "routing hide                 — Hide routing detail output",
+            "routing status               — Show routing visibility state",
+            "dump visible / dump on       — Enable verbose memory dump logging",
+            "dump invisible / dump off    — Disable memory dump logging (default)",
+            "notifications                — View pending loop notifications",
             "",
             "=== LIVE UPDATE & UPGRADE ===",
             "reload <module.name>         — Hot-reload a module without restarting",
@@ -2231,7 +2396,7 @@ Ask me about:
             "what have i studied          — Show what I've studied this session",
             "",
             "=== EVOLUTION ENGINE ===",
-            "evolve                       — Run one self-evolution step (research+internet+code+teach+reflect+impl+slsa)",
+            "evolve                       — Run one self-evolution step",
             "evolve start                 — Start background continuous evolution",
             "evolve stop                  — Stop background evolution",
             "evolve status                — Show evolution status + available modules",
@@ -2267,11 +2432,29 @@ Ask me about:
             "collab register <name> [caps]— Register a peer system",
             "collab request <peer> <topic>— Request knowledge from a peer",
             "",
+            "=== GITHUB SYNC ===",
+            "github status                — Show GitHub sync state",
+            "github push                  — Push generated/evolved files to GitHub",
+            "github pull                  — Pull latest changes from GitHub",
+            "github log                   — Show recent GitHub sync history",
+            "",
+            "=== BUILD SCANNER & TREE ===",
+            "scan build                   — Scan own source files for self-knowledge",
+            "read build                   — Read a specific build file",
+            "build summary                — Summarise the builds/ directory",
+            "build path                   — Show the active build output path",
+            "tree scan <path>             — Scan a filesystem path",
+            "tree read <path>             — Read a file at a path",
+            "tree write <path> <content>  — Write content to a path",
+            "tree edit <path> <content>   — Edit an existing file at a path",
+            "",
+            "=== HOT RELOAD / IMPROVEMENTS ===",
+            "import improvements          — Import evolved improvements into memory",
+            "deploy improvements          — Hot-reload evolved improvements live",
+            "hot reload improvements      — Alias for deploy improvements",
+            "",
             "=== PERSONALITY & NOTIFICATIONS ===",
             "what do you think about <X>  — Niblit's opinion on a topic",
-            "notifications                — View pending notifications",
-            "loops show/hide/status       — Toggle loop output verbosity",
-            "routing show/hide/status     — Toggle routing detail verbosity",
             "study my code [module]       — Describe architecture or a specific module",
             "describe my architecture     — Full architecture description",
             "",

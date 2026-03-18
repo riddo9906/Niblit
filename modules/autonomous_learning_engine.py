@@ -79,6 +79,22 @@ _MAX_RESEARCH_SNIPPET_LENGTH: int = 300
 # Maximum characters for code excerpt stored in learning facts.
 _MAX_LEARNING_CODE_EXCERPT: int = 150
 
+# Lazy singleton for TopicConstructor — imported on first use to avoid
+# circular import if this module is loaded before modules/ is on sys.path.
+_TOPIC_CONSTRUCTOR = None
+
+
+def _get_topic_constructor():
+    """Return a shared TopicConstructor instance, constructing it on first call."""
+    global _TOPIC_CONSTRUCTOR
+    if _TOPIC_CONSTRUCTOR is None:
+        try:
+            from modules.topic_constructor import TopicConstructor
+            _TOPIC_CONSTRUCTOR = TopicConstructor()
+        except Exception:
+            pass
+    return _TOPIC_CONSTRUCTOR
+
 
 class AutonomousLearningEngine:
     """
@@ -92,12 +108,12 @@ class AutonomousLearningEngine:
     # GitHubPush (step 20) runs every N cycles (network push; not needed every cycle).
     _GITHUB_PUSH_EVERY: int = 5
     # Seconds to sleep between consecutive steps for I/O breathing room.
-    # 27 steps × 3 s = ~81 s aggregate, acceptable for a multi-minute background cycle.
     _INTER_STEP_SLEEP: float = 3.0
-    # Seconds to wait after a research step so the full ingestion → reflection →
-    # KB-store pipeline has time to settle before a new topic is fetched.
-    # Set to 0 to disable; the wait is always interruptible via stop().
-    _RESEARCH_INGEST_WAIT: float = 30.0
+    # Seconds to wait after the unified research step so the full ingestion →
+    # reflection → KB-store pipeline has time to settle before the next query.
+    # 60 s gives every backend (Serpex, Searchcode, Qdrant, SQLite) time to
+    # write and index the results before the next research call begins.
+    _RESEARCH_INGEST_WAIT: float = 60.0
     _CODE_TOPIC_INGEST_WAIT: float = 30.0
 
     def __init__(self, core, researcher=None, idea_generator=None,
@@ -429,13 +445,16 @@ class AutonomousLearningEngine:
         Using sequential rotation (instead of random.choice) guarantees that
         every topic is deeply studied before another is picked, and that the
         same topic is shared by all research steps within one full cycle.
+        The raw topic is run through TopicConstructor so the returned string
+        is always safe for search APIs (no 403 / timeout from overly long queries).
         """
         if not self.research_topics:
             return "autonomous learning"
         idx = self._topic_index % len(self.research_topics)
-        topic = self.research_topics[idx]
+        raw = self.research_topics[idx]
         self._topic_index = (idx + 1) % len(self.research_topics)
-        return topic
+        tc = _get_topic_constructor()
+        return tc.build(raw) if tc else raw
 
     def _select_next_code_topic(self) -> Tuple[str, str]:
         """Rotate through code_research_topics sequentially (one per cycle)."""
@@ -1043,6 +1062,215 @@ class AutonomousLearningEngine:
                 log.debug("[SERPEX RESEARCH] SemanticAgent store failed: %s", exc)
 
         return f"SerpexResearch: {topic!r} — {stored}/{len(valid)} snippet(s) validated + stored"
+
+    # ─────────────────────────────────────────────
+    # UNIFIED RESEARCH (replaces separate SerpexResearch + Research steps)
+    # ─────────────────────────────────────────────
+
+    def _unified_research(self) -> str:
+        """Unified research step — calls ALL research backends in parallel for ONE topic.
+
+        This replaces the former two-step approach (Step 27 = SerpexResearch,
+        Step 1 = Research) with a single, unified call that fans out to every
+        available backend simultaneously:
+
+            1. niblit_agents.ResearchAgent (Serpex + relevance filter)
+            2. SelfResearcher (semantic KB cache → Searchcode → internet fallback)
+            3. SearchcodeSearch (open-source code patterns)
+            4. GitHubCodeSearch (idiomatic patterns, datasets, refactoring)
+            5. SemanticAgent / Qdrant vector store (vector-similarity retrieval)
+
+        All results are merged, de-duplicated, and stored under a single
+        ``ale_unified_research:{topic}:{ts}`` key so every downstream step
+        (Ideas → Learning → Implementation → Reflection) works from a
+        consistently enriched knowledge base.
+
+        A single 60-second ``_RESEARCH_INGEST_WAIT`` pause follows so the
+        full ingestion → vector-embedding → KB-store pipeline settles before
+        the cycle advances to the next step.
+        """
+        topic = self._current_cycle_topic or self._select_next_topic()
+        if not topic:
+            return "[UnifiedResearch skipped — no research topics]"
+
+        log.info("🔍 [UNIFIED RESEARCH] Topic: %r  (all backends active)", topic)
+
+        collected_snippets: List[str] = []
+        backend_summaries: List[str] = []
+        ts = int(time.time())
+
+        # ── 1. Serpex ResearchAgent ────────────────────────────────────────
+        agent = self._get_serpex_agent()
+        if agent:
+            try:
+                results = agent.search_web(topic) or []
+                valid = [r for r in results if isinstance(r, dict) and "error" not in r]
+                for item in valid:
+                    snippet = item.get("snippet", "")
+                    if snippet:
+                        collected_snippets.append(snippet[:500])
+                        if self.knowledge_db:
+                            try:
+                                self.knowledge_db.add_fact(
+                                    f"ale_serpex_research:{topic.replace(' ', '_')}:{ts}",
+                                    {"topic": topic, "snippet": snippet[:500],
+                                     "title": item.get("title", ""),
+                                     "url": item.get("url", ""),
+                                     "step": "unified_research_serpex"},
+                                    tags=["ale_unified", "serpex", "research",
+                                          topic.split()[0].lower()],
+                                )
+                            except Exception:
+                                pass
+                    title = item.get("title", "")
+                    if title and title not in self.research_topics:
+                        self.add_research_topic(title)
+                if valid:
+                    backend_summaries.append(f"Serpex({len(valid)})")
+                    log.debug("[UNIFIED] Serpex: %d results", len(valid))
+            except Exception as exc:
+                log.debug("[UNIFIED] Serpex failed: %s", exc)
+
+        # ── 2. SelfResearcher ─────────────────────────────────────────────
+        if self.researcher:
+            try:
+                sr_results = self.researcher.search(
+                    topic,
+                    max_results=5,
+                    use_history=True,
+                    synthesize=True,
+                    enable_autonomous_learning=True,
+                ) or []
+                try:
+                    sr_results = list(sr_results)
+                except TypeError:
+                    sr_results = [sr_results] if sr_results else []
+                for r in sr_results:
+                    text = str(r)[:500] if r else ""
+                    if text:
+                        collected_snippets.append(text)
+                if sr_results:
+                    backend_summaries.append(f"SelfResearcher({len(sr_results)})")
+                    log.debug("[UNIFIED] SelfResearcher: %d results", len(sr_results))
+            except Exception as exc:
+                log.debug("[UNIFIED] SelfResearcher failed: %s", exc)
+
+        # ── 3. SearchcodeSearch ────────────────────────────────────────────
+        sc = self._get_searchcode_search()
+        if sc:
+            try:
+                sc_results = sc.discover_patterns("python", topic.split()[0], max_results=3) or []
+                for r in sc_results:
+                    text = r.get("text", "") if isinstance(r, dict) else str(r)
+                    if text and len(text) > 20:
+                        collected_snippets.append(text[:400])
+                if sc_results:
+                    backend_summaries.append(f"Searchcode({len(sc_results)})")
+                    log.debug("[UNIFIED] Searchcode: %d results", len(sc_results))
+            except Exception as exc:
+                log.debug("[UNIFIED] Searchcode failed: %s", exc)
+
+        # ── 4. GitHubCodeSearch ────────────────────────────────────────────
+        gcs = self._get_github_code_search()
+        if gcs and hasattr(gcs, "research_for_code_generation"):
+            try:
+                gh_results = gcs.research_for_code_generation(topic, max_results=3) or []
+                for r in gh_results:
+                    text = r.get("text", "") if isinstance(r, dict) else str(r)
+                    if text and len(text) > 20:
+                        collected_snippets.append(text[:400])
+                if gh_results:
+                    backend_summaries.append(f"GitHub({len(gh_results)})")
+                    log.debug("[UNIFIED] GitHub: %d results", len(gh_results))
+            except Exception as exc:
+                log.debug("[UNIFIED] GitHub failed: %s", exc)
+
+        # ── 5. SemanticAgent (Qdrant vector retrieval) ─────────────────────
+        sa = self._get_semantic_agent()
+        if sa and hasattr(sa, "retrieve_knowledge"):
+            try:
+                sa_results = sa.retrieve_knowledge(topic, top_k=3) or []
+                for r in sa_results:
+                    text = r.get("snippet", "") if isinstance(r, dict) else str(r)
+                    if text and len(text) > 20:
+                        collected_snippets.append(text[:400])
+                if sa_results:
+                    backend_summaries.append(f"Qdrant({len(sa_results)})")
+                    log.debug("[UNIFIED] SemanticAgent: %d results", len(sa_results))
+            except Exception as exc:
+                log.debug("[UNIFIED] SemanticAgent retrieve failed: %s", exc)
+
+        # ── Merge + de-duplicate snippets ─────────────────────────────────
+        seen: set = set()
+        deduped: List[str] = []
+        for s in collected_snippets:
+            key = s[:100]
+            if key not in seen:
+                seen.add(key)
+                deduped.append(s)
+
+        # ── Persist merged results to KB ───────────────────────────────────
+        if deduped and self.knowledge_db:
+            try:
+                all_text = "\n---\n".join(deduped[:6])
+                self.knowledge_db.add_fact(
+                    f"ale_unified_research:{topic.replace(' ', '_')}:{ts}",
+                    {
+                        "topic": topic,
+                        "results_count": len(deduped),
+                        "backends": backend_summaries,
+                        "summary": deduped[0][:300] if deduped else "",
+                        "full_text": all_text[:1000],
+                        "step": "unified_research",
+                    },
+                    tags=["ale_unified", "research", "autonomous",
+                          topic.split()[0].lower()],
+                )
+                self.knowledge_db.log_event(
+                    f"Unified research: {topic!r} — "
+                    f"{len(deduped)} snippets from {len(backend_summaries)} backends"
+                )
+            except Exception as exc:
+                log.debug("[UNIFIED] KB store failed: %s", exc)
+
+        # ── Forward results to downstream steps ───────────────────────────
+        self._last_research_results = deduped
+        self.learning_history["research_completed"] += 1
+        self.learning_history["last_research_topic"] = topic
+        self.learning_history["serpex_research_cycles"] = (
+            self.learning_history.get("serpex_research_cycles", 0) + 1
+        )
+
+        # ── Feed to BrainTrainer ───────────────────────────────────────────
+        bt = self.brain_trainer or (
+            getattr(self.core, "brain", None)
+            and getattr(self.core.brain, "brain_trainer", None)
+        )
+        if bt and hasattr(bt, "ingest_research"):
+            for snippet in deduped[:3]:
+                try:
+                    bt.ingest_research(topic, snippet[:400])
+                except Exception:
+                    pass
+
+        # ── Push all results to SemanticAgent vector store ────────────────
+        if sa and deduped:
+            try:
+                docs = [{"snippet": s} for s in deduped if s]
+                sa.store_knowledge(docs, source="ale_unified_research", query=topic)
+            except Exception as exc:
+                log.debug("[UNIFIED] SemanticAgent store failed: %s", exc)
+
+        total = len(deduped)
+        summary_str = ", ".join(backend_summaries) if backend_summaries else "no backends"
+        log.info(
+            "✅ [UNIFIED RESEARCH] %r — %d unique snippet(s) from [%s]",
+            topic, total, summary_str,
+        )
+        return (
+            f"UnifiedResearch: {topic!r} — "
+            f"{total} snippet(s) from [{summary_str}]"
+        )
 
     def _get_semantic_agent(self):
         """Lazily resolve SemanticAgent from core."""
@@ -3381,31 +3609,60 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle (28 steps).
+        """Execute one complete autonomous learning cycle (27 steps).
 
         Design principles
         -----------------
         * ONE TOPIC PER CYCLE: a single topic is selected at the start of each
           cycle via _select_next_topic() and pinned to self._current_cycle_topic.
-          Every research step in the cycle uses this topic so the full pipeline
-          (research → ideas → learning → implementation → reflection → KB store)
-          all concern the same subject before advancing to the next topic.
-        * Step 27 (SerpexResearch) runs FIRST so validated, relevance-filtered
-          web data is in self._last_research_results before Step 1 (Research)
-          and the rest of the core learning loop.
-        * After each external research step (SerpexResearch and Research) a
-          _RESEARCH_INGEST_WAIT (30 s) interruptible pause is inserted so the
-          full ingestion → reflection → KB-store pipeline has time to settle
-          before the next query is made.
+          The topic is run through TopicConstructor so it is always safe for
+          search APIs (no 403 errors or timeouts from overly long queries).
+        * Step 1 is now ONE unified research step (``UnifiedResearch``) that
+          fans out to ALL available research backends simultaneously:
+          Serpex, SelfResearcher, SearchcodeSearch, GitHubCodeSearch, and
+          SemanticAgent/Qdrant.  This replaces the former separate
+          SerpexResearch (step 27) + Research (step 1) pair.
+        * After the unified research a single 60-second ``_RESEARCH_INGEST_WAIT``
+          pause lets the full ingestion → vector-embedding → KB-store pipeline
+          settle before the next query begins — one new query per minute.
         * Every step is wrapped in _run_step_with_timeout (default 120 s) so a
           stalled network call can never freeze the whole cycle.
         * A 3-second interruptible sleep between all other steps gives the OS
           time to process network I/O between calls, reducing contention.
-        * Step 18 (ImprovementCycle) is throttled to every 3 cycles — it
-          launches 10 sub-modules and is the most CPU/memory-intensive step.
-        * Step 20 (GitHubPush) is throttled to every 5 cycles — a network push
-          is expensive and not useful every cycle.
+        * Steps proceed sequentially: 1 → 2 → 3 → … → 27, just like counting.
+        * Step 18 (ImprovementCycle) is throttled to every 3 cycles.
+        * Step 20 (GitHubPush) is throttled to every 5 cycles.
         * stop() wakes the engine from any inter-step sleep immediately.
+
+        Cycle sequence
+        --------------
+        Step  1: UnifiedResearch      — all backends, ONE topic, 60 s ingest wait
+        Step  2: Ideas                — SelfIdeaImplementation / IdeaGenerator
+        Step  3: Learning             — SelfTeacher internalises results
+        Step  4: Implementation       — SelfImplementer executes enqueued plans
+        Step  5: Reflection           — ReflectModule summarises + stores
+        Step  6: SLSA                 — SLSA knowledge artifact generation
+        Step  7: Evolve               — EvolveEngine self-evolves
+        Step  8: CodeResearch         — Searchcode + GitHub + researcher → CodeGenerator
+        Step  9: CodeGeneration       — idea + implementer produce compilable code
+        Step 10: CodeCompilation      — CodeCompiler runs the generated code
+        Step 11: CodeReflection       — ReflectModule studies compiled output (30 s wait)
+        Step 12: SoftwareStudy        — SoftwareStudier learns patterns
+        Step 13: CommandAwareness     — catalogue all commands into KB
+        Step 14: CommandExecution     — exercise safe diagnostic commands
+        Step 15: TopicSeeding         — derive + enqueue new research topics
+        Step 16: Reasoning            — ReasoningEngine builds knowledge graph
+        Step 17: Metacognition        — evaluate self-knowledge, identify gaps
+        Step 18: ImprovementCycle     — 10-module improvement (throttled: every 3)
+        Step 19: SelfScan             — BuildScanner reads own source files
+        Step 20: GitHubPush           — push generated files (throttled: every 5)
+        Step 21: BinaryStudy          — seed KB with binary/hex/firmware topics
+        Step 22: BuildsUpdate         — index builds/ directory
+        Step 23: EvolveDeploy         — hot-reload evolved improvements
+        Step 24: BrainTraining        — fine-tune on research data
+        Step 25: CognitiveEnhancement — research language/reasoning/chat quality
+        Step 26: GitHubCodeDiscovery  — pattern discovery, datasets, refactoring
+        Step 27: SearchcodeDiscovery  — searchcode.com code-pattern index
         """
         self._cycle_count += 1
         cycle = self._cycle_count
@@ -3431,24 +3688,22 @@ class AutonomousLearningEngine:
                 return
             result = self._run_step_with_timeout(name, fn)
             results.append((name, result))
-            # Brief I/O pause first, then the full ingest wait
             self._interruptible_sleep(self._INTER_STEP_SLEEP)
             if self._RESEARCH_INGEST_WAIT > 0 and self.running:
                 log.info(
-                    "⏳ [%s] Waiting %.0fs for ingestion pipeline to settle...",
-                    name, self._RESEARCH_INGEST_WAIT,
+                    "⏳ [%s] Waiting %.0fs for ingestion pipeline to settle "
+                    "(new query in ~%.0fs)...",
+                    name, self._RESEARCH_INGEST_WAIT, self._RESEARCH_INGEST_WAIT,
                 )
                 self._interruptible_sleep(self._RESEARCH_INGEST_WAIT)
 
-        # ── PRE-LOAD: validated web data boosts ALL downstream steps ──────
-        # Step 27 runs before core loop so _last_research_results is populated
-        # with relevance-filtered Serpex content before Steps 1-6 run.
-        # A 30 s ingest wait follows so the KB settles before Step 1.
-        _research_step("SerpexResearch", self._autonomous_serpex_research)
+        # ── Step 1: Unified research — ONE call, ALL backends, ONE topic ───
+        # Replaces former Step 27 (SerpexResearch) + Step 1 (Research).
+        # A 60-second ingest wait ensures data is fully written before cycle
+        # continues — exactly one new research query per minute.
+        _research_step("UnifiedResearch", self._unified_research)
 
-        # ── Core learning loop (steps 1-7) ─────────────────────────────────
-        # Step 1 uses _current_cycle_topic and receives a 30 s ingest wait.
-        _research_step("Research",       self._autonomous_research)
+        # ── Steps 2-7: Core learning loop ─────────────────────────────────
         _step("Ideas",          self._autonomous_idea_generation)
         _step("Learning",       self._autonomous_learning)
         _step("Implementation", self._autonomous_implementation)
@@ -3456,68 +3711,63 @@ class AutonomousLearningEngine:
         _step("SLSA",           self._autonomous_slsa_run)
         _step("Evolve",         self._autonomous_evolve_step)
 
-        # ── Programming-literacy loop (steps 8-12) ──────────────────────────
-        # Step 8 now also queries Serpex for code-specific validated snippets.
+        # ── Steps 8-12: Programming-literacy loop ──────────────────────────
         _step("CodeResearch",    self._autonomous_code_research)
         _step("CodeGeneration",  self._autonomous_code_generation)
         _step("CodeCompilation", self._autonomous_code_compilation)
         _research_step("CodeReflection",  self._autonomous_code_reflection)
         _step("SoftwareStudy",   self._autonomous_software_study)
 
-        # ── Structural self-awareness loop (steps 13-14) ────────────────────
+        # ── Steps 13-14: Structural self-awareness ─────────────────────────
         _step("CommandAwareness", self._autonomous_command_awareness)
         _step("CommandExecution", self._autonomous_command_execution)
 
-        # ── Topic seeding (step 15) — grows the research frontier ───────────
+        # ── Step 15: Topic seeding ─────────────────────────────────────────
         _step("TopicSeeding", self._autonomous_topic_seeding)
 
-        # ── Intelligent reasoning (step 16) ─────────────────────────────────
+        # ── Step 16: Intelligent reasoning ────────────────────────────────
         _step("Reasoning", self._autonomous_reasoning)
 
-        # ── Metacognition (step 17) ──────────────────────────────────────────
+        # ── Step 17: Metacognition ─────────────────────────────────────────
         _step("Metacognition", self._autonomous_metacognition)
 
-        # ── ImprovementCycle (step 18) — throttled: every _IMPROVEMENT_CYCLE_EVERY cycles ──
-        # Running this every cycle creates resource contention (10 sub-modules).
+        # ── Step 18: ImprovementCycle — throttled every 3 cycles ──────────
         if cycle % self._IMPROVEMENT_CYCLE_EVERY == 0:
             _step("ImprovementCycle", self._autonomous_improvement_cycle)
         else:
             log.debug("[AUTONOMOUS CYCLE] ImprovementCycle skipped (cycle %d/%d)", cycle, self._IMPROVEMENT_CYCLE_EVERY)
 
-        # ── Self-scan (step 19) ──────────────────────────────────────────────
+        # ── Step 19: Self-scan ────────────────────────────────────────────
         _step("SelfScan", self._autonomous_self_scan)
 
-        # ── GitHub push (step 20) — throttled: every _GITHUB_PUSH_EVERY cycles ───────────
+        # ── Step 20: GitHub push — throttled every 5 cycles ───────────────
         if cycle % self._GITHUB_PUSH_EVERY == 0:
             _step("GitHubPush", self._autonomous_github_push)
         else:
             log.debug("[AUTONOMOUS CYCLE] GitHubPush skipped (cycle %d/%d)", cycle, self._GITHUB_PUSH_EVERY)
 
-        # ── Binary study (step 21) ───────────────────────────────────────────
+        # ── Step 21: Binary study ─────────────────────────────────────────
         _step("BinaryStudy", self._autonomous_binary_study)
 
-        # ── Builds update (step 22) ──────────────────────────────────────────
+        # ── Step 22: Builds update ────────────────────────────────────────
         _step("BuildsUpdate", self._autonomous_builds_update)
 
-        # ── Evolve deploy (step 23) ──────────────────────────────────────────
+        # ── Step 23: Evolve deploy ────────────────────────────────────────
         _step("EvolveDeploy", self._autonomous_evolve_deploy)
 
-        # ── Brain training (step 24) ─────────────────────────────────────────
+        # ── Step 24: Brain training ───────────────────────────────────────
         _step("BrainTraining", self._autonomous_brain_training)
 
-        # ── Cognitive enhancement (step 25) ──────────────────────────────────
+        # ── Step 25: Cognitive enhancement ───────────────────────────────
         _step("CognitiveEnhancement", self._autonomous_cognitive_enhancement)
 
-        # ── GitHub Code Discovery (step 26) ──────────────────────────────────
+        # ── Step 26: GitHub Code Discovery ───────────────────────────────
         _step("GitHubCodeDiscovery", self._autonomous_github_code_discovery)
 
-        # ── Searchcode Discovery (step 28) ────────────────────────────────────
-        # Complements GitHub Code Search with results from the searchcode.com
-        # index (GitHub, Bitbucket, GitLab, Google Code, …).
-        # Uses the searchcode MCP endpoint when available, REST otherwise.
+        # ── Step 27: Searchcode Discovery ────────────────────────────────
         _step("SearchcodeDiscovery", self._autonomous_searchcode_discovery)
 
-        # ── Log cycle summary ─────────────────────────────────────────────────
+        # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
         log.info(f"✅ [AUTONOMOUS CYCLE #%d] Summary:\n{summary}", cycle)

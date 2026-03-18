@@ -1,33 +1,33 @@
 # niblit_agents/research_agent.py
 """
-Niblit ResearchAgent — integrates SerpexAPI with memory and semantic storage.
+Niblit ResearchAgent — Scrapy-backed web research with KnowledgeStore persistence.
 
-Architecture role::
+Architecture::
 
-    NiblitBrain
+    NiblitBrain / ALE / SelfResearcher
          │
          ▼
     ResearchAgent
+         │   uses
+         ▼
+    SerpexAPI  →  ScrapySearchEngine  →  DuckDuckGo HTML scraping
          │
-    ┌────┴─────────┐
-    │              │
-    SerpexAPI   (news)
-    (web)          │
-         │         │
-         └────┬────┘
-              │
-         _process_results()
-              │
-         KnowledgeStore (SQLite)
-              │
-         (optional) Qdrant embeddings  →  SemanticAgent
+         ▼
+    _process_results()
+         │
+    ┌────┴──────────────────────────────────────┐
+    │                                           │
+    KnowledgeStore.store_search_results()   VectorStore.add()
+    (SQLite persistence)                    (Qdrant embedding, optional)
+
+No external API key is required — Scrapy scrapes DuckDuckGo HTML directly.
 
 Usage::
 
     from niblit_agents.research_agent import ResearchAgent
     agent = ResearchAgent()
     results = agent.search_web("python asyncio patterns")
-    news    = agent.search_news("AI trends 2025")
+    # → [{"title": ..., "url": ..., "snippet": ...}]
 """
 
 import logging
@@ -37,51 +37,48 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("Niblit.ResearchAgent")
 
 
+# ── is_relevant / should_reflect kept as public API ─────────────────────────
+
 def is_relevant(query: str, text: str, threshold: float = 0.5) -> bool:
     """Return *True* when *text* is semantically relevant to *query*.
 
-    Uses simple term-overlap: the fraction of query terms that appear in *text*
-    must meet or exceed *threshold*.
+    Uses simple term-overlap ratio.
 
     Args:
         query:     The original search query.
-        text:      The candidate text (e.g. a snippet) to evaluate.
-        threshold: Minimum overlap score in ``[0, 1]``.  Defaults to ``0.5``.
-
-    Returns:
-        ``True`` if the overlap score ≥ threshold, ``False`` otherwise.
+        text:      Candidate text to evaluate.
+        threshold: Minimum overlap score in ``[0, 1]``.  Default ``0.5``.
     """
     query_terms = set(query.lower().split())
     if not query_terms:
-        return True  # nothing to filter on
+        return True
     text_lower = text.lower()
     overlap = sum(1 for term in query_terms if term in text_lower)
-    score = overlap / len(query_terms)
-    return score >= threshold
+    return (overlap / len(query_terms)) >= threshold
 
 
 def should_reflect(results: list) -> bool:
-    """Return *True* only when *results* is non-empty (safe to reflect).
-
-    Args:
-        results: List of research result items.
-
-    Returns:
-        ``True`` if there is at least one result, ``False`` otherwise.
-    """
+    """Return *True* when *results* is non-empty (safe to reflect on)."""
     return len(results) > 0
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+
 class ResearchAgent:
-    """
-    Research agent that queries Serpex and stores results in memory/Qdrant.
+    """Scrapy-backed research agent with KnowledgeStore persistence.
+
+    Searches DuckDuckGo via :class:`~niblit_tools.serpex_api.SerpexAPI` (which
+    delegates to :class:`~niblit_tools.scrapy_search.ScrapySearchEngine`) and
+    stores results in the Niblit KnowledgeStore.  No external API key is needed.
+
+    The ``serpex_api_key`` parameter is accepted for backward compatibility but
+    is no longer required or used.
 
     Args:
-        serpex_api_key:  Serpex API key.  Falls back to ``SERPEX_API_KEY`` env var.
-        knowledge_store: Optional pre-built :class:`~niblit_memory.knowledge_store.KnowledgeStore`
-                         instance.  When *None*, one is created lazily on first use.
-        qdrant_url:      Qdrant server URL.  Falls back to ``QDRANT_URL`` env var.
-        qdrant_api_key:  Qdrant API key.  Falls back to ``QDRANT_API_KEY`` env var.
+        serpex_api_key:  Accepted for interface compat; ignored.
+        knowledge_store: Optional pre-built KnowledgeStore instance.
+        qdrant_url:      Qdrant server URL (for optional vector embedding).
+        qdrant_api_key:  Qdrant API key.
     """
 
     def __init__(
@@ -91,21 +88,20 @@ class ResearchAgent:
         qdrant_url: str = "",
         qdrant_api_key: str = "",
     ) -> None:
-        self._serpex_key = serpex_api_key or os.getenv("SERPEX_API_KEY", "")
-        self._qdrant_url = qdrant_url or os.getenv("QDRANT_URL", "")
-        self._qdrant_api_key = qdrant_api_key or os.getenv("QDRANT_API_KEY", "")
-
-        # Lazy initialise SerpexAPI (raises ValueError if no key on first use)
-        self._serpex: Optional[Any] = None
-
-        # KnowledgeStore — accept injected or build one lazily
+        # serpex_api_key is no longer used but kept for backward compat
+        self._serpex_api_key = serpex_api_key
+        self._qdrant_url = qdrant_url
+        self._qdrant_api_key = qdrant_api_key
         self._knowledge_store: Optional[Any] = knowledge_store
-
-        # Qdrant VectorStore for semantic embedding after search
         self._vector_store: Optional[Any] = None
+
+        # Build Scrapy-backed search engine via SerpexAPI shim
+        self._serpex: Optional[Any] = self._build_search_engine()
+
+        # Build optional Qdrant VectorStore
         if self._qdrant_url:
             try:
-                from modules.vector_store import VectorStore  # type: ignore[import]
+                from modules.vector_store import VectorStore
                 self._vector_store = VectorStore(
                     collection="niblit_research",
                     qdrant_url=self._qdrant_url,
@@ -114,14 +110,26 @@ class ResearchAgent:
             except Exception as exc:
                 logger.debug("ResearchAgent: VectorStore unavailable: %s", exc)
 
+    # ── builder ──────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _build_search_engine() -> Optional[Any]:
+        """Construct a :class:`SerpexAPI` (Scrapy-backed) instance."""
+        try:
+            from niblit_tools.serpex_api import SerpexAPI
+            return SerpexAPI()
+        except Exception as exc:
+            logger.debug("ResearchAgent: SerpexAPI unavailable: %s", exc)
+            return None
+
     # ── public API ────────────────────────────────────────────────────────────
 
     def is_configured(self) -> bool:
-        """Return True if a Serpex API key is available (agent can make real searches)."""
-        return bool(self._serpex_key)
+        """Always ``True`` — Scrapy needs no external API key."""
+        return True
 
     def search_web(self, query: str) -> List[Dict[str, Any]]:
-        """Search the web and return normalised result items.
+        """Search the web via Scrapy and return normalised result items.
 
         Args:
             query: Natural-language search query.
@@ -129,17 +137,14 @@ class ResearchAgent:
         Returns:
             List of ``{"title": str, "url": str, "snippet": str}`` dicts.
         """
-        logger.info("[ResearchAgent] web search: %r", query)
-        data = self._serpex_client().search(
-            query=query,
-            category="web",
-            engine="auto",
-            time_range="day",
-        )
+        logger.info("[ResearchAgent] search_web: %r", query)
+        if self._serpex is None:
+            return []
+        data = self._serpex.search(query, category="web")
         return self._process_results(data, query=query)
 
     def search_news(self, query: str) -> List[Dict[str, Any]]:
-        """Search news and return normalised result items.
+        """Search for news via Scrapy and return normalised result items.
 
         Args:
             query: Natural-language search query.
@@ -147,25 +152,16 @@ class ResearchAgent:
         Returns:
             List of ``{"title": str, "url": str, "snippet": str}`` dicts.
         """
-        logger.info("[ResearchAgent] news search: %r", query)
-        data = self._serpex_client().search(
-            query=query,
-            category="news",
-            engine="google",
-        )
+        logger.info("[ResearchAgent] search_news: %r", query)
+        if self._serpex is None:
+            return []
+        data = self._serpex.search(query, category="news", engine="google")
         return self._process_results(data, query=query)
 
-    # ── internals ─────────────────────────────────────────────────────────────
-
-    def _serpex_client(self) -> Any:
-        """Lazily instantiate :class:`~niblit_tools.serpex_api.SerpexAPI`."""
-        if self._serpex is None:
-            from niblit_tools.serpex_api import SerpexAPI
-            self._serpex = SerpexAPI(api_key=self._serpex_key or None)
-        return self._serpex
+    # ── internals ────────────────────────────────────────────────────────────
 
     def _knowledge_store_client(self) -> Optional[Any]:
-        """Lazily instantiate :class:`~niblit_memory.KnowledgeStore`."""
+        """Lazily build KnowledgeStore."""
         if self._knowledge_store is None:
             try:
                 from niblit_memory import KnowledgeStore
@@ -180,30 +176,25 @@ class ResearchAgent:
         query: str = "",
         _skip_relevance_check: bool = False,
     ) -> List[Dict[str, Any]]:
-        """
-        Extract structured knowledge from a Serpex response, persist to
-        KnowledgeStore, and optionally embed into Qdrant.
+        """Extract, filter, persist and embed items from a Serpex API response.
 
         Args:
-            data:  Raw Serpex API response dict.
-            query: Original query (used as the knowledge-store key prefix and
-                   for relevance filtering).
-            _skip_relevance_check: Internal flag used by the retry path to
-                                   bypass the relevance filter on the second
-                                   pass so we don't loop indefinitely.
+            data:                  Serpex response dict (has ``"results"`` key).
+            query:                 Original query string (used for relevance check).
+            _skip_relevance_check: When *True*, accept all items regardless of
+                                   relevance score (used internally to avoid
+                                   infinite retry loops).
 
         Returns:
-            List of ``{"title": str, "url": str, "snippet": str}`` dicts.
+            List of normalised ``{"title", "url", "snippet"}`` dicts.
         """
         if "error" in data:
-            logger.warning("[ResearchAgent] Serpex returned error: %s", data["error"])
+            logger.warning("[ResearchAgent] search returned error: %s", data["error"])
             return [{"error": data["error"]}]
 
-        # Normalise: Serpex can use organic_results, results, or news_results
         raw_items = (
             data.get("organic_results")
             or data.get("results")
-            or data.get("news_results")
             or []
         )
 
@@ -214,63 +205,56 @@ class ResearchAgent:
             snippet = (
                 item.get("snippet")
                 or item.get("description")
-                or item.get("content")
                 or item.get("text")
                 or ""
             )
-
-            # Relevance gate: skip snippets that are unrelated to the query
-            if query and snippet and not _skip_relevance_check and not is_relevant(query, snippet):
-                logger.debug(
-                    "[ResearchAgent] Filtered irrelevant snippet for query %r: %.80s",
-                    query, snippet,
-                )
+            if not snippet:
                 continue
-
+            if query and not _skip_relevance_check and not is_relevant(query, snippet):
+                continue
             extracted.append({
-                "title": item.get("title", ""),
-                "url": item.get("link") or item.get("url", ""),
+                "title":   item.get("title", ""),
+                "url":     item.get("url") or item.get("link") or "local://kb",
                 "snippet": snippet,
             })
 
-        # Fallback retry when every result was filtered out
-        if not extracted and query and not _skip_relevance_check:
-            refined_query = f"{query} explanation computer science"
-            logger.warning(
-                "[ResearchAgent] No relevant results for %r — retrying with refined query: %r",
-                query, refined_query,
+        # When no relevant results found, try a more specific retry query
+        if not extracted and raw_items and not _skip_relevance_check and self._serpex is not None:
+            retry_query = f"{query} definition explanation"
+            retry_data = self._serpex.search(retry_query, category="web")
+            retry_raw = (
+                retry_data.get("organic_results")
+                or retry_data.get("results")
+                or []
             )
-            retry_data = self._serpex_client().search(
-                query=refined_query,
-                category="web",
-                engine="auto",
-                time_range="day",
-            )
-            # Use _skip_relevance_check=True to avoid recursive retries
-            return self._process_results(retry_data, query=query, _skip_relevance_check=True)
+            for item in retry_raw:
+                if not isinstance(item, dict):
+                    continue
+                snippet = item.get("snippet") or item.get("description") or ""
+                if not snippet:
+                    continue
+                extracted.append({
+                    "title":   item.get("title", ""),
+                    "url":     item.get("url") or item.get("link") or "local://kb",
+                    "snippet": snippet,
+                })
 
-        # 1. Persist to KnowledgeStore (SQLite)
+        # Persist to KnowledgeStore
         ks = self._knowledge_store_client()
-        if ks is not None:
+        if ks is not None and extracted:
             try:
                 ks.store_search_results(query, extracted)
             except Exception as exc:
-                logger.debug("[ResearchAgent] KnowledgeStore persist failed: %s", exc)
+                logger.debug("[ResearchAgent] KnowledgeStore store failed: %s", exc)
 
-        # 2. Embed snippets into Qdrant (upgrade hook)
-        if self._vector_store is not None and extracted:
-            try:
-                import hashlib
-                from datetime import datetime, timezone
-                ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-                for i, item in enumerate(extracted):
-                    text = item.get("snippet", "")
-                    if not text:
-                        continue
-                    url_hash = hashlib.md5(item.get("url", str(i)).encode()).hexdigest()[:10]
-                    doc_id = f"serpex:{url_hash}:{ts}"
-                    self._vector_store.add(doc_id, text[:500])
-            except Exception as exc:
-                logger.debug("[ResearchAgent] Qdrant embed failed: %s", exc)
+        # Embed to vector store
+        if self._vector_store is not None:
+            for item in extracted:
+                snippet = item.get("snippet", "")
+                if snippet:
+                    try:
+                        self._vector_store.add(snippet, metadata=item)
+                    except Exception as exc:
+                        logger.debug("[ResearchAgent] VectorStore add failed: %s", exc)
 
         return extracted

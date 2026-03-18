@@ -62,6 +62,7 @@ Production Enhancements (NiblitMemory):
 """
 
 import json
+import math
 import os
 import re
 import sqlite3
@@ -1338,6 +1339,71 @@ class KnowledgeDB:
     def shutdown(self) -> None:
         _kdb_log.info("KnowledgeDB shutting down — saving final state")
         self._save(blocking=True)
+
+    # ── fused-memory-compatible record / vector API ───────────────────────────
+    # These shim methods allow objects that expect a NiblitMemory-style API
+    # (e.g. TradingBrain) to work correctly when passed a KnowledgeDB instance.
+
+    def save_record(
+        self,
+        record_id: str,
+        data: Dict[str, Any],
+        vector: Optional[List[float]] = None,
+    ) -> None:
+        """Persist a structured record (with optional vector) to this KnowledgeDB.
+
+        Stores the record in ``self.data["records"]`` so that it survives
+        autosave.  When *vector* is provided it is kept alongside the record
+        for later cosine-similarity lookup via :meth:`query_vector`.
+        """
+        with self.lock:
+            records = self.data.setdefault("records", {})
+            records[record_id] = {
+                "data": data,
+                "vector": vector,
+                "created_at": datetime.utcnow().isoformat(),
+            }
+        _kdb_log.debug("[KnowledgeDB] save_record %s", record_id)
+        self._save(blocking=False)
+
+    def query_vector(
+        self,
+        vector: List[float],
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Return the *top_k* stored records most similar to *vector*.
+
+        Uses cosine similarity over records that were saved with an embedding.
+        Returns an empty list when no vectorised records are present.
+        """
+        with self.lock:
+            records = self.data.get("records", {})
+
+        if not records:
+            return []
+
+        def _cosine(a: List[float], b: List[float]) -> float:
+            dot = sum(x * y for x, y in zip(a, b))
+            norm_a = math.sqrt(sum(x * x for x in a)) or 1.0
+            norm_b = math.sqrt(sum(x * x for x in b)) or 1.0
+            return dot / (norm_a * norm_b)
+
+        scored: List[Dict[str, Any]] = []
+        for rid, entry in records.items():
+            stored_vec = entry.get("vector")
+            if not stored_vec:
+                continue
+            try:
+                score = _cosine(vector, stored_vec)
+            except Exception:
+                score = 0.0
+            result = dict(entry.get("data", {}))
+            result["record_id"] = rid
+            result["score"] = score
+            scored.append(result)
+
+        scored.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+        return scored[:top_k]
 
 
 GLOBAL_KNOWLEDGE = KnowledgeDB()

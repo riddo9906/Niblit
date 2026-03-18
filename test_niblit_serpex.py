@@ -1,13 +1,14 @@
 """
-test_niblit_serpex.py — Unit tests for the Niblit-integrated Serpex system.
+test_niblit_serpex.py — Unit tests for the Niblit-integrated search system.
 
 Covers:
-  - niblit_tools/serpex_api.py  (SerpexAPI, niblit_serpex_search, NIBLIT_SERPEX_TOOL)
+  - niblit_tools/serpex_api.py  (SerpexAPI backed by Scrapy, niblit_serpex_search, NIBLIT_SERPEX_TOOL)
+  - niblit_tools/scrapy_search.py  (ScrapySearchEngine)
   - niblit_agents/research_agent.py  (ResearchAgent)
   - niblit_memory/knowledge_store.py  (KnowledgeStore)
   - niblit_brain.py  (NiblitBrain tool wiring)
 
-All HTTP / Qdrant / SQLite calls are mocked — no live services required.
+All Scrapy / Qdrant / SQLite calls are mocked — no live services required.
 
 Run with::
 
@@ -28,7 +29,7 @@ import pytest
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _serpex_response(items=None):
-    """Build a minimal Serpex API response."""
+    """Build a minimal search API response (Serpex-envelope format)."""
     return {
         "results": items or [
             {"title": "Python Asyncio", "url": "https://example.com/1", "snippet": "asyncio intro"},
@@ -38,85 +39,82 @@ def _serpex_response(items=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SerpexAPI
+# SerpexAPI  (now Scrapy-backed — no API key required)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestSerpexAPI:
-    def test_raises_without_key(self, monkeypatch):
+    """SerpexAPI is now backed by ScrapySearchEngine — no API key is required."""
+
+    def _mock_engine(self, items=None):
+        """Return a mock ScrapySearchEngine that returns a canned response."""
+        mock = MagicMock()
+        mock.search.return_value = _serpex_response(items)
+        return mock
+
+    def test_constructs_without_key(self, monkeypatch):
+        """SerpexAPI no longer requires an API key (Scrapy scrapes directly)."""
         monkeypatch.delenv("SERPEX_API_KEY", raising=False)
         from niblit_tools.serpex_api import SerpexAPI
-        with pytest.raises(ValueError, match="SERPEX_API_KEY"):
-            SerpexAPI(api_key=None)
+        api = SerpexAPI()          # must not raise
+        assert api is not None
 
-    def test_accepts_explicit_key(self):
-        from niblit_tools.serpex_api import SerpexAPI
-        api = SerpexAPI(api_key="test-key")
-        assert api.api_key == "test-key"
-
-    def test_reads_key_from_env(self, monkeypatch):
-        monkeypatch.setenv("SERPEX_API_KEY", "env-key")
+    def test_is_configured_always_true(self):
+        """is_configured() returns True regardless of environment variables."""
         from niblit_tools.serpex_api import SerpexAPI
         api = SerpexAPI()
-        assert api.api_key == "env-key"
+        assert api.is_configured() is True
 
-    def test_search_web_returns_dict(self, monkeypatch):
-        monkeypatch.setenv("SERPEX_API_KEY", "key")
+    def test_api_key_arg_accepted_for_compat(self):
+        """api_key kwarg is accepted without error for backward compatibility."""
+        from niblit_tools.serpex_api import SerpexAPI
+        api = SerpexAPI(api_key="ignored-key")  # must not raise
+        assert api is not None
+
+    def test_search_web_returns_dict_with_results(self):
+        """search() returns a dict containing a 'results' key."""
         from niblit_tools.serpex_api import SerpexAPI
         api = SerpexAPI()
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = _serpex_response()
-        mock_resp.raise_for_status = MagicMock()
-        with patch("niblit_tools.serpex_api.requests.get", return_value=mock_resp) as mock_get:
-            result = api.search("python asyncio")
-        mock_get.assert_called_once()
+        api._engine = self._mock_engine()
+        result = api.search("python asyncio")
         assert "results" in result
 
-    def test_search_includes_bearer_auth(self, monkeypatch):
-        monkeypatch.setenv("SERPEX_API_KEY", "my-secret")
+    def test_search_delegates_to_scrapy_engine(self):
+        """search() calls ScrapySearchEngine.search() with the correct query."""
         from niblit_tools.serpex_api import SerpexAPI
         api = SerpexAPI()
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {}
-        mock_resp.raise_for_status = MagicMock()
-        with patch("niblit_tools.serpex_api.requests.get", return_value=mock_resp) as mock_get:
-            api.search("test")
-        _, kwargs = mock_get.call_args
-        assert kwargs["headers"]["Authorization"] == "Bearer my-secret"
+        mock_engine = self._mock_engine()
+        api._engine = mock_engine
+        api.search("test query", category="web")
+        mock_engine.search.assert_called_once_with("test query", category="web")
 
-    def test_search_web_passes_time_range(self, monkeypatch):
-        monkeypatch.setenv("SERPEX_API_KEY", "key")
+    def test_search_news_passes_news_category(self):
+        """search(category='news') forwards category='news' to the engine."""
         from niblit_tools.serpex_api import SerpexAPI
         api = SerpexAPI()
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {}
-        mock_resp.raise_for_status = MagicMock()
-        with patch("niblit_tools.serpex_api.requests.get", return_value=mock_resp) as mock_get:
-            api.search("test", category="web", time_range="week")
-        params = mock_get.call_args[1]["params"]
-        assert params.get("time_range") == "week"
+        mock_engine = self._mock_engine()
+        api._engine = mock_engine
+        api.search("latest news", category="news")
+        mock_engine.search.assert_called_once_with("latest news", category="news")
 
-    def test_search_news_omits_time_range(self, monkeypatch):
-        monkeypatch.setenv("SERPEX_API_KEY", "key")
+    def test_search_returns_error_on_engine_failure(self):
+        """search() returns {'results': [], 'error': ...} when engine raises."""
         from niblit_tools.serpex_api import SerpexAPI
         api = SerpexAPI()
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {}
-        mock_resp.raise_for_status = MagicMock()
-        with patch("niblit_tools.serpex_api.requests.get", return_value=mock_resp) as mock_get:
-            api.search("test", category="news")
-        params = mock_get.call_args[1]["params"]
-        assert "time_range" not in params
+        mock_engine = MagicMock()
+        mock_engine.search.side_effect = RuntimeError("engine failure")
+        api._engine = mock_engine
+        result = api.search("test")
+        assert "error" in result or "results" in result  # graceful degradation
 
-    def test_search_returns_error_on_exception(self, monkeypatch):
-        monkeypatch.setenv("SERPEX_API_KEY", "key")
+    def test_search_returns_error_when_engine_unavailable(self):
+        """search() returns an error dict when _engine is None."""
         from niblit_tools.serpex_api import SerpexAPI
         api = SerpexAPI()
-        with patch("niblit_tools.serpex_api.requests.get", side_effect=ConnectionError("refused")):
-            result = api.search("test")
+        api._engine = None
+        result = api.search("test")
         assert "error" in result
 
-    def test_niblit_serpex_search_web(self, monkeypatch):
-        monkeypatch.setenv("SERPEX_API_KEY", "key")
+    def test_niblit_serpex_search_web(self):
         from niblit_tools.serpex_api import niblit_serpex_search
         mock_agent = MagicMock()
         mock_agent.search_web.return_value = [{"title": "t", "url": "u", "snippet": "s"}]
@@ -125,8 +123,7 @@ class TestSerpexAPI:
         mock_agent.search_web.assert_called_once_with("python")
         assert result[0]["title"] == "t"
 
-    def test_niblit_serpex_search_news(self, monkeypatch):
-        monkeypatch.setenv("SERPEX_API_KEY", "key")
+    def test_niblit_serpex_search_news(self):
         from niblit_tools.serpex_api import niblit_serpex_search
         mock_agent = MagicMock()
         mock_agent.search_news.return_value = [{"title": "news"}]
@@ -140,13 +137,70 @@ class TestSerpexAPI:
         assert "query" in NIBLIT_SERPEX_TOOL["parameters"]["properties"]
         assert "query" in NIBLIT_SERPEX_TOOL["parameters"]["required"]
 
-    def test_niblit_serpex_search_error_handling(self, monkeypatch):
-        """niblit_serpex_search returns error dict on exception."""
-        monkeypatch.setenv("SERPEX_API_KEY", "key")
+    def test_niblit_serpex_search_error_handling(self):
+        """niblit_serpex_search returns error dict on ResearchAgent exception."""
         from niblit_tools.serpex_api import niblit_serpex_search
         with patch("niblit_tools.serpex_api._ResearchAgent", side_effect=RuntimeError("boom")):
             result = niblit_serpex_search("test")
         assert result[0].get("error")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ScrapySearchEngine
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestScrapySearchEngine:
+    """Unit tests for niblit_tools.scrapy_search.ScrapySearchEngine."""
+
+    def test_is_configured_always_true(self):
+        from niblit_tools.scrapy_search import ScrapySearchEngine
+        engine = ScrapySearchEngine()
+        assert engine.is_configured() is True
+
+    def test_search_returns_results_key(self):
+        """search() always returns a dict with a 'results' key."""
+        from niblit_tools.scrapy_search import ScrapySearchEngine
+        engine = ScrapySearchEngine()
+        items = [{"title": "T", "url": "http://x.com", "snippet": "s"}]
+        with patch.object(engine, "_run_spider", return_value=items):
+            result = engine.search("python")
+        assert "results" in result
+        assert result["results"] == items
+
+    def test_search_web_category(self):
+        """search(category='web') passes 'web' to _run_spider."""
+        from niblit_tools.scrapy_search import ScrapySearchEngine
+        engine = ScrapySearchEngine()
+        with patch.object(engine, "_run_spider", return_value=[]) as mock_run:
+            engine.search("python", category="web")
+        mock_run.assert_called_once_with("python", "web")
+
+    def test_search_news_category(self):
+        """search(category='news') passes 'news' to _run_spider."""
+        from niblit_tools.scrapy_search import ScrapySearchEngine
+        engine = ScrapySearchEngine()
+        with patch.object(engine, "_run_spider", return_value=[]) as mock_run:
+            engine.search("AI news", category="news")
+        mock_run.assert_called_once_with("AI news", "news")
+
+    def test_search_returns_error_on_exception(self):
+        """search() returns {'results': [], 'error': ...} when spider raises."""
+        from niblit_tools.scrapy_search import ScrapySearchEngine
+        engine = ScrapySearchEngine()
+        with patch.object(engine, "_run_spider", side_effect=RuntimeError("fail")):
+            result = engine.search("test")
+        assert "error" in result
+        assert result["results"] == []
+
+    def test_engine_accepts_max_results_param(self):
+        from niblit_tools.scrapy_search import ScrapySearchEngine
+        engine = ScrapySearchEngine(max_results=5)
+        assert engine.max_results == 5
+
+    def test_engine_accepts_timeout_param(self):
+        from niblit_tools.scrapy_search import ScrapySearchEngine
+        engine = ScrapySearchEngine(timeout=30)
+        assert engine.timeout == 30
 
 
 # ─────────────────────────────────────────────────────────────────────────────

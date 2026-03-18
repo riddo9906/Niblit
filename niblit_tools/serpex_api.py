@@ -1,11 +1,10 @@
 # niblit_tools/serpex_api.py
 """
-Niblit Serpex API Wrapper + NiblitBrain tool function.
+Niblit Search API — Scrapy-backed search engine.
 
-Provides:
-  - :class:`SerpexAPI`          — thin HTTP wrapper around api.serpex.dev
-  - :func:`niblit_serpex_search` — tool function exposed to NiblitBrain (GPT)
-  - :data:`NIBLIT_SERPEX_TOOL`  — GPT tool definition dict
+:class:`SerpexAPI` now uses :class:`~niblit_tools.scrapy_search.ScrapySearchEngine`
+under the hood, scraping DuckDuckGo HTML results directly.  No external API
+key is required.
 
 Architecture::
 
@@ -15,60 +14,70 @@ Architecture::
     niblit_serpex_search()
          │
          ▼
-    ResearchAgent   (niblit_agents/research_agent.py)
+    ResearchAgent  (niblit_agents/research_agent.py)
+         │  uses
+         ▼
+    SerpexAPI  →  ScrapySearchEngine  →  DuckDuckGo HTML scraping
          │
          ▼
-    SerpexAPI  ──►  api.serpex.dev
-         │
-         ▼
-    KnowledgeStore  (niblit_memory/knowledge_store.py)
-         │
-         ▼
-    (optional) Qdrant embeddings  →  SemanticAgent
+    KnowledgeStore  (niblit_memory)  +  (optional) Qdrant
 """
 
 import logging
 import os
 from typing import Any, Dict, List
 
-import requests
+logger = logging.getLogger("Niblit.SearchAPI")
 
-logger = logging.getLogger("Niblit.Serpex")
 
-_SERPEX_BASE_URL = "https://api.serpex.dev/api/search"
-
-# Module-level import so tests can patch niblit_tools.serpex_api.ResearchAgent
+# ── ResearchAgent import — used by niblit_serpex_search ─────────────────────
 try:
     from niblit_agents.research_agent import ResearchAgent as _ResearchAgent
     _RESEARCH_AGENT_AVAILABLE = True
-except Exception:  # noqa: BLE001 — library may not be on path yet
+except Exception:
     _ResearchAgent = None  # type: ignore[assignment,misc]
     _RESEARCH_AGENT_AVAILABLE = False
 
 
+# ── shared ScrapySearchEngine singleton ─────────────────────────────────────
+_scrapy_engine = None
+
+
+def _get_scrapy_engine() -> Any:
+    """Return a shared :class:`ScrapySearchEngine` (created once on first call)."""
+    global _scrapy_engine
+    if _scrapy_engine is None:
+        try:
+            from niblit_tools.scrapy_search import ScrapySearchEngine
+            _scrapy_engine = ScrapySearchEngine()
+        except Exception as exc:
+            logger.debug("ScrapySearchEngine unavailable: %s", exc)
+    return _scrapy_engine
+
+
 # ─────────────────────────────────────────────────────────────────────────────
-# SerpexAPI wrapper
+# SerpexAPI  — Scrapy-backed search (replaces former api.serpex.dev HTTP calls)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class SerpexAPI:
-    """
-    Thin HTTP wrapper around the Serpex search API.
+    """Scrapy-backed search client.
+
+    Previously called the Serpex HTTP API; now scrapes DuckDuckGo via Scrapy
+    so no external API key is required.  The public interface is fully
+    preserved — all callers (NiblitBrain, ALE, ResearchAgent, tests, etc.)
+    work without modification.
 
     Args:
-        api_key: Serpex API key.  Falls back to ``SERPEX_API_KEY`` env var.
-
-    Raises:
-        ValueError: when no API key is available.
+        api_key: Accepted for interface compatibility; no longer required or used.
     """
 
     def __init__(self, api_key: str = None) -> None:
-        self.api_key: str = api_key or os.getenv("SERPEX_API_KEY", "")
-        if not self.api_key:
-            raise ValueError(
-                "SERPEX_API_KEY is required. "
-                "Set it via the constructor argument or the SERPEX_API_KEY environment variable."
-            )
-        self.base_url: str = _SERPEX_BASE_URL
+        # api_key kept as an accepted parameter for backward compat; not used.
+        self._engine = _get_scrapy_engine()
+
+    def is_configured(self) -> bool:
+        """Always ``True`` — Scrapy is always available, no API key needed."""
+        return True
 
     def search(
         self,
@@ -77,57 +86,66 @@ class SerpexAPI:
         engine: str = "auto",
         time_range: str = "day",
     ) -> Dict[str, Any]:
-        """
-        Perform a search using the Serpex API.
+        """Search DuckDuckGo via Scrapy and return a normalised result dict.
 
         Args:
             query:      Search query string.
             category:   ``"web"`` or ``"news"``.
-            engine:     ``"auto"``, ``"google"``, etc.
-            time_range: ``"day"``, ``"week"``, or ``"month"`` (web only).
+            engine:     Ignored (kept for interface compatibility).
+            time_range: Ignored (kept for interface compatibility).
 
         Returns:
-            Parsed JSON response dict, or ``{"error": str}`` on failure.
+            ``{"results": [{"title": str, "url": str, "snippet": str}, ...]}``
+            or ``{"results": [], "error": str}`` on failure.
         """
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        params: Dict[str, str] = {
-            "q": query,
-            "engine": engine,
-            "category": category,
-        }
-        # Only apply time_range for web searches
-        if category == "web":
-            params["time_range"] = time_range
-
+        scrapy_engine = self._engine or _get_scrapy_engine()
+        if scrapy_engine is None:
+            return {"results": [], "error": "ScrapySearchEngine unavailable"}
         try:
-            response = requests.get(
-                self.base_url, headers=headers, params=params, timeout=10
-            )
-            response.raise_for_status()
-            data = response.json()
-            logger.info(
-                "[Serpex] query=%r category=%s results=%d",
-                query,
-                category,
-                len(data.get("results", [])),
-            )
-            return data
+            return scrapy_engine.search(query, category=category)
         except Exception as exc:
-            logger.error("[Serpex ERROR] %s", exc)
-            return {"error": str(exc)}
+            logger.error("[SerpexAPI] search failed: %s", exc)
+            return {"results": [], "error": str(exc)}
+
+
+# ── SQLiteAPI kept for backward compat imports ───────────────────────────────
+
+class SQLiteAPI:
+    """Local-database search backend (fallback when Scrapy is unavailable)."""
+
+    def __init__(self, api_key: str = None) -> None:
+        self._researcher = None
+        try:
+            from modules.sqlite_researcher import SQLiteResearcher
+            self._researcher = SQLiteResearcher()
+        except Exception as exc:
+            logger.debug("SQLiteResearcher unavailable: %s", exc)
+
+    def is_configured(self) -> bool:
+        return True
+
+    def search(
+        self,
+        query: str,
+        category: str = "web",
+        engine: str = "auto",
+        time_range: str = "day",
+    ) -> Dict[str, Any]:
+        if self._researcher is None:
+            return {"results": [], "error": "KnowledgeDB unavailable"}
+        return self._researcher.search(query, category=category)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tool function for NiblitBrain
+# Tool function for NiblitBrain (GPT)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, Any]]:
-    """
-    Tool function exposed to NiblitBrain (GPT).
+    """Tool function exposed to NiblitBrain.
 
-    Delegates to :class:`~niblit_agents.research_agent.ResearchAgent` so that
-    results are automatically normalised, stored in :class:`KnowledgeStore`,
-    and optionally embedded in Qdrant.
+    Delegates to ResearchAgent (which now uses ScrapySearchEngine internally)
+    so results are normalised, stored in KnowledgeStore, and optionally
+    embedded in Qdrant.
 
     Args:
         query:    Search query string.
@@ -136,14 +154,26 @@ def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, An
     Returns:
         List of ``{"title", "url", "snippet"}`` dicts, or an error dict.
     """
-    try:
-        agent = _ResearchAgent()
-        if category == "news":
-            return agent.search_news(query)
-        return agent.search_web(query)
-    except Exception as exc:
-        logger.error("[niblit_serpex_search] %s", exc)
-        return [{"error": str(exc)}]
+    if _RESEARCH_AGENT_AVAILABLE and _ResearchAgent is not None:
+        try:
+            agent = _ResearchAgent()
+            if category == "news":
+                return agent.search_news(query)
+            return agent.search_web(query)
+        except Exception as exc:
+            logger.debug("[niblit_serpex_search] ResearchAgent failed: %s", exc)
+            return [{"error": str(exc)}]
+
+    # Fallback: direct ScrapySearchEngine
+    scrapy_engine = _get_scrapy_engine()
+    if scrapy_engine:
+        try:
+            data = scrapy_engine.search(query, category=category)
+            return data.get("results", [])
+        except Exception as exc:
+            logger.error("[niblit_serpex_search] ScrapySearchEngine failed: %s", exc)
+
+    return [{"error": "Search backend unavailable"}]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -152,7 +182,10 @@ def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, An
 
 NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
     "name": "niblit_serpex_search",
-    "description": "Perform a web or news search using the Serpex API and return structured results.",
+    "description": (
+        "Search the web for information on a topic using Scrapy. "
+        "Returns structured results scraped from DuckDuckGo."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
@@ -163,7 +196,7 @@ NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
             "category": {
                 "type": "string",
                 "enum": ["web", "news"],
-                "description": "Search type: 'web' for general web search, 'news' for recent news.",
+                "description": "Search type: 'web' for general search, 'news' for recent news.",
             },
         },
         "required": ["query"],
@@ -171,4 +204,5 @@ NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
 }
 
 if __name__ == "__main__":
-    print("Running niblit_tools/serpex_api.py")
+    print("niblit_tools/serpex_api.py — Scrapy-backed search (DuckDuckGo)")
+
