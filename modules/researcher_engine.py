@@ -11,6 +11,13 @@ log = logging.getLogger("ResearcherEngine")
 
 SERPEX_API_URL = "https://api.serpex.dev/api/search"
 
+# ── canonical memory ──────────────────────────────────────────────────────────
+try:
+    from niblit_memory import NiblitMemory as _NiblitMemory
+    _GLOBAL_MEMORY = _NiblitMemory()
+except Exception:
+    _GLOBAL_MEMORY = None  # type: ignore[assignment]
+
 # ── optional Qdrant client (direct access) ────────────────────────────────────
 try:
     from qdrant_client import QdrantClient as _QdrantClient
@@ -35,15 +42,20 @@ class ResearcherEngine:
     2. If a sufficiently fresh result is found it is returned immediately.
     3. Otherwise the web is searched via SerpEx → DuckDuckGo fallback.
     4. The new result is stored in the vector store for future calls.
+    5. Results are also stored in niblit_memory for cross-module availability.
     """
 
     def __init__(
         self,
         qdrant_url: str = "",
         qdrant_api_key: str = "",
+        memory=None,
     ) -> None:
         _url = qdrant_url or os.environ.get("QDRANT_URL", "")
         _key = qdrant_api_key or os.environ.get("QDRANT_API_KEY", "")
+
+        # ── Canonical niblit_memory ───────────────────────────────────────────
+        self.memory = memory or _GLOBAL_MEMORY
 
         # ── Qdrant direct client ──────────────────────────────────────────────
         self.qdrant_client = None
@@ -151,17 +163,28 @@ class ResearcherEngine:
         return None
 
     def _store_result(self, topic: str, summary: str) -> None:
-        """Persist a research summary to the vector store."""
-        if self.vector_store is None or not summary:
-            return
-        try:
-            import hashlib
-            from datetime import datetime, timezone
-            ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-            doc_id = f"research:{hashlib.md5(topic.encode()).hexdigest()[:12]}:{ts}"
-            self.vector_store.add(doc_id, summary[:1000])
-        except Exception as exc:
-            log.debug("ResearcherEngine: failed to store result: %s", exc)
+        """Persist a research summary to the vector store and niblit_memory."""
+        # Vector store
+        if self.vector_store is not None and summary:
+            try:
+                import hashlib
+                from datetime import datetime, timezone
+                ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+                doc_id = f"research:{hashlib.md5(topic.encode()).hexdigest()[:12]}:{ts}"
+                self.vector_store.add(doc_id, summary[:1000])
+            except Exception as exc:
+                log.debug("ResearcherEngine: failed to store result in VectorStore: %s", exc)
+
+        # niblit_memory canonical store
+        if self.memory is not None and summary:
+            try:
+                key = f"research:{topic[:80]}"
+                if hasattr(self.memory, "add_fact"):
+                    self.memory.add_fact(key, summary[:500], tags=["research", "web"])
+                elif hasattr(self.memory, "store_learning"):
+                    self.memory.store_learning({"topic": topic, "summary": summary[:500], "tags": ["research"]})
+            except Exception as exc:
+                log.debug("ResearcherEngine: niblit_memory store failed: %s", exc)
 
     # ── public API ────────────────────────────────────────────────────────────
 

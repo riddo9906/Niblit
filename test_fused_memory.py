@@ -42,7 +42,7 @@ class TestFusedMemoryPrimary(unittest.TestCase):
     """Unit tests for modules.fused_memory_primary.FusedMemoryPrimary."""
 
     def setUp(self):
-        from modules.fused_memory_primary import FusedMemoryPrimary
+        from niblit_memory import FusedMemoryPrimary
         self.mem = FusedMemoryPrimary(sqlite_path=":memory:")
 
     # ── structured record CRUD ────────────────────────────────────────────────
@@ -127,7 +127,7 @@ class TestNiblitCoreFusedAPI(unittest.TestCase):
     """Test store_task_result / retrieve_task_result / list_all_tasks / search_related_tasks."""
 
     def setUp(self):
-        from modules.fused_memory_primary import FusedMemoryPrimary
+        from niblit_memory import FusedMemoryPrimary
         self.fused = FusedMemoryPrimary(sqlite_path=":memory:")
 
         # Build a minimal mock memory that has a fused_memory attribute
@@ -177,7 +177,7 @@ class TestNiblitBrainFusedAPI(unittest.TestCase):
     """Test save_knowledge / load_knowledge / retrieve_similar on NiblitBrain."""
 
     def setUp(self):
-        from modules.fused_memory_primary import FusedMemoryPrimary
+        from niblit_memory import FusedMemoryPrimary
         self.fused = FusedMemoryPrimary(sqlite_path=":memory:")
 
         self.mock_memory = MagicMock()
@@ -226,7 +226,7 @@ class TestSelfResearcherFusedAPI(unittest.TestCase):
     """Test log_finding / get_finding / query_past_findings on SelfResearcher."""
 
     def setUp(self):
-        from modules.fused_memory_primary import FusedMemoryPrimary
+        from niblit_memory import FusedMemoryPrimary
         self.fused = FusedMemoryPrimary(sqlite_path=":memory:")
 
         self.mock_db = MagicMock()
@@ -285,7 +285,7 @@ class TestFusedPipelineIntegration(unittest.TestCase):
     """Smoke test: save → load → search round-trip across all three components."""
 
     def setUp(self):
-        from modules.fused_memory_primary import FusedMemoryPrimary
+        from niblit_memory import FusedMemoryPrimary
         self.fused = FusedMemoryPrimary(sqlite_path=":memory:")
         self.mock_memory = MagicMock()
         self.mock_memory.fused_memory = self.fused

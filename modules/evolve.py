@@ -24,6 +24,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+try:
+    from niblit_memory import NiblitMemory as _NiblitMemory
+    _GLOBAL_MEMORY = _NiblitMemory()
+except Exception:
+    _GLOBAL_MEMORY = None  # type: ignore[assignment]
+
 log = logging.getLogger("EvolveEngine")
 
 # Default Termux deployment path for Niblit self-updates.
@@ -140,7 +146,9 @@ class EvolveEngine:
         self.reflect = reflect_module
         self.idea_generator = idea_generator
         self.implementer = implementer
-        self.knowledge_db = knowledge_db
+        # Fall back to the canonical GLOBAL_MEMORY singleton so EvolveEngine
+        # always has somewhere to persist evolution facts.
+        self.knowledge_db = knowledge_db or _GLOBAL_MEMORY
         self.internet = internet
         self.idea_implementation = idea_implementation
         self.slsa = slsa

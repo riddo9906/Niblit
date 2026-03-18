@@ -1144,6 +1144,13 @@ class CodeGenerator:
     """
 
     def __init__(self, db: Any = None, deploy_path: Optional[str] = None, searchcode_search=None):
+        # Use the canonical niblit_memory singleton when no db is provided
+        if db is None:
+            try:
+                from niblit_memory import NiblitMemory as _NM
+                db = _NM()
+            except Exception:
+                pass
         self.db = db
         self.searchcode_search = searchcode_search
         # Where to save autonomously-generated .py files.  Defaults to the
