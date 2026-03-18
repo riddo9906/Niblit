@@ -103,7 +103,8 @@ class TestCollectAndSummarize:
     def test_db_key_contains_reflect_prefix(self, reflect, db):
         reflect.collect_and_summarize(entry="test entry")
         key_arg = db.add_fact.call_args[0][0]
-        assert key_arg.startswith("reflect:")
+        # v2 stores under the ALE-compatible 'ale_reflection:' namespace
+        assert key_arg.startswith("ale_reflection:")
 
     def test_calls_self_teacher(self, reflect, teacher):
         reflect.collect_and_summarize(entry="learning something")

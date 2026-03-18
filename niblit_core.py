@@ -3584,6 +3584,16 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as _e:
                     log.debug(f"[INIT] reflect.self_teacher wire failed (non-critical): {_e}")
 
+            # ── Late-wire new ReflectModule v2 dependencies ──────────────────
+            # brain_trainer, trading_brain, and llm are not yet built at this
+            # point; they are wired in _init_optional_services() below.
+            if self.reflect:
+                try:
+                    self.reflect.knowledge_db = self.db
+                    log.debug("[INIT] reflect.knowledge_db wired")
+                except Exception as _e:
+                    log.debug("[INIT] reflect.knowledge_db wire failed: %s", _e)
+
             self.self_implementer = safe_call(
                 SelfImplementer,
                 db=self.db,
@@ -3922,6 +3932,40 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.debug("TradingBrain init failed: %s", e)
                     self.startup_report.add("trading_brain", "degraded", str(e))
+
+            # ============================
+            # LATE-WIRE ReflectModule v2 dependencies
+            # (brain_trainer, llm, trading_brain, vector_store are all built now)
+            # ============================
+            if getattr(self, "reflect", None):
+                _brain_trainer = (
+                    getattr(self.brain, "brain_trainer", None)
+                    if getattr(self, "brain", None)
+                    else None
+                )
+                _pairs = (
+                    ("brain_trainer", _brain_trainer),
+                    ("trading_brain", getattr(self, "trading_brain", None)),
+                    ("llm", getattr(self, "llm", None)),
+                    ("vector_store", getattr(self, "vector_store", None)),
+                    ("searchcode_search", getattr(self, "searchcode_search", None)),
+                )
+                for _attr, _val in _pairs:
+                    if _val is not None:
+                        try:
+                            setattr(self.reflect, _attr, _val)
+                            log.debug("[INIT] reflect.%s wired ✅", _attr)
+                        except Exception as _e:
+                            log.debug("[INIT] reflect.%s wire failed: %s", _attr, _e)
+
+            # Also wire reflect_module back into TradingBrain so each
+            # cycle() call automatically stores a market-state reflection.
+            if getattr(self, "trading_brain", None) and getattr(self, "reflect", None):
+                try:
+                    self.trading_brain.reflect_module = self.reflect
+                    log.debug("[INIT] trading_brain.reflect_module wired ✅")
+                except Exception as _e:
+                    log.debug("[INIT] trading_brain.reflect_module wire failed: %s", _e)
 
             # ============================
             # MCP SERVER — attach NiblitCore so tools work

@@ -160,6 +160,9 @@ class TradingBrain:
         self._last_decision: str = "HOLD"
         self._last_cycle_ts: Optional[str] = None
 
+        # ── optional ReflectModule (wired by niblit_core after both objects exist) ──
+        self.reflect_module: Optional[Any] = None
+
         # ── Binance client ──────────────────────────────────────────────────
         self._client: Optional[Any] = None
         if _BINANCE_AVAILABLE:
@@ -473,6 +476,18 @@ class TradingBrain:
                 decision,
                 self._cycle_count,
             )
+
+            # 8. Trigger reflection so the brain understands this decision
+            if self.reflect_module and hasattr(self.reflect_module, "reflect_on_trading"):
+                try:
+                    self.reflect_module.reflect_on_trading(
+                        symbol=self.symbol,
+                        decision=decision,
+                        metadata=metadata,
+                    )
+                except Exception as _exc:  # pragma: no cover
+                    log.debug("[TradingBrain] reflect_on_trading failed: %s", _exc)
+
             return decision
 
         except Exception as exc:

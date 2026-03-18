@@ -1975,9 +1975,27 @@ Ask me about:
         # REFLECTION & IDEAS — use direct module access
         if lower.startswith("reflect"):
             topic = cmd[len("reflect"):].strip() or None
-            if self.core and getattr(self.core, "reflect", None):
-                return safe_call(self.core.reflect.collect_and_summarize, topic) or "[Reflection completed]"
-            return "[Reflect module not available]"
+            if not (self.core and getattr(self.core, "reflect", None)):
+                return "[Reflect module not available]"
+
+            reflect = self.core.reflect
+            sub = (topic or "").lower()
+
+            # Sub-command: reflect trading
+            if sub in ("trading", "trade", "market"):
+                return safe_call(reflect.reflect_on_trading) or "[Trading reflection completed]"
+
+            # Sub-command: reflect all / reflect comprehensive
+            if sub in ("all", "comprehensive", "full"):
+                return safe_call(reflect.reflect_on_all) or "[Comprehensive reflection completed]"
+
+            # Sub-command: reflect code
+            if sub.startswith("code"):
+                lang = sub.replace("code", "").strip() or "python"
+                return safe_call(reflect.reflect_on_code, lang, lang, "") or "[Code reflection completed]"
+
+            # Default: reflect on supplied text
+            return safe_call(reflect.collect_and_summarize, topic) or "[Reflection completed]"
 
         if lower.startswith("auto-reflect"):
             if self.core and getattr(self.core, "reflect", None):
@@ -2106,8 +2124,11 @@ Ask me about:
             "self-implement [plan]        — Enqueue a plan to SelfImplementer",
             "self-teach <topic>           — Teach a topic using SelfTeacher + research",
             "idea-implement [prompt]      — Generate and implement ideas (batch if no prompt)",
-            "reflect [topic]              — Reflect using ReflectModule directly",
-            "auto-reflect                 — Reflect on recent interactions",
+            "reflect [topic]              — Reflect on topic (stores in ale_reflection: + BrainTrainer)",
+            "reflect trading              — Reflect on current market state (TradingBrain → KB)",
+            "reflect code [lang]          — Reflect on latest code generation results",
+            "reflect all                  — Comprehensive reflection across all subsystems",
+            "auto-reflect                 — Auto-reflect on recent interactions + KB facts",
             "",
             "=== AUTO-RESEARCH CONTROL ===",
             "auto-research start   — Start / resume auto-research and the ALE engine",
