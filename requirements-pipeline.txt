@@ -1,27 +1,7 @@
 # requirements-pipeline.txt
 # ──────────────────────────────────────────────────────────────────────────────
-# Optional dependencies for niblit_full_upgrade_pipeline.py
-# Install with:  pip install -r requirements-pipeline.txt
-#
-# All of these are OPTIONAL — the pipeline falls back gracefully to built-in
-# alternatives (in-memory vector search, SQLite graph, subprocess sandbox, etc.)
-# when any of these packages are absent.
+# DEPRECATED — pipeline dependencies have been merged into requirements.txt
+# Install with:  pip install -r requirements.txt
 # ──────────────────────────────────────────────────────────────────────────────
+-r requirements.txt
 
-# Docker SDK — enables Docker sandbox for isolated code execution.
-# Requires Docker Desktop or Docker Engine on the host.
-docker>=6.0.0
-
-# Prometheus metrics client — exposes /metrics endpoint for Grafana.
-prometheus-client>=0.19.0
-
-# Vector search (FAISS) — high-performance semantic similarity search.
-# Automatically used by modules/vector_store.py when installed.
-faiss-cpu>=1.7.4
-
-# Sentence-transformers — local embedding generation for vector search.
-# Used by modules/vector_store.py when FAISS or Qdrant is enabled.
-sentence-transformers>=2.2.2
-
-# numpy — required by faiss-cpu and sentence-transformers.
-numpy>=1.24.0
