@@ -48,6 +48,14 @@ faiss-cpu>=1.7.4
 # install it to get the official MCP SDK helpers and type stubs.
 mcp>=1.0.0
 
+# ── Trading Brain / Market Data ──────────────────────────────────────────────
+# Binance API client — real-time klines, order book, WebSocket streams
+python-binance>=1.0.17
+# pandas — DataFrame operations for OHLCV data and indicator computation
+pandas>=2.0.0
+# ta (Technical Analysis library) — RSI, MACD, EMA and 100+ other indicators
+ta>=0.11.0
+
 # ── Advanced Pipeline / Autonomous Execution ─────────────────────────────────
 # Docker SDK — enables the Docker sandbox for isolated code execution inside
 # niblit_full_upgrade_pipeline.py.  Requires Docker Desktop or Docker Engine.
