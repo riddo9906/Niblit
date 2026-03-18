@@ -3026,8 +3026,44 @@ Uptime: {stats['uptime_seconds']}s
 
     def _cmd_loops_status(self) -> str:
         vis = "visible" if getattr(self, '_loops_verbose', True) else "hidden"
-        loops = ["health", "trainer", "auto_research", "dump_monitoring", "self_heal"]
-        return f"Loop output: {vis}\nActive loops: {', '.join(loops)}"
+        # Build a live list of which loops are actually running
+        loop_status = []
+        # Health monitor loop
+        loop_status.append("health")
+        # Brain trainer background loop
+        if getattr(self, "brain", None) and getattr(
+            getattr(self, "brain", None), "brain_trainer", None
+        ):
+            loop_status.append("trainer")
+        # Autonomous learning engine
+        ale = getattr(self, "autonomous_engine", None)
+        if ale and ale.running:
+            loop_status.append("ale (running)")
+        else:
+            loop_status.append("ale (stopped)")
+        # Auto-research in SelfResearcher
+        researcher = getattr(self, "researcher", None)
+        if researcher and getattr(researcher, "_auto_research_enabled", False):
+            loop_status.append("auto_research (enabled)")
+        else:
+            loop_status.append("auto_research (disabled)")
+        # Memory dump monitoring
+        loop_status.append("dump_monitoring")
+        # Self-heal loop
+        loop_status.append("self_heal")
+        # Trading brain
+        brain = getattr(self, "trading_brain", None)
+        if brain and getattr(brain, "running", False):
+            loop_status.append("trading_brain (running)")
+        # Realtime stream
+        stream = getattr(self, "_realtime_stream", None)
+        if stream and getattr(stream, "running", False):
+            loop_status.append("realtime_stream (running)")
+        return (
+            f"Loop output: {vis}\n"
+            f"Active loops:\n"
+            + "\n".join(f"  • {l}" for l in loop_status)
+        )
 
     def _loop_notify(self, msg: str) -> None:
         """Push a notification to the deque if loops_verbose is enabled."""
