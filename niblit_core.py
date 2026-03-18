@@ -629,13 +629,13 @@ def safe_import(name: str, default=None):
 # ============================================================
 
 try:
-    from modules.knowledge_db import KnowledgeDB
+    from niblit_memory import KnowledgeDB
 except Exception as _e:
     log.debug(f"KnowledgeDB failed to import: {_e}")
     KnowledgeDB = None
 
 try:
-    from modules.db import LocalDB
+    from niblit_memory import LocalDB
 except Exception as _e:
     log.debug(f"LocalDB failed to import: {_e}")
     LocalDB = None
@@ -3469,7 +3469,7 @@ Uptime: {stats['uptime_seconds']}s
         # ── FusedMemory singleton (Qdrant + SQLite hybrid backend) ────────────
         self.fused_memory = None
         try:
-            from modules.fused_memory import FusedMemory as _FusedMemory
+            from niblit_memory import FusedMemory as _FusedMemory
             self.fused_memory = _FusedMemory(
                 vector_store=self.vector_store,
             )

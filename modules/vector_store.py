@@ -456,7 +456,7 @@ class FusedStorage:
 
         self._primary = None
         try:
-            from modules.fused_memory_primary import FusedMemoryPrimary  # type: ignore[import]
+            from niblit_memory import FusedMemoryPrimary  # type: ignore[import]
             self._primary = FusedMemoryPrimary(
                 sqlite_path=sqlite_path,
                 collection_name=collection_name,

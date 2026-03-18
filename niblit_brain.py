@@ -89,7 +89,7 @@ except Exception as _e:
 
 # ───────── Local Modules ─────────
 try:
-    from modules.db import LocalDB
+    from niblit_memory import LocalDB
 except Exception as _e:
     log.warning(f"LocalDB unavailable: {_e}")
     LocalDB = None

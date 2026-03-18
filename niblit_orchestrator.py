@@ -41,7 +41,7 @@ except Exception as _e:
     FixGuideGenerator = None
 
 try:
-    from modules.db import LocalDB
+    from niblit_memory import LocalDB
 except Exception as _e:
     LocalDB = None
 

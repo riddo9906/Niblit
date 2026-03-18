@@ -8,7 +8,7 @@ import re
 import requests
 from datetime import datetime
 from typing import Dict, Optional
-from modules.db import LocalDB
+from niblit_memory import LocalDB
 from modules.internet_manager import InternetManager
 
 log = logging.getLogger("SLSA")

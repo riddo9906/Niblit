@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
-    from modules.fused_memory_primary import FusedMemoryPrimary
+    from niblit_memory import FusedMemoryPrimary
 except ImportError:
     FusedMemoryPrimary = None  # type: ignore[assignment,misc]
 

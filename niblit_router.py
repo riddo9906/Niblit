@@ -206,6 +206,9 @@ class NiblitRouter:
         "loops", "routing",
         "study my code", "describe my architecture", "read my code",
         "notifications",
+        # Memory dump visibility toggle
+        "dump visible", "dump invisible", "dump on", "dump off",
+        "memory dump",
     )
 
     CHAT_RESPONSES = {
@@ -1047,6 +1050,27 @@ Ask me about:
             "  auto-research resume  — Alias for start"
         )
 
+    def _handle_memory_dump_visibility(self, cmd: str) -> str:
+        """Toggle the NiblitMemory periodic dump loop on or off.
+
+        Commands::
+
+            dump visible    / memory dump visible    / dump on    / memory dump on
+            dump invisible  / memory dump invisible  / dump off   / memory dump off
+
+        When *visible*, the dump loop emits a full JSON state snapshot to the
+        logger every ``dump_interval`` seconds (useful for debugging).
+        When *invisible* (default), the loop runs silently.
+        """
+        lower = cmd.strip().lower()
+        enable = any(kw in lower for kw in ("visible", " on"))
+        try:
+            from niblit_memory import NiblitMemory
+            mem = NiblitMemory()
+            return mem.set_dump_verbose(enable)
+        except Exception as exc:
+            return f"[Memory dump visibility change failed: {exc}]"
+
     # ─────────────────────────────────
     # KNOWLEDGE RECALL & ACQUIRED DATA
     # ─────────────────────────────────
@@ -1757,6 +1781,12 @@ Ask me about:
         # AUTO-RESEARCH CONTROL COMMANDS (start/stop/status/pause/resume)
         if lower.startswith("auto-research"):
             return self._handle_auto_research(cmd)
+
+        # MEMORY DUMP VISIBILITY COMMANDS
+        if lower in ("dump visible", "dump invisible", "dump on", "dump off",
+                     "memory dump on", "memory dump off",
+                     "memory dump visible", "memory dump invisible"):
+            return self._handle_memory_dump_visibility(cmd)
 
         # GITHUB SYNC COMMANDS
         if lower.startswith("github ") or lower == "github":
