@@ -82,13 +82,13 @@ class FixGuideGenerator:
         commands.append("\n# Running self-maintenance")
         commands.append(
             "python3 -c 'from modules.self_maintenance import SelfMaintenance; "
-            "from modules.db import LocalDB; db=LocalDB(); SelfMaintenance(db).run()'"
+            "from niblit_memory import LocalDB; db=LocalDB(); SelfMaintenance(db).run()'"
         )
 
         commands.append("\n# Running self-healer")
         commands.append(
             "python3 -c 'from modules.self_healer import SelfHealer; "
-            "from modules.db import LocalDB; db=LocalDB(); SelfHealer(db).repair()'"
+            "from niblit_memory import LocalDB; db=LocalDB(); SelfHealer(db).repair()'"
         )
 
         commands.append("\necho '=== Fix Guide Completed ==='")
@@ -103,7 +103,7 @@ class FixGuideGenerator:
 # -----------------------------
 if __name__ == "__main__":
     # Import LocalDB here only to avoid circular imports
-    from modules.db import LocalDB
+    from niblit_memory import LocalDB
 
     db = LocalDB()
     fg = FixGuideGenerator(db)

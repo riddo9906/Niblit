@@ -320,7 +320,7 @@ class TestResearchAgent:
 
 class TestKnowledgeStore:
     def _make_store(self, tmp_path):
-        from niblit_memory.knowledge_store import KnowledgeStore
+        from niblit_memory import KnowledgeStore
         return KnowledgeStore(db_path=str(tmp_path / "test.sqlite"))
 
     def test_store_and_retrieve(self, tmp_path):
@@ -369,7 +369,7 @@ class TestKnowledgeStore:
 
     def test_qdrant_embed_called_on_store(self, tmp_path):
         """store_search_results triggers _embed_to_qdrant with stored rows."""
-        from niblit_memory.knowledge_store import KnowledgeStore
+        from niblit_memory import KnowledgeStore
         ks = KnowledgeStore(db_path=str(tmp_path / "ks.sqlite"))
         mock_vs = MagicMock()
         ks._vector_store = mock_vs

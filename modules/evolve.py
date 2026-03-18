@@ -24,6 +24,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+try:
+    from niblit_memory import NiblitMemory as _NiblitMemory
+    _GLOBAL_MEMORY = _NiblitMemory()
+except Exception:
+    _GLOBAL_MEMORY = None  # type: ignore[assignment]
+
 log = logging.getLogger("EvolveEngine")
 
 # Default Termux deployment path for Niblit self-updates.
@@ -99,6 +105,7 @@ class EvolveEngine:
         live_updater=None,
         file_manager=None,
         deploy_path: Optional[str] = None,
+        semantic_agent=None,
     ):
         """Initialise the EvolveEngine.
 
@@ -139,7 +146,9 @@ class EvolveEngine:
         self.reflect = reflect_module
         self.idea_generator = idea_generator
         self.implementer = implementer
-        self.knowledge_db = knowledge_db
+        # Fall back to the canonical GLOBAL_MEMORY singleton so EvolveEngine
+        # always has somewhere to persist evolution facts.
+        self.knowledge_db = knowledge_db or _GLOBAL_MEMORY
         self.internet = internet
         self.idea_implementation = idea_implementation
         self.slsa = slsa
@@ -148,6 +157,7 @@ class EvolveEngine:
         self.sub_step_timeout = sub_step_timeout
         self.live_updater = live_updater
         self.file_manager = file_manager
+        self.semantic_agent = semantic_agent
 
         # Resolve the deploy path: explicit arg → Termux default if on Termux → None
         if deploy_path is not None:
@@ -473,6 +483,17 @@ class EvolveEngine:
                         text[:400],
                         tags=["internet", "evolution", "research"]
                     )
+                # Semantic storage
+                sa = self.semantic_agent or (getattr(self.core, "semantic_agent", None) if self.core else None)
+                if sa:
+                    try:
+                        sa.store_knowledge(
+                            [{"snippet": text[:600]}],
+                            source="evolve_internet",
+                            query=query,
+                        )
+                    except Exception:
+                        pass
                 return text[:200]
         except Exception as exc:
             log.debug("[EvolveEngine] Internet research failed: %s", exc)
@@ -698,6 +719,7 @@ class EvolveEngine:
         self.autonomous_engine = getattr(self.core, "autonomous_engine", self.autonomous_engine)
         self.live_updater = getattr(self.core, "live_updater", self.live_updater)
         self.file_manager = getattr(self.core, "file_manager", self.file_manager)
+        self.semantic_agent = getattr(self.core, "semantic_agent", self.semantic_agent)
         log.info("[EvolveEngine] References refreshed from core")
 
     # ──────────────────────────────────────────────

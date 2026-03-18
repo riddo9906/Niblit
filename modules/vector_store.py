@@ -418,3 +418,95 @@ class VectorStore:
         except Exception as exc:
             log.debug("[VectorStore/FAISS] search failed: %s", exc)
             return []
+
+
+# ---------------------------------------------------------------------------
+# FusedStorage — thin compatibility shim used by niblit_memory.py
+# ---------------------------------------------------------------------------
+
+class FusedStorage:
+    """
+    Compatibility shim that wraps :class:`~modules.fused_memory_primary.FusedMemoryPrimary`
+    and exposes the record + vector API expected by :class:`~niblit_memory.NiblitMemory`.
+
+    When ``fused_memory_primary`` is unavailable, falls back to a plain
+    :class:`VectorStore` for vector operations and a basic in-memory dict for
+    structured records.
+
+    Args:
+        sqlite_path:     SQLite database path.
+        qdrant_host:     Qdrant hostname (used only when qdrant_url is not set).
+        qdrant_port:     Qdrant port.
+        qdrant_url:      Full Qdrant URL (overrides qdrant_host/port when set).
+        collection_name: Qdrant collection name.
+    """
+
+    def __init__(
+        self,
+        sqlite_path: str = "",
+        qdrant_host: str = "",
+        qdrant_port: int = 6333,
+        qdrant_url: str = "",
+        collection_name: str = "",
+    ) -> None:
+        import os
+        url = qdrant_url or os.getenv("QDRANT_URL", "")
+        if not url and qdrant_host:
+            url = f"http://{qdrant_host}:{qdrant_port}"
+
+        self._primary = None
+        try:
+            from niblit_memory import FusedMemoryPrimary  # type: ignore[import]
+            self._primary = FusedMemoryPrimary(
+                sqlite_path=sqlite_path,
+                collection_name=collection_name,
+                qdrant_url=url,
+            )
+        except Exception as exc:
+            log.debug("[FusedStorage] FusedMemoryPrimary unavailable: %s", exc)
+            # Minimal fallback: in-memory dict + VectorStore
+            self._records_fallback: dict = {}
+            self._vs_fallback = VectorStore(
+                collection=collection_name or "niblit_vectors",
+                qdrant_url=url,
+            )
+
+    def insert_record(self, record_id: str, data: dict) -> None:
+        """Insert or replace a structured record."""
+        if self._primary is not None:
+            self._primary.insert_record(record_id, data)
+        else:
+            self._records_fallback[record_id] = data
+
+    def get_record(self, record_id: str):
+        """Retrieve a structured record by ID."""
+        if self._primary is not None:
+            return self._primary.get_record(record_id)
+        return self._records_fallback.get(record_id)
+
+    def list_records(self, limit: int = 100):
+        """List all stored records."""
+        if self._primary is not None:
+            return self._primary.list_records(limit=limit)
+        return [{"record_id": k, "data": v} for k, v in list(self._records_fallback.items())[:limit]]
+
+    def insert_vector(self, record_id: str, vector, payload=None) -> bool:
+        """Insert a named vector."""
+        if self._primary is not None:
+            return self._primary.insert_vector(record_id, vector, payload)
+        try:
+            text = str(payload or record_id)[:500]
+            return self._vs_fallback.add(record_id, text)
+        except Exception:
+            return False
+
+    def query_vector(self, vector, top_k: int = 5):
+        """Search by raw vector."""
+        if self._primary is not None:
+            return self._primary.query_vector(vector, top_k=top_k)
+        # Fallback: text-based search using string repr
+        try:
+            query_text = " ".join(str(v) for v in list(vector)[:10])
+            return self._vs_fallback.search(query_text, top_k=top_k) or []
+        except Exception:
+            return []

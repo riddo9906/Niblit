@@ -79,13 +79,6 @@ class Config:
     # Register at https://newsapi.org/register (free tier available).
     NEWSAPI_KEY: str = os.getenv("NEWSAPI_KEY", "")
 
-    # ── Neo4j Graph Database ─────────────────────────────────────────────────
-    # Connection details for Neo4j (optional — pipeline falls back to SQLite).
-    # Cloud: https://neo4j.com/cloud/aura-free/  |  Self-host: docker run neo4j
-    NEO4J_URI: str = os.getenv("NEO4J_URI", "")
-    NEO4J_USER: str = os.getenv("NEO4J_USER", "neo4j")
-    NEO4J_PASS: str = os.getenv("NEO4J_PASS", "")
-
     # ── Prometheus / Grafana Metrics ─────────────────────────────────────────
     # Set PROMETHEUS_ENABLED=true to start a /metrics HTTP endpoint.
     # Requires: pip install prometheus-client

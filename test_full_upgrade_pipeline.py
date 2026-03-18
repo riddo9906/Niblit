@@ -630,18 +630,6 @@ class TestConfigAdditions(unittest.TestCase):
         from config import Config
         self.assertTrue(hasattr(Config, "NEWSAPI_KEY"))
 
-    def test_neo4j_uri_in_config(self):
-        from config import Config
-        self.assertTrue(hasattr(Config, "NEO4J_URI"))
-
-    def test_neo4j_user_in_config(self):
-        from config import Config
-        self.assertTrue(hasattr(Config, "NEO4J_USER"))
-
-    def test_neo4j_pass_in_config(self):
-        from config import Config
-        self.assertTrue(hasattr(Config, "NEO4J_PASS"))
-
     def test_prometheus_enabled_in_config(self):
         from config import Config
         self.assertTrue(hasattr(Config, "PROMETHEUS_ENABLED"))
@@ -654,9 +642,12 @@ class TestConfigAdditions(unittest.TestCase):
         from config import Config
         self.assertEqual(Config.NEWSAPI_KEY, "")
 
-    def test_neo4j_uri_default_is_empty_string(self):
+    def test_neo4j_not_in_config(self):
+        """NEO4J_URI/USER/PASS have been removed — SQLite is the graph backend."""
         from config import Config
-        self.assertEqual(Config.NEO4J_URI, "")
+        self.assertFalse(hasattr(Config, "NEO4J_URI"))
+        self.assertFalse(hasattr(Config, "NEO4J_USER"))
+        self.assertFalse(hasattr(Config, "NEO4J_PASS"))
 
 
 if __name__ == "__main__":

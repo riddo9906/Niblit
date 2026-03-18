@@ -249,6 +249,13 @@ except Exception as e:
     AutonomousLearningEngine = None
 
 # ============================================================
+try:
+    from modules.trading_brain import TradingBrain
+except Exception as e:
+    log.debug(f"TradingBrain import failed: {e}")
+    TradingBrain = None  # type: ignore[assignment,misc]
+
+# ============================================================
 # LIVE UPDATER + STRUCTURAL AWARENESS IMPORTS
 # ============================================================
 try:
@@ -629,13 +636,13 @@ def safe_import(name: str, default=None):
 # ============================================================
 
 try:
-    from modules.knowledge_db import KnowledgeDB
+    from niblit_memory import KnowledgeDB
 except Exception as _e:
     log.debug(f"KnowledgeDB failed to import: {_e}")
     KnowledgeDB = None
 
 try:
-    from modules.db import LocalDB
+    from niblit_memory import LocalDB
 except Exception as _e:
     log.debug(f"LocalDB failed to import: {_e}")
     LocalDB = None
@@ -1146,6 +1153,8 @@ class NiblitCore:
 
         # NEW: Autonomous Learning Engine
         self.autonomous_engine: Optional[AutonomousLearningEngine] = None
+        # NEW: Trading Brain
+        self.trading_brain: Optional["TradingBrain"] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -1295,147 +1304,168 @@ class NiblitCore:
 
         # Core commands (no LLM)
         self.command_registry.register(
-            "help", self._cmd_help, "Show available commands", "core", priority=100
+            "help", self._cmd_help, "Show the complete Niblit command reference", "core", priority=100
         )
         self.command_registry.register(
-            "status", self._cmd_status, "Show system status", "core", priority=100
+            "status", self._cmd_status, "Show overall system status (modules, threads, memory)", "core", priority=100
         )
         self.command_registry.register(
-            "health", self._cmd_health, "System health check", "core", priority=100
+            "health", self._cmd_health, "Run a comprehensive health check across all subsystems", "core", priority=100
         )
         self.command_registry.register(
-            "metrics", self._cmd_metrics, "Performance metrics", "core", priority=100
+            "metrics", self._cmd_metrics, "Show real-time performance metrics (CPU, RAM, latency)", "core", priority=100
         )
         self.command_registry.register(
-            "time", self._cmd_time, "Show current time", "core", priority=100
+            "time", self._cmd_time, "Display current date and time", "core", priority=100
         )
 
         # Autonomous Learning Commands
         self.command_registry.register(
-            "autonomous-learn start", self._cmd_autonomous_start, "Start autonomous learning", "autonomous", priority=98
+            "autonomous-learn start", self._cmd_autonomous_start,
+            "Resume the 28-step Autonomous Learning Engine (ALE) background loop", "autonomous", priority=98
         )
         self.command_registry.register(
-            "autonomous-learn stop", self._cmd_autonomous_stop, "Stop autonomous learning", "autonomous", priority=98
+            "autonomous-learn stop", self._cmd_autonomous_stop,
+            "Pause ALE (all stored knowledge is retained)", "autonomous", priority=98
         )
         self.command_registry.register(
-            "autonomous-learn status", self._cmd_autonomous_status, "View autonomous status", "autonomous", priority=98
+            "autonomous-learn status", self._cmd_autonomous_status,
+            "View ALE cycle count, current topic, step timings, and KB facts", "autonomous", priority=98
         )
         self.command_registry.register(
-            "autonomous-learn add-topic", self._cmd_autonomous_add_topic, "Add research topic", "autonomous", priority=98
+            "autonomous-learn add-topic", self._cmd_autonomous_add_topic,
+            "Inject a new research topic into the ALE rotation queue", "autonomous", priority=98
         )
         self.command_registry.register(
             "autonomous-learn code-status", self._cmd_autonomous_code_status,
-            "View code literacy status", "autonomous", priority=98
+            "Show ALE code-generation literacy loop status (langs, last file)", "autonomous", priority=98
         )
 
         # Knowledge recall & acquired data commands
         self.command_registry.register(
-            "recall", self._cmd_recall, "Recall acquired data from KnowledgeDB", "knowledge", priority=95
+            "recall", self._cmd_recall,
+            "Full-text search across KnowledgeDB facts for any stored topic", "knowledge", priority=95
         )
         self.command_registry.register(
-            "acquired data", self._cmd_acquired_data, "Browse acquired data by category", "knowledge", priority=95
+            "acquired data", self._cmd_acquired_data,
+            "Browse all facts acquired by the Autonomous Learning Engine", "knowledge", priority=95
         )
         self.command_registry.register(
-            "knowledge stats", self._cmd_knowledge_stats, "KnowledgeDB statistics and summary", "knowledge", priority=95
+            "knowledge stats", self._cmd_knowledge_stats,
+            "KnowledgeDB statistics: fact counts, top tags, ALE step breakdown", "knowledge", priority=95
         )
         self.command_registry.register(
-            "ale processes", self._cmd_ale_process_awareness, "ALE process awareness", "knowledge", priority=95
+            "ale processes", self._cmd_ale_process_awareness,
+            "Describe all 28 ALE pipeline steps with data-flow and status", "knowledge", priority=95
         )
 
         # SLSA commands
         self.command_registry.register(
-            "slsa-status", self._cmd_slsa_status, "SLSA status", "slsa", priority=90
+            "slsa-status", self._cmd_slsa_status,
+            "Show SLSA engine running state and last artifact built", "slsa", priority=90
         )
         self.command_registry.register(
-            "start_slsa", self._cmd_slsa_start, "Start SLSA", "slsa", priority=90
+            "start_slsa", self._cmd_slsa_start,
+            "Start SLSA knowledge-artifact generation (optional topic list)", "slsa", priority=90
         )
         self.command_registry.register(
-            "stop_slsa", self._cmd_slsa_stop, "Stop SLSA", "slsa", priority=90
+            "stop_slsa", self._cmd_slsa_stop,
+            "Stop the SLSA background loop", "slsa", priority=90
         )
         self.command_registry.register(
-            "restart_slsa", self._cmd_slsa_restart, "Restart SLSA", "slsa", priority=90
+            "restart_slsa", self._cmd_slsa_restart,
+            "Restart SLSA with an updated topic list", "slsa", priority=90
         )
 
         # Brain commands (use internet, NOT LLM)
         self.command_registry.register(
-            "self-research", self._cmd_self_research, "Research topic", "brain", priority=85
+            "self-research", self._cmd_self_research,
+            "SelfResearcher: Serpex (1) → Searchcode (2) → Engine (3) → Internet (4)", "brain", priority=85
         )
         self.command_registry.register(
-            "self-idea", self._cmd_self_idea, "Generate ideas", "brain", priority=85
+            "self-idea", self._cmd_self_idea,
+            "Generate an idea via SelfIdeaGenerator and auto-implement it", "brain", priority=85
         )
         self.command_registry.register(
-            "reflect", self._cmd_reflect, "Reflect on topic", "brain", priority=85
+            "reflect", self._cmd_reflect,
+            "Run ReflectModule on text and store reflection in KnowledgeDB", "brain", priority=85
         )
         self.command_registry.register(
-            "self-implement", self._cmd_self_implement, "Implement concept", "brain", priority=85
+            "self-implement", self._cmd_self_implement,
+            "Enqueue an implementation plan directly to SelfImplementer", "brain", priority=85
         )
         self.command_registry.register(
-            "self-teach", self._cmd_self_teach, "Teach a topic", "brain", priority=85
+            "self-teach", self._cmd_self_teach,
+            "SelfTeacher: research → store in niblit_memory → feed learner → reflect", "brain", priority=85
         )
         self.command_registry.register(
-            "idea-implement", self._cmd_idea_implement, "Generate and implement idea", "brain", priority=85
+            "idea-implement", self._cmd_idea_implement,
+            "Full pipeline: generate idea → implement → compile → store in niblit_memory", "brain", priority=85
         )
 
         # Internet commands
         self.command_registry.register(
-            "search", self._cmd_search, "Search internet", "internet", priority=80
+            "search", self._cmd_search,
+            "Live internet search via SerpEx → DuckDuckGo fallback", "internet", priority=80
         )
         self.command_registry.register(
-            "summary", self._cmd_summary, "Get summary", "internet", priority=80
+            "summary", self._cmd_summary,
+            "Fetch a concise web summary and store it in KnowledgeDB", "internet", priority=80
         )
 
         # Orchestrator commands
         if ORCHESTRATOR_AVAILABLE:
             self.command_registry.register(
-                "orchestrate audit", self._run_audit, "Run audit", "orchestrator", priority=70
+                "orchestrate audit", self._run_audit,
+                "Run a full repository audit (imports, wiring, missing symbols)", "orchestrator", priority=70
             )
             self.command_registry.register(
                 "orchestrate pipeline", self._run_orchestration_pipeline,
-                "Run pipeline", "orchestrator", priority=70
+                "Run the complete full-upgrade pipeline end-to-end", "orchestrator", priority=70
             )
 
         # Diagnostic / tester commands
         self.command_registry.register(
             "run-diagnostics", self._cmd_run_diagnostics,
-            "Run niblit diagnostic suite", "diagnostics", priority=65
+            "Execute the full Niblit diagnostic suite across all subsystems", "diagnostics", priority=65
         )
         self.command_registry.register(
             "run-live-test", self._cmd_run_live_test,
-            "Run live command tester", "diagnostics", priority=65
+            "Run the interactive live command tester (smoke-tests all routes)", "diagnostics", priority=65
         )
 
         # Structural awareness commands — short-form aliases
         self.command_registry.register(
             "sa-structure", self._cmd_sa_structure,
-            "Full component inventory", "structural_awareness", priority=75
+            "Full structural inventory: modules, adapters, engines, memory", "structural_awareness", priority=75
         )
         self.command_registry.register(
             "sa-threads", self._cmd_sa_threads,
-            "All active Python threads", "structural_awareness", priority=75
+            "List every active thread with name, state, and daemon flag", "structural_awareness", priority=75
         )
         self.command_registry.register(
             "sa-loops", self._cmd_sa_loops,
-            "Background loop status", "structural_awareness", priority=75
+            "Show all background loops with interval and running state", "structural_awareness", priority=75
         )
         self.command_registry.register(
             "sa-modules", self._cmd_sa_modules,
-            "Loaded Niblit modules", "structural_awareness", priority=75
+            "List all loaded Python modules and their wiring status", "structural_awareness", priority=75
         )
         self.command_registry.register(
             "sa-commands", self._cmd_sa_commands,
-            "All registered commands", "structural_awareness", priority=75
+            "Enumerate every registered command with handler and priority", "structural_awareness", priority=75
         )
         self.command_registry.register(
             "sa-dashboard", self._cmd_sa_dashboard,
-            "Full runtime dashboard", "structural_awareness", priority=75
+            "Full runtime dashboard: threads, loops, memory, ALE, modules", "structural_awareness", priority=75
         )
         self.command_registry.register(
             "sa-flow", self._cmd_sa_flow,
-            "Operational flow description", "structural_awareness", priority=75
+            "Explain how CLI routing, background loops, and memory all connect", "structural_awareness", priority=75
         )
         self.command_registry.register(
             "sa-resources", self._cmd_sa_resources,
-            "RAM, CPU, uptime", "structural_awareness", priority=75
+            "Show RAM usage, CPU percent, and process uptime", "structural_awareness", priority=75
         )
         self.command_registry.register(
             "sa-awareness", self._cmd_sa_awareness,
@@ -3466,6 +3496,52 @@ Uptime: {stats['uptime_seconds']}s
             self.vector_store = None
             self.startup_report.add("vector_store", "degraded", str(exc))
 
+        # ── FusedMemory singleton (Qdrant + SQLite hybrid backend) ────────────
+        self.fused_memory = None
+        try:
+            from niblit_memory import FusedMemory as _FusedMemory
+            self.fused_memory = _FusedMemory(
+                vector_store=self.vector_store,
+            )
+            log.info(
+                "✅ FusedMemory initialised (vector_backend=%s)",
+                self.fused_memory.vector_backend,
+            )
+            self.startup_report.add("fused_memory", "ready")
+        except Exception as exc:
+            log.debug("FusedMemory init failed: %s", exc)
+            self.startup_report.add("fused_memory", "degraded", str(exc))
+
+        # ── SemanticAgent singleton (shared across all components) ────────────
+        self.semantic_agent = None
+        try:
+            from niblit_agents.semantic_agent import SemanticAgent as _SemanticAgent
+            self.semantic_agent = _SemanticAgent(
+                vector_store=self.vector_store,
+            )
+            log.info(
+                "✅ SemanticAgent initialised (available=%s)",
+                self.semantic_agent.is_available(),
+            )
+            self.startup_report.add("semantic_agent", "ready")
+        except Exception as exc:
+            log.debug("SemanticAgent init failed: %s", exc)
+            self.startup_report.add("semantic_agent", "degraded", str(exc))
+
+        # ── ClaudeEngine singleton ────────────────────────────────────────────
+        self.claude_engine = None
+        try:
+            from niblit_models.claude_engine import ClaudeEngine as _ClaudeEngine
+            self.claude_engine = _ClaudeEngine()
+            log.info(
+                "✅ ClaudeEngine initialised (available=%s)",
+                self.claude_engine.is_available(),
+            )
+            self.startup_report.add("claude_engine", "ready")
+        except Exception as exc:
+            log.debug("ClaudeEngine init failed: %s", exc)
+            self.startup_report.add("claude_engine", "degraded", str(exc))
+
     def _init_ai_adapters(self):
         """Initialize AI adapter modules."""
         try:
@@ -3507,6 +3583,16 @@ Uptime: {stats['uptime_seconds']}s
                     self.reflect.self_teacher = self.self_teacher
                 except Exception as _e:
                     log.debug(f"[INIT] reflect.self_teacher wire failed (non-critical): {_e}")
+
+            # ── Late-wire new ReflectModule v2 dependencies ──────────────────
+            # brain_trainer, trading_brain, and llm are not yet built at this
+            # point; they are wired in _init_optional_services() below.
+            if self.reflect:
+                try:
+                    self.reflect.knowledge_db = self.db
+                    log.debug("[INIT] reflect.knowledge_db wired")
+                except Exception as _e:
+                    log.debug("[INIT] reflect.knowledge_db wire failed: %s", _e)
 
             self.self_implementer = safe_call(
                 SelfImplementer,
@@ -3568,6 +3654,13 @@ Uptime: {stats['uptime_seconds']}s
                     except Exception as _e:
                         log.debug("[INIT] researcher.vector_store injection failed: %s", _e)
 
+            # Inject shared SemanticAgent into the researcher for enriched storage.
+            if self.researcher and getattr(self, "semantic_agent", None):
+                try:
+                    self.researcher.semantic_agent = self.semantic_agent
+                except Exception as _e:
+                    log.debug("[INIT] researcher.semantic_agent injection failed: %s", _e)
+
             if self.self_teacher:
                 self.self_teacher.researcher = self.researcher
 
@@ -3580,6 +3673,11 @@ Uptime: {stats['uptime_seconds']}s
                         self.collector.self_teacher = self.self_teacher
                     if hasattr(self.brain, "self_implementer"):
                         self.brain.self_implementer = self.self_implementer
+                    # Wire shared SemanticAgent + ClaudeEngine into brain
+                    if getattr(self, "semantic_agent", None) and hasattr(self.brain, "semantic"):
+                        self.brain.semantic = self.semantic_agent
+                    if getattr(self, "claude_engine", None) and hasattr(self.brain, "claude"):
+                        self.brain.claude = self.claude_engine
             except Exception as e:
                 log.debug(f"NiblitBrain failed: {e}")
                 self.brain = None
@@ -3700,6 +3798,22 @@ Uptime: {stats['uptime_seconds']}s
 
             self.slsa_manager = slsa_manager
 
+            # ── Late-inject SemanticAgent + SearchcodeSearch into InternetManager ──
+            # (InternetManager is built in _init_internet before SemanticAgent exists)
+            if getattr(self, "internet", None):
+                if getattr(self, "semantic_agent", None) and not getattr(self.internet, "semantic_agent", None):
+                    try:
+                        self.internet.semantic_agent = self.semantic_agent
+                        log.info("✅ SemanticAgent wired into InternetManager")
+                    except Exception as _e:
+                        log.debug("[INIT] internet.semantic_agent injection failed: %s", _e)
+                if getattr(self, "searchcode_search", None) and not getattr(self.internet, "searchcode_search", None):
+                    try:
+                        self.internet.searchcode_search = self.searchcode_search
+                        log.info("✅ SearchcodeSearch wired into InternetManager")
+                    except Exception as _e:
+                        log.debug("[INIT] internet.searchcode_search injection failed: %s", _e)
+
             # ============================
             # SLSA ENGINE (initialized at startup so component report shows it)
             # ============================
@@ -3709,6 +3823,8 @@ Uptime: {stats['uptime_seconds']}s
                         interval=20,
                         topics=["car", "computer", "phone"],
                         internet=getattr(self, "internet", None),
+                        semantic_agent=getattr(self, "semantic_agent", None),
+                        searchcode_search=getattr(self, "searchcode_search", None),
                     )
                     log.info("✅ SLSAGenerator initialized")
                     self.startup_report.add("slsa_engine", "ready")
@@ -3789,6 +3905,8 @@ Uptime: {stats['uptime_seconds']}s
                         pypi_search=getattr(self, "pypi_search", None),
                         searchcode_search=getattr(self, "searchcode_search", None),
                         serpex_research_agent=_serpex_agent,
+                        semantic_agent=getattr(self, "semantic_agent", None),
+                        claude_engine=getattr(self, "claude_engine", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
@@ -3800,6 +3918,54 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))
+
+            # ============================
+            # TRADING BRAIN
+            # ============================
+            if TradingBrain:
+                try:
+                    self.trading_brain = TradingBrain(
+                        memory=getattr(self, "memory", None),
+                    )
+                    log.info("✅ TradingBrain initialized (symbol=%s)", self.trading_brain.symbol)
+                    self.startup_report.add("trading_brain", "ready")
+                except Exception as e:
+                    log.debug("TradingBrain init failed: %s", e)
+                    self.startup_report.add("trading_brain", "degraded", str(e))
+
+            # ============================
+            # LATE-WIRE ReflectModule v2 dependencies
+            # (brain_trainer, llm, trading_brain, vector_store are all built now)
+            # ============================
+            if getattr(self, "reflect", None):
+                _brain_trainer = (
+                    getattr(self.brain, "brain_trainer", None)
+                    if getattr(self, "brain", None)
+                    else None
+                )
+                _pairs = (
+                    ("brain_trainer", _brain_trainer),
+                    ("trading_brain", getattr(self, "trading_brain", None)),
+                    ("llm", getattr(self, "llm", None)),
+                    ("vector_store", getattr(self, "vector_store", None)),
+                    ("searchcode_search", getattr(self, "searchcode_search", None)),
+                )
+                for _attr, _val in _pairs:
+                    if _val is not None:
+                        try:
+                            setattr(self.reflect, _attr, _val)
+                            log.debug("[INIT] reflect.%s wired ✅", _attr)
+                        except Exception as _e:
+                            log.debug("[INIT] reflect.%s wire failed: %s", _attr, _e)
+
+            # Also wire reflect_module back into TradingBrain so each
+            # cycle() call automatically stores a market-state reflection.
+            if getattr(self, "trading_brain", None) and getattr(self, "reflect", None):
+                try:
+                    self.trading_brain.reflect_module = self.reflect
+                    log.debug("[INIT] trading_brain.reflect_module wired ✅")
+                except Exception as _e:
+                    log.debug("[INIT] trading_brain.reflect_module wire failed: %s", _e)
 
             # ============================
             # MCP SERVER — attach NiblitCore so tools work
@@ -3961,6 +4127,7 @@ Uptime: {stats['uptime_seconds']}s
                         idea_implementation=getattr(self, "idea_implementation", None),
                         slsa=getattr(self, "slsa_engine", None),
                         autonomous_engine=getattr(self, "autonomous_engine", None),
+                        semantic_agent=getattr(self, "semantic_agent", None),
                     )
                     # Back-wire autonomous_engine → evolve_engine once both are available
                     if self.autonomous_engine and not self.autonomous_engine.evolve_engine:
@@ -5235,139 +5402,160 @@ Uptime: {stats['uptime_seconds']}s
         return response
 
     def help_text(self) -> str:
-        """Return help text including all features."""
+        """Return the complete Niblit command reference."""
         base_help = (
-            "=== NIBLIT HELP ===\n\n"
+            "=== NIBLIT COMMAND REFERENCE ===\n\n"
             "--- CORE ---\n"
-            "help                     — Show this help\n"
-            "time                     — Show current time\n"
-            "status                   — Show system status\n"
-            "health                   — Comprehensive health check\n"
-            "metrics                  — Performance metrics\n"
-            "dump                     — Show dump loop stats\n"
+            "help                     — Show the complete Niblit command reference\n"
+            "time                     — Display current date and time\n"
+            "status                   — Show overall system status (modules, threads, memory)\n"
+            "health                   — Run a comprehensive health check across all subsystems\n"
+            "metrics                  — Show real-time performance metrics (CPU, RAM, latency)\n"
+            "dump                     — Show memory dump-loop stats and last snapshot info\n"
             "\n--- MEMORY & LEARNING ---\n"
-            "remember key:value       — Store a fact\n"
-            "learn about <topic>      — Queue for research\n"
-            "ideas about <topic>      — Get creative ideas\n"
+            "remember key:value       — Persist a key-value fact to canonical niblit_memory\n"
+            "learn about <topic>      — Queue a topic for autonomous background research (ALE Step 1)\n"
+            "ideas about <topic>      — Run SelfIdeaGenerator to produce creative implementation ideas\n"
+            "dump visible             — Enable verbose niblit_memory dump output in logs\n"
+            "dump invisible           — Silence niblit_memory dump output (default)\n"
             "\n--- KNOWLEDGE RECALL & ACQUIRED DATA ---\n"
-            "recall <topic>           — Search KnowledgeDB for topic (searches all stored facts)\n"
-            "acquired data            — Browse all acquired facts from ALE processes\n"
-            "acquired data <category> — Filter by: research, ideas, code, compiled,\n"
-            "                           reflection, software_study, implementation, all\n"
-            "knowledge stats          — Full KnowledgeDB summary (counts, top tags, ALE breakdown)\n"
-            "ale processes            — Explain all 18 ALE steps + data storage + module status\n"
-            "\n--- AUTONOMOUS LEARNING ---\n"
-            "autonomous-learn start              — Resume learning after a stop (auto-starts with Niblit)\n"
-            "autonomous-learn stop               — Pause background learning\n"
-            "autonomous-learn status             — View full learning statistics\n"
-            "autonomous-learn add-topic <topic>  — Add research topic\n"
-            "autonomous-learn code-status        — View programming literacy status\n"
-            "\n--- CONTINUOUS LEARNING (18 STEPS, RUNS ALL THE TIME) ---\n"
-            "  ALE runs every cycle regardless of idle state:\n"
-            "  Step  1: Research       — researcher+internet → KB (tag: ale_step1)\n"
-            "  Step  2: Ideas          — SelfIdeaImpl generates ideas    (tag: ale_step2)\n"
-            "  Step  3: Implement      — SelfImplementer executes ideas  (tag: ale_step3)\n"
-            "  Step  4: Reflection     — ReflectModule summarizes+stores (tag: ale_step4)\n"
-            "                            Research results stored as ale_learned after reflection\n"
-            "  Step  5: SLSA           — generates knowledge artifacts   (tag: ale_step5)\n"
-            "  Step  6: Learning       — SelfTeacher internalizes        (tag: ale_step6)\n"
-            "  Step  7: Evolve         — EvolveEngine self-evolves       (tag: ale_step7)\n"
-            "  Step  8: Code Research  — internet → CodeGenerator        (tag: ale_step8)\n"
-            "  Step  9: Code Generate  — idea+implementer → code         (tag: ale_step9)\n"
-            "  Step 10: Code Compile   — CodeCompiler runs it            (tag: ale_step10)\n"
-            "  Step 11: Code Reflect   — ReflectModule studies output    (tag: ale_step11)\n"
-            "  Step 12: SW Study       — SoftwareStudier+internet        (tag: ale_step12)\n"
-            "  Step 13: Cmd Awareness  — Catalogue all commands          (tag: ale_step13)\n"
-            "  Step 14: Cmd Execution  — Run safe diagnostic commands    (tag: ale_step14)\n"
-            "  Step 15: Topic Seeding  — Derive + feed new topics        (tag: ale_step15)\n"
-            "  Step 16: Reasoning      — Build knowledge graph+infer     (tag: ale_step16)\n"
-            "  Step 17: Metacognition  — Self-knowledge evaluation       (tag: ale_step17)\n"
-            "  Step 18: Improvement    — 10-module improvement cycle     (tag: ale_step18)\n"
-            "  All output stored in KnowledgeDB.  Recall: 'recall <topic>'\n"
-            "\n--- 10 SELF-IMPROVEMENTS (NOW CONTINUOUS VIA STEP 18) ---\n"
-            "show improvements        — View all 10 improvements\n"
-            "run improvement-cycle    — Manually trigger improvement cycle\n"
-            "improvement-status       — View improvement status\n"
-            "\n--- NEW COMMANDS ---\n"
-            "new commands             — Show all recently added commands\n"
+            "recall <topic>           — Full-text search across KnowledgeDB facts for any stored topic\n"
+            "acquired data            — Browse all facts acquired by the Autonomous Learning Engine\n"
+            "acquired data <category> — Filter ALE facts by category:\n"
+            "                           research / ideas / code / compiled / reflection /\n"
+            "                           software_study / implementation / all\n"
+            "knowledge stats          — KnowledgeDB statistics: fact counts, top tags, ALE step breakdown\n"
+            "ale processes            — Describe all 28 ALE pipeline steps with data-flow and status\n"
+            "\n--- AUTONOMOUS LEARNING ENGINE (ALE — 28 STEPS) ---\n"
+            "autonomous-learn start              — Resume the 28-step ALE background loop\n"
+            "autonomous-learn stop               — Pause ALE (all stored knowledge is retained)\n"
+            "autonomous-learn status             — View cycle count, current topic, step timings, KB facts\n"
+            "autonomous-learn add-topic <topic>  — Inject a new topic into the ALE rotation queue\n"
+            "autonomous-learn code-status        — Show code-generation literacy loop status\n"
+            "autonomous-learn serpex-research    — Trigger ALE Step 27: Serpex live web research\n"
+            "autonomous-learn serpex-search <q>  — Ad-hoc Serpex web search → KnowledgeDB\n"
+            "\n--- ALE PIPELINE (28 STEPS, RUNS CONTINUOUSLY) ---\n"
+            "  Step  1: Research          — SelfResearcher+Internet → KnowledgeDB     (tag: ale_step1)\n"
+            "  Step  2: Ideas             — SelfIdeaGenerator generates ideas          (tag: ale_step2)\n"
+            "  Step  3: Implement         — SelfImplementer executes ideas             (tag: ale_step3)\n"
+            "  Step  4: Reflection        — ReflectModule summarises+stores            (tag: ale_step4)\n"
+            "  Step  5: SLSA              — Generates semantic knowledge artifacts     (tag: ale_step5)\n"
+            "  Step  6: Learning          — SelfTeacher internalises (→ niblit_memory) (tag: ale_step6)\n"
+            "  Step  7: Evolve            — EvolveEngine one self-evolution step       (tag: ale_step7)\n"
+            "  Step  8: Code Research     — ResearcherEngine → CodeGenerator           (tag: ale_step8)\n"
+            "  Step  9: Code Generate     — generate_from_research() → new module      (tag: ale_step9)\n"
+            "  Step 10: Code Compile      — CodeCompiler validates / runs output       (tag: ale_step10)\n"
+            "  Step 11: Code Reflect      — ReflectModule studies compilation output   (tag: ale_step11)\n"
+            "  Step 12: SW Study          — SoftwareStudier+Internet patterns          (tag: ale_step12)\n"
+            "  Step 13: Cmd Awareness     — Catalogue all registered commands          (tag: ale_step13)\n"
+            "  Step 14: Cmd Execution     — Run safe diagnostic commands               (tag: ale_step14)\n"
+            "  Step 15: Topic Seeding     — Derive + inject new research topics        (tag: ale_step15)\n"
+            "  Step 16: Reasoning         — Build knowledge graph + infer new facts    (tag: ale_step16)\n"
+            "  Step 17: Metacognition     — Self-knowledge evaluation                  (tag: ale_step17)\n"
+            "  Step 18: Improvement       — 10-module self-improvement cycle           (tag: ale_step18)\n"
+            "  Step 19: Collab Learning   — CollaborativeLearner peer sync             (tag: ale_step19)\n"
+            "  Step 20: Parallel Research — ParallelLearner multi-topic batch          (tag: ale_step20)\n"
+            "  Step 21: Binary Study      — BinaryTools binary/hex domain seeding      (tag: ale_step21)\n"
+            "  Step 22: Build Scan        — BuildScanner self-source summarisation     (tag: ale_step22)\n"
+            "  Step 23: Metrics           — MetricsObservability performance snapshot  (tag: ale_step23)\n"
+            "  Step 24: GitHub Push       — GitHubSync push evolved files              (tag: ale_step24)\n"
+            "  Step 25: Infer Topics      — Infer new topics from recent KB facts      (tag: ale_step25)\n"
+            "  Step 26: GitHub Discovery  — GitHubCodeSearch discover patterns         (tag: ale_step26)\n"
+            "  Step 27: Serpex Research   — niblit_agents.ResearchAgent live web fetch (tag: ale_step27)\n"
+            "  Step 28: Searchcode Disc.  — SearchcodeSearch discover open-source code (tag: ale_step28)\n"
+            "  All output persisted in KnowledgeDB.  Browse: 'recall <topic>'\n"
+            "\n--- AUTO RESEARCH ---\n"
+            "auto-research start      — Start SelfResearcher continuous research + ALE\n"
+            "auto-research stop       — Stop SelfResearcher auto-research loop and pause ALE\n"
+            "auto-research status     — Show auto-research enabled/disabled state and last topic\n"
+            "auto-research pause      — Temporarily pause without clearing the topic queue\n"
+            "auto-research resume     — Resume a paused auto-research session\n"
+            "\n--- 10 SELF-IMPROVEMENTS (CONTINUOUS VIA ALE STEP 18) ---\n"
+            "show improvements        — List all 10 self-improvement modules and their states\n"
+            "run improvement-cycle    — Manually trigger one full improvement cycle\n"
+            "improvement-status       — Show last run time, success rate, and output per improvement\n"
             "\n--- INTERNET & RESEARCH ---\n"
-            "search <query>           — Search the internet\n"
-            "summary <query>          — Get quick summary\n"
-            "self-research <topic>    — Research autonomously\n"
-            "research code <lang> [topic] — Research language from internet → CodeGenerator\n"
-            "\n--- BRAIN / SELF-IMPROVEMENT COMMANDS ---\n"
-            "self-idea <prompt>       — Generate & implement idea\n"
-            "self-implement [plan]    — Enqueue plan to SelfImplementer\n"
-            "self-teach <topic>       — Teach topic via SelfTeacher + research\n"
-            "idea-implement [prompt]  — Generate and implement ideas\n"
-            "reflect [text]           — Reflect on topic\n"
-            "auto-reflect             — Auto reflection on recent events\n"
-            "self-heal                — Self-healing\n"
+            "search <query>           — Live internet search via SerpEx → DuckDuckGo fallback\n"
+            "summary <query>          — Fetch a concise web summary and store in KnowledgeDB\n"
+            "self-research <topic>    — SelfResearcher: Serpex (1) → Searchcode (2) → Engine (3) → Internet (4)\n"
+            "research code <lang>     — Research a language/framework → feed CodeGenerator\n"
+            "\n--- SELF-TEACHER & LEARNER ---\n"
+            "self-teach <topic>       — SelfTeacher: research → store in niblit_memory → feed learner → reflect\n"
+            "learn about <topic>      — Queue topic; ALE calls SelfTeacher in Step 6\n"
+            "\n--- BRAIN / SELF-IMPLEMENTATION ---\n"
+            "self-idea <prompt>       — Generate idea via SelfIdeaGenerator and auto-implement it\n"
+            "self-implement [plan]    — Enqueue implementation plan directly to SelfImplementer\n"
+            "idea-implement [prompt]  — Full pipeline: generate idea → implement → compile → store\n"
+            "reflect [text]           — Run ReflectModule on text and store reflection in KnowledgeDB\n"
+            "auto-reflect             — Auto-reflect on recent interactions and store insights\n"
+            "self-heal                — Run SelfHealer to detect and repair common runtime issues\n"
             "\n--- EVOLUTION ENGINE ---\n"
-            "evolve                   — Run one self-evolution step\n"
-            "evolve start             — Start continuous background evolution\n"
-            "evolve stop              — Stop background evolution\n"
-            "evolve status            — Show evolution status\n"
-            "evolve history           — Show recent evolution steps\n"
+            "evolve                   — Run one EvolveEngine step (research → code → teach → reflect)\n"
+            "evolve start             — Start the EvolveEngine continuous background loop\n"
+            "evolve stop              — Stop background evolution (current cycle completes first)\n"
+            "evolve status            — Show evolution loop state, last step, and improvements made\n"
+            "evolve history           — List recent evolution steps with direction and outcome\n"
             "\n--- CODE GENERATION & COMPILATION ---\n"
-            "generate code <lang> [template] [key=val]  — Generate code\n"
-            "run code <lang> <code>          — Execute code inline\n"
-            "validate <lang> <code>          — Validate syntax\n"
-            "execute file <path>             — Execute a script file\n"
-            "code templates [lang]           — List templates\n"
-            "study language <lang>           — Best practices for language\n"
-            "available languages             — Show supported languages\n"
+            "generate code <lang> [template] [key=val]  — Generate a complete code module\n"
+            "run code <lang> <code>          — Execute inline code and return stdout / errors\n"
+            "validate <lang> <code>          — Validate syntax without executing\n"
+            "execute file <path>             — Execute a script file and capture output\n"
+            "code templates [lang]           — List all available templates (filtered by language)\n"
+            "study language <lang>           — Fetch best practices and idioms for a language\n"
+            "available languages             — List all CodeGenerator-supported languages\n"
             "\n--- FILE MANAGER ---\n"
-            "read file <path>         — Read file\n"
-            "write file <path> <content> — Write file\n"
-            "list files [dir]         — List files\n"
-            "file environment         — Filesystem info\n"
+            "read file <path>            — Read and display a file from the filesystem\n"
+            "write file <path> <content> — Write content to a file (creates if absent)\n"
+            "list files [dir]            — List directory contents (defaults to cwd)\n"
+            "file environment            — Show filesystem environment info (paths, disk, OS)\n"
             "\n--- SOFTWARE STUDY ---\n"
-            "study software <cat>     — Study a software category\n"
-            "software categories      — List all categories\n"
-            "analyze architecture <n> — Analyze architecture pattern\n"
-            "design software <desc>   — Generate software design\n"
-            "what have i studied      — Show studied this session\n"
+            "study software <cat>     — Deep-study a software category and store patterns in KnowledgeDB\n"
+            "software categories      — List all available SoftwareStudier categories\n"
+            "analyze architecture <n> — Analyse a named architecture pattern and store insights\n"
+            "design software <desc>   — Generate a software design document and persist it\n"
+            "what have i studied      — Show all software categories studied this session\n"
             "\n--- STRUCTURAL SELF-AWARENESS (INTROSPECTION) ---\n"
-            "my structure             — Full component inventory\n"
-            "my threads               — All active threads\n"
-            "my loops                 — Background loop status\n"
-            "my modules               — Loaded modules\n"
-            "my commands              — All registered commands\n"
-            "dashboard                — Full runtime dashboard\n"
-            "operational flow         — How loops/routing work\n"
-            "resource usage           — RAM, CPU, uptime\n"
+            "my structure             — Full structural inventory: modules, adapters, engines, memory\n"
+            "my threads               — List every active thread with name, state, and daemon flag\n"
+            "my loops                 — Show all background loops with interval and running state\n"
+            "my modules               — List loaded Python modules and their wiring status\n"
+            "my commands              — Enumerate every registered command with handler and priority\n"
+            "dashboard                — Full runtime dashboard: threads, loops, memory, ALE, modules\n"
+            "operational flow         — Explain how routing, background loops, and memory connect\n"
+            "resource usage           — Show RAM usage, CPU percent, and process uptime\n"
             "\n--- SLSA ENGINE ---\n"
-            "slsa-status              — SLSA status\n"
-            "start_slsa [topics]      — Start SLSA\n"
-            "stop_slsa                — Stop SLSA\n"
-            "restart_slsa [topics]    — Restart SLSA\n"
+            "slsa-status              — Show SLSA engine running state and last artifact built\n"
+            "start_slsa [topics]      — Start SLSA knowledge-artifact generation\n"
+            "stop_slsa                — Stop the SLSA background loop\n"
+            "restart_slsa [topics]    — Restart SLSA with an updated topic list\n"
             "\n--- LIVE UPDATE ---\n"
-            "reload <module.name>     — Hot-reload a module\n"
-            "upgrade                  — Reload all changed modules\n"
-            "update-history           — Show reload history\n"
+            "reload <module.name>     — Hot-reload a single Python module without restarting\n"
+            "upgrade                  — Detect and hot-reload all changed modules in one pass\n"
+            "update-history           — Show history of hot-reloaded modules with timestamps\n"
             "\n--- SETTINGS ---\n"
-            "toggle-llm on/off        — Enable/disable LLM\n"
-            "shutdown                 — Graceful shutdown\n"
+            "toggle-llm on            — Enable the HuggingFace LLM adapter for AI responses\n"
+            "toggle-llm off           — Disable the LLM adapter (research-only mode)\n"
+            "shutdown                 — Save state, stop all threads, and exit gracefully\n"
             "\n--- DIAGNOSTICS ---\n"
-            "run-diagnostics          — Run full niblit diagnostic suite\n"
-            "run-live-test            — Run live command tester\n"
-            "loop-errors              — Show background loop error summary"
+            "run-diagnostics          — Execute the full Niblit diagnostic suite across all subsystems\n"
+            "run-live-test            — Run the interactive live command tester (smoke-tests all routes)\n"
+            "loop-errors              — Display all errors captured by the LoopTracer since startup"
         )
 
         if self.orchestrator_available:
             orchestrator_help = (
                 "\n\n--- ORCHESTRATOR ---\n"
-                "orchestrate audit       — Run repository audit\n"
-                "orchestrate self-heal   — Run self-healing\n"
-                "orchestrate fix-guide   — Generate fix guide\n"
-                "orchestrate verify      — Verify imports\n"
-                "orchestrate pipeline    — Run full pipeline\n"
-                "hf-task <prompt>        — Execute HF task"
+                "orchestrate audit       — Run a full repository audit (imports, wiring, missing symbols)\n"
+                "orchestrate self-heal   — Orchestrate automated self-healing across detected issues\n"
+                "orchestrate fix-guide   — Generate a structured fix guide for all outstanding issues\n"
+                "orchestrate verify      — Verify all imports and inter-module dependencies\n"
+                "orchestrate pipeline    — Run the complete full-upgrade pipeline end-to-end\n"
+                "hf-task <prompt>        — Execute a HuggingFace task with the given prompt"
             )
             return base_help + orchestrator_help
 
         return base_help
+
 
     def get_loop_errors(self) -> List[Dict]:
         """Return all loop errors captured by the LoopTracer since startup."""
@@ -5376,6 +5564,96 @@ Uptime: {stats['uptime_seconds']}s
     def loop_tracer_summary(self) -> str:
         """Return a human-readable summary of all loop errors."""
         return loop_tracer.summary()
+
+    # ── Fused Memory API ─────────────────────────────────────────────────────
+
+    def store_task_result(
+        self,
+        task_id: str,
+        result: dict,
+        vector: Optional[List[float]] = None,
+    ) -> None:
+        """Persist a task result via the fused memory backend.
+
+        Writes the structured *result* dict to SQLite and, when *vector* is
+        provided, also upserts the embedding into Qdrant/FAISS so the task
+        can be retrieved by semantic similarity later.
+
+        Args:
+            task_id: Unique task identifier.
+            result:  Arbitrary result dict.
+            vector:  Optional pre-computed float embedding.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                fused.insert_record(task_id, result)
+                if vector:
+                    fused.insert_vector(task_id, vector, payload=result)
+                return
+            except Exception as exc:
+                log.debug("[NiblitCore] fused store_task_result failed: %s", exc)
+        # Fallback: store in NiblitMemory learning log
+        if hasattr(self.memory, "store_learning"):
+            self.memory.store_learning({"task_id": task_id, **result})
+
+    def retrieve_task_result(self, task_id: str) -> dict:
+        """Load a previously stored task result.
+
+        Args:
+            task_id: Unique task identifier.
+
+        Returns:
+            Result dict, or empty dict when not found.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                rec = fused.get_record(task_id)
+                if rec is not None:
+                    return rec
+            except Exception as exc:
+                log.debug("[NiblitCore] fused retrieve_task_result failed: %s", exc)
+        return {}
+
+    def search_related_tasks(
+        self,
+        embedding: List[float],
+        top_k: int = 5,
+    ) -> List[dict]:
+        """Find task results semantically similar to *embedding*.
+
+        Uses the fused Qdrant/FAISS vector search when available, returning
+        at most *top_k* results.
+
+        Args:
+            embedding: Query float vector.
+            top_k:     Maximum results.
+
+        Returns:
+            List of result dicts.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.query_vector(embedding, top_k=top_k)
+            except Exception as exc:
+                log.debug("[NiblitCore] fused search_related_tasks failed: %s", exc)
+        return []
+
+    def list_all_tasks(self) -> List[dict]:
+        """Return all stored task results from the fused backend.
+
+        Returns:
+            List of ``{"record_id": str, "data": dict, "created_at": str}`` dicts.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.list_records()
+            except Exception as exc:
+                log.debug("[NiblitCore] fused list_all_tasks failed: %s", exc)
+        return []
 
     def shutdown(self, timeout_seconds: Optional[float] = None):
         """Gracefully shutdown NiblitCore and all services."""

@@ -206,6 +206,11 @@ class NiblitRouter:
         "loops", "routing",
         "study my code", "describe my architecture", "read my code",
         "notifications",
+        # Memory dump visibility toggle
+        "dump visible", "dump invisible", "dump on", "dump off",
+        "memory dump",
+        # Trading Brain autonomous cycle
+        "trading",
     )
 
     CHAT_RESPONSES = {
@@ -1047,6 +1052,106 @@ Ask me about:
             "  auto-research resume  — Alias for start"
         )
 
+    def _handle_trading(self, cmd: str) -> str:
+        """Handle autonomous trading-brain commands.
+
+        Commands::
+
+            trading start   — Launch the autonomous trading cycle
+            trading stop    — Stop the autonomous trading cycle
+            trading status  — Show trading brain state
+            trading cycle   — Run a single observe→decide cycle now
+
+        The trading brain fetches live Binance market data every
+        ``TRADING_CYCLE_SECS`` seconds (default 60), computes RSI/MACD/EMA
+        indicators, embeds the market state into fused memory (SQLite +
+        Qdrant), retrieves similar past states, and produces a BUY / SELL /
+        HOLD signal.
+        """
+        if not self.core:
+            return "[Core not available]"
+
+        brain = getattr(self.core, "trading_brain", None)
+        if brain is None:
+            return (
+                "⚠️  TradingBrain is not initialised.\n"
+                "   Check that python-binance, pandas, ta, and numpy are installed:\n"
+                "   pip install python-binance pandas ta numpy"
+            )
+
+        lower = cmd.strip().lower()
+        action = lower.replace("trading", "").strip()
+
+        if action in ("start", "on"):
+            if brain.running:
+                return f"ℹ️  Trading cycle already running (symbol={brain.symbol}, cycle={brain.cycle_secs}s)"
+            ok = brain.start()
+            if ok:
+                return (
+                    f"🚀 Trading Brain autonomous cycle started ✅\n"
+                    f"   Symbol: {brain.symbol}  |  Interval: {brain.interval}  "
+                    f"|  Cycle: every {brain.cycle_secs}s\n"
+                    f"   Type 'trading status' to monitor or 'trading stop' to halt."
+                )
+            return "ℹ️  Could not start trading cycle (already running?)"
+
+        if action in ("stop", "off"):
+            if not brain.running:
+                return "ℹ️  Trading cycle is not currently running."
+            ok = brain.stop()
+            if ok:
+                return "⏹️  Trading Brain autonomous cycle stopped ✅"
+            return "ℹ️  Trading cycle was not running."
+
+        if action in ("status", ""):
+            st = brain.status()
+            state_icon = "✅ running" if st["running"] else "⏹️ stopped"
+            return (
+                f"[Trading Brain Status]\n"
+                f"  State:         {state_icon}\n"
+                f"  Symbol:        {st['symbol']}\n"
+                f"  Interval:      {st['interval']}\n"
+                f"  Cycle every:   {st['cycle_secs']}s\n"
+                f"  Cycles run:    {st['cycle_count']}\n"
+                f"  Last decision: {st['last_decision']}\n"
+                f"  Last cycle:    {st['last_cycle_ts']}\n"
+                f"  Binance:       {'✅' if st['binance_available'] else '❌ unavailable'}\n"
+                f"  Memory:        {'✅' if st['memory_available'] else '❌ unavailable'}"
+            )
+
+        if action in ("cycle", "run", "once"):
+            decision = safe_call(brain.cycle) or "HOLD"
+            return f"🔄 Single trading cycle complete → Decision: **{decision}**"
+
+        return (
+            "Usage:\n"
+            "  trading start   — Start autonomous trading cycle\n"
+            "  trading stop    — Stop autonomous trading cycle\n"
+            "  trading status  — Show trading brain state\n"
+            "  trading cycle   — Run a single cycle now (manual trigger)"
+        )
+
+    def _handle_memory_dump_visibility(self, cmd: str) -> str:
+        """Toggle the NiblitMemory periodic dump loop on or off.
+
+        Commands::
+
+            dump visible    / memory dump visible    / dump on    / memory dump on
+            dump invisible  / memory dump invisible  / dump off   / memory dump off
+
+        When *visible*, the dump loop emits a full JSON state snapshot to the
+        logger every ``dump_interval`` seconds (useful for debugging).
+        When *invisible* (default), the loop runs silently.
+        """
+        lower = cmd.strip().lower()
+        enable = any(kw in lower for kw in ("visible", " on"))
+        try:
+            from niblit_memory import NiblitMemory
+            mem = NiblitMemory()
+            return mem.set_dump_verbose(enable)
+        except Exception as exc:
+            return f"[Memory dump visibility change failed: {exc}]"
+
     # ─────────────────────────────────
     # KNOWLEDGE RECALL & ACQUIRED DATA
     # ─────────────────────────────────
@@ -1758,6 +1863,16 @@ Ask me about:
         if lower.startswith("auto-research"):
             return self._handle_auto_research(cmd)
 
+        # TRADING BRAIN COMMANDS (start/stop/status/cycle)
+        if lower.startswith("trading"):
+            return self._handle_trading(cmd)
+
+        # MEMORY DUMP VISIBILITY COMMANDS
+        if lower in ("dump visible", "dump invisible", "dump on", "dump off",
+                     "memory dump on", "memory dump off",
+                     "memory dump visible", "memory dump invisible"):
+            return self._handle_memory_dump_visibility(cmd)
+
         # GITHUB SYNC COMMANDS
         if lower.startswith("github ") or lower == "github":
             return self._handle_github(cmd)
@@ -1860,9 +1975,27 @@ Ask me about:
         # REFLECTION & IDEAS — use direct module access
         if lower.startswith("reflect"):
             topic = cmd[len("reflect"):].strip() or None
-            if self.core and getattr(self.core, "reflect", None):
-                return safe_call(self.core.reflect.collect_and_summarize, topic) or "[Reflection completed]"
-            return "[Reflect module not available]"
+            if not (self.core and getattr(self.core, "reflect", None)):
+                return "[Reflect module not available]"
+
+            reflect = self.core.reflect
+            sub = (topic or "").lower()
+
+            # Sub-command: reflect trading
+            if sub in ("trading", "trade", "market"):
+                return safe_call(reflect.reflect_on_trading) or "[Trading reflection completed]"
+
+            # Sub-command: reflect all / reflect comprehensive
+            if sub in ("all", "comprehensive", "full"):
+                return safe_call(reflect.reflect_on_all) or "[Comprehensive reflection completed]"
+
+            # Sub-command: reflect code
+            if sub.startswith("code"):
+                lang = sub.replace("code", "").strip() or "python"
+                return safe_call(reflect.reflect_on_code, lang, lang, "") or "[Code reflection completed]"
+
+            # Default: reflect on supplied text
+            return safe_call(reflect.collect_and_summarize, topic) or "[Reflection completed]"
 
         if lower.startswith("auto-reflect"):
             if self.core and getattr(self.core, "reflect", None):
@@ -1991,8 +2124,11 @@ Ask me about:
             "self-implement [plan]        — Enqueue a plan to SelfImplementer",
             "self-teach <topic>           — Teach a topic using SelfTeacher + research",
             "idea-implement [prompt]      — Generate and implement ideas (batch if no prompt)",
-            "reflect [topic]              — Reflect using ReflectModule directly",
-            "auto-reflect                 — Reflect on recent interactions",
+            "reflect [topic]              — Reflect on topic (stores in ale_reflection: + BrainTrainer)",
+            "reflect trading              — Reflect on current market state (TradingBrain → KB)",
+            "reflect code [lang]          — Reflect on latest code generation results",
+            "reflect all                  — Comprehensive reflection across all subsystems",
+            "auto-reflect                 — Auto-reflect on recent interactions + KB facts",
             "",
             "=== AUTO-RESEARCH CONTROL ===",
             "auto-research start   — Start / resume auto-research and the ALE engine",
@@ -2000,6 +2136,14 @@ Ask me about:
             "auto-research status  — Show current research state, active topic, ingest wait",
             "auto-research pause   — Alias for stop",
             "auto-research resume  — Alias for start",
+            "",
+            "=== TRADING BRAIN ===",
+            "trading start   — Launch autonomous trading cycle (Binance, every 60s by default)",
+            "trading stop    — Stop the autonomous trading cycle",
+            "trading status  — Show trading brain state (symbol, cycle count, last decision)",
+            "trading cycle   — Run a single observe→engineer→store→decide pass right now",
+            "  Env vars: BINANCE_API_KEY, BINANCE_API_SECRET, TRADING_SYMBOL (default BTCUSDT),",
+            "            TRADING_INTERVAL (default 1m), TRADING_CYCLE_SECS (default 60)",
             "",
             "=== AUTONOMOUS LEARNING ===",
             "autonomous-learn start              — Start learning (incl. programming-literacy loop)",

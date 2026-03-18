@@ -112,6 +112,8 @@ class AutonomousLearningEngine:
                  stackoverflow_search=None, pypi_search=None,
                  searchcode_search=None,
                  serpex_research_agent=None,
+                 semantic_agent=None,
+                 claude_engine=None,
                  step_timeout=120):
         """
         Args:
@@ -148,6 +150,11 @@ class AutonomousLearningEngine:
                                    relevance filtering (is_relevant) and automatic KnowledgeStore
                                    + Qdrant persistence (step 27).  Falls back to lazy construction
                                    from SERPEX_API_KEY env var when None.
+            semantic_agent: niblit_agents.SemanticAgent — vector-store backed knowledge storage
+                            and retrieval.  When provided, every research step embeds its results
+                            into the vector store for semantic retrieval.
+            claude_engine: niblit_models.ClaudeEngine — Anthropic Claude with context injection.
+                           When available, used to generate richer summaries from research data.
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -177,6 +184,8 @@ class AutonomousLearningEngine:
         self.pypi_search = pypi_search
         self.searchcode_search = searchcode_search
         self.serpex_research_agent = serpex_research_agent
+        self.semantic_agent = semantic_agent
+        self.claude_engine = claude_engine
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -517,6 +526,20 @@ class AutonomousLearningEngine:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
             log.info(f"✅ [AUTONOMOUS RESEARCH] Completed: {topic} ({len(results)} results)")
+
+            # ── Semantic storage ─────────────────────────────────────────────
+            sa = self._get_semantic_agent()
+            if sa and results:
+                try:
+                    docs = [
+                        {"snippet": str(r)[:600]} if not isinstance(r, dict) else r
+                        for r in results
+                        if r
+                    ]
+                    sa.store_knowledge(docs, source="ale_research", query=topic)
+                except Exception as _se:
+                    log.debug("[RESEARCH] SemanticAgent store failed: %s", _se)
+
             return f"Researched: {topic}"
 
         except Exception as e:
@@ -1010,7 +1033,28 @@ class AutonomousLearningEngine:
         self.learning_history["last_serpex_query"] = topic
 
         log.info("✅ [SERPEX RESEARCH] %r — %d snippet(s) stored", topic, stored)
+
+        # ── Semantic storage — embed all validated snippets into vector store ──
+        if self.semantic_agent and valid:
+            try:
+                self.semantic_agent.store_knowledge(valid, source="ale_serpex", query=topic)
+                log.debug("[SERPEX RESEARCH] %d snippet(s) pushed to SemanticAgent", len(valid))
+            except Exception as exc:
+                log.debug("[SERPEX RESEARCH] SemanticAgent store failed: %s", exc)
+
         return f"SerpexResearch: {topic!r} — {stored}/{len(valid)} snippet(s) validated + stored"
+
+    def _get_semantic_agent(self):
+        """Lazily resolve SemanticAgent from core."""
+        if not self.semantic_agent and self.core:
+            self.semantic_agent = getattr(self.core, "semantic_agent", None)
+        return self.semantic_agent
+
+    def _get_claude_engine(self):
+        """Lazily resolve ClaudeEngine from core."""
+        if not self.claude_engine and self.core:
+            self.claude_engine = getattr(self.core, "claude_engine", None)
+        return self.claude_engine
 
     def _get_software_studier(self):
         """Lazily resolve SoftwareStudier from core."""
@@ -3275,11 +3319,17 @@ class AutonomousLearningEngine:
         collected: List[str] = []
         errors: List[str] = []
         ts = int(time.time())
+        _sc_results_for_semantic: List[dict] = []
+        _sc_lang = ""
+        _sc_pattern_type = ""
 
         try:
             pattern_topics = self._SC_PATTERN_TOPICS
             lang, pattern_type = pattern_topics[ts % len(pattern_topics)]
+            _sc_lang = lang
+            _sc_pattern_type = pattern_type
             results = sc.discover_patterns(lang, pattern_type, max_results=4)
+            _sc_results_for_semantic = results or []
             stored = 0
             for r in results:
                 text = r.get("text", "")
@@ -3304,6 +3354,21 @@ class AutonomousLearningEngine:
         self.learning_history["searchcode_discovery_cycles"] = (
             self.learning_history.get("searchcode_discovery_cycles", 0) + 1
         )
+
+        # ── Semantic storage ─────────────────────────────────────────────────
+        sa = self._get_semantic_agent()
+        if sa and _sc_results_for_semantic and _sc_lang:
+            try:
+                for item in _sc_results_for_semantic:
+                    text = item.get("text", "") if isinstance(item, dict) else str(item)
+                    if text and len(text) > 20:
+                        sa.store_knowledge(
+                            [{"snippet": text[:500]}],
+                            source="ale_searchcode",
+                            query=f"{_sc_lang} {_sc_pattern_type}",
+                        )
+            except Exception as _se:
+                log.debug("[SC DISCOVERY] SemanticAgent store failed: %s", _se)
 
         if not collected:
             return "[Searchcode discovery — no results this cycle]"

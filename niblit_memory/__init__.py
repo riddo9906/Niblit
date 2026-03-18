@@ -1,1 +1,2345 @@
-"""niblit_memory — Niblit knowledge persistence layer."""
+#!/usr/bin/env python3
+"""
+niblit_memory.py — Canonical single-file memory system for Niblit.
+
+This module is the **one** place to import anything memory-related.  It
+merges functionality that previously lived in several separate files:
+
+*  ``modules/fused_memory.py``         → :class:`FusedMemory`
+*  ``modules/fused_memory_primary.py`` → :class:`FusedMemoryPrimary`
+*  ``modules/db.py``                   → :class:`LocalDB`
+*  ``modules/ingestion.py``            → :func:`event`, :func:`canonicalize`,
+                                         :func:`ingest`
+*  (original) ``niblit_memory.py``     → :class:`NiblitMemory` / ``MemoryManager``
+
+All of those modules now contain thin backward-compatibility shims that
+re-export the same names from here so existing imports keep working without
+change.
+
+Public surface
+--------------
+``NiblitMemory`` / ``MemoryManager``
+    Singleton in-process memory hub.  Manages a JSON state file, a SQLite +
+    Qdrant fused backend, and exposes the unified API used by NiblitCore,
+    NiblitBrain, and SelfResearcher.
+
+``FusedMemory``
+    Qdrant + SQLite fusion backend with event log, knowledge store, and
+    semantic text search.
+
+``FusedMemoryPrimary``
+    Extension of FusedMemory with raw float-vector API and structured record
+    CRUD (used by ALE scripts and the pipeline helpers added in the previous
+    session).
+
+``LocalDB``
+    Lightweight JSON-backed database for interactions, facts, learning log and
+    preferences.  Fully integrated into NiblitMemory so a standalone LocalDB
+    is no longer needed.
+
+``event`` / ``canonicalize`` / ``ingest``
+    Canonical ingestion helpers that coerce raw text into structured event
+    records before handing them to any memory backend.
+
+Production Enhancements (NiblitMemory):
+1. Circuit breakers for fault tolerance
+2. Telemetry and metrics tracking
+3. Rate limiting on memory operations
+4. Multi-level caching for recalls
+5. Batch processing for learning logs
+6. Event sourcing for audit trail
+7. Structured logging with correlation IDs
+8. Automatic compression for large states
+9. Memory usage monitoring
+10. Graceful degradation
+11. Thread-safe operations
+12. Persistent storage with backups
+13. State validation
+14. Error recovery
+15. Health monitoring
+16. Performance optimization
+17. Full production readiness
+"""
+
+import json
+import os
+import re
+import sqlite3
+import threading
+import time
+import uuid
+import logging
+import hashlib
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, List
+
+log = logging.getLogger("NiblitMemory")
+logging.basicConfig(level=logging.DEBUG, format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s")
+
+# ───────── Improvement Imports ─────────
+try:
+    from modules.circuit_breaker import CircuitBreaker
+except Exception as _e:
+    log.debug(f"CircuitBreaker unavailable: {_e}")
+    CircuitBreaker = None
+
+try:
+    from modules.metrics_observability import TelemetryCollector
+except Exception as _e:
+    log.debug(f"TelemetryCollector unavailable: {_e}")
+    TelemetryCollector = None
+
+try:
+    from modules.rate_limiting import RateLimiter
+except Exception as _e:
+    log.debug(f"RateLimiter unavailable: {_e}")
+    RateLimiter = None
+
+try:
+    from modules.multi_level_caching import CacheStrategy
+except Exception as _e:
+    log.debug(f"CacheStrategy unavailable: {_e}")
+    CacheStrategy = None
+
+try:
+    from modules.event_sourcing import EventStore
+except Exception as _e:
+    log.debug(f"EventStore unavailable: {_e}")
+    EventStore = None
+
+_loop_tracer = None  # Lazy-loaded on first use to avoid circular import with niblit_core
+
+
+def _get_loop_tracer():
+    """Lazily import loop_tracer from niblit_core to break circular import."""
+    global _loop_tracer
+    if _loop_tracer is None:
+        try:
+            from niblit_core import loop_tracer as _lt
+            _loop_tracer = _lt
+        except Exception:
+            pass
+    return _loop_tracer
+
+
+def _now_iso() -> str:
+    """Return current UTC time as an ISO-8601 string."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FusedMemory  — Qdrant + SQLite fusion backend
+# (previously modules/fused_memory.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_DEFAULT_SQLITE_PATH = os.getenv("FUSED_MEMORY_DB_PATH", "niblit_fused.sqlite")
+_DEFAULT_COLLECTION = os.getenv("QDRANT_COLLECTION", "niblit_knowledge")
+
+_fused_log = logging.getLogger("Niblit.FusedMemory")
+
+
+class FusedMemory:
+    """
+    Hybrid memory backend combining Qdrant vector search with SQLite
+    structured storage.
+
+    Args:
+        sqlite_path:     Path to the SQLite database file.  Defaults to the
+                         ``FUSED_MEMORY_DB_PATH`` env var or
+                         ``"niblit_fused.sqlite"``.
+        collection_name: Qdrant collection name.  Defaults to the
+                         ``QDRANT_COLLECTION`` env var or
+                         ``"niblit_knowledge"``.
+        qdrant_url:      Qdrant server URL.  Falls back to ``QDRANT_URL``
+                         env var; when absent the VectorStore uses its
+                         automatic fallback chain (FAISS → in-memory).
+        qdrant_api_key:  Qdrant API key.  Falls back to ``QDRANT_API_KEY``
+                         env var.
+        vector_store:    Pre-built VectorStore instance.  When provided, the
+                         fusion layer reuses it instead of creating its own.
+    """
+
+    def __init__(
+        self,
+        sqlite_path: str = "",
+        collection_name: str = "",
+        qdrant_url: str = "",
+        qdrant_api_key: str = "",
+        vector_store: Optional[Any] = None,
+    ) -> None:
+        self._sqlite_path = sqlite_path or _DEFAULT_SQLITE_PATH
+        self._collection = collection_name or _DEFAULT_COLLECTION
+        self._qdrant_url = qdrant_url or os.getenv("QDRANT_URL", "")
+        self._qdrant_api_key = qdrant_api_key or os.getenv("QDRANT_API_KEY", "")
+        self._lock = threading.Lock()
+
+        # SQLite setup
+        self._conn: sqlite3.Connection = sqlite3.connect(
+            self._sqlite_path,
+            check_same_thread=False,
+        )
+        self._conn.row_factory = sqlite3.Row
+        self._init_sqlite()
+
+        # VectorStore / Qdrant setup
+        self._vector_store = vector_store
+        self._vs_initialised = vector_store is not None
+
+    # ── SQLite initialisation ─────────────────────────────────────────────────
+
+    def _init_sqlite(self) -> None:
+        """Create all required SQLite tables."""
+        with self._lock:
+            self._conn.executescript("""
+                CREATE TABLE IF NOT EXISTS events (
+                    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type      TEXT NOT NULL,
+                    payload   TEXT,
+                    timestamp TEXT DEFAULT (datetime('now','utc'))
+                );
+
+                CREATE TABLE IF NOT EXISTS knowledge (
+                    key        TEXT PRIMARY KEY,
+                    value      TEXT,
+                    source     TEXT,
+                    created_at TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS graph_nodes (
+                    name  TEXT PRIMARY KEY,
+                    label TEXT,
+                    props TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS graph_edges (
+                    src  TEXT,
+                    rel  TEXT,
+                    dst  TEXT
+                );
+            """)
+            self._conn.commit()
+
+    # ── VectorStore lazy init ─────────────────────────────────────────────────
+
+    def _get_vector_store(self) -> Optional[Any]:
+        """Lazily initialise the underlying VectorStore."""
+        if self._vs_initialised:
+            return self._vector_store
+        self._vs_initialised = True
+        try:
+            from modules.vector_store import VectorStore  # type: ignore[import]
+            self._vector_store = VectorStore(
+                collection=self._collection,
+                qdrant_url=self._qdrant_url,
+                qdrant_api_key=self._qdrant_api_key,
+            )
+            _fused_log.info("[FusedMemory] VectorStore ready (backend=%s)", self._vector_store.backend)
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] VectorStore unavailable: %s", exc)
+            self._vector_store = None
+        return self._vector_store
+
+    # ── public helpers ────────────────────────────────────────────────────────
+
+    @property
+    def vector_backend(self) -> str:
+        """Active vector backend name: ``"qdrant"``, ``"faiss"``, or ``"memory"``."""
+        vs = self._get_vector_store()
+        return vs.backend if vs else "none"
+
+    def is_vector_available(self) -> bool:
+        """Return True when a vector store backend is reachable."""
+        return self._get_vector_store() is not None
+
+    # ── SQLite write ──────────────────────────────────────────────────────────
+
+    def log_event(self, event_type: str, payload: Dict[str, Any]) -> None:
+        """Append a structured event to the SQLite event log."""
+        try:
+            with self._lock:
+                self._conn.execute(
+                    "INSERT INTO events (type, payload) VALUES (?, ?)",
+                    (event_type, json.dumps(payload)),
+                )
+                self._conn.commit()
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] log_event failed: %s", exc)
+
+    def store_knowledge(self, key: str, value: str, source: str = "") -> None:
+        """Persist a key/value knowledge fact to SQLite."""
+        ts = _now_iso()
+        try:
+            with self._lock:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO knowledge (key, value, source, created_at) VALUES (?,?,?,?)",
+                    (key, value, source, ts),
+                )
+                self._conn.commit()
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] store_knowledge failed: %s", exc)
+
+    def merge_node(self, label: str, name: str, **props: Any) -> None:
+        """Create or update a graph node in the SQLite adjacency table."""
+        try:
+            with self._lock:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO graph_nodes (name, label, props) VALUES (?,?,?)",
+                    (name, label, json.dumps(props)),
+                )
+                self._conn.commit()
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] merge_node failed: %s", exc)
+
+    def merge_relationship(self, src: str, rel: str, dst: str) -> None:
+        """Create a directed edge in the SQLite graph adjacency table."""
+        try:
+            with self._lock:
+                self._conn.execute(
+                    "INSERT INTO graph_edges (src, rel, dst) VALUES (?,?,?)",
+                    (src, rel, dst),
+                )
+                self._conn.commit()
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] merge_relationship failed: %s", exc)
+
+    # ── SQLite read ───────────────────────────────────────────────────────────
+
+    def query_events(
+        self,
+        event_type: Optional[str] = None,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve structured events from the SQLite event log."""
+        try:
+            sql = "SELECT id, type, payload, timestamp FROM events"
+            params: List[Any] = []
+            if event_type:
+                sql += " WHERE type=?"
+                params.append(event_type)
+            sql += " ORDER BY timestamp DESC LIMIT ?"
+            params.append(limit)
+            rows = self._conn.execute(sql, params).fetchall()
+            return [
+                {
+                    "id": r["id"],
+                    "type": r["type"],
+                    "payload": json.loads(r["payload"] or "{}"),
+                    "timestamp": r["timestamp"],
+                }
+                for r in rows
+            ]
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] query_events failed: %s", exc)
+            return []
+
+    def query_knowledge(
+        self,
+        source: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve knowledge facts from the SQLite knowledge table."""
+        try:
+            sql = "SELECT key, value, source, created_at FROM knowledge"
+            params: List[Any] = []
+            if source:
+                sql += " WHERE source=?"
+                params.append(source)
+            sql += " ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+            rows = self._conn.execute(sql, params).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] query_knowledge failed: %s", exc)
+            return []
+
+    # ── Qdrant write ──────────────────────────────────────────────────────────
+
+    def add_embedding(
+        self,
+        text: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Embed *text* and store the resulting vector in Qdrant (or fallback)."""
+        vs = self._get_vector_store()
+        if vs is None:
+            return False
+        try:
+            doc_id = str(uuid.uuid4())
+            enriched = text
+            if metadata:
+                source = metadata.get("source", "")
+                title = metadata.get("title", "")
+                if source or title:
+                    prefix = " | ".join(filter(None, [source, title]))
+                    enriched = f"[{prefix}] {text}"
+            vs.add(doc_id, enriched[:1000])
+            return True
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] add_embedding failed: %s", exc)
+            return False
+
+    # ── Qdrant read ───────────────────────────────────────────────────────────
+
+    def search_vectors(
+        self,
+        query: str,
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Semantic vector search over the Qdrant / fallback store."""
+        vs = self._get_vector_store()
+        if vs is None:
+            return []
+        try:
+            return vs.search(query, top_k=top_k) or []
+        except Exception as exc:
+            _fused_log.debug("[FusedMemory] search_vectors failed: %s", exc)
+            return []
+
+    # ── unified hybrid retrieval ──────────────────────────────────────────────
+
+    def retrieve(
+        self,
+        query: Optional[str] = None,
+        event_type: Optional[str] = None,
+        top_k: int = 5,
+    ) -> Dict[str, Any]:
+        """Unified hybrid retrieval — combines semantic vector search and
+        structured SQLite event query in a single call."""
+        results: Dict[str, Any] = {"vectors": [], "events": []}
+        if query:
+            results["vectors"] = self.search_vectors(query, top_k=top_k)
+        if event_type:
+            results["events"] = self.query_events(event_type, limit=top_k)
+        return results
+
+    # ── lifecycle ─────────────────────────────────────────────────────────────
+
+    def close(self) -> None:
+        """Close the SQLite connection."""
+        try:
+            self._conn.close()
+        except Exception:
+            pass
+
+
+# ── module-level FusedMemory singleton ───────────────────────────────────────
+
+_fused_singleton: Optional["FusedMemory"] = None
+_fused_singleton_lock = threading.Lock()
+
+
+def get_fused_memory(
+    sqlite_path: str = "",
+    collection_name: str = "",
+    vector_store: Optional[Any] = None,
+) -> "FusedMemory":
+    """Return a process-level :class:`FusedMemory` singleton."""
+    global _fused_singleton
+    with _fused_singleton_lock:
+        if _fused_singleton is None:
+            _fused_singleton = FusedMemory(
+                sqlite_path=sqlite_path,
+                collection_name=collection_name,
+                vector_store=vector_store,
+            )
+    return _fused_singleton
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FusedMemoryPrimary  — extends FusedMemory with raw-vector + record APIs
+# (previously modules/fused_memory_primary.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_fused_primary_log = logging.getLogger("Niblit.FusedMemoryPrimary")
+
+
+class FusedMemoryPrimary(FusedMemory):
+    """
+    Primary fused memory backend with:
+
+    * Raw float-vector API (``add_embedding``, ``search_vectors``) for ALE
+      scripts and callers that pre-compute their own embeddings.
+    * FusedStorage record API (``insert_record``, ``get_record``,
+      ``list_records``, ``insert_vector``, ``query_vector``) for a clean
+      structured-data interface.
+    """
+
+    def __init__(
+        self,
+        sqlite_path: str = "",
+        collection_name: str = "",
+        qdrant_url: str = "",
+        qdrant_api_key: str = "",
+        vector_store: Optional[Any] = None,
+    ) -> None:
+        super().__init__(
+            sqlite_path=sqlite_path,
+            collection_name=collection_name,
+            qdrant_url=qdrant_url,
+            qdrant_api_key=qdrant_api_key,
+            vector_store=vector_store,
+        )
+        self._init_records_table()
+
+    def _init_records_table(self) -> None:
+        """Create the structured-records table used by the FusedStorage API."""
+        with self._lock:
+            self._conn.execute("""
+                CREATE TABLE IF NOT EXISTS records (
+                    record_id  TEXT PRIMARY KEY,
+                    data       TEXT,
+                    created_at TEXT
+                )
+            """)
+            self._conn.execute("""
+                CREATE TABLE IF NOT EXISTS raw_vectors (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    record_id  TEXT,
+                    vector_dim INTEGER,
+                    payload    TEXT,
+                    created_at TEXT
+                )
+            """)
+            self._conn.commit()
+
+    # ── raw-vector API ────────────────────────────────────────────────────────
+
+    def add_embedding(  # type: ignore[override]
+        self,
+        vector: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Store a raw float vector **or** text string.
+
+        Float lists are persisted in ``raw_vectors`` SQLite table and
+        upserted to Qdrant/FAISS when available.  Text strings are
+        delegated to the parent class.
+        """
+        metadata = metadata or {}
+        if isinstance(vector, str):
+            return super().add_embedding(vector, metadata)
+
+        ts = _now_iso()
+        try:
+            with self._lock:
+                self._conn.execute(
+                    "INSERT INTO raw_vectors (record_id, vector_dim, payload, created_at) VALUES (?,?,?,?)",
+                    (
+                        metadata.get("id", metadata.get("source", "unknown")),
+                        len(vector) if hasattr(vector, "__len__") else 0,
+                        json.dumps(metadata),
+                        ts,
+                    ),
+                )
+                self._conn.commit()
+        except Exception as exc:
+            _fused_primary_log.debug("[FusedMemoryPrimary] raw_vectors insert failed: %s", exc)
+
+        vs = self._get_vector_store()
+        if vs is not None:
+            try:
+                text_repr = metadata.get("source", "") or metadata.get("title", "") or str(metadata)[:200]
+                doc_id = metadata.get("id", f"rv-{int(time.time()*1000)}")
+                vs.add(str(doc_id), text_repr[:500])
+                return True
+            except Exception as exc:
+                _fused_primary_log.debug("[FusedMemoryPrimary] VectorStore upsert failed: %s", exc)
+        return True
+
+    def search_vectors(  # type: ignore[override]
+        self,
+        vector: Any,
+        top_k: int = 5,
+    ) -> Any:
+        """Search by raw float vector or text query string.
+
+        Returns ``{"qdrant": [...], "sqlite": [...]}``.
+        """
+        qdrant_results: List[Dict[str, Any]] = []
+        sqlite_results: List[Dict[str, Any]] = []
+
+        vs = self._get_vector_store()
+        if vs is not None:
+            try:
+                query_text = (
+                    vector if isinstance(vector, str)
+                    else " ".join(str(v) for v in list(vector)[:10])
+                )
+                qdrant_results = vs.search(query_text, top_k=top_k) or []
+            except Exception as exc:
+                _fused_primary_log.debug("[FusedMemoryPrimary] vector search failed: %s", exc)
+
+        try:
+            rows = self._conn.execute(
+                "SELECT record_id, vector_dim, payload, created_at FROM raw_vectors ORDER BY created_at DESC LIMIT ?",
+                (top_k,),
+            ).fetchall()
+            sqlite_results = [
+                {
+                    "record_id": r[0],
+                    "vector_dim": r[1],
+                    "payload": json.loads(r[2] or "{}"),
+                    "created_at": r[3],
+                }
+                for r in rows
+            ]
+        except Exception as exc:
+            _fused_primary_log.debug("[FusedMemoryPrimary] sqlite raw_vectors query failed: %s", exc)
+
+        return {"qdrant": qdrant_results, "sqlite": sqlite_results}
+
+    # ── FusedStorage record API ───────────────────────────────────────────────
+
+    def insert_record(self, record_id: str, data: Dict[str, Any]) -> None:
+        """Insert or replace a structured record in SQLite."""
+        ts = _now_iso()
+        try:
+            with self._lock:
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO records (record_id, data, created_at) VALUES (?,?,?)",
+                    (record_id, json.dumps(data), ts),
+                )
+                self._conn.commit()
+        except Exception as exc:
+            _fused_primary_log.debug("[FusedMemoryPrimary] insert_record failed: %s", exc)
+
+    def get_record(self, record_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a structured record by ID.  Returns ``None`` if not found."""
+        try:
+            row = self._conn.execute(
+                "SELECT data FROM records WHERE record_id=?",
+                (record_id,),
+            ).fetchone()
+            if row:
+                return json.loads(row[0] or "{}")
+        except Exception as exc:
+            _fused_primary_log.debug("[FusedMemoryPrimary] get_record failed: %s", exc)
+        return None
+
+    def list_records(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """List all stored records (``record_id``, ``data``, ``created_at``)."""
+        try:
+            rows = self._conn.execute(
+                "SELECT record_id, data, created_at FROM records ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+            return [
+                {
+                    "record_id": r[0],
+                    "data": json.loads(r[1] or "{}"),
+                    "created_at": r[2],
+                }
+                for r in rows
+            ]
+        except Exception as exc:
+            _fused_primary_log.debug("[FusedMemoryPrimary] list_records failed: %s", exc)
+        return []
+
+    def insert_vector(
+        self,
+        record_id: str,
+        vector: List[float],
+        payload: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Insert a named vector (SQLite metadata + Qdrant/FAISS upsert)."""
+        meta = dict(payload or {})
+        meta["id"] = record_id
+        return self.add_embedding(vector, meta)
+
+    def query_vector(
+        self,
+        vector: List[float],
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Search by raw vector and return a flat merged list of hits."""
+        result = self.search_vectors(vector, top_k=top_k)
+        qdrant = result.get("qdrant") or []
+        sqlite = result.get("sqlite") or []
+        seen: set = set()
+        combined: List[Dict[str, Any]] = []
+        for item in qdrant + sqlite:
+            key = item.get("id") or item.get("record_id") or str(item)
+            if key not in seen:
+                seen.add(key)
+                combined.append(item)
+        return combined[:top_k]
+
+
+# ── module-level FusedMemoryPrimary singleton ─────────────────────────────────
+
+_primary_singleton: Optional["FusedMemoryPrimary"] = None
+_primary_singleton_lock = threading.Lock()
+
+
+def get_primary(
+    sqlite_path: str = "",
+    collection_name: str = "",
+    vector_store: Optional[Any] = None,
+) -> "FusedMemoryPrimary":
+    """Return a process-level :class:`FusedMemoryPrimary` singleton."""
+    global _primary_singleton
+    with _primary_singleton_lock:
+        if _primary_singleton is None:
+            _primary_singleton = FusedMemoryPrimary(
+                sqlite_path=sqlite_path,
+                collection_name=collection_name,
+                vector_store=vector_store,
+            )
+    return _primary_singleton
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LocalDB  — JSON-backed semantic memory DB
+# (previously modules/db.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_local_db_log = logging.getLogger("LocalDB")
+
+
+class LocalDB:
+    """
+    JSON-backed semantic memory DB.
+
+    Compatible with NiblitBrain and SelfIdeaImplementation.  Supports
+    interactions, facts/artifacts, learning log, and preferences.
+    """
+
+    def __init__(self, path: str = "niblit.db") -> None:
+        self.path = path
+        self.lock = threading.Lock()
+
+        if not os.path.exists(self.path):
+            self.data: Dict[str, Any] = {
+                "interactions": [],
+                "facts": [],
+                "learning_log": [],
+                "preferences": {"tone": "neutral", "interaction_style": "casual"},
+            }
+            self._save()
+        else:
+            try:
+                self.data = self._read()
+            except Exception:
+                self.data = {
+                    "interactions": [],
+                    "facts": [],
+                    "learning_log": [],
+                    "preferences": {"tone": "neutral", "interaction_style": "casual"},
+                }
+                self._save()
+
+    def _read(self) -> Dict[str, Any]:
+        with open(self.path, "r") as f:
+            return json.load(f)
+
+    def _write(self, data: Dict[str, Any]) -> None:
+        with open(self.path, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def _save(self) -> None:
+        with self.lock:
+            self._write(self.data)
+
+    # ── interactions ──────────────────────────────────────────────────────────
+
+    def add_entry(self, key: str, value: Any) -> None:
+        with self.lock:
+            self.data.setdefault("interactions", [])
+            self.data["interactions"].append({
+                "ts": time.time(),
+                "key": key,
+                "value": value,
+            })
+            self._save()
+
+    def get_log(self) -> List[Dict[str, Any]]:
+        return self.data.get("interactions", [])
+
+    # ── facts / artifacts ─────────────────────────────────────────────────────
+
+    def list_facts(self, limit: int = 500) -> List[Dict[str, Any]]:
+        return self.data.get("facts", [])[:limit]
+
+    def get_fact(self, key: str) -> Optional[Dict[str, Any]]:
+        for fact in self.data.get("facts", []):
+            if fact.get("key") == key:
+                return fact
+        return None
+
+    def add_fact(self, key: str, value: Any, tags: Optional[List[str]] = None) -> None:
+        tags = tags or []
+        now = time.time()
+        if isinstance(value, dict) and "concept" not in value:
+            value["concept"] = key
+        with self.lock:
+            existing = self.get_fact(key)
+            if existing:
+                if isinstance(existing.get("value"), dict) and "concept" not in existing["value"]:
+                    existing["value"]["concept"] = key
+                existing["value"] = value
+                existing["last_updated"] = now
+                existing["tags"] = list(set(existing.get("tags", []) + tags))
+                existing["exposures"] = existing.get("exposures", 1) + 1
+            else:
+                self.data.setdefault("facts", [])
+                self.data["facts"].append({
+                    "key": key,
+                    "value": value,
+                    "tags": tags,
+                    "created": now,
+                    "last_updated": now,
+                    "exposures": 1,
+                })
+            self._save()
+
+    # ── learning ──────────────────────────────────────────────────────────────
+
+    def store_learning(self, entry: Any) -> None:
+        with self.lock:
+            self.data.setdefault("learning_log", [])
+            self.data["learning_log"].append(entry)
+            self._save()
+        _local_db_log.info("[Learning Stored] %s", entry)
+
+    def get_learning_log(self) -> List[Any]:
+        with self.lock:
+            return list(self.data.get("learning_log", []))
+
+    # ── preferences ───────────────────────────────────────────────────────────
+
+    def get_preferences(self) -> Dict[str, Any]:
+        with self.lock:
+            return dict(self.data.get("preferences", {"tone": "neutral", "interaction_style": "casual"}))
+
+    def store_preferences(self, prefs: Dict[str, Any]) -> None:
+        with self.lock:
+            self.data["preferences"] = prefs
+            self._save()
+        _local_db_log.info("[Preferences Stored] %s", prefs)
+
+    # ── recall / search ───────────────────────────────────────────────────────
+
+    def recall(self, query: str = "", limit: int = 5) -> List[Any]:
+        results: List[Any] = []
+        query_lower = (query or "").lower()
+        for entry in reversed(self.get_learning_log()):
+            text = json.dumps(entry).lower()
+            if query_lower in text:
+                results.append(entry)
+            if len(results) >= limit:
+                break
+        if len(results) < limit:
+            for item in reversed(self.get_log()):
+                val = str(item.get("value", "")).lower()
+                if query_lower in val:
+                    results.append(item)
+                if len(results) >= limit:
+                    break
+        return results[:limit]
+
+    # ── maintenance ───────────────────────────────────────────────────────────
+
+    def condense(self, keep_top: int = 50) -> None:
+        with self.lock:
+            interactions = self.data.get("interactions", [])
+            if len(interactions) > keep_top:
+                self.data["interactions"] = interactions[-keep_top:]
+                self._save()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Ingestion  — canonical event helpers
+# (previously modules/ingestion.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_INGEST_LOG = logging.getLogger("NiblitIngest")
+_USER_PATTERN = re.compile(r'^(user|agent|system)\s*:\s*(.+)$', re.I)
+
+
+def event(
+    speaker: str,
+    msg: str,
+    intent: Optional[Any] = None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build a canonical event dict."""
+    return {
+        "ts": int(time.time()),
+        "speaker": speaker,
+        "msg": msg,
+        "intent": intent,
+        "meta": meta or {},
+    }
+
+
+def canonicalize(raw: str, default: str = "user") -> Dict[str, Any]:
+    """Convert any raw chat line into a canonical event dict.
+
+    Never store raw strings — always pass through this function first.
+    """
+    raw = raw.strip()
+    m = _USER_PATTERN.match(raw)
+    if m:
+        return event(speaker=m.group(1).lower(), msg=m.group(2).strip())
+    return event(speaker=default, msg=raw)
+
+
+def ingest(memory: Any, raw_line: str, speaker: str = "user") -> Dict[str, Any]:
+    """Canonical ingestion entry-point.
+
+    Coerces *raw_line* into a canonical event dict and stores it in *memory*
+    using whichever storage method is available.
+
+    Args:
+        memory:   Any memory object (NiblitMemory, LocalDB, FusedMemory, …).
+        raw_line: Raw text to ingest.
+        speaker:  Default speaker label when none is detected in *raw_line*.
+
+    Returns:
+        The canonical event dict.
+    """
+    e = canonicalize(raw_line, speaker)
+    try:
+        if hasattr(memory, "add_event"):
+            memory.add_event(e)
+        elif hasattr(memory, "log_event"):
+            memory.log_event(e)
+        elif hasattr(memory, "store"):
+            memory.store(e)
+        else:
+            _INGEST_LOG.warning("Memory has no supported storage method")
+    except Exception as ex:
+        _INGEST_LOG.error("INGEST FAILED: %s", ex)
+    return e
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KnowledgeDB  — Unified knowledge database (JSON-backed, singleton)
+# (previously modules/knowledge_db.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_kdb_log = logging.getLogger("KnowledgeDB")
+
+
+class KnowledgeDB:
+    """
+    Unified Knowledge Database for Niblit.
+
+    Combines MemoryManager-style features with a richer fact/queue/acquired-data
+    model used by the Autonomous Learning Engine (ALE).  Singleton pattern.
+    """
+
+    _instance = None  # singleton
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(KnowledgeDB, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(
+        self,
+        path: Optional[str] = None,
+        autosave_interval: int = 60,
+        dump_interval: int = 300,
+    ) -> None:
+        if getattr(self, "_initialized", False):
+            return
+        self._initialized = True
+
+        self.path = path or os.path.join(os.getcwd(), "niblit_memory.json")
+        self.autosave_interval = autosave_interval
+        self.dump_interval = dump_interval
+
+        self.lock = threading.RLock()
+        self.data: Dict[str, Any] = {
+            "facts": [],
+            "interactions": [],
+            "learning_log": [],
+            "learning_queue": [],
+            "preferences": {"mood": "neutral", "verbosity": "medium"},
+            "events": [],
+            "meta": {},
+        }
+
+        self._load()
+
+        # KnowledgeDB no longer starts its own autosave/dump threads.
+        # NiblitMemory's single autosave loop covers KnowledgeDB too.
+        _kdb_log.info("KnowledgeDB initialized (save/dump managed by NiblitMemory)")
+
+    # ── internal load / save ──────────────────────────────────────────────────
+
+    def _load(self) -> None:
+        try:
+            if os.path.exists(self.path):
+                with open(self.path, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                    self.data.update(loaded)
+                    _kdb_log.info("KnowledgeDB loaded from %s", self.path)
+        except Exception as e:
+            _kdb_log.error("Failed to load KnowledgeDB: %s", e)
+            self._save(blocking=False)
+
+    def _save(self, blocking: bool = True) -> None:
+        def _do_save() -> None:
+            try:
+                with self.lock:
+                    with open(self.path, "w", encoding="utf-8") as f:
+                        json.dump(self.data, f, indent=4, ensure_ascii=False)
+                    _kdb_log.debug("KnowledgeDB saved")
+            except Exception as e:
+                _kdb_log.error("KnowledgeDB save failed: %s", e)
+
+        if blocking:
+            _do_save()
+        else:
+            threading.Thread(target=_do_save, daemon=True, name="KnowledgeDB-SaveBG").start()
+
+    # ── generic get / set ─────────────────────────────────────────────────────
+
+    def set(self, key: str, value: Any) -> None:
+        with self.lock:
+            self.data[key] = value
+        self._save(blocking=False)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        with self.lock:
+            return self.data.get(key, default)
+
+    # ── events ────────────────────────────────────────────────────────────────
+
+    def log_event(self, text: str) -> None:
+        with self.lock:
+            self.data.setdefault("events", [])
+            self.data["events"].append({
+                "time": datetime.utcnow().isoformat(),
+                "event": text,
+            })
+        _kdb_log.info("[Event] %s", text)
+        self._save(blocking=False)
+
+    def get_events(self) -> List[Dict[str, Any]]:
+        with self.lock:
+            return list(self.data.get("events", []))
+
+    # ── interactions / learning ───────────────────────────────────────────────
+
+    def add_interaction(
+        self,
+        user_input: Any = None,
+        response: Any = None,
+        source: str = "unknown",
+        data: Any = None,
+    ) -> None:
+        interaction = self._canonicalize(
+            raw_input=user_input, response=response, source=source, data=data
+        )
+        self.store_learning(interaction)
+        with self.lock:
+            self.data.setdefault("interactions", [])
+            self.data["interactions"].append(interaction)
+        self.log_event(f"Interaction stored from {source}")
+        self._save(blocking=False)
+
+    def store_learning(self, entry: Any) -> None:
+        with self.lock:
+            self.data.setdefault("learning_log", [])
+            self.data["learning_log"].append(entry)
+        self._save(blocking=False)
+
+    def get_learning_log(self) -> List[Any]:
+        with self.lock:
+            return list(self.data.get("learning_log", []))
+
+    # ── facts / queue ─────────────────────────────────────────────────────────
+
+    def add_fact(self, key: str, value: Any, tags: Optional[List[str]] = None) -> None:
+        with self.lock:
+            self.data.setdefault("facts", [])
+            self.data["facts"].append({
+                "key": key,
+                "value": value,
+                "tags": tags or [],
+                "ts": int(time.time()),
+            })
+        self._save(blocking=False)
+
+    def list_facts(self, limit: int = 100) -> List[Dict[str, Any]]:
+        with self.lock:
+            facts = list(self.data.get("facts", []))
+        return sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)[:limit]
+
+    def queue_learning(self, topic: str) -> None:
+        with self.lock:
+            self.data.setdefault("learning_queue", [])
+            self.data["learning_queue"].append({
+                "topic": topic, "status": "queued", "ts": int(time.time()),
+            })
+        self._save(blocking=False)
+
+    def get_learning_queue(self) -> List[Dict[str, Any]]:
+        with self.lock:
+            return list(self.data.get("learning_queue", []))
+
+    def mark_learning_done(self, topic: str) -> None:
+        with self.lock:
+            for item in self.data.get("learning_queue", []):
+                if isinstance(item, dict) and item.get("topic") == topic:
+                    item["status"] = "processed"
+        self._save(blocking=False)
+
+    # ── preferences ───────────────────────────────────────────────────────────
+
+    def store_preferences(self, prefs: Dict[str, Any]) -> None:
+        with self.lock:
+            self.data["preferences"] = prefs
+        self._save(blocking=False)
+
+    def get_preferences(self) -> Dict[str, Any]:
+        with self.lock:
+            return dict(self.data.get("preferences", {}))
+
+    def get_personality(self) -> Dict[str, Any]:
+        return self.get_preferences()
+
+    # ── canonicalization ──────────────────────────────────────────────────────
+
+    def _canonicalize(
+        self,
+        raw_input: Any = None,
+        response: Any = None,
+        source: str = "unknown",
+        data: Any = None,
+    ) -> Dict[str, Any]:
+        now = datetime.utcnow().isoformat()
+        record: Dict[str, Any] = {
+            "time": now, "speaker": "unknown",
+            "input": None, "response": response,
+            "source": source, "data": data,
+        }
+        if isinstance(raw_input, dict):
+            record["data"] = raw_input
+            return record
+        if isinstance(raw_input, str):
+            txt = raw_input.strip()
+            m = re.match(r"^(user|assistant|agent|system)\s*:\s*(.+)$", txt, re.I)
+            if m:
+                record["speaker"] = m.group(1).lower()
+                record["input"] = m.group(2)
+            else:
+                record["speaker"] = "user"
+                record["input"] = txt
+        return record
+
+    # ── recall / search ───────────────────────────────────────────────────────
+
+    def search(self, query: str, limit: int = 5, max_results: Optional[int] = None) -> List[Any]:
+        """Search through facts and learning log for matching entries."""
+        if max_results is not None:
+            limit = max_results
+        if not query or not query.strip():
+            return []
+        query_words = set(query.lower().split())
+        results: List[Any] = []
+        seen: set = set()
+
+        def _check(obj: Any) -> None:
+            try:
+                text = json.dumps(obj).lower()
+                if any(w in text for w in query_words):
+                    key = json.dumps(obj)
+                    if key not in seen and len(results) < limit:
+                        seen.add(key)
+                        results.append(obj)
+            except Exception:
+                pass
+
+        with self.lock:
+            for fact in reversed(self.data.get("facts", [])):
+                _check(fact)
+            for entry in reversed(self.data.get("learning_log", [])):
+                _check(entry)
+            for interaction in reversed(self.data.get("interactions", [])):
+                _check(interaction)
+
+        return results[:limit]
+
+    def recall(
+        self,
+        query: str,
+        limit: int = 10,
+        include_preferences: bool = True,
+    ) -> List[Any]:
+        """Recall information matching the query from facts, events, and learning log."""
+        if not query:
+            query = ""
+        if not query.strip():
+            return (self.list_facts(limit) + list(reversed(self.get_learning_log()))[:limit])[:limit]
+
+        query_words = set(query.lower().split())
+        results: List[Any] = []
+        seen: set = set()
+
+        def _matches(obj: Any) -> bool:
+            try:
+                return any(w in json.dumps(obj).lower() for w in query_words)
+            except Exception:
+                return False
+
+        def _add(obj: Any) -> None:
+            try:
+                key = json.dumps(obj, sort_keys=True)
+            except Exception:
+                key = str(obj)
+            if key not in seen and len(results) < limit:
+                seen.add(key)
+                results.append(obj)
+
+        with self.lock:
+            for fact in reversed(self.data.get("facts", [])):
+                if _matches(fact):
+                    _add(fact)
+        for entry in reversed(self.get_learning_log()):
+            if _matches(entry):
+                _add(entry)
+        with self.lock:
+            for ev in reversed(self.data.get("events", [])):
+                if _matches(ev):
+                    _add(ev)
+            for inter in reversed(self.data.get("interactions", [])):
+                if _matches(inter):
+                    _add(inter)
+        if include_preferences:
+            for k, v in self.get_preferences().items():
+                if any(w in str(v).lower() for w in query_words):
+                    _add({k: v})
+        return results[:limit]
+
+    # ── acquired data (ALE) ───────────────────────────────────────────────────
+
+    def get_acquired_data(
+        self,
+        category: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Return structured data acquired by the Autonomous Learning Engine."""
+        with self.lock:
+            facts = list(self.data.get("facts", []))
+        facts_sorted = sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)
+        if not category or category.lower() in ("all", ""):
+            return facts_sorted[:limit]
+        cat_lower = category.lower()
+        filtered = [
+            f for f in facts_sorted
+            if any(cat_lower in str(t).lower() for t in f.get("tags", []))
+            or cat_lower in str(f.get("key", "")).lower()
+        ]
+        return filtered[:limit]
+
+    def get_knowledge_summary(self) -> str:
+        """Return a human-readable summary of everything stored in the KnowledgeDB."""
+        with self.lock:
+            facts = list(self.data.get("facts", []))
+            events = list(self.data.get("events", []))
+            interactions = list(self.data.get("interactions", []))
+            learning_log = list(self.data.get("learning_log", []))
+            queue = list(self.data.get("learning_queue", []))
+
+        pending_research = sum(
+            1 for q in queue if isinstance(q, dict) and q.get("status") == "queued"
+        )
+        tag_counts: Dict[str, int] = {}
+        for fact in facts:
+            for tag in fact.get("tags", []):
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+
+        ale_cats = {
+            "research": 0, "code": 0, "compiled": 0,
+            "reflection": 0, "software_study": 0, "autonomous": 0,
+        }
+        for tag, count in tag_counts.items():
+            for cat in ale_cats:
+                if cat in tag.lower():
+                    ale_cats[cat] += count
+
+        recents: Dict[str, str] = {}
+        for fact in sorted(facts, key=lambda x: x.get("ts", 0), reverse=True):
+            tags_lower = [str(t).lower() for t in fact.get("tags", [])]
+            for cat in ale_cats:
+                if cat not in recents and any(cat in t for t in tags_lower):
+                    recents[cat] = str(fact.get("value", ""))[:80].replace("\n", " ")
+
+        lines = [
+            "📚 NIBLIT KNOWLEDGE BASE SUMMARY", "",
+            "📊 Storage counts:",
+            f"  Facts (acquired data)  : {len(facts)}",
+            f"  Events                 : {len(events)}",
+            f"  Interactions           : {len(interactions)}",
+            f"  Learning log entries   : {len(learning_log)}",
+            f"  Pending research queue : {pending_research}",
+            "", "🤖 Autonomous Learning Data (ALE) breakdown:",
+        ]
+        for cat, count in ale_cats.items():
+            label = cat.replace("_", " ").title()
+            snippet = recents.get(cat, "—")
+            lines.append(f"  {label:<18}: {count} entries | latest: {snippet[:60]}")
+        lines += ["", "🔖 Top tags stored:"]
+        for tag, count in sorted(tag_counts.items(), key=lambda x: -x[1])[:10]:
+            lines.append(f"  {tag:<30}: {count}")
+        lines += [
+            "", "ℹ️  Use 'recall <topic>' to query any stored fact.",
+            "  Use 'acquired data [category]' to browse by category.",
+        ]
+        return "\n".join(lines)
+
+    # ── compatibility ─────────────────────────────────────────────────────────
+
+    def add_hf_context(self, *args: Any, **kwargs: Any) -> None:
+        try:
+            if len(args) == 2 and isinstance(args[0], str):
+                self.add_interaction(user_input=f"{args[0]}: {args[1]}", source="hf_brain")
+                return
+            if args and isinstance(args[0], dict):
+                self.add_interaction(user_input=args[0], source=kwargs.get("source", "unknown"))
+        except Exception as e:
+            _kdb_log.error("HF context storage failed: %s", e)
+
+    def dump_state(self) -> None:
+        try:
+            with self.lock:
+                _kdb_log.info(
+                    "[KnowledgeDB Dump] Full state:\n%s...",
+                    json.dumps(self.data, indent=2, ensure_ascii=False)[:500],
+                )
+        except Exception as e:
+            _kdb_log.debug("Dump state error: %s", e)
+
+    def get_all(self) -> Dict[str, Any]:
+        with self.lock:
+            return dict(self.data)
+
+    def recent_interactions(self, limit: int = 50) -> List[Dict[str, Any]]:
+        with self.lock:
+            return list(self.data.get("interactions", [])[-limit:])
+
+    def mark_training_step(self, step: int) -> None:
+        with self.lock:
+            self.data.setdefault("meta", {})
+            self.data["meta"]["last_training_step"] = step
+            self.data["meta"]["last_training_ts"] = int(time.time())
+        self._save(blocking=False)
+
+    def store_interaction(self, entry: Dict[str, Any]) -> None:
+        with self.lock:
+            self.data.setdefault("interactions", [])
+            self.data["interactions"].append(entry)
+        self._save(blocking=False)
+
+    def shutdown(self) -> None:
+        _kdb_log.info("KnowledgeDB shutting down — saving final state")
+        self._save(blocking=True)
+
+
+GLOBAL_KNOWLEDGE = KnowledgeDB()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# KnowledgeStore  — SQLite-backed persistent store for search results
+# (previously niblit_memory/knowledge_store.py)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_ks_log = logging.getLogger("Niblit.KnowledgeStore")
+_DEFAULT_KS_DB_PATH = os.getenv("NIBLIT_SQLITE_DB_PATH", "niblit_data.sqlite")
+
+
+class KnowledgeStore:
+    """
+    Persistent store for search results backed by SQLite.
+
+    Optionally syncs new records to a VectorStore (and therefore to Qdrant
+    when ``QDRANT_URL`` is set) after every :meth:`store_search_results` call.
+
+    When a :class:`FusedMemory` instance is provided via *fused_memory*, both
+    the structured event log *and* the vector embedding are written through the
+    fusion layer for unified hybrid retrieval.
+
+    Args:
+        db_path:        Path to the SQLite database file.
+        vector_store:   Pre-built VectorStore instance.
+        qdrant_url:     Qdrant server URL.  Falls back to ``QDRANT_URL``.
+        qdrant_api_key: Qdrant API key.  Falls back to ``QDRANT_API_KEY``.
+        fused_memory:   Optional :class:`FusedMemory` for hybrid writes.
+    """
+
+    _CREATE_TABLE_SQL = """
+        CREATE TABLE IF NOT EXISTS knowledge (
+            key        TEXT PRIMARY KEY,
+            value      TEXT,
+            source     TEXT,
+            created_at TEXT
+        )
+    """
+
+    def __init__(
+        self,
+        db_path: str = "",
+        vector_store: Optional[Any] = None,
+        qdrant_url: str = "",
+        qdrant_api_key: str = "",
+        fused_memory: Optional[Any] = None,
+    ) -> None:
+        self._db_path = db_path or _DEFAULT_KS_DB_PATH
+        self._vector_store = vector_store
+        self._fused_memory = fused_memory
+        self._qdrant_url = qdrant_url or os.getenv("QDRANT_URL", "")
+        self._qdrant_api_key = qdrant_api_key or os.getenv("QDRANT_API_KEY", "")
+        try:
+            with self._connect() as conn:
+                conn.execute(self._CREATE_TABLE_SQL)
+        except Exception as exc:
+            _ks_log.warning("KnowledgeStore: DB init failed: %s", exc)
+
+    # ── public API ────────────────────────────────────────────────────────────
+
+    def store_search_results(self, query: str, results: List[Dict[str, Any]]) -> None:
+        """Persist a list of search results to SQLite and optionally to Qdrant."""
+        if not results:
+            return
+
+        now = datetime.now(timezone.utc).isoformat()
+        rows_to_embed: List[Dict[str, Any]] = []
+
+        try:
+            with self._connect() as conn:
+                for item in results:
+                    if not isinstance(item, dict) or "error" in item:
+                        continue
+                    url = item.get("url", "")
+                    snippet = item.get("snippet", "")
+                    title = item.get("title", "")
+                    if url:
+                        key = url
+                    else:
+                        key = "sha:" + hashlib.sha1(
+                            f"{query}:{title}:{snippet}".encode()
+                        ).hexdigest()[:16]
+                    value = snippet or title
+                    if not value:
+                        continue
+                    conn.execute(
+                        "INSERT OR REPLACE INTO knowledge (key, value, source, created_at) VALUES (?,?,?,?)",
+                        (key, value, "serpex", now),
+                    )
+                    rows_to_embed.append({
+                        "key": key, "text": value, "title": title, "url": url,
+                    })
+        except Exception as exc:
+            _ks_log.warning("KnowledgeStore: SQLite write failed: %s", exc)
+
+        if rows_to_embed and self._fused_memory:
+            self._store_via_fused_memory(query, rows_to_embed)
+        elif rows_to_embed:
+            self._embed_to_qdrant(rows_to_embed)
+
+    def get_by_source(self, source: str = "serpex", limit: int = 20) -> List[Dict[str, Any]]:
+        """Retrieve stored records by their source label."""
+        try:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT key, value, created_at FROM knowledge WHERE source = ? LIMIT ?",
+                    (source, limit),
+                ).fetchall()
+            return [{"key": r[0], "value": r[1], "created_at": r[2]} for r in rows]
+        except Exception as exc:
+            _ks_log.warning("KnowledgeStore: SQLite read failed: %s", exc)
+            return []
+
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        event_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Hybrid retrieval via FusedMemory (when available), else SQLite LIKE."""
+        if self._fused_memory:
+            return self._fused_memory.retrieve(query=query, event_type=event_type, top_k=top_k)
+        results: Dict[str, Any] = {"vectors": [], "events": []}
+        try:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    "SELECT key, value, created_at FROM knowledge WHERE value LIKE ? LIMIT ?",
+                    (f"%{query[:50]}%", top_k),
+                ).fetchall()
+            results["events"] = [{"key": r[0], "value": r[1], "created_at": r[2]} for r in rows]
+        except Exception as exc:
+            _ks_log.debug("KnowledgeStore.retrieve fallback failed: %s", exc)
+        return results
+
+    # ── internals ─────────────────────────────────────────────────────────────
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self._db_path, check_same_thread=False)
+        conn.isolation_level = None  # autocommit
+        return conn
+
+    def _vector_store_client(self) -> Optional[Any]:
+        if self._vector_store is None and self._qdrant_url:
+            try:
+                from modules.vector_store import VectorStore  # type: ignore[import]
+                self._vector_store = VectorStore(
+                    collection="niblit_knowledge",
+                    qdrant_url=self._qdrant_url,
+                    qdrant_api_key=self._qdrant_api_key,
+                )
+            except Exception as exc:
+                _ks_log.debug("KnowledgeStore: VectorStore unavailable: %s", exc)
+        return self._vector_store
+
+    def _embed_to_qdrant(self, rows: List[Dict[str, Any]]) -> None:
+        vs = self._vector_store_client()
+        if vs is None:
+            return
+        for row in rows:
+            try:
+                vs.add(row["key"], row["text"][:500])
+            except Exception as exc:
+                _ks_log.debug("KnowledgeStore: Qdrant upsert failed: %s", exc)
+
+    def _store_via_fused_memory(self, query: str, rows: List[Dict[str, Any]]) -> None:
+        fm = self._fused_memory
+        if fm is None:
+            return
+        try:
+            fm.log_event("knowledge_store", {"query": query, "count": len(rows)})
+        except Exception as exc:
+            _ks_log.debug("KnowledgeStore: FusedMemory log_event failed: %s", exc)
+        for row in rows:
+            try:
+                fm.store_knowledge(key=row["key"], value=row["text"][:500], source="serpex")
+                fm.add_embedding(
+                    row["text"][:500],
+                    metadata={
+                        "source": "serpex", "title": row.get("title", ""),
+                        "url": row.get("url", ""), "query": query,
+                    },
+                )
+            except Exception as exc:
+                _ks_log.debug("KnowledgeStore: FusedMemory store failed: %s", exc)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NiblitMemory  — Canonical in-process memory hub (singleton)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class NiblitMemory:
+    """
+    Unified memory management system with singleton pattern and persistent storage.
+
+    Features:
+    - Thread-safe singleton pattern
+    - Persistent JSON storage with backups
+    - Autosave and periodic dumps
+    - Circuit breakers for fault tolerance
+    - Telemetry tracking
+    - Rate limiting
+    - Multi-level caching
+    - Event sourcing
+    - Memory usage monitoring
+    - Graceful error handling
+    """
+
+
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(NiblitMemory, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, filename=None, autosave_interval=60, dump_interval=300):
+        if getattr(self, "_initialized", False):
+            return
+        self._initialized = True
+
+        self.filename = filename or os.path.join(os.getcwd(), "niblit_memory.json")
+        self.backup_filename = self.filename + ".backup"
+        self.autosave_interval = autosave_interval
+        self.dump_interval = dump_interval
+
+        self.lock = threading.Lock()
+        self.state = {
+            "events": [],
+            "learning_log": [],
+            "preferences": {},
+            "facts": [],
+            "interactions": [],
+            "meta": {
+                "created_at": datetime.utcnow().isoformat(),
+                "version": "1.0.0",
+            }
+        }
+
+        # Controls whether the dump loop emits log output (default: off).
+        # Toggle with set_dump_verbose(True) / set_dump_verbose(False).
+        self._dump_verbose: bool = False
+
+        # ─────── IMPROVEMENTS INITIALIZATION ───────
+        self._init_improvements()
+
+        self._load()
+
+        # ── Single canonical background threads ──────────────────────────────
+        # Exactly one autosave thread and one dump thread for the whole process.
+        # The autosave loop persists both NiblitMemory state and KnowledgeDB.
+        threading.Thread(target=self._autosave_loop, daemon=True, name="NiblitMemoryAutosave").start()
+        threading.Thread(target=self._dump_loop, daemon=True, name="NiblitMemoryDump").start()
+
+        log.info("NiblitMemory: single autosave + single dump thread started")
+
+    def _init_improvements(self):
+        """Initialize all 17 production improvements."""
+        log.info("[MEMORY-IMPROVEMENTS] Initializing enhancements...")
+
+        # 1. Circuit Breaker
+        try:
+            if CircuitBreaker:
+                self.cb_save = CircuitBreaker("memory_save", failure_threshold=5)
+                self.cb_load = CircuitBreaker("memory_load", failure_threshold=5)
+                log.debug("[MEMORY] Circuit breakers initialized")
+            else:
+                self.cb_save = None
+                self.cb_load = None
+        except Exception as e:
+            log.warning(f"[MEMORY] Circuit breaker failed: {e}")
+            self.cb_save = None
+            self.cb_load = None
+
+        # 2. Telemetry
+        try:
+            if TelemetryCollector:
+                self.telemetry = TelemetryCollector()
+                log.debug("[MEMORY] Telemetry initialized")
+            else:
+                self.telemetry = None
+        except Exception as e:
+            log.warning(f"[MEMORY] Telemetry failed: {e}")
+            self.telemetry = None
+
+        # 3. Rate Limiting
+        try:
+            if RateLimiter:
+                self.rate_limiter = RateLimiter(max_requests_per_sec=100)
+                log.debug("[MEMORY] Rate limiter initialized")
+            else:
+                self.rate_limiter = None
+        except Exception as e:
+            log.warning(f"[MEMORY] Rate limiter failed: {e}")
+            self.rate_limiter = None
+
+        # 4. Caching
+        try:
+            if CacheStrategy:
+                self.cache = CacheStrategy()
+                log.debug("[MEMORY] Cache strategy initialized")
+            else:
+                self.cache = None
+        except Exception as e:
+            log.warning(f"[MEMORY] Cache strategy failed: {e}")
+            self.cache = None
+
+        # 5. Event Sourcing
+        try:
+            if EventStore:
+                self.event_store = EventStore()
+                log.debug("[MEMORY] Event store initialized")
+            else:
+                self.event_store = None
+        except Exception as e:
+            log.warning(f"[MEMORY] Event store failed: {e}")
+            self.event_store = None
+
+        # 6. Metrics
+        self.metrics = {
+            "saves": 0,
+            "loads": 0,
+            "store_learning": 0,
+            "recalls": 0,
+            "errors": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+        }
+
+        # 7. Fused Memory (SQLite + Qdrant) — primary persistent backend
+        #    Uses the embedded FusedMemoryPrimary (superset of FusedMemory)
+        try:
+            self.fused_memory: Optional[FusedMemoryPrimary] = FusedMemoryPrimary()
+            log.debug("[MEMORY] FusedMemoryPrimary backend initialised (vector_backend=%s)",
+                      self.fused_memory.vector_backend)
+        except Exception as _e:
+            log.debug("[MEMORY] FusedMemoryPrimary unavailable: %s", _e)
+            self.fused_memory = None
+
+    def _ensure_integrity(self):
+        """Ensures required keys always exist. Prevents runtime crashes in other modules."""
+        with self.lock:
+            self.state.setdefault("events", [])
+            self.state.setdefault("learning_log", [])
+            self.state.setdefault("preferences", {})
+            self.state.setdefault("meta", {})
+
+    def _canonicalize(self, raw_input=None, response=None, source="unknown", data=None):
+        """Convert various input formats into canonical memory record format."""
+        now = datetime.utcnow().isoformat()
+        record = {
+            "time": now,
+            "speaker": "unknown",
+            "input": None,
+            "response": response,
+            "source": source,
+            "data": data,
+        }
+
+        if isinstance(raw_input, dict):
+            record["data"] = raw_input
+            return record
+
+        if isinstance(raw_input, str):
+            txt = raw_input.strip()
+            m = re.match(r"^(user|assistant|agent|system)\s*:\s*(.+)$", txt, re.I)
+            if m:
+                record["speaker"] = m.group(1).lower()
+                record["input"] = m.group(2)
+            else:
+                record["speaker"] = "user"
+                record["input"] = txt
+            return record
+
+        return record
+
+    def _load(self):
+        """Load memory state from persistent JSON file with fallback to backup."""
+        try:
+            # Try primary file
+            if os.path.exists(self.filename):
+                try:
+                    with open(self.filename, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    self.state.update(data)
+                    log.info(f"Memory loaded from {self.filename}")
+                    self.metrics["loads"] += 1
+                    if self.telemetry:
+                        self.telemetry.increment_counter("memory_load_success")
+                    return
+                except Exception as e:
+                    log.warning(f"Failed to load primary memory: {e}")
+                    # Try backup
+                    if os.path.exists(self.backup_filename):
+                        try:
+                            with open(self.backup_filename, "r", encoding="utf-8") as f:
+                                data = json.load(f)
+                            self.state.update(data)
+                            log.info(f"Memory recovered from backup: {self.backup_filename}")
+                            if self.telemetry:
+                                self.telemetry.increment_counter("memory_load_backup")
+                            return
+                        except Exception as e2:
+                            log.error(f"Backup load also failed: {e2}")
+
+            log.info("Memory file not found, starting fresh")
+        except Exception as e:
+            log.error(f"Memory load failed: {e}")
+            self.metrics["errors"] += 1
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_load_error")
+
+        self._ensure_integrity()
+
+    def save(self):
+        """Save memory state to persistent JSON file with backup."""
+        try:
+            with self.lock:
+                # Create backup before saving
+                if os.path.exists(self.filename):
+                    try:
+                        with open(self.filename, "r") as f:
+                            backup_data = f.read()
+                        with open(self.backup_filename, "w") as f:
+                            f.write(backup_data)
+                    except Exception as e:
+                        log.debug(f"Backup creation failed: {e}")
+
+                # Save current state
+                with open(self.filename, "w", encoding="utf-8") as f:
+                    json.dump(self.state, f, indent=4, ensure_ascii=False)
+                
+                log.debug("Memory saved")
+                self.metrics["saves"] += 1
+                if self.telemetry:
+                    self.telemetry.increment_counter("memory_save_success")
+        except Exception as e:
+            log.error(f"Memory save failed: {e}")
+            self.metrics["errors"] += 1
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_save_error")
+
+    def _autosave_loop(self):
+        """Single canonical autosave loop — saves NiblitMemory state AND KnowledgeDB."""
+        while True:
+            try:
+                self.save()
+                # Also flush KnowledgeDB (shares same file path but its own data dict)
+                _kdb = globals().get("GLOBAL_KNOWLEDGE")
+                if _kdb is not None:
+                    try:
+                        _kdb._save(blocking=False)
+                    except Exception:
+                        pass
+                time.sleep(self.autosave_interval)
+            except Exception as e:
+                _lt = _get_loop_tracer()
+                if _lt:
+                    _lt.record("MemoryAutosaveLoop", e)
+                log.error(f"Autosave loop error: {e}")
+                time.sleep(self.autosave_interval)
+
+    def _dump_loop(self):
+        """Single canonical dump loop.
+
+        Emits a full state dump via logging *only* when dump visibility is
+        enabled (``_dump_verbose=True``).  Toggle with
+        :meth:`set_dump_verbose`.
+        """
+        while True:
+            try:
+                if self._dump_verbose:
+                    self.dump_state()
+                    _kdb = globals().get("GLOBAL_KNOWLEDGE")
+                    if _kdb is not None:
+                        try:
+                            _kdb.dump_state()
+                        except Exception:
+                            pass
+                time.sleep(self.dump_interval)
+            except Exception as e:
+                _lt = _get_loop_tracer()
+                if _lt:
+                    _lt.record("MemoryDumpLoop", e)
+                log.error(f"Dump loop error: {e}")
+                time.sleep(self.dump_interval)
+
+    # ── dump visibility control ───────────────────────────────────────────────
+
+    def set_dump_verbose(self, enabled: bool) -> str:
+        """Enable or disable the periodic state dump.
+
+        Args:
+            enabled: ``True``  → dump loop will emit full state to logs every
+                                  *dump_interval* seconds ("visible").
+                     ``False`` → dump loop stays silent ("invisible").
+
+        Returns:
+            Human-readable status string suitable for CLI output.
+        """
+        self._dump_verbose = bool(enabled)
+        state = "visible (active)" if self._dump_verbose else "invisible (silent)"
+        log.info("[NiblitMemory] Dump loop is now %s", state)
+        return f"Memory dump loop is now {state}."
+
+    @property
+    def dump_visible(self) -> bool:
+        """True when the periodic dump is active."""
+        return self._dump_verbose
+
+    def set(self, key, value):
+        """Set a generic key-value pair in memory."""
+        with self.lock:
+            self.state[key] = value
+        log.debug(f"[Memory Set] {key}: {value}")
+        self.save()
+
+    def get(self, key, default=None):
+        """Get a generic key-value pair from memory."""
+        with self.lock:
+            return self.state.get(key, default)
+
+    def log_event(self, text):
+        """Log an event with timestamp."""
+        try:
+            with self.lock:
+                self.state.setdefault("events", [])
+                self.state["events"].append({
+                    "time": datetime.utcnow().isoformat(),
+                    "event": text
+                })
+            log.info(f"[Event] {text}")
+            self.save()
+            
+            if self.event_store:
+                try:
+                    self.event_store.append_event({
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "event_type": "memory_event",
+                        "text": text,
+                    })
+                except Exception as e:
+                    log.debug(f"Event store append failed: {e}")
+
+            # Mirror to fused memory (SQLite + Qdrant)
+            if getattr(self, "fused_memory", None):
+                try:
+                    self.fused_memory.log_event("memory_event", {"text": text})
+                except Exception as _e:
+                    log.debug("[MEMORY] fused_memory.log_event failed: %s", _e)
+        except Exception as e:
+            log.error(f"Event logging failed: {e}")
+            self.metrics["errors"] += 1
+
+    def get_events(self):
+        """Retrieve all logged events."""
+        with self.lock:
+            return list(self.state.get("events", []))
+
+    def store_learning(self, data):
+        """Store learning data to the learning log."""
+        try:
+            with self.lock:
+                self.state.setdefault("learning_log", [])
+                self.state["learning_log"].append(data)
+            log.info(f"[Learning Stored] {data}")
+            self.metrics["store_learning"] += 1
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_learn_store")
+            self.save()
+
+            # Mirror to fused memory (SQLite + Qdrant)
+            if getattr(self, "fused_memory", None):
+                try:
+                    key = f"learning:{id(data)}"
+                    value = data if isinstance(data, str) else str(data)
+                    self.fused_memory.store_knowledge(key, value[:1000], source="learning_log")
+                except Exception as _e:
+                    log.debug("[MEMORY] fused_memory.store_knowledge failed: %s", _e)
+        except Exception as e:
+            log.error(f"Learning store failed: {e}")
+            self.metrics["errors"] += 1
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_learn_error")
+
+
+    def get_learning_log(self):
+        """
+        Canonical accessor for learning log.
+        Guaranteed to exist for tasks compatibility.
+        """
+        with self.lock:
+            return list(self.state.get("learning_log", []))
+
+    def get_logs(self):
+        """Compatibility alias for older modules."""
+        return self.get_learning_log()
+
+    def recall(self, query: str = "", limit: int = 3, include_preferences=True):
+        """
+        Enhanced recall with safe empty query support and caching.
+        If empty query → return most recent entries
+        """
+        try:
+            self.metrics["recalls"] += 1
+            
+            if query is None:
+                query = ""
+
+            # Check cache
+            cache_key = f"recall:{hashlib.md5(str(query).encode()).hexdigest()}"
+            if self.cache:
+                try:
+                    cached = self.cache.get_sync(cache_key) if hasattr(self.cache, 'get_sync') else None
+                    if cached:
+                        log.debug(f"[Recall] Cache hit for '{query}'")
+                        self.metrics["cache_hits"] += 1
+                        if self.telemetry:
+                            self.telemetry.increment_counter("memory_recall_cache_hit")
+                        return cached
+                except Exception as e:
+                    log.debug(f"Cache get failed: {e}")
+
+            self.metrics["cache_misses"] += 1
+
+            results = []
+
+            if not query.strip():
+                recent = list(reversed(self.get_learning_log()))
+                results = recent[:limit]
+            else:
+                query_words = set(query.lower().split())
+                for entry in reversed(self.get_learning_log()):
+                    text = json.dumps(entry).lower()
+                    if query_words & set(text.split()):
+                        results.append(entry)
+                        if len(results) >= limit:
+                            break
+
+                if include_preferences:
+                    prefs = self.get_preferences()
+                    for k, v in prefs.items():
+                        if any(w in str(v).lower() for w in query_words):
+                            results.append({k: v})
+                            if len(results) >= limit:
+                                break
+
+            # Cache results
+            if self.cache:
+                try:
+                    if hasattr(self.cache, 'set_sync'):
+                        self.cache.set_sync(cache_key, results[:limit])
+                except Exception as e:
+                    log.debug(f"Cache set failed: {e}")
+
+            log.debug(f"[Recall] query='{query}' -> {len(results)} results")
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_recall_success")
+            
+            return results[:limit]
+
+        except Exception as e:
+            log.error(f"Recall failed: {e}")
+            self.metrics["errors"] += 1
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_recall_error")
+            return []
+
+    def store_preferences(self, pref_dict):
+        """Store user preferences."""
+        try:
+            with self.lock:
+                self.state["preferences"] = pref_dict
+            log.info(f"[Preferences Stored] {pref_dict}")
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_pref_store")
+            self.save()
+        except Exception as e:
+            log.error(f"Preference store failed: {e}")
+            self.metrics["errors"] += 1
+
+    def get_preferences(self):
+        """Retrieve stored preferences."""
+        with self.lock:
+            return dict(self.state.get("preferences", {}))
+
+    def add_interaction(self, user_input=None, response=None, source="unknown", data=None):
+        """Add an interaction record with canonicalization."""
+        try:
+            interaction = self._canonicalize(
+                raw_input=user_input,
+                response=response,
+                source=source,
+                data=data
+            )
+            self.store_learning(interaction)
+            self.log_event(f"Interaction stored from {source}")
+            log.info(f"[Interaction] {interaction}")
+        except Exception as e:
+            log.error(f"Interaction add failed: {e}")
+            self.metrics["errors"] += 1
+
+    def add_hf_context(self, *args, **kwargs):
+        """HFBrain compatibility layer for context storage."""
+        try:
+            if len(args) == 2 and isinstance(args[0], str):
+                role, content = args
+                self.add_interaction(user_input=f"{role}: {content}", source="hf_brain")
+                return
+
+            if len(args) >= 1 and isinstance(args[0], dict):
+                context_dict = args[0]
+                source = kwargs.get("source", "unknown")
+                self.add_interaction(user_input=context_dict, source=source)
+                return
+        except Exception as e:
+            log.error(f"HF context storage failed: {e}")
+            self.metrics["errors"] += 1
+
+    def dump_state(self):
+        """Dump full current state to logs."""
+        try:
+            with self.lock:
+                state_json = json.dumps(self.state, indent=4, ensure_ascii=False)
+                log.info("[Memory Dump] Full current state:\n" + state_json)
+        except Exception as e:
+            log.error(f"State dump failed: {e}")
+
+    def get_all(self):
+        """Get all memory data (events, learning log, preferences)."""
+        with self.lock:
+            return {
+                "events": list(self.state.get("events", [])),
+                "learning_log": list(self.state.get("learning_log", [])),
+                "preferences": dict(self.state.get("preferences", {})),
+            }
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get memory statistics."""
+        stats = {
+            "metrics": self.metrics,
+            "state_size": len(json.dumps(self.state)),
+            "learning_log_size": len(self.state.get("learning_log", [])),
+            "events_size": len(self.state.get("events", [])),
+        }
+        
+        if self.telemetry:
+            stats["telemetry"] = self.telemetry.get_stats()
+        
+        return stats
+
+    def health_check(self) -> Dict[str, Any]:
+        """Check memory module health."""
+        return {
+            "status": "healthy",
+            "file_exists": os.path.exists(self.filename),
+            "file_size": os.path.getsize(self.filename) if os.path.exists(self.filename) else 0,
+            "circuit_breaker_save": self.cb_save is not None,
+            "circuit_breaker_load": self.cb_load is not None,
+            "cache_enabled": self.cache is not None,
+            "telemetry_enabled": self.telemetry is not None,
+        }
+
+    def shutdown(self):
+        """Gracefully shutdown and save final state."""
+        try:
+            log.info("MemoryManager shutting down — saving final state")
+            self.save()
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_shutdown")
+        except Exception as e:
+            log.error(f"Shutdown failed: {e}")
+
+    # ── Fused record API  (save_record / load_record / list_all_records / query_vector) ──
+
+    def save_record(
+        self,
+        record_id: str,
+        data: Dict[str, Any],
+        vector: Optional[List[float]] = None,
+    ) -> None:
+        """Persist a structured record via the fused backend.
+
+        Writes *data* to the SQLite records table and, when *vector* is
+        provided, also upserts the embedding into Qdrant/FAISS.
+
+        Args:
+            record_id: Unique identifier.
+            data:      Arbitrary dict payload.
+            vector:    Optional pre-computed float embedding.
+        """
+        if self.fused_memory is not None:
+            try:
+                self.fused_memory.insert_record(record_id, data)
+                if vector:
+                    self.fused_memory.insert_vector(record_id, vector, payload=data)
+                return
+            except Exception as exc:
+                log.debug("[MEMORY] fused save_record failed: %s", exc)
+        # Fallback: learning log
+        if hasattr(self, "store_learning"):
+            self.store_learning({"record_id": record_id, **data})
+
+    def load_record(self, record_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a stored record by ID.
+
+        Returns:
+            Record dict, or ``None`` if not found.
+        """
+        if self.fused_memory is not None:
+            try:
+                return self.fused_memory.get_record(record_id)
+            except Exception as exc:
+                log.debug("[MEMORY] fused load_record failed: %s", exc)
+        return None
+
+    def list_all_records(self) -> List[Dict[str, Any]]:
+        """Return all stored records from the fused backend.
+
+        Returns:
+            List of ``{"record_id": str, "data": dict, "created_at": str}`` dicts.
+        """
+        if self.fused_memory is not None:
+            try:
+                return self.fused_memory.list_records()
+            except Exception as exc:
+                log.debug("[MEMORY] fused list_all_records failed: %s", exc)
+        return []
+
+    def query_vector(
+        self,
+        embedding: List[float],
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Semantic similarity search over the fused vector index.
+
+        Args:
+            embedding: Pre-computed float query vector.
+            top_k:     Maximum results.
+
+        Returns:
+            List of result dicts ordered by similarity.
+        """
+        if self.fused_memory is not None:
+            try:
+                return self.fused_memory.query_vector(embedding, top_k=top_k)
+            except Exception as exc:
+                log.debug("[MEMORY] fused query_vector failed: %s", exc)
+        return []
+
+    # ── LocalDB-compatible convenience methods ────────────────────────────────
+
+    def add_fact(
+        self,
+        key: str,
+        value: Any,
+        tags: Optional[List[str]] = None,
+    ) -> None:
+        """Store a tagged fact.  Mirrors to the fused knowledge store."""
+        tags = tags or []
+        with self.lock:
+            self.state.setdefault("facts", [])
+            now = time.time()
+            existing = next(
+                (f for f in self.state["facts"] if f.get("key") == key), None
+            )
+            if existing:
+                existing["value"] = value
+                existing["last_updated"] = now
+                existing["tags"] = list(set(existing.get("tags", []) + tags))
+                existing["exposures"] = existing.get("exposures", 1) + 1
+            else:
+                self.state["facts"].append({
+                    "key": key, "value": value, "tags": tags,
+                    "created": now, "last_updated": now, "exposures": 1,
+                })
+        self.save()
+        if self.fused_memory is not None:
+            try:
+                self.fused_memory.store_knowledge(
+                    key, str(value)[:500], source="fact"
+                )
+            except Exception as exc:
+                log.debug("[MEMORY] fused add_fact mirror failed: %s", exc)
+
+    def get_fact(self, key: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a fact by key from the in-memory state."""
+        with self.lock:
+            return next(
+                (f for f in self.state.get("facts", []) if f.get("key") == key),
+                None,
+            )
+
+    def list_facts(self, limit: int = 500) -> List[Dict[str, Any]]:
+        """Return the most recently added facts."""
+        with self.lock:
+            facts = list(self.state.get("facts", []))
+        return sorted(facts, key=lambda x: x.get("last_updated", 0), reverse=True)[:limit]
+
+    def add_entry(self, key: str, value: Any) -> None:
+        """Add a raw interaction entry (LocalDB compatibility)."""
+        with self.lock:
+            self.state.setdefault("interactions", [])
+            self.state["interactions"].append({
+                "ts": time.time(), "key": key, "value": value,
+            })
+        self.save()
+
+    def get_log(self) -> List[Dict[str, Any]]:
+        """Return all interaction entries (LocalDB compatibility)."""
+        with self.lock:
+            return list(self.state.get("interactions", []))
+
+    def condense(self, keep_top: int = 50) -> None:
+        """Trim the interaction log to the most recent *keep_top* entries."""
+        with self.lock:
+            interactions = self.state.get("interactions", [])
+            if len(interactions) > keep_top:
+                self.state["interactions"] = interactions[-keep_top:]
+        self.save()
+
+    # ── KnowledgeDB compatibility ─────────────────────────────────────────────
+
+    def store_knowledge(self, key: str, value: str, source: str = "") -> None:
+        """Store a key/value knowledge fact (mirrors to fused SQLite knowledge table)."""
+        if self.fused_memory is not None:
+            try:
+                self.fused_memory.store_knowledge(key, value, source=source)
+            except Exception as exc:
+                log.debug("[MEMORY] fused store_knowledge failed: %s", exc)
+        # Also persist to state for JSON-backed recall
+        self.store_learning({"type": "knowledge", "key": key, "value": value, "source": source})
+
+    def ingest_line(
+        self,
+        raw_line: str,
+        speaker: str = "user",
+    ) -> Dict[str, Any]:
+        """Canonicalize and store *raw_line*.  Returns the canonical event dict."""
+        return ingest(self, raw_line, speaker=speaker)
+
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GLOBAL SINGLETONS & BACKWARD-COMPAT ALIASES
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: Backward-compatibility alias — all code that imports ``MemoryManager``
+#: from this module continues to work without change.
+MemoryManager = NiblitMemory
+
+GLOBAL_MEMORY = NiblitMemory()
+
+# Expose all merged classes at module level so downstream imports such as
+#   ``from niblit_memory import KnowledgeDB``
+#   ``from niblit_memory import KnowledgeStore``
+#   ``from niblit_memory import LocalDB``
+#   ``from niblit_memory import FusedMemory``
+#   ``from niblit_memory import FusedMemoryPrimary``
+# all work transparently without touching the original callers.
+__all__ = [
+    # Core memory
+    "NiblitMemory",
+    "MemoryManager",
+    "GLOBAL_MEMORY",
+    # Fused backends
+    "FusedMemory",
+    "FusedMemoryPrimary",
+    "get_fused_memory",
+    "get_primary",
+    # Knowledge stores
+    "KnowledgeDB",
+    "KnowledgeStore",
+    "GLOBAL_KNOWLEDGE",
+    # Lightweight DB
+    "LocalDB",
+    # Ingestion helpers
+    "event",
+    "canonicalize",
+    "ingest",
+]
+
+
+# ─────────────────────────────
+# TEST
+# ─────────────────────────────
+if __name__ == "__main__":
+    mem = GLOBAL_MEMORY
+
+    mem.log_event("Memory system initialized")
+    mem.store_learning({"input": "Test learning log entry"})
+
+    mem.add_interaction("user: hi", "hello", source="self-test")
+    mem.add_hf_context({"topic": "testing HF context"}, source="self-test")
+    mem.add_hf_context("assistant", "HF-style message")
+
+    log.info("MemoryManager standalone test completed — all data logged")
+    log.info(f"Stats: {mem.get_stats()}")
+    log.info(f"Health: {mem.health_check()}")

@@ -26,7 +26,7 @@ import datetime
 import logging
 import asyncio
 import threading
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.abspath(os.path.join(BASE_DIR, ".."))
@@ -89,7 +89,7 @@ except Exception as _e:
 
 # ───────── Local Modules ─────────
 try:
-    from modules.db import LocalDB
+    from niblit_memory import LocalDB
 except Exception as _e:
     log.warning(f"LocalDB unavailable: {_e}")
     LocalDB = None
@@ -621,6 +621,25 @@ class NiblitBrain:
         if _SERPEX_TOOL_AVAILABLE:
             log.debug("[BRAIN] niblit_serpex_search tool registered")
 
+        # ─────── QDRANT INFERENCE PIPELINE ───────
+        # SemanticAgent — vector-store backed knowledge retrieval
+        self.semantic = None
+        try:
+            from niblit_agents.semantic_agent import SemanticAgent as _SemanticAgent
+            self.semantic = _SemanticAgent()
+            log.debug("[BRAIN] SemanticAgent ready (available=%s)", self.semantic.is_available())
+        except Exception as _e:
+            log.debug("[BRAIN] SemanticAgent unavailable: %s", _e)
+
+        # ClaudeEngine — Anthropic Claude with context injection
+        self.claude = None
+        try:
+            from niblit_models.claude_engine import ClaudeEngine as _ClaudeEngine
+            self.claude = _ClaudeEngine()
+            log.debug("[BRAIN] ClaudeEngine ready (available=%s)", self.claude.is_available())
+        except Exception as _e:
+            log.debug("[BRAIN] ClaudeEngine unavailable: %s", _e)
+
     def get_tools(self):
         """
         Return a list of GPT tool definition dicts for all registered tool functions.
@@ -636,6 +655,53 @@ class NiblitBrain:
         if self.serpex_tool_def is not None:
             tools.append(self.serpex_tool_def)
         return tools
+
+    def process_query(self, query: str) -> dict:
+        """
+        Full Qdrant inference pipeline: retrieve semantic context then generate
+        a response with Claude (falls back to ``think()`` when Claude is unavailable).
+
+        Flow::
+
+            1. SemanticAgent.retrieve_context(query) → context from Qdrant
+            2. ClaudeEngine.generate(query, context)  → grounded response
+            3. Fallback to self.think(query)           → HF / rule-based response
+
+        Args:
+            query: The user's question or task.
+
+        Returns:
+            Dict with keys ``"query"``, ``"context_used"``, and ``"response"``.
+        """
+        context_used = []
+        response = ""
+
+        # Step 1: Retrieve semantic memory
+        if self.semantic:
+            try:
+                context_used = self.semantic.retrieve_context(query) or []
+            except Exception as _e:
+                log.debug("[BRAIN] process_query: context retrieval failed: %s", _e)
+
+        # Step 2: Claude generation with context injection
+        if self.claude and self.claude.is_available():
+            try:
+                response = self.claude.generate(query, context=context_used) or ""
+            except Exception as _e:
+                log.debug("[BRAIN] process_query: Claude generation failed: %s", _e)
+
+        # Step 3: Fallback to existing think() when Claude unavailable / empty
+        if not response:
+            try:
+                response = self.think(query) or ""
+            except Exception as _e:
+                log.debug("[BRAIN] process_query: think() fallback failed: %s", _e)
+
+        return {
+            "query": query,
+            "context_used": context_used,
+            "response": response,
+        }
 
     def _init_improvements(self):
         """Initialize all production improvements."""
@@ -1084,6 +1150,81 @@ class NiblitBrain:
             stats["learning_batcher"] = self.learning_batcher.get_stats()
 
         return stats
+
+    # ── Fused Memory API ─────────────────────────────────────────────────────
+
+    def save_knowledge(
+        self,
+        knowledge_id: str,
+        knowledge_data: dict,
+        embedding: Optional[List[float]] = None,
+    ) -> None:
+        """Store structured knowledge and an optional embedding via fused memory.
+
+        Writes *knowledge_data* to the SQLite records table and, when
+        *embedding* is provided, also upserts the vector into Qdrant/FAISS.
+
+        Args:
+            knowledge_id:   Unique identifier for this piece of knowledge.
+            knowledge_data: Arbitrary dict payload.
+            embedding:      Optional pre-computed float vector.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                fused.insert_record(knowledge_id, knowledge_data)
+                if embedding:
+                    fused.insert_vector(knowledge_id, embedding, payload=knowledge_data)
+                return
+            except Exception as exc:
+                log.debug("[NiblitBrain] fused save_knowledge failed: %s", exc)
+        # Fallback: store_learning
+        if hasattr(self.memory, "store_learning"):
+            self.memory.store_learning({"knowledge_id": knowledge_id, **knowledge_data})
+
+    def load_knowledge(self, knowledge_id: str) -> dict:
+        """Retrieve a piece of knowledge from the fused memory backend.
+
+        Args:
+            knowledge_id: Unique identifier.
+
+        Returns:
+            Knowledge dict, or empty dict when not found.
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                rec = fused.get_record(knowledge_id)
+                if rec is not None:
+                    return rec
+            except Exception as exc:
+                log.debug("[NiblitBrain] fused load_knowledge failed: %s", exc)
+        return {}
+
+    def retrieve_similar(
+        self,
+        embedding: List[float],
+        top_k: int = 5,
+    ) -> List[dict]:
+        """Find knowledge entries semantically similar to *embedding*.
+
+        Queries the fused Qdrant/FAISS vector index.  Falls back to an empty
+        list when the fused backend is unavailable.
+
+        Args:
+            embedding: Query float vector.
+            top_k:     Maximum results.
+
+        Returns:
+            List of result dicts ordered by similarity (most similar first).
+        """
+        fused = getattr(self.memory, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.query_vector(embedding, top_k=top_k)
+            except Exception as exc:
+                log.debug("[NiblitBrain] fused retrieve_similar failed: %s", exc)
+        return []
 
 
 # ─────────── HF Shortcut ───────────

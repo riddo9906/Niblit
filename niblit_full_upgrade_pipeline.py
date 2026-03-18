@@ -17,8 +17,10 @@ Features
   :class:`modules.internet_manager.InternetManager`
 * **Vector database (FAISS / Qdrant / in-memory)** — semantic knowledge storage
   via :class:`modules.vector_store.VectorStore`
-* **Graph database (Neo4j or SQLite fallback)** — relationship mapping of
-  knowledge artifacts via :class:`NiblitGraphDB`
+* **Graph database (SQLite adjacency tables)** — relationship mapping of
+  knowledge artifacts via :class:`NiblitGraphDB` (fully SQLite-backed;
+  integrated with :class:`modules.fused_memory.FusedMemory` for hybrid
+  Qdrant + SQLite storage)
 * **Docker sandbox** — safe, isolated code execution with a graceful fallback
   to ``subprocess`` when Docker is unavailable
 * **Prometheus metrics** — per-agent cycle counters exposed via
@@ -35,9 +37,6 @@ See ``.env.example`` for the full list.  Key variables::
     GITHUB_REPO          — owner/name, e.g. "riddo9906/Niblit"
     HF_TOKEN             — HuggingFace token for LLM inference
     NEWSAPI_KEY          — NewsAPI.org API key
-    NEO4J_URI            — bolt://… or neo4j+s://… (optional)
-    NEO4J_USER           — Neo4j username (optional)
-    NEO4J_PASS           — Neo4j password (optional)
     SANDBOX_ENABLED      — "true" to enable Docker sandbox (default: false)
     PROMETHEUS_ENABLED   — "true" to start Prometheus HTTP metrics server
     PROMETHEUS_PORT      — port for the Prometheus metrics endpoint (default: 9090)
@@ -83,9 +82,6 @@ GITHUB_REPO: str = os.getenv("GITHUB_REPO", "")
 HF_TOKEN: str = os.getenv("HF_TOKEN", "") or os.getenv("HUGGINGFACE_TOKEN", "")
 NEWSAPI_KEY: str = os.getenv("NEWSAPI_KEY", "")
 WIKI_API_URL: str = os.getenv("WIKI_API_URL", "https://en.wikipedia.org/api/rest_v1/page/summary/{}")
-NEO4J_URI: str = os.getenv("NEO4J_URI", "")
-NEO4J_USER: str = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASS: str = os.getenv("NEO4J_PASS", "")
 SANDBOX_ENABLED: bool = os.getenv("SANDBOX_ENABLED", "false").lower() in ("1", "true", "yes")
 SANDBOX_IMAGE: str = os.getenv("SANDBOX_IMAGE", "python:3.12-slim")
 SANDBOX_TIMEOUT: int = int(os.getenv("SANDBOX_TIMEOUT", "30"))
@@ -104,13 +100,6 @@ try:
 except Exception:
     _docker_client = None
     _DOCKER_AVAILABLE = False
-
-try:
-    from py2neo import Graph as _Neo4jGraph
-    _NEO4J_LIB_AVAILABLE = True
-except ImportError:
-    _Neo4jGraph = None  # type: ignore[assignment,misc]
-    _NEO4J_LIB_AVAILABLE = False
 
 try:
     import prometheus_client as _prom
@@ -231,105 +220,80 @@ def _store_knowledge(
 
 
 # ---------------------------------------------------------------------------
-# Graph database (Neo4j → SQLite adjacency fallback)
+# Graph database (SQLite adjacency tables — fully replaces Neo4j)
 # ---------------------------------------------------------------------------
 
 class NiblitGraphDB:
     """
-    Thin wrapper around Neo4j (when ``py2neo`` and :data:`NEO4J_URI` are
-    available) with an automatic fallback to a SQLite adjacency table so the
-    pipeline always works without external infrastructure.
+    SQLite-backed graph store using adjacency tables.
+
+    Provides the same public interface as the former Neo4j wrapper so all
+    callers (SelfTeacherAgent, pipeline agents, etc.) work without changes.
+    The ``run_query`` method accepts Cypher strings for API compatibility
+    but performs a no-op and returns an empty list (use raw SQL via the
+    injected connection for structured queries instead).
     """
 
     def __init__(
         self,
-        uri: str = NEO4J_URI,
-        user: str = NEO4J_USER,
-        password: str = NEO4J_PASS,
         sqlite_conn: Optional[sqlite3.Connection] = None,
+        # Legacy Neo4j params kept for backward-compat call-sites; ignored.
+        uri: str = "",
+        user: str = "",
+        password: str = "",
     ) -> None:
-        self._graph: Optional[Any] = None
         self._sqlite = sqlite_conn
         self._backend = "none"
 
-        if uri and _NEO4J_LIB_AVAILABLE and _Neo4jGraph is not None:
-            try:
-                self._graph = _Neo4jGraph(uri, auth=(user, password))
-                self._backend = "neo4j"
-                logger.info("NiblitGraphDB: connected to Neo4j at %s", uri)
-            except Exception as exc:
-                logger.warning("NiblitGraphDB: Neo4j connection failed (%s), using SQLite fallback", exc)
-
-        if self._backend == "none" and sqlite_conn is not None:
-            sqlite_conn.execute(
-                """CREATE TABLE IF NOT EXISTS graph_nodes (
-                    name TEXT PRIMARY KEY,
+        if sqlite_conn is not None:
+            sqlite_conn.executescript("""
+                CREATE TABLE IF NOT EXISTS graph_nodes (
+                    name  TEXT PRIMARY KEY,
                     label TEXT,
                     props TEXT
-                )"""
-            )
-            sqlite_conn.execute(
-                """CREATE TABLE IF NOT EXISTS graph_edges (
+                );
+                CREATE TABLE IF NOT EXISTS graph_edges (
                     src  TEXT,
                     rel  TEXT,
                     dst  TEXT
-                )"""
-            )
+                );
+            """)
             sqlite_conn.commit()
             self._backend = "sqlite"
-            logger.info("NiblitGraphDB: using SQLite adjacency-table fallback")
+            logger.debug("NiblitGraphDB: using SQLite adjacency tables")
 
     @property
     def backend(self) -> str:
         return self._backend
 
     def merge_node(self, label: str, name: str, **props: Any) -> None:
-        """Create or update a node in the graph."""
-        if self._backend == "neo4j" and self._graph is not None:
-            try:
-                cypher = f"MERGE (n:{label} {{name: $name}}) SET n += $props"
-                self._graph.run(cypher, name=name, props=props)
-            except Exception as exc:
-                logger.warning("NiblitGraphDB.merge_node Neo4j error: %s", exc)
-        elif self._backend == "sqlite" and self._sqlite is not None:
-            try:
-                self._sqlite.execute(
-                    "INSERT OR REPLACE INTO graph_nodes (name, label, props) VALUES (?,?,?)",
-                    (name, label, json.dumps(props)),
-                )
-                self._sqlite.commit()
-            except Exception as exc:
-                logger.warning("NiblitGraphDB.merge_node SQLite error: %s", exc)
+        """Create or update a graph node."""
+        if self._sqlite is None:
+            return
+        try:
+            self._sqlite.execute(
+                "INSERT OR REPLACE INTO graph_nodes (name, label, props) VALUES (?,?,?)",
+                (name, label, json.dumps(props)),
+            )
+            self._sqlite.commit()
+        except Exception as exc:
+            logger.warning("NiblitGraphDB.merge_node error: %s", exc)
 
     def merge_relationship(self, src: str, rel: str, dst: str) -> None:
-        """Create an edge between two nodes."""
-        if self._backend == "neo4j" and self._graph is not None:
-            try:
-                cypher = (
-                    "MERGE (a {name: $src}) "
-                    "MERGE (b {name: $dst}) "
-                    f"MERGE (a)-[:{rel}]->(b)"
-                )
-                self._graph.run(cypher, src=src, dst=dst)
-            except Exception as exc:
-                logger.warning("NiblitGraphDB.merge_relationship Neo4j error: %s", exc)
-        elif self._backend == "sqlite" and self._sqlite is not None:
-            try:
-                self._sqlite.execute(
-                    "INSERT INTO graph_edges (src, rel, dst) VALUES (?,?,?)",
-                    (src, rel, dst),
-                )
-                self._sqlite.commit()
-            except Exception as exc:
-                logger.warning("NiblitGraphDB.merge_relationship SQLite error: %s", exc)
+        """Create a directed edge."""
+        if self._sqlite is None:
+            return
+        try:
+            self._sqlite.execute(
+                "INSERT INTO graph_edges (src, rel, dst) VALUES (?,?,?)",
+                (src, rel, dst),
+            )
+            self._sqlite.commit()
+        except Exception as exc:
+            logger.warning("NiblitGraphDB.merge_relationship error: %s", exc)
 
     def run_query(self, cypher: str, **params: Any) -> List[Dict[str, Any]]:
-        """Execute a Cypher query (no-op on the SQLite backend)."""
-        if self._backend == "neo4j" and self._graph is not None:
-            try:
-                return list(self._graph.run(cypher, **params).data())
-            except Exception as exc:
-                logger.warning("NiblitGraphDB.run_query error: %s", exc)
+        """API-compatible stub — Cypher queries are not executed on SQLite."""
         return []
 
 

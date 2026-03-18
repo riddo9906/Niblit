@@ -165,10 +165,10 @@ class ResearchAgent:
         return self._serpex
 
     def _knowledge_store_client(self) -> Optional[Any]:
-        """Lazily instantiate :class:`~niblit_memory.knowledge_store.KnowledgeStore`."""
+        """Lazily instantiate :class:`~niblit_memory.KnowledgeStore`."""
         if self._knowledge_store is None:
             try:
-                from niblit_memory.knowledge_store import KnowledgeStore
+                from niblit_memory import KnowledgeStore
                 self._knowledge_store = KnowledgeStore()
             except Exception as exc:
                 logger.debug("ResearchAgent: KnowledgeStore unavailable: %s", exc)

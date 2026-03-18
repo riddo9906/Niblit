@@ -29,12 +29,17 @@ HEADERS = {
 
 
 class InternetManager:
-    def __init__(self, db=None, llm_adapter=None, timeout=10, serpex_api_key=None):
+    def __init__(self, db=None, llm_adapter=None, timeout=10, serpex_api_key=None,
+                 semantic_agent=None, searchcode_search=None):
         self.db = db
         self.llm = llm_adapter
         self.timeout = timeout
         # SerpEx key: explicit param > env var (loaded from .env by orchestrator)
         self.serpex_api_key: str = serpex_api_key or os.getenv("SERPEX_API_KEY", "")
+        # Optional semantic storage backend (injected by niblit_core)
+        self.semantic_agent = semantic_agent
+        # Optional Searchcode backend (injected by niblit_core)
+        self.searchcode_search = searchcode_search
 
     # ─────────────────────────────
     def is_online(self):
@@ -248,6 +253,41 @@ class InternetManager:
             # Limit number of sentences per entry
             entry["text"] = " ".join(unique_sentences[:max_results])
             cleaned_results.append(entry)
+
+        # ───────── SEARCHCODE (code-aware supplement) ─────────
+        # When a searchcode backend is available, augment with real code examples.
+        if self.searchcode_search and not getattr(self.searchcode_search, "_unavailable", False):
+            try:
+                sc_results = self.searchcode_search.search_code(query, per_page=3)
+                if sc_results:
+                    for item in sc_results:
+                        text = item.get("snippet") or item.get("text") or ""
+                        if not text and "lines" in item:
+                            lines = item.get("lines", {})
+                            if isinstance(lines, dict):
+                                text = " ".join(str(v) for v in lines.values())[:400]
+                        if text:
+                            cleaned_results.append({
+                                "source": "searchcode",
+                                "text": text,
+                                "url": item.get("url", ""),
+                            })
+            except Exception:
+                pass
+
+        # ───────── SEMANTIC STORAGE ─────────
+        # Persist collected results into the vector store so future queries
+        # can retrieve them semantically.
+        if self.semantic_agent and cleaned_results:
+            try:
+                self.semantic_agent.store_knowledge(
+                    [{"snippet": r["text"], "title": r.get("source", ""), "url": r.get("url")}
+                     for r in cleaned_results if r.get("text")],
+                    source="internet_manager",
+                    query=query,
+                )
+            except Exception:
+                pass
 
         # ───────── LLM REWRITE ─────────
         if use_llm and self.llm:

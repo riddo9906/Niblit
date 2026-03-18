@@ -232,6 +232,8 @@ class SelfResearcher:
         # from the modules registry.  niblit_core injects them after init.
         self._serpex_agent = self.registry.get("serpex_agent")
         self._searchcode_search = self.registry.get("searchcode_search")
+        # SemanticAgent for vector-store backed knowledge storage/retrieval
+        self._semantic_agent = self.registry.get("semantic_agent")
 
         # Optional modules
         self.engine = research_engine
@@ -287,6 +289,14 @@ class SelfResearcher:
     def searchcode_search(self, value):
         self._searchcode_search = value
 
+    @property
+    def semantic_agent(self):
+        return self._semantic_agent
+
+    @semantic_agent.setter
+    def semantic_agent(self, value):
+        self._semantic_agent = value
+
     def _ensure_serpex_agent(self) -> None:
         """Lazy-construct a ResearchAgent if one was not injected at init time."""
         if self._serpex_agent is not None:
@@ -327,6 +337,8 @@ class SelfResearcher:
             backends.append("Searchcode")
         if self._internet:
             backends.append("Internet")
+        if self._semantic_agent and self._semantic_agent.is_available():
+            backends.append("SemanticStore")
         return (
             f"Auto-research: {state} | "
             f"Backends: {', '.join(backends) or 'none'} | "
@@ -666,6 +678,21 @@ class SelfResearcher:
             else:
                 log.warning("[REFLECT] Skipped due to low-quality data for query %r", query)
 
+        # ✨ SEMANTIC STORAGE — persist into vector store for future semantic retrieval
+        if self._semantic_agent and collected_results:
+            try:
+                # Convert mixed results (str/dict) to store-compatible format
+                docs = []
+                for r in collected_results:
+                    if isinstance(r, str) and r:
+                        docs.append({"snippet": r})
+                    elif isinstance(r, dict):
+                        docs.append(r)
+                if docs:
+                    self._semantic_agent.store_knowledge(docs, source="self_researcher", query=query)
+            except Exception as _e:
+                log.debug("[SEARCH] SemanticAgent storage failed: %s", _e)
+
         # 9️⃣ AUTO-LEARN (persist every result to KB)
         try:
             for r in collected_results[:max_results]:
@@ -746,6 +773,83 @@ class SelfResearcher:
                                   default=("None", {}))[0],
             "patterns": self.learning_patterns
         }
+
+    # ── Fused Memory API ─────────────────────────────────────────────────────
+
+    def log_finding(
+        self,
+        research_id: str,
+        data: Dict[str, Any],
+        embedding: Optional[List[float]] = None,
+    ) -> None:
+        """Persist an autonomous research finding via the fused memory backend.
+
+        Writes the structured *data* dict to SQLite and, when *embedding* is
+        provided, also upserts the vector into Qdrant/FAISS for later
+        similarity-based retrieval.
+
+        Args:
+            research_id: Unique identifier for this research finding.
+            data:        Arbitrary result/finding dict.
+            embedding:   Optional pre-computed float embedding.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                fused.insert_record(research_id, data)
+                if embedding:
+                    fused.insert_vector(research_id, embedding, payload=data)
+                return
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused log_finding failed: %s", exc)
+        # Fallback: store via existing learning-log path
+        if hasattr(self.db, "store_learning"):
+            self.db.store_learning({"research_id": research_id, **data})
+
+    def get_finding(self, research_id: str) -> Dict[str, Any]:
+        """Retrieve a previously stored research finding by ID.
+
+        Args:
+            research_id: Unique finding identifier.
+
+        Returns:
+            Finding dict, or empty dict when not found.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                rec = fused.get_record(research_id)
+                if rec is not None:
+                    return rec
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused get_finding failed: %s", exc)
+        return {}
+
+    def query_past_findings(
+        self,
+        embedding: List[float],
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Find stored research findings similar to *embedding*.
+
+        Queries the fused Qdrant/FAISS vector index.  Returns at most *top_k*
+        results ordered by similarity.  Falls back to an empty list when the
+        fused backend is unavailable.
+
+        Args:
+            embedding: Query float vector.
+            top_k:     Maximum results.
+
+        Returns:
+            List of result dicts.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.query_vector(embedding, top_k=top_k)
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused query_past_findings failed: %s", exc)
+        return []
 
     # ─────────────────────────────────────────────
     # CODE RESEARCHER — feeds CodeGenerator with real data

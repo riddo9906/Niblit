@@ -1,9 +1,22 @@
 #!/usr/bin/env python3
 # modules/self_teacher.py
+"""SelfTeacher — teaches Niblit about topics via research + persistence.
+
+All learning is stored in the canonical niblit_memory module so that
+facts are available to every other subsystem.
+"""
+try:
+    from niblit_memory import NiblitMemory as _NiblitMemory
+    _GLOBAL_MEMORY = _NiblitMemory()
+except Exception:
+    _GLOBAL_MEMORY = None  # type: ignore[assignment]
+
 
 class SelfTeacher:
-    def __init__(self, db, researcher=None, reflector=None, learner=None):
-        self.db = db
+    def __init__(self, db=None, researcher=None, reflector=None, learner=None):
+        # Accept either a legacy KnowledgeDB/LocalDB *or* a NiblitMemory instance.
+        # Fall back to the canonical GLOBAL_MEMORY singleton when nothing is passed.
+        self.db = db or _GLOBAL_MEMORY
         self.researcher = researcher
         self.reflector = reflector
         self.learner = learner
@@ -35,13 +48,16 @@ class SelfTeacher:
         else:
             summary = f"No external data found for {topic}"
 
-        # Store learning in DB (unchanged logic)
+        # Store learning in memory (unchanged logic, works with any backend)
         try:
-            self.db.add_fact(
-                f"learn:{topic}",
-                summary,
-                tags=["learn", "self-teach"]
-            )
+            if hasattr(self.db, "add_fact"):
+                self.db.add_fact(
+                    f"learn:{topic}",
+                    summary,
+                    tags=["learn", "self-teach"]
+                )
+            elif hasattr(self.db, "store_learning"):
+                self.db.store_learning({"topic": topic, "summary": summary, "tags": ["learn", "self-teach"]})
         except Exception:
             pass
 
@@ -65,5 +81,7 @@ class SelfTeacher:
 
         return f"Self-teach completed for '{topic}'."
 
+
 if __name__ == "__main__":
     print("Running self_teacher.py")
+
