@@ -101,7 +101,11 @@ class SerpexAPI:
         scrapy_engine = self._engine or _get_scrapy_engine()
         if scrapy_engine is None:
             return {"results": [], "error": "ScrapySearchEngine unavailable"}
-        return scrapy_engine.search(query, category=category)
+        try:
+            return scrapy_engine.search(query, category=category)
+        except Exception as exc:
+            logger.error("[SerpexAPI] search failed: %s", exc)
+            return {"results": [], "error": str(exc)}
 
 
 # ── SQLiteAPI kept for backward compat imports ───────────────────────────────

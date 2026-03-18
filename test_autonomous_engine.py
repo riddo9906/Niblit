@@ -191,9 +191,9 @@ class TestGetLearningStats:
         mods = ale.get_learning_stats()["modules_available"]
         assert "serpex_research_agent" in mods
 
-    def test_serpex_research_agent_false_when_not_provided(self, ale, monkeypatch):
+    def test_serpex_research_agent_available_without_key(self, ale, monkeypatch):
+        # Scrapy-backed search requires no API key — agent is always available.
         monkeypatch.delenv("SERPEX_API_KEY", raising=False)
-        # Clear any cached agent
         ale.serpex_research_agent = None
         if ale.core:
             try:
@@ -201,7 +201,7 @@ class TestGetLearningStats:
             except AttributeError:
                 pass
         mods = ale.get_learning_stats()["modules_available"]
-        assert mods["serpex_research_agent"] is False
+        assert mods["serpex_research_agent"] is True
 
 
 # ---------------------------------------------------------------------------
