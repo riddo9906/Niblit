@@ -249,6 +249,13 @@ except Exception as e:
     AutonomousLearningEngine = None
 
 # ============================================================
+try:
+    from modules.trading_brain import TradingBrain
+except Exception as e:
+    log.debug(f"TradingBrain import failed: {e}")
+    TradingBrain = None  # type: ignore[assignment,misc]
+
+# ============================================================
 # LIVE UPDATER + STRUCTURAL AWARENESS IMPORTS
 # ============================================================
 try:
@@ -1146,6 +1153,8 @@ class NiblitCore:
 
         # NEW: Autonomous Learning Engine
         self.autonomous_engine: Optional[AutonomousLearningEngine] = None
+        # NEW: Trading Brain
+        self.trading_brain: Optional["TradingBrain"] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -3899,6 +3908,20 @@ Uptime: {stats['uptime_seconds']}s
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))
+
+            # ============================
+            # TRADING BRAIN
+            # ============================
+            if TradingBrain:
+                try:
+                    self.trading_brain = TradingBrain(
+                        memory=getattr(self, "memory", None),
+                    )
+                    log.info("✅ TradingBrain initialized (symbol=%s)", self.trading_brain.symbol)
+                    self.startup_report.add("trading_brain", "ready")
+                except Exception as e:
+                    log.debug("TradingBrain init failed: %s", e)
+                    self.startup_report.add("trading_brain", "degraded", str(e))
 
             # ============================
             # MCP SERVER — attach NiblitCore so tools work

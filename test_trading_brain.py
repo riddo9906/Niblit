@@ -275,5 +275,74 @@ class TestCycle(unittest.TestCase):
         self.assertEqual(brain.cycle(), "HOLD")
 
 
+class TestAutonomousCycle(unittest.TestCase):
+    """Tests for start/stop/status/running methods."""
+
+    def _brain(self, **kwargs):
+        from modules.trading_brain import TradingBrain
+        brain = TradingBrain(memory=_make_mock_memory(), **kwargs)
+        brain._client = None
+        return brain
+
+    def test_initial_state_not_running(self):
+        brain = self._brain()
+        self.assertFalse(brain.running)
+        self.assertEqual(brain._cycle_count, 0)
+        self.assertEqual(brain._last_decision, "HOLD")
+        self.assertIsNone(brain._last_cycle_ts)
+
+    def test_start_returns_true_first_call(self):
+        brain = self._brain()
+        brain.cycle = MagicMock(return_value="HOLD")
+        result = brain.start()
+        self.assertTrue(result)
+        self.assertTrue(brain._running)
+        brain.stop()
+
+    def test_start_returns_false_when_already_running(self):
+        brain = self._brain()
+        brain.cycle = MagicMock(return_value="HOLD")
+        brain.start()
+        result = brain.start()
+        self.assertFalse(result)
+        brain.stop()
+
+    def test_stop_returns_true_when_running(self):
+        brain = self._brain()
+        brain.cycle = MagicMock(return_value="HOLD")
+        brain.start()
+        result = brain.stop()
+        self.assertTrue(result)
+
+    def test_stop_returns_false_when_not_running(self):
+        brain = self._brain()
+        result = brain.stop()
+        self.assertFalse(result)
+
+    def test_status_dict_keys(self):
+        brain = self._brain()
+        st = brain.status()
+        for key in ("running", "symbol", "interval", "cycle_secs",
+                    "cycle_count", "last_decision", "last_cycle_ts",
+                    "binance_available", "memory_available"):
+            self.assertIn(key, st)
+        self.assertIsInstance(st["running"], bool)
+        self.assertIsInstance(st["symbol"], str)
+        self.assertIsInstance(st["interval"], str)
+        self.assertIsInstance(st["cycle_secs"], int)
+        self.assertIsInstance(st["cycle_count"], int)
+        self.assertIsInstance(st["last_decision"], str)
+        self.assertIsInstance(st["binance_available"], bool)
+        self.assertIsInstance(st["memory_available"], bool)
+
+    def test_status_reflects_state(self):
+        brain = self._brain(symbol="ETHUSDT", cycle_secs=30)
+        st = brain.status()
+        self.assertFalse(st["running"])
+        self.assertEqual(st["symbol"], "ETHUSDT")
+        self.assertEqual(st["cycle_secs"], 30)
+        self.assertEqual(st["cycle_count"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

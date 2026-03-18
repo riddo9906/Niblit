@@ -29,6 +29,13 @@ Architecture::
          ▼
     DecisionEngine          ← decide_action()  → BUY / SELL / HOLD
 
+Autonomous cycle control::
+
+    brain.start()   — Launches a background daemon thread that calls cycle()
+                       every ``cycle_secs`` seconds.
+    brain.stop()    — Signals the background thread to exit cleanly.
+    brain.status()  — Returns a human-readable status dict.
+
 Configuration (environment variables)::
 
     BINANCE_API_KEY     — Binance API key (optional; public data is keyless)
@@ -52,6 +59,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -98,6 +106,7 @@ except ImportError:  # pragma: no cover
 _DEFAULT_SYMBOL = os.getenv("TRADING_SYMBOL", "BTCUSDT")
 _DEFAULT_INTERVAL = os.getenv("TRADING_INTERVAL", "1m")
 _DEFAULT_KLINE_LIMIT = int(os.getenv("TRADING_KLINE_LIMIT", "200"))
+_DEFAULT_CYCLE_SECS = int(os.getenv("TRADING_CYCLE_SECS", "60"))
 
 # Decision thresholds (similarity scores returned by Qdrant range 0–1)
 _BUY_THRESHOLD = 0.85
@@ -124,6 +133,7 @@ class TradingBrain:
         symbol:     Trading symbol, e.g. ``"BTCUSDT"``.
         interval:   Kline interval string accepted by Binance, e.g. ``"1m"``.
         kline_limit: Number of candles fetched per cycle (default 200).
+        cycle_secs: Seconds between autonomous cycles (default 60).
         memory:     Optional pre-constructed :class:`NiblitMemory` instance.
                     A new singleton will be created when *None*.
     """
@@ -135,11 +145,20 @@ class TradingBrain:
         symbol: str = _DEFAULT_SYMBOL,
         interval: str = _DEFAULT_INTERVAL,
         kline_limit: int = _DEFAULT_KLINE_LIMIT,
+        cycle_secs: int = _DEFAULT_CYCLE_SECS,
         memory: Optional[Any] = None,
     ) -> None:
         self.symbol = symbol
         self.interval = interval
         self.kline_limit = kline_limit
+        self.cycle_secs = cycle_secs
+
+        # ── autonomous background thread state ───────────────────────────────
+        self._running: bool = False
+        self._thread: Optional[threading.Thread] = None
+        self._cycle_count: int = 0
+        self._last_decision: str = "HOLD"
+        self._last_cycle_ts: Optional[str] = None
 
         # ── Binance client ──────────────────────────────────────────────────
         self._client: Optional[Any] = None
@@ -443,15 +462,111 @@ class TradingBrain:
 
             # 7. Decide
             decision = self.decide_action(vector)
+            self._last_decision = decision
+            self._last_cycle_ts = metadata["timestamp"]
+            self._cycle_count += 1
             log.info(
-                "[TradingBrain] %s | price=%.2f rsi=%.2f decision=%s",
+                "[TradingBrain] %s | price=%.2f rsi=%.2f decision=%s (cycle #%d)",
                 self.symbol,
                 metadata["price"],
                 metadata["rsi"],
                 decision,
+                self._cycle_count,
             )
             return decision
 
         except Exception as exc:
             log.error("[TradingBrain] cycle() error: %s", exc, exc_info=True)
             return "HOLD"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # AUTONOMOUS CYCLE CONTROL
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def start(self) -> bool:
+        """Start the autonomous trading cycle in a background daemon thread.
+
+        Calls :meth:`cycle` every ``self.cycle_secs`` seconds until
+        :meth:`stop` is called.
+
+        Returns:
+            ``True`` if the thread was launched, ``False`` if it was already
+            running.
+        """
+        if self._running:
+            log.info("[TradingBrain] Already running — ignoring start().")
+            return False
+
+        self._running = True
+        self._thread = threading.Thread(
+            target=self._autonomous_loop,
+            name="TradingBrainCycle",
+            daemon=True,
+        )
+        self._thread.start()
+        log.info(
+            "[TradingBrain] Autonomous cycle started (symbol=%s, interval=%ds).",
+            self.symbol,
+            self.cycle_secs,
+        )
+        return True
+
+    def stop(self) -> bool:
+        """Stop the autonomous trading cycle.
+
+        Signals the background thread to exit.  The thread will finish its
+        current ``cycle_secs`` sleep before terminating.
+
+        Returns:
+            ``True`` if the thread was running and has been signalled to stop,
+            ``False`` if it was not running.
+        """
+        if not self._running:
+            log.info("[TradingBrain] Not running — ignoring stop().")
+            return False
+
+        self._running = False
+        log.info("[TradingBrain] Autonomous cycle stop requested.")
+        return True
+
+    @property
+    def running(self) -> bool:
+        """``True`` when the autonomous cycle thread is active."""
+        return self._running and (self._thread is not None) and self._thread.is_alive()
+
+    def status(self) -> Dict[str, Any]:
+        """Return a dict describing the current state of the trading brain.
+
+        Returns:
+            Dict with keys: ``running``, ``symbol``, ``cycle_secs``,
+            ``cycle_count``, ``last_decision``, ``last_cycle_ts``.
+        """
+        return {
+            "running": self.running,
+            "symbol": self.symbol,
+            "interval": self.interval,
+            "cycle_secs": self.cycle_secs,
+            "cycle_count": self._cycle_count,
+            "last_decision": self._last_decision,
+            "last_cycle_ts": self._last_cycle_ts or "—",
+            "binance_available": self._client is not None,
+            "memory_available": self.memory is not None,
+        }
+
+    def _autonomous_loop(self) -> None:
+        """Internal: run cycle() in a loop until self._running is False."""
+        import time as _time
+
+        log.info("[TradingBrain] Background loop starting.")
+        while self._running:
+            try:
+                decision = self.cycle()
+                log.debug("[TradingBrain] Autonomous cycle → %s", decision)
+            except Exception as exc:  # pragma: no cover
+                log.error("[TradingBrain] Unexpected error in loop: %s", exc, exc_info=True)
+            # Sleep in short increments so stop() is responsive
+            for _ in range(self.cycle_secs):
+                if not self._running:
+                    break
+                _time.sleep(1)
+        log.info("[TradingBrain] Background loop stopped.")
