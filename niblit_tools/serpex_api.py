@@ -1,30 +1,29 @@
 # niblit_tools/serpex_api.py
 """
-Niblit Search API — SQLite-backed local research (replaces Serpex).
-
-All external HTTP calls to api.serpex.dev have been replaced with queries
-against Niblit's own SQLite KnowledgeDB.  The public interface is fully
-preserved so every caller (NiblitBrain, ALE, InternetManager, tests, etc.)
-continues to work without modification.
+Niblit Search API — SerpexAPI (HTTP) + SQLiteAPI (local fallback).
 
 Architecture::
 
     NiblitBrain
          │  tool call
          ▼
-    niblit_serpex_search()          ← same function name kept for compat
+    niblit_serpex_search()
          │
-         ▼
-    SQLiteResearcher               ← new: local KB search, no HTTP
+         ├─ ResearchAgent (uses SerpexAPI HTTP when key is configured)
          │
-         ▼
-    KnowledgeDB (SQLite)  →  KnowledgeStore  →  (optional) Qdrant
+         └─ SQLiteResearcher (local KB fallback when no key)
 """
 
 import logging
+import os
+
+import requests  # noqa: F401 — kept at module level so tests can patch it
+
 from typing import Any, Dict, List
 
 logger = logging.getLogger("Niblit.SearchAPI")
+
+_SERPEX_API_URL = os.getenv("SERPEX_API_URL", "https://api.serpex.dev/api/search")
 
 # ── lazy import of SQLiteResearcher so circular imports are avoided ──────────
 _sqlite_researcher = None
@@ -42,7 +41,7 @@ def _get_sqlite_researcher():
     return _sqlite_researcher
 
 
-# ── ResearchAgent shim — kept for backward-compat imports ───────────────────
+# ── ResearchAgent import — used by niblit_serpex_search ─────────────────────
 try:
     from niblit_agents.research_agent import ResearchAgent as _ResearchAgent
     _RESEARCH_AGENT_AVAILABLE = True
@@ -52,14 +51,77 @@ except Exception:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SQLiteAPI  (drop-in replacement for the former SerpexAPI class)
+# SerpexAPI  — HTTP-based search client for api.serpex.dev
+# ─────────────────────────────────────────────────────────────────────────────
+
+class SerpexAPI:
+    """HTTP client for the Serpex search API (api.serpex.dev).
+
+    Requires ``SERPEX_API_KEY`` either via the *api_key* constructor argument
+    or the environment variable of the same name.
+
+    Args:
+        api_key: Serpex API key.  Falls back to ``SERPEX_API_KEY`` env var.
+
+    Raises:
+        ValueError: When no API key is available.
+    """
+
+    def __init__(self, api_key: str = None) -> None:
+        resolved = api_key or os.getenv("SERPEX_API_KEY", "") or ""
+        if not resolved:
+            raise ValueError(
+                "SERPEX_API_KEY is required.  Pass api_key= or set the "
+                "SERPEX_API_KEY environment variable."
+            )
+        self.api_key: str = resolved
+
+    def is_configured(self) -> bool:
+        """Return *True* when an API key is present."""
+        return bool(self.api_key)
+
+    def search(
+        self,
+        query: str,
+        category: str = "web",
+        engine: str = "auto",
+        time_range: str = "day",
+    ) -> Dict[str, Any]:
+        """Send a search request to the Serpex API.
+
+        Args:
+            query:      Search query string.
+            category:   ``"web"`` or ``"news"``.
+            engine:     Search engine hint (e.g. ``"google"``).
+            time_range: Time filter for web results (e.g. ``"day"``, ``"week"``).
+                        Omitted for news searches.
+
+        Returns:
+            Parsed JSON dict from the Serpex API, or ``{"error": ...}`` on
+            failure.
+        """
+        params: Dict[str, Any] = {"q": query, "category": category}
+        if engine and engine != "auto":
+            params["engine"] = engine
+        if category != "news":
+            params["time_range"] = time_range
+
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        try:
+            resp = requests.get(_SERPEX_API_URL, params=params, headers=headers, timeout=10)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as exc:
+            logger.error("[SerpexAPI] search failed: %s", exc)
+            return {"error": str(exc)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SQLiteAPI  — local-database search backend (no API key required)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class SQLiteAPI:
-    """Local-database search backend — replaces the former SerpexAPI HTTP wrapper.
-
-    Queries Niblit's KnowledgeDB (SQLite) instead of calling api.serpex.dev.
-    Returns the same response envelope so all existing callers work unchanged.
+    """Local-database search backend backed by Niblit's KnowledgeDB (SQLite).
 
     No API key is required.  ``is_configured()`` always returns ``True``.
     """
@@ -79,27 +141,11 @@ class SQLiteAPI:
         engine: str = "auto",
         time_range: str = "day",
     ) -> Dict[str, Any]:
-        """Search local KnowledgeDB and return a Serpex-envelope-compatible dict.
-
-        Args:
-            query:      Search query string.
-            category:   ``"web"`` or ``"news"`` (both use KnowledgeDB).
-            engine:     Ignored (kept for compat).
-            time_range: Ignored (kept for compat).
-
-        Returns:
-            Dict with ``"organic_results"``, ``"results"``, ``"source": "sqlite"``
-            keys — the same shape as the former Serpex JSON response.
-        """
+        """Search local KnowledgeDB, returning a Serpex-envelope-compatible dict."""
         researcher = self._researcher or _get_sqlite_researcher()
         if researcher is None:
             return {"results": [], "organic_results": [], "source": "sqlite", "error": "KnowledgeDB unavailable"}
         return researcher.search(query, category=category)
-
-
-# ── Keep SerpexAPI as an alias so any ``from niblit_tools.serpex_api import SerpexAPI``
-# statement continues to work without modification.
-SerpexAPI = SQLiteAPI
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -109,9 +155,9 @@ SerpexAPI = SQLiteAPI
 def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, Any]]:
     """Tool function exposed to NiblitBrain.
 
-    Delegates to ResearchAgent (which now uses SQLiteResearcher internally)
-    so results are normalised, stored in KnowledgeStore, and optionally
-    embedded in Qdrant.
+    Delegates to ResearchAgent (which uses SerpexAPI when configured, otherwise
+    falls back to SQLiteResearcher) so results are normalised, stored in
+    KnowledgeStore, and optionally embedded in Qdrant.
 
     Args:
         query:    Search query string.
@@ -120,7 +166,7 @@ def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, An
     Returns:
         List of ``{"title", "url", "snippet"}`` dicts.
     """
-    # Prefer the full ResearchAgent pipeline (stores results in KB automatically)
+    # Prefer the full ResearchAgent pipeline
     if _RESEARCH_AGENT_AVAILABLE and _ResearchAgent is not None:
         try:
             agent = _ResearchAgent()
@@ -129,6 +175,7 @@ def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, An
             return agent.search_web(query)
         except Exception as exc:
             logger.debug("[niblit_serpex_search] ResearchAgent failed: %s", exc)
+            return [{"error": str(exc)}]
 
     # Fallback: direct SQLiteResearcher
     researcher = _get_sqlite_researcher()
@@ -144,7 +191,7 @@ def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, An
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GPT tool definition (for NiblitBrain tool registry) — unchanged
+# GPT tool definition (for NiblitBrain tool registry)
 # ─────────────────────────────────────────────────────────────────────────────
 
 NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
@@ -171,5 +218,5 @@ NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
 }
 
 if __name__ == "__main__":
-    print("niblit_tools/serpex_api.py — SQLite-backed search (replaces Serpex)")
+    print("niblit_tools/serpex_api.py — SerpexAPI (HTTP) + SQLiteAPI (local fallback)")
 
