@@ -1,6 +1,6 @@
 # niblit_agents/research_agent.py
 """
-Niblit ResearchAgent — Serpex-backed web research with KnowledgeStore persistence.
+Niblit ResearchAgent — Scrapy-backed web research with KnowledgeStore persistence.
 
 Architecture::
 
@@ -10,7 +10,7 @@ Architecture::
     ResearchAgent
          │   uses
          ▼
-    SerpexAPI (HTTP)                   ← primary: calls api.serpex.dev
+    SerpexAPI  →  ScrapySearchEngine  →  DuckDuckGo HTML scraping
          │
          ▼
     _process_results()
@@ -20,13 +20,12 @@ Architecture::
     KnowledgeStore.store_search_results()   VectorStore.add()
     (SQLite persistence)                    (Qdrant embedding, optional)
 
-When ``SERPEX_API_KEY`` is not configured, ``is_configured()`` returns
-``False`` and callers can fall back to the SQLite-backed path.
+No external API key is required — Scrapy scrapes DuckDuckGo HTML directly.
 
 Usage::
 
     from niblit_agents.research_agent import ResearchAgent
-    agent = ResearchAgent(serpex_api_key="sk-...")
+    agent = ResearchAgent()
     results = agent.search_web("python asyncio patterns")
     # → [{"title": ..., "url": ..., "snippet": ...}]
 """
@@ -66,10 +65,17 @@ def should_reflect(results: list) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ResearchAgent:
-    """Serpex-backed research agent with KnowledgeStore persistence.
+    """Scrapy-backed research agent with KnowledgeStore persistence.
+
+    Searches DuckDuckGo via :class:`~niblit_tools.serpex_api.SerpexAPI` (which
+    delegates to :class:`~niblit_tools.scrapy_search.ScrapySearchEngine`) and
+    stores results in the Niblit KnowledgeStore.  No external API key is needed.
+
+    The ``serpex_api_key`` parameter is accepted for backward compatibility but
+    is no longer required or used.
 
     Args:
-        serpex_api_key:  Serpex API key.  Falls back to ``SERPEX_API_KEY`` env var.
+        serpex_api_key:  Accepted for interface compat; ignored.
         knowledge_store: Optional pre-built KnowledgeStore instance.
         qdrant_url:      Qdrant server URL (for optional vector embedding).
         qdrant_api_key:  Qdrant API key.
@@ -82,14 +88,15 @@ class ResearchAgent:
         qdrant_url: str = "",
         qdrant_api_key: str = "",
     ) -> None:
-        self._serpex_api_key = serpex_api_key or os.getenv("SERPEX_API_KEY", "")
+        # serpex_api_key is no longer used but kept for backward compat
+        self._serpex_api_key = serpex_api_key
         self._qdrant_url = qdrant_url
         self._qdrant_api_key = qdrant_api_key
         self._knowledge_store: Optional[Any] = knowledge_store
         self._vector_store: Optional[Any] = None
 
-        # Build SerpexAPI backend
-        self._serpex: Optional[Any] = self._build_serpex(self._serpex_api_key)
+        # Build Scrapy-backed search engine via SerpexAPI shim
+        self._serpex: Optional[Any] = self._build_search_engine()
 
         # Build optional Qdrant VectorStore
         if self._qdrant_url:
@@ -106,13 +113,11 @@ class ResearchAgent:
     # ── builder ──────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _build_serpex(api_key: str) -> Optional[Any]:
-        """Construct a SerpexAPI instance; returns None when unconfigured."""
+    def _build_search_engine() -> Optional[Any]:
+        """Construct a :class:`SerpexAPI` (Scrapy-backed) instance."""
         try:
             from niblit_tools.serpex_api import SerpexAPI
-            return SerpexAPI(api_key=api_key if api_key else None)
-        except ValueError:
-            return None
+            return SerpexAPI()
         except Exception as exc:
             logger.debug("ResearchAgent: SerpexAPI unavailable: %s", exc)
             return None
@@ -120,11 +125,11 @@ class ResearchAgent:
     # ── public API ────────────────────────────────────────────────────────────
 
     def is_configured(self) -> bool:
-        """Return *True* when a Serpex API key is present."""
-        return bool(self._serpex_api_key)
+        """Always ``True`` — Scrapy needs no external API key."""
+        return True
 
     def search_web(self, query: str) -> List[Dict[str, Any]]:
-        """Search the web via Serpex and return normalised result items.
+        """Search the web via Scrapy and return normalised result items.
 
         Args:
             query: Natural-language search query.
@@ -133,14 +138,13 @@ class ResearchAgent:
             List of ``{"title": str, "url": str, "snippet": str}`` dicts.
         """
         logger.info("[ResearchAgent] search_web: %r", query)
-        ks = self._knowledge_store_client()
         if self._serpex is None:
             return []
         data = self._serpex.search(query, category="web")
         return self._process_results(data, query=query)
 
     def search_news(self, query: str) -> List[Dict[str, Any]]:
-        """Search for news via Serpex (Google engine).
+        """Search for news via Scrapy and return normalised result items.
 
         Args:
             query: Natural-language search query.
