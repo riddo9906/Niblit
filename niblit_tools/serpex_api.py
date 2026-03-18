@@ -1,74 +1,76 @@
 # niblit_tools/serpex_api.py
 """
-Niblit Serpex API Wrapper + NiblitBrain tool function.
+Niblit Search API — SQLite-backed local research (replaces Serpex).
 
-Provides:
-  - :class:`SerpexAPI`          — thin HTTP wrapper around api.serpex.dev
-  - :func:`niblit_serpex_search` — tool function exposed to NiblitBrain (GPT)
-  - :data:`NIBLIT_SERPEX_TOOL`  — GPT tool definition dict
+All external HTTP calls to api.serpex.dev have been replaced with queries
+against Niblit's own SQLite KnowledgeDB.  The public interface is fully
+preserved so every caller (NiblitBrain, ALE, InternetManager, tests, etc.)
+continues to work without modification.
 
 Architecture::
 
     NiblitBrain
          │  tool call
          ▼
-    niblit_serpex_search()
+    niblit_serpex_search()          ← same function name kept for compat
          │
          ▼
-    ResearchAgent   (niblit_agents/research_agent.py)
+    SQLiteResearcher               ← new: local KB search, no HTTP
          │
          ▼
-    SerpexAPI  ──►  api.serpex.dev
-         │
-         ▼
-    KnowledgeStore  (niblit_memory/knowledge_store.py)
-         │
-         ▼
-    (optional) Qdrant embeddings  →  SemanticAgent
+    KnowledgeDB (SQLite)  →  KnowledgeStore  →  (optional) Qdrant
 """
 
 import logging
-import os
 from typing import Any, Dict, List
 
-import requests
+logger = logging.getLogger("Niblit.SearchAPI")
 
-logger = logging.getLogger("Niblit.Serpex")
+# ── lazy import of SQLiteResearcher so circular imports are avoided ──────────
+_sqlite_researcher = None
 
-_SERPEX_BASE_URL = "https://api.serpex.dev/api/search"
 
-# Module-level import so tests can patch niblit_tools.serpex_api.ResearchAgent
+def _get_sqlite_researcher():
+    """Return a shared SQLiteResearcher instance (built once on first call)."""
+    global _sqlite_researcher
+    if _sqlite_researcher is None:
+        try:
+            from modules.sqlite_researcher import SQLiteResearcher
+            _sqlite_researcher = SQLiteResearcher()
+        except Exception as exc:
+            logger.debug("SQLiteResearcher unavailable: %s", exc)
+    return _sqlite_researcher
+
+
+# ── ResearchAgent shim — kept for backward-compat imports ───────────────────
 try:
     from niblit_agents.research_agent import ResearchAgent as _ResearchAgent
     _RESEARCH_AGENT_AVAILABLE = True
-except Exception:  # noqa: BLE001 — library may not be on path yet
+except Exception:
     _ResearchAgent = None  # type: ignore[assignment,misc]
     _RESEARCH_AGENT_AVAILABLE = False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SerpexAPI wrapper
+# SQLiteAPI  (drop-in replacement for the former SerpexAPI class)
 # ─────────────────────────────────────────────────────────────────────────────
 
-class SerpexAPI:
-    """
-    Thin HTTP wrapper around the Serpex search API.
+class SQLiteAPI:
+    """Local-database search backend — replaces the former SerpexAPI HTTP wrapper.
 
-    Args:
-        api_key: Serpex API key.  Falls back to ``SERPEX_API_KEY`` env var.
+    Queries Niblit's KnowledgeDB (SQLite) instead of calling api.serpex.dev.
+    Returns the same response envelope so all existing callers work unchanged.
 
-    Raises:
-        ValueError: when no API key is available.
+    No API key is required.  ``is_configured()`` always returns ``True``.
     """
 
     def __init__(self, api_key: str = None) -> None:
-        self.api_key: str = api_key or os.getenv("SERPEX_API_KEY", "")
-        if not self.api_key:
-            raise ValueError(
-                "SERPEX_API_KEY is required. "
-                "Set it via the constructor argument or the SERPEX_API_KEY environment variable."
-            )
-        self.base_url: str = _SERPEX_BASE_URL
+        # api_key accepted but ignored — kept for interface compatibility
+        self._researcher = _get_sqlite_researcher()
+
+    def is_configured(self) -> bool:
+        """Always True — SQLite is always available."""
+        return True
 
     def search(
         self,
@@ -77,82 +79,80 @@ class SerpexAPI:
         engine: str = "auto",
         time_range: str = "day",
     ) -> Dict[str, Any]:
-        """
-        Perform a search using the Serpex API.
+        """Search local KnowledgeDB and return a Serpex-envelope-compatible dict.
 
         Args:
             query:      Search query string.
-            category:   ``"web"`` or ``"news"``.
-            engine:     ``"auto"``, ``"google"``, etc.
-            time_range: ``"day"``, ``"week"``, or ``"month"`` (web only).
+            category:   ``"web"`` or ``"news"`` (both use KnowledgeDB).
+            engine:     Ignored (kept for compat).
+            time_range: Ignored (kept for compat).
 
         Returns:
-            Parsed JSON response dict, or ``{"error": str}`` on failure.
+            Dict with ``"organic_results"``, ``"results"``, ``"source": "sqlite"``
+            keys — the same shape as the former Serpex JSON response.
         """
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        params: Dict[str, str] = {
-            "q": query,
-            "engine": engine,
-            "category": category,
-        }
-        # Only apply time_range for web searches
-        if category == "web":
-            params["time_range"] = time_range
+        researcher = self._researcher or _get_sqlite_researcher()
+        if researcher is None:
+            return {"results": [], "organic_results": [], "source": "sqlite", "error": "KnowledgeDB unavailable"}
+        return researcher.search(query, category=category)
 
-        try:
-            response = requests.get(
-                self.base_url, headers=headers, params=params, timeout=10
-            )
-            response.raise_for_status()
-            data = response.json()
-            logger.info(
-                "[Serpex] query=%r category=%s results=%d",
-                query,
-                category,
-                len(data.get("results", [])),
-            )
-            return data
-        except Exception as exc:
-            logger.error("[Serpex ERROR] %s", exc)
-            return {"error": str(exc)}
+
+# ── Keep SerpexAPI as an alias so any ``from niblit_tools.serpex_api import SerpexAPI``
+# statement continues to work without modification.
+SerpexAPI = SQLiteAPI
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tool function for NiblitBrain
+# Tool function for NiblitBrain (GPT)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, Any]]:
-    """
-    Tool function exposed to NiblitBrain (GPT).
+    """Tool function exposed to NiblitBrain.
 
-    Delegates to :class:`~niblit_agents.research_agent.ResearchAgent` so that
-    results are automatically normalised, stored in :class:`KnowledgeStore`,
-    and optionally embedded in Qdrant.
+    Delegates to ResearchAgent (which now uses SQLiteResearcher internally)
+    so results are normalised, stored in KnowledgeStore, and optionally
+    embedded in Qdrant.
 
     Args:
         query:    Search query string.
         category: ``"web"`` (default) or ``"news"``.
 
     Returns:
-        List of ``{"title", "url", "snippet"}`` dicts, or an error dict.
+        List of ``{"title", "url", "snippet"}`` dicts.
     """
-    try:
-        agent = _ResearchAgent()
-        if category == "news":
-            return agent.search_news(query)
-        return agent.search_web(query)
-    except Exception as exc:
-        logger.error("[niblit_serpex_search] %s", exc)
-        return [{"error": str(exc)}]
+    # Prefer the full ResearchAgent pipeline (stores results in KB automatically)
+    if _RESEARCH_AGENT_AVAILABLE and _ResearchAgent is not None:
+        try:
+            agent = _ResearchAgent()
+            if category == "news":
+                return agent.search_news(query)
+            return agent.search_web(query)
+        except Exception as exc:
+            logger.debug("[niblit_serpex_search] ResearchAgent failed: %s", exc)
+
+    # Fallback: direct SQLiteResearcher
+    researcher = _get_sqlite_researcher()
+    if researcher:
+        try:
+            if category == "news":
+                return researcher.search_news(query)
+            return researcher.search_web(query)
+        except Exception as exc:
+            logger.error("[niblit_serpex_search] SQLiteResearcher failed: %s", exc)
+
+    return [{"error": "Search backend unavailable"}]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# GPT tool definition (for NiblitBrain tool registry)
+# GPT tool definition (for NiblitBrain tool registry) — unchanged
 # ─────────────────────────────────────────────────────────────────────────────
 
 NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
     "name": "niblit_serpex_search",
-    "description": "Perform a web or news search using the Serpex API and return structured results.",
+    "description": (
+        "Search Niblit's local knowledge base for information on a topic. "
+        "Returns structured results from stored research, facts, and learning data."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
@@ -163,7 +163,7 @@ NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
             "category": {
                 "type": "string",
                 "enum": ["web", "news"],
-                "description": "Search type: 'web' for general web search, 'news' for recent news.",
+                "description": "Search type: 'web' for general knowledge, 'news' for recent data.",
             },
         },
         "required": ["query"],
@@ -171,4 +171,5 @@ NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
 }
 
 if __name__ == "__main__":
-    print("Running niblit_tools/serpex_api.py")
+    print("niblit_tools/serpex_api.py — SQLite-backed search (replaces Serpex)")
+
