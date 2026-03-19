@@ -203,7 +203,7 @@ class NiblitRouter:
         "import improvements", "deploy improvements", "hot reload improvements",
         # Code error fixing and self-repair
         "fix code", "fix-code",
-        "loops", "routing",
+        "loops", "loop", "routing",
         "study my code", "describe my architecture", "read my code",
         "notifications",
         # Memory dump visibility toggle
@@ -1439,7 +1439,13 @@ Ask me about:
     # ─────────────────────────────────
     def _handle_loops(self, cmd: str) -> str:
         lower = cmd.lower().strip()
-        action = lower.replace("loops", "").strip()
+        # Strip both "loops" and "loop" prefix
+        if lower.startswith("loops"):
+            action = lower[len("loops"):].strip()
+        elif lower.startswith("loop"):
+            action = lower[len("loop"):].strip()
+        else:
+            action = lower
         core = getattr(self, 'core', None)
         if not core:
             return "❌ Core not available"
@@ -2109,7 +2115,7 @@ Ask me about:
             return "[CollaborativeLearner not available]"
 
         # AUTONOMOUS LEARNING COMMANDS
-        if lower.startswith("loops ") or lower == "loops":
+        if lower.startswith("loops ") or lower == "loops" or lower.startswith("loop ") or lower == "loop":
             return self._handle_loops(cmd)
 
         if lower.startswith("routing ") or lower == "routing":
@@ -2517,9 +2523,9 @@ Ask me about:
             "time                         — Current time",
             "",
             "=== LOOP & OUTPUT CONTROL ===",
-            "loops show                   — Make all background loop output visible",
-            "loops hide                   — Hide loop output (loops keep running)",
-            "loops status                 — Show visibility state + list of active loops",
+            "loop hide / loops hide       — Silence all log output (INFO/WARNING/EVENT etc.)",
+            "loop show / loops show       — Restore all log output",
+            "loop status / loops status   — Show visibility state + list of active loops",
             "routing show                 — Show routing detail output",
             "routing hide                 — Hide routing detail output",
             "routing status               — Show routing visibility state",
