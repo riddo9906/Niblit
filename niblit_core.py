@@ -249,6 +249,15 @@ except Exception as e:
     AutonomousLearningEngine = None
 
 # ============================================================
+# BUILDS INTEGRATOR IMPORT
+# ============================================================
+try:
+    from modules.builds_integrator import BuildsIntegrator
+except Exception as _e:
+    log.debug(f"BuildsIntegrator import failed: {_e}")
+    BuildsIntegrator = None  # type: ignore[assignment,misc]
+
+# ============================================================
 try:
     from modules.trading_brain import TradingBrain
 except Exception as e:
@@ -1172,6 +1181,7 @@ class NiblitCore:
         self.github_sync = None
         self.build_scanner = None
         self.binary_studier = None
+        self.builds_integrator: Optional[Any] = None
 
         # NEW: SelfIdeaImplementation (research + implement + SLSA + memory)
         self.idea_implementation = None
@@ -3889,6 +3899,18 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self._init_self_improvements()
 
             # ============================
+            # INITIALIZE BUILDS INTEGRATOR
+            # ============================
+            if BuildsIntegrator:
+                try:
+                    self.builds_integrator = BuildsIntegrator()
+                    log.info("✅ BuildsIntegrator initialized (builds/python scripts loaded)")
+                    self.startup_report.add("builds_integrator", "ready")
+                except Exception as _bie:
+                    log.debug("BuildsIntegrator init failed: %s", _bie)
+                    self.startup_report.add("builds_integrator", "degraded", str(_bie))
+
+            # ============================
             # INITIALIZE AUTONOMOUS LEARNING ENGINE
             # ============================
             if self.config.enable_autonomous_engine and AutonomousLearningEngine:
@@ -3947,6 +3969,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         serpex_research_agent=_serpex_agent,
                         semantic_agent=getattr(self, "semantic_agent", None),
                         claude_engine=getattr(self, "claude_engine", None),
+                        builds_integrator=getattr(self, "builds_integrator", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
