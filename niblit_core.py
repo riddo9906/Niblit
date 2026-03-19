@@ -1181,6 +1181,51 @@ class NiblitCore:
         # Personality layer (conversational AI)
         self.personality = None
 
+        # Phase-initialised attributes declared here to satisfy W0201
+        self.db = None
+        self.memory = None
+        self.env = None
+        self.identity = None
+        self.guard = None
+        self.internet = None
+        self.github_code_search = None
+        self.stackoverflow_search = None
+        self.pypi_search = None
+        self.searchcode_search = None
+        self.fused_memory = None
+        self.vector_store = None
+        self.semantic_agent = None
+        self.claude_engine = None
+        self.reflect = None
+        self.self_healer = None
+        self.llm = None
+        self.trainer = None
+        self.self_teacher = None
+        self.self_implementer = None
+        self.collector = None
+        self.modules = None
+        self.hf = None
+        self.researcher = None
+        self.self_researcher = None
+        self.brain = None
+        self.router = None
+        self.niblit_hf = None
+        self.learning = None
+        self.tasks = None
+        self.idea_generator = None
+        self.network = None
+        self.sensors = None
+        self.voice = None
+        self.actions = None
+        self.manager = None
+        self.membrane = None
+        self.healer_obj = None
+        self.generator = None
+        self.self_maintenance = None
+        self.slsa_manager = None
+        self.lifecycle = None
+        self.serpex_research_agent = None
+
         log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
 
         try:
@@ -3663,7 +3708,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.self_researcher = self.researcher
 
             if self.researcher and self.internet:
-                self.researcher.internet = self.internet
+                self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
 
             # Inject Searchcode into SelfResearcher now (available at this phase).
             # Serpex is injected later in _init_optional_services after the
@@ -3671,7 +3716,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             if self.researcher:
                 if getattr(self, "searchcode_search", None):
                     try:
-                        self.researcher.searchcode_search = self.searchcode_search
+                        self.researcher.searchcode_search = self.searchcode_search  # pylint: disable=attribute-defined-outside-init
                     except Exception as _e:
                         log.debug("[INIT] researcher.searchcode_search injection failed: %s", _e)
 
@@ -3680,19 +3725,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
             if self.researcher and getattr(self, "vector_store", None):
                 if not getattr(self.researcher, "vector_store", None):
                     try:
-                        self.researcher.vector_store = self.vector_store
+                        self.researcher.vector_store = self.vector_store  # pylint: disable=attribute-defined-outside-init
                     except Exception as _e:
                         log.debug("[INIT] researcher.vector_store injection failed: %s", _e)
 
             # Inject shared SemanticAgent into the researcher for enriched storage.
             if self.researcher and getattr(self, "semantic_agent", None):
                 try:
-                    self.researcher.semantic_agent = self.semantic_agent
+                    self.researcher.semantic_agent = self.semantic_agent  # pylint: disable=attribute-defined-outside-init
                 except Exception as _e:
                     log.debug("[INIT] researcher.semantic_agent injection failed: %s", _e)
 
             if self.self_teacher:
-                self.self_teacher.researcher = self.researcher
+                self.self_teacher.researcher = self.researcher  # pylint: disable=attribute-defined-outside-init
 
             try:
                 self.brain = NiblitBrain(self.db, llm_enabled=True, internet=self.internet) if NiblitBrain else None
@@ -3793,7 +3838,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             # Wire self_teacher's learner to idea_implementation
             if self.self_teacher and self.idea_implementation:
                 try:
-                    self.self_teacher.learner = self.idea_implementation
+                    self.self_teacher.learner = self.idea_implementation  # pylint: disable=attribute-defined-outside-init
                 except Exception:
                     pass
 
@@ -3914,7 +3959,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     # primary research backend (now that the agent has been constructed).
                     if _serpex_agent and getattr(self, "researcher", None):
                         try:
-                            self.researcher.serpex_agent = _serpex_agent
+                            self.researcher.serpex_agent = _serpex_agent  # pylint: disable=attribute-defined-outside-init
                             log.info("✅ Serpex agent wired into SelfResearcher")
                         except Exception as _e:
                             log.debug("[INIT] Late researcher.serpex_agent injection failed: %s", _e)
@@ -4986,7 +5031,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.error(f"Handler exception: {e}", exc_info=True)
             raise
 
-    def _handle_impl(self, text: str) -> str:
+    def _handle_impl(self, text: str) -> str:  # pylint: disable=too-many-return-statements
         """
         Main handler with clean layered architecture.
 

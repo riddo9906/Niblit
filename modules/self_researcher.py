@@ -255,6 +255,9 @@ class SelfResearcher:
         # Auto-research enable/disable flag (start/stop commands)
         self._auto_research_enabled: bool = True
 
+        # vector_store injected post-init by niblit_core
+        self.vector_store = None
+
         # Knowledge-based responder
         self.knowledge_responder = KnowledgeBasedResponder(db, self._internet)
 
