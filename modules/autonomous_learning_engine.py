@@ -855,37 +855,48 @@ class AutonomousLearningEngine:
             return f"[SLSA error: {e}]"
 
     # ─────────────────────────────────────────────
-    def _autonomous_learning(self) -> str:
-        """Step 6: Feed learning to self-teacher"""
-        if not self.self_teacher:
-            return "[Self-teacher unavailable]"
+def _autonomous_learning(self) -> str:
+    """Step 6: Feed learning to self-teacher with spaced review and richer logging"""
+    if not self.self_teacher:
+        return "[Self-teacher unavailable]"
 
-        try:
-            last_topic = self.learning_history.get("last_research_topic") or "system knowledge"
+    try:
+        outputs = []
 
-            log.info(f"📚 [AUTONOMOUS LEARN] Teaching about: {last_topic}")
+        # 1. Teach the most recent research topic as before
+        last_topic = self.learning_history.get("last_research_topic") or "system knowledge"
+        log.info(f"📚 [AUTONOMOUS LEARN] Teaching about: {last_topic}")
+        result = self.self_teacher.teach(last_topic)
+        outputs.append(result)
 
-            result = self.self_teacher.teach(last_topic)
+        # 2. Teach or review an older topic (spaced repetition)
+        reviews = self.self_teacher.spaced_review(count=1)
+        outputs.extend(reviews)
 
-            # Log to knowledge base
-            if self.knowledge_db:
-                try:
-                    self.knowledge_db.log_event(f"Autonomous teaching: {last_topic}")
-                    self.knowledge_db.add_fact(
-                        f"ale_learning:{last_topic.replace(' ', '_')}:{int(time.time())}",
-                        {"topic": last_topic, "result": str(result or "")[:300],
-                         "step": "step6_learning"},
-                        tags=["ale_step6", "learning", "autonomous"],
-                    )
-                except Exception as e:
-                    log.debug(f"Knowledge DB logging failed: {e}")
+        # 3. Log BOTH results to knowledge base (as before, but now richer)
+        if self.knowledge_db:
+            try:
+                # Log main teaching on new topic
+                self.knowledge_db.log_event(f"Autonomous teaching: {last_topic} + {len(reviews)} reviewed")
+                self.knowledge_db.add_fact(
+                    f"ale_learning:{last_topic.replace(' ', '_')}:{int(time.time())}",
+                    {
+                        "topic": last_topic,
+                        "result": str(result or "")[:300],
+                        "step": "step6_learning",
+                        "spaced_reviewed": [str(r)[:150] for r in reviews],
+                    },
+                    tags=["ale_step6", "learning", "autonomous"],
+                )
+            except Exception as e:
+                log.debug(f"Knowledge DB logging failed: {e}")
 
-            log.info(f"✅ [AUTONOMOUS LEARN] {str(result or '')[:50]}")
-            return str(result) if result is not None else "[No learning result]"
+        log.info(f"✅ [AUTONOMOUS LEARN] {last_topic} taught, plus {len(reviews)} reviewed topic(s)")
+        return "\n".join([str(o) for o in outputs if o])
 
-        except Exception as e:
-            log.error(f"❌ Autonomous learning failed: {e}")
-            return f"[Learning error: {e}]"
+    except Exception as e:
+        log.error(f"❌ Autonomous learning failed: {e}")
+        return f"[Learning error: {e}]"
 
     # ─────────────────────────────────────────────
     # PROGRAMMING LITERACY LOOP (steps 8-12)
