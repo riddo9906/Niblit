@@ -1,7 +1,7 @@
 package ale_java_android_development_best_practices_17739;
 
 /**
- * AleJavaAndroidDevelopmentBestPractices17739 — Android development best practices 1773906267: JavaFX is a software platform for creating and delivering desktop applications, as well as rich web applications that ca
+ * AleJavaAndroidDevelopmentBestPractices17739 — Android development best practices 1773961072: JavaFX is a software platform for creating and delivering desktop applications, as well as rich web applications that ca
  */
 public class AleJavaAndroidDevelopmentBestPractices17739 {
 
