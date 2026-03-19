@@ -48,28 +48,29 @@ class SelfTeacher:
         else:
             summary = f"No external data found for {topic}"
 
-        # Store learning in memory (unchanged logic, works with any backend)
-        try:
-            if hasattr(self.db, "add_fact"):
-                self.db.add_fact(
-                    f"learn:{topic}",
-                    summary,
-                    tags=["learn", "self-teach"]
-                )
-            elif hasattr(self.db, "store_learning"):
-                self.db.store_learning({"topic": topic, "summary": summary, "tags": ["learn", "self-teach"]})
-        except Exception:
-            pass
+        # Store learning in memory — skip when no real data was found
+        if learned:
+            try:
+                if hasattr(self.db, "add_fact"):
+                    self.db.add_fact(
+                        f"learn:{topic}",
+                        summary,
+                        tags=["learn", "self-teach"]
+                    )
+                elif hasattr(self.db, "store_learning"):
+                    self.db.store_learning({"topic": topic, "summary": summary, "tags": ["learn", "self-teach"]})
+            except Exception:
+                pass
 
-        # Feed into learner (SelfIdeaImplementation) if available
-        if self.learner:
+        # Feed into learner (SelfIdeaImplementation) if available — skip on no data
+        if self.learner and learned:
             try:
                 self.learner.learn(summary)
             except Exception:
                 pass
 
-        # Reflect AFTER storing (same behavior as before)
-        if self.reflector:
+        # Reflect AFTER storing (same behavior as before) — skip on no data
+        if self.reflector and learned:
             try:
                 self.reflector.collect_and_summarize(
                     f"Learned about {topic}: {summary}"

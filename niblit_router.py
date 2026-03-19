@@ -1127,12 +1127,41 @@ Ask me about:
             decision = safe_call(brain.cycle) or "HOLD"
             return f"🔄 Single trading cycle complete → Decision: **{decision}**"
 
+        if action.startswith("pair") or action.startswith("switch"):
+            # trading pair ETHUSDT [5m]  OR  trading switch ETHUSDT [5m]
+            rest = action.replace("pair", "").replace("switch", "").strip()
+            parts = rest.split()
+            if not parts:
+                return (
+                    f"ℹ️  Current trading pair: {brain.symbol} / {brain.interval}\n"
+                    "   Usage: trading pair <SYMBOL> [INTERVAL]\n"
+                    "   e.g.:  trading pair ETHUSDT\n"
+                    "          trading pair SOLUSDT 5m"
+                )
+            new_symbol = parts[0].upper()
+            new_interval = parts[1] if len(parts) > 1 else None
+            result = safe_call(brain.switch_pair, new_symbol, new_interval) or {}
+            sym = result.get("symbol", new_symbol)
+            ivl = result.get("interval", brain.interval)
+            restarted = result.get("restarted", False)
+            restart_note = " (autonomous cycle restarted automatically)" if restarted else ""
+            msg = (
+                f"🔀 Trading pair switched ✅\n"
+                f"   Symbol:   {sym}\n"
+                f"   Interval: {ivl}"
+            )
+            if restart_note:
+                msg += f"\n  {restart_note}"
+            return msg
+
         return (
             "Usage:\n"
-            "  trading start   — Start autonomous trading cycle\n"
-            "  trading stop    — Stop autonomous trading cycle\n"
-            "  trading status  — Show trading brain state\n"
-            "  trading cycle   — Run a single cycle now (manual trigger)"
+            "  trading start              — Start autonomous trading cycle\n"
+            "  trading stop               — Stop autonomous trading cycle\n"
+            "  trading status             — Show trading brain state\n"
+            "  trading cycle              — Run a single cycle now (manual trigger)\n"
+            "  trading pair <SYMBOL>      — Switch to a different trading pair (e.g. ETHUSDT)\n"
+            "  trading pair <SYMBOL> <IV> — Switch pair and interval  (e.g. SOLUSDT 5m)"
         )
 
     # ─────────────────────────────────
@@ -2267,10 +2296,12 @@ Ask me about:
             "        A new topic query runs every 60 s to allow full KB ingestion.",
             "",
             "=== TRADING BRAIN ===",
-            "trading start   — Launch autonomous trading cycle (Binance, every 60 s)",
-            "trading stop    — Stop the autonomous trading cycle",
-            "trading status  — Show trading brain state (symbol, cycles, last decision)",
-            "trading cycle   — Run a single observe→engineer→store→decide pass now",
+            "trading start              — Launch autonomous trading cycle (Binance, every 60 s)",
+            "trading stop               — Stop the autonomous trading cycle",
+            "trading status             — Show trading brain state (symbol, cycles, last decision)",
+            "trading cycle              — Run a single observe→engineer→store→decide pass now",
+            "trading pair <SYMBOL>      — Switch to a different trading/currency pair (e.g. ETHUSDT)",
+            "trading pair <SYMBOL> <IV> — Switch pair and kline interval  (e.g. SOLUSDT 5m)",
             "  Env vars: BINANCE_API_KEY, BINANCE_API_SECRET,",
             "            TRADING_SYMBOL (default BTCUSDT), TRADING_INTERVAL (default 1m),",
             "            TRADING_CYCLE_SECS (default 60)",

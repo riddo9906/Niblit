@@ -108,6 +108,9 @@ _DEFAULT_INTERVAL = os.getenv("TRADING_INTERVAL", "1m")
 _DEFAULT_KLINE_LIMIT = int(os.getenv("TRADING_KLINE_LIMIT", "200"))
 _DEFAULT_CYCLE_SECS = int(os.getenv("TRADING_CYCLE_SECS", "60"))
 
+# Seconds to wait after signalling stop before restarting with a new pair
+_SWITCH_PAIR_STOP_GRACE_SECS = 0.2
+
 # Decision thresholds (similarity scores returned by Qdrant range 0–1)
 _BUY_THRESHOLD = 0.85
 _SELL_THRESHOLD = 0.60
@@ -592,7 +595,7 @@ class TradingBrain:
             self.stop()
             import time as _time
             # Give the background thread a moment to acknowledge the stop signal
-            _time.sleep(0.2)
+            _time.sleep(_SWITCH_PAIR_STOP_GRACE_SECS)
 
         old_symbol = self.symbol
         old_interval = self.interval
