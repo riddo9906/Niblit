@@ -184,6 +184,9 @@ class RealtimeStream:
             if hasattr(brain, "compute_indicators"):
                 df = brain.compute_indicators(df)
 
+            if df is None or df.empty:
+                return "HOLD"
+
             latest = df.iloc[-1]
 
             # Build the state vector for embedding
