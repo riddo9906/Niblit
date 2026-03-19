@@ -3988,7 +3988,7 @@ class AutonomousLearningEngine:
         # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
-        log.info(f"✅ [AUTONOMOUS CYCLE #%d] Summary:\n{summary}", cycle)
+        log.info(f"✅ [AUTONOMOUS CYCLE #{cycle}] Summary:\n{summary}")
         log.info("=" * 70)
 
         # Update learning rate — count every discrete learning action
