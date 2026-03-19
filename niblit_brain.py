@@ -518,6 +518,34 @@ class BrainTrainer:
         log.info("[BrainTrainer] %s", summary)
         return summary
 
+def ingest_selfteach(self, limit=20):
+    """
+    Ingest self-teaching facts and quizzes from knowledge_db.
+    Teaches BrainTrainer from self_teach_summary: / self_teach_quiz: KB keys.
+    """
+    if not self.knowledge_db:
+        return 0
+    count = 0
+    try:
+        facts = []
+        if hasattr(self.knowledge_db, "recall"):
+            facts.extend(self.knowledge_db.recall("self_teach_summary", limit=limit))
+            facts.extend(self.knowledge_db.recall("self_teach_quiz", limit=limit))
+        elif hasattr(self.knowledge_db, "list_facts"):
+            all_facts = self.knowledge_db.list_facts(limit*2)
+            for f in all_facts:
+                key = f.get("key", "") if isinstance(f, dict) else ""
+                if key.startswith("self_teach_summary:") or key.startswith("self_teach_quiz:"):
+                    facts.append(f)
+        for item in facts:
+            text = (item.get("value") or item.get("summary") or item.get("content") or "") if isinstance(item, dict) else str(item)
+            topic = item.get("key") or item.get("topic") or "" if isinstance(item, dict) else ""
+            if text:
+                self.ingest_research(topic, text)
+                count += 1
+    except Exception as e:
+        log.debug(f"[BrainTrainer] ingest_selfteach failed: {e}")
+    return count
 
 # ───────── NiblitBrain ─────────
 class NiblitBrain:
