@@ -108,6 +108,9 @@ _DEFAULT_INTERVAL = os.getenv("TRADING_INTERVAL", "1m")
 _DEFAULT_KLINE_LIMIT = int(os.getenv("TRADING_KLINE_LIMIT", "200"))
 _DEFAULT_CYCLE_SECS = int(os.getenv("TRADING_CYCLE_SECS", "60"))
 
+# Seconds to wait after signalling stop before restarting with a new pair
+_SWITCH_PAIR_STOP_GRACE_SECS = 0.2
+
 # Decision thresholds (similarity scores returned by Qdrant range 0–1)
 _BUY_THRESHOLD = 0.85
 _SELL_THRESHOLD = 0.60
@@ -567,6 +570,47 @@ class TradingBrain:
             "binance_available": self._client is not None,
             "memory_available": self.memory is not None,
         }
+
+    def switch_pair(self, symbol: str, interval: Optional[str] = None) -> Dict[str, Any]:
+        """Switch the trading pair (and optionally the kline interval) at runtime.
+
+        If the autonomous cycle is currently running it will be stopped,
+        the symbol/interval updated, and the cycle restarted automatically.
+
+        Args:
+            symbol:   New trading symbol, e.g. ``"ETHUSDT"``.  Converted to
+                      upper-case automatically.
+            interval: New kline interval string (e.g. ``"5m"``).  When *None*
+                      the current :attr:`interval` is kept.
+
+        Returns:
+            A dict with keys ``symbol``, ``interval``, and ``restarted``
+            (``True`` when the autonomous cycle was restarted).
+        """
+        new_symbol = symbol.strip().upper()
+        new_interval = interval.strip() if interval else self.interval
+
+        was_running = self.running
+        if was_running:
+            self.stop()
+            import time as _time
+            # Give the background thread a moment to acknowledge the stop signal
+            _time.sleep(_SWITCH_PAIR_STOP_GRACE_SECS)
+
+        old_symbol = self.symbol
+        old_interval = self.interval
+        self.symbol = new_symbol
+        self.interval = new_interval
+
+        log.info(
+            "[TradingBrain] Switched pair: %s/%s → %s/%s",
+            old_symbol, old_interval, new_symbol, new_interval,
+        )
+
+        if was_running:
+            self.start()
+
+        return {"symbol": self.symbol, "interval": self.interval, "restarted": was_running}
 
     def _autonomous_loop(self) -> None:
         """Internal: run cycle() in a loop until self._running is False."""

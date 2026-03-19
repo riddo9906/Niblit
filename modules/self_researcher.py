@@ -666,11 +666,12 @@ class SelfResearcher:
                 log.debug(f"LLM synthesis failed: {e}")
 
         # 7️⃣ FALLBACK
-        if not collected_results:
+        no_real_data = not collected_results
+        if no_real_data:
             collected_results = [f"No data found for '{query}'"]
 
         # ✨ 8️⃣ AUTONOMOUS LEARNING LOOP (ingestion → reflection → KB)
-        if enable_autonomous_learning and self._auto_research_enabled:
+        if enable_autonomous_learning and self._auto_research_enabled and not no_real_data:
             if should_reflect(collected_results):
                 self._feed_to_reflection(query, collected_results)
                 self._feed_to_teacher(query, results=collected_results)
@@ -679,7 +680,7 @@ class SelfResearcher:
                 log.warning("[REFLECT] Skipped due to low-quality data for query %r", query)
 
         # ✨ SEMANTIC STORAGE — persist into vector store for future semantic retrieval
-        if self._semantic_agent and collected_results:
+        if self._semantic_agent and collected_results and not no_real_data:
             try:
                 # Convert mixed results (str/dict) to store-compatible format
                 docs = []
@@ -693,22 +694,23 @@ class SelfResearcher:
             except Exception as _e:
                 log.debug("[SEARCH] SemanticAgent storage failed: %s", _e)
 
-        # 9️⃣ AUTO-LEARN (persist every result to KB)
-        try:
-            for r in collected_results[:max_results]:
-                self.db.add_fact(f"research:{query}", r, tags=["research", "web"])
-                try:
-                    self.db.add_fact(f"research_response:{query}", r, tags=["research", "response"])
-                except Exception:
-                    pass
-        except Exception as e:
-            log.debug(f"Learning storage failed: {e}")
+        # 9️⃣ AUTO-LEARN (persist every result to KB — skip when there was no real data)
+        if not no_real_data:
+            try:
+                for r in collected_results[:max_results]:
+                    self.db.add_fact(f"research:{query}", r, tags=["research", "web"])
+                    try:
+                        self.db.add_fact(f"research_response:{query}", r, tags=["research", "response"])
+                    except Exception:
+                        pass
+            except Exception as e:
+                log.debug(f"Learning storage failed: {e}")
 
         # 🔟 UPDATE HISTORY
         self._update_history(query, collected_results[:max_results])
 
-        # 11. BACKGROUND LEARNING
-        if learn_in_background and self.llm and hasattr(self.llm, "background_learning"):
+        # 11. BACKGROUND LEARNING (skip when there was no real data)
+        if learn_in_background and not no_real_data and self.llm and hasattr(self.llm, "background_learning"):
             try:
                 for r in collected_results:
                     self.llm.background_learning(r)

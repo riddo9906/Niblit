@@ -130,6 +130,7 @@ class AutonomousLearningEngine:
                  serpex_research_agent=None,
                  semantic_agent=None,
                  claude_engine=None,
+                 builds_integrator=None,
                  step_timeout=120):
         """
         Args:
@@ -171,6 +172,10 @@ class AutonomousLearningEngine:
                             into the vector store for semantic retrieval.
             claude_engine: niblit_models.ClaudeEngine — Anthropic Claude with context injection.
                            When available, used to generate richer summaries from research data.
+            builds_integrator: BuildsIntegrator — unified wrapper around the builds/python scripts.
+                               Provides NLP processing, binary inspection, JSONL data-structure
+                               handling, and chat-session management.  Used by steps 21, 22, 23
+                               and the new step 29 (BuildsIntegration).
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
         """
         self.core = core
@@ -202,6 +207,7 @@ class AutonomousLearningEngine:
         self.serpex_research_agent = serpex_research_agent
         self.semantic_agent = semantic_agent
         self.claude_engine = claude_engine
+        self.builds_integrator = builds_integrator
         self.step_timeout = step_timeout
 
         self.idle_threshold = idle_threshold
@@ -391,6 +397,7 @@ class AutonomousLearningEngine:
             "binary_study_cycles": 0,
             "builds_update_cycles": 0,
             "evolve_deploy_cycles": 0,
+            "builds_integration_cycles": 0,
             "brain_training_cycles": 0,
             "cognitive_enhancement_cycles": 0,
             "serpex_research_cycles": 0,
@@ -3002,6 +3009,35 @@ class AutonomousLearningEngine:
             except Exception as exc:
                 log.debug(f"Binary module generation failed: {exc}")
 
+        # 5. Use BuildsIntegrator binary parser to inspect any .so/.dll/.bin files
+        #    found in the builds directory and store format knowledge in KB.
+        bi = self.builds_integrator
+        if bi is None and self.core:
+            bi = getattr(self.core, "builds_integrator", None)
+        if bi is not None and self.knowledge_db:
+            try:
+                from modules.code_generator import NIBLIT_LOCAL_BUILDS_PATH
+                _bin_exts = {".so", ".dll", ".bin", ".elf", ".dex", ".o"}
+                for _fpath in sorted(NIBLIT_LOCAL_BUILDS_PATH.rglob("*")):
+                    if _fpath.suffix.lower() in _bin_exts and _fpath.is_file():
+                        try:
+                            info = bi.inspect_binary(str(_fpath))
+                            if info and "format" in info:
+                                self.knowledge_db.add_fact(
+                                    f"ale_binary_inspect:{_fpath.name}:{int(time.time())}",
+                                    {
+                                        "path": info.get("path", ""),
+                                        "format": info.get("format", "unknown"),
+                                        "size": info.get("size", 0),
+                                    },
+                                    tags=["binary", "builds", "format", "autonomous"],
+                                )
+                                results.append(f"inspected {_fpath.name} ({info.get('format')})")
+                        except Exception as _e:
+                            log.debug("[BINARY STUDY] Inspect %s failed: %s", _fpath.name, _e)
+            except Exception as _be:
+                log.debug("[BINARY STUDY] BuildsIntegrator binary scan failed: %s", _be)
+
         self.learning_history["binary_study_cycles"] = (
             self.learning_history.get("binary_study_cycles", 0) + 1
         )
@@ -3020,6 +3056,9 @@ class AutonomousLearningEngine:
         Scans every language sub-directory under the local ``builds/`` folder,
         reads recently modified files, and stores compact summaries in the
         KnowledgeDB so Niblit can reason about what programs it has built.
+        When a BuildsIntegrator is available the file content is also
+        NLP-processed so keywords and bigrams are stored as additional KB facts
+        for richer reasoning and topic seeding.
         """
         try:
             from modules.code_generator import NIBLIT_LOCAL_BUILDS_PATH
@@ -3028,6 +3067,11 @@ class AutonomousLearningEngine:
 
         if not NIBLIT_LOCAL_BUILDS_PATH.exists():
             return "[Builds update skipped — builds/ directory not found]"
+
+        # Resolve BuildsIntegrator (injected or from core)
+        bi = self.builds_integrator
+        if bi is None and self.core:
+            bi = getattr(self.core, "builds_integrator", None)
 
         indexed: List[str] = []
         try:
@@ -3052,6 +3096,29 @@ class AutonomousLearningEngine:
                             )
                         except Exception:
                             pass
+
+                    # NLP enrichment — extract keywords and bigrams for richer KB facts
+                    if bi is not None and self.knowledge_db:
+                        try:
+                            enriched = bi.enrich_content(snippet, topic=fpath.stem)
+                            keywords = enriched.get("keywords", [])
+                            bigrams = enriched.get("bigrams", [])
+                            if keywords:
+                                self.knowledge_db.add_fact(
+                                    f"ale_builds_nlp:{lang_dir.name}:{fpath.stem}",
+                                    {
+                                        "keywords": keywords,
+                                        "bigrams": bigrams[:5],
+                                        "token_count": enriched.get("token_count", 0),
+                                        "file": fpath.name,
+                                        "lang": lang_dir.name,
+                                    },
+                                    tags=["builds", "keywords", "nlp", lang_dir.name],
+                                )
+                        except Exception as _nlp_exc:
+                            log.debug("[BUILDS UPDATE] NLP enrichment failed for %s: %s",
+                                      fpath.name, _nlp_exc)
+
                     indexed.append(f"{lang_dir.name}/{fpath.name}")
         except Exception as exc:
             log.debug("[BUILDS UPDATE] Scan failed: %s", exc)
@@ -3060,8 +3127,9 @@ class AutonomousLearningEngine:
             self.learning_history.get("builds_update_cycles", 0) + 1
         )
         count = len(indexed)
-        log.info("✅ [BUILDS UPDATE] Indexed %d file(s) from builds/", count)
-        return f"Builds update: indexed {count} file(s) from builds/"
+        nlp_note = " (NLP-enriched)" if bi is not None else ""
+        log.info("✅ [BUILDS UPDATE] Indexed %d file(s) from builds/%s", count, nlp_note)
+        return f"Builds update: indexed {count} file(s) from builds/{nlp_note}"
 
     # ─────────────────────────────────────────────
     # EVOLVE DEPLOY (step 23)
@@ -3105,6 +3173,8 @@ class AutonomousLearningEngine:
 
         deployed: List[str] = []
         understood: List[str] = []
+        # Track unique improvement directions for topic seeding
+        directions: List[str] = []
 
         try:
             for step_dir in sorted(evolved_dir.iterdir()):
@@ -3116,16 +3186,46 @@ class AutonomousLearningEngine:
                     except OSError:
                         continue
 
-                    # Store understanding in KB
+                    # Extract metadata from the evolved stub header (Direction / Timestamp)
+                    direction = ""
+                    timestamp = ""
+                    step_num = ""
+                    for line in content.splitlines()[:8]:
+                        line = line.strip()
+                        if line.startswith("# Direction:"):
+                            direction = line[len("# Direction:"):].strip()
+                        elif line.startswith("# Timestamp:"):
+                            timestamp = line[len("# Timestamp:"):].strip()
+                        elif line.startswith("# Auto-generated by EvolveEngine step"):
+                            step_num = line.split("step")[-1].strip()
+
+                    # Store richer fact including extracted metadata
                     if self.knowledge_db:
                         try:
                             self.knowledge_db.add_fact(
                                 f"ale_evolve_deploy:{step_dir.name}:{fpath.stem}:{int(time.time())}",
-                                content[:400],
+                                {
+                                    "content": content[:400],
+                                    "direction": direction,
+                                    "timestamp": timestamp,
+                                    "step": step_num,
+                                    "file": fpath.name,
+                                    "dir": step_dir.name,
+                                },
                                 tags=["evolve", "deploy", "improvement", "autonomous"],
                             )
                         except Exception:
                             pass
+
+                    if direction:
+                        directions.append(direction)
+                        # Queue each improvement direction as a research topic
+                        if self.knowledge_db:
+                            try:
+                                self.knowledge_db.queue_learning(direction)
+                            except Exception:
+                                pass
+
                     understood.append(fpath.name)
 
                     # Attempt hot-reload via apply_patch
@@ -3141,12 +3241,25 @@ class AutonomousLearningEngine:
         except Exception as exc:
             log.debug("[EVOLVE DEPLOY] Directory scan failed: %s", exc)
 
+        # Store catalog of all unique improvement directions as a single KB fact
+        unique_dirs = list(dict.fromkeys(directions))  # deduped, order-preserving
+        if unique_dirs and self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_evolve_directions:{int(time.time())}",
+                    {"directions": unique_dirs, "total": len(unique_dirs)},
+                    tags=["evolve", "directions", "catalog", "autonomous"],
+                )
+            except Exception:
+                pass
+
         self.learning_history["evolve_deploy_cycles"] = (
             self.learning_history.get("evolve_deploy_cycles", 0) + 1
         )
 
         summary = (
             f"read {len(understood)} improvement(s)"
+            + (f", {len(unique_dirs)} unique direction(s)" if unique_dirs else "")
             + (f", deployed {len(deployed)}" if deployed else "")
         )
         log.info("✅ [EVOLVE DEPLOY] %s", summary)
@@ -3608,8 +3721,108 @@ class AutonomousLearningEngine:
         return summary
 
     # ─────────────────────────────────────────────
-    def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle (27 steps).
+    # BUILDS INTEGRATION (step 29)
+    # ─────────────────────────────────────────────
+
+    def _autonomous_builds_integration(self) -> str:
+        """Step 29: Run all available builds/python scripts and ingest their output.
+
+        Uses the BuildsIntegrator to:
+        1. Execute each compiled builds script's ``.run()`` statistics method
+           and store the results as self-knowledge facts in the KB.
+        2. Apply the NLP processor to the current cycle topic so keyword and
+           bigram metadata is stored alongside the regular research facts.
+        3. Optionally load the repo's ``events.jsonl`` via the data-structures
+           module so JSONL event records flow into FusedMemory for richer
+           vector retrieval.
+        """
+        bi = self.builds_integrator
+        if bi is None and self.core:
+            bi = getattr(self.core, "builds_integrator", None)
+
+        if bi is None:
+            return "[BuildsIntegration skipped — BuildsIntegrator not available]"
+
+        results: List[str] = []
+
+        # 1. Run all builds scripts and store their status facts
+        try:
+            run_results = bi.run_all()
+            if run_results and self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_builds_run:{int(time.time())}",
+                        run_results,
+                        tags=["builds", "run", "status", "autonomous"],
+                    )
+                    results.append(f"ran {len(run_results)} script(s)")
+                except Exception:
+                    pass
+        except Exception as exc:
+            log.debug("[BUILDS INTEGRATION] run_all failed: %s", exc)
+
+        # 2. NLP-process the current cycle topic to generate keyword enrichment
+        topic = self._current_cycle_topic or ""
+        if topic and self.knowledge_db:
+            try:
+                enriched = bi.enrich_content(topic, topic=topic)
+                keywords = enriched.get("keywords", [])
+                if keywords:
+                    self.knowledge_db.add_fact(
+                        f"ale_builds_nlp_topic:{topic.replace(' ', '_')}:{int(time.time())}",
+                        {
+                            "topic": topic,
+                            "keywords": keywords,
+                            "bigrams": enriched.get("bigrams", [])[:5],
+                        },
+                        tags=["builds", "nlp", "topic", "keywords", "autonomous"],
+                    )
+                    results.append(f"NLP enriched topic '{topic[:40]}' ({len(keywords)} kw)")
+                    # Seed the extracted keywords as new research topics
+                    for kw in keywords[:3]:
+                        if len(kw) > 3 and kw not in self.research_topics:
+                            self.research_topics.append(kw)
+            except Exception as exc:
+                log.debug("[BUILDS INTEGRATION] NLP topic enrichment failed: %s", exc)
+
+        # 3. Process any recent KB research results through the NLP pipeline
+        if self._last_research_results and self.knowledge_db:
+            try:
+                combined = " ".join(
+                    str(r)[:200] for r in self._last_research_results[:5] if r
+                )
+                if combined:
+                    enriched = bi.enrich_content(combined, topic=topic)
+                    keywords = enriched.get("keywords", [])
+                    if keywords:
+                        self.knowledge_db.add_fact(
+                            f"ale_builds_nlp_research:{int(time.time())}",
+                            {"keywords": keywords, "topic": topic},
+                            tags=["builds", "nlp", "research", "keywords"],
+                        )
+                        results.append(f"NLP-enriched research ({len(keywords)} keywords)")
+            except Exception as exc:
+                log.debug("[BUILDS INTEGRATION] NLP research enrichment failed: %s", exc)
+
+        # 4. Load events.jsonl into fused memory via data-structures module
+        try:
+            from modules.code_generator import NIBLIT_LOCAL_BUILDS_PATH
+            events_path = NIBLIT_LOCAL_BUILDS_PATH.parent / "events.jsonl"
+            if events_path.exists():
+                count = bi.load_jsonl(str(events_path))
+                if count:
+                    results.append(f"loaded {count} event record(s) via data-structures")
+        except Exception as exc:
+            log.debug("[BUILDS INTEGRATION] events.jsonl load failed: %s", exc)
+
+        self.learning_history["builds_integration_cycles"] = (
+            self.learning_history.get("builds_integration_cycles", 0) + 1
+        )
+
+        summary = "; ".join(results) if results else "no actionable builds outputs"
+        log.info("✅ [BUILDS INTEGRATION] %s", summary)
+        return f"BuildsIntegration: {summary}"
+        """Execute one complete autonomous learning cycle (29 steps).
 
         Design principles
         -----------------
@@ -3767,6 +3980,9 @@ class AutonomousLearningEngine:
         # ── Step 27: Searchcode Discovery ────────────────────────────────
         _step("SearchcodeDiscovery", self._autonomous_searchcode_discovery)
 
+        # ── Step 29: Builds Integration ───────────────────────────────────
+        _step("BuildsIntegration", self._autonomous_builds_integration)
+
         # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -3785,7 +4001,7 @@ class AutonomousLearningEngine:
             "improvement_cycles", "self_scan_cycles", "github_push_cycles",
             "brain_training_cycles", "cognitive_enhancement_cycles",
             "github_code_discovery_cycles", "searchcode_discovery_cycles",
-            "serpex_research_cycles",
+            "serpex_research_cycles", "builds_integration_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
