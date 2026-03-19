@@ -38,6 +38,12 @@ import tempfile
 import textwrap
 from typing import Any, Dict, List
 
+try:
+    import scrapy  # noqa: F401
+    _SCRAPY_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _SCRAPY_AVAILABLE = False
+
 logger = logging.getLogger("Niblit.ScrapySearch")
 
 # ── configurable defaults ────────────────────────────────────────────────────
@@ -52,7 +58,7 @@ _SPIDER_SOURCE = textwrap.dedent("""\
     from scrapy.crawler import CrawlerProcess
     from scrapy.utils.log import configure_logging
 
-    configure_logging({"LOG_ENABLED": False})
+    configure_logging({{"LOG_ENABLED": False}})
 
     QUERY    = {query!r}
     CATEGORY = {category!r}
@@ -141,8 +147,8 @@ class ScrapySearchEngine:
         self.timeout = timeout
 
     def is_configured(self) -> bool:
-        """Always ``True`` — Scrapy needs no API key."""
-        return True
+        """Return ``True`` when Scrapy is installed."""
+        return _SCRAPY_AVAILABLE
 
     def search(
         self,

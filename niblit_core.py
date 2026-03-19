@@ -1640,7 +1640,8 @@ Uptime: {stats['uptime_seconds']}s
   Metacognition Cycles: {s.get('metacognition_cycles', 0)}
   Last Confidence: {s.get('last_metacognition_confidence', 'none')}
 
-📚 Topics: {stats.get('research_topics', 0)} | Code Topics: {stats.get('code_research_topics', 0)} | SW Categories: {stats.get('software_study_categories', 0)}
+📚 Topics: {stats.get('research_topics', 0)} | Code Topics: {stats.get('code_research_topics', 0)} | \
+SW Categories: {stats.get('software_study_categories', 0)}
 💡 Pending Ideas: {stats.get('pending_ideas', 0)}
 
 🔌 Modules Wired:
@@ -3934,7 +3935,10 @@ Uptime: {stats['uptime_seconds']}s
                         github_sync=getattr(self, "github_sync", None),
                         build_scanner=getattr(self, "build_scanner", None),
                         binary_studier=getattr(self, "binary_studier", None),
-                        brain_trainer=getattr(self.brain, "brain_trainer", None) if getattr(self, "brain", None) else None,
+                        brain_trainer=(
+                            getattr(self.brain, "brain_trainer", None)
+                            if getattr(self, "brain", None) else None
+                        ),
                         llm=getattr(self, "llm", None),
                         github_code_search=getattr(self, "github_code_search", None),
                         stackoverflow_search=getattr(self, "stackoverflow_search", None),
@@ -4810,7 +4814,11 @@ Uptime: {stats['uptime_seconds']}s
                 return "[SLSA engine already running]"
 
             log.info(f"[SLSA] Starting SLSA engine with topics: {topics}")
-            self.slsa_engine = SLSAGenerator(interval=20, topics=topics or ["car", "computer", "phone"], internet=self.internet)
+            self.slsa_engine = SLSAGenerator(
+                interval=20,
+                topics=topics or ["car", "computer", "phone"],
+                internet=self.internet,
+            )
             self.slsa_thread = threading.Thread(target=self.slsa_engine.run, daemon=True, name="SLSA-Generator")
             self.slsa_thread.start()
             log.info("[SLSA] SLSA engine started successfully")

@@ -22,6 +22,7 @@ __all__ = ["NiblitBrain", "BrainTrainer", "hf_query"]
 
 import sys
 import os
+import contextlib
 import datetime
 import logging
 import asyncio
@@ -89,12 +90,6 @@ except Exception as _e:
 
 # ───────── Local Modules ─────────
 try:
-    from niblit_memory import LocalDB
-except Exception as _e:
-    log.warning(f"LocalDB unavailable: {_e}")
-    LocalDB = None
-
-try:
     from modules.hf_brain import HFBrain
 except Exception as _e:
     log.warning(f"HFBrain unavailable: {_e}")
@@ -145,6 +140,12 @@ except Exception as _e:
     _niblit_serpex_search = None  # type: ignore[assignment]
     _NIBLIT_SERPEX_TOOL = None  # type: ignore[assignment]
     _SERPEX_TOOL_AVAILABLE = False
+
+try:
+    from niblit_memory import LocalDB
+except Exception as _e:
+    log.warning(f"LocalDB unavailable: {_e}")
+    LocalDB = None
 # pylint: enable=invalid-name
 
 
@@ -324,6 +325,75 @@ class BrainTrainer:
             log.debug(f"[BrainTrainer] ingest_knowledge_db failed: {_e}")
 
     # ── Context generation ────────────────────────────────────────────────
+
+    # Map query keywords to cognitive domains for targeted context
+    _DOMAIN_KEYWORDS: Dict[str, List[str]] = {
+        "language":        ["language", "grammar", "syntax", "word", "text", "linguistic"],
+        "communication":   ["communicat", "talk", "convers", "speak", "tell", "explain"],
+        "reasoning":       ["reason", "logic", "infer", "deduc", "analyz", "think", "why", "how"],
+        "calculating":     ["calculat", "math", "number", "add", "subtract", "multipl",
+                            "divid", "equat", "sum", "total", "percent"],
+        "chat_completions": ["chat", "complet", "prompt", "llm", "model", "api", "gpt"],
+        "responses":       ["respond", "response", "answer", "reply", "output", "generat"],
+    }
+
+    def _get_cognitive_context_lines(self, q_lower: str) -> List[str]:
+        """Return context lines for matching cognitive domains."""
+        try:
+            with self._lock:
+                matches = [
+                    (domain, self._cognitive[domain][-1])
+                    for domain, keywords in self._DOMAIN_KEYWORDS.items()
+                    if any(kw in q_lower for kw in keywords)
+                    and self._cognitive.get(domain)
+                ]
+            if not matches:
+                return []
+            lines = ["[Cognitive knowledge]"]
+            for domain, entry in matches:
+                lines.append(f"- {domain}: {entry.get('data', '')[:200]}")
+            lines.append("")
+            return lines
+        except Exception:
+            return []
+
+    def _get_facts_context_lines(self, q_lower: str) -> List[str]:
+        """Return context lines for relevant knowledge facts."""
+        try:
+            prefix = q_lower[:20]
+            with self._lock:
+                relevant = [
+                    f for f in self._facts
+                    if q_lower in f.get("topic", "").lower()
+                    or prefix in f.get("text", "").lower()
+                ]
+                relevant = relevant[-self._CONTEXT_FACTS:]
+            if not relevant:
+                return []
+            lines = ["[Learned knowledge]"]
+            for f in relevant:
+                lines.append(f"- {f.get('topic','')}: {f.get('text','')[:200]}")
+            lines.append("")
+            return lines
+        except Exception:
+            return []
+
+    def _get_pairs_context_lines(self) -> List[str]:
+        """Return context lines for recent conversation exchanges."""
+        try:
+            with self._lock:
+                recent = self._pairs[-self._CONTEXT_PAIRS:]
+            if not recent:
+                return []
+            lines = ["[Recent conversations]"]
+            for p in recent:
+                lines.append(f"User: {p.get('prompt','')}")
+                lines.append(f"Assistant: {p.get('response','')}")
+            lines.append("")
+            return lines
+        except Exception:
+            return []
+
     def get_context_for(self, query: str) -> str:
         """
         Build a context prefix for the given query using stored training data.
@@ -331,67 +401,11 @@ class BrainTrainer:
         Includes relevant knowledge facts, cognitive domain data, and recent
         conversation exchanges.  Returns an empty string when no data matches.
         """
-        lines = []
         q_lower = query.lower()
-
-        # ── Cognitive domain context (highest priority) ───────────────────
-        try:
-            # Map query keywords to cognitive domains for targeted context
-            _domain_keywords = {
-                "language": ["language", "grammar", "syntax", "word", "text", "linguistic"],
-                "communication": ["communicat", "talk", "convers", "speak", "tell", "explain"],
-                "reasoning": ["reason", "logic", "infer", "deduc", "analyz", "think", "why", "how"],
-                "calculating": ["calculat", "math", "number", "add", "subtract", "multipl",
-                                "divid", "equat", "sum", "total", "percent"],
-                "chat_completions": ["chat", "complet", "prompt", "llm", "model", "api", "gpt"],
-                "responses": ["respond", "response", "answer", "reply", "output", "generat"],
-            }
-            with self._lock:
-                relevant_cognitive = []
-                for domain, keywords in _domain_keywords.items():
-                    if any(kw in q_lower for kw in keywords):
-                        entries = self._cognitive.get(domain, [])
-                        if entries:
-                            relevant_cognitive.append((domain, entries[-1]))
-            if relevant_cognitive:
-                lines.append("[Cognitive knowledge]")
-                for domain, entry in relevant_cognitive:
-                    lines.append(f"- {domain}: {entry.get('data', '')[:200]}")
-                lines.append("")
-        except Exception:
-            pass
-
-        # ── Relevant knowledge facts ──────────────────────────────────────
-        try:
-            with self._lock:
-                scored = []
-                for f in self._facts:
-                    topic_hit = q_lower in f.get("topic", "").lower()
-                    text_hit = q_lower[:20] in f.get("text", "").lower()
-                    if topic_hit or text_hit:
-                        scored.append(f)
-                relevant_facts = scored[-self._CONTEXT_FACTS:]
-            if relevant_facts:
-                lines.append("[Learned knowledge]")
-                for f in relevant_facts:
-                    lines.append(f"- {f.get('topic','')}: {f.get('text','')[:200]}")
-                lines.append("")
-        except Exception:
-            pass
-
-        # ── Recent relevant exchanges ─────────────────────────────────────
-        try:
-            with self._lock:
-                recent_pairs = self._pairs[-self._CONTEXT_PAIRS:]
-            if recent_pairs:
-                lines.append("[Recent conversations]")
-                for p in recent_pairs:
-                    lines.append(f"User: {p.get('prompt','')}")
-                    lines.append(f"Assistant: {p.get('response','')}")
-                lines.append("")
-        except Exception:
-            pass
-
+        lines: List[str] = []
+        lines.extend(self._get_cognitive_context_lines(q_lower))
+        lines.extend(self._get_facts_context_lines(q_lower))
+        lines.extend(self._get_pairs_context_lines())
         return "\n".join(lines) if lines else ""
 
     def get_llm_data_summary(self) -> dict:
@@ -462,6 +476,17 @@ class BrainTrainer:
                 for domain, entries in self._cognitive.items()
             }
 
+    def _apply_cognitive_kb_item(self, domain: str, item: Any) -> None:
+        """Apply a single KnowledgeDB item to the cognitive domain store."""
+        if not isinstance(item, dict):
+            return
+        text = (
+            item.get("value") or item.get("content")
+            or item.get("input") or ""
+        )
+        if text:
+            self.update_cognitive_domain(domain, str(text)[:400])
+
     def run_training_cycle(self) -> str:
         """
         Execute one training cycle: pull from knowledge_db and refresh all data.
@@ -479,13 +504,7 @@ class BrainTrainer:
                     if hasattr(self.knowledge_db, "recall"):
                         items = self.knowledge_db.recall(f"cognitive:{domain}", limit=20)
                         for item in (items or []):
-                            if isinstance(item, dict):
-                                text = (
-                                    item.get("value") or item.get("content")
-                                    or item.get("input") or ""
-                                )
-                                if text:
-                                    self.update_cognitive_domain(domain, str(text)[:400])
+                            self._apply_cognitive_kb_item(domain, item)
                 except Exception as _e:
                     log.debug("[BrainTrainer] cognitive KB pull failed for %s: %s", domain, _e)
 
@@ -873,7 +892,7 @@ class NiblitBrain:
                     correlation_id=str(_uuid.uuid4()),
                 )
                 try:
-                    self.event_store.append(evt)
+                    self.event_store.append_event(evt)
                 except Exception:
                     pass
         except Exception:
@@ -895,15 +914,14 @@ class NiblitBrain:
         - Structured request tracing
         """
         # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks
+        _exit_stack = contextlib.ExitStack()
         try:
             # Structured request tracing
-            _ctx = None
             if RequestContext and hasattr(self, 'structured_log') and self.structured_log:
                 try:
-                    _ctx = RequestContext("brain_think")
-                    _ctx.__enter__()
+                    _exit_stack.enter_context(RequestContext("brain_think"))
                 except Exception:
-                    _ctx = None
+                    pass
 
             # Rate limiting check - skip if already in event loop
             if hasattr(self, 'rate_limiter') and self.rate_limiter:
@@ -926,11 +944,7 @@ class NiblitBrain:
                         cached = asyncio.run(self.cache.get(f"think:{user_input[:50]}"))
                         if cached:
                             log.debug("[BRAIN] Cache hit on think")
-                            if _ctx:
-                                try:
-                                    _ctx.__exit__(None, None, None)
-                                except Exception:
-                                    pass
+                            _exit_stack.close()
                             return cached
                 except Exception as e:
                     log.debug(f"Cache lookup failed: {e}")
@@ -965,11 +979,7 @@ class NiblitBrain:
 
             if not self.llm_enabled:
                 log.debug("LLM disabled, returning neutral response")
-                if _ctx:
-                    try:
-                        _ctx.__exit__(None, None, None)
-                    except Exception:
-                        pass
+                _exit_stack.close()
                 return f"[LLM disabled] '{user_input}'"
 
             response = None
@@ -1004,22 +1014,14 @@ class NiblitBrain:
                         if hasattr(self, 'telemetry') and self.telemetry:
                             self.telemetry.increment_counter("brain_think_success")
 
-                        if _ctx:
-                            try:
-                                _ctx.__exit__(None, None, None)
-                            except Exception:
-                                pass
+                        _exit_stack.close()
                         return response
                 except Exception as e:
                     log.warning(f"HFBrain ask failed: {e}")
                     if hasattr(self, 'telemetry') and self.telemetry:
                         self.telemetry.increment_counter("brain_think_failure")
 
-            if _ctx:
-                try:
-                    _ctx.__exit__(None, None, None)
-                except Exception:
-                    pass
+            _exit_stack.close()
             return f"[neutral] I hear you: '{user_input}'"
 
         except Exception as e:
@@ -1264,7 +1266,7 @@ if __name__ == "__main__":
     print("=== NiblitBrain self-test ===")
     _mem = None
     try:
-        from niblit_memory import MemoryManager as _MemoryManager
+        from niblit_memory import MemoryManager as _MemoryManager  # pylint: disable=ungrouped-imports
         _mem = _MemoryManager()
     except Exception as e:  # pylint: disable=broad-except
         print(f"[WARN] Memory unavailable ({e}), using None.")
