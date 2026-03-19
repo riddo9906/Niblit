@@ -4452,7 +4452,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
                         log.info(f"[AUTO RESEARCH] {topic}")
                         if self.internet:
-                            self.researcher.internet = self.internet
+                            self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
                         result = None
                         if hasattr(self.researcher, "search"):
                             result = safe_call(self.researcher.search, topic)
@@ -4607,7 +4607,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             result = cached
                         else:
                             if self.internet:
-                                self.researcher.internet = self.internet
+                                self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
                             if hasattr(self.researcher, "search"):
                                 result = safe_call(self.researcher.search, topic)
                                 if result:
