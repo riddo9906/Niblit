@@ -505,8 +505,8 @@ class CachedOperation:
         """Remove all expired entries."""
         current_time = time.time()
         expired_keys = [
-            k for k in self.timestamps
-            if current_time - self.timestamps[k] > self.ttl
+            k for k, ts in self.timestamps.items()
+            if current_time - ts > self.ttl
         ]
         for k in expired_keys:
             del self.cache[k]
@@ -573,8 +573,7 @@ def safe_call(fn: Callable, *a, **kw) -> Optional[Any]:
 
 def sorted_walk(base):
     """os.walk wrapper that yields directories in sorted order."""
-    import os as _os
-    for root, dirs, files in _os.walk(base):
+    for root, dirs, files in os.walk(base):
         dirs.sort()
         yield root, dirs, files
 
@@ -582,36 +581,30 @@ def sorted_walk(base):
 def parse_intent(text: str) -> Tuple[str, Dict[str, str]]:
     """Parse a user command string into (intent, meta) tuple."""
     t = text.strip().lower()
-    if t in ("help", "?"):
-        return "help", {}
-    if t in ("time", "what time is it", "current time"):
-        return "time", {}
-    if t in ("status", "health"):
-        return "status", {}
+
+    _EXACT: Dict[str, Tuple[str, Dict[str, str]]] = {
+        "help": ("help", {}), "?": ("help", {}),
+        "time": ("time", {}), "what time is it": ("time", {}), "current time": ("time", {}),
+        "status": ("status", {}), "health": ("status", {}),
+        "toggle-llm on": ("toggle_llm", {"state": "on"}), "llm on": ("toggle_llm", {"state": "on"}),
+        "toggle-llm off": ("toggle_llm", {"state": "off"}), "llm off": ("toggle_llm", {"state": "off"}),
+        "shutdown": ("shutdown", {}), "exit": ("shutdown", {}), "quit": ("shutdown", {}),
+    }
+    if t in _EXACT:
+        return _EXACT[t]
+
     if t.startswith("remember "):
         rest = text[9:].strip()
         if ":" in rest:
             k, v = rest.split(":", 1)
             return "remember", {"key": k.strip(), "value": v.strip()}
         return "bad_remember", {}
-    if t.startswith("learn about "):
-        topic = text[len("learn about "):].strip()
-        return "learn", {"topic": topic}
-    if t.startswith("learn "):
-        topic = text[len("learn "):].strip()
-        return "learn", {"topic": topic}
-    if t.startswith("ideas about "):
-        topic = text[len("ideas about "):].strip()
-        return "ideas", {"topic": topic}
-    if t.startswith("ideas "):
-        topic = text[len("ideas "):].strip()
-        return "ideas", {"topic": topic}
-    if t in ("toggle-llm on", "llm on"):
-        return "toggle_llm", {"state": "on"}
-    if t in ("toggle-llm off", "llm off"):
-        return "toggle_llm", {"state": "off"}
-    if t in ("shutdown", "exit", "quit"):
-        return "shutdown", {}
+
+    for prefix, intent in (("learn about ", "learn"), ("learn ", "learn"),
+                            ("ideas about ", "ideas"), ("ideas ", "ideas")):
+        if t.startswith(prefix):
+            return intent, {"topic": text[len(prefix):].strip()}
+
     return "chat", {}
 
 
@@ -887,8 +880,7 @@ except Exception as _e:
 try:
     from modules.evolve import TERMUX_DEPLOY_PATH as _NIBLIT_BUILD_PATH
 except Exception:
-    from pathlib import Path as _Path
-    _NIBLIT_BUILD_PATH = _Path(
+    _NIBLIT_BUILD_PATH = Path(
         "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
     )
 
@@ -2265,8 +2257,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return result["message"]
         # Fallback: importlib.reload
         try:
-            import importlib, sys as _sys
-            mod = _sys.modules.get(module_name)
+            import importlib
+            mod = sys.modules.get(module_name)
             if mod is None:
                 mod = importlib.import_module(module_name)
             importlib.reload(mod)
@@ -2390,8 +2382,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_tree_scan(self, path: str = "") -> str:
         """Recursively list all files under *path* (or the repo root)."""
-        from pathlib import Path as _Path
-        target = _Path(path.strip()) if path.strip() else _Path(".")
+        target = Path(path.strip()) if path.strip() else Path(".")
         if not target.exists():
             return f"❌ Path not found: {target}"
         if self.file_manager and hasattr(self.file_manager, "list_dir"):
@@ -2411,9 +2402,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
         lines = [f"🌲 **Tree: `{target}`**"]
         try:
             for root, dirs, files in sorted_walk(target):
-                depth = len(_Path(root).relative_to(target).parts)
+                depth = len(Path(root).relative_to(target).parts)
                 indent = "  " * depth
-                lines.append(f"{indent}📁 {_Path(root).name}/")
+                lines.append(f"{indent}📁 {Path(root).name}/")
                 for f in sorted(files)[:20]:
                     lines.append(f"{indent}  📄 {f}")
         except Exception as e:
@@ -2433,9 +2424,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
             suffix = "\n…[truncated]" if len(content) > 2000 else ""
             return f"📄 **{path}** ({result.get('size', '?')} bytes):\n```\n{preview}{suffix}\n```"
         # Fallback
-        from pathlib import Path as _Path
         try:
-            content = _Path(path.strip()).read_text(encoding="utf-8", errors="replace")
+            content = Path(path.strip()).read_text(encoding="utf-8", errors="replace")
             preview = content[:2000]
             suffix = "\n…[truncated]" if len(content) > 2000 else ""
             return f"📄 **{path}**:\n```\n{preview}{suffix}\n```"
@@ -2454,9 +2444,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 return f"❌ {result['error']}"
             return f"✅ Written to `{filepath}` ({len(content)} chars)"
         # Fallback
-        from pathlib import Path as _Path
         try:
-            p = _Path(filepath)
+            p = Path(filepath)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(content, encoding="utf-8")
             return f"✅ Written to `{filepath}` ({len(content)} chars)"
@@ -2477,9 +2466,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
             reps = result.get("replacements", 1)
             return f"✅ Replaced {reps} occurrence(s) in `{filepath}`"
         # Fallback
-        from pathlib import Path as _Path
         try:
-            p = _Path(filepath)
+            p = Path(filepath)
             original = p.read_text(encoding="utf-8")
             updated = original.replace(old_text, new_text)
             count = original.count(old_text)
@@ -2502,16 +2490,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
         3. Attempts to hot-reload each improvement via LiveUpdater.apply_patch()
            so the improvement takes effect without restarting Niblit.
         """
-        from pathlib import Path as _Path
-
         # Locate evolved/ — prefer the evolve engine deploy path, then repo root
         evolved_dir: Optional[Path] = None
         if self.evolve_engine:
             dp = getattr(self.evolve_engine, "deploy_path", None)
-            if dp and (_Path(dp) / "evolved").exists():
-                evolved_dir = _Path(dp) / "evolved"
+            if dp and (Path(dp) / "evolved").exists():
+                evolved_dir = Path(dp) / "evolved"
         if evolved_dir is None:
-            repo_root = _Path(__file__).resolve().parent
+            repo_root = Path(__file__).resolve().parent
             candidate = repo_root / "evolved"
             if candidate.exists():
                 evolved_dir = candidate
@@ -2585,7 +2571,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
         """Show all active threads."""
         if self.structural_awareness:
             return self.structural_awareness.thread_report()
-        import threading
         lines = [f"🧵 Active threads ({threading.active_count()}):"]
         for t in threading.enumerate():
             lines.append(f"  • {t.name} ({'alive' if t.is_alive() else 'dead'})")
@@ -3331,7 +3316,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
         its output as a string so it can be displayed inline during a session.
         """
         import subprocess
-        import sys
         script = os.path.join(BASE_DIR, "run_diagnostics.py")
         try:
             log.info("[DIAGNOSTICS] Running run_diagnostics.py ...")
@@ -3357,7 +3341,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
         output inline so results can be inspected without leaving the REPL.
         """
         import subprocess
-        import sys
         script = os.path.join(BASE_DIR, "live_command_tester.py")
         try:
             log.info("[LIVE-TEST] Running live_command_tester.py ...")
