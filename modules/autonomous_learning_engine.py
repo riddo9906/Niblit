@@ -3822,6 +3822,8 @@ class AutonomousLearningEngine:
         summary = "; ".join(results) if results else "no actionable builds outputs"
         log.info("✅ [BUILDS INTEGRATION] %s", summary)
         return f"BuildsIntegration: {summary}"
+
+    def _run_autonomous_cycle(self):
         """Execute one complete autonomous learning cycle (29 steps).
 
         Design principles
