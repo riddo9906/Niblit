@@ -519,7 +519,7 @@ class BrainTrainer:
         log.info("[BrainTrainer] %s", summary)
         return summary
 
-   def ingest_selfteach(self, limit=20):
+    def ingest_selfteach(self, limit=20):
         """
         Ingest self-teaching facts and quizzes from knowledge_db.
         Teaches BrainTrainer from self_teach_summary: / self_teach_quiz: KB keys.
