@@ -1059,10 +1059,12 @@ Ask me about:
 
         Commands::
 
-            trading start   — Launch the autonomous trading cycle
-            trading stop    — Stop the autonomous trading cycle
-            trading status  — Show trading brain state
-            trading cycle   — Run a single observe→decide cycle now
+            trading start              — Launch the autonomous trading cycle
+            trading stop               — Stop the autonomous trading cycle
+            trading status             — Show trading brain state
+            trading cycle              — Run a single observe→decide cycle now
+            trading pair <SYMBOL>      — Switch to a different trading pair
+            trading pair <SYMBOL> <IV> — Switch pair and kline interval (e.g. 5m)
 
         The trading brain fetches live Binance market data every
         ``TRADING_CYCLE_SECS`` seconds (default 60), computes RSI/MACD/EMA

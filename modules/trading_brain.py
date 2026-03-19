@@ -568,6 +568,47 @@ class TradingBrain:
             "memory_available": self.memory is not None,
         }
 
+    def switch_pair(self, symbol: str, interval: Optional[str] = None) -> Dict[str, Any]:
+        """Switch the trading pair (and optionally the kline interval) at runtime.
+
+        If the autonomous cycle is currently running it will be stopped,
+        the symbol/interval updated, and the cycle restarted automatically.
+
+        Args:
+            symbol:   New trading symbol, e.g. ``"ETHUSDT"``.  Converted to
+                      upper-case automatically.
+            interval: New kline interval string (e.g. ``"5m"``).  When *None*
+                      the current :attr:`interval` is kept.
+
+        Returns:
+            A dict with keys ``symbol``, ``interval``, and ``restarted``
+            (``True`` when the autonomous cycle was restarted).
+        """
+        new_symbol = symbol.strip().upper()
+        new_interval = interval.strip() if interval else self.interval
+
+        was_running = self.running
+        if was_running:
+            self.stop()
+            import time as _time
+            # Give the background thread a moment to acknowledge the stop signal
+            _time.sleep(0.2)
+
+        old_symbol = self.symbol
+        old_interval = self.interval
+        self.symbol = new_symbol
+        self.interval = new_interval
+
+        log.info(
+            "[TradingBrain] Switched pair: %s/%s → %s/%s",
+            old_symbol, old_interval, new_symbol, new_interval,
+        )
+
+        if was_running:
+            self.start()
+
+        return {"symbol": self.symbol, "interval": self.interval, "restarted": was_running}
+
     def _autonomous_loop(self) -> None:
         """Internal: run cycle() in a loop until self._running is False."""
         import time as _time
