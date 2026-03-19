@@ -1,4 +1,4 @@
-# ══════════════════════════════════════════════════════════════════════════════
+# ═══════════��══════════════════════════════════════════════════════════════════
 # Niblit — Unified Requirements
 # ══════════════════════════════════════════════════════════════════════════════
 # This single file replaces the three separate requirements files:
@@ -11,67 +11,40 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Core Runtime ─────────────────────────────────────────────────────────────
-# Web framework powering the REST API and dashboard UI (/api/*, /app)
 Flask==2.3.3
-# HTTP client used by ResearcherEngine, SerpEx, DuckDuckGo, GitHub Code Search
 requests>=2.28.0
-# .env file loader — loads QDRANT_URL, SERPEX_API_KEY, HF_API_TOKEN, etc.
 python-dotenv>=1.0.0
-# HuggingFace Hub client — downloads models for HFLLMAdapter & SelfTeacher
-huggingface-hub==0.19.4  # stable across Python 3.8–3.12
-# WSGI server for production deployments (Termux / cloud)
+huggingface-hub==0.19.4
 gunicorn>=20.1.0
-# CORS middleware — needed for the Niblit dashboard and MCP SSE endpoint
 flask-cors>=4.0.0
 
+# ── Self-Teaching / Autonomous Learning ─────────────────────────────────────
+
 # ── Vector Database / Semantic Search ────────────────────────────────────────
-# Qdrant client — connects to cloud.qdrant.io or a self-hosted Qdrant instance.
-# Enables semantic caching in ResearcherEngine and KnowledgeStore.
-# Set QDRANT_URL and QDRANT_API_KEY in .env to activate.
 qdrant-client>=1.7.0
-# Sentence-transformers — local embedding generation for all vector backends.
-# Used by VectorStore, KnowledgeStore, LLMAdapter, ResearcherEngine, ALE.
 sentence-transformers>=2.2.2
-# numpy — required by sentence-transformers and the in-memory vector backend.
 numpy>=1.24.0
-# FAISS — high-performance approximate nearest-neighbour search.
-# VectorStore automatically prefers FAISS when installed; falls back to
-# in-memory linear scan when absent.
-# NOTE: faiss-cpu is the CPU-only build. GPU users should install
-#       faiss-gpu instead: pip install faiss-gpu
 faiss-cpu>=1.7.4
 
+# ── Web Scraping ────────────────────────────────────────────────────────────
+# Provides advanced crawling, extraction, and scraping capabilities for Niblit
+scrapy>=2.11.0
+
 # ── MCP (Model Context Protocol) ─────────────────────────────────────────────
-# Enables /mcp and /mcp/sse endpoints + stdio transport so MCP-compatible
-# clients (Claude Desktop, VS Code Copilot, Cursor, …) can call Niblit as a
-# tool server.  The built-in JSON-RPC handler works without this package;
-# install it to get the official MCP SDK helpers and type stubs.
 mcp>=1.0.0
 
 # ── Trading Brain / Market Data ──────────────────────────────────────────────
-# Binance API client — real-time klines, order book, WebSocket streams
 python-binance>=1.0.17
-# pandas — DataFrame operations for OHLCV data and indicator computation
 pandas>=2.0.0
-# ta (Technical Analysis library) — RSI, MACD, EMA and 100+ other indicators
 ta>=0.11.0
 
 # ── Advanced Pipeline / Autonomous Execution ─────────────────────────────────
-# Docker SDK — enables the Docker sandbox for isolated code execution inside
-# niblit_full_upgrade_pipeline.py.  Requires Docker Desktop or Docker Engine.
 docker>=6.0.0
-# Prometheus metrics client — exposes /metrics endpoint (Grafana / Alertmanager)
 prometheus-client>=0.19.0
 
 # ── Development & Testing ─────────────────────────────────────────────────────
-# Test runner used by the full test suite (test_fused_memory, test_autonomous_engine, …)
 pytest>=7.4.0
-# Coverage reporting for pytest
 pytest-cov>=4.1.0
-# Static analysis / linting — catches missing imports, unused vars, bad calls
 pylint>=3.0.0
-# Optional: strict type checking for mypy-annotated modules
 mypy>=1.7.0
-# Optional: opinionated code formatter
 black>=23.11.0
-
