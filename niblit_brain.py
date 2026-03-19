@@ -494,6 +494,7 @@ class BrainTrainer:
         Called by AutonomousLearningEngine step 24 (BrainTraining).
         Returns a summary string.
         """
+        self.ingest_selfteach(limit=20)
         before = len(self._pairs) + len(self._facts)
         self.ingest_knowledge_db(limit=100)
 
