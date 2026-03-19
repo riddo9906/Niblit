@@ -3059,10 +3059,22 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_loops_show(self) -> str:
         self._loops_verbose = True
+        logging.disable(logging.NOTSET)
+        try:
+            from niblit_io import NiblitIO
+            NiblitIO._quiet = False
+        except Exception:
+            pass
         return "✅ Loop output visible"
 
     def _cmd_loops_hide(self) -> str:
         self._loops_verbose = False
+        logging.disable(logging.CRITICAL)
+        try:
+            from niblit_io import NiblitIO
+            NiblitIO._quiet = True
+        except Exception:
+            pass
         return "⏹️ Loop output hidden (loops still running)"
 
     def _cmd_loops_status(self) -> str:
