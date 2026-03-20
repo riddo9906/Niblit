@@ -3281,24 +3281,28 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
 
     def _autonomous_brain_training(self) -> str:
-        """Step 24: Autonomous brain trainer — fine-tune brain on research data.
+        """
+        Step 24: Autonomous brain trainer — fine-tune brain on research data.
 
-        Pulls accumulated knowledge from KnowledgeDB into the BrainTrainer so
-        every subsequent chat query benefits from what Niblit has learned.
-        Also ingests any recent research results stored by earlier ALE steps
-        so general chatting responses improve continuously.
+        - Wires the current KnowledgeDB and optional SelfTeacher into the BrainTrainer.
+        - Feeds recent autonomous research results into the BrainTrainer as fresh facts.
+        - Activates full self-teaching and knowledge ingestion pipeline.
+        - Increments training cycle count.
+        - Returns a training summary string for metrics/history.
         """
         if not self.brain_trainer:
             return "BrainTraining: no brain_trainer available"
 
         try:
-            # Wire knowledge_db into trainer if not already set
+            # Sync knowledge_db if not already set
             if self.knowledge_db and not self.brain_trainer.knowledge_db:
                 self.brain_trainer.knowledge_db = self.knowledge_db
 
-            # Ingest recent research results from Step 1 if available.
-            # _last_research_results is set by _autonomous_research() (step 1)
-            # and holds the raw list of research items from that cycle.
+            # Also wire the latest SelfTeacher, if present
+            if hasattr(self, "self_teacher") and not getattr(self.brain_trainer, "self_teacher", None):
+                self.brain_trainer.self_teacher = self.self_teacher
+
+            # Feed in recent research results from last ALE research step
             last_results = getattr(self, "_last_research_results", None)
             if last_results:
                 if isinstance(last_results, list):
@@ -3309,13 +3313,15 @@ class AutonomousLearningEngine:
                 elif isinstance(last_results, str):
                     self.brain_trainer.ingest_research("research", last_results[:600])
 
-            # Run the main training cycle (pulls from KB)
+            # Run the main (self-teaching + ingestion) training cycle
             summary = self.brain_trainer.run_training_cycle()
 
             self.learning_history["brain_training_cycles"] = (
                 self.learning_history.get("brain_training_cycles", 0) + 1
             )
+            log.info("[ALE] Autonomous brain training cycle complete.")
             return summary
+
         except Exception as exc:
             log.debug("[BRAIN TRAINING] step failed: %s", exc)
             return f"BrainTraining: error — {exc}"
