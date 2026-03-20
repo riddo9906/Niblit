@@ -1,5 +1,5 @@
 /*
- * ale_c_kernel_module_and_device_driver_programm — kernel module and device driver programming 1773696548: A kernel is a computer program at the core of a computer's operating system that always has complete control over everyt
+ * ale_c_system_calls_and_posix_api_1773964293 — system calls and POSIX API 1773964293: Go is a high-level, general-purpose programming language that is statically typed and compiled. It is known for the simp
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,5 +17,5 @@ int main(int argc, char *argv[]) {
 }
 
 void run(void) {
-    printf("ale_c_kernel_module_and_device_driver_programm: kernel module and device driver programming 1773696548: A kernel is a computer program at the core of a computer's operating system that always has complete control over everyt\n");
+    printf("ale_c_system_calls_and_posix_api_1773964293: system calls and POSIX API 1773964293: Go is a high-level, general-purpose programming language that is statically typed and compiled. It is known for the simp\n");
 }
