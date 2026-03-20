@@ -548,6 +548,42 @@ class BrainTrainer:
         except Exception as e:
             log.debug(f"[BrainTrainer] ingest_selfteach failed: {e}")
         return count
+        def run_self_teaching(self, topics_limit=20):
+        """
+        Uses SelfTeacher to deeply learn each unique topic in memory/knowledge_db.
+        Speeds up learning and ensures teaching is not skipped.
+        """
+        if not self.self_teacher or not self.knowledge_db:
+            return "SelfTeacher or knowledge_db unavailable."
+
+        # Collect recent unique topics from facts (adapt as needed per KB schema)
+        try:
+            if hasattr(self.knowledge_db, "list_facts"):
+                facts = self.knowledge_db.list_facts(limit=100)
+            elif hasattr(self.knowledge_db, "recall"):
+                facts = self.knowledge_db.recall("", limit=100)
+            else:
+                facts = []
+        except Exception as e:
+            return f"Failed to load facts: {e}"
+
+        seen = set()
+        taught = []
+        for fact in facts:
+            topic = ""
+            if isinstance(fact, dict):
+                topic = fact.get("topic") or fact.get("key") or ""
+                topic = topic.split(":")[-1]  # Remove KB namespace
+            if topic and topic not in seen:
+                seen.add(topic)
+                try:
+                    summary = self.self_teacher.teach(topic)
+                    taught.append(f"{topic}: {summary[:100]}")
+                except Exception as ex:
+                    taught.append(f"{topic}: fail ({ex})")
+            if len(taught) >= topics_limit:
+                break
+        return f"Self-teaching complete, {len(taught)} topic(s) taught:\n" + "\n".join(taught)            
 
 # ───────── NiblitBrain ─────────
 class NiblitBrain:
