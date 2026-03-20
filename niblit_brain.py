@@ -556,12 +556,23 @@ class BrainTrainer:
     def run_self_teaching(self, topics_limit=20):
         """
         Uses SelfTeacher to deeply learn each unique topic in memory/knowledge_db.
-        Speeds up learning and ensures teaching is not skipped.
-        """
-        if not self.self_teacher or not self.knowledge_db:
-            return "SelfTeacher or knowledge_db unavailable."
 
-        # Collect recent unique topics from facts (adapt as needed per KB schema)
+        Steps:
+        - Gathers recent unique topics from facts in the knowledge DB.
+        - Passes each topic to SelfTeacher to generate and ingest a lesson/summary.
+        - Handles KB namespace prefixes (e.g. "self_teach_summary:topic:timestamp").
+        - Skips duplicate or empty topics.
+        - Limits number of taught topics per cycle.
+        - Logs outcomes for each topic.
+        - Returns a concise summary string for diagnostics or UI.
+        """
+        logger = logging.getLogger("BrainTrainer")
+        if not self.self_teacher or not self.knowledge_db:
+            msg = "SelfTeacher or knowledge_db unavailable."
+            logger.warning(msg)
+            return msg
+
+        # 1. Gather facts from the KB/factbase
         try:
             if hasattr(self.knowledge_db, "list_facts"):
                 facts = self.knowledge_db.list_facts(limit=100)
@@ -570,26 +581,42 @@ class BrainTrainer:
             else:
                 facts = []
         except Exception as e:
-            return f"Failed to load facts: {e}"
+            msg = f"Failed to load facts: {e}"
+            logger.error(msg)
+            return msg
 
+        # 2. Select unique, non-empty topics (strip prefix if present)
         seen = set()
         taught = []
         for fact in facts:
             topic = ""
             if isinstance(fact, dict):
                 topic = fact.get("topic") or fact.get("key") or ""
-                topic = topic.split(":")[-1]  # Remove KB namespace
-            if topic and topic not in seen:
-                seen.add(topic)
-                try:
-                    summary = self.self_teacher.teach(topic)
-                    taught.append(f"{topic}: {summary[:100]}")
-                except Exception as ex:
-                    taught.append(f"{topic}: fail ({ex})")
+                if topic:
+                    topic = topic.split(":")[-1]
+            if not topic or topic in seen:
+                continue
+            seen.add(topic)
+
+            # 3. Teach about this topic using SelfTeacher
+            try:
+                summary = self.self_teacher.teach(topic)
+                result_line = f"✓ {topic}: {summary[:80]}"
+                logger.info(f"[SelfTeaching] {result_line}")
+            except Exception as ex:
+                result_line = f"✗ {topic}: fail ({ex})"
+                logger.warning(f"[SelfTeaching] {result_line}")
+            taught.append(result_line)
+
             if len(taught) >= topics_limit:
                 break
-        return f"Self-teaching complete, {len(taught)} topic(s) taught:\n" + "\n".join(taught)            
 
+        msg = f"Self-teaching: {len(taught)} topic(s) completed."
+        logger.info(msg)
+        if taught:
+            msg += "\n" + "\n".join(taught)
+        return msg
+        
 # ───────── NiblitBrain ─────────
 class NiblitBrain:
     """
