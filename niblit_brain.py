@@ -724,10 +724,8 @@ class NiblitBrain:
 
         # ─────── BRAIN TRAINER ───────
         # Pass memory as knowledge_db if it supports add_fact / recall (e.g. KnowledgeDB adapter)
-        _kdb = self.memory if (
-            self.memory and hasattr(self.memory, "add_fact")
-        ) else None
-        self.brain_trainer = BrainTrainer(self.memory, knowledge_db=_kdb, self_teacher=self.self.teacher)
+        _kdb = self.memory if (self.memory and hasattr(self.memory, "add_fact")) else None
+        self.brain_trainer = BrainTrainer(self.memory, knowledge_db=_kdb, self_teacher=self.self_teacher)
         log.debug("[BRAIN] BrainTrainer initialized")
 
         # ─────── SERPEX TOOL ───────
