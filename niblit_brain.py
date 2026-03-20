@@ -495,6 +495,10 @@ class BrainTrainer:
         Called by AutonomousLearningEngine step 24 (BrainTraining).
         Returns a summary string.
         """
+        if self.self_teacher:
+            self.run_self_teaching(topics_limit=20)
+        ...
+
         self.ingest_selfteach(limit=20)
         before = len(self._pairs) + len(self._facts)
         self.ingest_knowledge_db(limit=100)
@@ -548,7 +552,8 @@ class BrainTrainer:
         except Exception as e:
             log.debug(f"[BrainTrainer] ingest_selfteach failed: {e}")
         return count
-        def run_self_teaching(self, topics_limit=20):
+     
+    def run_self_teaching(self, topics_limit=20):
         """
         Uses SelfTeacher to deeply learn each unique topic in memory/knowledge_db.
         Speeds up learning and ensures teaching is not skipped.
