@@ -231,9 +231,10 @@ class BrainTrainer:
         "responses",
     ]
 
-    def __init__(self, memory, knowledge_db=None):
+    def __init__(self, memory, knowledge_db=None, self_teacher=None):
         self.memory = memory
         self.knowledge_db = knowledge_db
+        self.self_teacher = self_teacher
         self._pairs: list = []          # in-memory training pairs
         self._facts: list = []          # in-memory knowledge facts
         # Per-domain cognitive data store: domain → list of update dicts
