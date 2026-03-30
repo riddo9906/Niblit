@@ -1,5 +1,5 @@
 /*
- * ale_c_system_calls_and_posix_api_1774874759 — system calls and POSIX API 1774874759: Go is a high-level, general-purpose programming language that is statically typed and compiled. It is known for the simp
+ * ale_c_linux_socket_and_epoll_networking_177489 — Linux socket and epoll networking 1774897213: An IRCd, short for Internet Relay Chat daemon, is server software that implements the IRC protocol, enabling people to t
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,5 +17,5 @@ int main(int argc, char *argv[]) {
 }
 
 void run(void) {
-    printf("ale_c_system_calls_and_posix_api_1774874759: system calls and POSIX API 1774874759: Go is a high-level, general-purpose programming language that is statically typed and compiled. It is known for the simp\n");
+    printf("ale_c_linux_socket_and_epoll_networking_177489: Linux socket and epoll networking 1774897213: An IRCd, short for Internet Relay Chat daemon, is server software that implements the IRC protocol, enabling people to t\n");
 }

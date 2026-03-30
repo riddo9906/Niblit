@@ -1,9 +1,11 @@
-# ale_assembly_x86_64_system_call_interface_1774283644 — x86-64 system call interface 1774283644: Julia is a dynamic general-purpose programming language. As a high-level language, distinctive aspects of Julia's design
+# ale_assembly_arm_cortex_m_bare_metal_programming — ARM Cortex-M bare metal programming: ✅ Researched assembly ARM Cortex-M bare metal programming: 2 result(s) fetched.
+First result: No data found for 'assembl
 # Target: x86-64 Linux (NASM syntax)
-# Build:  nasm -f elf64 ale_assembly_x86_64_system_call_interface_1774283644.asm -o ale_assembly_x86_64_system_call_interface_1774283644.o && ld ale_assembly_x86_64_system_call_interface_1774283644.o -o ale_assembly_x86_64_system_call_interface_1774283644
+# Build:  nasm -f elf64 ale_assembly_arm_cortex_m_bare_metal_programming.asm -o ale_assembly_arm_cortex_m_bare_metal_programming.o && ld ale_assembly_arm_cortex_m_bare_metal_programming.o -o ale_assembly_arm_cortex_m_bare_metal_programming
 
 section .data
-    msg db "ale_assembly_x86_64_system_call_interface_1774283644: x86-64 system call interface 1774283644: Julia is a dynamic general-purpose programming language. As a high-level language, distinctive aspects of Julia's design", 0x0A
+    msg db "ale_assembly_arm_cortex_m_bare_metal_programming: ARM Cortex-M bare metal programming: ✅ Researched assembly ARM Cortex-M bare metal programming: 2 result(s) fetched.
+First result: No data found for 'assembl", 0x0A
     msg_len equ $ - msg
 
 section .text
