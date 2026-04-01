@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 # modules/self_teacher.py
-"""
-SelfTeacher — Autonomous LLM-Driven Teaching, Review, and Quizzing for Niblit
+"""SelfTeacher — Autonomous LLM-Driven Teaching, Review, and Quizzing for Niblit.
 
 Features:
-- LLM-based topic synthesis ("teach back" for understanding)
-- Spaced repetition review queue for self-improvement
+- LLM-based topic synthesis via query_llm
+- Spaced repetition review queue (2x interval doubling, persisted to KB)
 - Self-quizzing to identify knowledge gaps
 - Stores summaries and quizzes as KB facts for traceability
 """
 
-import time
+import json
 import random
+import threading
+import time
 
 try:
     from niblit_memory import NiblitMemory as _NiblitMemory
@@ -30,17 +31,16 @@ class SelfTeacher:
         self.researcher = researcher
         self.reflector = reflector
         self.learner = learner
-        self.llm = llm  # Should have an .ask_single(prompt) method
-        self.review_queue = []  # For spaced repetition
-        self.last_reviewed = {}  # topic -> last review timestamp
-        self._is_teaching = False  # Recursion protection
+        self.llm = llm
+
+        self._is_teaching = False
 
         # Interval-based spaced repetition queue (persisted to KB)
         self._review_queue = []
         self._queue_lock = threading.Lock()
         self._load_review_queue()
 
-        # Lightweight topic list + timestamp map (used by spaced_review())
+        # Lightweight topic list + timestamp map (used by spaced_review() fallback)
         self.review_queue = []
         self.last_reviewed = {}
 
@@ -176,29 +176,69 @@ class SelfTeacher:
         self._is_teaching = True
         learned = []
 
-        # Try to get recent facts via researcher or memory
         if self.researcher:
             try:
                 learned = self.researcher.search(topic)
             except Exception:
                 learned = []
         else:
-            # Fallback: Get from our memory/DB
             learned = self._get_recent_facts(topic, limit=5)
 
-        # Synthesize using LLM/brain, or use plain summary
-        summary = ""
-        if self.llm and learned:
-            llm_prompt = (
-                f"Synthesize a short, original explanation of '{topic}' using the following context:\n"
-                + "\n".join(str(f)[:300] for f in learned)
-            )
+        summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
+
+        ts = int(time.time())
+        try:
+            if hasattr(self.db, "add_fact"):
+                self.db.add_fact(
+                    f"self_teach_summary:{topic}:{ts}",
+                    summary,
+                    tags=["learn", "self-teach", topic]
+                )
+            elif hasattr(self.db, "store_learning"):
+                self.db.store_learning({"topic": topic, "summary": summary, "tags": ["learn", "self-teach", topic]})
+        except Exception:
+            pass
+
+        if learned:
             try:
-                summary = self.llm.ask_single(llm_prompt).strip()
-            except Exception as e:
-                summary = f"LLM error explaining {topic}: {e}"
-        elif learned:
-            summary = str(learned[0])[:400]
+                quiz = self._generate_quiz(topic, summary)
+                if self.db and hasattr(self.db, "add_fact"):
+                    self.db.add_fact(f"quiz:{topic}:{ts}", quiz, tags=["quiz", "self-teach"])
+            except Exception:
+                pass
+
+            self.schedule_for_review(topic)
+            self.last_reviewed[topic] = ts
+
+        if self.learner and learned:
+            try:
+                self.learner.learn(summary)
+            except Exception:
+                pass
+
+        if self.reflector and learned:
+            try:
+                self.reflector.collect_and_summarize(f"Learned about {topic}: {summary}")
+            except Exception:
+                pass
+
+        self._is_teaching = False
+        return f"Self-teach completed for '{topic}'."
+
+    def teach_review(self, topic):
+        if not topic:
+            return "No topic provided for review-teach."
+        if self._is_teaching:
+            return "Teaching skipped (recursion protection)."
+
+        self._is_teaching = True
+        learned = []
+
+        if self.researcher:
+            try:
+                learned = self.researcher.search(topic)
+            except Exception:
+                learned = []
         else:
             learned = self._get_recent_facts(topic, limit=5)
 
@@ -208,7 +248,7 @@ class SelfTeacher:
             try:
                 if hasattr(self.db, "add_fact"):
                     self.db.add_fact(
-                        f"learn:{topic}",
+                        f"self_teach_summary:{topic}:{int(time.time())}",
                         summary,
                         tags=["learn", "self-teach", "review"]
                     )
@@ -226,9 +266,7 @@ class SelfTeacher:
 
         if self.learner and learned:
             try:
-                self.reflector.collect_and_summarize(
-                    f"Learned about {topic}: {summary}"
-                )
+                self.learner.learn(summary)
             except Exception:
                 pass
 
@@ -257,7 +295,6 @@ class SelfTeacher:
         used as a fallback guard when the interval-based queue has no entries.
         """
         now = int(time.time())
-        # First try interval-based queue; fall back to timestamp-based list
         due = self.get_due_reviews(max_items=count)
         if not due:
             due = [t for t in self.review_queue if now - self.last_reviewed.get(t, 0) > min_interval]
