@@ -856,25 +856,36 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _autonomous_learning(self) -> str:
-        """Step 6: Feed learning to self-teacher"""
+        """Step 6: Feed learning to self-teacher with spaced review and richer logging"""
         if not self.self_teacher:
             return "[Self-teacher unavailable]"
 
         try:
+            outputs = []
+
+            # 1. Teach the most recent research topic as before
             last_topic = self.learning_history.get("last_research_topic") or "system knowledge"
-
             log.info(f"📚 [AUTONOMOUS LEARN] Teaching about: {last_topic}")
-
             result = self.self_teacher.teach(last_topic)
+            outputs.append(result)
 
-            # Log to knowledge base
+            # 2. Teach or review an older topic (spaced repetition)
+            reviews = self.self_teacher.spaced_review(count=1)
+            outputs.extend(reviews)
+
+            # 3. Log BOTH results to knowledge base (as before, but now richer)
             if self.knowledge_db:
                 try:
-                    self.knowledge_db.log_event(f"Autonomous teaching: {last_topic}")
+                    # Log main teaching on new topic
+                    self.knowledge_db.log_event(f"Autonomous teaching: {last_topic} + {len(reviews)} reviewed")
                     self.knowledge_db.add_fact(
                         f"ale_learning:{last_topic.replace(' ', '_')}:{int(time.time())}",
-                        {"topic": last_topic, "result": str(result or "")[:300],
-                         "step": "step6_learning"},
+                        {
+                            "topic": last_topic,
+                            "result": str(result or "")[:300],
+                            "step": "step6_learning",
+                            "spaced_reviewed": [str(r)[:150] for r in reviews],
+                        },
                         tags=["ale_step6", "learning", "autonomous"],
                     )
                 except Exception as e:
@@ -3301,24 +3312,28 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
 
     def _autonomous_brain_training(self) -> str:
-        """Step 24: Autonomous brain trainer — fine-tune brain on research data.
+        """
+        Step 24: Autonomous brain trainer — fine-tune brain on research data.
 
-        Pulls accumulated knowledge from KnowledgeDB into the BrainTrainer so
-        every subsequent chat query benefits from what Niblit has learned.
-        Also ingests any recent research results stored by earlier ALE steps
-        so general chatting responses improve continuously.
+        - Wires the current KnowledgeDB and optional SelfTeacher into the BrainTrainer.
+        - Feeds recent autonomous research results into the BrainTrainer as fresh facts.
+        - Activates full self-teaching and knowledge ingestion pipeline.
+        - Increments training cycle count.
+        - Returns a training summary string for metrics/history.
         """
         if not self.brain_trainer:
             return "BrainTraining: no brain_trainer available"
 
         try:
-            # Wire knowledge_db into trainer if not already set
+            # Sync knowledge_db if not already set
             if self.knowledge_db and not self.brain_trainer.knowledge_db:
                 self.brain_trainer.knowledge_db = self.knowledge_db
 
-            # Ingest recent research results from Step 1 if available.
-            # _last_research_results is set by _autonomous_research() (step 1)
-            # and holds the raw list of research items from that cycle.
+            # Also wire the latest SelfTeacher, if present
+            if hasattr(self, "self_teacher") and not getattr(self.brain_trainer, "self_teacher", None):
+                self.brain_trainer.self_teacher = self.self_teacher
+
+            # Feed in recent research results from last ALE research step
             last_results = getattr(self, "_last_research_results", None)
             if last_results:
                 if isinstance(last_results, list):
@@ -3329,13 +3344,15 @@ class AutonomousLearningEngine:
                 elif isinstance(last_results, str):
                     self.brain_trainer.ingest_research("research", last_results[:600])
 
-            # Run the main training cycle (pulls from KB)
+            # Run the main (self-teaching + ingestion) training cycle
             summary = self.brain_trainer.run_training_cycle()
 
             self.learning_history["brain_training_cycles"] = (
                 self.learning_history.get("brain_training_cycles", 0) + 1
             )
+            log.info("[ALE] Autonomous brain training cycle complete.")
             return summary
+
         except Exception as exc:
             log.debug("[BRAIN TRAINING] step failed: %s", exc)
             return f"BrainTraining: error — {exc}"
@@ -4191,6 +4208,22 @@ class AutonomousLearningEngine:
             if self.add_research_topic(topic):
                 added.append(topic)
         return added
+
+    # ─────────────────────────────────────────────
+    def update_research_topics(self, new_topics: List[str]) -> None:
+        """Replace (or extend) the active research-topic list with *new_topics*.
+
+        Called by DynamicTopicManager / BackgroundTopicRefresh to inject fresh
+        topics so ALE does not keep repeating the same queries.  New topics are
+        appended to the existing list rather than replacing it entirely, which
+        preserves any user-added topics while still surfacing novel ones.
+        """
+        if not new_topics:
+            return
+        added = self.add_research_topics(new_topics)
+        if added:
+            log.info("[ALE] update_research_topics: injected %d new topics (%s…)",
+                     len(added), added[0])
 
 
 # ─────────────────────────────────────────────

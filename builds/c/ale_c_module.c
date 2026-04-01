@@ -1,5 +1,5 @@
 /*
- * ale_c_kernel_module_and_device_driver_programm — kernel module and device driver programming 1773696548: A kernel is a computer program at the core of a computer's operating system that always has complete control over everyt
+ * ale_c_linux_socket_and_epoll_networking_177489 — Linux socket and epoll networking 1774897213: An IRCd, short for Internet Relay Chat daemon, is server software that implements the IRC protocol, enabling people to t
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,5 +17,5 @@ int main(int argc, char *argv[]) {
 }
 
 void run(void) {
-    printf("ale_c_kernel_module_and_device_driver_programm: kernel module and device driver programming 1773696548: A kernel is a computer program at the core of a computer's operating system that always has complete control over everyt\n");
+    printf("ale_c_linux_socket_and_epoll_networking_177489: Linux socket and epoll networking 1774897213: An IRCd, short for Internet Relay Chat daemon, is server software that implements the IRC protocol, enabling people to t\n");
 }

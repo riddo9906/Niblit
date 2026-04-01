@@ -231,9 +231,10 @@ class BrainTrainer:
         "responses",
     ]
 
-    def __init__(self, memory, knowledge_db=None):
+    def __init__(self, memory, knowledge_db=None, self_teacher=None):
         self.memory = memory
         self.knowledge_db = knowledge_db
+        self.self_teacher = self_teacher
         self._pairs: list = []          # in-memory training pairs
         self._facts: list = []          # in-memory knowledge facts
         # Per-domain cognitive data store: domain → list of update dicts
@@ -494,6 +495,11 @@ class BrainTrainer:
         Called by AutonomousLearningEngine step 24 (BrainTraining).
         Returns a summary string.
         """
+        if self.self_teacher:
+            self.run_self_teaching(topics_limit=20)
+        ...
+
+        self.ingest_selfteach(limit=20)
         before = len(self._pairs) + len(self._facts)
         self.ingest_knowledge_db(limit=100)
 
@@ -518,7 +524,99 @@ class BrainTrainer:
         log.info("[BrainTrainer] %s", summary)
         return summary
 
+    def ingest_selfteach(self, limit=20):
+        """
+        Ingest self-teaching facts and quizzes from knowledge_db.
+        Teaches BrainTrainer from self_teach_summary: / self_teach_quiz: KB keys.
+        """
+        if not self.knowledge_db:
+            return 0
+        count = 0
+        try:
+            facts = []
+            if hasattr(self.knowledge_db, "recall"):
+                facts.extend(self.knowledge_db.recall("self_teach_summary", limit=limit))
+                facts.extend(self.knowledge_db.recall("self_teach_quiz", limit=limit))
+            elif hasattr(self.knowledge_db, "list_facts"):
+                all_facts = self.knowledge_db.list_facts(limit*2)
+                for f in all_facts:
+                    key = f.get("key", "") if isinstance(f, dict) else ""
+                    if key.startswith("self_teach_summary:") or key.startswith("self_teach_quiz:"):
+                        facts.append(f)
+            for item in facts:
+                text = (item.get("value") or item.get("summary") or item.get("content") or "") if isinstance(item,   dict)     else str(item)
+                topic = item.get("key") or item.get("topic") or "" if isinstance(item, dict) else ""
+                if text:
+                    self.ingest_research(topic, text)
+                    count += 1
+        except Exception as e:
+            log.debug(f"[BrainTrainer] ingest_selfteach failed: {e}")
+        return count
+     
+    def run_self_teaching(self, topics_limit=20):
+        """
+        Uses SelfTeacher to deeply learn each unique topic in memory/knowledge_db.
 
+        Steps:
+        - Gathers recent unique topics from facts in the knowledge DB.
+        - Passes each topic to SelfTeacher to generate and ingest a lesson/summary.
+        - Handles KB namespace prefixes (e.g. "self_teach_summary:topic:timestamp").
+        - Skips duplicate or empty topics.
+        - Limits number of taught topics per cycle.
+        - Logs outcomes for each topic.
+        - Returns a concise summary string for diagnostics or UI.
+        """
+        logger = logging.getLogger("BrainTrainer")
+        if not self.self_teacher or not self.knowledge_db:
+            msg = "SelfTeacher or knowledge_db unavailable."
+            logger.warning(msg)
+            return msg
+
+        # 1. Gather facts from the KB/factbase
+        try:
+            if hasattr(self.knowledge_db, "list_facts"):
+                facts = self.knowledge_db.list_facts(limit=100)
+            elif hasattr(self.knowledge_db, "recall"):
+                facts = self.knowledge_db.recall("", limit=100)
+            else:
+                facts = []
+        except Exception as e:
+            msg = f"Failed to load facts: {e}"
+            logger.error(msg)
+            return msg
+
+        # 2. Select unique, non-empty topics (strip prefix if present)
+        seen = set()
+        taught = []
+        for fact in facts:
+            topic = ""
+            if isinstance(fact, dict):
+                topic = fact.get("topic") or fact.get("key") or ""
+                if topic:
+                    topic = topic.split(":")[-1]
+            if not topic or topic in seen:
+                continue
+            seen.add(topic)
+
+            # 3. Teach about this topic using SelfTeacher
+            try:
+                summary = self.self_teacher.teach(topic)
+                result_line = f"✓ {topic}: {summary[:80]}"
+                logger.info(f"[SelfTeaching] {result_line}")
+            except Exception as ex:
+                result_line = f"✗ {topic}: fail ({ex})"
+                logger.warning(f"[SelfTeaching] {result_line}")
+            taught.append(result_line)
+
+            if len(taught) >= topics_limit:
+                break
+
+        msg = f"Self-teaching: {len(taught)} topic(s) completed."
+        logger.info(msg)
+        if taught:
+            msg += "\n" + "\n".join(taught)
+        return msg
+        
 # ───────── NiblitBrain ─────────
 class NiblitBrain:
     """
@@ -626,10 +724,8 @@ class NiblitBrain:
 
         # ─────── BRAIN TRAINER ───────
         # Pass memory as knowledge_db if it supports add_fact / recall (e.g. KnowledgeDB adapter)
-        _kdb = self.memory if (
-            self.memory and hasattr(self.memory, "add_fact")
-        ) else None
-        self.brain_trainer = BrainTrainer(self.memory, knowledge_db=_kdb)
+        _kdb = self.memory if (self.memory and hasattr(self.memory, "add_fact")) else None
+        self.brain_trainer = BrainTrainer(self.memory, knowledge_db=_kdb, self_teacher=self.self_teacher)
         log.debug("[BRAIN] BrainTrainer initialized")
 
         # ─────── SERPEX TOOL ───────

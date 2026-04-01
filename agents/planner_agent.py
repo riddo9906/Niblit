@@ -32,7 +32,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from agents.base_agent import BaseAgent
+from base_agent import BaseAgent
 from core.event_bus import Event, EventBus, EventType
 from core.task_queue import Priority, Task, TaskQueue
 

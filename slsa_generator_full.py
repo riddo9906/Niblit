@@ -8,8 +8,22 @@ import re
 import requests
 from datetime import datetime
 from typing import Dict, Optional
+
 from niblit_memory import LocalDB
 from modules.internet_manager import InternetManager
+
+# --- Repo integrations ---
+try:
+    from niblit_tools.serpex_api import niblit_serpex_search
+except Exception as _e:
+    niblit_serpex_search = None
+    logging.warning(f"Serpex integration unavailable: {_e}")
+
+try:
+    from niblit_agents.semantic_agent import SemanticAgent
+except Exception as _e:
+    SemanticAgent = None
+    logging.warning(f"Qdrant integration unavailable: {_e}")
 
 log = logging.getLogger("SLSA")
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
@@ -30,10 +44,10 @@ class SLSAGenerator:
         self.db = LocalDB(db_path)
         self.topics = topics or DEFAULT_TOPICS
         self.internet = internet or InternetManager(db=self.db)
-        # Optional backends for richer data collection
-        self.semantic_agent = semantic_agent
+        # Integrate Qdrant (SemanticAgent) and Serpex (scrapy-powered search)
+        self.semantic_agent = semantic_agent or (SemanticAgent() if SemanticAgent else None)
         self.searchcode_search = searchcode_search
-        self.serpex_agent = serpex_agent
+        self.serpex_agent = serpex_agent or niblit_serpex_search
 
     # ───────── RAW DATA COLLECTION ─────────
     def fetch_wikipedia(self, topic: str) -> Optional[Dict]:
@@ -152,10 +166,11 @@ class SLSAGenerator:
         if self.internet and not self.stop_event.is_set():
             structured_results = self.internet.search(topic)
 
-        # ── Serpex enrichment ───────────────────────────────────────────────
+        # ── Serpex enrichment (scrapy) ──────────────────────────────────────
         if self.serpex_agent and not self.stop_event.is_set():
             try:
-                serpex_results = self.serpex_agent.search_web(topic)
+                # niblit_serpex_search returns results as list of dicts
+                serpex_results = self.serpex_agent(topic)
                 if serpex_results:
                     if structured_results is None:
                         structured_results = []
@@ -215,7 +230,7 @@ class SLSAGenerator:
             log.info(f"[DEFINITION] {artifact['definition']}")
             self.feed_modules(artifact)
 
-            # ── Semantic storage — embed the artifact into the vector store ──
+            # ── Semantic storage — embed into Qdrant vector store ──
             if self.semantic_agent:
                 try:
                     summary_text = " | ".join(
@@ -232,7 +247,7 @@ class SLSAGenerator:
                             query=topic,
                         )
                 except Exception as _e:
-                    log.debug("[SLSA] SemanticAgent store failed: %s", _e)
+                    log.debug("[SLSA] SemanticAgent (Qdrant) store failed: %s", _e)
 
     # ───────── BACKGROUND LOOP ─────────
     def run(self):
