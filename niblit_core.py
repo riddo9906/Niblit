@@ -4084,6 +4084,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         except Exception as _e:
                             log.debug("[INIT] reflect.%s wire failed: %s", _attr, _e)
 
+            # Late-wire llm into self_teacher
+            if getattr(self, "self_teacher", None) and getattr(self, "llm", None):
+                try:
+                    self.self_teacher.llm = self.llm
+                    log.debug("[INIT] self_teacher.llm wired ✅")
+                except Exception as _e:
+                    log.debug("[INIT] self_teacher.llm wire failed: %s", _e)
+
             # Also wire reflect_module back into TradingBrain so each
             # cycle() call automatically stores a market-state reflection.
             if getattr(self, "trading_brain", None) and getattr(self, "reflect", None):

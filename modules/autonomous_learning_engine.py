@@ -890,9 +890,40 @@ class AutonomousLearningEngine:
                     )
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
- 
-            log.info(f"✅ [AUTONOMOUS LEARN] {last_topic} taught, plus {len(reviews)} reviewed topic(s)")
-            return "\n".join([str(o) for o in outputs if o])
+
+            # Spaced repetition reviews
+            review_count = 0
+            try:
+                due_topics = self.self_teacher.get_due_reviews(max_items=2)
+                for due_topic in due_topics:
+                    review_result = self.self_teacher.teach_review(due_topic)
+                    review_count += 1
+                    log.info(f"🔁 [AUTONOMOUS LEARN] Review: {str(review_result or '')[:80]}")
+                    if self.knowledge_db:
+                        try:
+                            self.knowledge_db.add_fact(
+                                f"ale_review:{due_topic.replace(' ', '_')}:{int(time.time())}",
+                                {"topic": due_topic, "result": str(review_result or "")[:300],
+                                 "step": "step6_review"},
+                                tags=["ale_step6", "review", "autonomous"],
+                            )
+                        except Exception as e:
+                            log.debug(f"Knowledge DB review logging failed: {e}")
+            except Exception as e:
+                log.debug(f"Spaced repetition review failed: {e}")
+
+            if self.knowledge_db and review_count:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_review_count:{int(time.time())}",
+                        {"review_count": review_count},
+                        tags=["ale_step6", "review-count", "autonomous"],
+                    )
+                except Exception as e:
+                    log.debug(f"Knowledge DB review count logging failed: {e}")
+
+            log.info(f"✅ [AUTONOMOUS LEARN] {str(result or '')[:50]} | reviews={review_count}")
+            return str(result) if result is not None else "[No learning result]"
 
         except Exception as e:
             log.error(f"❌ Autonomous learning failed: {e}")
