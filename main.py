@@ -3,8 +3,18 @@
 MAIN — Niblit AIOS
 With Advanced Live Instrumentation
 Logic Fully Intact
+
+ENHANCEMENT (additive only): Non-blocking background notifications.
+All background agents and periodic loops push their output into
+core.notification_queue.notif_queue.  The shell loop calls
+print_notifications() immediately AFTER input() returns so background
+feedback is only shown after the user presses Enter — never overwriting
+an in-progress command.  The NotificationQueueHandler installed at
+startup silently captures background-thread log records so they no
+longer print to the terminal mid-typing.
 """
 
+import logging
 import os
 import sys
 import signal
@@ -16,6 +26,17 @@ import threading
 from niblit_core import NiblitCore
 from niblit_io import NiblitIO
 from niblit_router import safe_call
+
+# ── Non-blocking background notification queue (additive) ──────────────────
+# Import the shared notification queue so we can surface background output
+# ONLY after the user presses Enter (never during typing).
+try:
+    from core.notification_queue import notif_queue, install_queue_log_handler
+    _NOTIF_QUEUE_AVAILABLE = True
+except ImportError:
+    notif_queue = None  # type: ignore[assignment]
+    install_queue_log_handler = None  # type: ignore[assignment]
+    _NOTIF_QUEUE_AVAILABLE = False
 
 # ─────────────────────────────
 # SIGNAL HANDLING
@@ -69,7 +90,12 @@ COMMANDS = [
     "self-research",
     "debug on",
     "debug off",
-    "threads"
+    "threads",
+    # New commands added by background-management enhancement
+    "notifications",
+    "reload_params",
+    "run_selfheal",
+    "refresh-topics",
 ]
 
 def timestamp():
@@ -114,6 +140,48 @@ def list_threads():
         for t in threading.enumerate()
     )
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NON-BLOCKING NOTIFICATION DISPLAY (additive enhancement)
+# Called AFTER input() returns so background output never overwrites typing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def print_notifications(core=None, io=None):
+    """Print any pending background notifications to the console.
+
+    This is called once per command loop iteration, AFTER ``input()`` returns
+    (i.e. after the user presses Enter).  Background threads never print
+    directly — they push to the notification queue — so the user's typing is
+    NEVER overwritten or interrupted.
+
+    Sources checked (in order):
+    1. The global ``notif_queue`` singleton (core/notification_queue.py)
+    2. ``core._notifications`` deque (niblit_core.py internal queue)
+    """
+    import contextlib
+
+    msgs = []
+
+    # Source 1 — global notif_queue (modules and background_jobs push here)
+    if _NOTIF_QUEUE_AVAILABLE and notif_queue is not None:
+        msgs.extend(notif_queue.pop_all())
+
+    # Source 2 — core._notifications deque (niblit_core internal notifications)
+    if core is not None:
+        core_notifs = getattr(core, "_notifications", None)
+        if core_notifs is not None:
+            with getattr(core, "_lock", contextlib.nullcontext()):
+                items = list(core_notifs)
+                core_notifs.clear()
+            msgs.extend(items)
+
+    if msgs:
+        output_fn = io.out if io is not None else print
+        output_fn("\n--- Background Notifications ---")
+        for m in msgs:
+            output_fn(f"  > {m}")
+        output_fn("--- End Notifications ---\n")
+
 # ─────────────────────────────
 # BOOT
 # ─────────────────────────────
@@ -131,10 +199,51 @@ def boot():
     else:
         io.out(f"{timestamp()} ⚪ Wake-lock: not available (termux-api not installed)")
 
+    # ── Non-blocking background logging (additive enhancement) ──────────────
+    # Install the NotificationQueueHandler so background-thread log records are
+    # captured in the notification queue instead of being written to the
+    # terminal while the user is typing.  The main thread's log records
+    # continue to propagate normally (the handler only captures non-main
+    # threads).
+    if _NOTIF_QUEUE_AVAILABLE and install_queue_log_handler is not None:
+        install_queue_log_handler(level=logging.INFO)
+        io.out(f"{timestamp()} ✅ Background log capture active — notifications shown after Enter")
+
     debug(io, "Active Threads After Boot:")
     debug(io, list_threads())
 
     return core, io
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPER: show notifications via direct command (additive)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _cmd_show_notifications(core=None, io=None):
+    """Drain the notification queue and return its contents as a string."""
+    msgs = []
+
+    # Source 1 — global notif_queue
+    if _NOTIF_QUEUE_AVAILABLE and notif_queue is not None:
+        msgs.extend(notif_queue.pop_all())
+
+    # Source 2 — core._notifications deque
+    if core is not None:
+        core_notifs = getattr(core, "_notifications", None)
+        if core_notifs is not None:
+            items = list(core_notifs)
+            core_notifs.clear()
+            msgs.extend(items)
+
+    # Source 3 — core._cmd_notifications (existing niblit_core method)
+    if core is not None and hasattr(core, "_cmd_notifications"):
+        core_notifications_output = core._cmd_notifications()
+        if core_notifications_output and core_notifications_output != "No pending notifications":
+            msgs.append(core_notifications_output)
+
+    if not msgs:
+        return "No pending notifications."
+    return "Background notifications:\n" + "\n".join(f"  > {m}" for m in msgs)
+
 
 # ─────────────────────────────
 # COMMAND SHELL
@@ -173,12 +282,36 @@ def run_shell(core, io):
             "[SELF-TEACH NOT AVAILABLE]"
         ),
 
-        "threads": lambda: list_threads()
+        "threads": lambda: list_threads(),
+
+        # ── New commands: background management (additive) ─────────────────
+        # 'notifications' — drain and display the background notification queue
+        "notifications": lambda: _cmd_show_notifications(core, io),
+
+        # 'reload_params' — on-demand parameter manager reload
+        "reload_params": lambda: (
+            core._cmd_reload_params()
+            if hasattr(core, "_cmd_reload_params")
+            else "[reload_params not available]"
+        ),
+
+        # 'run_selfheal' — explicit self-heal trigger with notification output
+        "run_selfheal": lambda: (
+            core._cmd_run_selfheal()
+            if hasattr(core, "_cmd_run_selfheal")
+            else "[run_selfheal not available]"
+        ),
     }
 
     while True:
         try:
             user_input = input("Niblit > ").strip()
+
+            # ── Print pending background notifications (additive) ──────────
+            # Called immediately after input() returns (i.e. after Enter is
+            # pressed) so background output NEVER overwrites the typed line.
+            print_notifications(core, io)
+
             if not user_input:
                 continue
 
