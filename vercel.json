@@ -1,57 +1,14 @@
 {
   "version": 2,
-  "routes": [
-    {
-      "src": "/health",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/ping",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/chat",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/memory",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/api/boot",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/api/suggest",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/api/threads",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/api/status",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/api/bg_status",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/api/search",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "api/index.py"
-    }
-  ],
   "functions": {
     "api/index.py": {
       "memory": 1024,
       "maxDuration": 30
     }
   },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index.py" }
+  ],
   "env": {
     "FLASK_ENV": "production"
   }
