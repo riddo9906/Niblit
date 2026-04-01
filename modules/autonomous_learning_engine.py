@@ -4178,6 +4178,22 @@ class AutonomousLearningEngine:
                 added.append(topic)
         return added
 
+    # ─────────────────────────────────────────────
+    def update_research_topics(self, new_topics: List[str]) -> None:
+        """Replace (or extend) the active research-topic list with *new_topics*.
+
+        Called by DynamicTopicManager / BackgroundTopicRefresh to inject fresh
+        topics so ALE does not keep repeating the same queries.  New topics are
+        appended to the existing list rather than replacing it entirely, which
+        preserves any user-added topics while still surfacing novel ones.
+        """
+        if not new_topics:
+            return
+        added = self.add_research_topics(new_topics)
+        if added:
+            log.info("[ALE] update_research_topics: injected %d new topics (%s…)",
+                     len(added), added[0])
+
 
 # ─────────────────────────────────────────────
 # SINGLETON INSTANCE & INITIALIZATION

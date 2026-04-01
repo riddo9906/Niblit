@@ -899,6 +899,25 @@ except Exception as _e:
     log.debug(f"VectorStore not available: {_e}")
     _VectorStore = None
 
+# ── Dynamic Topic Enrichment & Qdrant Batch Population ───────────────────────
+try:
+    from modules.dynamic_topic_manager import DynamicTopicManager as _DynamicTopicManager
+except Exception as _e:
+    log.debug(f"DynamicTopicManager not available: {_e}")
+    _DynamicTopicManager = None  # type: ignore[assignment,misc]
+
+try:
+    from modules.qdrant_tools import batch_populate_qdrant as _batch_populate_qdrant
+except Exception as _e:
+    log.debug(f"qdrant_tools not available: {_e}")
+    _batch_populate_qdrant = None  # type: ignore[assignment]
+
+try:
+    from modules.background_topic_refresh import start_background_refresh as _start_background_refresh
+except Exception as _e:
+    log.debug(f"background_topic_refresh not available: {_e}")
+    _start_background_refresh = None  # type: ignore[assignment]
+
 # ── MCP server ────────────────────────────────────────────────────────────────
 try:
     from modules.mcp_server import (
@@ -1199,6 +1218,10 @@ class NiblitCore:
         self.reflect = None
         self.self_healer = None
         self.llm = None
+        # Dynamic topic enrichment / Qdrant batch population
+        self.dynamic_topic_manager: Optional[Any] = None
+        self._topic_refresh_thread: Optional[Any] = None
+        self._topic_refresh_stop_event: Optional[Any] = None
         self.trainer = None
         self.self_teacher = None
         self.self_implementer = None
@@ -4243,6 +4266,92 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))
+
+        # ============================
+        # DYNAMIC TOPIC MANAGER (LLM/hybrid Qdrant-based topic enrichment)
+        # These run after the main optional-services try/except so that a
+        # failure here never masks earlier service initialisation errors.
+        # ============================
+        if _DynamicTopicManager is not None:
+            try:
+                _tc = None
+                try:
+                    from modules.topic_constructor import TopicConstructor as _TC
+                    _tc = _TC()
+                except Exception as _tce:
+                    log.debug("[INIT] TopicConstructor unavailable for DynamicTopicManager: %s", _tce)
+
+                self.dynamic_topic_manager = _DynamicTopicManager(
+                    db=self.db,
+                    topic_constructor=_tc,
+                    vector_store=getattr(self, "vector_store", None),
+                )
+                log.info("✅ DynamicTopicManager initialized")
+                self.startup_report.add("dynamic_topic_manager", "ready")
+            except Exception as _dtme:
+                log.warning("DynamicTopicManager init failed: %s", _dtme)
+                self.startup_report.add("dynamic_topic_manager", "degraded", str(_dtme))
+
+        # ── One-time Qdrant batch population from KnowledgeDB ─────────────────
+        if _batch_populate_qdrant is not None and self.db is not None:
+            try:
+                _vs = getattr(self, "vector_store", None)
+                _added = _batch_populate_qdrant(self.db, vector_store=_vs)
+                log.info("✅ Qdrant batch population complete: %d facts upserted", _added)
+                self.startup_report.add("qdrant_batch_populate", "ready",
+                                        f"{_added} facts upserted")
+            except Exception as _bpe:
+                log.debug("Qdrant batch population failed (non-critical): %s", _bpe)
+                self.startup_report.add("qdrant_batch_populate", "degraded", str(_bpe))
+
+        # ── Background topic refresh thread ───────────────────────────────────
+        if (_start_background_refresh is not None
+                and self.dynamic_topic_manager is not None):
+            try:
+                import threading as _threading
+                self._topic_refresh_stop_event = _threading.Event()
+                self._topic_refresh_thread = _start_background_refresh(
+                    dtm=self.dynamic_topic_manager,
+                    ale=getattr(self, "autonomous_engine", None),
+                    interval_secs=600,
+                    batch_size=10,
+                    stop_event=self._topic_refresh_stop_event,
+                    initial_delay_secs=120,
+                )
+                log.info("✅ BackgroundTopicRefresh thread started")
+                self.startup_report.add("background_topic_refresh", "ready")
+            except Exception as _btre:
+                log.debug("BackgroundTopicRefresh thread failed to start: %s", _btre)
+                self.startup_report.add("background_topic_refresh", "degraded", str(_btre))
+
+        # ── Event-bus subscription: LEARNING_CYCLE_COMPLETED → topic refresh ──
+        try:
+            from core.event_bus import EventType as _EventType, Event as _Event
+            _event_bus = getattr(self, "event_bus", None)
+            _dtm_ref = getattr(self, "dynamic_topic_manager", None)
+            _ale_ref = getattr(self, "autonomous_engine", None)
+            if _event_bus is not None and _dtm_ref is not None:
+                def _on_learning_cycle(_event: _Event) -> None:
+                    try:
+                        _new = _dtm_ref.propose_new_topics(batch_size=5)
+                        if _new and _ale_ref is not None:
+                            if hasattr(_ale_ref, "update_research_topics"):
+                                _ale_ref.update_research_topics(_new)
+                            elif hasattr(_ale_ref, "research_topics"):
+                                _existing = set(_ale_ref.research_topics)
+                                for _t in _new:
+                                    if _t not in _existing:
+                                        _ale_ref.research_topics.append(_t)
+                                        _existing.add(_t)
+                        log.debug("[EventBus] LEARNING_CYCLE_COMPLETED → injected %d topics",
+                                  len(_new))
+                    except Exception as _ev_exc:
+                        log.debug("[EventBus] Topic refresh handler error: %s", _ev_exc)
+
+                _event_bus.subscribe(_EventType.LEARNING_CYCLE_COMPLETED, _on_learning_cycle)
+                log.info("✅ Event-bus: LEARNING_CYCLE_COMPLETED → topic refresh handler registered")
+        except Exception as _eb_exc:
+            log.debug("[INIT] Event-bus topic refresh subscription skipped: %s", _eb_exc)
 
     def _init_self_improvements(self):
         """Initialize 10 self-improvement modules."""

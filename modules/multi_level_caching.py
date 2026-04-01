@@ -100,51 +100,125 @@ class InMemoryCache(CacheLevel):
 
 
 class RedisCache(CacheLevel):
-    """L2: Redis cache (warm data)."""
-    
-    def __init__(self):
+    """L2: Redis cache (warm data). Falls back to no-op if redis-py is not installed."""
+
+    def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0):
         self.metrics = {"hits": 0, "misses": 0}
-        log.debug("RedisCache: stub (implement with redis-py)")
-    
+        self._client = None
+        try:
+            import redis as _redis
+            self._client = _redis.Redis(host=host, port=port, db=db,
+                                        socket_connect_timeout=1, socket_timeout=1)
+            self._client.ping()
+            log.info("RedisCache: connected to Redis at %s:%d", host, port)
+        except Exception as e:
+            log.debug("RedisCache: Redis not available (%s) — L2 cache disabled", e)
+            self._client = None
+
     async def get(self, key: str) -> Optional[Any]:
-        """Get from Redis."""
-        # TODO: Implement with redis-py
-        self.metrics["misses"] += 1
-        return None
-    
+        if self._client is None:
+            self.metrics["misses"] += 1
+            return None
+        try:
+            import json as _json
+            raw = self._client.get(key)
+            if raw is None:
+                self.metrics["misses"] += 1
+                return None
+            self.metrics["hits"] += 1
+            return _json.loads(raw)
+        except Exception:
+            self.metrics["misses"] += 1
+            return None
+
     async def set(self, key: str, value: Any, ttl: int = 3600):
-        """Set in Redis."""
-        # TODO: Implement with redis-py
-        pass
-    
+        if self._client is None:
+            return
+        try:
+            import json as _json
+            self._client.setex(key, ttl, _json.dumps(value, default=str))
+        except Exception as e:
+            log.debug("RedisCache.set error: %s", e)
+
     async def delete(self, key: str):
-        """Delete from Redis."""
-        # TODO: Implement with redis-py
-        pass
+        if self._client is None:
+            return
+        try:
+            self._client.delete(key)
+        except Exception:
+            pass
 
 
 class DatabaseCache(CacheLevel):
-    """L3: Database cache (persistent)."""
-    
-    def __init__(self):
+    """L3: Database cache using SQLite (stdlib, no extra deps)."""
+
+    _DB_PATH = "niblit_cache.db"
+
+    def __init__(self, db_path: Optional[str] = None):
         self.metrics = {"hits": 0, "misses": 0}
-        log.debug("DatabaseCache: stub (implement with sqlalchemy)")
-    
+        self._db_path = db_path or self._DB_PATH
+        self._init_db()
+
+    def _init_db(self):
+        try:
+            import sqlite3 as _sq
+            con = _sq.connect(self._db_path, check_same_thread=False)
+            con.execute(
+                "CREATE TABLE IF NOT EXISTS cache "
+                "(key TEXT PRIMARY KEY, value TEXT, expires_at REAL)"
+            )
+            con.commit()
+            con.close()
+        except Exception as e:
+            log.debug("DatabaseCache._init_db error: %s", e)
+
+    def _con(self):
+        import sqlite3 as _sq
+        return _sq.connect(self._db_path, check_same_thread=False)
+
     async def get(self, key: str) -> Optional[Any]:
-        """Get from database."""
-        # TODO: Implement with database
-        self.metrics["misses"] += 1
-        return None
-    
+        try:
+            import json as _json
+            con = self._con()
+            row = con.execute(
+                "SELECT value, expires_at FROM cache WHERE key=?", (key,)
+            ).fetchone()
+            con.close()
+            if row is None:
+                self.metrics["misses"] += 1
+                return None
+            value_raw, expires_at = row
+            if expires_at < time.time():
+                self.metrics["misses"] += 1
+                return None
+            self.metrics["hits"] += 1
+            return _json.loads(value_raw)
+        except Exception:
+            self.metrics["misses"] += 1
+            return None
+
     async def set(self, key: str, value: Any, ttl: int = 3600):
-        """Set in database."""
-        # TODO: Implement with database
-        pass
-    
+        try:
+            import json as _json
+            con = self._con()
+            expires_at = time.time() + ttl
+            con.execute(
+                "INSERT OR REPLACE INTO cache(key,value,expires_at) VALUES(?,?,?)",
+                (key, _json.dumps(value, default=str), expires_at),
+            )
+            con.commit()
+            con.close()
+        except Exception as e:
+            log.debug("DatabaseCache.set error: %s", e)
+
     async def delete(self, key: str):
-        """Delete from database."""
-        # TODO: Implement with database
-        pass
+        try:
+            con = self._con()
+            con.execute("DELETE FROM cache WHERE key=?", (key,))
+            con.commit()
+            con.close()
+        except Exception:
+            pass
 
 
 class CacheStrategy:
