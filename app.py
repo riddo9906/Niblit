@@ -981,6 +981,30 @@ DASHBOARD_HTML = r"""<!doctype html>
       #input-bar{padding:10px 12px 12px}
       #chips-bar{padding:0 12px 8px}
     }
+
+    /* ══ BACKGROUND STATUS PANEL ══ */
+    #bg-panel{
+      position:fixed;bottom:16px;right:16px;z-index:300;
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+      min-width:240px;max-width:320px;box-shadow:var(--shadow);
+      font-size:11px;overflow:hidden;
+    }
+    #bg-panel-toggle{
+      width:100%;background:none;border:none;padding:8px 12px;
+      display:flex;align-items:center;gap:8px;cursor:pointer;
+      color:var(--text-muted);font-size:11px;font-family:var(--font);
+    }
+    #bg-panel-toggle:hover{background:var(--surface2)}
+    #bg-panel-body{display:none;padding:8px 12px 10px;border-top:1px solid var(--border)}
+    #bg-panel-body.open{display:block}
+    .bp-row{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;align-items:baseline}
+    .bp-key{color:var(--text-muted)}
+    .bp-val{color:var(--text);font-family:var(--mono);font-size:10.5px;text-align:right;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .bp-val.on{color:var(--accent)}
+    .bp-val.off{color:var(--text-dim)}
+    #bg-pulse{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;box-shadow:0 0 6px var(--accent);animation:pulse 2s ease-in-out infinite}
+    #bg-pulse.off{background:var(--text-dim);box-shadow:none;animation:none}
+    @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
   </style>
 </head>
 <body>
@@ -1399,8 +1423,8 @@ function addMsg(who, text, debugLines, suggestion, cmdHint){
 function setThinking(on){
   document.getElementById('thinking-row').style.display = on ? 'flex' : 'none';
   document.getElementById('send-btn').disabled = on;
-  document.getElementById('chat-input').disabled = on;
-  if(on) feed.scrollTop = feed.scrollHeight;
+  // DO NOT disable chat-input — user must always be able to type
+  if(on){ const f=document.getElementById('chat-feed'); if(f.scrollTop+f.clientHeight >= f.scrollHeight-50) f.scrollTop=f.scrollHeight; }
 }
 
 // ════════════════════════════════════════════════════════
@@ -1424,6 +1448,8 @@ function sendChat(){
 }
 
 async function sendText(text){
+  const feed = document.getElementById('chat-feed');
+  const atBottom = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 60;
   const group = detectCmdType(text);
   addMsg('user', text, [], null, group);
   setThinking(true);
@@ -1436,19 +1462,78 @@ async function sendText(text){
     const j = await resp.json();
     if(j.error) addMsg('err', j.error);
     else addMsg('niblit', j.reply || '[no reply]', j.debug_lines || [], j.suggestion || null);
+    if(atBottom) feed.scrollTop = feed.scrollHeight;
   } catch(ex){
     addMsg('err', 'Network error: ' + ex.message);
   } finally {
     setThinking(false);
-    chatInput.focus();
+    // Always re-focus input WITHOUT scrolling the page if user scrolled away
+    chatInput.focus({preventScroll: true});
   }
 }
+
+// ════════════════════════════════════════════════════════
+// BACKGROUND STATUS PANEL — silent polling, never interrupts chat
+// ════════════════════════════════════════════════════════
+function toggleBgPanel(){
+  const body = document.getElementById('bg-panel-body');
+  const arr = document.querySelector('#bg-panel-toggle span:last-child');
+  body.classList.toggle('open');
+  if(arr) arr.textContent = body.classList.contains('open') ? '▼' : '▲';
+}
+
+async function refreshBgStatus(){
+  try {
+    const r = await fetch('/api/bg_status');
+    const j = await r.json();
+    const ale = j.ale;
+    const pulse = document.getElementById('bg-pulse');
+    const label = document.getElementById('bg-label');
+    if(ale){
+      const running = ale.running;
+      pulse.className = running ? '' : 'off';
+      label.textContent = running
+        ? `ALE: cycle #${ale.cycle} — ${ale.topic || 'idle'}`
+        : 'ALE: stopped';
+      document.getElementById('bp-ale-running').textContent = running ? '✅ yes' : '⏹ no';
+      document.getElementById('bp-ale-running').className = 'bp-val ' + (running ? 'on' : 'off');
+      document.getElementById('bp-cycle').textContent = '#' + (ale.cycle || 0);
+      document.getElementById('bp-topic').textContent = ale.topic || '—';
+    } else {
+      pulse.className = 'off';
+      label.textContent = 'ALE: not init';
+    }
+    document.getElementById('bp-threads').textContent = j.threads || '—';
+    const dtm = j.dtm;
+    if(dtm){
+      document.getElementById('bp-dtm').textContent = dtm.thread_alive ? `✅ ${dtm.seeds} seeds` : '⏹ inactive';
+    }
+  } catch(_){}
+}
+setInterval(refreshBgStatus, 15000);
+setTimeout(refreshBgStatus, 3000);
 
 // ════════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════════
 runBoot();
 </script>
+<!-- ══ BACKGROUND STATUS PANEL ══ -->
+<div id="bg-panel">
+  <button id="bg-panel-toggle" onclick="toggleBgPanel()">
+    <span id="bg-pulse"></span>
+    <span id="bg-label">ALE: loading…</span>
+    <span style="margin-left:auto;font-size:10px;opacity:.5">▲</span>
+  </button>
+  <div id="bg-panel-body">
+    <div class="bp-row"><span class="bp-key">ALE running</span><span class="bp-val" id="bp-ale-running">—</span></div>
+    <div class="bp-row"><span class="bp-key">Cycle</span><span class="bp-val" id="bp-cycle">—</span></div>
+    <div class="bp-row"><span class="bp-key">Topic</span><span class="bp-val" id="bp-topic">—</span></div>
+    <div class="bp-row"><span class="bp-key">Threads</span><span class="bp-val" id="bp-threads">—</span></div>
+    <div class="bp-row"><span class="bp-key">Topic refresh</span><span class="bp-val" id="bp-dtm">—</span></div>
+  </div>
+</div>
+
 </body>
 </html>
 """
@@ -1545,6 +1630,37 @@ if _flask_available:
                 data["facts_count"] = len(core.memory.list_facts(limit=500))
             except Exception:
                 pass
+        return render_response(data)
+
+    # ── API: background status (lightweight, polls every 15s) ──
+    @app.route("/api/bg_status", methods=["GET"])
+    def api_bg_status():
+        """Background status — lightweight, polls every 15s from UI."""
+        core = get_core()
+        data = {
+            "ts": _ts(),
+            "ale": None,
+            "topics": [],
+            "dtm": None,
+            "threads": len(threading.enumerate()),
+        }
+        if core:
+            ale = getattr(core, "autonomous_engine", None)
+            if ale:
+                data["ale"] = {
+                    "running": getattr(ale, "running", False),
+                    "cycle": getattr(ale, "_cycle_count", 0),
+                    "topic": ale.get_current_topic() if hasattr(ale, "get_current_topic") else None,
+                }
+                topics = getattr(ale, "research_topics", [])
+                data["topics"] = topics[:5] if topics else []
+            dtm = getattr(core, "dynamic_topic_manager", None)
+            if dtm:
+                refresh_thread = getattr(core, "_topic_refresh_thread", None)
+                data["dtm"] = {
+                    "seeds": len(getattr(dtm, "seed_topics", [])),
+                    "thread_alive": refresh_thread is not None and refresh_thread.is_alive(),
+                }
         return render_response(data)
 
     # ── API: search ─────────────────────────────────────────
