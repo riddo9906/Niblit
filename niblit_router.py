@@ -215,6 +215,8 @@ class NiblitRouter:
         "stream",
         # Builds/python scripts integration
         "builds",
+        # Dynamic topic enrichment / refresh
+        "refresh-topics", "refresh topics",
     )
 
     CHAT_RESPONSES = {
@@ -1291,6 +1293,78 @@ Ask me about:
     # ─────────────────────────────────
     # REALTIME STREAM
     # ─────────────────────────────────
+    def _handle_refresh_topics(self, cmd: str) -> str:
+        """Trigger an on-demand dynamic topic refresh via DynamicTopicManager.
+
+        Commands::
+
+            refresh-topics           — propose and inject new topics now
+            refresh-topics status    — show current topic list size + DTM state
+            refresh-topics add <t>   — add a seed topic to DynamicTopicManager
+        """
+        lower = cmd.strip().lower()
+        action = lower.replace("refresh-topics", "").replace("refresh topics", "").strip()
+
+        dtm = getattr(self.core, "dynamic_topic_manager", None) if self.core else None
+        ale = getattr(self.core, "autonomous_engine", None) if self.core else None
+
+        if action in ("", "now", "run", "refresh"):
+            if dtm is None:
+                return "[DynamicTopicManager] not available — ensure niblit_core init succeeded"
+            try:
+                new_topics = dtm.propose_new_topics(batch_size=10)
+                if not new_topics:
+                    return "ℹ️ No new topics proposed (all candidates already researched)"
+                injected = 0
+                if ale is not None:
+                    if hasattr(ale, "update_research_topics"):
+                        ale.update_research_topics(new_topics)
+                        injected = len(new_topics)
+                    elif hasattr(ale, "add_research_topics"):
+                        added = ale.add_research_topics(new_topics)
+                        injected = len(added)
+                lines = [f"✅ Dynamic topic refresh complete — {len(new_topics)} new topics proposed"]
+                if injected:
+                    lines.append(f"   🤖 Injected {injected} topics into ALE")
+                lines.append("   Topics: " + ", ".join(new_topics[:5]) +
+                             ("…" if len(new_topics) > 5 else ""))
+                return "\n".join(lines)
+            except Exception as exc:
+                return f"[refresh-topics] Error: {exc}"
+
+        if action in ("status", "info"):
+            parts = []
+            if dtm:
+                parts.append(f"DynamicTopicManager: ready ✅")
+                parts.append(f"  Seeds: {len(dtm.seed_topics)} topics")
+                parts.append(f"  Enrichment sources: {len(dtm.enrichment_sources)}")
+                parts.append(f"  Embedding model: {dtm.embedding_model}")
+                parts.append(f"  VectorStore: {'wired ✅' if dtm.vector_store else 'not wired'}")
+            else:
+                parts.append("DynamicTopicManager: not available ❌")
+            if ale and hasattr(ale, "research_topics"):
+                parts.append(f"ALE research_topics: {len(ale.research_topics)} active topics")
+            thread = getattr(self.core, "_topic_refresh_thread", None) if self.core else None
+            if thread:
+                parts.append(f"BackgroundTopicRefresh thread: {'alive ✅' if thread.is_alive() else 'stopped ⏹️'}")
+            return "\n".join(parts) if parts else "[refresh-topics status unavailable]"
+
+        if action.startswith("add "):
+            seed = cmd.strip()[cmd.strip().lower().find("add ") + 4:].strip()
+            if not seed:
+                return "Usage: refresh-topics add <topic>"
+            if dtm:
+                dtm.add_seed(seed)
+                return f"✅ Added seed topic: {seed!r}"
+            return "[DynamicTopicManager not available]"
+
+        return (
+            "Usage:\n"
+            "  refresh-topics           — Propose and inject fresh research topics now\n"
+            "  refresh-topics status    — Show DynamicTopicManager and ALE topic-list state\n"
+            "  refresh-topics add <t>   — Add a seed topic to the DynamicTopicManager"
+        )
+
     def _handle_stream(self, cmd: str) -> str:
         """Handle real-time Binance WebSocket stream commands.
 
@@ -2154,6 +2228,10 @@ Ask me about:
         if lower.startswith("builds"):
             return self._handle_builds_integration(cmd)
 
+        # DYNAMIC TOPIC ENRICHMENT COMMANDS
+        if lower.startswith("refresh-topics") or lower.startswith("refresh topics"):
+            return self._handle_refresh_topics(cmd)
+
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
                      "memory dump on", "memory dump off",
@@ -2428,6 +2506,13 @@ Ask me about:
             "auto-research resume  — Alias for start",
             "  Note: ALE now uses ONE unified research step (all backends simultaneously).",
             "        A new topic query runs every 60 s to allow full KB ingestion.",
+            "",
+            "=== DYNAMIC TOPIC ENRICHMENT ===",
+            "refresh-topics           — Propose & inject fresh research topics via DynamicTopicManager",
+            "refresh-topics status    — Show DTM seed count, embedding model, ALE topic-list size",
+            "refresh-topics add <t>   — Add a manual seed topic to the DynamicTopicManager",
+            "  Note: DynamicTopicManager uses hybrid enrichment (semantic + BM25 + KB mining).",
+            "        A BackgroundTopicRefresh thread runs every 10 min automatically.",
             "",
             "=== TRADING BRAIN ===",
             "trading start              — Launch autonomous trading cycle (Binance, every 60 s)",

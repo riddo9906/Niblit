@@ -3,47 +3,47 @@
   "routes": [
     {
       "src": "/health",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/ping",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/chat",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/memory",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/api/boot",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/api/suggest",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/api/threads",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/api/status",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/api/search",
-      "dest": "app.py"
+      "dest": "api/index.py"
     },
     {
       "src": "/(.*)",
-      "dest": "app.py"
+      "dest": "api/index.py"
     }
   ],
   "functions": {
-    "app.py": {
+    "api/index.py": {
       "memory": 1024,
       "maxDuration": 30
     }
