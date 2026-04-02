@@ -116,9 +116,29 @@ def _macd_signal(
     if fast_ema is None or slow_ema is None:
         return None
     macd_line = fast_ema - slow_ema
-    # Signal line is EMA of the last *signal* MACD values (approx single-value)
-    k = 2.0 / (signal + 1)
-    sig_val = macd_line * k + macd_line * (1 - k)  # approximate
+
+    # Build a series of MACD values from successive sub-windows so we can
+    # compute a proper EMA signal line.  We need at least (slow + signal)
+    # closes to do this; if we have exactly slow+1 we fall back to zero-
+    # histogram (neutral) rather than producing a misleading value.
+    min_len = slow + signal
+    if len(closes) < min_len:
+        return {"macd": macd_line, "signal": macd_line, "histogram": 0.0, "bullish": False}
+
+    # Build a list of (slow+1) MACD values using a sliding window so the
+    # signal line EMA has signal-many data points to work with.
+    macd_series: List[float] = []
+    for offset in range(signal, 0, -1):
+        window = closes[: len(closes) - offset + 1]
+        fe = _ema(window, fast)
+        se = _ema(window, slow)
+        if fe is not None and se is not None:
+            macd_series.append(fe - se)
+    macd_series.append(macd_line)  # current MACD as last element
+
+    sig_val = _ema(macd_series, signal) if len(macd_series) >= signal else macd_line
+    if sig_val is None:
+        sig_val = macd_line
     histogram = macd_line - sig_val
     return {
         "macd": macd_line,

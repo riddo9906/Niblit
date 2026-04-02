@@ -233,6 +233,8 @@ class NiblitRouter:
         "trading swing",
         # Background trainer status (additive)
         "trainer",
+        # ALE persistent state: checkpoint, resume, backtrack, anchor (additive)
+        "ale",
     )
 
     CHAT_RESPONSES = {
@@ -1582,6 +1584,34 @@ Ask me about:
             return safe_call(self.core._cmd_trainer_status)
         return "[trainer] BackgroundTrainer not available"
 
+    # ── ALE persistent state handler (additive) ───────────────────────────────
+
+    def _handle_ale(self, cmd: str) -> str:
+        """Handle 'ale <sub-command>' for ALE checkpoint / resume / backtrack.
+
+        Commands::
+
+            ale                   — checkpoint status
+            ale status            — same as above
+            ale checkpoint        — force-save state now
+            ale resume            — restore from saved checkpoint
+            ale anchor <tag>      — create a named state snapshot
+            ale restore <tag>     — restore to a named anchor
+            ale anchors           — list saved anchors
+            ale backtrack [N]     — step back N steps in history (default 1)
+            ale pause             — pause cycle before next step
+            ale resume-cycle      — resume a paused cycle
+            ale history [N]       — show last N step results (default 20)
+            ale incomplete        — list steps incomplete at last shutdown
+        """
+        stripped = cmd.strip()
+        if stripped.lower().startswith("ale"):
+            stripped = stripped[3:].lstrip()
+
+        if self.core and hasattr(self.core, "_cmd_ale"):
+            return safe_call(lambda: self.core._cmd_ale(stripped))
+        return "[ale] ALECheckpointManager not available (core not initialised)"
+
     def _handle_stream(self, cmd: str) -> str:
         """Handle real-time Binance WebSocket stream commands.
 
@@ -2482,6 +2512,10 @@ Ask me about:
         if lower == "trainer" or lower.startswith("trainer "):
             return self._handle_trainer(cmd)
 
+        # ALE CHECKPOINT / RESUME / BACKTRACK / ANCHOR (additive)
+        if lower == "ale" or lower.startswith("ale "):
+            return self._handle_ale(cmd)
+
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
                      "memory dump on", "memory dump off",
@@ -2913,6 +2947,20 @@ Ask me about:
             "=== BACKGROUND TRAINER (additive) ===",
             "trainer                      — BackgroundTrainer daemon status",
             "trainer status               — Same as above",
+            "",
+            "=== ALE PERSISTENT STATE / RESUME / BACKTRACK (additive) ===",
+            "ale                          — ALE checkpoint status",
+            "ale status                   — Same as above",
+            "ale checkpoint               — Force-save current ALE state now",
+            "ale resume                   — Restore ALE from saved checkpoint",
+            "ale anchor <tag>             — Create a named state snapshot",
+            "ale restore <tag>            — Restore ALE to a named anchor",
+            "ale anchors                  — List all saved anchors",
+            "ale backtrack [N]            — Step back N steps in history (default 1)",
+            "ale pause                    — Pause cycle before next step",
+            "ale resume-cycle             — Resume a paused cycle",
+            "ale history [N]              — Show last N step results (default 20)",
+            "ale incomplete               — List steps incomplete at last shutdown",
             "",
             "=== LIVE UPDATE & UPGRADE ===",
             "reload <module.name>         — Hot-reload a module without restarting",

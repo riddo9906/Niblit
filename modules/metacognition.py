@@ -48,7 +48,7 @@ class ProvenanceRecord:
     agent: str = "unknown"
     rationale: str = ""
     confidence: float = 0.5
-    ts: float = field(default_factory=time.time)
+    ts: float = field(default_factory=lambda: time.time())
 
     def to_dict(self) -> Dict[str, Any]:
         return {

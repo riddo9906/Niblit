@@ -271,6 +271,13 @@ except Exception as _e:
     log.debug(f"FilteredSwingTraderV3 import failed: {_e}")
     FilteredSwingTraderV3 = None  # type: ignore[assignment,misc]
 
+# ── ALE Checkpoint Manager (additive: persistent state across restarts) ──────
+try:
+    from modules.ale_checkpoint import ALECheckpointManager
+except Exception as _e:
+    log.debug(f"ALECheckpointManager import failed: {_e}")
+    ALECheckpointManager = None  # type: ignore[assignment,misc]
+
 # ============================================================
 # LIVE UPDATER + STRUCTURAL AWARENESS IMPORTS
 # ============================================================
@@ -1253,6 +1260,8 @@ class NiblitCore:
         self.swing_trader_v3: Optional[Any] = None
         # NEW: BackgroundTrainer — non-blocking daemon training loop (additive)
         self.background_trainer: Optional[Any] = None
+        # NEW: ALECheckpointManager — persistent ALE state across restarts (additive)
+        self.ale_checkpoint: Optional[Any] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -3322,6 +3331,93 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "⚠️  BackgroundTrainer not initialised."
         return bg.status()
 
+    # ── ALE Checkpoint CLI commands (additive) ────────────────────────────
+
+    def _cmd_ale(self, sub: str) -> str:
+        """
+        ALE persistent-state commands (additive).
+
+        Sub-commands
+        ------------
+        status               — show checkpoint manager status
+        checkpoint / save    — force-save current state now
+        resume               — try to restore from saved checkpoint
+        anchor <tag>         — create a named snapshot
+        restore <tag>        — restore to a named anchor
+        anchors              — list saved anchors
+        backtrack [N]        — step back N steps in history
+        pause                — pause cycle before next step
+        resume-cycle         — resume a paused cycle
+        history [N]          — last N step results (default 20)
+        incomplete           — list incomplete steps from last run
+        """
+        ckpt = getattr(self, "ale_checkpoint", None)
+        if ckpt is None:
+            return (
+                "⚠️  ALECheckpointManager not initialised.\n"
+                "   Start the autonomous engine first: 'autonomous-learn start'"
+            )
+
+        sub = sub.strip().lower() if sub else "status"
+
+        if sub in ("status", ""):
+            return ckpt.status()
+
+        if sub in ("checkpoint", "save"):
+            ok = ckpt.save()
+            return "✅ Checkpoint saved." if ok else "❌ Checkpoint save failed — check logs."
+
+        if sub == "resume":
+            ok = ckpt.try_resume()
+            return "✅ Resumed from checkpoint." if ok else "ℹ️  No checkpoint found — starting fresh."
+
+        if sub.startswith("anchor ") or sub.startswith("anchor\t"):
+            tag = sub.split(None, 1)[1].strip() if len(sub.split(None, 1)) > 1 else ""
+            if not tag:
+                return "Usage: ale anchor <tag>"
+            return ckpt.create_anchor(tag)
+
+        if sub.startswith("restore ") or sub.startswith("restore\t"):
+            tag = sub.split(None, 1)[1].strip() if len(sub.split(None, 1)) > 1 else ""
+            if not tag:
+                return "Usage: ale restore <tag>"
+            return ckpt.restore_anchor(tag)
+
+        if sub == "anchors":
+            return ckpt.list_anchors()
+
+        if sub.startswith("backtrack"):
+            parts = sub.split()
+            try:
+                n = int(parts[1]) if len(parts) > 1 else 1
+            except (ValueError, IndexError):
+                n = 1
+            return ckpt.backtrack(n)
+
+        if sub == "pause":
+            return ckpt.pause_cycle()
+
+        if sub in ("resume-cycle", "resume cycle"):
+            return ckpt.resume_cycle()
+
+        if sub.startswith("history"):
+            parts = sub.split()
+            try:
+                n = int(parts[1]) if len(parts) > 1 else 20
+            except (ValueError, IndexError):
+                n = 20
+            return ckpt.get_step_history(n)
+
+        if sub == "incomplete":
+            return ckpt.get_incomplete_steps()
+
+        return (
+            f"[ale] Unknown sub-command: '{sub}'\n"
+            "  ale status / ale checkpoint / ale resume / ale anchor <tag>\n"
+            "  ale restore <tag> / ale anchors / ale backtrack [N]\n"
+            "  ale pause / ale resume-cycle / ale history [N] / ale incomplete"
+        )
+
     def _cmd_reload_params(self) -> str:
         """On-demand ParameterManager reload (additive).
 
@@ -4446,6 +4542,41 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
+
+                    # ── ALECheckpointManager: install BEFORE starting ALE ─────
+                    # (additive) The checkpoint manager wraps _run_autonomous_cycle
+                    # to autosave state after each step, so a restart can resume
+                    # from exactly where it left off instead of starting fresh.
+                    if ALECheckpointManager:
+                        try:
+                            def _core_notify(msg: str) -> None:
+                                try:
+                                    q = getattr(self, "_notifications", None)
+                                    if q is not None:
+                                        q.append(msg)
+                                except Exception:
+                                    pass
+                                try:
+                                    from core.notification_queue import notif_queue
+                                    notif_queue.push(msg)
+                                except Exception:
+                                    pass
+
+                            self.ale_checkpoint = ALECheckpointManager(
+                                ale=self.autonomous_engine,
+                                notify=_core_notify,
+                                autosave_on_step=True,
+                            )
+                            # Try to restore saved state before the first cycle
+                            self.ale_checkpoint.try_resume()
+                            # Install the checkpoint wrapper
+                            self.ale_checkpoint.install()
+                            log.info("✅ ALECheckpointManager installed — ALE state persists across restarts")
+                            self.startup_report.add("ale_checkpoint", "ready")
+                        except Exception as _ce:
+                            log.debug("ALECheckpointManager install failed: %s", _ce)
+                            self.startup_report.add("ale_checkpoint", "degraded", str(_ce))
+
                     # Auto-start: ALE runs in a daemon background thread so Niblit
                     # continuously learns at all times without any manual command.
                     # Use 'autonomous-learn stop' at the CLI to pause it if needed.
