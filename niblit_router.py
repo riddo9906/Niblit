@@ -2044,6 +2044,148 @@ Ask me about:
             return None
 
     # ─────────────────────────────────
+    def _get_kb_response(self, query: str) -> Optional[str]:
+        """Search the knowledge base for facts relevant to *query* and compose
+        a direct answer from what Niblit has already learned — no web request.
+
+        Returns a formatted string when ≥1 relevant facts are found, or None
+        when the KB has nothing useful to say on the topic.
+        """
+        if not self.core:
+            return None
+        kb = (
+            getattr(self.core, "knowledge_db", None)
+            or getattr(self.core, "memory", None)
+        )
+        if not kb:
+            return None
+
+        # Build a short keyword list from the query
+        stop = {"what", "is", "are", "how", "the", "a", "an", "do", "does",
+                "you", "know", "about", "tell", "me", "explain", "can", "i",
+                "to", "of", "in", "for", "on", "and", "or", "with"}
+        keywords = [w for w in re.sub(r"[^\w\s]", "", query.lower()).split()
+                    if len(w) > 2 and w not in stop]
+
+        if not keywords:
+            return None
+
+        try:
+            # Try recall-style search first
+            facts = []
+            for kw in keywords[:3]:
+                if hasattr(kb, "recall"):
+                    hits = safe_call(kb.recall, kw) or []
+                elif hasattr(kb, "search_facts"):
+                    hits = safe_call(kb.search_facts, kw) or []
+                elif hasattr(kb, "list_facts"):
+                    hits = safe_call(kb.list_facts, 20) or []
+                else:
+                    hits = []
+                if isinstance(hits, list):
+                    facts.extend(hits)
+
+            # Deduplicate
+            seen_keys: set = set()
+            unique_facts = []
+            for f in facts:
+                if isinstance(f, dict):
+                    k = f.get("key", str(f))
+                else:
+                    k = str(f)
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    unique_facts.append(f)
+
+            if not unique_facts:
+                return None
+
+            # Score by keyword overlap
+            def _score(fact):
+                text = (
+                    str(fact.get("value", fact))
+                    + " "
+                    + str(fact.get("key", ""))
+                ).lower()
+                return sum(1 for kw in keywords if kw in text)
+
+            scored = sorted(unique_facts, key=_score, reverse=True)
+            top = [f for f in scored if _score(f) > 0][:4]
+
+            if not top:
+                return None
+
+            lines = [f"💡 **From my knowledge base on: {query}**\n"]
+            for fact in top:
+                if isinstance(fact, dict):
+                    val = fact.get("value", fact.get("text", ""))
+                    if isinstance(val, dict):
+                        import json as _json
+                        val = _json.dumps(val, ensure_ascii=False)[:200]
+                    lines.append(f"• {str(val)[:200]}")
+                else:
+                    lines.append(f"• {str(fact)[:200]}")
+
+            lines.append(
+                f"\n_Use 'recall {keywords[0]}' to search more, "
+                "or 'self-research <topic>' for a live update._"
+            )
+            return "\n".join(lines)
+
+        except Exception as exc:
+            log.debug(f"[KB-RESPONSE] lookup failed: {exc}")
+            return None
+
+    # ─────────────────────────────────
+    def _get_conversational_response(self, text: str) -> str:
+        """Return a direct, self-composed answer for conversational messages
+        that are not explicit info-queries.
+
+        Priority order:
+        1. KB facts about the topic
+        2. Status / identity facts synthesised from core
+        3. Honest "I don't know yet" with a helpful suggestion
+        """
+        # 1. Try KB
+        kb_resp = self._get_kb_response(text)
+        if kb_resp:
+            return kb_resp
+
+        # 2. Synthesise from what the core knows about itself
+        if self.core:
+            mem = getattr(self.core, "memory", None)
+            fact_count = 0
+            if mem and hasattr(mem, "list_facts"):
+                try:
+                    fact_count = len(safe_call(mem.list_facts, 500) or [])
+                except Exception:
+                    pass
+            ale = getattr(self.core, "autonomous_engine", None)
+            ale_cycles = 0
+            if ale and hasattr(ale, "learning_history"):
+                ale_cycles = ale.learning_history.get("research_cycles", 0)
+
+            lower = text.lower()
+            # Generic reflection topics the user might ask conversationally
+            if any(w in lower for w in ("think", "feel", "opinion", "view", "believe")):
+                return (
+                    "Based on what I've learned so far, I can reason from my "
+                    f"knowledge base ({fact_count} facts, {ale_cycles} research cycles). "
+                    "I don't have real feelings, but I can share relevant facts — "
+                    "ask me a specific question or try 'recall <topic>'."
+                )
+
+        # 3. Honest fallback with actionable suggestions
+        return (
+            "I don't have enough specific information to answer that directly. "
+            "Here's what you can try:\n"
+            "• `recall <keyword>` — search what I've already learned\n"
+            "• `self-research <topic>` — have me look it up now\n"
+            "• `learn about <topic>` — queue it for background research\n"
+            "• `toggle-llm on` — enable the AI language model for richer answers"
+        )
+
+    # ─────────────────────────────────
     def _format_research_response(self, query, results):
         """Format research results into readable response"""
         if not results:
@@ -2071,6 +2213,7 @@ Ask me about:
 
         response += f"\n[Use 'self-research {query}' for more detailed information]"
         return response
+
 
     # ─────────────────────────────────
     # MAIN PROCESS
@@ -2158,15 +2301,27 @@ Ask me about:
             # ─────── INFORMATION QUERY ───────
             if msg_type == 'info_query':
                 log.info(f"[QUERY] Information query detected: {subject}")
+                # 1. Try knowledge base first — no network required
+                kb_resp = self._get_kb_response(cleaned)
+                if kb_resp and kb_resp.strip():
+                    self._collect(cleaned, kb_resp, "kb_response")
+                    return kb_resp
+                # 2. Fall back to live research
                 response = self._get_llm_free_response(cleaned)
                 if response and response.strip():
                     self._collect(cleaned, response, "research_based")
                     return response
+                # 3. Honest fallback
+                response = self._get_conversational_response(cleaned)
+                self._collect(cleaned, response, "kb_fallback")
+                return response
 
             # ─────── GENERAL FALLBACK ───────
-            response = self._get_llm_free_response(cleaned)
+            # For conversational / unclassified messages, compose an answer
+            # from stored knowledge before attempting a live research request.
+            response = self._get_conversational_response(cleaned)
             if response and response.strip():
-                self._collect(cleaned, response, "research_based")
+                self._collect(cleaned, response, "conversational")
                 return response
 
             resp = "[I don't have specific information. Try: 'self-research <topic>' to learn more, or 'toggle-llm on' to use AI responses]"

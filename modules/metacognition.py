@@ -144,52 +144,130 @@ class Metacognition:
     
     def evaluate_understanding(self) -> Dict[str, Any]:
         """
-        Self-evaluate overall understanding
+        Self-evaluate overall understanding using a weighted confidence score.
+
+        Weights per tier:
+          high_confidence   → 1.0
+          medium_confidence → 0.6
+          low_confidence    → 0.25
+          uncertain         → 0.05
+
+        The weighted score is normalised to 0–100 %.  Even an entirely
+        medium-confidence knowledge base now reports a meaningful percentage
+        instead of 0.0 %, which was the old (high-only) formula.
         """
-        log.info(f"📊 [META] Evaluating understanding")
-        
-        total = len(self.knowledge_map.get("high_confidence", [])) + \
-                len(self.knowledge_map.get("medium_confidence", [])) + \
-                len(self.knowledge_map.get("low_confidence", []))
-        
+        log.info("📊 [META] Evaluating understanding")
+
+        n_high    = len(self.knowledge_map.get("high_confidence",   []))
+        n_medium  = len(self.knowledge_map.get("medium_confidence", []))
+        n_low     = len(self.knowledge_map.get("low_confidence",    []))
+        n_uncert  = len(self.knowledge_map.get("uncertain",         []))
+
+        total_classified = n_high + n_medium + n_low + n_uncert
+
+        # Weighted sum — maps tier counts to a 0–1 confidence score
+        _W_HIGH, _W_MED, _W_LOW, _W_UNC = 1.0, 0.6, 0.25, 0.05
+        if total_classified > 0:
+            weighted = (
+                n_high   * _W_HIGH +
+                n_medium * _W_MED  +
+                n_low    * _W_LOW  +
+                n_uncert * _W_UNC
+            ) / total_classified
+        else:
+            # No facts classified yet — assign a minimal bootstrap confidence
+            total_raw = self.knowledge_map.get("total_facts", 0)
+            weighted = 0.1 if total_raw > 0 else 0.0
+
+        pct = weighted * 100
+
+        # Quality label bands
+        if pct >= 70:
+            quality = "High"
+        elif pct >= 40:
+            quality = "Good"
+        elif pct >= 20:
+            quality = "Developing"
+        else:
+            quality = "Early"
+
+        # Recommendation tailored to quality band
+        if quality == "High":
+            rec = "Knowledge base is well-established; focus on edge-case topics to push further"
+        elif quality == "Good":
+            rec = "Good coverage; continue learning to raise medium-confidence facts to high"
+        elif quality == "Developing":
+            rec = "Keep running autonomous learning cycles to build confidence across more domains"
+        else:
+            rec = "Run 'autonomous-learn start' to begin building a solid knowledge foundation"
+
         evaluation = {
-            "total_knowledge_items": self.knowledge_map.get("total_facts", 0),
-            "high_confidence_facts": len(self.knowledge_map.get("high_confidence", [])),
-            "medium_confidence_facts": len(self.knowledge_map.get("medium_confidence", [])),
-            "low_confidence_facts": len(self.knowledge_map.get("low_confidence", [])),
-            "uncertain_facts": len(self.knowledge_map.get("uncertain", [])),
-            "overall_confidence": f"{(len(self.knowledge_map.get('high_confidence', [])) / max(1, total)) * 100:.1f}%",
-            "knowledge_quality": "Good" if total > 50 else "Developing",
-            "recommendation": "Continue learning to increase confidence across more domains"
+            "total_knowledge_items":  self.knowledge_map.get("total_facts", 0),
+            "high_confidence_facts":  n_high,
+            "medium_confidence_facts": n_medium,
+            "low_confidence_facts":   n_low,
+            "uncertain_facts":        n_uncert,
+            "overall_confidence":     f"{pct:.1f}%",
+            "confidence_score":       round(weighted, 4),
+            "knowledge_quality":      quality,
+            "recommendation":         rec,
         }
-        
-        log.info(f"✅ [META] Evaluation: {evaluation['overall_confidence']} confidence")
+
+        log.info(f"✅ [META] Evaluation: {evaluation['overall_confidence']} confidence "
+                 f"(high={n_high}, med={n_medium}, low={n_low}, unc={n_uncert})")
         return evaluation
     
     def _estimate_confidence(self, fact: Dict) -> float:
         """
-        Estimate confidence in a fact
-        Based on source and tags
+        Estimate confidence in a fact based on its source, tags, and key prefix.
+
+        Tag tiers used by the Autonomous Learning Engine
+        (tags like 'research', 'autonomous', 'reflect', 'evolve', 'deploy',
+        'ale_step*', 'builds', 'self-teach') all raise confidence above the
+        base level so that ALE-generated facts are correctly classified as
+        medium-to-high rather than 'uncertain'.
         """
         source = fact.get("source", "unknown").lower()
-        tags = fact.get("tags", [])
-        
+        tags   = fact.get("tags", []) or []
+        key    = fact.get("key", "")
+
         confidence = 0.5  # Base confidence
-        
-        # Higher confidence for academic sources
+
+        # ── Source boosts ───────────────────────────────────────────────────
         if "wikipedia" in source or "academic" in source:
+            confidence += 0.3
+        elif "arxiv" in source or "scholar" in source:
+            confidence += 0.25
+        elif "research" in source or "github" in source:
             confidence += 0.2
-        elif "research" in tags:
-            confidence += 0.15
-        elif "web" in tags:
+
+        # ── Tag boosts (ALE-generated tags included) ────────────────────────
+        ale_positive_tags = {
+            "research", "web", "autonomous", "reflect", "evolve", "deploy",
+            "improvement", "self-teach", "builds", "ale_step4", "ale_step17",
+            "metacognition", "ale", "learning", "code",
+        }
+        # Any matching positive tag raises confidence
+        matching = ale_positive_tags & set(str(t).lower() for t in tags)
+        if matching:
+            # Up to +0.3 for multiple positive tags
+            confidence += min(0.3, 0.08 * len(matching))
+
+        # Boost if the fact key starts with a known ALE prefix
+        if any(key.startswith(p) for p in (
+            "ale_", "research:", "code:", "autonomous:", "reflection:",
+            "improvement:", "self_teach:", "serpex:", "knowledge:",
+        )):
             confidence += 0.1
-        
-        # Reduce for uncertain tags
+
+        # ── Tag penalties ────────────────────────────────────────────────────
         if "uncertain" in tags:
             confidence -= 0.2
         if "preliminary" in tags:
             confidence -= 0.15
-        
+        if "unverified" in tags:
+            confidence -= 0.1
+
         return min(1.0, max(0.0, confidence))
 
     # ══════════════════════════════════════════════════════════════════════
