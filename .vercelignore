@@ -48,4 +48,6 @@ h -u origin main
 # Root requirements.txt contains heavy ML/AI deps (qdrant, sentence-transformers,
 # faiss-cpu, torch, etc.) that total ~5 GB — far above Vercel's 500 MB Lambda
 # limit.  The slim api/requirements.txt is used instead for the serverless function.
-requirements.txt
+# Leading slash anchors the pattern to the project root only — without it the
+# gitignore-style rule would also match api/requirements.txt, stripping Flask.
+/requirements.txt
