@@ -231,10 +231,14 @@ class BrainTrainer:
         "responses",
     ]
 
-    def __init__(self, memory, knowledge_db=None, self_teacher=None):
+    def __init__(self, memory, knowledge_db=None, self_teacher=None,
+                 hybrid_manager=None, self_monitor=None, kernel=None):
         self.memory = memory
         self.knowledge_db = knowledge_db
         self.self_teacher = self_teacher
+        self.hybrid_manager = hybrid_manager
+        self.self_monitor = self_monitor
+        self.kernel = kernel
         self._pairs: list = []          # in-memory training pairs
         self._facts: list = []          # in-memory knowledge facts
         # Per-domain cognitive data store: domain → list of update dicts
@@ -282,6 +286,17 @@ class BrainTrainer:
             if len(self._pairs) > self._MAX_PAIRS:
                 self._pairs = self._pairs[-self._MAX_PAIRS:]
         self._persist_pair(pair)
+        # ── HybridQdrantManager upsert (additive) ────────────────────────────────
+        if self.hybrid_manager:
+            try:
+                combined = f"User: {user_prompt[:500]}\nAssistant: {assistant_response[:500]}"
+                self.hybrid_manager.upsert(
+                    combined,
+                    {"type": "exchange"},
+                    collection="niblit_brain_training"
+                )
+            except Exception as _hq_e:
+                log.debug("[BrainTrainer] exchange hybrid upsert failed: %s", _hq_e)
 
     def ingest_research(self, topic: str, text: str):
         """Ingest a research snippet from autonomous_learning into training data."""
@@ -304,6 +319,16 @@ class BrainTrainer:
                 })
         except Exception as _e:
             log.debug(f"[BrainTrainer] ingest_research persist failed: {_e}")
+        # ── HybridQdrantManager upsert (additive) ────────────────────────────────
+        if self.hybrid_manager:
+            try:
+                self.hybrid_manager.upsert(
+                    text[:2000],
+                    {"type": "brain_training", "topic": topic},
+                    collection="niblit_brain_training"
+                )
+            except Exception as _hq_e:
+                log.debug("[BrainTrainer] hybrid_manager upsert failed: %s", _hq_e)
 
     def ingest_knowledge_db(self, limit: int = 50):
         """Pull recent facts from KnowledgeDB into the trainer's fact store."""

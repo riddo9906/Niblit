@@ -152,6 +152,9 @@ class BackgroundTrainer:
         interval_secs: float = _TRAINER_INTERVAL_SECS,
         step_timeout_secs: float = _TRAINER_STEP_TIMEOUT_SECS,
         backoff_secs: float = _TRAINER_BACKOFF_SECS,
+        hybrid_manager: Optional[Any] = None,
+        self_monitor: Optional[Any] = None,
+        kernel: Optional[Any] = None,
     ) -> None:
         # Core trainer delegate
         self._trainer = Trainer(db=db, brain_trainer=brain_trainer)
@@ -165,6 +168,10 @@ class BackgroundTrainer:
         self.interval_secs = interval_secs
         self.step_timeout_secs = step_timeout_secs
         self.backoff_secs = backoff_secs
+        # HybridQdrantManager / monitor / kernel (additive wiring)
+        self.hybrid_manager = hybrid_manager
+        self.self_monitor = self_monitor
+        self.kernel = kernel
         # Metrics (additive)
         self._steps_ok: int = 0
         self._steps_failed: int = 0
@@ -290,10 +297,26 @@ class BackgroundTrainer:
                     "[BackgroundTrainer] Step failed: %s — backing off %.0fs",
                     result["error"], self.backoff_secs,
                 )
+                if self.kernel:
+                    try:
+                        self.kernel.report_error("BackgroundTrainer", "Training step failed", error=str(result["error"]))
+                    except Exception:
+                        pass
                 self._stop_event.wait(timeout=self.backoff_secs)
             else:
                 self._steps_ok += 1
                 self._last_step_ts = time.time()
+                # ── SelfMonitor + kernel reporting (additive) ─────────────────────────────
+                if self.self_monitor:
+                    try:
+                        self.self_monitor.log_event("LEARNING", "BackgroundTrainer step", outcome="success")
+                    except Exception:
+                        pass
+                if self.kernel:
+                    try:
+                        self.kernel.report_success("BackgroundTrainer", "Training step complete")
+                    except Exception:
+                        pass
 
     # ── CLI status ────────────────────────────────────────────────────────
 

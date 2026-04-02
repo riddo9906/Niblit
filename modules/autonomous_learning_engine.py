@@ -137,7 +137,10 @@ class AutonomousLearningEngine:
                  semantic_agent=None,
                  claude_engine=None,
                  builds_integrator=None,
-                 step_timeout=120):
+                 step_timeout=120,
+                 hybrid_manager=None,
+                 self_monitor=None,
+                 kernel=None):
         """
         Args:
             core: NiblitCore instance
@@ -215,6 +218,9 @@ class AutonomousLearningEngine:
         self.claude_engine = claude_engine
         self.builds_integrator = builds_integrator
         self.step_timeout = step_timeout
+        self.hybrid_manager = hybrid_manager
+        self.self_monitor = self_monitor
+        self.kernel = kernel
 
         self.idle_threshold = idle_threshold
         self.poll_interval = poll_interval
@@ -572,6 +578,23 @@ class AutonomousLearningEngine:
                 except Exception as _se:
                     log.debug("[RESEARCH] SemanticAgent store failed: %s", _se)
 
+            # ── HybridQdrantManager upsert (additive) ────────────────────────────────
+            if self.hybrid_manager and results:
+                try:
+                    result = results[0] if results else None
+                    self.hybrid_manager.upsert(
+                        str(result)[:2000],
+                        {"type": "research", "topic": self._current_cycle_topic, "cycle": self._cycle_count},
+                        collection="niblit_research"
+                    )
+                except Exception as _hq_e:
+                    log.debug("[ALE] hybrid_manager upsert failed: %s", _hq_e)
+            if self.self_monitor:
+                try:
+                    self.self_monitor.log_event("LEARNING", f"Research: {self._current_cycle_topic}", outcome="success")
+                except Exception:
+                    pass
+
             return f"Researched: {topic}"
 
         except Exception as e:
@@ -821,6 +844,17 @@ class AutonomousLearningEngine:
                 self.submit_agent_tasks_for_gaps()
             except Exception as _gap_exc:
                 log.debug("[ALE] Gap detection post-reflection error: %s", _gap_exc)
+
+            # ── HybridQdrantManager upsert (additive) ────────────────────────────────
+            if self.hybrid_manager and result:
+                try:
+                    self.hybrid_manager.upsert(
+                        str(result)[:2000],
+                        {"type": "reflection", "cycle": self._cycle_count},
+                        collection="niblit_reflections"
+                    )
+                except Exception as _hq_e:
+                    log.debug("[ALE] hybrid_manager reflect upsert failed: %s", _hq_e)
 
             return str(result) if result is not None else "[No reflection result]"
 
@@ -2630,7 +2664,14 @@ class AutonomousLearningEngine:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(step_fn)
             try:
-                return future.result(timeout=self.step_timeout)
+                result = future.result(timeout=self.step_timeout)
+                # ── Kernel health reporting (additive) ───────────────────────────────────
+                if self.kernel:
+                    try:
+                        self.kernel.report_success("ALE", f"Step: {step_name}")
+                    except Exception:
+                        pass
+                return result
             except concurrent.futures.TimeoutError:
                 log.warning(
                     f"⏱️ [ALE] Step '{step_name}' timed out after {self.step_timeout}s — skipping"
@@ -2638,6 +2679,11 @@ class AutonomousLearningEngine:
                 return f"[{step_name} timed out after {self.step_timeout}s]"
             except Exception as exc:
                 log.error(f"❌ [ALE] Step '{step_name}' raised: {exc}")
+                if self.kernel:
+                    try:
+                        self.kernel.report_error("ALE", f"Step: {step_name}", error=str(exc))
+                    except Exception:
+                        pass
                 return f"[{step_name} error: {exc}]"
 
     # ─────────────────────────────────────────────
