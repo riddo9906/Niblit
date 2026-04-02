@@ -2,12 +2,13 @@
   "version": 2,
   "functions": {
     "api/index.py": {
+      "runtime": "vercel-python@3.x",
       "memory": 1024,
       "maxDuration": 30
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index.py" }
+    { "source": "/(.*)", "destination": "/api/index" }
   ],
   "env": {
     "FLASK_ENV": "production"
