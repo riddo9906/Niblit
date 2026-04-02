@@ -19,10 +19,16 @@ import sys
 import time
 
 # ── path bootstrap ──────────────────────────────────────────────────────────
-# Add the repository root so that ``app``, ``niblit_core``, etc. are importable.
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Insert the api/ directory FIRST so that ``from app import app`` resolves to
+# api/app.py (the minimal, guaranteed entrypoint) before falling back to the
+# heavy root app.py.  The repository root is added second so that niblit_core
+# and other top-level modules remain importable when available.
+_API_DIR = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_API_DIR)
+if _API_DIR not in sys.path:
+    sys.path.insert(0, _API_DIR)
 if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
+    sys.path.insert(1, _ROOT)
 
 # ── Flask bootstrap ─────────────────────────────────────────────────────────
 try:
@@ -64,15 +70,18 @@ def _get_core():
 
 
 # ── Try to mount the full app.py routes ────────────────────────────────────
-# If app.py can be imported cleanly its routes are preferred.  If not, we
-# fall back to the minimal routes defined below.
+# api/app.py is imported first (guaranteed minimal entrypoint).  If advanced
+# routes from the root app.py are also available they will be preferred.
+# Any ImportError caused by missing heavy/agentic dependencies is silently
+# swallowed so the Lambda never crashes at import time.
 _full_app_mounted = False
 try:
     from app import app as _full_app  # type: ignore[import]
-    # Replace this module's 'app' with the full application so all routes
-    # (/, /chat, /api/*, /mcp, …) are available.
-    app = _full_app
-    _full_app_mounted = True
+    # Replace this module's 'app' with the imported application so all
+    # registered routes (/, /chat, /api/*, /mcp, …) are available.
+    if _full_app is not None:
+        app = _full_app
+        _full_app_mounted = True
 except Exception as _import_err:
     log.info(
         "Full app.py not mountable (%s); falling back to minimal handler.",
