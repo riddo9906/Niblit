@@ -918,6 +918,37 @@ except Exception as _e:
     log.debug(f"background_topic_refresh not available: {_e}")
     _start_background_refresh = None  # type: ignore[assignment]
 
+# ── BackgroundJobManager (additive) ──────────────────────────────────────────
+# Provides daemon-thread management for all periodic background jobs.
+# Imported here so niblit_core can wire jobs and expose bg_jobs to the router.
+try:
+    from modules.background_jobs import bg_jobs as _bg_jobs
+    _BG_JOBS_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"background_jobs not available: {_e}")
+    _bg_jobs = None  # type: ignore[assignment]
+    _BG_JOBS_AVAILABLE = False
+
+# ── ParameterManager (additive) ───────────────────────────────────────────────
+# Hybrid env/DB/remote parameter store with background sync daemon thread.
+try:
+    from modules.parameter_manager import parameter_manager as _parameter_manager
+    _PARAMETER_MANAGER_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"parameter_manager not available: {_e}")
+    _parameter_manager = None  # type: ignore[assignment]
+    _PARAMETER_MANAGER_AVAILABLE = False
+
+# ── NotificationQueue (additive) ─────────────────────────────────────────────
+# Global thread-safe notification queue — all background threads push here.
+try:
+    from core.notification_queue import notif_queue as _global_notif_queue
+    _GLOBAL_NOTIF_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"core.notification_queue not available: {_e}")
+    _global_notif_queue = None  # type: ignore[assignment]
+    _GLOBAL_NOTIF_AVAILABLE = False
+
 # ── MCP server ────────────────────────────────────────────────────────────────
 try:
     from modules.mcp_server import (
@@ -1227,6 +1258,11 @@ class NiblitCore:
         self.self_implementer = None
         self.collector = None
         self.modules = None
+        # ── Additive: background job manager and parameter manager ─────────
+        # Expose the module-level singletons on the core so the router and
+        # other modules can reach them via core.bg_jobs / core.parameter_manager
+        self.bg_jobs: Optional[Any] = _bg_jobs if _BG_JOBS_AVAILABLE else None
+        self.parameter_manager: Optional[Any] = _parameter_manager if _PARAMETER_MANAGER_AVAILABLE else None
         self.hf = None
         self.researcher = None
         self.self_researcher = None
@@ -3174,6 +3210,49 @@ SW Categories: {stats.get('software_study_categories', 0)}
         notifs.clear()
         return "\n".join(lines) if lines else "No pending notifications"
 
+    def _cmd_reload_params(self) -> str:
+        """On-demand ParameterManager reload (additive).
+
+        Reloads parameters from the local JSON file and optional remote URL.
+        Pushes a summary notification and returns it as a string.
+        """
+        pm = getattr(self, "parameter_manager", None) or _parameter_manager
+        if pm is None:
+            return "[reload_params] ParameterManager not available"
+        try:
+            summary = pm.reload()
+            # Also push into core._notifications so it surfaces via 'notifications' cmd
+            self._loop_notify(summary)
+            return summary
+        except Exception as exc:
+            return f"[reload_params] Error: {exc}"
+
+    def _cmd_run_selfheal(self) -> str:
+        """Explicit self-heal trigger with notification output (additive).
+
+        Runs the SelfHealer cycle (or equivalent) and returns/pushes the
+        findings.  The work runs synchronously because the user explicitly
+        requested it; however heavy sub-tasks inside SelfHealer may spawn
+        their own daemon threads.
+        """
+        healer = getattr(self, "self_healer", None)
+        if healer is None:
+            msg = "[run_selfheal] SelfHealer not available — ensure modules/self_healer.py is present"
+            self._loop_notify(msg)
+            return msg
+        result = None
+        for method_name in ("run_cycle", "repair", "full_heal", "run"):
+            fn = getattr(healer, method_name, None)
+            if fn is not None:
+                try:
+                    result = fn(self) if method_name == "full_heal" else fn()
+                except Exception as exc:
+                    result = f"[SelfHealer.{method_name} error] {exc}"
+                break
+        summary = result or "✅ Self-heal cycle completed (no output returned)"
+        self._loop_notify(str(summary))
+        return str(summary)
+
     def _cmd_status(self, text: str) -> str:
         """Status command."""
         try:
@@ -4360,6 +4439,18 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.info("✅ Event-bus: LEARNING_CYCLE_COMPLETED → topic refresh handler registered")
         except Exception as _eb_exc:
             log.debug("[INIT] Event-bus topic refresh subscription skipped: %s", _eb_exc)
+
+        # ── ParameterManager background sync (additive) ───────────────────────
+        # Start the background parameter-sync daemon thread so parameters are
+        # automatically reloaded from file/remote without blocking the shell.
+        # Results are pushed to the notification queue, not printed directly.
+        if _PARAMETER_MANAGER_AVAILABLE and _parameter_manager is not None:
+            try:
+                _parameter_manager.start_background_sync(interval=60.0, initial_delay=30.0)
+                log.info("✅ ParameterManager background sync thread started")
+                self.startup_report.add("parameter_manager_sync", "ready")
+            except Exception as _pme:
+                log.debug("[INIT] ParameterManager sync failed to start: %s", _pme)
 
     def _init_self_improvements(self):
         """Initialize 10 self-improvement modules."""

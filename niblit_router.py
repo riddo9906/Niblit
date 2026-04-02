@@ -217,6 +217,10 @@ class NiblitRouter:
         "builds",
         # Dynamic topic enrichment / refresh
         "refresh-topics", "refresh topics",
+        # Parameter manager on-demand reload (additive)
+        "reload_params", "reload-params",
+        # Explicit self-heal trigger with notification output (additive)
+        "run_selfheal", "run-selfheal",
     )
 
     CHAT_RESPONSES = {
@@ -1365,6 +1369,65 @@ Ask me about:
             "  refresh-topics add <t>   — Add a seed topic to the DynamicTopicManager"
         )
 
+    # ─────────────────────────────────
+    # PARAMETER MANAGER RELOAD (additive)
+    # ─────────────────────────────────
+    def _handle_reload_params(self) -> str:
+        """Trigger an on-demand reload of ParameterManager.
+
+        Reloads parameters from the local JSON file and optional remote URL,
+        then pushes a notification to the notification queue with the summary
+        of what changed.
+
+        Command::
+
+            reload_params   — Reload parameters from file + remote
+        """
+        # Try niblit_core first
+        if self.core and hasattr(self.core, "_cmd_reload_params"):
+            return safe_call(self.core._cmd_reload_params)
+
+        # Fall back to the module-level singleton directly
+        try:
+            from modules.parameter_manager import parameter_manager
+            return parameter_manager.reload()
+        except Exception as exc:
+            return f"[reload_params] Error: {exc}"
+
+    # ─────────────────────────────────
+    # EXPLICIT SELF-HEAL TRIGGER (additive)
+    # ─────────────────────────────────
+    def _handle_run_selfheal(self) -> str:
+        """Trigger a self-heal / self-repair cycle explicitly.
+
+        Runs the SelfHealer (or equivalent) and pushes a notification with the
+        results.  All work is synchronous (user explicitly requested it) but
+        a daemon thread can be used for long-running cycles.
+
+        Command::
+
+            run_selfheal   — Run SelfHealer cycle and return findings
+        """
+        # Try niblit_core first
+        if self.core and hasattr(self.core, "_cmd_run_selfheal"):
+            return safe_call(self.core._cmd_run_selfheal)
+
+        # Try self_healer directly
+        if self.core and getattr(self.core, "self_healer", None):
+            healer = self.core.self_healer
+            result = None
+            for method in ("run_cycle", "repair", "full_heal", "run"):
+                if hasattr(healer, method):
+                    try:
+                        fn = getattr(healer, method)
+                        result = fn(self.core) if method == "full_heal" else fn()
+                    except Exception as exc:
+                        result = f"[SelfHealer.{method} error] {exc}"
+                    break
+            return result or "✅ Self-heal cycle completed (no output returned)"
+
+        return "[run_selfheal] SelfHealer not available"
+
     def _handle_stream(self, cmd: str) -> str:
         """Handle real-time Binance WebSocket stream commands.
 
@@ -2232,6 +2295,14 @@ Ask me about:
         if lower.startswith("refresh-topics") or lower.startswith("refresh topics"):
             return self._handle_refresh_topics(cmd)
 
+        # PARAMETER MANAGER — on-demand reload (additive)
+        if lower in ("reload_params", "reload-params"):
+            return self._handle_reload_params()
+
+        # EXPLICIT SELF-HEAL TRIGGER (additive)
+        if lower in ("run_selfheal", "run-selfheal"):
+            return self._handle_run_selfheal()
+
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
                      "memory dump on", "memory dump off",
@@ -2617,6 +2688,13 @@ Ask me about:
             "dump visible / dump on       — Enable verbose memory dump logging",
             "dump invisible / dump off    — Disable memory dump logging (default)",
             "notifications                — View pending loop notifications",
+            "",
+            "=== BACKGROUND MANAGEMENT & PARAMETER CONTROL ===",
+            "reload_params                — Reload ParameterManager from file/remote",
+            "run_selfheal                 — Explicitly trigger self-heal cycle",
+            "refresh-topics               — Propose and inject fresh research topics now",
+            "refresh-topics status        — Show DynamicTopicManager state",
+            "refresh-topics add <topic>   — Add a seed topic for topic enrichment",
             "",
             "=== LIVE UPDATE & UPGRADE ===",
             "reload <module.name>         — Hot-reload a module without restarting",
