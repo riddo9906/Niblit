@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import logging
 import os
+import hashlib
 import threading
 import time
 import unicodedata
@@ -451,11 +452,13 @@ class HybridQdrantManager:
         if client is None:
             return False
 
-        # Derive a stable integer point ID from doc_id or text hash
-        if doc_id is not None:
-            point_id = abs(hash(doc_id)) % (2 ** 63)
-        else:
-            point_id = abs(hash(text)) % (2 ** 63)
+        # Derive a stable integer point ID from doc_id or text hash.
+        # We use SHA-256 (not Python's hash()) to guarantee determinism
+        # across processes and restarts regardless of PYTHONHASHSEED.
+        seed = doc_id if doc_id is not None else text
+        stable_hash = hashlib.sha256(seed.encode("utf-8", errors="replace")).digest()
+        # Use the first 8 bytes as a uint64 within Qdrant's unsigned ID range
+        point_id = int.from_bytes(stable_hash[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
 
         # Build the multi-vector dict: {vector_name: embedding}
         vectors: Dict[str, Any] = {}
@@ -550,21 +553,15 @@ class HybridQdrantManager:
                 continue
 
             try:
-                # Use query_points with named vector for multi-vector collections
-                if spec["sparse"]:
-                    results = client.query_points(
-                        collection_name=full_name,
-                        query=vector,
-                        using=spec["vector_name"],
-                        limit=top_k,
-                    ).points
-                else:
-                    results = client.query_points(
-                        collection_name=full_name,
-                        query=vector,
-                        using=spec["vector_name"],
-                        limit=top_k,
-                    ).points
+                # Use query_points with named vector for multi-vector collections.
+                # Both dense and sparse vectors use the same query_points API;
+                # qdrant-client infers the vector type from the collection schema.
+                results = client.query_points(
+                    collection_name=full_name,
+                    query=vector,
+                    using=spec["vector_name"],
+                    limit=top_k,
+                ).points
 
                 with self._lock:
                     self._stats[model_key]["query"] += 1

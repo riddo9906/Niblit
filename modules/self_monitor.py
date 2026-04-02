@@ -60,7 +60,7 @@ import logging
 import threading
 import time
 from collections import Counter, deque
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Deque, Dict, List, Optional
 
 log = logging.getLogger("SelfMonitor")
@@ -134,7 +134,7 @@ class SelfMonitor:
     @staticmethod
     def _ts_iso(ts: float) -> str:
         """Format a UNIX timestamp as an ISO-8601 string."""
-        return datetime.utcfromtimestamp(ts).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # ── Core logging ──────────────────────────────────────────────────────────
 
