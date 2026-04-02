@@ -235,6 +235,10 @@ class NiblitRouter:
         "trainer",
         # ALE persistent state: checkpoint, resume, backtrack, anchor (additive)
         "ale",
+        # SelfMonitor — experience tracking & trend analysis (additive)
+        "self-monitor",
+        # HybridQdrantManager — multi-model vector search (additive)
+        "hybrid-search",
     )
 
     CHAT_RESPONSES = {
@@ -1612,6 +1616,58 @@ Ask me about:
             return safe_call(lambda: self.core._cmd_ale(stripped))
         return "[ale] ALECheckpointManager not available (core not initialised)"
 
+    def _handle_self_monitor(self, text: str) -> str:
+        """Handle 'self-monitor <sub>' commands."""
+        sub = text[len("self-monitor"):].strip()
+        sm = getattr(self.core, "self_monitor", None)
+        if sm is None:
+            return "SelfMonitor is not available."
+        if not sub or sub == "status":
+            return sm.cli_report()
+        if sub == "trends":
+            trends = sm.get_trends()
+            if not trends:
+                return "No events recorded yet."
+            lines = []
+            for ev in trends[-10:]:
+                lines.append(f"[{ev.get('event_type','?')}] {ev.get('description','')[:80]} ({ev.get('outcome','?')})")
+            return "\n".join(lines)
+        if sub == "recommendations":
+            recs = sm.get_recommendations()
+            if not recs:
+                return "No recommendations at this time."
+            return "\n".join(f"• {r}" for r in recs)
+        if sub == "summary":
+            import json
+            return json.dumps(sm.get_experience_summary(), indent=2)
+        return f"Unknown self-monitor command: {sub}\nUsage: self-monitor [status|trends|recommendations|summary]"
+
+    def _handle_hybrid_qdrant(self, text: str) -> str:
+        """Handle 'hybrid-search <query>' commands."""
+        sub = text[len("hybrid-search"):].strip()
+        hm = getattr(self.core, "hybrid_qdrant", None)
+        if hm is None:
+            return "HybridQdrantManager is not available."
+        if not sub or sub == "status":
+            return hm.model_stats()
+        if sub.startswith("query "):
+            q = sub[6:].strip()
+            if not q:
+                return "Usage: hybrid-search query <text>"
+            try:
+                results = hm.query(q, collection="niblit_knowledge")
+                if not results:
+                    return "No results found."
+                lines = []
+                for i, r in enumerate(results[:5], 1):
+                    score = r.get("score", 0)
+                    text_val = r.get("payload", {}).get("_text", "")[:100]
+                    lines.append(f"{i}. [{score:.3f}] {text_val}")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Query error: {e}"
+        return f"Unknown hybrid-search command: {sub}\nUsage: hybrid-search [status|query <text>]"
+
     def _handle_stream(self, cmd: str) -> str:
         """Handle real-time Binance WebSocket stream commands.
 
@@ -2515,6 +2571,14 @@ Ask me about:
         # ALE CHECKPOINT / RESUME / BACKTRACK / ANCHOR (additive)
         if lower == "ale" or lower.startswith("ale "):
             return self._handle_ale(cmd)
+
+        # SELF-MONITOR — experience tracking & trend analysis (additive)
+        if lower == "self-monitor" or lower.startswith("self-monitor "):
+            return self._handle_self_monitor(cmd)
+
+        # HYBRID-SEARCH — multi-model vector search (additive)
+        if lower == "hybrid-search" or lower.startswith("hybrid-search "):
+            return self._handle_hybrid_qdrant(cmd)
 
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",

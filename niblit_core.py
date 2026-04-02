@@ -1028,6 +1028,24 @@ try:
 except Exception as _e:
     log.debug(f"Orchestrator tools not available: {_e}")
 
+# ── HybridQdrantManager (additive) ───────────────────────────────────────────
+try:
+    from modules.hybrid_qdrant_manager import get_hybrid_manager as _get_hybrid_manager
+    _HYBRID_QDRANT_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"HybridQdrantManager not available: {_e}")
+    _get_hybrid_manager = None  # type: ignore[assignment]
+    _HYBRID_QDRANT_AVAILABLE = False
+
+# ── SelfMonitor (additive) ────────────────────────────────────────────────────
+try:
+    from modules.self_monitor import get_self_monitor as _get_self_monitor
+    _SELF_MONITOR_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"SelfMonitor not available: {_e}")
+    _get_self_monitor = None  # type: ignore[assignment]
+    _SELF_MONITOR_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -4982,6 +5000,27 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # ── Phase-2 Agent Architecture (additive) ────────────────────────────
         # Initialise RuntimeManager and all Phase-2 agents, register them with
         # the orchestrator, and start the background dispatch loop.
+        # ── HybridQdrantManager & SelfMonitor (additive) ─────────────────────
+        if _HYBRID_QDRANT_AVAILABLE and _get_hybrid_manager:
+            try:
+                self.hybrid_qdrant = _get_hybrid_manager()
+                log.info("[Core] HybridQdrantManager ready")
+            except Exception as _e:
+                log.debug(f"[Core] HybridQdrantManager init failed: {_e}")
+                self.hybrid_qdrant = None
+        else:
+            self.hybrid_qdrant = None
+
+        if _SELF_MONITOR_AVAILABLE and _get_self_monitor:
+            try:
+                self.self_monitor = _get_self_monitor()
+                log.info("[Core] SelfMonitor ready")
+            except Exception as _e:
+                log.debug(f"[Core] SelfMonitor init failed: {_e}")
+                self.self_monitor = None
+        else:
+            self.self_monitor = None
+
         self._init_agents()
 
     def _init_agents(self) -> None:
