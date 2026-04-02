@@ -3118,7 +3118,7 @@ class CodeGenerator:
         if self.hybrid_manager is not None:
             try:
                 query = f"fix: {issue_description}"
-                kb_result = self.hybrid_manager.query(query)
+                kb_result = self.hybrid_manager.query(query, collection="niblit_codegen")
                 if kb_result:
                     hints = str(kb_result)[:500]
                     result["source"] = "hybrid_manager"
@@ -3225,11 +3225,11 @@ class CodeGenerator:
         if self.self_monitor is None:
             return
         try:
-            payload = {"event": event_type, "path": path, **(extra or {})}
+            event_data = {"event": event_type, "path": path, **(extra or {})}
             if hasattr(self.self_monitor, "log_event"):
-                self.self_monitor.log_event(event_type, payload)
+                self.self_monitor.log_event(event_type, event_data)
             elif hasattr(self.self_monitor, "record"):
-                self.self_monitor.record(event_type, payload)
+                self.self_monitor.record(event_type, event_data)
         except Exception as exc:
             log.debug("[CodeGenerator] self_monitor log failed: %s", exc)
 

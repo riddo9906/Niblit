@@ -587,7 +587,7 @@ class FilesystemManager:
             log.debug("[FilesystemManager] self_monitor log failed: %s", exc)
 
     def _resolve(self, filepath: str) -> Path:
-        p = Path(filepath)
+        """Resolve a path relative to base_dir, or absolute."""
         if p.is_absolute():
             return p
         return self.base_dir / p
