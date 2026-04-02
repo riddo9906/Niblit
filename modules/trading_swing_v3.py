@@ -387,12 +387,14 @@ class FilteredSwingTraderV3:
 
         is_reentry = leg_id > 1
         action = "re-entry" if is_reentry else "enter_long" if direction == "long" else "enter_short"
+        ema13_val = ctx.get("ema13")
+        ema13_str = f"{ema13_val:.6f}" if ema13_val else "n/a"
         msg = (
             f"[SwingV3] Leg #{leg_id} {'RE-ENTRY' if is_reentry else 'ENTRY'} "
             f"{direction.upper()} @ {close:.6f} | bar={bar_num} | "
             f"supertrend={'UP' if ctx['supertrend_bullish'] else 'DOWN'} "
             f"macd={'bull' if ctx['macd_bullish'] else 'bear'} "
-            f"ema13={ctx['ema13']:.6f if ctx['ema13'] else 'n/a'}"
+            f"ema13={ema13_str}"
         )
         log.info(msg)
         self._notify(msg)
