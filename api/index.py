@@ -8,27 +8,17 @@ and lazily boots the full NiblitCore on the first real request.
 
 The Vercel Python runtime looks for a variable named ``app`` that is a valid
 WSGI callable.
+
+Minimal vercel serverless boot fix: this file is intentionally self-contained
+so that it never fails to import due to missing heavy/agentic dependencies.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sys
 import time
-
-# ── path bootstrap ──────────────────────────────────────────────────────────
-# Insert the api/ directory FIRST so that ``from app import app`` resolves to
-# api/app.py (the minimal, guaranteed entrypoint) before falling back to the
-# heavy root app.py.  The repository root is added second so that niblit_core
-# and other top-level modules remain importable when available.
-_API_DIR = os.path.dirname(os.path.abspath(__file__))
-_ROOT = os.path.dirname(_API_DIR)
-if _API_DIR not in sys.path:
-    sys.path.insert(0, _API_DIR)
-if _ROOT not in sys.path:
-    sys.path.insert(1, _ROOT)
 
 # ── Flask bootstrap ─────────────────────────────────────────────────────────
 try:
@@ -49,6 +39,9 @@ CORS(app)
 log = logging.getLogger("NiblitVercel")
 
 # ── Lazy NiblitCore ─────────────────────────────────────────────────────────
+# NiblitCore and its heavy dependencies are only loaded on the first real
+# request.  If they are not available (e.g. Lambda storage limits) the API
+# still boots and returns a structured error instead of a 500.
 _core = None
 _core_error: str | None = None
 _core_loaded = False
@@ -60,6 +53,10 @@ def _get_core():
     if _core_loaded:
         return _core
     _core_loaded = True
+    # Add repo root to sys.path so niblit_core is importable when present.
+    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _root not in sys.path:
+        sys.path.insert(0, _root)
     try:
         from niblit_core import NiblitCore  # type: ignore[import]
         _core = NiblitCore()
@@ -69,67 +66,52 @@ def _get_core():
     return _core
 
 
-# ── Try to mount the full app.py routes ────────────────────────────────────
-# api/app.py is imported first (guaranteed minimal entrypoint).  If advanced
-# routes from the root app.py are also available they will be preferred.
-# Any ImportError caused by missing heavy/agentic dependencies is silently
-# swallowed so the Lambda never crashes at import time.
-_full_app_mounted = False
-try:
-    from app import app as _full_app  # type: ignore[import]
-    # Replace this module's 'app' with the imported application so all
-    # registered routes (/, /chat, /api/*, /mcp, …) are available.
-    if _full_app is not None:
-        app = _full_app
-        _full_app_mounted = True
-except Exception as _import_err:
-    log.info(
-        "Full app.py not mountable (%s); falling back to minimal handler.",
-        _import_err,
-    )
+# ── Routes ──────────────────────────────────────────────────────────────────
 
-# ── Minimal fallback routes (only active when full app.py is unavailable) ──
-if not _full_app_mounted:
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "service": "niblit", "mode": "minimal"})
 
-    @app.route("/health", methods=["GET"])
-    def health():
-        return jsonify({"status": "ok", "service": "niblit", "mode": "minimal"})
 
-    @app.route("/", methods=["GET"])
-    def index():
+@app.route("/", methods=["GET"])
+def index():
+    return jsonify({
+        "status": "ok",
+        "service": "Niblit AI",
+        "message": "Niblit minimal API is alive!",
+    })
+
+
+@app.route("/ping", methods=["GET"])
+def ping():
+    return jsonify({"pong": True, "ts": int(time.time())})
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json(force=True, silent=True) or {}
+    text = (data.get("text") or data.get("message") or "").strip()
+    if not text:
+        return jsonify({"error": "no text provided"}), 400
+    core = _get_core()
+    if core is None:
         return jsonify({
-            "service": "Niblit AI",
-            "status": "running",
-            "note": "full UI unavailable — check build logs",
-        })
-
-    @app.route("/ping", methods=["GET"])
-    def ping():
-        return jsonify({"pong": True, "ts": int(time.time())})
-
-    @app.route("/chat", methods=["POST"])
-    def chat():
-        data = request.get_json(force=True, silent=True) or {}
-        text = (data.get("text") or data.get("message") or "").strip()
-        if not text:
-            return jsonify({"error": "no text provided"}), 400
-        core = _get_core()
-        if core is None:
-            return jsonify({
-                "reply": f"[error] NiblitCore unavailable: {_core_error}",
-                "ts": int(time.time()),
-            })
-        try:
-            reply = core.process(text)
-        except Exception as exc:
-            reply = f"[error] {exc}"
-        return jsonify({"reply": reply, "ts": int(time.time())})
-
-    @app.route("/api/status", methods=["GET"])
-    def api_status():
-        core = _get_core()
-        return jsonify({
-            "core_loaded": core is not None,
-            "core_error": _core_error,
+            "reply": f"[error] NiblitCore unavailable: {_core_error}",
             "ts": int(time.time()),
         })
+    try:
+        reply = core.process(text)
+    except Exception as exc:
+        reply = f"[error] {exc}"
+    return jsonify({"reply": reply, "ts": int(time.time())})
+
+
+@app.route("/api/status", methods=["GET"])
+def api_status():
+    core = _get_core()
+    return jsonify({
+        "core_loaded": core is not None,
+        "core_error": _core_error,
+        "ts": int(time.time()),
+    })
+
