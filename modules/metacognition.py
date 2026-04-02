@@ -231,7 +231,13 @@ class Metacognition:
             rationale=rationale,
             confidence=float(confidence),
         )
-        self._provenance[key] = rec
+        # Use copy-on-write to avoid mutating the shared provenance dict in place
+        # while other threads may be iterating over it (e.g. in confidence snapshot
+        # or parse-tree generation). This prevents "dictionary changed size during
+        # iteration" RuntimeError in multi-threaded scenarios.
+        new_provenance = dict(self._provenance)
+        new_provenance[key] = rec
+        self._provenance = new_provenance
         log.debug("[META] provenance recorded: %s (conf=%.2f, agent=%s)", key, confidence, agent)
         return rec
 
