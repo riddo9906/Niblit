@@ -107,6 +107,12 @@ class AutonomousLearningEngine:
     _IMPROVEMENT_CYCLE_EVERY: int = 3
     # GitHubPush (step 20) runs every N cycles (network push; not needed every cycle).
     _GITHUB_PUSH_EVERY: int = 5
+    # Additive: run self-improvement via Phase-2 agents every N cycles.
+    # Override by setting autonomous_engine._SELF_IMPROVE_CYCLE_EVERY = N.
+    _SELF_IMPROVE_CYCLE_EVERY: int = 10
+    # Additive: minimum facts per topic before coverage is considered "adequate".
+    # Topics with fewer stored facts than this are flagged as knowledge gaps.
+    _MIN_COVERAGE_THRESHOLD: int = 3
     # Seconds to sleep between consecutive steps for I/O breathing room.
     _INTER_STEP_SLEEP: float = 3.0
     # Seconds to wait after the unified research step so the full ingestion →
@@ -4046,8 +4052,7 @@ class AutonomousLearningEngine:
         # Every N cycles, submit a self-improvement plan to the Phase-2 agent
         # architecture so the system continuously enhances itself.  Runs in the
         # background (non-blocking) — tasks are dispatched by the RuntimeManager.
-        _SELF_IMPROVE_EVERY = 10
-        if cycle % _SELF_IMPROVE_EVERY == 0:
+        if cycle % self._SELF_IMPROVE_CYCLE_EVERY == 0:
             try:
                 self.self_improve_via_agents()
             except Exception as _sie:
@@ -4250,14 +4255,13 @@ class AutonomousLearningEngine:
         """Additive: scan the KnowledgeDB for under-covered topics.
 
         Returns a list of research topic strings for which fewer than
-        :data:`_MIN_COVERAGE_THRESHOLD` facts are stored.  These gaps are then
+        :attr:`_MIN_COVERAGE_THRESHOLD` facts are stored.  These gaps are then
         fed back into the research queue so the ALE self-completes its own
         knowledge base autonomously.
 
         Called automatically by :meth:`_run_autonomous_cycle` and can also be
         triggered manually via ``agents submit architecture_analysis``.
         """
-        _MIN_COVERAGE_THRESHOLD = 3  # facts per topic considered "covered"
         gaps: List[str] = []
         if not self.knowledge_db or not self.research_topics:
             return gaps
@@ -4268,10 +4272,10 @@ class AutonomousLearningEngine:
                 for method in ("search", "recall"):
                     fn = getattr(self.knowledge_db, method, None)
                     if fn:
-                        results = fn(topic, limit=_MIN_COVERAGE_THRESHOLD)
+                        results = fn(topic, limit=self._MIN_COVERAGE_THRESHOLD)
                         break
                 count = len(results) if results else 0
-                if count < _MIN_COVERAGE_THRESHOLD:
+                if count < self._MIN_COVERAGE_THRESHOLD:
                     gaps.append(topic)
                     if len(gaps) >= max_gaps:
                         break

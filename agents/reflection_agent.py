@@ -208,8 +208,10 @@ class ReflectionAgent(BaseAgent):
     ) -> List[Dict[str, Any]]:
         """Flag patterns that may contradict stored facts.
 
-        Very lightweight heuristic: looks for antonym pairs in the same
-        sentence context (e.g., "is fast" vs "is slow") without NLP libs.
+        Lightweight heuristic: looks for antonym pairs in related texts.
+        Two texts are considered "related" when they share at least one
+        significant common token (length ≥ 4 chars), avoiding false positives
+        from completely unrelated topics.
         """
         _ANTONYM_PAIRS = [
             ("fast", "slow"), ("good", "bad"), ("increase", "decrease"),
@@ -219,10 +221,15 @@ class ReflectionAgent(BaseAgent):
         contradictions = []
         for p in patterns:
             p_text = p.get("text", "").lower()
+            p_words = set(w for w in p_text.split() if len(w) >= 4)
             for ex in existing:
                 ex_text = str(ex.get("text", ex.get("summary", ""))).lower()
+                ex_words = set(w for w in ex_text.split() if len(w) >= 4)
+                # Only check texts that share at least one significant token
+                if not (p_words & ex_words):
+                    continue
                 for a, b in _ANTONYM_PAIRS:
-                    if a in p_text and b in ex_text and ex_text[:60] in p_text[:60]:
+                    if a in p_text and b in ex_text:
                         contradictions.append({
                             "new": p_text[:100],
                             "existing": ex_text[:100],

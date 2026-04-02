@@ -4859,6 +4859,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as _init_exc:
             log.warning("[INIT] Phase-2 agent init failed: %s", _init_exc)
             self.startup_report.add("phase2_agents", "degraded", str(_init_exc))
+
+    def _init_self_improvements(self):
         """Initialize 10 self-improvement modules."""
         log.info("[SELF-IMPROVEMENTS] Initializing 10 modules...")
 
