@@ -239,6 +239,8 @@ class NiblitRouter:
         "self-monitor",
         # HybridQdrantManager — multi-model vector search (additive)
         "hybrid-search",
+        # NiblitKernel cognitive dashboard (additive)
+        "kernel",
     )
 
     CHAT_RESPONSES = {
@@ -1642,6 +1644,51 @@ Ask me about:
             return json.dumps(sm.get_experience_summary(), indent=2)
         return f"Unknown self-monitor command: {sub}\nUsage: self-monitor [status|trends|recommendations|summary]"
 
+    def _handle_kernel(self, text: str) -> str:
+        """Handle 'kernel <sub>' commands — NiblitKernel cognitive dashboard."""
+        sub = text[len("kernel"):].strip()
+        k = getattr(self._core, "kernel", None)
+        if k is None:
+            return "NiblitKernel is not available."
+        if not sub or sub == "status":
+            return k.cli_report()
+        if sub == "health":
+            import json
+            return json.dumps(k.get_health_report(), indent=2, default=str)
+        if sub == "identity":
+            import json
+            return json.dumps(k.get_self_identity(), indent=2)
+        if sub == "world":
+            return k.get_world_model_summary()
+        if sub == "improvements":
+            history = k.get_improvement_history(10)
+            if not history:
+                return "No improvements recorded yet."
+            lines = []
+            for item in history:
+                ts = item.get("timestamp", "?")
+                desc = item.get("description", "")[:80]
+                cat = item.get("category", "")
+                lines.append(f"[{cat}] {desc} @ {ts}")
+            return "\n".join(lines)
+        if sub == "propose":
+            proposals = k.propose_improvements()
+            if not proposals:
+                return "No improvement proposals at this time."
+            return "\n".join(f"• {p}" for p in proposals)
+        if sub == "repair":
+            return k.run_self_repair_cycle()
+        if sub.startswith("teach "):
+            rest = sub[6:].strip()
+            if ":" in rest:
+                topic, fact = rest.split(":", 1)
+                k.update_world_model(topic.strip(), fact.strip())
+                return f"World model updated: [{topic.strip()}] = {fact.strip()[:60]}"
+            return "Usage: kernel teach <topic>: <fact>"
+        return (
+            "Usage: kernel [status|health|identity|world|improvements|propose|repair|teach <topic>: <fact>]"
+        )
+
     def _handle_hybrid_qdrant(self, text: str) -> str:
         """Handle 'hybrid-search <query>' commands."""
         sub = text[len("hybrid-search"):].strip()
@@ -2579,6 +2626,10 @@ Ask me about:
         # HYBRID-SEARCH — multi-model vector search (additive)
         if lower == "hybrid-search" or lower.startswith("hybrid-search "):
             return self._handle_hybrid_qdrant(cmd)
+
+        # KERNEL — NiblitKernel cognitive dashboard (additive)
+        if lower == "kernel" or lower.startswith("kernel "):
+            return self._handle_kernel(cmd)
 
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",

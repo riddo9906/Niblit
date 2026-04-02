@@ -1046,6 +1046,26 @@ except Exception as _e:
     _get_self_monitor = None  # type: ignore[assignment]
     _SELF_MONITOR_AVAILABLE = False
 
+# ── NiblitKernel (additive) ───────────────────────────────────────────────────
+try:
+    from modules.niblit_kernel import get_kernel as _get_kernel
+    _NIBLIT_KERNEL_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"NiblitKernel not available: {_e}")
+    _get_kernel = None  # type: ignore[assignment]
+    _NIBLIT_KERNEL_AVAILABLE = False
+
+# ── ResilienceWrapper (additive) ──────────────────────────────────────────────
+try:
+    from modules.resilience_wrapper import safe_init as _safe_init, safe_call as _safe_call, wrap_module as _wrap_module
+    _RESILIENCE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"ResilienceWrapper not available: {_e}")
+    _safe_init = None  # type: ignore[assignment]
+    _safe_call = None  # type: ignore[assignment]
+    _wrap_module = None  # type: ignore[assignment]
+    _RESILIENCE_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -1378,6 +1398,17 @@ class NiblitCore:
                 log.info("✅ NIBLIT READY (All Systems Go)")
             else:
                 log.warning(f"⚠️ Degraded startup: {self.startup_report.summary()}")
+            # ── Register core with NiblitKernel (additive) ───────────────────
+            if hasattr(self, 'kernel') and self.kernel:
+                try:
+                    self.kernel.register_module("NiblitCore", self)
+                    self.kernel.update_self_identity("core_initialized", True)
+                    self.kernel.log_improvement(
+                        "NiblitCore fully initialized with kernel, hybrid-qdrant, and self-monitor",
+                        category="init"
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             log.error(f"Fatal initialization error: {e}", exc_info=True)
             raise
@@ -4265,6 +4296,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.researcher = safe_call(SelfResearcher, self.db, self.modules) if SelfResearcher else None
             # Alias used by structural_awareness.component_report() and live_updater
             self.self_researcher = self.researcher
+            # ── Inject cognitive components into SelfResearcher (additive) ───
+            if hasattr(self, 'researcher') and self.researcher is not None:
+                if hasattr(self.researcher, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
+                    self.researcher.hybrid_manager = self.hybrid_qdrant
+                if hasattr(self.researcher, 'kernel') and hasattr(self, 'kernel'):
+                    self.researcher.kernel = self.kernel
+                if hasattr(self, 'kernel') and self.kernel:
+                    self.kernel.register_module("SelfResearcher", self.researcher)
 
             if self.researcher and self.internet:
                 self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
@@ -4328,6 +4367,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
             self.startup_report.add("brain_router", "ready")
             log.info("✅ Brain and router initialized")
+            # ── Inject cognitive components into BrainTrainer (additive) ─────
+            _bt = getattr(self.brain, "brain_trainer", None) if getattr(self, "brain", None) else None
+            if _bt is not None:
+                if hasattr(_bt, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
+                    _bt.hybrid_manager = self.hybrid_qdrant
+                if hasattr(_bt, 'kernel') and hasattr(self, 'kernel'):
+                    _bt.kernel = self.kernel
+                if hasattr(self, 'kernel') and self.kernel:
+                    self.kernel.register_module("BrainTrainer", _bt)
             self._init_personality()
         except Exception as e:
             log.error(f"Brain/router init failed: {e}")
@@ -4560,6 +4608,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
+                    # ── Inject cognitive components into ALE (additive) ───────
+                    if hasattr(self, 'autonomous_engine') and self.autonomous_engine is not None:
+                        if hasattr(self.autonomous_engine, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
+                            self.autonomous_engine.hybrid_manager = self.hybrid_qdrant
+                        if hasattr(self.autonomous_engine, 'self_monitor') and hasattr(self, 'self_monitor'):
+                            self.autonomous_engine.self_monitor = self.self_monitor
+                        if hasattr(self.autonomous_engine, 'kernel') and hasattr(self, 'kernel'):
+                            self.autonomous_engine.kernel = self.kernel
+                        if hasattr(self, 'kernel') and self.kernel:
+                            self.kernel.register_module("ALE", self.autonomous_engine)
 
                     # ── ALECheckpointManager: install BEFORE starting ALE ─────
                     # (additive) The checkpoint manager wraps _run_autonomous_cycle
@@ -4670,6 +4728,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as _e:
                     log.debug("BackgroundTrainer init failed: %s", _e)
                     self.startup_report.add("background_trainer", "degraded", str(_e))
+            # ── Inject cognitive components into BackgroundTrainer (additive) ─
+            if hasattr(self, 'background_trainer') and self.background_trainer is not None:
+                if hasattr(self.background_trainer, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
+                    self.background_trainer.hybrid_manager = self.hybrid_qdrant
+                if hasattr(self.background_trainer, 'kernel') and hasattr(self, 'kernel'):
+                    self.background_trainer.kernel = self.kernel
+                if hasattr(self, 'kernel') and self.kernel:
+                    self.kernel.register_module("BackgroundTrainer", self.background_trainer)
 
             # ============================
             # LATE-WIRE ReflectModule v2 dependencies
@@ -5020,6 +5086,25 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self.self_monitor = None
         else:
             self.self_monitor = None
+
+        # ── NiblitKernel (additive) ───────────────────────────────────────────
+        if _NIBLIT_KERNEL_AVAILABLE and _get_kernel:
+            try:
+                self.kernel = _get_kernel()
+                # Inject hybrid_manager and self_monitor into kernel
+                if self.hybrid_qdrant:
+                    self.kernel.hybrid_manager = self.hybrid_qdrant
+                if self.self_monitor:
+                    self.kernel.self_monitor = self.self_monitor
+                # Build Niblit's self-identity model
+                self.kernel.update_self_identity("hybrid_qdrant_active", self.hybrid_qdrant is not None)
+                self.kernel.update_self_identity("self_monitor_active", self.self_monitor is not None)
+                log.info("[Core] NiblitKernel ready")
+            except Exception as _e:
+                log.debug(f"[Core] NiblitKernel init failed: {_e}")
+                self.kernel = None
+        else:
+            self.kernel = None
 
         self._init_agents()
 

@@ -62,12 +62,16 @@ class ReflectionAgent(BaseAgent):
         brain_trainer: Optional[Any] = None,
         vector_store: Optional[Any] = None,
         task_queue: Optional[Any] = None,
+        hybrid_manager: Optional[Any] = None,
+        kernel: Optional[Any] = None,
     ) -> None:
         super().__init__("reflection")
         self._kb = knowledge_db
         self._brain = brain_trainer
         self._vector_store = vector_store  # optional: for RAG dedup
         self._task_queue = task_queue      # optional: for self-task generation
+        self.hybrid_manager = hybrid_manager
+        self.kernel = kernel
 
     # ── execution ─────────────────────────────────────────────────────────────
 
@@ -106,6 +110,22 @@ class ReflectionAgent(BaseAgent):
             "contradictions": len(contradictions),
             "existing_facts_recalled": len(existing_facts),
         }
+        # ── HybridQdrantManager upsert (additive) ────────────────────────────────
+        if self.hybrid_manager:
+            try:
+                self.hybrid_manager.upsert(
+                    str(patterns[0]["text"] if patterns else topic)[:1500],
+                    {"type": "reflection", "agent": "ReflectionAgent"},
+                    collection="niblit_reflections"
+                )
+            except Exception as _hq_e:
+                log.debug("[ReflectionAgent] hybrid upsert failed: %s", _hq_e)
+        if self.kernel:
+            try:
+                self.kernel.report_success("ReflectionAgent", "Reflection stored")
+            except Exception:
+                pass
+
         self._publish(event_bus, EventType.REFLECTION_COMPLETED, output)
         self._log.info(
             "reflection(%r) → %d patterns stored, gap=%s, contradictions=%d",
