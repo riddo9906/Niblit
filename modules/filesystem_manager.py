@@ -20,9 +20,15 @@ import logging
 import subprocess
 import tempfile
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+try:
+    from modules.self_monitor import SelfMonitor as _SelfMonitor
+except Exception:
+    _SelfMonitor = None
 
 log = logging.getLogger("FilesystemManager")
 
@@ -72,9 +78,10 @@ def _detect_termux() -> bool:
 class FilesystemManager:
     """Full-featured file manager for all file types."""
 
-    def __init__(self, base_dir: Optional[str] = None, db: Any = None):
+    def __init__(self, base_dir: Optional[str] = None, db: Any = None, self_monitor: Any = None):
         self.base_dir = Path(base_dir or os.getcwd())
         self.db = db
+        self.self_monitor = self_monitor
         self.is_termux = _detect_termux()
         if self.is_termux:
             log.info("[FilesystemManager] Termux environment detected.")
@@ -430,9 +437,157 @@ class FilesystemManager:
             f"  Operations: create, read, write, append, edit, delete, copy, move, execute"
         )
 
+    # ──────────────────────────────────────────────────────
+    # VERSIONING / SAFE EDIT METHODS
+    # ──────────────────────────────────────────────────────
+
+    def read_file_safe(self, path: str) -> Dict[str, Any]:
+        """Read a file with encoding detection, returning a structured result."""
+        result: Dict[str, Any] = {"success": False, "content": "", "encoding": "utf-8", "size": 0, "error": ""}
+        p = self._resolve(path)
+        if not p.exists():
+            result["error"] = f"File not found: {p}"
+            return result
+        try:
+            raw = p.read_bytes()
+            result["size"] = len(raw)
+            for enc in ("utf-8", "latin-1", "cp1252"):
+                try:
+                    result["content"] = raw.decode(enc)
+                    result["encoding"] = enc
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                result["content"] = raw.decode("utf-8", errors="replace")
+                result["encoding"] = "utf-8-replace"
+            result["success"] = True
+        except OSError as exc:
+            result["error"] = str(exc)
+        return result
+
+    def write_file_safe(self, path: str, content: str, backup: bool = True) -> Dict[str, Any]:
+        """Write content atomically, optionally backing up the original file first."""
+        result: Dict[str, Any] = {"success": False, "backup_path": "", "error": ""}
+        p = self._resolve(path)
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            if backup and p.exists():
+                ts = int(time.time())
+                bak = Path(f"{p}.bak.{ts}")
+                shutil.copy2(str(p), str(bak))
+                result["backup_path"] = str(bak)
+            # Atomic write: write to temp then rename
+            tmp_p = p.with_suffix(p.suffix + ".tmp")
+            tmp_p.write_text(content, encoding="utf-8")
+            tmp_p.replace(p)
+            result["success"] = True
+            self._log_file_event("FILE_EDIT", str(p), {"backup": result["backup_path"]})
+        except OSError as exc:
+            result["error"] = str(exc)
+        return result
+
+    def patch_file(self, path: str, old_str: str, new_str: str, backup: bool = True) -> Dict[str, Any]:
+        """String-replace old_str with new_str in file, with optional backup."""
+        result: Dict[str, Any] = {"success": False, "changes": 0, "backup_path": "", "error": ""}
+        read = self.read_file_safe(path)
+        if not read["success"]:
+            result["error"] = read["error"]
+            return result
+        content: str = read["content"]
+        result["changes"] = content.count(old_str)
+        new_content = content.replace(old_str, new_str)
+        write = self.write_file_safe(path, new_content, backup=backup)
+        result["success"] = write["success"]
+        result["backup_path"] = write["backup_path"]
+        result["error"] = write["error"]
+        if write["success"]:
+            self._log_file_event("FILE_EDIT", path, {"op": "patch", "changes": result["changes"]})
+        return result
+
+    def restore_backup(self, backup_path: str, target_path: str) -> Dict[str, Any]:
+        """Restore a backup file to the target path."""
+        result: Dict[str, Any] = {"success": False, "error": ""}
+        try:
+            src = Path(backup_path)
+            dst = self._resolve(target_path)
+            if not src.exists():
+                result["error"] = f"Backup not found: {src}"
+                return result
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(src), str(dst))
+            result["success"] = True
+        except OSError as exc:
+            result["error"] = str(exc)
+        return result
+
+    def list_backups(self, path: str) -> List[str]:
+        """List all backup files for a given path."""
+        p = self._resolve(path)
+        parent = p.parent
+        pattern = f"{p.name}.bak.*"
+        return sorted(str(f) for f in parent.glob(pattern))
+
+    def apply_diff(self, path: str, diff_text: str, backup: bool = True) -> Dict[str, Any]:
+        """Apply a unified diff string to a file using the patch utility or difflib."""
+        result: Dict[str, Any] = {"success": False, "error": ""}
+        p = self._resolve(path)
+        if not p.exists():
+            result["error"] = f"File not found: {p}"
+            return result
+        if backup:
+            bak_result = self.write_file_safe(path, p.read_text(encoding="utf-8"), backup=True)
+            if not bak_result["success"]:
+                result["error"] = f"Backup failed: {bak_result['error']}"
+                return result
+        try:
+            proc = subprocess.run(
+                ["patch", "--no-backup-if-mismatch", str(p)],
+                input=diff_text, capture_output=True, text=True, timeout=15,
+            )
+            if proc.returncode == 0:
+                result["success"] = True
+            else:
+                result["error"] = proc.stderr.strip() or proc.stdout.strip()
+        except (FileNotFoundError, OSError):
+            # patch utility not available — report error
+            result["error"] = "patch utility not available; cannot apply diff"
+        return result
+
+    def get_file_version_history(self, path: str) -> List[Dict[str, Any]]:
+        """Return version history as a list of backup metadata dicts."""
+        history = []
+        for bak in self.list_backups(path):
+            bak_p = Path(bak)
+            try:
+                parts = bak_p.name.rsplit(".bak.", 1)
+                ts = int(parts[1]) if len(parts) == 2 else 0
+                size = bak_p.stat().st_size
+            except (ValueError, OSError):
+                ts = 0
+                size = 0
+            history.append({
+                "backup": bak,
+                "timestamp": ts,
+                "size": size,
+            })
+        return history
+
+    def _log_file_event(self, event_type: str, path: str, extra: Optional[Dict[str, Any]] = None) -> None:
+        """Emit a file event to self_monitor if available."""
+        if self.self_monitor is None:
+            return
+        try:
+            payload = {"event": event_type, "path": path, **(extra or {})}
+            if hasattr(self.self_monitor, "log_event"):
+                self.self_monitor.log_event(event_type, payload)
+            elif hasattr(self.self_monitor, "record"):
+                self.self_monitor.record(event_type, payload)
+        except Exception as exc:
+            log.debug("[FilesystemManager] self_monitor log failed: %s", exc)
+
     def _resolve(self, filepath: str) -> Path:
         """Resolve a path relative to base_dir, or absolute."""
-        p = Path(filepath)
         if p.is_absolute():
             return p
         return self.base_dir / p

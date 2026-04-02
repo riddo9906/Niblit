@@ -264,6 +264,20 @@ except Exception as e:
     log.debug(f"TradingBrain import failed: {e}")
     TradingBrain = None  # type: ignore[assignment,misc]
 
+# ── FilteredSwingTraderV3 (additive: continuous trend re-entry model) ────────
+try:
+    from modules.trading_swing_v3 import FilteredSwingTraderV3
+except Exception as _e:
+    log.debug(f"FilteredSwingTraderV3 import failed: {_e}")
+    FilteredSwingTraderV3 = None  # type: ignore[assignment,misc]
+
+# ── ALE Checkpoint Manager (additive: persistent state across restarts) ──────
+try:
+    from modules.ale_checkpoint import ALECheckpointManager
+except Exception as _e:
+    log.debug(f"ALECheckpointManager import failed: {_e}")
+    ALECheckpointManager = None  # type: ignore[assignment,misc]
+
 # ============================================================
 # LIVE UPDATER + STRUCTURAL AWARENESS IMPORTS
 # ============================================================
@@ -582,7 +596,7 @@ def parse_intent(text: str) -> Tuple[str, Dict[str, str]]:
     """Parse a user command string into (intent, meta) tuple."""
     t = text.strip().lower()
 
-    _EXACT: Dict[str, Tuple[str, Dict[str, str]]] = {
+    exact_commands: Dict[str, Tuple[str, Dict[str, str]]] = {
         "help": ("help", {}), "?": ("help", {}),
         "time": ("time", {}), "what time is it": ("time", {}), "current time": ("time", {}),
         "status": ("status", {}), "health": ("status", {}),
@@ -590,8 +604,8 @@ def parse_intent(text: str) -> Tuple[str, Dict[str, str]]:
         "toggle-llm off": ("toggle_llm", {"state": "off"}), "llm off": ("toggle_llm", {"state": "off"}),
         "shutdown": ("shutdown", {}), "exit": ("shutdown", {}), "quit": ("shutdown", {}),
     }
-    if t in _EXACT:
-        return _EXACT[t]
+    if t in exact_commands:
+        return exact_commands[t]
 
     if t.startswith("remember "):
         rest = text[9:].strip()
@@ -674,7 +688,7 @@ except Exception as _e:
     Collector = None
 
 try:
-    from trainer_full import Trainer
+    from trainer_full import Trainer, BackgroundTrainer
 except Exception as _e:
     log.debug(f"Trainer failed to import: {_e}")
     Trainer = None
@@ -1014,6 +1028,44 @@ try:
 except Exception as _e:
     log.debug(f"Orchestrator tools not available: {_e}")
 
+# ── HybridQdrantManager (additive) ───────────────────────────────────────────
+try:
+    from modules.hybrid_qdrant_manager import get_hybrid_manager as _get_hybrid_manager
+    _HYBRID_QDRANT_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"HybridQdrantManager not available: {_e}")
+    _get_hybrid_manager = None  # type: ignore[assignment]
+    _HYBRID_QDRANT_AVAILABLE = False
+
+# ── SelfMonitor (additive) ────────────────────────────────────────────────────
+try:
+    from modules.self_monitor import get_self_monitor as _get_self_monitor
+    _SELF_MONITOR_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"SelfMonitor not available: {_e}")
+    _get_self_monitor = None  # type: ignore[assignment]
+    _SELF_MONITOR_AVAILABLE = False
+
+# ── NiblitKernel (additive) ───────────────────────────────────────────────────
+try:
+    from modules.niblit_kernel import get_kernel as _get_kernel
+    _NIBLIT_KERNEL_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"NiblitKernel not available: {_e}")
+    _get_kernel = None  # type: ignore[assignment]
+    _NIBLIT_KERNEL_AVAILABLE = False
+
+# ── ResilienceWrapper (additive) ──────────────────────────────────────────────
+try:
+    from modules.resilience_wrapper import safe_init as _safe_init, safe_call as _safe_call, wrap_module as _wrap_module
+    _RESILIENCE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"ResilienceWrapper not available: {_e}")
+    _safe_init = None  # type: ignore[assignment]
+    _safe_call = None  # type: ignore[assignment]
+    _wrap_module = None  # type: ignore[assignment]
+    _RESILIENCE_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -1242,6 +1294,12 @@ class NiblitCore:
         self.autonomous_engine: Optional[AutonomousLearningEngine] = None
         # NEW: Trading Brain
         self.trading_brain: Optional["TradingBrain"] = None
+        # NEW: FilteredSwingTraderV3 — continuous trend re-entry model (additive)
+        self.swing_trader_v3: Optional[Any] = None
+        # NEW: BackgroundTrainer — non-blocking daemon training loop (additive)
+        self.background_trainer: Optional[Any] = None
+        # NEW: ALECheckpointManager — persistent ALE state across restarts (additive)
+        self.ale_checkpoint: Optional[Any] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -1340,6 +1398,17 @@ class NiblitCore:
                 log.info("✅ NIBLIT READY (All Systems Go)")
             else:
                 log.warning(f"⚠️ Degraded startup: {self.startup_report.summary()}")
+            # ── Register core with NiblitKernel (additive) ───────────────────
+            if hasattr(self, 'kernel') and self.kernel:
+                try:
+                    self.kernel.register_module("NiblitCore", self)
+                    self.kernel.update_self_identity("core_initialized", True)
+                    self.kernel.log_improvement(
+                        "NiblitCore fully initialized with kernel, hybrid-qdrant, and self-monitor",
+                        category="init"
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             log.error(f"Fatal initialization error: {e}", exc_info=True)
             raise
@@ -3251,6 +3320,153 @@ SW Categories: {stats.get('software_study_categories', 0)}
         notifs.clear()
         return "\n".join(lines) if lines else "No pending notifications"
 
+    def _cmd_confidence(self, mode: str = "snapshot") -> str:
+        """
+        Return Niblit's live meta-confidence report (additive).
+
+        Parameters
+        ----------
+        mode:
+            'snapshot'   — overall confidence summary (default)
+            'tree'       — full confidence parse tree by category
+            'rich'       — extended evaluation including provenance sources
+        """
+        meta = getattr(self, "metacognition", None)
+        if meta is None:
+            return (
+                "⚠️  Metacognition module not initialised.\n"
+                "   Try: 'autonomous-learn start' to populate knowledge first."
+            )
+        try:
+            if mode == "tree":
+                import json as _json
+                tree = meta.get_confidence_parse_tree()
+                return _json.dumps(tree, indent=2, default=str)
+            elif mode == "rich":
+                import json as _json
+                rich = meta.evaluate_understanding_rich()
+                return _json.dumps(rich, indent=2, default=str)
+            else:
+                return meta.confidence_cli_report()
+        except Exception as exc:
+            return f"[confidence] Error: {exc}"
+
+    def _cmd_swing_status(self) -> str:
+        """Return status of the FilteredSwingTraderV3 (additive)."""
+        trader = getattr(self, "swing_trader_v3", None)
+        if trader is None:
+            return "⚠️  FilteredSwingTraderV3 not initialised."
+        return trader.status()
+
+    def _cmd_swing_legs(self, last_n: int = 10) -> str:
+        """Return last *last_n* trade legs as JSON (additive)."""
+        trader = getattr(self, "swing_trader_v3", None)
+        if trader is None:
+            return "⚠️  FilteredSwingTraderV3 not initialised."
+        import json as _json
+        return _json.dumps(trader.get_legs(last_n), indent=2, default=str)
+
+    def _cmd_swing_explain(self) -> str:
+        """Explain the last swing entry signal (additive)."""
+        trader = getattr(self, "swing_trader_v3", None)
+        if trader is None:
+            return "⚠️  FilteredSwingTraderV3 not initialised."
+        return trader.explain_last_entry()
+
+    def _cmd_trainer_status(self) -> str:
+        """Return BackgroundTrainer status (additive)."""
+        bg = getattr(self, "background_trainer", None)
+        if bg is None:
+            return "⚠️  BackgroundTrainer not initialised."
+        return bg.status()
+
+    # ── ALE Checkpoint CLI commands (additive) ────────────────────────────
+
+    def _cmd_ale(self, sub: str) -> str:
+        """
+        ALE persistent-state commands (additive).
+
+        Sub-commands
+        ------------
+        status               — show checkpoint manager status
+        checkpoint / save    — force-save current state now
+        resume               — try to restore from saved checkpoint
+        anchor <tag>         — create a named snapshot
+        restore <tag>        — restore to a named anchor
+        anchors              — list saved anchors
+        backtrack [N]        — step back N steps in history
+        pause                — pause cycle before next step
+        resume-cycle         — resume a paused cycle
+        history [N]          — last N step results (default 20)
+        incomplete           — list incomplete steps from last run
+        """
+        ckpt = getattr(self, "ale_checkpoint", None)
+        if ckpt is None:
+            return (
+                "⚠️  ALECheckpointManager not initialised.\n"
+                "   Start the autonomous engine first: 'autonomous-learn start'"
+            )
+
+        sub = sub.strip().lower() if sub else "status"
+
+        if sub in ("status", ""):
+            return ckpt.status()
+
+        if sub in ("checkpoint", "save"):
+            ok = ckpt.save()
+            return "✅ Checkpoint saved." if ok else "❌ Checkpoint save failed — check logs."
+
+        if sub == "resume":
+            ok = ckpt.try_resume()
+            return "✅ Resumed from checkpoint." if ok else "ℹ️  No checkpoint found — starting fresh."
+
+        if sub.startswith("anchor ") or sub.startswith("anchor\t"):
+            tag = sub.split(None, 1)[1].strip() if len(sub.split(None, 1)) > 1 else ""
+            if not tag:
+                return "Usage: ale anchor <tag>"
+            return ckpt.create_anchor(tag)
+
+        if sub.startswith("restore ") or sub.startswith("restore\t"):
+            tag = sub.split(None, 1)[1].strip() if len(sub.split(None, 1)) > 1 else ""
+            if not tag:
+                return "Usage: ale restore <tag>"
+            return ckpt.restore_anchor(tag)
+
+        if sub == "anchors":
+            return ckpt.list_anchors()
+
+        if sub.startswith("backtrack"):
+            parts = sub.split()
+            try:
+                n = int(parts[1]) if len(parts) > 1 else 1
+            except (ValueError, IndexError):
+                n = 1
+            return ckpt.backtrack(n)
+
+        if sub == "pause":
+            return ckpt.pause_cycle()
+
+        if sub in ("resume-cycle", "resume cycle"):
+            return ckpt.resume_cycle()
+
+        if sub.startswith("history"):
+            parts = sub.split()
+            try:
+                n = int(parts[1]) if len(parts) > 1 else 20
+            except (ValueError, IndexError):
+                n = 20
+            return ckpt.get_step_history(n)
+
+        if sub == "incomplete":
+            return ckpt.get_incomplete_steps()
+
+        return (
+            f"[ale] Unknown sub-command: '{sub}'\n"
+            "  ale status / ale checkpoint / ale resume / ale anchor <tag>\n"
+            "  ale restore <tag> / ale anchors / ale backtrack [N]\n"
+            "  ale pause / ale resume-cycle / ale history [N] / ale incomplete"
+        )
+
     def _cmd_reload_params(self) -> str:
         """On-demand ParameterManager reload (additive).
 
@@ -4080,6 +4296,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.researcher = safe_call(SelfResearcher, self.db, self.modules) if SelfResearcher else None
             # Alias used by structural_awareness.component_report() and live_updater
             self.self_researcher = self.researcher
+            # ── Inject cognitive components into SelfResearcher (additive) ───
+            if hasattr(self, 'researcher') and self.researcher is not None:
+                if hasattr(self.researcher, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
+                    self.researcher.hybrid_manager = self.hybrid_qdrant
+                if hasattr(self.researcher, 'kernel') and hasattr(self, 'kernel'):
+                    self.researcher.kernel = self.kernel
+                if hasattr(self, 'kernel') and self.kernel:
+                    self.kernel.register_module("SelfResearcher", self.researcher)
 
             if self.researcher and self.internet:
                 self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
@@ -4143,6 +4367,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
             self.startup_report.add("brain_router", "ready")
             log.info("✅ Brain and router initialized")
+            # ── Inject cognitive components into BrainTrainer (additive) ─────
+            _bt = getattr(self.brain, "brain_trainer", None) if getattr(self, "brain", None) else None
+            if _bt is not None:
+                if hasattr(_bt, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
+                    _bt.hybrid_manager = self.hybrid_qdrant
+                if hasattr(_bt, 'kernel') and hasattr(self, 'kernel'):
+                    _bt.kernel = self.kernel
+                if hasattr(self, 'kernel') and self.kernel:
+                    self.kernel.register_module("BrainTrainer", _bt)
             self._init_personality()
         except Exception as e:
             log.error(f"Brain/router init failed: {e}")
@@ -4375,6 +4608,51 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
                     self.startup_report.add("autonomous_engine", "ready")
+                    # ── Inject cognitive components into ALE (additive) ───────
+                    if hasattr(self, 'autonomous_engine') and self.autonomous_engine is not None:
+                        if hasattr(self.autonomous_engine, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
+                            self.autonomous_engine.hybrid_manager = self.hybrid_qdrant
+                        if hasattr(self.autonomous_engine, 'self_monitor') and hasattr(self, 'self_monitor'):
+                            self.autonomous_engine.self_monitor = self.self_monitor
+                        if hasattr(self.autonomous_engine, 'kernel') and hasattr(self, 'kernel'):
+                            self.autonomous_engine.kernel = self.kernel
+                        if hasattr(self, 'kernel') and self.kernel:
+                            self.kernel.register_module("ALE", self.autonomous_engine)
+
+                    # ── ALECheckpointManager: install BEFORE starting ALE ─────
+                    # (additive) The checkpoint manager wraps _run_autonomous_cycle
+                    # to autosave state after each step, so a restart can resume
+                    # from exactly where it left off instead of starting fresh.
+                    if ALECheckpointManager:
+                        try:
+                            def _core_notify(msg: str) -> None:
+                                try:
+                                    q = getattr(self, "_notifications", None)
+                                    if q is not None:
+                                        q.append(msg)
+                                except Exception:
+                                    pass
+                                try:
+                                    from core.notification_queue import notif_queue
+                                    notif_queue.push(msg)
+                                except Exception:
+                                    pass
+
+                            self.ale_checkpoint = ALECheckpointManager(
+                                ale=self.autonomous_engine,
+                                notify=_core_notify,
+                                autosave_on_step=True,
+                            )
+                            # Try to restore saved state before the first cycle
+                            self.ale_checkpoint.try_resume()
+                            # Install the checkpoint wrapper
+                            self.ale_checkpoint.install()
+                            log.info("✅ ALECheckpointManager installed — ALE state persists across restarts")
+                            self.startup_report.add("ale_checkpoint", "ready")
+                        except Exception as _ce:
+                            log.debug("ALECheckpointManager install failed: %s", _ce)
+                            self.startup_report.add("ale_checkpoint", "degraded", str(_ce))
+
                     # Auto-start: ALE runs in a daemon background thread so Niblit
                     # continuously learns at all times without any manual command.
                     # Use 'autonomous-learn stop' at the CLI to pause it if needed.
@@ -4397,6 +4675,67 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as e:
                     log.debug("TradingBrain init failed: %s", e)
                     self.startup_report.add("trading_brain", "degraded", str(e))
+
+            # ============================
+            # FILTERED SWING TRADER V3 (additive — continuous trend re-entry)
+            # ============================
+            if FilteredSwingTraderV3:
+                try:
+                    # Resolve notification callback: push to core._notifications or
+                    # the global notification queue — whichever is available.
+                    def _swing_notify(msg: str) -> None:
+                        try:
+                            q = getattr(self, "_notifications", None)
+                            if q is not None:
+                                q.append(msg)
+                        except Exception:
+                            pass
+                        try:
+                            from core.notification_queue import notif_queue
+                            notif_queue.push(msg)
+                        except Exception:
+                            pass
+
+                    self.swing_trader_v3 = FilteredSwingTraderV3(
+                        memory=getattr(self, "memory", None),
+                        notify=_swing_notify,
+                        knowledge_db=getattr(self, "db", None),
+                        paper_mode=True,  # safe default — user must explicitly switch to live
+                    )
+                    log.info("✅ FilteredSwingTraderV3 initialized (paper mode)")
+                    self.startup_report.add("swing_trader_v3", "ready")
+                except Exception as _e:
+                    log.debug("FilteredSwingTraderV3 init failed: %s", _e)
+                    self.startup_report.add("swing_trader_v3", "degraded", str(_e))
+
+            # ============================
+            # BACKGROUND TRAINER (additive — daemon thread, non-blocking)
+            # ============================
+            if BackgroundTrainer:
+                try:
+                    _brain_trainer_for_bg = (
+                        getattr(self.brain, "brain_trainer", None)
+                        if getattr(self, "brain", None)
+                        else None
+                    )
+                    self.background_trainer = BackgroundTrainer(
+                        db=getattr(self, "db", None),
+                        brain_trainer=_brain_trainer_for_bg,
+                    )
+                    self.background_trainer.start()
+                    log.info("✅ BackgroundTrainer daemon started")
+                    self.startup_report.add("background_trainer", "ready")
+                except Exception as _e:
+                    log.debug("BackgroundTrainer init failed: %s", _e)
+                    self.startup_report.add("background_trainer", "degraded", str(_e))
+            # ── Inject cognitive components into BackgroundTrainer (additive) ─
+            if hasattr(self, 'background_trainer') and self.background_trainer is not None:
+                if hasattr(self.background_trainer, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
+                    self.background_trainer.hybrid_manager = self.hybrid_qdrant
+                if hasattr(self.background_trainer, 'kernel') and hasattr(self, 'kernel'):
+                    self.background_trainer.kernel = self.kernel
+                if hasattr(self, 'kernel') and self.kernel:
+                    self.kernel.register_module("BackgroundTrainer", self.background_trainer)
 
             # ============================
             # LATE-WIRE ReflectModule v2 dependencies
@@ -4727,6 +5066,46 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # ── Phase-2 Agent Architecture (additive) ────────────────────────────
         # Initialise RuntimeManager and all Phase-2 agents, register them with
         # the orchestrator, and start the background dispatch loop.
+        # ── HybridQdrantManager & SelfMonitor (additive) ─────────────────────
+        if _HYBRID_QDRANT_AVAILABLE and _get_hybrid_manager:
+            try:
+                self.hybrid_qdrant = _get_hybrid_manager()
+                log.info("[Core] HybridQdrantManager ready")
+            except Exception as _e:
+                log.debug(f"[Core] HybridQdrantManager init failed: {_e}")
+                self.hybrid_qdrant = None
+        else:
+            self.hybrid_qdrant = None
+
+        if _SELF_MONITOR_AVAILABLE and _get_self_monitor:
+            try:
+                self.self_monitor = _get_self_monitor()
+                log.info("[Core] SelfMonitor ready")
+            except Exception as _e:
+                log.debug(f"[Core] SelfMonitor init failed: {_e}")
+                self.self_monitor = None
+        else:
+            self.self_monitor = None
+
+        # ── NiblitKernel (additive) ───────────────────────────────────────────
+        if _NIBLIT_KERNEL_AVAILABLE and _get_kernel:
+            try:
+                self.kernel = _get_kernel()
+                # Inject hybrid_manager and self_monitor into kernel
+                if self.hybrid_qdrant:
+                    self.kernel.hybrid_manager = self.hybrid_qdrant
+                if self.self_monitor:
+                    self.kernel.self_monitor = self.self_monitor
+                # Build Niblit's self-identity model
+                self.kernel.update_self_identity("hybrid_qdrant_active", self.hybrid_qdrant is not None)
+                self.kernel.update_self_identity("self_monitor_active", self.self_monitor is not None)
+                log.info("[Core] NiblitKernel ready")
+            except Exception as _e:
+                log.debug(f"[Core] NiblitKernel init failed: {_e}")
+                self.kernel = None
+        else:
+            self.kernel = None
+
         self._init_agents()
 
     def _init_agents(self) -> None:

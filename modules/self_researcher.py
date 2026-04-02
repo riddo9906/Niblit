@@ -216,7 +216,8 @@ class SelfResearcher:
     _AUTO_RESEARCH_INGEST_WAIT: float = 30.0
 
     def __init__(self, db, modules_registry=None, research_engine=None, llm_adapter=None,
-                 max_history=100, relevance_threshold=0.7):
+                 max_history=100, relevance_threshold=0.7,
+                 hybrid_manager=None, self_monitor=None, kernel=None):
         self.db = db
         self.registry = modules_registry or {}
 
@@ -265,6 +266,9 @@ class SelfResearcher:
         self.intent_analyzer = IntentAnalyzer()
 
         log.info("✅ SelfResearcher initialized with knowledge-based responses + autonomous learning")
+        self.hybrid_manager = hybrid_manager
+        self.self_monitor = self_monitor
+        self.kernel = kernel
 
     # ─────────────────────────────────────────────
     @property
@@ -720,7 +724,21 @@ class SelfResearcher:
             except Exception as e:
                 log.debug(f"Background learning failed: {e}")
 
-        return collected_results[:max_results]
+        # ── HybridQdrantManager upsert of search results (additive) ──────────────
+        results = collected_results[:max_results]
+        if self.hybrid_manager and results:
+            try:
+                for r in (results if isinstance(results, list) else [results])[:5]:
+                    text = str(r.get("content") or r.get("text") or r.get("summary") or r)[:1000] if isinstance(r, dict) else str(r)[:1000]
+                    self.hybrid_manager.upsert(
+                        text,
+                        {"type": "search_result", "query": query},
+                        collection="niblit_research"
+                    )
+            except Exception as _hq_e:
+                log.debug("[SelfResearcher] hybrid_manager upsert failed: %s", _hq_e)
+
+        return results
 
     # ─────────────────────────────────────────────
     # LLM-FREE RESPONSE GENERATION (NEW)

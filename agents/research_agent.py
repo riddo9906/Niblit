@@ -65,6 +65,8 @@ class ResearchAgent(BaseAgent):
         stackoverflow_search: Optional[Any] = None,
         pypi_search: Optional[Any] = None,
         knowledge_db: Optional[Any] = None,
+        hybrid_manager: Optional[Any] = None,
+        kernel: Optional[Any] = None,
     ) -> None:
         super().__init__("research")
 
@@ -73,6 +75,8 @@ class ResearchAgent(BaseAgent):
         self._stackoverflow = stackoverflow_search
         self._pypi = pypi_search
         self._kb = knowledge_db
+        self.hybrid_manager = hybrid_manager
+        self.kernel = kernel
 
     # ── execution ─────────────────────────────────────────────────────────────
 
@@ -174,6 +178,25 @@ class ResearchAgent(BaseAgent):
                         pass
 
         self._log.info("research(%r) → %d results (rationale: %s)", topic, len(results), rationale[:2])
+
+        # ── HybridQdrantManager upsert (additive) ────────────────────────────────
+        if self.hybrid_manager:
+            try:
+                stored_facts = results
+                for fact in (stored_facts if 'stored_facts' in dir() else []):
+                    text = str(fact.get("content") or fact.get("value") or fact)[:1000]
+                    self.hybrid_manager.upsert(
+                        text,
+                        {"type": "research", "agent": "ResearchAgent"},
+                        collection="niblit_research"
+                    )
+            except Exception as _hq_e:
+                log.debug("[ResearchAgent] hybrid upsert failed: %s", _hq_e)
+        if self.kernel:
+            try:
+                self.kernel.report_success("ResearchAgent", "Research stored")
+            except Exception:
+                pass
 
         output = {
             "topic": topic,

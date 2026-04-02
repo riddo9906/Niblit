@@ -25,6 +25,9 @@ niblit_memory.json
 niblit_memory.json.backup
 niblit_diagnostics.json
 niblit_live_test_report.json
+# ALE checkpoint state (runtime-generated, not version controlled)
+ale_state.json
+ale_state.json.tmp
 *.log
 
 # Python package metadata

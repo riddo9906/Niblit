@@ -17,10 +17,16 @@ import re
 import textwrap
 import time
 import logging
+from collections import deque
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("CodeGenerator")
+
+try:
+    from modules.filesystem_manager import FilesystemManager as _FilesystemManager
+except Exception:
+    _FilesystemManager = None
 
 # ──────────────────────────────────────────────────────────
 # NIBLIT BUILD PATH
@@ -1143,7 +1149,8 @@ class CodeGenerator:
         stats = gen.get_stats()
     """
 
-    def __init__(self, db: Any = None, deploy_path: Optional[str] = None, searchcode_search=None):
+    def __init__(self, db: Any = None, deploy_path: Optional[str] = None, searchcode_search=None,
+                 hybrid_manager: Any = None, self_monitor: Any = None):
         # Use the canonical niblit_memory singleton when no db is provided
         if db is None:
             try:
@@ -1153,6 +1160,9 @@ class CodeGenerator:
                 pass
         self.db = db
         self.searchcode_search = searchcode_search
+        self.hybrid_manager = hybrid_manager
+        self.self_monitor = self_monitor
+        self._gen_history: deque = deque(maxlen=50)
         # Where to save autonomously-generated .py files.  Defaults to the
         # Niblit build directory when running on Termux.
         if deploy_path is not None:
@@ -1241,6 +1251,24 @@ class CodeGenerator:
             self._stats["generated"] += 1
             self._store(lang, template, code, ctx.get("name", "unnamed"))
             log.info("[CodeGenerator] Generated %s/%s for '%s'", lang, template, ctx["name"])
+            # Track in generation history
+            self._gen_history.append({
+                "type": "generate",
+                "language": lang,
+                "template": template,
+                "name": ctx.get("name", "unnamed"),
+                "ts": time.time(),
+            })
+            # Upsert to hybrid_manager if available
+            if self.hybrid_manager is not None:
+                try:
+                    self.hybrid_manager.upsert(
+                        code,
+                        {"type": "generated_code", "context": ctx.get("docstring", "")},
+                        collection="niblit_codegen",
+                    )
+                except Exception as _hm_exc:
+                    log.debug("[CodeGenerator] hybrid_manager upsert failed: %s", _hm_exc)
         except KeyError as exc:
             result["error"] = f"Template key error: {exc}"
             log.error("[CodeGenerator] %s", result["error"])
@@ -3057,6 +3085,153 @@ class CodeGenerator:
     def get_extension(self, language: str) -> str:
         """Return the file extension for a language."""
         return _EXTENSIONS.get(language.lower(), ".txt")
+
+    # ──────────────────────────────────────────────────────
+    # SELF-FIX / SELF-IMPROVEMENT
+    # ──────────────────────────────────────────────────────
+
+    def generate_self_fix(self, filepath: str, issue_description: str, context: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Read a file and generate a fix suggestion without writing to disk.
+
+        Returns: {"original": str, "suggestion": str, "confidence": float,
+                  "source": str, "explanation": str}
+        """
+        result: Dict[str, Any] = {
+            "original": "", "suggestion": "", "confidence": 0.0,
+            "source": "heuristic", "explanation": "", "error": "",
+        }
+        fm = _FilesystemManager() if _FilesystemManager else None
+        if fm is None:
+            result["error"] = "FilesystemManager not available"
+            return result
+
+        read = fm.read_file_safe(filepath)
+        if not read["success"]:
+            result["error"] = read["error"]
+            return result
+
+        original = read["content"]
+        result["original"] = original
+
+        hints = ""
+        if self.hybrid_manager is not None:
+            try:
+                query = f"fix: {issue_description}"
+                kb_result = self.hybrid_manager.query(query, collection="niblit_codegen")
+                if kb_result:
+                    hints = str(kb_result)[:500]
+                    result["source"] = "hybrid_manager"
+            except Exception as exc:
+                log.debug("[CodeGenerator] hybrid_manager query failed: %s", exc)
+
+        # Generate a simple suggestion: add a comment at top explaining the issue
+        suggestion_lines = [
+            f"# AUTO-FIX SUGGESTION for: {issue_description}",
+        ]
+        if hints:
+            suggestion_lines.append(f"# KB Hint: {hints[:200]}")
+        if context:
+            suggestion_lines.append(f"# Context: {context}")
+        suggestion_lines.append("")
+        suggestion_lines.append(original)
+        result["suggestion"] = "\n".join(suggestion_lines)
+        result["confidence"] = 0.6 if hints else 0.3
+        result["explanation"] = (
+            f"Identified issue: '{issue_description}'. "
+            + (f"KB hints applied from hybrid_manager. " if hints else "")
+            + "Original content preserved with fix annotations prepended."
+        )
+
+        self._gen_history.append({
+            "type": "self_fix",
+            "filepath": filepath,
+            "issue": issue_description,
+            "ts": time.time(),
+        })
+        return result
+
+    def apply_self_fix(self, filepath: str, fix_dict: Dict[str, Any], dry_run: bool = False) -> Dict[str, Any]:
+        """
+        Apply the output of generate_self_fix() to the file.
+
+        If dry_run=True: returns the diff without writing.
+        If dry_run=False: uses FilesystemManager.patch_file() to apply.
+        """
+        result: Dict[str, Any] = {"success": False, "backup": "", "diff": "", "error": ""}
+        original = fix_dict.get("original", "")
+        suggestion = fix_dict.get("suggestion", "")
+
+        # Build a simple unified diff for reporting
+        import difflib
+        diff_lines = list(difflib.unified_diff(
+            original.splitlines(keepends=True),
+            suggestion.splitlines(keepends=True),
+            fromfile=f"{filepath} (original)",
+            tofile=f"{filepath} (suggestion)",
+        ))
+        result["diff"] = "".join(diff_lines)
+
+        if dry_run:
+            result["success"] = True
+            return result
+
+        fm = _FilesystemManager() if _FilesystemManager else None
+        if fm is None:
+            result["error"] = "FilesystemManager not available"
+            return result
+
+        write = fm.write_file_safe(filepath, suggestion, backup=True)
+        result["success"] = write["success"]
+        result["backup"] = write["backup_path"]
+        result["error"] = write["error"]
+
+        if write["success"]:
+            self._log_codegen_event("CODE_GEN", filepath, {"op": "apply_self_fix"})
+            self._gen_history.append({
+                "type": "apply_self_fix",
+                "filepath": filepath,
+                "ts": time.time(),
+                "dry_run": False,
+            })
+        return result
+
+    def explain_generation(self, generated_code: str, context: str = "") -> str:
+        """Return a human-readable explanation of generated code."""
+        lines = generated_code.strip().splitlines()
+        line_count = len(lines)
+        has_class = any(l.lstrip().startswith("class ") for l in lines)
+        has_func = any(l.lstrip().startswith("def ") for l in lines)
+        has_imports = any(l.startswith("import ") or l.startswith("from ") for l in lines)
+
+        parts = [f"Generated {line_count} line(s) of code."]
+        if has_imports:
+            parts.append("Includes import statements.")
+        if has_class:
+            parts.append("Defines one or more classes.")
+        if has_func:
+            parts.append("Defines one or more functions/methods.")
+        if context:
+            parts.append(f"Generation context: {context}.")
+        parts.append("Code was generated based on the active template and provided parameters.")
+        return " ".join(parts)
+
+    def get_gen_history(self) -> List[Dict[str, Any]]:
+        """Return the generation history (last 50 entries)."""
+        return list(self._gen_history)
+
+    def _log_codegen_event(self, event_type: str, path: str, extra: Optional[Dict[str, Any]] = None) -> None:
+        """Emit a code-gen event to self_monitor if available."""
+        if self.self_monitor is None:
+            return
+        try:
+            event_data = {"event": event_type, "path": path, **(extra or {})}
+            if hasattr(self.self_monitor, "log_event"):
+                self.self_monitor.log_event(event_type, event_data)
+            elif hasattr(self.self_monitor, "record"):
+                self.self_monitor.record(event_type, event_data)
+        except Exception as exc:
+            log.debug("[CodeGenerator] self_monitor log failed: %s", exc)
 
 
 # ──────────────────────────────────────────────────────

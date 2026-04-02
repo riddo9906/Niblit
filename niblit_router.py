@@ -227,6 +227,20 @@ class NiblitRouter:
         "agents",
         # Self-enhancement cycle trigger (additive)
         "self-enhance", "self enhance",
+        # Meta-confidence snapshot / parse tree (additive)
+        "confidence",
+        # FilteredSwingTraderV3 — continuous trend re-entry model (additive)
+        "trading swing",
+        # Background trainer status (additive)
+        "trainer",
+        # ALE persistent state: checkpoint, resume, backtrack, anchor (additive)
+        "ale",
+        # SelfMonitor — experience tracking & trend analysis (additive)
+        "self-monitor",
+        # HybridQdrantManager — multi-model vector search (additive)
+        "hybrid-search",
+        # NiblitKernel cognitive dashboard (additive)
+        "kernel",
     )
 
     CHAT_RESPONSES = {
@@ -1488,6 +1502,219 @@ Ask me about:
             return safe_call(lambda: self.core._cmd_self_enhance(stripped))
         return "[self-enhance] Not available (core not initialised)"
 
+    # ── Meta-confidence handler (additive) ────────────────────────────────────
+
+    def _handle_confidence(self, cmd: str) -> str:
+        """Handle 'confidence [snapshot|tree|rich]' commands.
+
+        Commands::
+
+            confidence              — overall confidence snapshot (default)
+            confidence snapshot     — same as above
+            confidence tree         — full parse tree by category (JSON)
+            confidence rich         — extended evaluation with provenance sources
+
+        Delegates to core._cmd_confidence() which reads from the live
+        Metacognition module.
+        """
+        stripped = cmd.strip()
+        if stripped.lower().startswith("confidence"):
+            stripped = stripped[len("confidence"):].lstrip()
+
+        mode = stripped.lower() if stripped else "snapshot"
+        if mode not in ("snapshot", "tree", "rich"):
+            mode = "snapshot"
+
+        if self.core and hasattr(self.core, "_cmd_confidence"):
+            return safe_call(lambda: self.core._cmd_confidence(mode))
+        return "[confidence] Metacognition not available (core not initialised)"
+
+    # ── FilteredSwingTraderV3 handler (additive) ──────────────────────────────
+
+    def _handle_trading_swing(self, cmd: str) -> str:
+        """Handle 'trading swing ...' commands for FilteredSwingTraderV3.
+
+        Commands::
+
+            trading swing status    — strategy status (default)
+            trading swing legs [N]  — last N trade legs (default 10)
+            trading swing explain   — explain last entry signal
+        """
+        stripped = cmd.strip()
+        # Strip leading 'trading swing' or 'trading' prefix
+        for prefix in ("trading swing", "trading"):
+            if stripped.lower().startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+
+        lower = stripped.lower()
+
+        if not lower or lower == "status":
+            if self.core and hasattr(self.core, "_cmd_swing_status"):
+                return safe_call(self.core._cmd_swing_status)
+            return "[trading swing] Not available"
+
+        if lower.startswith("legs"):
+            parts = lower.split()
+            try:
+                n = int(parts[1]) if len(parts) > 1 else 10
+            except (ValueError, IndexError):
+                n = 10
+            if self.core and hasattr(self.core, "_cmd_swing_legs"):
+                return safe_call(lambda: self.core._cmd_swing_legs(n))
+            return "[trading swing] Not available"
+
+        if lower.startswith("explain"):
+            if self.core and hasattr(self.core, "_cmd_swing_explain"):
+                return safe_call(self.core._cmd_swing_explain)
+            return "[trading swing] Not available"
+
+        return (
+            "[trading swing] Unknown sub-command.\n"
+            "  trading swing status   — strategy status\n"
+            "  trading swing legs [N] — last N trade legs\n"
+            "  trading swing explain  — explain last entry signal"
+        )
+
+    # ── Background trainer handler (additive) ─────────────────────────────────
+
+    def _handle_trainer(self, cmd: str) -> str:
+        """Handle 'trainer status' command (additive).
+
+        Commands::
+
+            trainer         — BackgroundTrainer status
+            trainer status  — same as above
+        """
+        if self.core and hasattr(self.core, "_cmd_trainer_status"):
+            return safe_call(self.core._cmd_trainer_status)
+        return "[trainer] BackgroundTrainer not available"
+
+    # ── ALE persistent state handler (additive) ───────────────────────────────
+
+    def _handle_ale(self, cmd: str) -> str:
+        """Handle 'ale <sub-command>' for ALE checkpoint / resume / backtrack.
+
+        Commands::
+
+            ale                   — checkpoint status
+            ale status            — same as above
+            ale checkpoint        — force-save state now
+            ale resume            — restore from saved checkpoint
+            ale anchor <tag>      — create a named state snapshot
+            ale restore <tag>     — restore to a named anchor
+            ale anchors           — list saved anchors
+            ale backtrack [N]     — step back N steps in history (default 1)
+            ale pause             — pause cycle before next step
+            ale resume-cycle      — resume a paused cycle
+            ale history [N]       — show last N step results (default 20)
+            ale incomplete        — list steps incomplete at last shutdown
+        """
+        stripped = cmd.strip()
+        if stripped.lower().startswith("ale"):
+            stripped = stripped[3:].lstrip()
+
+        if self.core and hasattr(self.core, "_cmd_ale"):
+            return safe_call(lambda: self.core._cmd_ale(stripped))
+        return "[ale] ALECheckpointManager not available (core not initialised)"
+
+    def _handle_self_monitor(self, text: str) -> str:
+        """Handle 'self-monitor <sub>' commands."""
+        sub = text[len("self-monitor"):].strip()
+        sm = getattr(self.core, "self_monitor", None)
+        if sm is None:
+            return "SelfMonitor is not available."
+        if not sub or sub == "status":
+            return sm.cli_report()
+        if sub == "trends":
+            trends = sm.get_trends()
+            if not trends:
+                return "No events recorded yet."
+            lines = []
+            for ev in trends[-10:]:
+                lines.append(f"[{ev.get('event_type','?')}] {ev.get('description','')[:80]} ({ev.get('outcome','?')})")
+            return "\n".join(lines)
+        if sub == "recommendations":
+            recs = sm.get_recommendations()
+            if not recs:
+                return "No recommendations at this time."
+            return "\n".join(f"• {r}" for r in recs)
+        if sub == "summary":
+            import json
+            return json.dumps(sm.get_experience_summary(), indent=2)
+        return f"Unknown self-monitor command: {sub}\nUsage: self-monitor [status|trends|recommendations|summary]"
+
+    def _handle_kernel(self, text: str) -> str:
+        """Handle 'kernel <sub>' commands — NiblitKernel cognitive dashboard."""
+        sub = text[len("kernel"):].strip()
+        k = getattr(self._core, "kernel", None)
+        if k is None:
+            return "NiblitKernel is not available."
+        if not sub or sub == "status":
+            return k.cli_report()
+        if sub == "health":
+            import json
+            return json.dumps(k.get_health_report(), indent=2, default=str)
+        if sub == "identity":
+            import json
+            return json.dumps(k.get_self_identity(), indent=2)
+        if sub == "world":
+            return k.get_world_model_summary()
+        if sub == "improvements":
+            history = k.get_improvement_history(10)
+            if not history:
+                return "No improvements recorded yet."
+            lines = []
+            for item in history:
+                ts = item.get("timestamp", "?")
+                desc = item.get("description", "")[:80]
+                cat = item.get("category", "")
+                lines.append(f"[{cat}] {desc} @ {ts}")
+            return "\n".join(lines)
+        if sub == "propose":
+            proposals = k.propose_improvements()
+            if not proposals:
+                return "No improvement proposals at this time."
+            return "\n".join(f"• {p}" for p in proposals)
+        if sub == "repair":
+            return k.run_self_repair_cycle()
+        if sub.startswith("teach "):
+            rest = sub[6:].strip()
+            if ":" in rest:
+                topic, fact = rest.split(":", 1)
+                k.update_world_model(topic.strip(), fact.strip())
+                return f"World model updated: [{topic.strip()}] = {fact.strip()[:60]}"
+            return "Usage: kernel teach <topic>: <fact>"
+        return (
+            "Usage: kernel [status|health|identity|world|improvements|propose|repair|teach <topic>: <fact>]"
+        )
+
+    def _handle_hybrid_qdrant(self, text: str) -> str:
+        """Handle 'hybrid-search <query>' commands."""
+        sub = text[len("hybrid-search"):].strip()
+        hm = getattr(self.core, "hybrid_qdrant", None)
+        if hm is None:
+            return "HybridQdrantManager is not available."
+        if not sub or sub == "status":
+            return hm.model_stats()
+        if sub.startswith("query "):
+            q = sub[6:].strip()
+            if not q:
+                return "Usage: hybrid-search query <text>"
+            try:
+                results = hm.query(q, collection="niblit_knowledge")
+                if not results:
+                    return "No results found."
+                lines = []
+                for i, r in enumerate(results[:5], 1):
+                    score = r.get("score", 0)
+                    text_val = r.get("payload", {}).get("_text", "")[:100]
+                    lines.append(f"{i}. [{score:.3f}] {text_val}")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Query error: {e}"
+        return f"Unknown hybrid-search command: {sub}\nUsage: hybrid-search [status|query <text>]"
+
     def _handle_stream(self, cmd: str) -> str:
         """Handle real-time Binance WebSocket stream commands.
 
@@ -2339,6 +2566,11 @@ Ask me about:
         if lower.startswith("auto-research"):
             return self._handle_auto_research(cmd)
 
+        # FILTERED SWING TRADER V3 (check BEFORE generic 'trading' so
+        # 'trading swing ...' is routed here rather than to TradingBrain)
+        if lower.startswith("trading swing"):
+            return self._handle_trading_swing(cmd)
+
         # TRADING BRAIN COMMANDS (start/stop/status/cycle)
         if lower.startswith("trading"):
             return self._handle_trading(cmd)
@@ -2374,6 +2606,30 @@ Ask me about:
         # SELF-ENHANCEMENT CYCLE (additive)
         if lower in ("self-enhance", "self enhance") or lower.startswith("self-enhance ") or lower.startswith("self enhance "):
             return self._handle_self_enhance(cmd)
+
+        # META-CONFIDENCE SNAPSHOT / PARSE TREE (additive)
+        if lower == "confidence" or lower.startswith("confidence "):
+            return self._handle_confidence(cmd)
+
+        # BACKGROUND TRAINER STATUS (additive)
+        if lower == "trainer" or lower.startswith("trainer "):
+            return self._handle_trainer(cmd)
+
+        # ALE CHECKPOINT / RESUME / BACKTRACK / ANCHOR (additive)
+        if lower == "ale" or lower.startswith("ale "):
+            return self._handle_ale(cmd)
+
+        # SELF-MONITOR — experience tracking & trend analysis (additive)
+        if lower == "self-monitor" or lower.startswith("self-monitor "):
+            return self._handle_self_monitor(cmd)
+
+        # HYBRID-SEARCH — multi-model vector search (additive)
+        if lower == "hybrid-search" or lower.startswith("hybrid-search "):
+            return self._handle_hybrid_qdrant(cmd)
+
+        # KERNEL — NiblitKernel cognitive dashboard (additive)
+        if lower == "kernel" or lower.startswith("kernel "):
+            return self._handle_kernel(cmd)
 
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
@@ -2791,6 +3047,35 @@ Ask me about:
             "=== SELF-ENHANCEMENT CYCLE ===",
             "self-enhance                 — Trigger an autonomous self-improvement cycle",
             "self-enhance <goal>          — Self-enhance with a specific goal",
+            "",
+            "=== META-CONFIDENCE TRACKING (additive) ===",
+            "confidence                   — Overall meta-confidence snapshot",
+            "confidence snapshot          — Same as above",
+            "confidence tree              — Full parse tree by category (JSON)",
+            "confidence rich              — Extended evaluation with provenance",
+            "",
+            "=== FILTERED SWING TRADER V3 (additive) ===",
+            "trading swing status         — FilteredSwingTraderV3 strategy status",
+            "trading swing legs [N]       — Last N trade legs (default 10)",
+            "trading swing explain        — Explain last entry signal",
+            "",
+            "=== BACKGROUND TRAINER (additive) ===",
+            "trainer                      — BackgroundTrainer daemon status",
+            "trainer status               — Same as above",
+            "",
+            "=== ALE PERSISTENT STATE / RESUME / BACKTRACK (additive) ===",
+            "ale                          — ALE checkpoint status",
+            "ale status                   — Same as above",
+            "ale checkpoint               — Force-save current ALE state now",
+            "ale resume                   — Restore ALE from saved checkpoint",
+            "ale anchor <tag>             — Create a named state snapshot",
+            "ale restore <tag>            — Restore ALE to a named anchor",
+            "ale anchors                  — List all saved anchors",
+            "ale backtrack [N]            — Step back N steps in history (default 1)",
+            "ale pause                    — Pause cycle before next step",
+            "ale resume-cycle             — Resume a paused cycle",
+            "ale history [N]              — Show last N step results (default 20)",
+            "ale incomplete               — List steps incomplete at last shutdown",
             "",
             "=== LIVE UPDATE & UPGRADE ===",
             "reload <module.name>         — Hot-reload a module without restarting",
