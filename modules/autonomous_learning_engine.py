@@ -107,6 +107,12 @@ class AutonomousLearningEngine:
     _IMPROVEMENT_CYCLE_EVERY: int = 3
     # GitHubPush (step 20) runs every N cycles (network push; not needed every cycle).
     _GITHUB_PUSH_EVERY: int = 5
+    # Additive: run self-improvement via Phase-2 agents every N cycles.
+    # Override by setting autonomous_engine._SELF_IMPROVE_CYCLE_EVERY = N.
+    _SELF_IMPROVE_CYCLE_EVERY: int = 10
+    # Additive: minimum facts per topic before coverage is considered "adequate".
+    # Topics with fewer stored facts than this are flagged as knowledge gaps.
+    _MIN_COVERAGE_THRESHOLD: int = 3
     # Seconds to sleep between consecutive steps for I/O breathing room.
     _INTER_STEP_SLEEP: float = 3.0
     # Seconds to wait after the unified research step so the full ingestion →
@@ -807,6 +813,15 @@ class AutonomousLearningEngine:
             self._last_research_results = []
 
             log.info(f"✅ [AUTONOMOUS REFLECT] '{last_topic}' — stored in ale_learned")
+
+            # ── Additive: self-completing gap detection ───────────────────────
+            # After every reflection cycle, check for under-covered topics and
+            # submit research tasks to fill them autonomously (non-blocking).
+            try:
+                self.submit_agent_tasks_for_gaps()
+            except Exception as _gap_exc:
+                log.debug("[ALE] Gap detection post-reflection error: %s", _gap_exc)
+
             return str(result) if result is not None else "[No reflection result]"
 
         except Exception as e:
@@ -4033,6 +4048,16 @@ class AutonomousLearningEngine:
         # ── Step 29: Builds Integration ───────────────────────────────────
         _step("BuildsIntegration", self._autonomous_builds_integration)
 
+        # ── Step 30: Self-agent task generation (additive) ───────────────────
+        # Every N cycles, submit a self-improvement plan to the Phase-2 agent
+        # architecture so the system continuously enhances itself.  Runs in the
+        # background (non-blocking) — tasks are dispatched by the RuntimeManager.
+        if cycle % self._SELF_IMPROVE_CYCLE_EVERY == 0:
+            try:
+                self.self_improve_via_agents()
+            except Exception as _sie:
+                log.debug("[ALE] self_improve_via_agents error: %s", _sie)
+
         # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -4224,6 +4249,110 @@ class AutonomousLearningEngine:
         if added:
             log.info("[ALE] update_research_topics: injected %d new topics (%s…)",
                      len(added), added[0])
+
+    # ─────────────────────────────────────────────
+    def detect_knowledge_gaps(self, max_gaps: int = 5) -> List[str]:
+        """Additive: scan the KnowledgeDB for under-covered topics.
+
+        Returns a list of research topic strings for which fewer than
+        :attr:`_MIN_COVERAGE_THRESHOLD` facts are stored.  These gaps are then
+        fed back into the research queue so the ALE self-completes its own
+        knowledge base autonomously.
+
+        Called automatically by :meth:`_run_autonomous_cycle` and can also be
+        triggered manually via ``agents submit architecture_analysis``.
+        """
+        gaps: List[str] = []
+        if not self.knowledge_db or not self.research_topics:
+            return gaps
+        for topic in self.research_topics[:30]:
+            try:
+                # Try both search() and recall() APIs
+                results = None
+                for method in ("search", "recall"):
+                    fn = getattr(self.knowledge_db, method, None)
+                    if fn:
+                        results = fn(topic, limit=self._MIN_COVERAGE_THRESHOLD)
+                        break
+                count = len(results) if results else 0
+                if count < self._MIN_COVERAGE_THRESHOLD:
+                    gaps.append(topic)
+                    if len(gaps) >= max_gaps:
+                        break
+            except Exception:
+                pass
+        if gaps:
+            log.info("[ALE] Knowledge gaps detected (%d): %s", len(gaps), gaps[:3])
+        return gaps
+
+    def submit_agent_tasks_for_gaps(self) -> int:
+        """Additive: submit research tasks for detected knowledge gaps.
+
+        Enqueues a 'research' task for each gap topic into the RuntimeManager's
+        task queue (if the core exposes one).  This is the core hook that makes
+        Niblit a *self-completing* AI — gaps trigger automatic research.
+
+        Returns the number of tasks submitted.
+        """
+        gaps = self.detect_knowledge_gaps()
+        if not gaps:
+            return 0
+
+        # Get the runtime manager from core
+        rm = getattr(self.core, "runtime_manager", None) if self.core else None
+        submitted = 0
+        for topic in gaps:
+            if rm is not None:
+                try:
+                    rm.submit_task(
+                        "research",
+                        payload={
+                            "topic": topic,
+                            "context": "ale_gap_fill",
+                            "language": "python",
+                        },
+                        priority="normal",
+                        source="ale_gap_detection",
+                    )
+                    submitted += 1
+                except Exception as exc:
+                    log.debug("[ALE] Gap task submit failed for %r: %s", topic, exc)
+            else:
+                # Fallback: just add to research topics for next ALE cycle
+                self.add_research_topic(topic)
+                submitted += 1
+
+        if submitted:
+            log.info("[ALE] Submitted %d gap-fill agent tasks", submitted)
+            try:
+                from core.notification_queue import notif_queue as _nq
+                _nq.push(f"[ALE] Submitted {submitted} gap-fill research task(s): {gaps[:3]}")
+            except Exception:
+                pass
+        return submitted
+
+    def self_improve_via_agents(self, goal: str = "") -> str:
+        """Additive: submit a full self-improvement plan to the Phase-2 agents.
+
+        Creates a 'plan_improvement' task in the RuntimeManager so the
+        PlannerAgent decomposes it into research → coding → testing →
+        reflection sub-tasks.  Returns a status string.
+        """
+        rm = getattr(self.core, "runtime_manager", None) if self.core else None
+        if rm is None:
+            return "[ALE] RuntimeManager not available for self-improve"
+        goal = goal or f"Improve Niblit capabilities based on {self.get_current_topic() or 'recent research'}"
+        try:
+            rm.submit_task(
+                "plan_improvement",
+                payload={"goal": goal, "context": "ale_self_improvement"},
+                priority="high",
+                source="ale_self_improve",
+            )
+            log.info("[ALE] Self-improvement task submitted: %s", goal[:60])
+            return f"✅ Self-improvement task submitted: {goal[:60]}"
+        except Exception as exc:
+            return f"[ALE] self_improve_via_agents error: {exc}"
 
 
 # ─────────────────────────────────────────────
