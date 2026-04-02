@@ -596,7 +596,7 @@ def parse_intent(text: str) -> Tuple[str, Dict[str, str]]:
     """Parse a user command string into (intent, meta) tuple."""
     t = text.strip().lower()
 
-    _EXACT: Dict[str, Tuple[str, Dict[str, str]]] = {
+    exact_commands: Dict[str, Tuple[str, Dict[str, str]]] = {
         "help": ("help", {}), "?": ("help", {}),
         "time": ("time", {}), "what time is it": ("time", {}), "current time": ("time", {}),
         "status": ("status", {}), "health": ("status", {}),
@@ -604,8 +604,8 @@ def parse_intent(text: str) -> Tuple[str, Dict[str, str]]:
         "toggle-llm off": ("toggle_llm", {"state": "off"}), "llm off": ("toggle_llm", {"state": "off"}),
         "shutdown": ("shutdown", {}), "exit": ("shutdown", {}), "quit": ("shutdown", {}),
     }
-    if t in _EXACT:
-        return _EXACT[t]
+    if t in exact_commands:
+        return exact_commands[t]
 
     if t.startswith("remember "):
         rest = text[9:].strip()

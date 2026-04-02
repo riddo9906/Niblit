@@ -497,7 +497,6 @@ class BrainTrainer:
         """
         if self.self_teacher:
             self.run_self_teaching(topics_limit=20)
-        ...
 
         self.ingest_selfteach(limit=20)
         before = len(self._pairs) + len(self._facts)
@@ -544,7 +543,10 @@ class BrainTrainer:
                     if key.startswith("self_teach_summary:") or key.startswith("self_teach_quiz:"):
                         facts.append(f)
             for item in facts:
-                text = (item.get("value") or item.get("summary") or item.get("content") or "") if isinstance(item,   dict)     else str(item)
+                text = (
+                    (item.get("value") or item.get("summary") or item.get("content") or "")
+                    if isinstance(item, dict) else str(item)
+                )
                 topic = item.get("key") or item.get("topic") or "" if isinstance(item, dict) else ""
                 if text:
                     self.ingest_research(topic, text)
@@ -552,7 +554,7 @@ class BrainTrainer:
         except Exception as e:
             log.debug(f"[BrainTrainer] ingest_selfteach failed: {e}")
         return count
-     
+
     def run_self_teaching(self, topics_limit=20):
         """
         Uses SelfTeacher to deeply learn each unique topic in memory/knowledge_db.
@@ -616,7 +618,7 @@ class BrainTrainer:
         if taught:
             msg += "\n" + "\n".join(taught)
         return msg
-        
+
 # ───────── NiblitBrain ─────────
 class NiblitBrain:
     """
