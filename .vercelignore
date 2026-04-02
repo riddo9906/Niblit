@@ -50,4 +50,4 @@ h -u origin main
 # limit.  The slim api/requirements.txt is used instead for the serverless function.
 # Leading slash anchors the pattern to the project root only — without it the
 # gitignore-style rule would also match api/requirements.txt, stripping Flask.
-/requirements.txt
+
