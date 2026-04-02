@@ -500,11 +500,26 @@ class FilteredSwingTraderV3:
                 tag_set = [
                     "trading", "swing_v3", leg.direction, leg.exit_reason or "unknown"
                 ]
-                self.knowledge_db.store(
-                    f"swing_v3:leg:{leg.leg_id}",
-                    str(leg.to_dict()),
-                    tags=tag_set,
-                )
+                record = {
+                    "key": f"swing_v3:leg:{leg.leg_id}",
+                    "value": leg.to_dict(),
+                    "tags": tag_set,
+                    "source": "trading_swing_v3",
+                    "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+                if hasattr(self.knowledge_db, "store"):
+                    # For KnowledgeDB implementations that provide a `store` API
+                    self.knowledge_db.store(
+                        record["key"],
+                        str(record["value"]),
+                        tags=record["tags"],
+                    )
+                elif hasattr(self.knowledge_db, "add_fact"):
+                    # Fallback for KnowledgeDB that use `add_fact(record)`
+                    self.knowledge_db.add_fact(record)
+                elif hasattr(self.knowledge_db, "save_record"):
+                    # Fallback for KnowledgeDB that use `save_record(record)`
+                    self.knowledge_db.save_record(record)
             except Exception as exc:
                 log.debug("[SwingV3] KnowledgeDB store failed: %s", exc)
 
