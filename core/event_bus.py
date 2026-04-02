@@ -61,6 +61,9 @@ class EventType(str, Enum):
     REFLECTION_COMPLETED = "reflection_completed"
     LEARNING_CYCLE_STARTED = "learning_cycle_started"
     LEARNING_CYCLE_COMPLETED = "learning_cycle_completed"
+    # Additive: gap detection and contradiction signals
+    KNOWLEDGE_GAP_DETECTED = "knowledge_gap_detected"
+    CONTRADICTION_DETECTED = "contradiction_detected"
 
     # ── Architecture / self-evolution ─────────────────────────────────────────
     ARCHITECTURE_ANALYSIS_REQUESTED = "architecture_analysis_requested"

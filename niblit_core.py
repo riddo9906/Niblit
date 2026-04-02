@@ -939,6 +939,42 @@ except Exception as _e:
     _parameter_manager = None  # type: ignore[assignment]
     _PARAMETER_MANAGER_AVAILABLE = False
 
+# ── LeanEngine (additive) ─────────────────────────────────────────────────────
+# QuantConnect/LEAN CLI wrapper for non-blocking backtesting and live trading.
+try:
+    from modules.lean_engine import get_lean_engine as _get_lean_engine
+    _LEAN_ENGINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"lean_engine not available: {_e}")
+    _get_lean_engine = None  # type: ignore[assignment]
+    _LEAN_ENGINE_AVAILABLE = False
+
+# ── Phase-2 Agent architecture (additive) ─────────────────────────────────────
+# RuntimeManager + all agents (PlannerAgent, ResearchAgent, CodingAgent,
+# TestingAgent, ReflectionAgent, ArchitectureAgent) — wired into core so that
+# Niblit can create, dispatch, and reflect on agent tasks autonomously.
+try:
+    from core.runtime_manager import RuntimeManager as _RuntimeManager
+    _RUNTIME_MANAGER_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"RuntimeManager not available: {_e}")
+    _RuntimeManager = None  # type: ignore[assignment,misc]
+    _RUNTIME_MANAGER_AVAILABLE = False
+
+try:
+    from agents.planner_agent import PlannerAgent as _PlannerAgent
+    from agents.research_agent import ResearchAgent as _ResearchAgent
+    from agents.coding_agent import CodingAgent as _CodingAgent
+    from agents.testing_agent import TestingAgent as _TestingAgent
+    from agents.reflection_agent import ReflectionAgent as _ReflectionAgent
+    from agents.architecture_agent import ArchitectureAgent as _ArchitectureAgent
+    _PHASE2_AGENTS_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"Phase-2 agents not available: {_e}")
+    _PlannerAgent = _ResearchAgent = _CodingAgent = None  # type: ignore[assignment,misc]
+    _TestingAgent = _ReflectionAgent = _ArchitectureAgent = None  # type: ignore[assignment,misc]
+    _PHASE2_AGENTS_AVAILABLE = False
+
 # ── NotificationQueue (additive) ─────────────────────────────────────────────
 # Global thread-safe notification queue — all background threads push here.
 try:
@@ -1263,6 +1299,11 @@ class NiblitCore:
         # other modules can reach them via core.bg_jobs / core.parameter_manager
         self.bg_jobs: Optional[Any] = _bg_jobs if _BG_JOBS_AVAILABLE else None
         self.parameter_manager: Optional[Any] = _parameter_manager if _PARAMETER_MANAGER_AVAILABLE else None
+        # ── Additive: LEAN engine ─────────────────────────────────────────
+        self.lean_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
+        self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
+        self.phase2_agents: dict = {}  # {task_type: agent_instance}
         self.hf = None
         self.researcher = None
         self.self_researcher = None
@@ -3253,6 +3294,225 @@ SW Categories: {stats.get('software_study_categories', 0)}
         self._loop_notify(str(summary))
         return str(summary)
 
+    # ── LEAN CLI commands (additive) ──────────────────────────────────────────
+
+    def _cmd_lean(self, cmd: str) -> str:
+        """Route a 'lean ...' command to the LeanEngine.
+
+        Sub-commands
+        ------------
+        lean status                              — Show LEAN engine status
+        lean login                               — Authenticate with QuantConnect cloud
+        lean create <name> [sym=SPY] [cash=N]    — Create a new LEAN project
+        lean list                                — List LEAN projects
+        lean delete <name>                       — Delete a LEAN project
+        lean backtest <name> [cloud]             — Run a back-test (background)
+        lean live <name> [broker=paper]          — Start live trading (background)
+        lean sweep <name> key=v1,v2 key2=v1,v2  — Parameter grid sweep (background)
+        lean params <name>                       — Show optimal params for a project
+        lean jobs                                — Show active LEAN background jobs
+        """
+        engine = getattr(self, "lean_engine", None)
+        if engine is None:
+            return "[lean] LeanEngine not initialised — check startup logs"
+
+        parts = cmd.strip().split()
+        if not parts:
+            return engine.status()
+        sub = parts[0].lower()
+        rest = parts[1:]
+
+        if sub == "status":
+            return engine.status()
+        if sub == "login":
+            uid = os.environ.get("LEAN_API_USER_ID", "")
+            tok = os.environ.get("LEAN_API_TOKEN", "")
+            return engine.login(uid, tok)
+        if sub in ("create", "new"):
+            if not rest:
+                return "Usage: lean create <name> [sym=SPY] [cash=100000] [start=YYYY-MM-DD] [end=YYYY-MM-DD]"
+            name = rest[0]
+            kwargs: dict = {}
+            for kv in rest[1:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    kwargs[k] = int(v) if v.isdigit() else v
+            return engine.create_project(name, **kwargs)
+        if sub == "list":
+            projects = engine.list_projects()
+            if not projects:
+                return "No LEAN projects found in workspace."
+            return "LEAN projects:\n" + "\n".join(
+                f"  • {p['name']} (config={'✅' if p['has_config'] else '❌'})"
+                for p in projects
+            )
+        if sub == "delete":
+            if not rest:
+                return "Usage: lean delete <project-name>"
+            return engine.delete_project(rest[0])
+        if sub == "backtest":
+            if not rest:
+                return "Usage: lean backtest <project-name> [cloud]"
+            cloud = len(rest) > 1 and "cloud" in rest[1].lower()
+            return engine.run_backtest(rest[0], cloud=cloud)
+        if sub == "live":
+            if not rest:
+                return "Usage: lean live <project-name> [broker=paper]"
+            broker = "paper"
+            for r in rest[1:]:
+                if r.startswith("broker="):
+                    broker = r.split("=", 1)[1]
+            return engine.run_live(rest[0], broker=broker)
+        if sub == "sweep":
+            if not rest:
+                return (
+                    "Usage: lean sweep <project-name> param=v1,v2 param2=v1,v2\n"
+                    "Example: lean sweep MyStrat fast=5,10,20 slow=30,50,100"
+                )
+            proj = rest[0]
+            grid: dict = {}
+            for kv in rest[1:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    vals = v.split(",")
+                    # Try to cast to int/float
+                    parsed = []
+                    for val in vals:
+                        try:
+                            parsed.append(int(val))
+                        except ValueError:
+                            try:
+                                parsed.append(float(val))
+                            except ValueError:
+                                parsed.append(val)
+                    grid[k] = parsed
+            if not grid:
+                return "No parameters provided. Example: lean sweep MyStrat fast=5,10,20"
+            return engine.parameter_sweep(proj, grid)
+        if sub in ("params", "optimal-params", "best-params"):
+            if not rest:
+                data = engine._load_optimal_params()
+                if not data:
+                    return "No optimal parameters stored yet."
+                lines = [f"  {proj}: score={v.get('score')} metric={v.get('metric')}"
+                         for proj, v in list(data.items())[:10]]
+                return "Stored optimal LEAN parameters:\n" + "\n".join(lines)
+            return str(engine.get_optimal_params(rest[0]) or "No params stored for that project")
+        if sub == "jobs":
+            return engine.active_jobs_summary()
+        return (
+            "LEAN commands:\n"
+            "  lean status | login | create <n> | list | delete <n>\n"
+            "  lean backtest <n> [cloud] | lean live <n> [broker]\n"
+            "  lean sweep <n> p=v1,v2 | lean params [n] | lean jobs"
+        )
+
+    # ── Phase-2 agent commands (additive) ─────────────────────────────────────
+
+    def _cmd_agents(self, cmd: str = "") -> str:
+        """Inspect and interact with the Phase-2 agent architecture.
+
+        Sub-commands
+        ------------
+        agents                   — Status of all registered agents
+        agents list              — Same as above
+        agents submit <type> [k=v ...] — Enqueue a task for a named agent
+        agents pending           — Show pending tasks in the task queue
+        """
+        rm = getattr(self, "runtime_manager", None)
+        if rm is None:
+            return (
+                "[agents] RuntimeManager not initialised.\n"
+                "Phase-2 agent architecture requires core.runtime_manager."
+            )
+
+        lower = cmd.strip().lower()
+        parts = lower.split()
+        sub = parts[0] if parts else "list"
+
+        if sub in ("", "list", "status"):
+            registered = rm.orchestrator.registered_task_types
+            ph2 = getattr(self, "phase2_agents", {})
+            lines = ["Phase-2 Agent Architecture\n" + "─" * 40]
+            if registered:
+                for ttype in registered:
+                    agent_obj = ph2.get(ttype)
+                    state = getattr(agent_obj, "state", "?") if agent_obj else "handler"
+                    metrics = getattr(agent_obj, "metrics", None)
+                    m_str = ""
+                    if metrics:
+                        m_str = (f" | handled={metrics.tasks_handled}"
+                                 f" failed={metrics.tasks_failed}"
+                                 f" avg={metrics.avg_time_ms:.0f}ms")
+                    lines.append(f"  {ttype:<30} state={state}{m_str}")
+            else:
+                lines.append("  (no agents registered)")
+            lines.append("")
+            q = rm.task_queue
+            if q:
+                lines.append(f"Task queue: {q.pending_count()} pending, "
+                              f"{q.completed_count()} completed")
+            return "\n".join(lines)
+
+        if sub == "submit":
+            raw = cmd.strip().split()
+            if len(raw) < 2:
+                return "Usage: agents submit <task_type> [key=value ...]"
+            task_type = raw[1]
+            payload: dict = {}
+            for kv in raw[2:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    payload[k] = v
+            try:
+                task = rm.submit_task(task_type, payload=payload, priority="normal")
+                rm.dispatch_pending()
+                return f"✅ Task '{task_type}' submitted (id={task.task_id[:8]})"
+            except Exception as exc:
+                return f"[agents submit] Error: {exc}"
+
+        if sub in ("pending", "queue"):
+            q = getattr(rm, "task_queue", None)
+            if q is None:
+                return "[agents] No task queue available"
+            n = q.pending_count()
+            if n == 0:
+                return "No pending agent tasks."
+            return f"{n} pending agent task(s). Use 'agents list' to see registered agents."
+
+        return (
+            "Agent commands:\n"
+            "  agents [list]          — Show all registered agents + metrics\n"
+            "  agents submit <type>   — Enqueue a task for an agent\n"
+            "  agents pending         — Show pending tasks"
+        )
+
+    # ── Self-enhancement command (additive) ───────────────────────────────────
+
+    def _cmd_self_enhance(self, cmd: str = "") -> str:
+        """Trigger an explicit self-enhancement cycle.
+
+        This submits a 'plan_improvement' task to the PlannerAgent (if wired),
+        which decomposes it into research, coding, and reflection subtasks.
+        Results are non-blocking — pushed to the notification queue.
+        """
+        rm = getattr(self, "runtime_manager", None)
+        if rm is None:
+            return "[self-enhance] RuntimeManager not initialised"
+        try:
+            goal = cmd.strip() or "Identify and implement the most impactful self-improvement"
+            task = rm.submit_task(
+                "plan_improvement",
+                payload={"goal": goal, "context": "Niblit self-enhancement cycle"},
+                priority="high",
+            )
+            rm.dispatch_pending()
+            msg = f"✅ Self-enhancement task submitted (goal: {goal[:60]})"
+            self._loop_notify(msg)
+            return msg
+        except Exception as exc:
+            return f"[self-enhance] Error: {exc}"
+
     def _cmd_status(self, text: str) -> str:
         """Status command."""
         try:
@@ -4452,7 +4712,153 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _pme:
                 log.debug("[INIT] ParameterManager sync failed to start: %s", _pme)
 
-    def _init_self_improvements(self):
+        # ── LeanEngine (additive) ─────────────────────────────────────────────
+        # Initialise the LEAN CLI wrapper with access to the KnowledgeDB so
+        # back-test results and metrics can be persisted for RAG retrieval.
+        if _LEAN_ENGINE_AVAILABLE and _get_lean_engine is not None:
+            try:
+                self.lean_engine = _get_lean_engine(knowledge_db=self.db)
+                log.info("✅ LeanEngine initialised (workspace=%s)", self.lean_engine.workspace)
+                self.startup_report.add("lean_engine", "ready")
+            except Exception as _lee:
+                log.debug("[INIT] LeanEngine init failed: %s", _lee)
+                self.startup_report.add("lean_engine", "degraded", str(_lee))
+
+        # ── Phase-2 Agent Architecture (additive) ────────────────────────────
+        # Initialise RuntimeManager and all Phase-2 agents, register them with
+        # the orchestrator, and start the background dispatch loop.
+        self._init_agents()
+
+    def _init_agents(self) -> None:
+        """Initialise the Phase-2 agent architecture (additive).
+
+        Creates a RuntimeManager (EventBus + TaskQueue + Orchestrator) and
+        registers all available Phase-2 agents.  The dispatch loop runs in a
+        background daemon thread so agent work never blocks the shell.
+
+        All resources are attached to ``self`` for access by the router and
+        other modules:
+        - ``self.runtime_manager`` — :class:`~core.runtime_manager.RuntimeManager`
+        - ``self.phase2_agents``   — dict mapping task_type → agent instance
+        """
+        if not _RUNTIME_MANAGER_AVAILABLE or _RuntimeManager is None:
+            log.debug("[INIT] RuntimeManager not available — skipping Phase-2 agent init")
+            return
+
+        try:
+            rm = _RuntimeManager()
+            self.runtime_manager = rm
+
+            # Build a shared brain_trainer reference (used by ReflectionAgent)
+            _brain_trainer = (
+                getattr(self.brain, "brain_trainer", None)
+                if getattr(self, "brain", None) else None
+            )
+
+            # ── Instantiate agents ────────────────────────────────────────────
+            agents_registered: int = 0
+
+            if _PlannerAgent is not None:
+                try:
+                    pa = _PlannerAgent(
+                        task_queue=rm.task_queue,
+                        llm=getattr(self, "llm", None),
+                    )
+                    for tt in pa.HANDLED_TASK_TYPES:
+                        rm.register_agent(tt, pa.handle)
+                    self.phase2_agents[pa.HANDLED_TASK_TYPES[0]] = pa
+                    agents_registered += 1
+                    log.debug("[INIT] PlannerAgent registered (%s)", pa.HANDLED_TASK_TYPES)
+                except Exception as _e:
+                    log.debug("[INIT] PlannerAgent registration failed: %s", _e)
+
+            if _ResearchAgent is not None:
+                try:
+                    ra = _ResearchAgent(
+                        internet_manager=getattr(self, "internet", None),
+                        github_code_search=getattr(self, "github_code_search", None),
+                        stackoverflow_search=getattr(self, "stackoverflow_search", None),
+                        knowledge_db=self.db,
+                    )
+                    for tt in ra.HANDLED_TASK_TYPES:
+                        rm.register_agent(tt, ra.handle)
+                    self.phase2_agents[ra.HANDLED_TASK_TYPES[0]] = ra
+                    agents_registered += 1
+                    log.debug("[INIT] ResearchAgent registered (%s)", ra.HANDLED_TASK_TYPES)
+                except Exception as _e:
+                    log.debug("[INIT] ResearchAgent registration failed: %s", _e)
+
+            if _CodingAgent is not None:
+                try:
+                    ca = _CodingAgent(
+                        hf_llm=getattr(self, "llm", None),
+                        code_generator=getattr(self, "code_generator", None),
+                        knowledge_db=self.db,
+                    )
+                    for tt in ca.HANDLED_TASK_TYPES:
+                        rm.register_agent(tt, ca.handle)
+                    self.phase2_agents[ca.HANDLED_TASK_TYPES[0]] = ca
+                    agents_registered += 1
+                    log.debug("[INIT] CodingAgent registered (%s)", ca.HANDLED_TASK_TYPES)
+                except Exception as _e:
+                    log.debug("[INIT] CodingAgent registration failed: %s", _e)
+
+            if _TestingAgent is not None:
+                try:
+                    ta = _TestingAgent(
+                        code_compiler=getattr(self, "code_compiler", None),
+                        code_error_fixer=getattr(self, "code_error_fixer", None),
+                    )
+                    for tt in ta.HANDLED_TASK_TYPES:
+                        rm.register_agent(tt, ta.handle)
+                    self.phase2_agents[ta.HANDLED_TASK_TYPES[0]] = ta
+                    agents_registered += 1
+                    log.debug("[INIT] TestingAgent registered (%s)", ta.HANDLED_TASK_TYPES)
+                except Exception as _e:
+                    log.debug("[INIT] TestingAgent registration failed: %s", _e)
+
+            if _ReflectionAgent is not None:
+                try:
+                    rfa = _ReflectionAgent(
+                        knowledge_db=self.db,
+                        brain_trainer=_brain_trainer,
+                    )
+                    for tt in rfa.HANDLED_TASK_TYPES:
+                        rm.register_agent(tt, rfa.handle)
+                    self.phase2_agents[rfa.HANDLED_TASK_TYPES[0]] = rfa
+                    agents_registered += 1
+                    log.debug("[INIT] ReflectionAgent registered (%s)", rfa.HANDLED_TASK_TYPES)
+                except Exception as _e:
+                    log.debug("[INIT] ReflectionAgent registration failed: %s", _e)
+
+            if _ArchitectureAgent is not None:
+                try:
+                    aarch = _ArchitectureAgent(
+                        build_scanner=getattr(self, "build_scanner", None),
+                        github_code_search=getattr(self, "github_code_search", None),
+                        knowledge_db=self.db,
+                    )
+                    for tt in aarch.HANDLED_TASK_TYPES:
+                        rm.register_agent(tt, aarch.handle)
+                    self.phase2_agents[aarch.HANDLED_TASK_TYPES[0]] = aarch
+                    agents_registered += 1
+                    log.debug("[INIT] ArchitectureAgent registered (%s)", aarch.HANDLED_TASK_TYPES)
+                except Exception as _e:
+                    log.debug("[INIT] ArchitectureAgent registration failed: %s", _e)
+
+            # ── Start background dispatch loop ────────────────────────────────
+            rm.start_loop(poll_interval=2.0)
+            log.info(
+                "✅ Phase-2 agent architecture ready: %d agent(s) registered, "
+                "dispatch loop running",
+                agents_registered,
+            )
+            self.startup_report.add("phase2_agents", "ready",
+                                    f"{agents_registered} agent(s)")
+
+        except Exception as _init_exc:
+            log.warning("[INIT] Phase-2 agent init failed: %s", _init_exc)
+            self.startup_report.add("phase2_agents", "degraded", str(_init_exc))
         """Initialize 10 self-improvement modules."""
         log.info("[SELF-IMPROVEMENTS] Initializing 10 modules...")
 

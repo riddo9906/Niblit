@@ -221,6 +221,12 @@ class NiblitRouter:
         "reload_params", "reload-params",
         # Explicit self-heal trigger with notification output (additive)
         "run_selfheal", "run-selfheal",
+        # LEAN CLI / QuantConnect backtesting engine (additive)
+        "lean",
+        # Phase-2 agent architecture inspection + task dispatch (additive)
+        "agents",
+        # Self-enhancement cycle trigger (additive)
+        "self-enhance", "self enhance",
     )
 
     CHAT_RESPONSES = {
@@ -1428,6 +1434,60 @@ Ask me about:
 
         return "[run_selfheal] SelfHealer not available"
 
+    # ── LEAN CLI handler (additive) ───────────────────────────────────────────
+
+    def _handle_lean(self, cmd: str) -> str:
+        """Route 'lean ...' commands to the LeanEngine via NiblitCore.
+
+        Strips the leading 'lean' token and delegates to core._cmd_lean().
+        Falls back gracefully if core or LeanEngine is unavailable.
+        """
+        # Strip leading 'lean' token
+        stripped = cmd.strip()
+        if stripped.lower().startswith("lean"):
+            stripped = stripped[4:].lstrip()
+
+        # Delegate to core
+        if self.core and hasattr(self.core, "_cmd_lean"):
+            return safe_call(lambda: self.core._cmd_lean(stripped))
+
+        # Direct LeanEngine fallback (no core)
+        try:
+            from modules.lean_engine import get_lean_engine as _gle
+            engine = _gle()
+            return engine.status() if not stripped else "[lean] Core not available — limited LEAN support"
+        except Exception as exc:
+            return f"[lean] LeanEngine not available: {exc}"
+
+    # ── Phase-2 agents handler (additive) ─────────────────────────────────────
+
+    def _handle_agents(self, cmd: str) -> str:
+        """Route 'agents ...' commands to core._cmd_agents().
+
+        Strips the leading 'agents' token and delegates.
+        """
+        stripped = cmd.strip()
+        if stripped.lower().startswith("agents"):
+            stripped = stripped[6:].lstrip()
+
+        if self.core and hasattr(self.core, "_cmd_agents"):
+            return safe_call(lambda: self.core._cmd_agents(stripped))
+        return "[agents] Phase-2 agent architecture not available (core not initialised)"
+
+    # ── Self-enhancement handler (additive) ───────────────────────────────────
+
+    def _handle_self_enhance(self, cmd: str) -> str:
+        """Route 'self-enhance ...' to core._cmd_self_enhance()."""
+        stripped = cmd.strip()
+        for prefix in ("self-enhance", "self enhance"):
+            if stripped.lower().startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+
+        if self.core and hasattr(self.core, "_cmd_self_enhance"):
+            return safe_call(lambda: self.core._cmd_self_enhance(stripped))
+        return "[self-enhance] Not available (core not initialised)"
+
     def _handle_stream(self, cmd: str) -> str:
         """Handle real-time Binance WebSocket stream commands.
 
@@ -2303,6 +2363,18 @@ Ask me about:
         if lower in ("run_selfheal", "run-selfheal"):
             return self._handle_run_selfheal()
 
+        # LEAN CLI — QuantConnect/LEAN backtesting and live trading (additive)
+        if lower == "lean" or lower.startswith("lean "):
+            return self._handle_lean(cmd)
+
+        # PHASE-2 AGENTS — architecture inspection + task dispatch (additive)
+        if lower == "agents" or lower.startswith("agents "):
+            return self._handle_agents(cmd)
+
+        # SELF-ENHANCEMENT CYCLE (additive)
+        if lower in ("self-enhance", "self enhance") or lower.startswith("self-enhance ") or lower.startswith("self enhance "):
+            return self._handle_self_enhance(cmd)
+
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
                      "memory dump on", "memory dump off",
@@ -2695,6 +2767,30 @@ Ask me about:
             "refresh-topics               — Propose and inject fresh research topics now",
             "refresh-topics status        — Show DynamicTopicManager state",
             "refresh-topics add <topic>   — Add a seed topic for topic enrichment",
+            "",
+            "=== LEAN CLI / QUANTCONNECT TRADING ENGINE ===",
+            "lean status                  — LEAN engine status + installed check",
+            "lean login                   — Authenticate with QuantConnect cloud",
+            "lean create <name> [sym=SPY] [cash=N] — Create a LEAN algorithm project",
+            "lean list                    — List all LEAN projects in workspace",
+            "lean delete <name>           — Delete a LEAN project",
+            "lean backtest <name> [cloud] — Run a back-test (background daemon thread)",
+            "lean live <name> [broker=paper] — Start live trading (background)",
+            "lean sweep <n> p=v1,v2 ...   — Parameter grid sweep (background, finds best)",
+            "lean params [name]           — Show stored optimal parameter sets",
+            "lean jobs                    — Show active LEAN background jobs",
+            "",
+            "=== PHASE-2 AGENT ARCHITECTURE ===",
+            "agents                       — Show all registered Phase-2 agents + metrics",
+            "agents list                  — Same as above",
+            "agents submit <type> [k=v]   — Enqueue a task for a named agent type",
+            "  agent types: plan, research, code_generation, testing, reflection,",
+            "               architecture_analysis, code_review, refactor_plan",
+            "agents pending               — Show pending task queue depth",
+            "",
+            "=== SELF-ENHANCEMENT CYCLE ===",
+            "self-enhance                 — Trigger an autonomous self-improvement cycle",
+            "self-enhance <goal>          — Self-enhance with a specific goal",
             "",
             "=== LIVE UPDATE & UPGRADE ===",
             "reload <module.name>         — Hot-reload a module without restarting",
