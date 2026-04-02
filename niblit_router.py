@@ -227,6 +227,12 @@ class NiblitRouter:
         "agents",
         # Self-enhancement cycle trigger (additive)
         "self-enhance", "self enhance",
+        # Meta-confidence snapshot / parse tree (additive)
+        "confidence",
+        # FilteredSwingTraderV3 — continuous trend re-entry model (additive)
+        "trading swing",
+        # Background trainer status (additive)
+        "trainer",
     )
 
     CHAT_RESPONSES = {
@@ -1488,6 +1494,94 @@ Ask me about:
             return safe_call(lambda: self.core._cmd_self_enhance(stripped))
         return "[self-enhance] Not available (core not initialised)"
 
+    # ── Meta-confidence handler (additive) ────────────────────────────────────
+
+    def _handle_confidence(self, cmd: str) -> str:
+        """Handle 'confidence [snapshot|tree|rich]' commands.
+
+        Commands::
+
+            confidence              — overall confidence snapshot (default)
+            confidence snapshot     — same as above
+            confidence tree         — full parse tree by category (JSON)
+            confidence rich         — extended evaluation with provenance sources
+
+        Delegates to core._cmd_confidence() which reads from the live
+        Metacognition module.
+        """
+        stripped = cmd.strip()
+        if stripped.lower().startswith("confidence"):
+            stripped = stripped[len("confidence"):].lstrip()
+
+        mode = stripped.lower() if stripped else "snapshot"
+        if mode not in ("snapshot", "tree", "rich"):
+            mode = "snapshot"
+
+        if self.core and hasattr(self.core, "_cmd_confidence"):
+            return safe_call(lambda: self.core._cmd_confidence(mode))
+        return "[confidence] Metacognition not available (core not initialised)"
+
+    # ── FilteredSwingTraderV3 handler (additive) ──────────────────────────────
+
+    def _handle_trading_swing(self, cmd: str) -> str:
+        """Handle 'trading swing ...' commands for FilteredSwingTraderV3.
+
+        Commands::
+
+            trading swing status    — strategy status (default)
+            trading swing legs [N]  — last N trade legs (default 10)
+            trading swing explain   — explain last entry signal
+        """
+        stripped = cmd.strip()
+        # Strip leading 'trading swing' or 'trading' prefix
+        for prefix in ("trading swing", "trading"):
+            if stripped.lower().startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+
+        lower = stripped.lower()
+
+        if not lower or lower == "status":
+            if self.core and hasattr(self.core, "_cmd_swing_status"):
+                return safe_call(self.core._cmd_swing_status)
+            return "[trading swing] Not available"
+
+        if lower.startswith("legs"):
+            parts = lower.split()
+            try:
+                n = int(parts[1]) if len(parts) > 1 else 10
+            except (ValueError, IndexError):
+                n = 10
+            if self.core and hasattr(self.core, "_cmd_swing_legs"):
+                return safe_call(lambda: self.core._cmd_swing_legs(n))
+            return "[trading swing] Not available"
+
+        if lower.startswith("explain"):
+            if self.core and hasattr(self.core, "_cmd_swing_explain"):
+                return safe_call(self.core._cmd_swing_explain)
+            return "[trading swing] Not available"
+
+        return (
+            "[trading swing] Unknown sub-command.\n"
+            "  trading swing status   — strategy status\n"
+            "  trading swing legs [N] — last N trade legs\n"
+            "  trading swing explain  — explain last entry signal"
+        )
+
+    # ── Background trainer handler (additive) ─────────────────────────────────
+
+    def _handle_trainer(self, cmd: str) -> str:
+        """Handle 'trainer status' command (additive).
+
+        Commands::
+
+            trainer         — BackgroundTrainer status
+            trainer status  — same as above
+        """
+        if self.core and hasattr(self.core, "_cmd_trainer_status"):
+            return safe_call(self.core._cmd_trainer_status)
+        return "[trainer] BackgroundTrainer not available"
+
     def _handle_stream(self, cmd: str) -> str:
         """Handle real-time Binance WebSocket stream commands.
 
@@ -2339,6 +2433,11 @@ Ask me about:
         if lower.startswith("auto-research"):
             return self._handle_auto_research(cmd)
 
+        # FILTERED SWING TRADER V3 (check BEFORE generic 'trading' so
+        # 'trading swing ...' is routed here rather than to TradingBrain)
+        if lower.startswith("trading swing"):
+            return self._handle_trading_swing(cmd)
+
         # TRADING BRAIN COMMANDS (start/stop/status/cycle)
         if lower.startswith("trading"):
             return self._handle_trading(cmd)
@@ -2374,6 +2473,14 @@ Ask me about:
         # SELF-ENHANCEMENT CYCLE (additive)
         if lower in ("self-enhance", "self enhance") or lower.startswith("self-enhance ") or lower.startswith("self enhance "):
             return self._handle_self_enhance(cmd)
+
+        # META-CONFIDENCE SNAPSHOT / PARSE TREE (additive)
+        if lower == "confidence" or lower.startswith("confidence "):
+            return self._handle_confidence(cmd)
+
+        # BACKGROUND TRAINER STATUS (additive)
+        if lower == "trainer" or lower.startswith("trainer "):
+            return self._handle_trainer(cmd)
 
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
@@ -2791,6 +2898,21 @@ Ask me about:
             "=== SELF-ENHANCEMENT CYCLE ===",
             "self-enhance                 — Trigger an autonomous self-improvement cycle",
             "self-enhance <goal>          — Self-enhance with a specific goal",
+            "",
+            "=== META-CONFIDENCE TRACKING (additive) ===",
+            "confidence                   — Overall meta-confidence snapshot",
+            "confidence snapshot          — Same as above",
+            "confidence tree              — Full parse tree by category (JSON)",
+            "confidence rich              — Extended evaluation with provenance",
+            "",
+            "=== FILTERED SWING TRADER V3 (additive) ===",
+            "trading swing status         — FilteredSwingTraderV3 strategy status",
+            "trading swing legs [N]       — Last N trade legs (default 10)",
+            "trading swing explain        — Explain last entry signal",
+            "",
+            "=== BACKGROUND TRAINER (additive) ===",
+            "trainer                      — BackgroundTrainer daemon status",
+            "trainer status               — Same as above",
             "",
             "=== LIVE UPDATE & UPGRADE ===",
             "reload <module.name>         — Hot-reload a module without restarting",

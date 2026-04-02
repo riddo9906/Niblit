@@ -264,6 +264,13 @@ except Exception as e:
     log.debug(f"TradingBrain import failed: {e}")
     TradingBrain = None  # type: ignore[assignment,misc]
 
+# ── FilteredSwingTraderV3 (additive: continuous trend re-entry model) ────────
+try:
+    from modules.trading_swing_v3 import FilteredSwingTraderV3
+except Exception as _e:
+    log.debug(f"FilteredSwingTraderV3 import failed: {_e}")
+    FilteredSwingTraderV3 = None  # type: ignore[assignment,misc]
+
 # ============================================================
 # LIVE UPDATER + STRUCTURAL AWARENESS IMPORTS
 # ============================================================
@@ -674,7 +681,7 @@ except Exception as _e:
     Collector = None
 
 try:
-    from trainer_full import Trainer
+    from trainer_full import Trainer, BackgroundTrainer
 except Exception as _e:
     log.debug(f"Trainer failed to import: {_e}")
     Trainer = None
@@ -1242,6 +1249,10 @@ class NiblitCore:
         self.autonomous_engine: Optional[AutonomousLearningEngine] = None
         # NEW: Trading Brain
         self.trading_brain: Optional["TradingBrain"] = None
+        # NEW: FilteredSwingTraderV3 — continuous trend re-entry model (additive)
+        self.swing_trader_v3: Optional[Any] = None
+        # NEW: BackgroundTrainer — non-blocking daemon training loop (additive)
+        self.background_trainer: Optional[Any] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -3251,6 +3262,66 @@ SW Categories: {stats.get('software_study_categories', 0)}
         notifs.clear()
         return "\n".join(lines) if lines else "No pending notifications"
 
+    def _cmd_confidence(self, mode: str = "snapshot") -> str:
+        """
+        Return Niblit's live meta-confidence report (additive).
+
+        Parameters
+        ----------
+        mode:
+            'snapshot'   — overall confidence summary (default)
+            'tree'       — full confidence parse tree by category
+            'rich'       — extended evaluation including provenance sources
+        """
+        meta = getattr(self, "metacognition", None)
+        if meta is None:
+            return (
+                "⚠️  Metacognition module not initialised.\n"
+                "   Try: 'autonomous-learn start' to populate knowledge first."
+            )
+        try:
+            if mode == "tree":
+                import json as _json
+                tree = meta.get_confidence_parse_tree()
+                return _json.dumps(tree, indent=2, default=str)
+            elif mode == "rich":
+                import json as _json
+                rich = meta.evaluate_understanding_rich()
+                return _json.dumps(rich, indent=2, default=str)
+            else:
+                return meta.confidence_cli_report()
+        except Exception as exc:
+            return f"[confidence] Error: {exc}"
+
+    def _cmd_swing_status(self) -> str:
+        """Return status of the FilteredSwingTraderV3 (additive)."""
+        trader = getattr(self, "swing_trader_v3", None)
+        if trader is None:
+            return "⚠️  FilteredSwingTraderV3 not initialised."
+        return trader.status()
+
+    def _cmd_swing_legs(self, last_n: int = 10) -> str:
+        """Return last *last_n* trade legs as JSON (additive)."""
+        trader = getattr(self, "swing_trader_v3", None)
+        if trader is None:
+            return "⚠️  FilteredSwingTraderV3 not initialised."
+        import json as _json
+        return _json.dumps(trader.get_legs(last_n), indent=2, default=str)
+
+    def _cmd_swing_explain(self) -> str:
+        """Explain the last swing entry signal (additive)."""
+        trader = getattr(self, "swing_trader_v3", None)
+        if trader is None:
+            return "⚠️  FilteredSwingTraderV3 not initialised."
+        return trader.explain_last_entry()
+
+    def _cmd_trainer_status(self) -> str:
+        """Return BackgroundTrainer status (additive)."""
+        bg = getattr(self, "background_trainer", None)
+        if bg is None:
+            return "⚠️  BackgroundTrainer not initialised."
+        return bg.status()
+
     def _cmd_reload_params(self) -> str:
         """On-demand ParameterManager reload (additive).
 
@@ -4397,6 +4468,59 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as e:
                     log.debug("TradingBrain init failed: %s", e)
                     self.startup_report.add("trading_brain", "degraded", str(e))
+
+            # ============================
+            # FILTERED SWING TRADER V3 (additive — continuous trend re-entry)
+            # ============================
+            if FilteredSwingTraderV3:
+                try:
+                    # Resolve notification callback: push to core._notifications or
+                    # the global notification queue — whichever is available.
+                    def _swing_notify(msg: str) -> None:
+                        try:
+                            q = getattr(self, "_notifications", None)
+                            if q is not None:
+                                q.append(msg)
+                        except Exception:
+                            pass
+                        try:
+                            from core.notification_queue import notif_queue
+                            notif_queue.push(msg)
+                        except Exception:
+                            pass
+
+                    self.swing_trader_v3 = FilteredSwingTraderV3(
+                        memory=getattr(self, "memory", None),
+                        notify=_swing_notify,
+                        knowledge_db=getattr(self, "db", None),
+                        paper_mode=True,  # safe default — user must explicitly switch to live
+                    )
+                    log.info("✅ FilteredSwingTraderV3 initialized (paper mode)")
+                    self.startup_report.add("swing_trader_v3", "ready")
+                except Exception as _e:
+                    log.debug("FilteredSwingTraderV3 init failed: %s", _e)
+                    self.startup_report.add("swing_trader_v3", "degraded", str(_e))
+
+            # ============================
+            # BACKGROUND TRAINER (additive — daemon thread, non-blocking)
+            # ============================
+            if BackgroundTrainer:
+                try:
+                    _brain_trainer_for_bg = (
+                        getattr(self.brain, "brain_trainer", None)
+                        if getattr(self, "brain", None)
+                        else None
+                    )
+                    self.background_trainer = BackgroundTrainer(
+                        db=getattr(self, "db", None),
+                        brain_trainer=_brain_trainer_for_bg,
+                    )
+                    self.background_trainer.start()
+                    log.info("✅ BackgroundTrainer daemon started")
+                    self.startup_report.add("background_trainer", "ready")
+                except Exception as _e:
+                    log.debug("BackgroundTrainer init failed: %s", _e)
+                    self.startup_report.add("background_trainer", "degraded", str(_e))
 
             # ============================
             # LATE-WIRE ReflectModule v2 dependencies
