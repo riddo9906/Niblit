@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-modules/builds_integrator.py — Unified integration layer for Niblit's builds/python scripts.
+modules/builds_integrator.py — Unified integration layer for Niblit's builds/ scripts.
 
 Discovers, imports, and exposes the scripts that the Autonomous Learning Engine
 has compiled into ``builds/python/`` so every subsystem that can benefit from
 them (NLP preprocessing, data-structure handling, binary inspection, conversation
 management) has a single, stable import point.
 
-Integrated builds scripts
---------------------------
+Integrated Python builds scripts
+----------------------------------
 * NLP processor  — tokenisation, keyword extraction, n-gram analysis
   (ale_python_natural_language_processi.py)
 * JSONL / fused-data structures  — JSONL load/save + FusedMemory integration
@@ -20,7 +20,24 @@ Integrated builds scripts
 * Data processor  — general-purpose null-filtering pipeline
   (ale_python_autonomous_improvement.py)
 
-All imports are lazy and fully fault-tolerant: if a builds script is missing
+Multi-language builds (non-Python, referenced for cross-environment deployment)
+----------------------------------------------------------------------------------
+* builds/csharp/   — .NET 6+ / Unity (ale_csharp_module.cs)
+* builds/ruby/     — Ruby 3.x (ale_ruby_module.rb)
+* builds/php/      — PHP 8.x (ale_php_module.php)
+* builds/swift/    — Swift 5.7+ / iOS / macOS (ale_swift_module.swift)
+* builds/kotlin/   — Kotlin 1.9+ / JVM / Android (ale_kotlin_coroutines_module.kt)
+* builds/go/       — Go 1.21+ (ale_go_error_handling_patterns.go)
+* builds/rust/     — Rust 2021 edition (ale_rust_ownership_and_borrowing.rs)
+* builds/java/     — Java 11+ / Android (ale_java_module.java)
+* builds/javascript/ — Node.js / browser ES2020+ (ale_javascript_async_await_promises.js)
+* builds/typescript/ — TypeScript 5.x (ale_typescript_*.ts)
+* builds/cpp/      — C++17 (ale_cpp_module.cpp)
+* builds/c/        — C11 (ale_c_module.c)
+* builds/bash/     — Bash 4+ (ale_bash_*.sh)
+* builds/assembly/ — x86-64 (ale_assembly_module.asm)
+
+All Python imports are lazy and fully fault-tolerant: if a builds script is missing
 or raises on import, the corresponding feature degrades gracefully.
 """
 
@@ -386,6 +403,7 @@ class BuildsIntegrator:
             "proc_calls": self._proc_calls,
             "builds_dir": str(_BUILDS_PYTHON_DIR),
             "builds_dir_exists": _BUILDS_PYTHON_DIR.exists(),
+            "language_builds": self.list_all_language_builds(),
         }
 
     def list_builds(self) -> List[Dict[str, str]]:
@@ -411,3 +429,42 @@ class BuildsIntegrator:
                 pass
             scripts.append({"name": fpath.name, "description": desc})
         return scripts
+
+    # ── Multi-language builds catalogue ──────────────────────────────────────
+
+    #: Mapping of language → (directory name, glob pattern, description)
+    _LANGUAGE_BUILDS: Dict[str, tuple] = {
+        "python":     ("python",     "*.py",    "Python 3.x ALE scripts"),
+        "javascript": ("javascript", "*.js",    "Node.js / Browser ES2020+"),
+        "typescript": ("typescript", "*.ts",    "TypeScript 5.x"),
+        "go":         ("go",         "*.go",    "Go 1.21+"),
+        "rust":       ("rust",       "*.rs",    "Rust 2021 edition"),
+        "java":       ("java",       "*.java",  "Java 11+ / Android"),
+        "kotlin":     ("kotlin",     "*.kt",    "Kotlin 1.9+ / JVM / Android"),
+        "csharp":     ("csharp",     "*.cs",    ".NET 6+ / Unity"),
+        "cpp":        ("cpp",        "*.cpp",   "C++17"),
+        "c":          ("c",          "*.c",     "C11"),
+        "swift":      ("swift",      "*.swift", "Swift 5.7+ / iOS / macOS"),
+        "ruby":       ("ruby",       "*.rb",    "Ruby 3.x"),
+        "php":        ("php",        "*.php",   "PHP 8.x"),
+        "bash":       ("bash",       "*.sh",    "Bash 4+"),
+        "assembly":   ("assembly",   "*.asm",   "x86-64 NASM"),
+    }
+
+    def list_all_language_builds(self) -> Dict[str, Any]:
+        """Return a catalogue of all builds/ language directories and their files."""
+        builds_root = _BUILDS_PYTHON_DIR.parent
+        result: Dict[str, Any] = {}
+        for lang, (subdir, pattern, description) in self._LANGUAGE_BUILDS.items():
+            lang_dir = builds_root / subdir
+            files: List[str] = []
+            if lang_dir.exists():
+                files = sorted(p.name for p in lang_dir.glob(pattern))
+            result[lang] = {
+                "description": description,
+                "directory": str(lang_dir),
+                "available": lang_dir.exists(),
+                "file_count": len(files),
+                "files": files,
+            }
+        return result

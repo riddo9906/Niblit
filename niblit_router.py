@@ -10,7 +10,9 @@ import logging
 import threading
 import json
 import re
+import time
 from datetime import datetime
+from typing import Optional
 from modules.slsa_manager import slsa_manager
 
 log = logging.getLogger("NiblitRouter")
@@ -2044,6 +2046,271 @@ Ask me about:
             return None
 
     # ─────────────────────────────────
+    def _get_kb_response(self, query: str) -> Optional[str]:
+        """Search the knowledge base for facts relevant to *query* and compose
+        a direct answer from what Niblit has already learned — no web request.
+
+        Returns a formatted string when ≥1 relevant facts are found, or None
+        when the KB has nothing useful to say on the topic.
+        """
+        if not self.core:
+            return None
+        kb = (
+            getattr(self.core, "knowledge_db", None)
+            or getattr(self.core, "memory", None)
+        )
+        if not kb:
+            return None
+
+        # Build a short keyword list from the query
+        stop = {"what", "is", "are", "how", "the", "a", "an", "do", "does",
+                "you", "know", "about", "tell", "me", "explain", "can", "i",
+                "to", "of", "in", "for", "on", "and", "or", "with"}
+        keywords = [w for w in re.sub(r"[^\w\s]", "", query.lower()).split()
+                    if len(w) > 2 and w not in stop]
+
+        if not keywords:
+            return None
+
+        try:
+            # Try recall-style search first
+            facts = []
+            for kw in keywords[:3]:
+                if hasattr(kb, "recall"):
+                    hits = safe_call(kb.recall, kw) or []
+                elif hasattr(kb, "search_facts"):
+                    hits = safe_call(kb.search_facts, kw) or []
+                elif hasattr(kb, "list_facts"):
+                    hits = safe_call(kb.list_facts, 20) or []
+                else:
+                    hits = []
+                if isinstance(hits, list):
+                    facts.extend(hits)
+
+            # Deduplicate
+            seen_keys: set = set()
+            unique_facts = []
+            for f in facts:
+                if isinstance(f, dict):
+                    k = f.get("key", str(f))
+                else:
+                    k = str(f)
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    unique_facts.append(f)
+
+            if not unique_facts:
+                return None
+
+            # Score by keyword overlap
+            def _score(fact):
+                text = (
+                    str(fact.get("value", fact))
+                    + " "
+                    + str(fact.get("key", ""))
+                ).lower()
+                return sum(1 for kw in keywords if kw in text)
+
+            scored = sorted(unique_facts, key=_score, reverse=True)
+            top = [f for f in scored if _score(f) > 0][:4]
+
+            if not top:
+                return None
+
+            lines = [f"💡 **From my knowledge base on: {query}**\n"]
+            for fact in top:
+                if isinstance(fact, dict):
+                    val = fact.get("value", fact.get("text", ""))
+                    if isinstance(val, dict):
+                        val = json.dumps(val, ensure_ascii=False)[:200]
+                    lines.append(f"• {str(val)[:200]}")
+                else:
+                    lines.append(f"• {str(fact)[:200]}")
+
+            lines.append(
+                f"\n_Use 'recall {keywords[0]}' to search more, "
+                "or 'self-research <topic>' for a live update._"
+            )
+            return "\n".join(lines)
+
+        except Exception as exc:
+            log.debug(f"[KB-RESPONSE] lookup failed: {exc}")
+            return None
+
+    # ─────────────────────────────────
+    def _get_conversational_response(self, text: str) -> str:
+        """Return a direct, self-composed answer for conversational messages
+        that are not explicit info-queries.
+
+        Priority order:
+        1. KB facts about the topic
+        2. Status / identity facts synthesised from core
+        3. Trigger gap-learning and return a live-research result or
+           an "I'm learning about this" message
+        """
+        # 1. Try KB
+        kb_resp = self._get_kb_response(text)
+        if kb_resp:
+            return kb_resp
+
+        # 2. Synthesise from what the core knows about itself
+        if self.core:
+            mem = getattr(self.core, "memory", None)
+            fact_count = 0
+            if mem and hasattr(mem, "list_facts"):
+                try:
+                    fact_count = len(safe_call(mem.list_facts, 500) or [])
+                except Exception:
+                    pass
+            ale = getattr(self.core, "autonomous_engine", None)
+            ale_cycles = 0
+            if ale and hasattr(ale, "learning_history"):
+                ale_cycles = ale.learning_history.get("research_cycles", 0)
+
+            lower = text.lower()
+            # Generic reflection topics the user might ask conversationally
+            if any(w in lower for w in ("think", "feel", "opinion", "view", "believe")):
+                return (
+                    "Based on what I've learned so far, I can reason from my "
+                    f"knowledge base ({fact_count} facts, {ale_cycles} research cycles). "
+                    "I don't have real feelings, but I can share relevant facts — "
+                    "ask me a specific question or try 'recall <topic>'."
+                )
+
+        # 3. No KB answer and no identity match — trigger gap learning
+        return self._trigger_gap_learning(text, text)
+
+    # ─────────────────────────────────
+    # GAP-TRIGGERED SELF-LEARNING
+    # ─────────────────────────────────
+    def _trigger_gap_learning(self, topic: str, original_query: str) -> str:
+        """Called when Niblit has no stored knowledge about *topic*.
+
+        Steps
+        ─────
+        1. Queue the topic in ALE and KnowledgeDB so background deep-learning
+           starts (or continues) as soon as the idle cycle runs.
+        2. Attempt a quick live research (researcher → internet) with a short
+           window to get *something* useful right now.
+        3. If quick research yields results, store them as knowledge facts and
+           return a synthesised answer.
+        4. If quick research is unavailable / yields nothing, return an honest
+           "I am learning about this" message so the user knows to ask again.
+
+        The method never blocks indefinitely — it uses a 20-second timeout on
+        the live research step so the caller always gets a prompt reply.
+        """
+        if not self.core:
+            return (
+                "I don't have information about that yet. "
+                "Try 'learn about <topic>' to queue background research."
+            )
+
+        # ── 1. Queue in ALE (background deep learning) ───────────────────────
+        ale = getattr(self.core, "autonomous_engine", None)
+        queued_ale = False
+        if ale and hasattr(ale, "add_research_topic"):
+            try:
+                queued_ale = bool(safe_call(ale.add_research_topic, topic))
+            except Exception:
+                pass
+
+        # Also queue in KnowledgeDB learning queue
+        kb = (
+            getattr(self.core, "knowledge_db", None)
+            or getattr(self.core, "memory", None)
+        )
+        queued_kb = False
+        if kb and hasattr(kb, "queue_learning"):
+            try:
+                safe_call(kb.queue_learning, topic)
+                queued_kb = True
+            except Exception:
+                pass
+
+        log.info(
+            "[GAP-LEARNING] Topic '%s' queued — ALE:%s KB:%s",
+            topic, queued_ale, queued_kb,
+        )
+
+        # ── 2. Quick live research (20-second budget) ─────────────────────────
+        researcher = getattr(self.core, "researcher", None)
+        internet = getattr(self.core, "internet", None)
+        quick_results: list = []
+
+        def _do_quick_research():
+            try:
+                if researcher and hasattr(researcher, "search"):
+                    res = safe_call(
+                        researcher.search,
+                        original_query,
+                        max_results=4,
+                        use_llm=False,
+                        synthesize=False,
+                        enable_autonomous_learning=True,
+                    ) or []
+                elif internet:
+                    res = safe_call(internet.search, original_query, max_results=4) or []
+                else:
+                    res = []
+                quick_results.extend(res if isinstance(res, list) else [])
+            except Exception as exc:
+                log.debug("[GAP-LEARNING] Quick research failed: %s", exc)
+
+        t = threading.Thread(target=_do_quick_research, daemon=True)
+        t.start()
+        t.join(timeout=20)
+
+        # ── 3. Store & respond if we got results ──────────────────────────────
+        if quick_results:
+            # Persist each result as a KB fact so the next ask hits the cache
+            if kb and hasattr(kb, "add_fact"):
+                for i, r in enumerate(quick_results[:4]):
+                    text_val = (
+                        r.get("text", r.get("summary", str(r)))
+                        if isinstance(r, dict) else str(r)
+                    )
+                    try:
+                        safe_call(
+                            kb.add_fact,
+                            f"gap_learned:{topic.replace(' ', '_')}:{time.time_ns()}:{i}",
+                            text_val[:500],
+                            tags=["gap_learning", "research", "autonomous"],
+                        )
+                    except Exception:
+                        pass
+
+            # Format a direct response
+            parts = [f"🧠 **I just learned about: {original_query}**\n"]
+            seen: set = set()
+            for r in quick_results[:3]:
+                snippet = (
+                    r.get("text", r.get("summary", str(r)))
+                    if isinstance(r, dict) else str(r)
+                )
+                snippet = snippet.strip()[:250]
+                if snippet and snippet not in seen and len(snippet) > 10:
+                    seen.add(snippet)
+                    parts.append(f"• {snippet}")
+            if len(parts) > 1:
+                parts.append(
+                    "\n_I've stored this and queued a deeper study in the background._"
+                )
+                return "\n".join(parts)
+
+        # ── 4. Nothing found immediately — honest message ─────────────────────
+        detail = ""
+        if queued_ale:
+            detail = " I've added it to my autonomous learning queue — ask me again after a few minutes."
+        return (
+            f"I don't have knowledge about **{original_query}** yet.{detail}\n"
+            "While I learn, you can also:\n"
+            f"• `self-research {topic}` — run a focused research session now\n"
+            f"• `learn about {topic}` — confirm it's in my background learning queue\n"
+            "• `toggle-llm on` — enable the AI language model for an immediate answer"
+        )
+
+    # ─────────────────────────────────
     def _format_research_response(self, query, results):
         """Format research results into readable response"""
         if not results:
@@ -2071,6 +2338,7 @@ Ask me about:
 
         response += f"\n[Use 'self-research {query}' for more detailed information]"
         return response
+
 
     # ─────────────────────────────────
     # MAIN PROCESS
@@ -2158,17 +2426,27 @@ Ask me about:
             # ─────── INFORMATION QUERY ───────
             if msg_type == 'info_query':
                 log.info(f"[QUERY] Information query detected: {subject}")
-                response = self._get_llm_free_response(cleaned)
-                if response and response.strip():
-                    self._collect(cleaned, response, "research_based")
-                    return response
-
-            # ─────── GENERAL FALLBACK ───────
-            response = self._get_llm_free_response(cleaned)
-            if response and response.strip():
-                self._collect(cleaned, response, "research_based")
+                # 1. Try knowledge base first — no network required
+                kb_resp = self._get_kb_response(cleaned)
+                if kb_resp and kb_resp.strip():
+                    self._collect(cleaned, kb_resp, "kb_response")
+                    return kb_resp
+                # 2. No KB answer — trigger gap learning (quick research + ALE queue)
+                gap_topic = subject or cleaned
+                response = self._trigger_gap_learning(gap_topic, cleaned)
+                self._collect(cleaned, response, "gap_learning")
                 return response
 
+            # ─────── GENERAL FALLBACK ───────
+            # For conversational / unclassified messages, compose an answer
+            # from stored knowledge; if nothing found, trigger gap learning.
+            response = self._get_conversational_response(cleaned)
+            if response and response.strip():
+                self._collect(cleaned, response, "conversational")
+                return response
+
+            # Final safety net — this path should be rare since
+            # _get_conversational_response always returns a string
             resp = "[I don't have specific information. Try: 'self-research <topic>' to learn more, or 'toggle-llm on' to use AI responses]"
             self._collect(cleaned, resp, "blocked")
             return resp
