@@ -70,6 +70,18 @@ except Exception as _e:
     log.debug(f"EventStore unavailable: {_e}")
     EventStore = None
 
+try:
+    from modules.hybrid_qdrant_manager import HybridQdrantManager
+except Exception as _e:
+    log.debug(f"HybridQdrantManager unavailable: {_e}")
+    HybridQdrantManager = None
+
+try:
+    from modules.self_monitor import SelfMonitor
+except Exception as _e:
+    log.debug(f"SelfMonitor unavailable: {_e}")
+    SelfMonitor = None
+
 # ───────── Helper Import ─────────
 _TOOLS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _TOOLS_DIR not in sys.path:
@@ -630,6 +642,71 @@ class RepoAuditor:
                 len(self.orphaned_modules)
             ),
         }
+
+    def audit_with_kb(self, hybrid_manager=None, self_monitor=None) -> Dict[str, Any]:
+        """Run audit and persist findings to hybrid_manager / self_monitor."""
+        report = self.run_audit()
+        findings = []
+
+        categories = {
+            "circular_imports": self.circular_imports,
+            "scripts_without_main": self.scripts_without_main,
+            "outdated_scripts": self.outdated_scripts,
+            "missing_modules": self.missing_modules,
+            "orphaned_modules": self.orphaned_modules,
+        }
+
+        for category, items in categories.items():
+            for item in items:
+                finding_text = f"Audit finding [{category}]: {item}"
+                findings.append({"category": category, "item": str(item)})
+
+                if hybrid_manager is not None:
+                    try:
+                        hybrid_manager.upsert(
+                            finding_text,
+                            {"type": "audit_finding", "category": category,
+                             "item": str(item), "ts": int(time.time())},
+                            collection="niblit_audit_findings"
+                        )
+                    except Exception:
+                        pass
+
+                if self_monitor is not None:
+                    try:
+                        self_monitor.log_event(
+                            "AUDIT_FINDING", finding_text,
+                            metadata={"category": category, "item": str(item)}
+                        )
+                    except Exception:
+                        pass
+
+        related = []
+        if hybrid_manager is not None:
+            try:
+                related = hybrid_manager.query(
+                    "audit finding pattern",
+                    collection="niblit_audit_findings",
+                    top_k=5
+                ) or []
+            except Exception:
+                pass
+
+        return {"report": report, "findings": findings, "related_patterns": related}
+
+    def suggest_fixes_from_kb(self, hybrid_manager) -> List[str]:
+        """Query hybrid_manager for known audit-finding fixes and return suggestions."""
+        if hybrid_manager is None:
+            return []
+        try:
+            hits = hybrid_manager.query(
+                "audit finding fix",
+                collection="niblit_audit_findings",
+                top_k=10
+            )
+            return [h.get("payload", {}).get("_text", str(h)) for h in (hits or [])]
+        except Exception:
+            return []
 
 
 # ─────────────────────────────
