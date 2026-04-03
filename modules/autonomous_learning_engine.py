@@ -459,16 +459,35 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _select_next_topic(self) -> str:
-        """Rotate through research_topics in order and return the next one.
+        """Select the next research topic for this cycle.
 
-        Using sequential rotation (instead of random.choice) guarantees that
-        every topic is deeply studied before another is picked, and that the
-        same topic is shared by all research steps within one full cycle.
-        The raw topic is run through TopicConstructor so the returned string
-        is always safe for search APIs (no 403 / timeout from overly long queries).
+        Priority order:
+        1. Topics with detected knowledge gaps (fewer than _MIN_COVERAGE_THRESHOLD
+           facts in the KB) — these are studied first so Niblit fills holes in its
+           own knowledge before cycling through well-covered topics again.
+        2. Sequential round-robin across all research_topics (original behaviour).
+
+        Using gap-first selection ensures the autonomous loop converges on a
+        complete KB rather than endlessly re-researching well-known subjects.
         """
         if not self.research_topics:
             return "autonomous learning"
+
+        # Check for gap topics (quick scan, non-blocking)
+        try:
+            gaps = self.detect_knowledge_gaps(max_gaps=3)
+            if gaps:
+                # Pick the first gap that is actually in our topic list; fall
+                # through to round-robin if none match.
+                for gap in gaps:
+                    if gap in self.research_topics:
+                        log.info("[ALE] Gap-driven topic selected: %r", gap)
+                        tc = _get_topic_constructor()
+                        return tc.build(gap) if tc else gap
+        except Exception:
+            pass
+
+        # Fallback: sequential rotation
         idx = self._topic_index % len(self.research_topics)
         raw = self.research_topics[idx]
         self._topic_index = (idx + 1) % len(self.research_topics)
@@ -829,6 +848,19 @@ class AutonomousLearningEngine:
                         },
                         tags=["ale_learned", "memory", "autonomous", topic_tag],
                     )
+                    # Update the per-topic learning ledger — single authoritative
+                    # entry per topic kept current across every research cycle.
+                    # Uses a plain-text value so _get_kb_response can display it
+                    # directly without needing to unpack a nested dict.
+                    ledger_text = (
+                        f"{reflection_output or research_text[:300]}"
+                    ).strip()
+                    if ledger_text:
+                        self.knowledge_db.add_fact(
+                            f"topic_knowledge:{last_topic}",
+                            ledger_text,
+                            tags=["knowledge", "ledger", "autonomous", topic_tag],
+                        )
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 

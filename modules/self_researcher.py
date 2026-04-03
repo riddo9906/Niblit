@@ -521,9 +521,13 @@ class SelfResearcher:
             return
 
         try:
-            for result in results:
+            ts = int(time.time())
+            for i, result in enumerate(results):
+                # Include timestamp + index so each result gets its own unique key
+                # (avoids the previous behaviour where every call on the same query
+                # would overwrite the single `research:{query}` entry).
                 self.knowledge_db.add_fact(
-                    f"research:{query}",
+                    f"research:{query}:{ts}:{i}",
                     result,
                     tags=["research", "web", "autonomous"]
                 )

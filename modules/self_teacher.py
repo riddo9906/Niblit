@@ -59,9 +59,20 @@ class SelfTeacher:
             if self.db and hasattr(self.db, "get_fact"):
                 raw = self.db.get_fact(_REVIEW_QUEUE_KEY)
                 if raw:
-                    data = raw if isinstance(raw, list) else json.loads(raw)
-                    with self._queue_lock:
-                        self._review_queue = data
+                    # get_fact() returns the full fact dict {key, value, tags, ...};
+                    # extract the stored list from the "value" field.
+                    if isinstance(raw, dict):
+                        data = raw.get("value", [])
+                    elif isinstance(raw, list):
+                        data = raw
+                    else:
+                        try:
+                            data = json.loads(raw)
+                        except Exception:
+                            data = []
+                    if isinstance(data, list):
+                        with self._queue_lock:
+                            self._review_queue = data
         except Exception:
             pass
 
@@ -212,6 +223,13 @@ class SelfTeacher:
                     summary,
                     tags=["learn", "self-teach", topic]
                 )
+                # Update the per-topic learning ledger — single authoritative entry
+                # for this topic so recall always returns the latest digest.
+                self.db.add_fact(
+                    f"topic_knowledge:{topic}",
+                    summary,
+                    tags=["knowledge", "ledger", topic]
+                )
             elif hasattr(self.db, "store_learning"):
                 self.db.store_learning({"topic": topic, "summary": summary, "tags": ["learn", "self-teach", topic]})
         except Exception:
@@ -279,6 +297,12 @@ class SelfTeacher:
                         f"self_teach_summary:{topic}:{int(time.time())}",
                         summary,
                         tags=["learn", "self-teach", "review"]
+                    )
+                    # Update the per-topic learning ledger with the refreshed digest.
+                    self.db.add_fact(
+                        f"topic_knowledge:{topic}",
+                        summary,
+                        tags=["knowledge", "ledger", topic, "review"]
                     )
                 elif hasattr(self.db, "store_learning"):
                     self.db.store_learning({"topic": topic, "summary": summary, "tags": ["learn", "self-teach", "review"]})

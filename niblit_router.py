@@ -2338,6 +2338,14 @@ Ask me about:
             if not top:
                 return None
 
+            # Surface topic_knowledge ledger entries first — they are the single
+            # authoritative digest per topic and should appear before raw research
+            # fragments or timestamped teach summaries.
+            def _is_ledger(f):
+                return isinstance(f, dict) and str(f.get("key", "")).startswith("topic_knowledge:")
+
+            top = sorted(top, key=lambda f: (0 if _is_ledger(f) else 1))
+
             lines = [f"💡 **From my knowledge base on: {query}**\n"]
             for fact in top:
                 if isinstance(fact, dict):
