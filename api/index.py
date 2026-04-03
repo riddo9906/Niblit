@@ -115,153 +115,460 @@ def _rate_limited(request: Request) -> bool:
 # Used by /api/commands (sidebar UI) and /api/suggest (command palette).
 
 COMMAND_GROUPS = [
+    # ── Core ─────────────────────────────────────────────────────────────────
     {
         "group": "Core",
         "icon": "🏠",
         "commands": [
-            {"label": "help",                     "cmd": "help",           "desc": "Show the complete Niblit command reference"},
-            {"label": "time",                     "cmd": "time",           "desc": "Display current date and time"},
-            {"label": "status",                   "cmd": "status",         "desc": "Show overall system status (modules, threads, memory)"},
-            {"label": "health",                   "cmd": "health",         "desc": "Run a comprehensive health check across all subsystems"},
-            {"label": "metrics",                  "cmd": "metrics",        "desc": "Show real-time performance metrics (CPU, RAM, latency)"},
-            {"label": "dump",                     "cmd": "dump",           "desc": "Show memory dump-loop stats and last snapshot info"},
+            {"label": "help",            "cmd": "help",           "desc": "Show the complete Niblit command reference"},
+            {"label": "my commands",     "cmd": "my commands",    "desc": "All registered commands (same as help)"},
+            {"label": "time",            "cmd": "time",           "desc": "Display current date and time"},
+            {"label": "status",          "cmd": "status",         "desc": "Show overall system status (modules, threads, memory)"},
+            {"label": "health",          "cmd": "health",         "desc": "Run a comprehensive health check across all subsystems"},
+            {"label": "metrics",         "cmd": "metrics",        "desc": "Show real-time performance metrics (CPU, RAM, latency)"},
+            {"label": "what are you?",   "cmd": "what are you?",  "desc": "Learn about Niblit"},
+            {"label": "what can you do?","cmd": "what can you do?","desc": "View full capabilities and acquired data counts"},
+            {"label": "how do you work?","cmd": "how do you work?","desc": "Operational flow, ALE, all processes"},
+            {"label": "hi",              "cmd": "hi",             "desc": "Casual greeting"},
+            {"label": "how are you?",    "cmd": "how are you?",   "desc": "Check in with Niblit"},
         ],
     },
+    # ── Memory & Learning ────────────────────────────────────────────────────
     {
         "group": "Memory & Learning",
         "icon": "📝",
         "commands": [
-            {"label": "remember key:value",       "cmd": "remember ",      "desc": "Persist a key-value fact to canonical niblit_memory",                 "has_input": True},
-            {"label": "learn about <topic>",      "cmd": "learn about ",   "desc": "Queue a topic for autonomous background research (ALE Step 1)",       "has_input": True},
-            {"label": "ideas about <topic>",      "cmd": "ideas about ",   "desc": "Run SelfIdeaGenerator to produce creative implementation ideas",      "has_input": True},
-            {"label": "dump visible",             "cmd": "dump visible",   "desc": "Enable verbose niblit_memory dump output in logs"},
-            {"label": "dump invisible",           "cmd": "dump invisible", "desc": "Silence niblit_memory dump output (default)"},
+            {"label": "remember key:value",        "cmd": "remember ",       "desc": "Persist a key-value fact to niblit_memory",           "has_input": True},
+            {"label": "learn about <topic>",       "cmd": "learn about ",    "desc": "Queue a topic for ALE background research",           "has_input": True},
+            {"label": "ideas about <topic>",       "cmd": "ideas about ",    "desc": "Run SelfIdeaGenerator on a topic",                    "has_input": True},
+            {"label": "dump",                      "cmd": "dump",            "desc": "Show memory dump-loop stats and last snapshot info"},
+            {"label": "dump visible",              "cmd": "dump visible",    "desc": "Enable verbose niblit_memory dump output in logs"},
+            {"label": "dump invisible",            "cmd": "dump invisible",  "desc": "Silence niblit_memory dump output (default)"},
+            {"label": "what have you learned?",    "cmd": "what have you learned?", "desc": "Learning progress + KB summary"},
         ],
     },
+    # ── Knowledge & Recall ───────────────────────────────────────────────────
     {
         "group": "Knowledge & Recall",
         "icon": "🧠",
         "commands": [
-            {"label": "recall <topic>",           "cmd": "recall ",        "desc": "Full-text search across KnowledgeDB facts for any stored topic",      "has_input": True},
-            {"label": "acquired data",            "cmd": "acquired data",  "desc": "Browse all facts acquired by the Autonomous Learning Engine"},
-            {"label": "acquired data <category>", "cmd": "acquired data ", "desc": "Filter ALE facts by category: research / ideas / code / reflection",  "has_input": True},
-            {"label": "knowledge stats",          "cmd": "knowledge stats","desc": "KnowledgeDB statistics: fact counts, top tags, ALE step breakdown"},
-            {"label": "ale processes",            "cmd": "ale processes",  "desc": "Describe all 28 ALE pipeline steps with data-flow and status"},
+            {"label": "recall <topic>",            "cmd": "recall ",             "desc": "Full-text search across KnowledgeDB facts",           "has_input": True},
+            {"label": "acquired data",             "cmd": "acquired data",       "desc": "Browse all facts acquired by the ALE"},
+            {"label": "acquired data <category>",  "cmd": "acquired data ",      "desc": "Filter: research|ideas|code|reflection|all",          "has_input": True},
+            {"label": "knowledge stats",           "cmd": "knowledge stats",     "desc": "KnowledgeDB stats: counts, top tags, ALE breakdown"},
+            {"label": "ale processes",             "cmd": "ale processes",       "desc": "All 29 ALE pipeline steps with data-flow and status"},
         ],
     },
+    # ── Autonomous Learning Engine ───────────────────────────────────────────
     {
         "group": "Autonomous Learning Engine",
         "icon": "🤖",
         "commands": [
-            {"label": "autonomous-learn start",          "cmd": "autonomous-learn start",           "desc": "Resume the 28-step ALE background loop"},
-            {"label": "autonomous-learn stop",           "cmd": "autonomous-learn stop",            "desc": "Pause the ALE loop (knowledge already stored is retained)"},
-            {"label": "autonomous-learn status",         "cmd": "autonomous-learn status",          "desc": "View ALE cycle count, current topic, step timings, and KB facts"},
-            {"label": "add-topic <topic>",               "cmd": "autonomous-learn add-topic ",      "desc": "Inject a new research topic into the ALE rotation queue",             "has_input": True},
-            {"label": "autonomous-learn code-status",    "cmd": "autonomous-learn code-status",     "desc": "Show ALE code-generation literacy loop status"},
-            {"label": "autonomous-learn serpex-research","cmd": "autonomous-learn serpex-research", "desc": "Trigger ALE Step 27: Serpex live web research on current topic"},
-            {"label": "autonomous-learn serpex-search",  "cmd": "autonomous-learn serpex-search ",  "desc": "Ad-hoc Serpex web search stored into KnowledgeDB",                    "has_input": True},
+            {"label": "autonomous-learn start",           "cmd": "autonomous-learn start",            "desc": "Resume the full ALE background loop (all 29 steps)"},
+            {"label": "autonomous-learn stop",            "cmd": "autonomous-learn stop",             "desc": "Pause the ALE loop (knowledge retained)"},
+            {"label": "autonomous-learn status",          "cmd": "autonomous-learn status",           "desc": "View ALE cycle count, topic, step timings, and KB facts"},
+            {"label": "add-topic <topic>",                "cmd": "autonomous-learn add-topic ",       "desc": "Inject a topic into the ALE rotation queue",           "has_input": True},
+            {"label": "autonomous-learn code-status",     "cmd": "autonomous-learn code-status",      "desc": "Show ALE code-generation literacy loop status"},
+            {"label": "autonomous-learn serpex-research", "cmd": "autonomous-learn serpex-research",  "desc": "Trigger ALE Step 1: unified research on current topic"},
+            {"label": "serpex-search <query>",            "cmd": "autonomous-learn serpex-search ",   "desc": "Ad-hoc Serpex web search stored into KnowledgeDB",     "has_input": True},
+            {"label": "autonomous-learn self-learn",      "cmd": "autonomous-learn self-learn",       "desc": "Run structural self-learn sequence now"},
+            {"label": "autonomous-learn command-awareness","cmd": "autonomous-learn command-awareness","desc": "Catalogue all commands → store in KB (Step 13)"},
+            {"label": "autonomous-learn topic-seed",      "cmd": "autonomous-learn topic-seed",       "desc": "Derive & seed new topics from KB (Step 15)"},
         ],
     },
+    # ── ALE Checkpoint ───────────────────────────────────────────────────────
+    {
+        "group": "ALE Checkpoint",
+        "icon": "💾",
+        "commands": [
+            {"label": "ale status",          "cmd": "ale status",          "desc": "ALE checkpoint manager status"},
+            {"label": "ale checkpoint",      "cmd": "ale checkpoint",      "desc": "Force-save current ALE state now"},
+            {"label": "ale resume",          "cmd": "ale resume",          "desc": "Restore ALE from saved checkpoint"},
+            {"label": "ale pause",           "cmd": "ale pause",           "desc": "Pause ALE cycle before next step"},
+            {"label": "ale resume-cycle",    "cmd": "ale resume-cycle",    "desc": "Resume a paused ALE cycle"},
+            {"label": "ale anchor <tag>",    "cmd": "ale anchor ",         "desc": "Create a named state snapshot",                               "has_input": True},
+            {"label": "ale restore <tag>",   "cmd": "ale restore ",        "desc": "Restore ALE to a named anchor",                               "has_input": True},
+            {"label": "ale anchors",         "cmd": "ale anchors",         "desc": "List all saved ALE anchors"},
+            {"label": "ale backtrack [N]",   "cmd": "ale backtrack",       "desc": "Step back N steps in ALE history (default 1)"},
+            {"label": "ale history [N]",     "cmd": "ale history",         "desc": "Show last N ALE step results (default 20)"},
+            {"label": "ale incomplete",      "cmd": "ale incomplete",      "desc": "List steps incomplete at last shutdown"},
+        ],
+    },
+    # ── Auto Research ────────────────────────────────────────────────────────
     {
         "group": "Auto Research",
         "icon": "🔭",
         "commands": [
-            {"label": "auto-research start",      "cmd": "auto-research start",   "desc": "Start SelfResearcher continuous background research + ALE engine"},
-            {"label": "auto-research stop",       "cmd": "auto-research stop",    "desc": "Stop SelfResearcher auto-research loop and pause ALE"},
-            {"label": "auto-research status",     "cmd": "auto-research status",  "desc": "Show auto-research enabled/disabled state and last topic"},
-            {"label": "auto-research pause",      "cmd": "auto-research pause",   "desc": "Temporarily pause auto-research without clearing the topic queue"},
-            {"label": "auto-research resume",     "cmd": "auto-research resume",  "desc": "Resume a paused auto-research session"},
+            {"label": "auto-research start",    "cmd": "auto-research start",   "desc": "Start SelfResearcher continuous background research + ALE"},
+            {"label": "auto-research stop",     "cmd": "auto-research stop",    "desc": "Stop SelfResearcher auto-research loop and pause ALE"},
+            {"label": "auto-research status",   "cmd": "auto-research status",  "desc": "Show auto-research state, active topic, ingest wait"},
+            {"label": "auto-research pause",    "cmd": "auto-research pause",   "desc": "Temporarily pause auto-research"},
+            {"label": "auto-research resume",   "cmd": "auto-research resume",  "desc": "Resume a paused auto-research session"},
+            {"label": "refresh-topics",         "cmd": "refresh-topics",        "desc": "Propose & inject fresh research topics via DynamicTopicManager"},
+            {"label": "refresh-topics status",  "cmd": "refresh-topics status", "desc": "Show DTM seed count, embedding model, ALE topic-list size"},
+            {"label": "refresh-topics add <t>", "cmd": "refresh-topics add ",   "desc": "Add a manual seed topic to DynamicTopicManager",              "has_input": True},
         ],
     },
+    # ── Research & Internet ──────────────────────────────────────────────────
     {
         "group": "Research & Internet",
         "icon": "🔍",
         "commands": [
-            {"label": "search <query>",           "cmd": "search ",        "desc": "Live internet search via SerpEx → DuckDuckGo fallback",               "has_input": True, "is_search": True},
-            {"label": "summary <query>",          "cmd": "summary ",       "desc": "Fetch a concise web summary and store it in KnowledgeDB",             "has_input": True},
-            {"label": "self-research <topic>",    "cmd": "self-research ", "desc": "Run SelfResearcher (Serpex → Searchcode → Engine → Internet chain)",  "has_input": True},
-            {"label": "research code <lang>",     "cmd": "research code ", "desc": "Research a programming language or framework → feed CodeGenerator",   "has_input": True},
+            {"label": "search <query>",          "cmd": "search ",         "desc": "Live internet search via SerpEx → DuckDuckGo fallback",   "has_input": True, "is_search": True},
+            {"label": "summary <query>",         "cmd": "summary ",        "desc": "Fetch a concise web summary → store in KnowledgeDB",     "has_input": True},
+            {"label": "self-research <topic>",   "cmd": "self-research ",  "desc": "Run SelfResearcher (Serpex → Searchcode → Internet)",     "has_input": True},
+            {"label": "research code <lang>",    "cmd": "research code ",  "desc": "Research a language/framework → feed CodeGenerator",     "has_input": True},
         ],
     },
+    # ── Self-Teacher & Learners ──────────────────────────────────────────────
     {
         "group": "Self-Teacher & Learners",
         "icon": "🎓",
         "commands": [
-            {"label": "self-teach <topic>",       "cmd": "self-teach ",    "desc": "SelfTeacher: research → store in niblit_memory → feed learner → reflect", "has_input": True},
-            {"label": "learn about <topic>",      "cmd": "learn about ",   "desc": "Queue a topic; ALE will research it and call SelfTeacher in Step 6",      "has_input": True},
-            {"label": "ideas about <topic>",      "cmd": "ideas about ",   "desc": "Generate ideas via SelfIdeaGenerator → store in niblit_memory",          "has_input": True},
+            {"label": "self-teach <topic>",      "cmd": "self-teach ",     "desc": "SelfTeacher: research → store → feed learner → reflect",  "has_input": True},
+            {"label": "learn about <topic>",     "cmd": "learn about ",    "desc": "Queue a topic for ALE SelfTeacher (Step 3)",              "has_input": True},
+            {"label": "ideas about <topic>",     "cmd": "ideas about ",    "desc": "SelfIdeaGenerator → store in niblit_memory",             "has_input": True},
         ],
     },
+    # ── Brain & Self-Implementation ──────────────────────────────────────────
     {
         "group": "Brain & Self-Implementation",
         "icon": "🧬",
         "commands": [
-            {"label": "self-idea <prompt>",       "cmd": "self-idea ",     "desc": "Generate an idea via SelfIdeaGenerator and auto-implement it",                   "has_input": True},
-            {"label": "self-implement <plan>",    "cmd": "self-implement ","desc": "Enqueue an implementation plan directly to SelfImplementer",                     "has_input": True},
-            {"label": "reflect <text>",           "cmd": "reflect ",       "desc": "Run ReflectModule on text and store reflection in KnowledgeDB",                  "has_input": True},
-            {"label": "auto-reflect",             "cmd": "auto-reflect",   "desc": "Auto-reflect on the most recent interactions and store insights"},
-            {"label": "self-heal",                "cmd": "self-heal",      "desc": "Run SelfHealer to detect and repair common runtime issues"},
+            {"label": "self-idea <prompt>",      "cmd": "self-idea ",      "desc": "Generate & implement idea via SelfIdeaImplementation",    "has_input": True},
+            {"label": "self-implement <plan>",   "cmd": "self-implement ", "desc": "Enqueue a plan directly to SelfImplementer",             "has_input": True},
+            {"label": "idea-implement",          "cmd": "idea-implement",  "desc": "Generate and implement ideas (batch)"},
+            {"label": "reflect <text>",          "cmd": "reflect ",        "desc": "Run ReflectModule → store in KnowledgeDB",               "has_input": True},
+            {"label": "reflect all",             "cmd": "reflect all",     "desc": "Comprehensive reflection across all subsystems"},
+            {"label": "auto-reflect",            "cmd": "auto-reflect",    "desc": "Auto-reflect on recent interactions + store insights"},
+            {"label": "self-heal",               "cmd": "self-heal",       "desc": "Run SelfHealer to detect and repair runtime issues"},
         ],
     },
+    # ── Self-Improvements ────────────────────────────────────────────────────
+    {
+        "group": "Self-Improvements",
+        "icon": "⬆️",
+        "commands": [
+            {"label": "show improvements",       "cmd": "show improvements",      "desc": "View 10 active improvement modules"},
+            {"label": "run improvement-cycle",   "cmd": "run improvement-cycle",  "desc": "Execute a full improvement cycle"},
+            {"label": "improvement-status",      "cmd": "improvement-status",     "desc": "View current improvement status"},
+            {"label": "self-enhance",            "cmd": "self-enhance",           "desc": "Trigger an autonomous self-enhancement cycle"},
+            {"label": "self-enhance <goal>",     "cmd": "self-enhance ",          "desc": "Self-enhance toward a specific goal",                          "has_input": True},
+            {"label": "what would you improve?", "cmd": "what would you improve?","desc": "Hear about Niblit's improvement plans"},
+        ],
+    },
+    # ── Phase-2 Agents ───────────────────────────────────────────────────────
+    {
+        "group": "Phase-2 Agents",
+        "icon": "👥",
+        "commands": [
+            {"label": "agents",                  "cmd": "agents",              "desc": "Show all registered Phase-2 agents + metrics"},
+            {"label": "agents list",             "cmd": "agents list",         "desc": "List agents with type, status, and task counts"},
+            {"label": "agents submit <type>",    "cmd": "agents submit ",      "desc": "Enqueue a task for a named agent type",                        "has_input": True},
+            {"label": "agents pending",          "cmd": "agents pending",      "desc": "Show pending task queue depth"},
+        ],
+    },
+    # ── Meta-Confidence ──────────────────────────────────────────────────────
+    {
+        "group": "Meta-Confidence",
+        "icon": "📊",
+        "commands": [
+            {"label": "confidence",              "cmd": "confidence",          "desc": "Overall meta-confidence snapshot"},
+            {"label": "confidence tree",         "cmd": "confidence tree",     "desc": "Full confidence parse tree by category (JSON)"},
+            {"label": "confidence rich",         "cmd": "confidence rich",     "desc": "Extended evaluation with provenance"},
+        ],
+    },
+    # ── Evolution Engine ─────────────────────────────────────────────────────
     {
         "group": "Evolution Engine",
         "icon": "🌱",
         "commands": [
-            {"label": "evolve",                   "cmd": "evolve",         "desc": "Run one EvolveEngine step (research → code → teach → reflect → improve)"},
-            {"label": "evolve start",             "cmd": "evolve start",   "desc": "Start the EvolveEngine continuous background evolution loop"},
-            {"label": "evolve stop",              "cmd": "evolve stop",    "desc": "Stop the background evolution loop (current cycle completes first)"},
-            {"label": "evolve status",            "cmd": "evolve status",  "desc": "Show evolution loop state, last step, and improvements made"},
-            {"label": "evolve history",           "cmd": "evolve history", "desc": "List recent evolution steps with direction, code generated, and outcome"},
+            {"label": "evolve",                  "cmd": "evolve",              "desc": "Run one EvolveEngine step"},
+            {"label": "evolve start",            "cmd": "evolve start",        "desc": "Start the EvolveEngine continuous background loop"},
+            {"label": "evolve stop",             "cmd": "evolve stop",         "desc": "Stop the background evolution loop"},
+            {"label": "evolve status",           "cmd": "evolve status",       "desc": "Show evolution loop state, last step, and improvements"},
+            {"label": "evolve history",          "cmd": "evolve history",      "desc": "List recent evolution steps with outcome"},
         ],
     },
+    # ── Code Generation ──────────────────────────────────────────────────────
     {
         "group": "Code Generation",
         "icon": "💻",
         "commands": [
-            {"label": "generate code <lang>",     "cmd": "generate code ",    "desc": "Generate a complete code module (language + optional template key)",  "has_input": True},
-            {"label": "run code <lang> <code>",   "cmd": "run code ",         "desc": "Execute an inline code snippet and return stdout / errors",           "has_input": True},
-            {"label": "validate <lang> <code>",   "cmd": "validate ",         "desc": "Validate syntax and structure without executing",                     "has_input": True},
-            {"label": "execute file <path>",      "cmd": "execute file ",     "desc": "Execute a script file and capture its output",                        "has_input": True},
-            {"label": "code templates [lang]",    "cmd": "code templates",    "desc": "List all available code templates (filtered by language if given)"},
-            {"label": "available languages",      "cmd": "available languages","desc": "List every language supported by CodeGenerator"},
+            {"label": "generate code <lang>",    "cmd": "generate code ",      "desc": "Generate a complete code module (python/bash/js/html…)",    "has_input": True},
+            {"label": "code templates [lang]",   "cmd": "code templates",      "desc": "List all available code templates"},
+            {"label": "study language <lang>",   "cmd": "study language ",     "desc": "Learn best practices for a language",                       "has_input": True},
+            {"label": "available languages",     "cmd": "available languages", "desc": "List every language supported by CodeGenerator"},
         ],
     },
+    # ── Code Compiler / Executor ─────────────────────────────────────────────
+    {
+        "group": "Code Compiler / Executor",
+        "icon": "▶️",
+        "commands": [
+            {"label": "run code <lang> <code>",  "cmd": "run code ",           "desc": "Execute an inline code snippet and return stdout/errors",    "has_input": True},
+            {"label": "validate <lang> <code>",  "cmd": "validate ",           "desc": "Validate syntax without executing",                          "has_input": True},
+            {"label": "execute file <path>",     "cmd": "execute file ",       "desc": "Execute a script file and capture its output",               "has_input": True},
+        ],
+    },
+    # ── Software Study ───────────────────────────────────────────────────────
+    {
+        "group": "Software Study",
+        "icon": "📚",
+        "commands": [
+            {"label": "study software <cat>",    "cmd": "study software ",     "desc": "Study a software category in depth (uses internet)",         "has_input": True},
+            {"label": "software categories",     "cmd": "software categories", "desc": "List all software categories available to study"},
+            {"label": "analyze architecture <n>","cmd": "analyze architecture ","desc": "Analyze an architecture pattern",                           "has_input": True},
+            {"label": "design software <desc>",  "cmd": "design software ",    "desc": "Generate a software design outline",                         "has_input": True},
+            {"label": "what have i studied",     "cmd": "what have i studied", "desc": "Show what has been studied this session"},
+            {"label": "study my code [module]",  "cmd": "study my code",       "desc": "Describe Niblit architecture or a specific module"},
+            {"label": "describe my architecture","cmd": "describe my architecture","desc": "Full architecture description"},
+        ],
+    },
+    # ── Intelligent Reasoning ────────────────────────────────────────────────
+    {
+        "group": "Intelligent Reasoning",
+        "icon": "🕸️",
+        "commands": [
+            {"label": "reasoning status",        "cmd": "reasoning status",    "desc": "Show reasoning engine status"},
+            {"label": "reasoning build",         "cmd": "reasoning build",     "desc": "Build knowledge graph from KnowledgeDB facts"},
+            {"label": "reasoning chain <concept>","cmd": "reasoning chain ",   "desc": "Trace a logical reasoning chain from a concept",             "has_input": True},
+            {"label": "reasoning infer",         "cmd": "reasoning infer",     "desc": "Infer new knowledge from the graph"},
+        ],
+    },
+    # ── Agentic Workflows ────────────────────────────────────────────────────
+    {
+        "group": "Agentic Workflows",
+        "icon": "⚡",
+        "commands": [
+            {"label": "agentic",                 "cmd": "agentic",             "desc": "Show agentic workflow module status"},
+            {"label": "agentic list",            "cmd": "agentic list",        "desc": "List all registered workflows"},
+            {"label": "agentic run <name>",      "cmd": "agentic run ",        "desc": "Execute a named workflow with optional context",              "has_input": True},
+        ],
+    },
+    # ── Trading Brain ────────────────────────────────────────────────────────
+    {
+        "group": "Trading Brain",
+        "icon": "📈",
+        "commands": [
+            {"label": "trading start",           "cmd": "trading start",       "desc": "Launch autonomous trading cycle (Binance, every 60s)"},
+            {"label": "trading stop",            "cmd": "trading stop",        "desc": "Stop the autonomous trading cycle"},
+            {"label": "trading status",          "cmd": "trading status",      "desc": "Show trading brain state (symbol, cycles, last decision)"},
+            {"label": "trading cycle",           "cmd": "trading cycle",       "desc": "Run a single observe→engineer→store→decide pass now"},
+            {"label": "trading pair <SYMBOL>",   "cmd": "trading pair ",       "desc": "Switch to a different trading pair (e.g. ETHUSDT)",           "has_input": True},
+            {"label": "trading swing status",    "cmd": "trading swing status","desc": "FilteredSwingTraderV3 strategy status"},
+            {"label": "trading swing legs [N]",  "cmd": "trading swing legs",  "desc": "Show last N trade legs (default 10)"},
+            {"label": "trading swing explain",   "cmd": "trading swing explain","desc": "Explain the last entry signal"},
+        ],
+    },
+    # ── Realtime Stream ──────────────────────────────────────────────────────
+    {
+        "group": "Realtime Stream",
+        "icon": "📡",
+        "commands": [
+            {"label": "stream start [sym] [iv]", "cmd": "stream start ",       "desc": "Start Binance WebSocket kline stream (e.g. btcusdt 1m)",      "has_input": True},
+            {"label": "stream stop",             "cmd": "stream stop",         "desc": "Stop the stream gracefully"},
+            {"label": "stream status",           "cmd": "stream status",       "desc": "Show stream metrics (ticks, closes, last decision)"},
+            {"label": "stream intra on",         "cmd": "stream intra on",     "desc": "Enable tick-level (intra-candle) processing"},
+            {"label": "stream intra off",        "cmd": "stream intra off",    "desc": "Process closed candles only (default)"},
+        ],
+    },
+    # ── LEAN Engine ──────────────────────────────────────────────────────────
+    {
+        "group": "LEAN Engine",
+        "icon": "💹",
+        "commands": [
+            {"label": "lean status",             "cmd": "lean status",         "desc": "LEAN engine status + installed check"},
+            {"label": "lean login",              "cmd": "lean login",          "desc": "Authenticate with QuantConnect cloud"},
+            {"label": "lean create <name>",      "cmd": "lean create ",        "desc": "Create a LEAN algorithm project",                             "has_input": True},
+            {"label": "lean list",               "cmd": "lean list",           "desc": "List all LEAN projects in workspace"},
+            {"label": "lean backtest <name>",    "cmd": "lean backtest ",      "desc": "Run a back-test (background daemon thread)",                  "has_input": True},
+            {"label": "lean live <name>",        "cmd": "lean live ",          "desc": "Start live trading (background)",                             "has_input": True},
+            {"label": "lean sweep <n> p=v1,v2",  "cmd": "lean sweep ",         "desc": "Parameter grid sweep — finds best parameter set",             "has_input": True},
+            {"label": "lean params [name]",      "cmd": "lean params",         "desc": "Show stored optimal parameter sets"},
+            {"label": "lean jobs",               "cmd": "lean jobs",           "desc": "Show active LEAN background jobs"},
+        ],
+    },
+    # ── Background Trainer ───────────────────────────────────────────────────
+    {
+        "group": "Background Trainer",
+        "icon": "🏋️",
+        "commands": [
+            {"label": "trainer status",          "cmd": "trainer status",      "desc": "BackgroundTrainer daemon status (batch, interval, steps)"},
+        ],
+    },
+    # ── Builds Integration ───────────────────────────────────────────────────
+    {
+        "group": "Builds Integration",
+        "icon": "🔧",
+        "commands": [
+            {"label": "builds status",           "cmd": "builds status",       "desc": "Show which builds/python scripts are loaded + usage stats"},
+            {"label": "builds list",             "cmd": "builds list",         "desc": "List all .py files in builds/python/"},
+            {"label": "builds run",              "cmd": "builds run",          "desc": "Run all loaded builds scripts and display output"},
+            {"label": "builds nlp <text>",       "cmd": "builds nlp ",         "desc": "NLP-process text: tokenise, extract keywords, bigrams",       "has_input": True},
+            {"label": "builds inspect <path>",   "cmd": "builds inspect ",     "desc": "Inspect a binary file (format, size, hexdump preview)",       "has_input": True},
+        ],
+    },
+    # ── File Manager ─────────────────────────────────────────────────────────
     {
         "group": "File Manager",
         "icon": "📁",
         "commands": [
-            {"label": "read file <path>",            "cmd": "read file ",    "desc": "Read and display a file from the filesystem",          "has_input": True},
-            {"label": "write file <path> <content>", "cmd": "write file ",   "desc": "Write content to a file (creates if not present)",     "has_input": True},
-            {"label": "list files [dir]",            "cmd": "list files",    "desc": "List directory contents (defaults to working dir)"},
-            {"label": "file environment",            "cmd": "file environment","desc": "Show filesystem environment info (paths, disk, OS)"},
+            {"label": "read file <path>",           "cmd": "read file ",        "desc": "Read and display a file from the filesystem",                 "has_input": True},
+            {"label": "write file <path> <content>","cmd": "write file ",       "desc": "Write content to a file (creates if not present)",           "has_input": True},
+            {"label": "list files [dir]",           "cmd": "list files",        "desc": "List directory contents (defaults to working dir)"},
+            {"label": "file environment",           "cmd": "file environment",  "desc": "Show filesystem environment info (paths, disk, OS)"},
         ],
     },
+    # ── Universal File Manager ───────────────────────────────────────────────
+    {
+        "group": "Universal File Manager",
+        "icon": "🗂️",
+        "commands": [
+            {"label": "file status",             "cmd": "file status",         "desc": "File manager status + handler availability"},
+            {"label": "file formats",            "cmd": "file formats",        "desc": "List all registered file format handlers"},
+            {"label": "file detect <path>",      "cmd": "file detect ",        "desc": "Detect file type and best handler",                            "has_input": True},
+            {"label": "file read <path>",        "cmd": "file read ",          "desc": "Read and display any file (auto-detect format)",               "has_input": True},
+            {"label": "file write <path> <c>",   "cmd": "file write ",         "desc": "Write content to a file (creates/overwrites)",                 "has_input": True},
+            {"label": "file edit <path>",        "cmd": "file edit ",          "desc": "Replace text inside a file (OLD==>NEW syntax)",                "has_input": True},
+            {"label": "file execute <path>",     "cmd": "file execute ",       "desc": "Execute a script (.py/.js/.sh)",                               "has_input": True},
+        ],
+    },
+    # ── Build Scanner ────────────────────────────────────────────────────────
+    {
+        "group": "Build Scanner",
+        "icon": "🔭",
+        "commands": [
+            {"label": "scan build",              "cmd": "scan build",          "desc": "Scan own source files for self-knowledge"},
+            {"label": "build summary",           "cmd": "build summary",       "desc": "Summarise the builds/ directory"},
+            {"label": "build path",              "cmd": "build path",          "desc": "Show the active build output path"},
+            {"label": "tree scan <path>",        "cmd": "tree scan ",          "desc": "Scan a filesystem path",                                       "has_input": True},
+            {"label": "tree read <path>",        "cmd": "tree read ",          "desc": "Read a file at a path",                                        "has_input": True},
+            {"label": "tree write <path> <c>",   "cmd": "tree write ",         "desc": "Write content to a path",                                      "has_input": True},
+        ],
+    },
+    # ── GitHub Sync ──────────────────────────────────────────────────────────
+    {
+        "group": "GitHub Sync",
+        "icon": "🐙",
+        "commands": [
+            {"label": "github status",           "cmd": "github status",       "desc": "Show GitHub sync state"},
+            {"label": "github push",             "cmd": "github push",         "desc": "Push generated/evolved files to GitHub"},
+            {"label": "github pull",             "cmd": "github pull",         "desc": "Pull latest changes from GitHub"},
+            {"label": "github log",              "cmd": "github log",          "desc": "Show recent GitHub sync history"},
+        ],
+    },
+    # ── Hot Reload / Improvements ────────────────────────────────────────────
+    {
+        "group": "Hot Reload",
+        "icon": "♻️",
+        "commands": [
+            {"label": "import improvements",     "cmd": "import improvements",  "desc": "Import evolved improvements into memory"},
+            {"label": "deploy improvements",     "cmd": "deploy improvements",  "desc": "Hot-reload evolved improvements live"},
+            {"label": "reload <module>",         "cmd": "reload ",              "desc": "Hot-reload a module without restarting",                      "has_input": True},
+            {"label": "upgrade",                 "cmd": "upgrade",              "desc": "Reload all modules changed on disk"},
+            {"label": "update-history",          "cmd": "update-history",       "desc": "Show recent update/reload history"},
+        ],
+    },
+    # ── Enterprise Utility ───────────────────────────────────────────────────
+    {
+        "group": "Enterprise Utility",
+        "icon": "🏢",
+        "commands": [
+            {"label": "enterprise",              "cmd": "enterprise",           "desc": "Full operational summary (health + SLA + audit)"},
+            {"label": "enterprise health",       "cmd": "enterprise health",    "desc": "Component health report"},
+            {"label": "enterprise audit [N]",    "cmd": "enterprise audit",     "desc": "Last N audit log entries (default 10)"},
+            {"label": "enterprise sla",          "cmd": "enterprise sla",       "desc": "SLA metrics for all tracked operations"},
+        ],
+    },
+    # ── Multimodal Intelligence ──────────────────────────────────────────────
+    {
+        "group": "Multimodal",
+        "icon": "🎨",
+        "commands": [
+            {"label": "multimodal",              "cmd": "multimodal",           "desc": "Module status and modality breakdown"},
+            {"label": "multimodal process <c>",  "cmd": "multimodal process ",  "desc": "Auto-detect modality and describe content",                   "has_input": True},
+        ],
+    },
+    # ── Collaborative Systems ────────────────────────────────────────────────
+    {
+        "group": "Collaborative",
+        "icon": "🤝",
+        "commands": [
+            {"label": "collab",                  "cmd": "collab",               "desc": "Collaboration status and peer list"},
+            {"label": "collab register <name>",  "cmd": "collab register ",     "desc": "Register a peer system",                                      "has_input": True},
+            {"label": "collab request <peer> <t>","cmd": "collab request ",     "desc": "Request knowledge from a peer",                               "has_input": True},
+        ],
+    },
+    # ── Game Engine ──────────────────────────────────────────────────────────
+    {
+        "group": "Game Engine",
+        "icon": "🎮",
+        "commands": [
+            {"label": "game status",             "cmd": "game status",          "desc": "Game engine status + loaded entities"},
+            {"label": "game list",               "cmd": "game list",            "desc": "List active entities in the world"},
+            {"label": "game play <template>",    "cmd": "game play ",           "desc": "Load a built-in template: pong | gravity | adventure",        "has_input": True},
+            {"label": "game add <name>",         "cmd": "game add ",            "desc": "Add an entity to the world (name [x=N] [y=N])",               "has_input": True},
+            {"label": "game step [N]",           "cmd": "game step",            "desc": "Advance simulation N ticks (default 1)"},
+            {"label": "game reset",              "cmd": "game reset",           "desc": "Clear world and reset score/ticks"},
+            {"label": "game score",              "cmd": "game score",           "desc": "Display current score"},
+            {"label": "game save [path]",        "cmd": "game save",            "desc": "Serialise world state to JSON"},
+            {"label": "game load <path>",        "cmd": "game load ",           "desc": "Restore world state from JSON",                               "has_input": True},
+        ],
+    },
+    # ── Introspection ────────────────────────────────────────────────────────
     {
         "group": "Introspection",
         "icon": "🔬",
         "commands": [
-            {"label": "my structure",             "cmd": "my structure",      "desc": "Full structural inventory: modules, adapters, engines, memory"},
-            {"label": "my threads",               "cmd": "my threads",        "desc": "List every active thread with name, state, and daemon flag"},
-            {"label": "my loops",                 "cmd": "my loops",          "desc": "Show all background loop names, intervals, and running states"},
-            {"label": "my modules",               "cmd": "my modules",        "desc": "List all loaded Python modules and their wiring status"},
-            {"label": "dashboard",                "cmd": "dashboard",         "desc": "Full runtime dashboard: threads, loops, memory, ALE, modules"},
-            {"label": "resource usage",           "cmd": "resource usage",    "desc": "Show RAM usage, CPU percent, and process uptime"},
+            {"label": "my structure",            "cmd": "my structure",         "desc": "Full structural inventory: modules, adapters, engines, memory"},
+            {"label": "my threads",              "cmd": "my threads",           "desc": "List every active thread with name, state, and daemon flag"},
+            {"label": "my loops",                "cmd": "my loops",             "desc": "Show all background loop names, intervals, and running states"},
+            {"label": "my modules",              "cmd": "my modules",           "desc": "List all loaded Python modules and their wiring status"},
+            {"label": "dashboard",               "cmd": "dashboard",            "desc": "Full runtime dashboard: threads, loops, memory, ALE, modules"},
+            {"label": "resource usage",          "cmd": "resource usage",       "desc": "Show RAM usage, CPU percent, and process uptime"},
+            {"label": "operational flow",        "cmd": "operational flow",     "desc": "How loops and routing work"},
+            {"label": "sa-awareness",            "cmd": "sa-awareness",         "desc": "All structural awareness in one view"},
         ],
     },
+    # ── Loop & Output Control ────────────────────────────────────────────────
     {
-        "group": "Settings",
+        "group": "Loop & Output Control",
+        "icon": "🔇",
+        "commands": [
+            {"label": "loop hide",               "cmd": "loop hide",            "desc": "Silence all log output (INFO/WARNING/EVENT)"},
+            {"label": "loop show",               "cmd": "loop show",            "desc": "Restore all log output"},
+            {"label": "loop status",             "cmd": "loop status",          "desc": "Show visibility state + list of active loops"},
+            {"label": "routing show",            "cmd": "routing show",         "desc": "Show routing detail output"},
+            {"label": "routing hide",            "cmd": "routing hide",         "desc": "Hide routing detail output"},
+            {"label": "notifications",           "cmd": "notifications",        "desc": "View pending loop notifications"},
+        ],
+    },
+    # ── Background Management ────────────────────────────────────────────────
+    {
+        "group": "Background Management",
         "icon": "⚙️",
         "commands": [
-            {"label": "toggle-llm on",            "cmd": "toggle-llm on",  "desc": "Enable the HuggingFace LLM adapter for AI-assisted responses"},
-            {"label": "toggle-llm off",           "cmd": "toggle-llm off", "desc": "Disable the LLM adapter (research-only mode, no API calls)"},
+            {"label": "reload_params",           "cmd": "reload_params",        "desc": "Reload ParameterManager from file/remote"},
+            {"label": "run_selfheal",            "cmd": "run_selfheal",         "desc": "Explicitly trigger self-heal cycle"},
         ],
     },
+    # ── Settings ─────────────────────────────────────────────────────────────
+    {
+        "group": "Settings",
+        "icon": "🛠️",
+        "commands": [
+            {"label": "toggle-llm on",           "cmd": "toggle-llm on",        "desc": "Enable the LLM adapter for AI-assisted responses"},
+            {"label": "toggle-llm off",          "cmd": "toggle-llm off",       "desc": "Disable the LLM adapter (research-only mode)"},
+        ],
+    },
+    # ── Diagnostics ──────────────────────────────────────────────────────────
     {
         "group": "Diagnostics",
         "icon": "🩺",
         "commands": [
-            {"label": "run-diagnostics",          "cmd": "run-diagnostics","desc": "Execute the full Niblit diagnostic suite across all subsystems"},
-            {"label": "loop-errors",              "cmd": "loop-errors",    "desc": "Display all errors captured by the LoopTracer since startup"},
+            {"label": "run-diagnostics",         "cmd": "run-diagnostics",      "desc": "Execute the full Niblit diagnostic suite across all subsystems"},
+            {"label": "loop-errors",             "cmd": "loop-errors",          "desc": "Display all errors captured by the LoopTracer since startup"},
         ],
     },
 ]
