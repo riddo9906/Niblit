@@ -243,6 +243,10 @@ class NiblitRouter:
         "hybrid-search",
         # NiblitKernel cognitive dashboard (additive)
         "kernel",
+        # Game engine (additive)
+        "game",
+        # Universal file manager (additive)
+        "file",
     )
 
     CHAT_RESPONSES = {
@@ -1474,6 +1478,48 @@ Ask me about:
             return engine.status() if not stripped else "[lean] Core not available — limited LEAN support"
         except Exception as exc:
             return f"[lean] LeanEngine not available: {exc}"
+
+    # ── Game engine handler (additive) ────────────────────────────────────────
+
+    def _handle_game(self, cmd: str) -> str:
+        """Route 'game ...' commands to the GameEngine via NiblitCore._cmd_game().
+
+        Strips the leading 'game' token and delegates.
+        Falls back directly to the GameEngine singleton if core is unavailable.
+        """
+        stripped = cmd.strip()
+        if stripped.lower().startswith("game"):
+            stripped = stripped[4:].lstrip()
+
+        if self.core and hasattr(self.core, "_cmd_game"):
+            return safe_call(lambda: self.core._cmd_game(stripped))
+
+        try:
+            from modules.game_engine import get_game_engine as _gge
+            return _gge().status() if not stripped else "[game] Core not available"
+        except Exception as exc:
+            return f"[game] GameEngine not available: {exc}"
+
+    # ── Universal file manager handler (additive) ─────────────────────────────
+
+    def _handle_file(self, cmd: str) -> str:
+        """Route 'file ...' commands to the UniversalFileManager via NiblitCore._cmd_file().
+
+        Strips the leading 'file' token and delegates.
+        Falls back directly to the UniversalFileManager singleton if core is unavailable.
+        """
+        stripped = cmd.strip()
+        if stripped.lower().startswith("file"):
+            stripped = stripped[4:].lstrip()
+
+        if self.core and hasattr(self.core, "_cmd_file"):
+            return safe_call(lambda: self.core._cmd_file(stripped))
+
+        try:
+            from modules.universal_file_manager import get_file_manager as _gfm
+            return _gfm().status() if not stripped else "[file] Core not available"
+        except Exception as exc:
+            return f"[file] UniversalFileManager not available: {exc}"
 
     # ── Phase-2 agents handler (additive) ─────────────────────────────────────
 
@@ -2877,6 +2923,14 @@ Ask me about:
         if lower == "lean" or lower.startswith("lean "):
             return self._handle_lean(cmd)
 
+        # GAME ENGINE COMMANDS (additive)
+        if lower == "game" or lower.startswith("game "):
+            return self._handle_game(cmd)
+
+        # UNIVERSAL FILE MANAGER COMMANDS (additive)
+        if lower == "file" or lower.startswith("file "):
+            return self._handle_file(cmd)
+
         # PHASE-2 AGENTS — architecture inspection + task dispatch (additive)
         if lower == "agents" or lower.startswith("agents "):
             return self._handle_agents(cmd)
@@ -3458,6 +3512,32 @@ Ask me about:
             "what do you think about <X>  — Niblit's opinion on a topic",
             "study my code [module]       — Describe architecture or a specific module",
             "describe my architecture     — Full architecture description",
+            "",
+            "=== GAME ENGINE ===",
+            "game status                  — Game engine status + loaded entities",
+            "game list                    — List active entities in the world",
+            "game add <name> [x=N] [y=N] [vx=N] [vy=N]",
+            "                             — Add an entity to the world",
+            "game remove <name>           — Remove an entity",
+            "game step [N]                — Advance simulation N ticks (default 1)",
+            "game reset                   — Clear world and reset score/ticks",
+            "game save [path]             — Serialise world state to JSON",
+            "game load <path>             — Restore world state from JSON",
+            "game log [N]                 — Show last N simulation events",
+            "game score [+N]              — Display score or add N points",
+            "game play <template>         — Load a built-in template game",
+            "  templates: pong, gravity, adventure",
+            "game action <entity> k=v     — Apply action to an entity (e.g. vx=100)",
+            "",
+            "=== UNIVERSAL FILE MANAGER ===",
+            "file status                  — File manager status + handler availability",
+            "file formats                 — List all registered file format handlers",
+            "file detect <path>           — Detect file type and best handler",
+            "file read <path>             — Read and display any file",
+            "file write <path> <content>  — Write content to a file (creates/overwrites)",
+            "file edit <path> OLD==>NEW   — Replace text inside a file",
+            "file execute <path> [args]   — Execute a script (.py/.js/.sh)",
+            "  Supported read: txt, json, csv, yaml, pdf, docx, xlsx, png, wav, zip, iso, ...",
             "",
         ]
         return "\n".join(commands)
