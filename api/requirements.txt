@@ -9,3 +9,11 @@ python-multipart>=0.0.9
 pydantic>=2.0.0
 python-dotenv>=1.0.0
 requests>=2.28.0
+# Needed by niblit_full_upgrade_pipeline, hf_brain, internet_manager
+httpx>=0.24.0
+# Needed by niblit_sqlite_db (stdlib but listed for clarity)
+# Needed by modules/parameter_manager background sync
+# Async support for non-blocking I/O in serverless
+anyio>=4.0.0
+# Needed by niblit_memory event sourcing and serialization
+orjson>=3.9.0

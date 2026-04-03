@@ -170,7 +170,8 @@ class ChatDetector:
 class NiblitRouter:
 
     COMMAND_PREFIXES = (
-        "toggle-llm", "self-research", "search", "summary", "remember", "learn",
+        "toggle-llm", "hf-status", "hf-enable", "hf-disable", "hf-ask",
+        "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
         "status", "health", "time", "help", "commands",
@@ -1530,6 +1531,55 @@ Ask me about:
             return _gfm().status() if not stripped else "[file] Core not available"
         except Exception as exc:
             return f"[file] UniversalFileManager not available: {exc}"
+
+    # ── HFBrain handler (additive) ────────────────────────────────────────────
+
+    def _handle_hf_brain(self, cmd: str) -> str:
+        """Route 'hf-status/enable/disable/ask ...' commands to HFBrain."""
+        lower = cmd.strip().lower()
+
+        # Resolve HFBrain instance — prefer brain.hf_brain, fallback to core.hf
+        hf = None
+        if self.core:
+            hf = (getattr(self.core, "hf_brain", None)
+                  or getattr(self.core, "hf", None)
+                  or getattr(getattr(self.core, "brain", None), "hf_brain", None))
+
+        if lower == "hf-status":
+            if hf is None:
+                return "⚫ HFBrain not loaded (set HF_API_KEY env var)"
+            enabled = getattr(hf, "enabled", False)
+            model = getattr(hf, "model", "unknown")
+            token_set = bool(getattr(hf, "token", None))
+            return (f"🤗 **HFBrain**\n"
+                    f"  Enabled   : {'✅' if enabled else '⚫'}\n"
+                    f"  Model     : {model}\n"
+                    f"  Token set : {'✅' if token_set else '❌'}")
+
+        if lower.startswith("hf-enable"):
+            if hf is None:
+                return "⚫ HFBrain not loaded"
+            hf.enable()
+            return "✅ HFBrain enabled"
+
+        if lower.startswith("hf-disable"):
+            if hf is None:
+                return "⚫ HFBrain not loaded"
+            hf.disable()
+            return "✅ HFBrain disabled"
+
+        if lower.startswith("hf-ask"):
+            prompt = cmd.strip()[len("hf-ask"):].strip()
+            if not prompt:
+                return "Usage: hf-ask <your prompt>"
+            if hf is None:
+                return "⚫ HFBrain not loaded (set HF_API_KEY)"
+            try:
+                return hf.ask_single(prompt)
+            except Exception as exc:
+                return f"[HFBrain error] {exc}"
+
+        return "Usage: hf-status | hf-enable | hf-disable | hf-ask <prompt>"
 
     # ── Deployment Bridge handler (additive) ──────────────────────────────────
 
@@ -3178,6 +3228,10 @@ Ask me about:
                 self.core.llm_enabled = False
                 return "✅ LLM disabled. Using research + conversation for responses."
             return "Usage: toggle-llm on/off"
+
+        # HFBRAIN COMMANDS
+        if lower in ("hf-status",) or lower.startswith("hf-enable") or lower.startswith("hf-disable") or lower.startswith("hf-ask"):
+            return self._handle_hf_brain(cmd)
 
         # HELP
         if lower in ("help", "commands"):

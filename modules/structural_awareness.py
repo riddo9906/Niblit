@@ -410,6 +410,8 @@ class StructuralAwareness:
             ("deployment_bridge",   "DeploymentBridge"),
             ("autonomous_network",  "AutonomousNetworkBuilder"),
             ("module_autonomy",     "ModuleAutonomy"),
+            # HFBrain (brain-level HuggingFace LLM)
+            ("hf_brain",            "HFBrain"),
             # Additional wired modules
             ("background_trainer",  "BackgroundTrainer"),
             ("trading_brain",       "TradingBrain"),

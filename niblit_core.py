@@ -1426,6 +1426,7 @@ class NiblitCore:
         # ── Additive: Universal file manager ─────────────────────────────
         self.universal_file_manager: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
+        self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
         self.self_researcher = None
         self.brain = None
@@ -4651,6 +4652,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         self.brain.semantic = self.semantic_agent
                     if getattr(self, "claude_engine", None) and hasattr(self.brain, "claude"):
                         self.brain.claude = self.claude_engine
+                    # Expose brain's HFBrain on core so component_report tracks it
+                    self.hf_brain = getattr(self.brain, "hf_brain", None) or getattr(self, "hf", None)
             except Exception as e:
                 log.debug(f"NiblitBrain failed: {e}")
                 self.brain = None

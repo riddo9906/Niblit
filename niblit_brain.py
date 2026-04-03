@@ -1148,6 +1148,8 @@ class NiblitBrain:
                         self.telemetry.increment_counter("brain_think_failure")
 
             _exit_stack.close()
+            # ── Gap-learning trigger: when HFBrain has no answer, queue research ──
+            self._trigger_gap_learning(user_input)
             return f"[neutral] I hear you: '{user_input}'"
 
         except Exception as e:
@@ -1257,6 +1259,31 @@ class NiblitBrain:
             return self.handle_command(text)
 
         return self.think(text)
+
+    def _trigger_gap_learning(self, topic: str) -> None:
+        """Queue *topic* for autonomous background research when the brain
+        has no answer.  Works on Vercel (lightweight: just adds to ALE topics).
+        """
+        if not topic or len(topic.strip()) < 3:
+            return
+        # Try ALE research_topics (always available)
+        try:
+            ale = getattr(self, "_ale", None) or getattr(self, "autonomous_engine", None)
+            if ale and hasattr(ale, "research_topics"):
+                if topic not in ale.research_topics:
+                    ale.research_topics.append(topic)
+                    log.debug("[Brain] Gap-learning: queued ALE topic '%s'", topic)
+                    return
+        except Exception:
+            pass
+        # Fallback: try SelfResearcher.add_topic
+        try:
+            sr = getattr(self, "self_researcher", None) or getattr(self, "researcher", None)
+            if sr and hasattr(sr, "add_topic"):
+                sr.add_topic(topic)
+                log.debug("[Brain] Gap-learning: queued researcher topic '%s'", topic)
+        except Exception:
+            pass
 
     def get_stats(self) -> Dict[str, Any]:
         """Get brain statistics from all improvements."""

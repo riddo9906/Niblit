@@ -4,11 +4,9 @@ __pycache__/
 *.pyo
 *.pkl
 
-# Test and diagnostic files
+# Test files (not needed at runtime)
 tests/
-live_command_tester.py
 hf_test.py
-workspace_init.py
 
 # Generated report artifacts
 niblit_live_test_report.json
