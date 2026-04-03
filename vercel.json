@@ -25,6 +25,7 @@
   ],
 
   "env": {
-    "APP_ENV": "production"
+    "APP_ENV": "production",
+    "HF_API_KEY": "@hf_api_key"
   }
 }

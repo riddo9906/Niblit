@@ -1150,7 +1150,26 @@ class NiblitBrain:
             _exit_stack.close()
             # ── Gap-learning trigger: when HFBrain has no answer, queue research ──
             self._trigger_gap_learning(user_input)
-            return f"[neutral] I hear you: '{user_input}'"
+
+            # ── Local knowledge fallback when HFBrain is offline ──
+            # Provide a meaningful response using recalled context instead of a
+            # generic "neutral" placeholder.
+            if context:
+                facts = [
+                    ln.lstrip("- ").strip()
+                    for ln in context.splitlines()
+                    if ln.strip().startswith("-") and ln.strip() != "-"
+                ]
+                if facts:
+                    summary = "; ".join(facts[:3])
+                    return (
+                        f"[HFBrain offline — set HF_API_KEY to enable AI responses]\n"
+                        f"From local knowledge: {summary}"
+                    )
+            return (
+                f"[HFBrain offline — set HF_API_KEY to enable AI responses]\n"
+                f"Received: {user_input}"
+            )
 
         except Exception as e:
             log.error(f"Think failed: {e}")

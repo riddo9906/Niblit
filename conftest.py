@@ -17,3 +17,16 @@ import sys
 _project_root = os.path.abspath(os.path.dirname(__file__))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Force a clean OS-level exit to prevent SIGABRT crashes.
+
+    Heavy native extensions (torch, faiss-cpu, CUDA libraries) can trigger
+    ``terminate called without an active exception`` (exit code 134) during
+    normal Python GC when their C++ destructors run after the interpreter
+    shuts down.  Calling ``os._exit()`` bypasses the GC/atexit chain while
+    still propagating the correct pytest exit code (0 = all passed, non-zero
+    = failures).
+    """
+    os._exit(int(exitstatus))

@@ -621,7 +621,19 @@ COMMAND_GROUPS = [
         "commands": [
             {"label": "sa-scripts",              "cmd": "sa-scripts",           "desc": "List every repo script and its function"},
             {"label": "my structure",            "cmd": "my structure",         "desc": "Full component inventory (all 47+ tracked components)"},
+            {"label": "my modules",              "cmd": "my modules",           "desc": "Full filesystem tree — every directory and its scripts"},
             {"label": "sa-awareness",            "cmd": "sa-awareness",         "desc": "All structural awareness in one combined view"},
+        ],
+    },
+    # ── SLSA Generator ───────────────────────────────────────────────────────
+    {
+        "group": "SLSA Generator",
+        "icon": "⚙️",
+        "commands": [
+            {"label": "slsa-status",             "cmd": "slsa-status",          "desc": "Show SLSA engine running state and last artifact"},
+            {"label": "start_slsa",              "cmd": "start_slsa",           "desc": "Start SLSA knowledge-artifact generation"},
+            {"label": "stop_slsa",               "cmd": "stop_slsa",            "desc": "Stop the SLSA background loop"},
+            {"label": "restart_slsa",            "cmd": "restart_slsa",         "desc": "Restart SLSA with updated topics"},
         ],
     },
 ]
@@ -1166,6 +1178,12 @@ def api_hf_ask(request: Request, body: HFAskBody):
             return JSONResponse({"error": "HFBrain not available"}, status_code=503)
     try:
         reply = hf.ask_single(body.prompt)
+        if not reply:
+            # HFBrain disabled (no HF_API_KEY) — surface a clear error
+            return JSONResponse(
+                {"error": "HFBrain offline — set HF_API_KEY in Vercel environment variables"},
+                status_code=503,
+            )
         return {"reply": reply, "ts": int(time.time())}
     except Exception:
         return JSONResponse({"error": "HFBrain request failed"}, status_code=500)
@@ -1258,6 +1276,86 @@ def api_sa_scripts(request: Request):
         from modules.structural_awareness import StructuralAwareness  # type: ignore[import]
         sa = StructuralAwareness()
         return {"report": sa.all_scripts_report(), "scripts": sa._KNOWN_SCRIPTS, "ts": int(time.time())}
+    except Exception:
+        return JSONResponse({"error": "StructuralAwareness not available"}, status_code=503)
+
+
+# ── SLSA Generator Control ────────────────────────────────────────────────────
+
+@app.get("/api/slsa-status")
+def api_slsa_status(request: Request):
+    """Return SLSA generator engine status."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    if core is None:
+        return JSONResponse({"error": "NiblitCore unavailable"}, status_code=503)
+    engine = getattr(core, "slsa_engine", None)
+    if engine is None:
+        return {"running": False, "topics": [], "status": "not_loaded", "ts": int(time.time())}
+    running = getattr(engine, "is_running", False) or (
+        getattr(core, "slsa_thread", None) is not None
+        and core.slsa_thread.is_alive()  # type: ignore[union-attr]
+    )
+    return {
+        "running": running,
+        "topics": getattr(engine, "topics", []),
+        "status": "running" if running else "stopped",
+        "ts": int(time.time()),
+    }
+
+
+@app.post("/api/slsa-start")
+def api_slsa_start(request: Request):
+    """Start the SLSA generator engine (or restart with new topics)."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    if core is None:
+        return JSONResponse({"error": "NiblitCore unavailable"}, status_code=503)
+    if not hasattr(core, "_start_slsa_engine"):
+        return JSONResponse({"error": "SLSA control not available"}, status_code=503)
+    try:
+        result = core._start_slsa_engine()
+        return {"result": result, "ts": int(time.time())}
+    except Exception as exc:
+        log.error("SLSA start failed: %s", exc)
+        return JSONResponse({"error": "SLSA start failed — see server logs"}, status_code=500)
+
+
+@app.post("/api/slsa-stop")
+def api_slsa_stop(request: Request):
+    """Stop the SLSA generator engine."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    if core is None:
+        return JSONResponse({"error": "NiblitCore unavailable"}, status_code=503)
+    if not hasattr(core, "_stop_slsa_engine"):
+        return JSONResponse({"error": "SLSA control not available"}, status_code=503)
+    try:
+        result = core._stop_slsa_engine()
+        return {"result": result, "ts": int(time.time())}
+    except Exception as exc:
+        log.error("SLSA stop failed: %s", exc)
+        return JSONResponse({"error": "SLSA stop failed — see server logs"}, status_code=500)
+
+
+# ── Module Inventory ──────────────────────────────────────────────────────────
+
+@app.get("/api/modules")
+def api_modules(request: Request):
+    """Return full filesystem module/script inventory (all dirs and scripts)."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    sa = getattr(core, "structural_awareness", None) if core else None
+    if sa and hasattr(sa, "module_report"):
+        return {"report": sa.module_report(), "ts": int(time.time())}
+    try:
+        from modules.structural_awareness import StructuralAwareness  # type: ignore[import]
+        sa = StructuralAwareness()
+        return {"report": sa.module_report(), "ts": int(time.time())}
     except Exception:
         return JSONResponse({"error": "StructuralAwareness not available"}, status_code=503)
 

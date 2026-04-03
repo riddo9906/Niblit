@@ -18,6 +18,7 @@ import time
 import threading
 import logging
 import platform
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -105,25 +106,86 @@ class StructuralAwareness:
     # ──────────────────────────────────────────────────────
     def module_report(self, filter_prefix: str = "modules") -> str:
         """
-        Report Niblit-specific loaded modules.
-        By default shows only modules whose name starts with 'modules.'
-        """
-        niblit_mods = {
-            name: mod
-            for name, mod in sorted(sys.modules.items())
-            if name.startswith(filter_prefix)
-        }
-        if not niblit_mods:
-            return f"No loaded modules matching prefix '{filter_prefix}'."
+        Full filesystem inventory of every Python script in the repo, organised
+        by directory (main dir + every subdirectory).  Also shows which of those
+        files are currently imported (loaded) in sys.modules.
 
-        lines = [f"📦 **Loaded Modules** (prefix='{filter_prefix}', {len(niblit_mods)} found):\n"]
-        for name, mod in niblit_mods.items():
-            spec = getattr(mod, "__spec__", None)
-            origin = spec.origin if spec and spec.origin else "—"
-            # Shorten path
-            if origin and len(origin) > 60:
-                origin = "…" + origin[-57:]
-            lines.append(f"  ✅ {name:<45}  {origin}")
+        The legacy ``filter_prefix`` parameter is preserved for compatibility but
+        the report always covers the whole project tree.
+        """
+        # Determine project root from this file's location
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+        _SKIP_DIRS = {"__pycache__", ".git", ".github", ".devcontainer",
+                      "node_modules", ".vercel", "venv", ".venv", "env"}
+
+        # Build tree: rel_dir -> [filename, ...]
+        tree: Dict[str, List[str]] = defaultdict(list)
+
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)
+            rel_dir = os.path.relpath(dirpath, base)
+            if rel_dir == ".":
+                rel_dir = "(root)"
+            py_files = sorted(
+                f for f in filenames
+                if f.endswith(".py") and not f.startswith(".")
+            )
+            if py_files:
+                tree[rel_dir].extend(py_files)
+
+        # Build loaded-module lookup
+        loaded_stems: set = set()
+        for mod_name in sys.modules:
+            loaded_stems.add(mod_name.split(".")[-1])
+            loaded_stems.add(mod_name.replace(".", "/"))
+
+        total_files = sum(len(v) for v in tree.values())
+        lines = [
+            f"\U0001f4e6 **Niblit Script Inventory** "
+            f"({total_files} scripts in {len(tree)} dirs):\n"
+        ]
+
+        sorted_dirs = sorted(tree.keys(), key=lambda d: ("" if d == "(root)" else d))
+        for rel_dir in sorted_dirs:
+            files = tree[rel_dir]
+            lines.append(f"\n  \U0001f4c2 {rel_dir}/ ({len(files)} scripts)")
+            for fname in files:
+                stem = os.path.splitext(fname)[0]
+                mod_key_slash = (
+                    stem if rel_dir == "(root)"
+                    else f"{rel_dir.replace(os.sep, '/')}/{stem}"
+                )
+                mod_key_dot = mod_key_slash.replace("/", ".")
+
+                loaded = (
+                    stem in loaded_stems
+                    or mod_key_slash in loaded_stems
+                    or mod_key_dot in sys.modules
+                )
+                icon = "\u2705" if loaded else "\u2b1c"
+
+                script_key = (
+                    fname if rel_dir == "(root)"
+                    else f"{rel_dir.replace(os.sep, '/')}/{fname}"
+                )
+                desc = self._KNOWN_SCRIPTS.get(script_key, "")
+                desc_part = f"  \u2014 {desc}" if desc else ""
+                lines.append(f"    {icon} {fname}{desc_part}")
+
+        loaded_count = sum(
+            1 for rd, files in tree.items()
+            for fname in files
+            if (os.path.splitext(fname)[0] in loaded_stems)
+               or (
+                   (("" if rd == "(root)" else rd.replace(os.sep, ".") + ".")
+                    + os.path.splitext(fname)[0])
+                   in sys.modules
+               )
+        )
+        lines.append(
+            f"\n  \u2705 Loaded: ~{loaded_count}  \u2b1c Not imported  |  Total: {total_files}"
+        )
         return "\n".join(lines)
 
     # ──────────────────────────────────────────────────────
@@ -175,6 +237,7 @@ class StructuralAwareness:
         "modules/internet_manager.py":"InternetManager — web search, Wikipedia, Hackernews",
         "modules/llm_adapter.py":     "LLMAdapter — unified LLM interface (OpenAI/Anthropic/HF)",
         "modules/hf_adapter.py":      "HuggingFace model adapter",
+        "modules/hf_brain.py":        "HFBrain — stateful HuggingFace Router LLM (Kimi-K2 / any HF model)",
         "modules/anthropic_adapter.py":"Anthropic Claude adapter",
         "modules/openai_adapter.py":  "OpenAI GPT adapter",
         "modules/local_llm_adapter.py":"Local LLM (Ollama/etc) adapter",
@@ -196,6 +259,7 @@ class StructuralAwareness:
         "modules/software_studier.py":      "SoftwareStudier — studies own source for self-knowledge",
         "modules/mcp_server.py":      "MCP server — registers FastAPI routes for MCP protocol",
         "modules/slsa_generator.py":  "SLSAGenerator — continuous semantic learning & structuring",
+        "modules/slsa_manager.py":    "SLSAManager — manages SLSA artifact lifecycle",
         "modules/storage.py":         "KnowledgeDB (legacy storage shim)",
         "modules/permission_manager.py": "PermissionManager — user-granted permission store",
         "modules/terminal_tools.py":  "TerminalTools — safe subprocess + file write helpers",
@@ -222,6 +286,7 @@ class StructuralAwareness:
         "tools/self_heal_auto.py":    "Automated self-healing runner",
         # Other top-level scripts
         "trainer_full.py":            "BackgroundTrainer — daemon training loop",
+        "slsa_generator_full.py":     "SLSAGenerator (full) — production SLSA generator wired to core",
         "Slsa_generator_full.py":     "Full SLSA generator (production variant)",
         "run_diagnostics.py":         "Live command tester & diagnostics runner",
         "live_command_tester.py":     "Command tester with JSON report output",
