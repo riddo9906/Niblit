@@ -129,7 +129,9 @@ class RepoAuditor:
         self.orphaned_modules = []
         self.file_errors = defaultdict(list)
         self.script_inventory: List[Dict[str, Any]] = []
-        self.json_report_path = os.path.join(self.base_dir, "niblit_audit_report.json")
+        import tempfile as _tf
+        _report_dir = self.base_dir if os.access(self.base_dir, os.W_OK) else _tf.gettempdir()
+        self.json_report_path = os.path.join(_report_dir, "niblit_audit_report.json")
 
         # ─────── IMPROVEMENTS INITIALIZATION ───────
         self._init_improvements()

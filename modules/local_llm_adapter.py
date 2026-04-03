@@ -1,9 +1,14 @@
-import os, threading, time
+import os, tempfile, threading, time
 from .db import LocalDB
 
+_default_db_path = os.environ.get("LOCAL_LLM_DB_PATH") or os.path.join(
+    os.getcwd() if os.access(os.getcwd(), os.W_OK) else tempfile.gettempdir(),
+    "local_llm.db",
+)
+
 class LocalLLMAdapter:
-    def __init__(self, db_path="local_llm.db"):
-        self.db = LocalDB(db_path)
+    def __init__(self, db_path=""):
+        self.db = LocalDB(db_path or _default_db_path)
         self.model_loaded = False
         self.model_name = None
 

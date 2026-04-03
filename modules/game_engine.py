@@ -41,6 +41,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -49,8 +50,10 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger("GameEngine")
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_LOG_PATH = _REPO_ROOT / "niblit_game_log.jsonl"
-_DEFAULT_STATE_PATH = _REPO_ROOT / "niblit_game_state.json"
+# Fall back to /tmp for log and state files when the repo root is read-only.
+_WRITABLE_ROOT = _REPO_ROOT if os.access(str(_REPO_ROOT), os.W_OK) else Path(tempfile.gettempdir())
+_DEFAULT_LOG_PATH = Path(os.environ.get("NIBLIT_GAME_LOG_PATH") or str(_WRITABLE_ROOT / "niblit_game_log.jsonl"))
+_DEFAULT_STATE_PATH = Path(os.environ.get("NIBLIT_GAME_STATE_PATH") or str(_WRITABLE_ROOT / "niblit_game_state.json"))
 
 # ── optional pygame ───────────────────────────────────────────────────────────
 try:

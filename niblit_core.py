@@ -407,7 +407,7 @@ class NiblitConfig:
     def from_env(cls) -> "NiblitConfig":
         """Load configuration from environment variables."""
         return cls(
-            memory_path=Path(os.getenv("NIBLIT_MEMORY_PATH", "")),
+            memory_path=Path(_mp) if (_mp := os.getenv("NIBLIT_MEMORY_PATH", "").strip()) else None,
             debug_mode=os.getenv("NIBLIT_DEBUG", "true").lower() in ("true", "1"),
             log_level=os.getenv("NIBLIT_LOG_LEVEL", "INFO"),
             enable_orchestrator=os.getenv("NIBLIT_ORCHESTRATOR", "true").lower() in ("true", "1"),
@@ -5992,7 +5992,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("[ORCHESTRATOR] Generating fix guide...")
             db = LocalDB() if LocalDB is not None else self.db
             fg = FixGuideGenerator(db)
-            fix_guide_path = os.path.join(BASE_DIR, "Fix_Guide.txt")
+            import tempfile as _tf
+            _guide_dir = BASE_DIR if os.access(BASE_DIR, os.W_OK) else _tf.gettempdir()
+            fix_guide_path = os.path.join(_guide_dir, "Fix_Guide.txt")
             msg = fg.generate_fix_guide(fix_guide_path)
             log.info(f"[ORCHESTRATOR] Fix guide generated: {fix_guide_path}")
             return msg

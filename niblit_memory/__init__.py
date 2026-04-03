@@ -66,6 +66,7 @@ import math
 import os
 import re
 import sqlite3
+import tempfile
 import threading
 import time
 import uuid
@@ -76,6 +77,27 @@ from typing import Optional, Dict, Any, List
 
 log = logging.getLogger("NiblitMemory")
 logging.basicConfig(level=logging.DEBUG, format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s")
+
+
+def _writable_path(filename: str, env_var: Optional[str] = None) -> str:
+    """Return a writable path for *filename*.
+
+    Resolution order:
+    1. The environment variable *env_var* (if provided and non-empty).
+    2. The current working directory, when it is writable.
+    3. The system temporary directory (``/tmp`` on Linux/macOS).
+
+    This ensures Niblit can store runtime data on read-only deployments such
+    as Vercel Lambda where only ``/tmp`` is writable.
+    """
+    if env_var:
+        env_val = os.environ.get(env_var, "").strip()
+        if env_val:
+            return env_val
+    cwd = os.getcwd()
+    if os.access(cwd, os.W_OK):
+        return os.path.join(cwd, filename)
+    return os.path.join(tempfile.gettempdir(), filename)
 
 # ───────── Improvement Imports ─────────
 try:
@@ -133,7 +155,7 @@ def _now_iso() -> str:
 # (previously modules/fused_memory.py)
 # ══════════════════════════════════════════════════════════════════════════════
 
-_DEFAULT_SQLITE_PATH = os.getenv("FUSED_MEMORY_DB_PATH", "niblit_fused.sqlite")
+_DEFAULT_SQLITE_PATH = os.getenv("FUSED_MEMORY_DB_PATH") or _writable_path("niblit_fused.sqlite")
 _DEFAULT_COLLECTION = os.getenv("QDRANT_COLLECTION", "niblit_knowledge")
 
 _fused_log = logging.getLogger("Niblit.FusedMemory")
@@ -705,8 +727,8 @@ class LocalDB:
     interactions, facts/artifacts, learning log, and preferences.
     """
 
-    def __init__(self, path: str = "niblit.db") -> None:
-        self.path = path
+    def __init__(self, path: str = "") -> None:
+        self.path = path or _writable_path("niblit.db")
         self.lock = threading.Lock()
 
         if not os.path.exists(self.path):
@@ -947,7 +969,7 @@ class KnowledgeDB:
             return
         self._initialized = True
 
-        self.path = path or os.path.join(os.getcwd(), "niblit_memory.json")
+        self.path = path or _writable_path("niblit_memory.json", "NIBLIT_MEMORY_PATH")
         self.autosave_interval = autosave_interval
         self.dump_interval = dump_interval
 
@@ -1630,7 +1652,7 @@ class NiblitMemory:
             return
         self._initialized = True
 
-        self.filename = filename or os.path.join(os.getcwd(), "niblit_memory.json")
+        self.filename = filename or _writable_path("niblit_memory.json", "NIBLIT_MEMORY_PATH")
         self.backup_filename = self.filename + ".backup"
         self.autosave_interval = autosave_interval
         self.dump_interval = dump_interval

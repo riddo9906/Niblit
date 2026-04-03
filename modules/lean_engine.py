@@ -49,6 +49,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -73,8 +74,10 @@ except ImportError:
 
 # ── default paths ─────────────────────────────────────────────────────────────
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_WORKSPACE = _REPO_ROOT / "lean_workspace"
-_PARAMS_FILE = _REPO_ROOT / "niblit_lean_params.json"
+# Use /tmp as fallback when the repo root is read-only (e.g. Vercel Lambda).
+_WRITABLE_ROOT = _REPO_ROOT if os.access(str(_REPO_ROOT), os.W_OK) else Path(tempfile.gettempdir())
+_DEFAULT_WORKSPACE = _WRITABLE_ROOT / "lean_workspace"
+_PARAMS_FILE = _WRITABLE_ROOT / "niblit_lean_params.json"
 
 # ── configurable timeouts ─────────────────────────────────────────────────────
 # Override via env var LEAN_BACKTEST_TIMEOUT_SECS or ParameterManager key.

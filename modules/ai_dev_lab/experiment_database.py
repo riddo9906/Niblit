@@ -29,12 +29,16 @@ import json
 import logging
 import os
 import sqlite3
+import tempfile
 import time
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("ExperimentDatabase")
 
-_DEFAULT_DB_PATH = os.path.join(os.getcwd(), "ai_dev_lab.db")
+_DEFAULT_DB_PATH = os.environ.get("AI_DEV_LAB_DB_PATH") or os.path.join(
+    os.getcwd() if os.access(os.getcwd(), os.W_OK) else tempfile.gettempdir(),
+    "ai_dev_lab.db",
+)
 _CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS experiments (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
