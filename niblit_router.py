@@ -2300,6 +2300,29 @@ Ask me about:
             if not unique_facts:
                 return None
 
+            # Filter out internal system facts that are not user-facing knowledge.
+            # The review queue and similar system entries store lists of metadata
+            # (e.g. all topics ever taught) under a single key.  recall() matches
+            # them whenever *any* topic word appears in their serialised JSON,
+            # which would cause unrelated topics to bleed into KB answers.
+            def _is_knowledge_fact(f):
+                if not isinstance(f, dict):
+                    return True
+                val = f.get("value")
+                key = f.get("key", "")
+                # Skip facts whose value is a list — system queues, not knowledge
+                if isinstance(val, list):
+                    return False
+                # Skip known internal system key namespaces
+                if key.startswith("self_teacher:"):
+                    return False
+                return True
+
+            unique_facts = [f for f in unique_facts if _is_knowledge_fact(f)]
+
+            if not unique_facts:
+                return None
+
             # Score by keyword overlap
             def _score(fact):
                 text = (
