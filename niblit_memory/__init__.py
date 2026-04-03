@@ -1074,6 +1074,17 @@ class KnowledgeDB:
         with self.lock:
             return list(self.data.get("learning_log", []))
 
+    def add_entry(self, key: str, value: Any) -> None:
+        """LocalDB-compatible shim so SLSA and other modules can call add_entry on KnowledgeDB."""
+        with self.lock:
+            self.data.setdefault("interactions", [])
+            self.data["interactions"].append({
+                "ts": time.time(),
+                "key": key,
+                "value": value,
+            })
+        self._save(blocking=False)
+
     # ── facts / queue ─────────────────────────────────────────────────────────
 
     def add_fact(self, key: str, value: Any, tags: Optional[List[str]] = None) -> None:
