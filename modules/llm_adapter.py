@@ -7,7 +7,7 @@ import requests
 
 
 HF_ROUTER_URL = "https://router.huggingface.co/v1/chat/completions"
-HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
+HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_API_KEY")
 
 
 class LLMAdapter:
