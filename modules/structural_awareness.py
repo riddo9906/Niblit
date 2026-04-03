@@ -127,19 +127,132 @@ class StructuralAwareness:
         return "\n".join(lines)
 
     # ──────────────────────────────────────────────────────
+    # 3b. ALL REPO SCRIPTS INVENTORY
+    # ──────────────────────────────────────────────────────
+
+    _KNOWN_SCRIPTS: Dict[str, str] = {
+        # Core orchestration
+        "niblit_core.py":             "Main NiblitCore class — wires every subsystem",
+        "niblit_router.py":           "NiblitRouter — routes text commands to handlers",
+        "niblit_brain.py":            "NiblitBrain — LLM reasoning + memory access",
+        "niblit_memory/__init__.py":  "Canonical memory: FusedMemory, KnowledgeDB, NiblitMemory",
+        "niblit_memory.py":           "Backward-compat shim for niblit_memory/__init__.py",
+        "niblit_orchestrator.py":     "High-level orchestration wrapper",
+        "niblit_actions.py":          "File I/O, shell execution, directory listing actions",
+        "niblit_sqlite_db.py":        "SQLite-backed persistent store (companion to JSON LocalDB)",
+        "app.py":                     "FastAPI app entry-point (local / production)",
+        "server.py":                  "Alternative FastAPI server entry-point",
+        "api/index.py":               "Vercel serverless FastAPI handler",
+        "main.py":                    "Interactive CLI entry-point",
+        # Modules
+        "modules/autonomous_learning_engine.py": "ALE — drives Niblit's self-learning cycles",
+        "modules/ale_checkpoint.py":  "ALE checkpoint manager (persist/restore ALE state)",
+        "modules/self_researcher.py": "SelfResearcher — multi-backend autonomous research",
+        "modules/self_teacher.py":    "SelfTeacher — ingests research into KnowledgeDB",
+        "modules/self_healer.py":     "SelfHealer — detects and repairs code faults",
+        "modules/self_implementer.py":"SelfImplementer — turns ideas into code",
+        "modules/self_idea_generator.py": "SelfIdeaGenerator — generates improvement ideas",
+        "modules/self_maintenance.py":"SelfMaintenance — periodic system maintenance",
+        "modules/self_monitor.py":    "SelfMonitor — experience tracking & trend analysis",
+        "modules/improvement_integrator.py": "ImprovementIntegrator — applies ALE improvements",
+        "modules/code_generator.py":  "CodeGenerator — generates code templates & utilities",
+        "modules/code_compiler.py":   "CodeCompiler — compiles and validates generated code",
+        "modules/code_error_fixer.py":"CodeErrorFixer — detects & fixes code errors",
+        "modules/evolve.py":          "EvolveEngine — evolutionary self-improvement",
+        "modules/structural_awareness.py": "StructuralAwareness — component/thread/loop inventory",
+        "modules/knowledge_digest.py":"KnowledgeDigest — rephrases research in Niblit's words",
+        "modules/knowledge_synthesizer.py": "KnowledgeSynthesizer — cross-domain fact synthesis",
+        "modules/live_updater.py":    "LiveUpdater — hot-reload and patch modules at runtime",
+        "modules/filesystem_manager.py": "FilesystemManager — safe filesystem CRUD operations",
+        "modules/deployment_bridge.py": "DeploymentBridge — cross-deployment state persistence",
+        "modules/autonomous_network.py": "AutonomousNetworkBuilder — self-evolving network layer",
+        "modules/module_autonomy.py": "ModuleAutonomy — robustness/intelligence/unification framework",
+        "modules/trading_brain.py":   "TradingBrain — autonomous crypto trading cycle",
+        "modules/trading_swing_v3.py":"SwingTraderV3 — continuous trend re-entry model",
+        "modules/lean_engine.py":     "LeanEngine — QuantConnect/LEAN backtesting & live trading",
+        "modules/game_engine.py":     "GameEngine — headless game simulation (pong/gravity/adventure)",
+        "modules/universal_file_manager.py": "UniversalFileManager — pluggable file handler registry",
+        "modules/internet_manager.py":"InternetManager — web search, Wikipedia, Hackernews",
+        "modules/llm_adapter.py":     "LLMAdapter — unified LLM interface (OpenAI/Anthropic/HF)",
+        "modules/hf_adapter.py":      "HuggingFace model adapter",
+        "modules/anthropic_adapter.py":"Anthropic Claude adapter",
+        "modules/openai_adapter.py":  "OpenAI GPT adapter",
+        "modules/local_llm_adapter.py":"Local LLM (Ollama/etc) adapter",
+        "modules/parameter_manager.py":"ParameterManager — env/file/remote config with hot-reload",
+        "modules/plugin_architecture.py": "PluginManager — hot-loadable plugin system",
+        "modules/command_registry.py":"CommandRegistry — central command registration",
+        "modules/rate_limiting.py":   "RateLimiter — per-operation rate limiting",
+        "modules/circuit_breaker.py": "CircuitBreaker — fail-fast protection",
+        "modules/metacognition.py":   "Metacognition — self-awareness of reasoning processes",
+        "modules/reasoning_engine.py":"ReasoningEngine — structured multi-step reasoning",
+        "modules/gap_analyzer.py":    "GapAnalyzer — detects and prioritises knowledge gaps",
+        "modules/memory_optimizer.py":"MemoryOptimizer — memory usage and deduplication",
+        "modules/adaptive_learning.py":"AdaptiveLearning — adjusts learning rate dynamically",
+        "modules/fused_memory_primary.py": "FusedMemoryPrimary — raw vector + record API",
+        "modules/vector_store.py":    "VectorStore / FusedStorage — vector persistence shim",
+        "modules/hybrid_qdrant_manager.py": "HybridQdrantManager — multi-model vector search",
+        "modules/multi_level_caching.py":   "Multi-level cache (memory + Redis)",
+        "modules/builds_integrator.py":     "BuildsIntegrator — wraps all builds/python scripts",
+        "modules/software_studier.py":      "SoftwareStudier — studies own source for self-knowledge",
+        "modules/mcp_server.py":      "MCP server — registers FastAPI routes for MCP protocol",
+        "modules/slsa_generator.py":  "SLSAGenerator — continuous semantic learning & structuring",
+        "modules/storage.py":         "KnowledgeDB (legacy storage shim)",
+        "modules/permission_manager.py": "PermissionManager — user-granted permission store",
+        "modules/terminal_tools.py":  "TerminalTools — safe subprocess + file write helpers",
+        "modules/background_topic_refresh.py": "Background topic refresh loop",
+        "modules/dynamic_topic_manager.py": "Dynamic topic lifecycle management",
+        "modules/parallel_learning_engine.py": "Parallel concurrent learning pipeline",
+        "modules/collaborative_learner.py": "Collaborative multi-agent learning",
+        "modules/agentic_workflows.py": "Agentic multi-step workflow engine",
+        "modules/analytics.py":       "Analytics — telemetry and usage metrics",
+        "modules/dashboard.py":       "Runtime dashboard renderer",
+        "modules/realtime_stream.py": "Real-time WebSocket stream manager",
+        "modules/prediction_engine.py": "PredictionEngine — temporal forecasting",
+        # Agents package
+        "agents/__init__.py":         "Phase-2 agent package (Planner/Research/Code/Test/Reflect/Arch)",
+        "agents/planner_agent.py":    "PlannerAgent — decomposes goals into tasks",
+        "agents/research_agent.py":   "ResearchAgent — autonomous research tasks",
+        "agents/coding_agent.py":     "CodingAgent — generates and validates code",
+        "agents/testing_agent.py":    "TestingAgent — runs and evaluates tests",
+        "agents/reflection_agent.py": "ReflectionAgent — gap detection & contradiction resolution",
+        "agents/architecture_agent.py":"ArchitectureAgent — architectural planning",
+        # Tools
+        "tools/FixGuideGenerator.py": "Generates bash fix guides for missing __main__ blocks",
+        "tools/repo_audit.py":        "Audits repository for writable-path compliance",
+        "tools/self_heal_auto.py":    "Automated self-healing runner",
+        # Other top-level scripts
+        "trainer_full.py":            "BackgroundTrainer — daemon training loop",
+        "Slsa_generator_full.py":     "Full SLSA generator (production variant)",
+        "run_diagnostics.py":         "Live command tester & diagnostics runner",
+        "live_command_tester.py":     "Command tester with JSON report output",
+        "niblit_full_upgrade_pipeline.py": "Full upgrade pipeline (GitHub/HF/news ingestion)",
+        "workspace_init.py":          "WorkspaceInitializer — creates project directory structure",
+        "niblit_manager.py":          "Manager entrypoint for automated maintenance",
+        "conftest.py":                "Pytest configuration and fixtures",
+    }
+
+    def all_scripts_report(self) -> str:
+        """Return a human-readable inventory of every repo script and its purpose."""
+        lines = [f"📋 **All Repo Scripts** ({len(self._KNOWN_SCRIPTS)} entries):\n"]
+        for path, desc in self._KNOWN_SCRIPTS.items():
+            lines.append(f"  📄 {path}\n       └─ {desc}")
+        return "\n".join(lines)
+
+    # ──────────────────────────────────────────────────────
     # 4. COMMAND REGISTRY
     # ──────────────────────────────────────────────────────
     def command_report(self, router: Any = None) -> str:
-        """
-        Return a structured list of all registered commands.
-        Tries the router's help_text() first, then the core's CommandRegistry.
+        """Return a structured list of all registered commands.
+
+        Tries the router help_text() first, then the core CommandRegistry.
         """
         lines = ["📋 **Registered Commands**:\n"]
 
         # Try router help_text
-        if router and hasattr(router, "help_text"):
+        r = router or (getattr(self.core, "router", None) if self.core else None)
+        if r and hasattr(r, "help_text"):
             try:
-                help_str = router.help_text()
+                help_str = r.help_text()
                 return "📋 **Full Command Reference**:\n\n" + help_str
             except Exception as e:
                 lines.append(f"  (router.help_text() failed: {e})")
@@ -293,6 +406,20 @@ class StructuralAwareness:
             ("gap_analyzer",        "GapAnalyzer"),
             ("memory_optimizer",    "MemoryOptimizer"),
             ("adaptive_learning",   "AdaptiveLearning"),
+            # Cross-deployment & autonomous intelligence (additive)
+            ("deployment_bridge",   "DeploymentBridge"),
+            ("autonomous_network",  "AutonomousNetworkBuilder"),
+            ("module_autonomy",     "ModuleAutonomy"),
+            # Additional wired modules
+            ("background_trainer",  "BackgroundTrainer"),
+            ("trading_brain",       "TradingBrain"),
+            ("lean_engine",         "LeanEngine"),
+            ("game_engine",         "GameEngine"),
+            ("universal_file_manager", "UniversalFileManager"),
+            ("hybrid_qdrant",       "HybridQdrantManager"),
+            ("self_monitor",        "SelfMonitor"),
+            ("kernel",              "NiblitKernel"),
+            ("builds_integrator",   "BuildsIntegrator"),
         ]
 
         lines = [f"🔩 **Component Inventory** ({len(components)} tracked):\n"]

@@ -360,6 +360,36 @@ except Exception as _e:
     _UNIVERSAL_FILE_MANAGER_AVAILABLE = False
 
 # ============================================================
+# DEPLOYMENT BRIDGE, AUTONOMOUS NETWORK, MODULE AUTONOMY
+# ============================================================
+try:
+    from modules.deployment_bridge import DeploymentBridge, get_deployment_bridge
+    _DEPLOYMENT_BRIDGE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"DeploymentBridge import failed: {_e}")
+    DeploymentBridge = None  # type: ignore[assignment,misc]
+    get_deployment_bridge = None  # type: ignore[assignment]
+    _DEPLOYMENT_BRIDGE_AVAILABLE = False
+
+try:
+    from modules.autonomous_network import AutonomousNetworkBuilder, get_autonomous_network
+    _AUTONOMOUS_NETWORK_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"AutonomousNetworkBuilder import failed: {_e}")
+    AutonomousNetworkBuilder = None  # type: ignore[assignment,misc]
+    get_autonomous_network = None  # type: ignore[assignment]
+    _AUTONOMOUS_NETWORK_AVAILABLE = False
+
+try:
+    from modules.module_autonomy import ModuleAutonomy, get_module_autonomy
+    _MODULE_AUTONOMY_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"ModuleAutonomy import failed: {_e}")
+    ModuleAutonomy = None  # type: ignore[assignment,misc]
+    get_module_autonomy = None  # type: ignore[assignment]
+    _MODULE_AUTONOMY_AVAILABLE = False
+
+# ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
 DEBUG_MODE = True
@@ -1346,6 +1376,11 @@ class NiblitCore:
         # NEW: SelfIdeaImplementation (research + implement + SLSA + memory)
         self.idea_implementation = None
 
+        # NEW: Deployment bridge, autonomous network, module autonomy
+        self.deployment_bridge: Optional[Any] = None
+        self.autonomous_network: Optional[Any] = None
+        self.module_autonomy: Optional[Any] = None
+
         # Personality layer (conversational AI)
         self.personality = None
 
@@ -1714,6 +1749,22 @@ class NiblitCore:
         self.command_registry.register(
             "sa-awareness", self._cmd_sa_awareness,
             "All structural awareness in one view", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "sa-scripts", self._cmd_sa_scripts,
+            "List every repo script with its function", "structural_awareness", priority=74
+        )
+        self.command_registry.register(
+            "deploy-bridge", lambda t="": self._cmd_deploy_bridge(t),
+            "Cross-deployment state bridge: save/load/status", "deployment", priority=60
+        )
+        self.command_registry.register(
+            "autonomous-network", lambda t="": self._cmd_autonomous_network(t),
+            "Autonomous network builder: status/start/stop/reflect", "network", priority=60
+        )
+        self.command_registry.register(
+            "module-autonomy", lambda t="": self._cmd_module_autonomy(t),
+            "Module autonomy framework: status/start/stop/module", "autonomy", priority=60
         )
 
         # Extended autonomous learning commands
@@ -2873,6 +2924,62 @@ SW Categories: {stats.get('software_study_categories', 0)}
             ]
             return "\n".join(sections)
         return "[StructuralAwareness not available]"
+
+    def _cmd_sa_scripts(self, text: str = "") -> str:
+        """List every repo script and its function."""
+        if self.structural_awareness and hasattr(self.structural_awareness, "all_scripts_report"):
+            return self.structural_awareness.all_scripts_report()
+        return "[StructuralAwareness not available]"
+
+    def _cmd_deploy_bridge(self, text: str = "") -> str:
+        """Cross-deployment state bridge commands."""
+        bridge = getattr(self, "deployment_bridge", None)
+        if bridge is None:
+            return "[DeploymentBridge not available]"
+        sub = (text or "").strip().lower()
+        if not sub or sub == "status":
+            return bridge.status()
+        if sub == "save":
+            return bridge.save(self)
+        if sub == "load":
+            return bridge.load(self)
+        return f"Usage: deploy-bridge [status|save|load]\n{bridge.status()}"
+
+    def _cmd_autonomous_network(self, text: str = "") -> str:
+        """Autonomous network builder commands."""
+        net = getattr(self, "autonomous_network", None)
+        if net is None:
+            return "[AutonomousNetworkBuilder not available]"
+        sub = (text or "").strip().lower()
+        if not sub or sub == "status":
+            return net.status()
+        if sub == "start":
+            net.start()
+            return "✅ Autonomous network loops started"
+        if sub == "stop":
+            net.stop()
+            return "⏹ Autonomous network loops stopped"
+        if sub == "reflect":
+            return net.reflect()
+        return f"Usage: autonomous-network [status|start|stop|reflect]\n{net.status()}"
+
+    def _cmd_module_autonomy(self, text: str = "") -> str:
+        """Module autonomy framework commands."""
+        ma = getattr(self, "module_autonomy", None)
+        if ma is None:
+            return "[ModuleAutonomy not available]"
+        sub = (text or "").strip().lower()
+        if not sub or sub == "status":
+            return ma.report()
+        if sub == "start":
+            ma.start()
+            return "✅ Module autonomy loops started"
+        if sub == "stop":
+            ma.stop()
+            return "⏹ Module autonomy loops stopped"
+        if sub.startswith("module "):
+            return ma.module_status(sub[len("module "):].strip())
+        return f"Usage: module-autonomy [status|start|stop|module <name>]\n{ma.report()}"
 
     # ──────────────────────────────────────
     # EXTENDED AUTONOMOUS LEARNING COMMANDS
@@ -4698,8 +4805,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         interval=20,
                         topics=["car", "computer", "phone"],
                         internet=getattr(self, "internet", None),
-                        semantic_agent=getattr(self, "semantic_agent", None),
-                        searchcode_search=getattr(self, "searchcode_search", None),
                     )
                     log.info("✅ SLSAGenerator initialized")
                     self.startup_report.add("slsa_engine", "ready")
@@ -5003,7 +5108,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             if LiveUpdater:
                 try:
                     self.live_updater = LiveUpdater(base_dir=str(self.config.memory_path.parent)
-                                                    if hasattr(self.config, "memory_path") else None)
+                                                    if getattr(self.config, "memory_path", None) else None)
                     log.info("✅ LiveUpdater initialized")
                     self.startup_report.add("live_updater", "ready")
                 except Exception as e:
@@ -5065,7 +5170,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 try:
                     self.file_manager = FileManager(
                         base_dir=str(self.config.memory_path.parent)
-                        if hasattr(self.config, "memory_path") else None,
+                        if getattr(self.config, "memory_path", None) else None,
                         db=self.db,
                     )
                     log.info("✅ FilesystemManager (enhanced) initialized")
@@ -5328,6 +5433,53 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self.kernel = None
         else:
             self.kernel = None
+
+        # ============================
+        # DEPLOYMENT BRIDGE
+        # ============================
+        if _DEPLOYMENT_BRIDGE_AVAILABLE and get_deployment_bridge:
+            try:
+                self.deployment_bridge = get_deployment_bridge()
+                # Load previous deployment state into this instance
+                load_msg = self.deployment_bridge.load(self)
+                log.info("✅ DeploymentBridge loaded: %s", load_msg)
+                # Start autosave loop
+                self.deployment_bridge.start_autosave(self)
+                self.startup_report.add("deployment_bridge", "ready")
+            except Exception as _e:
+                log.debug("[Core] DeploymentBridge init failed: %s", _e)
+                self.startup_report.add("deployment_bridge", "degraded", str(_e))
+
+        # ============================
+        # AUTONOMOUS NETWORK BUILDER
+        # ============================
+        if _AUTONOMOUS_NETWORK_AVAILABLE and get_autonomous_network:
+            try:
+                self.autonomous_network = get_autonomous_network(core=self)
+                # Seed known endpoints from existing internet/search modules
+                if self.internet:
+                    for ep in getattr(self.internet, "_known_endpoints", []):
+                        self.autonomous_network.register(ep, tags=["internet"])
+                self.autonomous_network.start()
+                log.info("✅ AutonomousNetworkBuilder started")
+                self.startup_report.add("autonomous_network", "ready")
+            except Exception as _e:
+                log.debug("[Core] AutonomousNetworkBuilder init failed: %s", _e)
+                self.startup_report.add("autonomous_network", "degraded", str(_e))
+
+        # ============================
+        # MODULE AUTONOMY FRAMEWORK
+        # ============================
+        if _MODULE_AUTONOMY_AVAILABLE and get_module_autonomy:
+            try:
+                self.module_autonomy = get_module_autonomy(core=self)
+                count = self.module_autonomy.register_all_from_core(self)
+                self.module_autonomy.start()
+                log.info("✅ ModuleAutonomy started (%d modules registered)", count)
+                self.startup_report.add("module_autonomy", "ready")
+            except Exception as _e:
+                log.debug("[Core] ModuleAutonomy init failed: %s", _e)
+                self.startup_report.add("module_autonomy", "degraded", str(_e))
 
         self._init_agents()
 
