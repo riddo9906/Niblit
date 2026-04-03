@@ -21,7 +21,7 @@ except ImportError:
 
 log = logging.getLogger("HFLLMAdapter")
 
-HF_TOKEN = os.environ.get("HF_TOKEN", "") or os.environ.get("HUGGINGFACE_TOKEN", "")
+HF_TOKEN = os.environ.get("HF_TOKEN", "") or os.environ.get("HUGGINGFACE_TOKEN", "") or os.environ.get("HF_API_KEY", "")
 
 try:
     from huggingface_hub import InferenceClient

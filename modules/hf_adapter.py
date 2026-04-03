@@ -23,7 +23,7 @@ except Exception:
     InferenceClient = None
     HF_CLIENT_AVAILABLE = False
 
-HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN", "")
+HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_API_KEY", "")
 DEFAULT_MODEL = "moonshotai/Kimi-K2-Instruct-0905"
 
 class HFAdapter:
