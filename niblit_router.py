@@ -1547,7 +1547,7 @@ Ask me about:
 
         if lower == "hf-status":
             if hf is None:
-                return "⚫ HFBrain not loaded (set HF_API_KEY env var)"
+                return "⚫ HFBrain not loaded (set HF_TOKEN or HF_API_KEY env var)"
             enabled = getattr(hf, "enabled", False)
             model = getattr(hf, "model", "unknown")
             token_set = bool(getattr(hf, "token", None))
@@ -1573,7 +1573,7 @@ Ask me about:
             if not prompt:
                 return "Usage: hf-ask <your prompt>"
             if hf is None:
-                return "⚫ HFBrain not loaded (set HF_API_KEY)"
+                return "⚫ HFBrain not loaded (set HF_TOKEN or HF_API_KEY)"
             try:
                 return hf.ask_single(prompt)
             except Exception as exc:
@@ -2300,6 +2300,29 @@ Ask me about:
             if not unique_facts:
                 return None
 
+            # Filter out internal system facts that are not user-facing knowledge.
+            # The review queue and similar system entries store lists of metadata
+            # (e.g. all topics ever taught) under a single key.  recall() matches
+            # them whenever *any* topic word appears in their serialised JSON,
+            # which would cause unrelated topics to bleed into KB answers.
+            def _is_knowledge_fact(f):
+                if not isinstance(f, dict):
+                    return True
+                val = f.get("value")
+                key = f.get("key", "")
+                # Skip facts whose value is a list — system queues, not knowledge
+                if isinstance(val, list):
+                    return False
+                # Skip known internal system key namespaces
+                if key.startswith("self_teacher:"):
+                    return False
+                return True
+
+            unique_facts = [f for f in unique_facts if _is_knowledge_fact(f)]
+
+            if not unique_facts:
+                return None
+
             # Score by keyword overlap
             def _score(fact):
                 text = (
@@ -2314,6 +2337,14 @@ Ask me about:
 
             if not top:
                 return None
+
+            # Surface topic_knowledge ledger entries first — they are the single
+            # authoritative digest per topic and should appear before raw research
+            # fragments or timestamped teach summaries.
+            def _is_ledger(f):
+                return isinstance(f, dict) and str(f.get("key", "")).startswith("topic_knowledge:")
+
+            top = sorted(top, key=lambda f: (0 if _is_ledger(f) else 1))
 
             lines = [f"💡 **From my knowledge base on: {query}**\n"]
             for fact in top:

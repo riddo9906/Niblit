@@ -307,11 +307,6 @@ def run_shell(core, io):
         try:
             user_input = input("Niblit > ").strip()
 
-            # ── Print pending background notifications (additive) ──────────
-            # Called immediately after input() returns (i.e. after Enter is
-            # pressed) so background output NEVER overwrites the typed line.
-            print_notifications(core, io)
-
             if not user_input:
                 continue
 

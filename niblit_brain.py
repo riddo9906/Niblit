@@ -1163,11 +1163,11 @@ class NiblitBrain:
                 if facts:
                     summary = "; ".join(facts[:3])
                     return (
-                        f"[HFBrain offline — set HF_API_KEY to enable AI responses]\n"
+                        f"[HFBrain offline — set HF_TOKEN (or HF_API_KEY) to enable AI responses]\n"
                         f"From local knowledge: {summary}"
                     )
             return (
-                f"[HFBrain offline — set HF_API_KEY to enable AI responses]\n"
+                f"[HFBrain offline — set HF_TOKEN (or HF_API_KEY) to enable AI responses]\n"
                 f"Received: {user_input}"
             )
 

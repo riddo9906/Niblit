@@ -23,11 +23,16 @@ class HFBrain:
 
         self.enabled = True
 
-        # Use the HF_API_KEY environment variable
-        self.token = os.getenv("HF_API_KEY")
+        # Try the same env var priority order used across the codebase:
+        # HF_TOKEN → HUGGINGFACE_TOKEN → HF_API_KEY
+        self.token = (
+            os.getenv("HF_TOKEN")
+            or os.getenv("HUGGINGFACE_TOKEN")
+            or os.getenv("HF_API_KEY")
+        )
 
         if not self.token:
-            print("[HFBrain Warning] HF_API_KEY not set, HFBrain disabled")
+            print("[HFBrain Warning] No HF token found (HF_TOKEN / HUGGINGFACE_TOKEN / HF_API_KEY), HFBrain disabled")
             self.enabled = False
 
         # HuggingFace router endpoint
@@ -107,8 +112,14 @@ class HFBrain:
                 timeout=90
             )
 
+            if r.status_code == 401:
+                print("[HFBrain] HTTP 401 — invalid or expired token; disabling HFBrain")
+                self.enabled = False
+                return None
+
             if r.status_code != 200:
-                return f"[HFBrain HTTP {r.status_code}] {r.text}"
+                print(f"[HFBrain] HTTP {r.status_code}: {r.text}")
+                return None
 
             data = r.json()
             response = data["choices"][0]["message"]["content"].strip()

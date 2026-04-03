@@ -337,6 +337,9 @@ def _shell_process(core, user_input: str) -> dict:
     """
     Process user_input exactly the way main.py run_shell() does and return
     a structured dict with: reply, suggestion, ts, debug_lines.
+    debug_lines is always empty in normal operation — it is only populated
+    when the user explicitly sends a 'debug' prefixed command so that routing
+    trace messages never appear alongside ordinary chat responses.
     """
     cmd = user_input.strip()
     lower = cmd.lower()
@@ -347,30 +350,24 @@ def _shell_process(core, user_input: str) -> dict:
         return {"reply": f"{ts} Shutdown acknowledged (server continues running).",
                 "suggestion": None, "ts": ts, "debug_lines": []}
 
-    debug_lines = [f"{ts} [DEBUG] COMMAND RECEIVED → {cmd}"]
-
     # DIRECT COMMANDS (exact match, same as main.py)
     direct = _direct_commands(core)
     if lower in direct:
         try:
             result = direct[lower]()
-            debug_lines.append(f"{_ts()} [DEBUG] COMMAND RESULT ← {lower}")
         except Exception as exc:
             result = f"[Command failed] {exc}"
-        return {"reply": str(result), "suggestion": None, "ts": ts, "debug_lines": debug_lines}
+        return {"reply": str(result), "suggestion": None, "ts": ts, "debug_lines": []}
 
     # ROUTED COMMANDS (search, summary, self-research, learn about)
     if any(lower.startswith(p) for p in _ROUTED_PREFIXES):
-        debug_lines.append(f"{_ts()} [DEBUG] ROUTER PROCESS → {cmd}")
         if core.router:
             resp = core.router.process(cmd)
         else:
             resp = core.handle(cmd)
-        debug_lines.append(f"{_ts()} [DEBUG] ROUTER RESULT RETURNED")
-        return {"reply": str(resp), "suggestion": None, "ts": ts, "debug_lines": debug_lines}
+        return {"reply": str(resp), "suggestion": None, "ts": ts, "debug_lines": []}
 
     # CATCH-ALL — pass to core.handle() exactly like main.py
-    debug_lines.append(f"{_ts()} [DEBUG] Passing to core.handle()")
     response = core.handle(cmd)
 
     # Suggestion engine (same as main.py)
@@ -379,7 +376,7 @@ def _shell_process(core, user_input: str) -> dict:
     if sug:
         suggestion = f"Did you mean: {sug[0]} ?"
 
-    return {"reply": str(response), "suggestion": suggestion, "ts": ts, "debug_lines": debug_lines}
+    return {"reply": str(response), "suggestion": suggestion, "ts": ts, "debug_lines": []}
 
 
 
