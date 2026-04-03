@@ -74,7 +74,9 @@ class HFBrain:
     # Local fallback
     # -------------------------
     def _fallback(self, prompt: str):
-        return f"[HFBrain Disabled] {prompt}"
+        # Return None so callers (niblit_brain.think) can apply their own fallback
+        # instead of echoing the full context prompt back to the user.
+        return None
 
     # -------------------------
     # Single query

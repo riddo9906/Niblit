@@ -4800,19 +4800,22 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         log.debug("[INIT] internet.searchcode_search injection failed: %s", _e)
 
             # ============================
-            # SLSA ENGINE (initialized at startup so component report shows it)
+            # SLSA ENGINE (initialized and auto-started so component report shows it)
             # ============================
             if SLSAGenerator:
                 try:
                     self.slsa_engine = SLSAGenerator(
                         interval=20,
                         topics=["car", "computer", "phone"],
+                        db=self.db,  # reuse existing DB — Vercel-safe, no new file write
                         internet=getattr(self, "internet", None),
                     )
-                    log.info("✅ SLSAGenerator initialized")
+                    # Auto-start the background generator thread
+                    self.slsa_thread = self.slsa_engine.start()
+                    log.info("✅ SLSAGenerator initialized and started")
                     self.startup_report.add("slsa_engine", "ready")
                 except Exception as e:
-                    log.debug(f"SLSAGenerator init failed: {e}")
+                    log.warning(f"SLSAGenerator init failed: {e}")
                     self.startup_report.add("slsa_engine", "degraded", str(e))
 
             self.lifecycle = None
@@ -6254,10 +6257,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.slsa_engine = SLSAGenerator(
                 interval=20,
                 topics=topics or ["car", "computer", "phone"],
+                db=getattr(self, "db", None),
                 internet=self.internet,
             )
-            self.slsa_thread = threading.Thread(target=self.slsa_engine.run, daemon=True, name="SLSA-Generator")
-            self.slsa_thread.start()
+            self.slsa_thread = self.slsa_engine.start()
             log.info("[SLSA] SLSA engine started successfully")
             return f"[SLSA] Generator started with topics: {topics or ['car', 'computer', 'phone']}"
         except Exception as e:
@@ -6271,12 +6274,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 return "[SLSA engine not running]"
 
             log.info("[SLSA] Stopping SLSA engine...")
-            self.slsa_engine.stop()
-
-            if self.slsa_thread:
-                self.slsa_thread.join(timeout=5)
-                if self.slsa_thread.is_alive():
-                    log.warning("[SLSA] Engine thread did not stop within timeout")
+            self.slsa_engine.stop()  # join is now handled inside SLSAGenerator.stop()
 
             self.slsa_engine = None
             self.slsa_thread = None
@@ -6303,11 +6301,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
             if not self.slsa_engine:
                 return "[SLSA] Engine not initialized"
 
-            if self.slsa_thread and self.slsa_thread.is_alive():
-                topics = self.slsa_engine.topics if self.slsa_engine else []
+            running = getattr(self.slsa_engine, "is_running", False) or (
+                self.slsa_thread and self.slsa_thread.is_alive()
+            )
+            topics = getattr(self.slsa_engine, "topics", [])
+            if running:
                 return f"[SLSA] Generator is running with topics: {topics}"
             else:
-                return "[SLSA] Generator is stopped"
+                return f"[SLSA] Generator is initialized but not running (topics: {topics})"
         except Exception as e:
             log.error(f"[SLSA] Failed to get status: {e}")
             return f"[SLSA status unavailable: {e}]"
