@@ -28,7 +28,7 @@ except Exception:
     NiblitCore = None
 
 # ══════════════════════════════════════════════════════════════
-# FLASK-API STYLE RENDERERS
+# CONTENT NEGOTIATION RENDERERS
 # ══════════════════════════════════════════════════════════════
 
 class JSONRenderer:
@@ -1725,17 +1725,13 @@ def api_search_get(request: Request, q: str = "", query: str = ""):
 
 
 @app.post("/api/search")
-async def api_search_post(request: Request):
+def api_search_post(request: Request, body: SearchBody):
     """Dedicated search endpoint (POST) — wraps the 'search <query>' command."""
     if not require_key(request):
         return render_response(request, {"error": "unauthorized"}, status=401)
     if rate_limited(request):
         return render_response(request, {"error": "rate limit reached"}, status=429)
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    search_q = (body.get("query") or body.get("text") or "").strip()
+    search_q = (body.query or body.text).strip()
     if not search_q:
         return render_response(request,
             {"error": "missing query — send ?q=<query> or POST {\"query\":\"...\"}"},
@@ -1746,7 +1742,8 @@ async def api_search_post(request: Request):
     try:
         result = core.handle(f"search {search_q}")
     except Exception as exc:
-        result = f"[error] {exc}"
+        logging.getLogger("NiblitApp").error("search error: %s", exc)
+        result = "[error] search failed — see server logs"
     return render_response(request, {"query": search_q, "result": result})
 
 
@@ -1771,7 +1768,8 @@ def chat(request: Request, body: ChatBody):
     try:
         result = _shell_process(core, text)
     except Exception as exc:
-        result = {"reply": f"[error] {exc}", "suggestion": None,
+        logging.getLogger("NiblitApp").error("_shell_process error: %s", exc)
+        result = {"reply": "[error] request failed — see server logs", "suggestion": None,
                   "ts": _ts(), "debug_lines": []}
     return render_response(request, result)
 

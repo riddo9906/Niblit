@@ -99,12 +99,14 @@ def chat(body: ChatRequest):
         return JSONResponse(content={"error": "no text provided"}, status_code=400)
     core = _get_core()
     if core is None:
-        return {"reply": f"[error] NiblitCore unavailable: {_core_error}",
+        log.warning("NiblitCore unavailable for chat request")
+        return {"reply": "[error] NiblitCore unavailable — see server logs",
                 "ts": int(time.time())}
     try:
         reply = core.handle(text)
     except Exception as exc:
-        reply = f"[error] {exc}"
+        log.error("core.handle error: %s", exc)
+        reply = "[error] request failed — see server logs"
     return {"reply": reply, "ts": int(time.time())}
 
 
@@ -113,6 +115,6 @@ def api_status():
     core = _get_core()
     return {
         "core_loaded": core is not None,
-        "core_error": _core_error,
+        "core_error": _core_error is not None,
         "ts": int(time.time()),
     }
