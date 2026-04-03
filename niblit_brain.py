@@ -142,10 +142,12 @@ except Exception as _e:
     _SERPEX_TOOL_AVAILABLE = False
 
 try:
-    from niblit_memory import LocalDB
+    from niblit_memory import LocalDB, _writable_path as _mem_writable_path
 except Exception as _e:
     log.warning(f"LocalDB unavailable: {_e}")
     LocalDB = None
+    def _mem_writable_path(filename, env_var=None):  # type: ignore[misc]
+        return filename
 # pylint: enable=invalid-name
 
 
@@ -153,9 +155,10 @@ except Exception as _e:
 class _DBMemoryAdapter:
     """Adapter for backward compatibility with old memory interfaces."""
 
-    def __init__(self, memory, db_path="niblit.db"):
+    def __init__(self, memory, db_path=""):
         self._memory = memory
-        self._db = LocalDB(db_path) if LocalDB else None
+        _path = db_path or _mem_writable_path("niblit.db")
+        self._db = LocalDB(_path) if LocalDB else None
 
     def __getattr__(self, name):
         return getattr(self._memory, name)
