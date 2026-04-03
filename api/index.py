@@ -571,6 +571,59 @@ COMMAND_GROUPS = [
             {"label": "loop-errors",             "cmd": "loop-errors",          "desc": "Display all errors captured by the LoopTracer since startup"},
         ],
     },
+    # ── HFBrain ──────────────────────────────────────────────────────────────
+    {
+        "group": "HFBrain",
+        "icon": "🤗",
+        "commands": [
+            {"label": "hf-status",               "cmd": "hf-status",            "desc": "Show HuggingFace Brain status (model, enabled, token set)"},
+            {"label": "hf-enable",               "cmd": "hf-enable",            "desc": "Enable HFBrain LLM responses"},
+            {"label": "hf-disable",              "cmd": "hf-disable",           "desc": "Disable HFBrain (research-only mode)"},
+            {"label": "hf-ask <prompt>",         "cmd": "hf-ask ",              "desc": "Send a prompt directly to HFBrain",                  "has_input": True},
+        ],
+    },
+    # ── Deployment Bridge ────────────────────────────────────────────────────
+    {
+        "group": "Deployment Bridge",
+        "icon": "🔗",
+        "commands": [
+            {"label": "deploy-bridge status",    "cmd": "deploy-bridge status", "desc": "Show cross-deployment snapshot status (facts, ALE cycles)"},
+            {"label": "deploy-bridge save",      "cmd": "deploy-bridge save",   "desc": "Persist current state to deployment snapshot"},
+            {"label": "deploy-bridge load",      "cmd": "deploy-bridge load",   "desc": "Merge previous deployment snapshot into live system"},
+        ],
+    },
+    # ── Autonomous Network ───────────────────────────────────────────────────
+    {
+        "group": "Autonomous Network",
+        "icon": "🌐",
+        "commands": [
+            {"label": "net status",              "cmd": "net status",           "desc": "Show autonomous network builder status and endpoint scores"},
+            {"label": "net start",               "cmd": "net start",            "desc": "Start autonomous network evolution loops"},
+            {"label": "net stop",                "cmd": "net stop",             "desc": "Stop autonomous network loops"},
+            {"label": "net reflect",             "cmd": "net reflect",          "desc": "Run reflection on network performance and suggest improvements"},
+        ],
+    },
+    # ── Module Autonomy ──────────────────────────────────────────────────────
+    {
+        "group": "Module Autonomy",
+        "icon": "🤖",
+        "commands": [
+            {"label": "autonomy status",         "cmd": "autonomy status",      "desc": "Show module autonomy framework status and health"},
+            {"label": "autonomy start",          "cmd": "autonomy start",       "desc": "Start module autonomy health/improve/unify loops"},
+            {"label": "autonomy stop",           "cmd": "autonomy stop",        "desc": "Stop module autonomy loops"},
+            {"label": "module-autonomy module <name>", "cmd": "module-autonomy module ", "desc": "Show health/improvement info for a specific module", "has_input": True},
+        ],
+    },
+    # ── Structural Awareness ─────────────────────────────────────────────────
+    {
+        "group": "Structural Awareness",
+        "icon": "🔩",
+        "commands": [
+            {"label": "sa-scripts",              "cmd": "sa-scripts",           "desc": "List every repo script and its function"},
+            {"label": "my structure",            "cmd": "my structure",         "desc": "Full component inventory (all 47+ tracked components)"},
+            {"label": "sa-awareness",            "cmd": "sa-awareness",         "desc": "All structural awareness in one combined view"},
+        ],
+    },
 ]
 
 _ALL_CMDS: list = [c["cmd"].strip() for g in COMMAND_GROUPS for c in g["commands"]]
