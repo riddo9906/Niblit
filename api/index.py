@@ -286,6 +286,272 @@ class SearchBody(BaseModel):
     text: str = ""
 
 
+# ── Dashboard HTML ──────────────────────────────────────────────────────────
+_DASHBOARD_HTML = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Niblit AI — Terminal</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0b0b0f;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;font-size:14px;overflow:hidden}
+#topbar{display:flex;align-items:center;gap:12px;padding:0 16px;height:40px;background:#0d0d13;border-bottom:1px solid #1e2030;flex-shrink:0}
+.logo{font-weight:700;color:#0ea5a4;letter-spacing:.05em;font-size:15px}
+.dot{width:8px;height:8px;border-radius:50%;background:#6ee7b7;flex-shrink:0;transition:background .4s}
+.dot.red{background:#f87171}
+.tstat{color:#64748b;font-size:12px}
+.tstat span{color:#e2e8f0}
+.spacer{flex:1}
+#main{display:flex;height:calc(100vh - 40px);overflow:hidden}
+/* ── Sidebar ─────────────────────────────────────────────── */
+#sidebar{width:220px;flex-shrink:0;background:#111116;border-right:1px solid #1e2030;display:flex;flex-direction:column;overflow:hidden}
+.sb-head{padding:10px 12px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#64748b;flex-shrink:0}
+#sidebar-inner{flex:1;overflow-y:auto;padding-bottom:8px}
+#sidebar-inner::-webkit-scrollbar{width:4px}
+#sidebar-inner::-webkit-scrollbar-thumb{background:#1e2030;border-radius:2px}
+.sg-label{padding:8px 12px 2px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#4b5563;display:flex;align-items:center;gap:5px}
+.sg-label .gi{font-size:12px}
+.sc{display:flex;align-items:center;gap:6px;padding:4px 12px 4px 20px;cursor:pointer;border-radius:4px;margin:0 4px;color:#94a3b8;font-size:12px;transition:background .1s,color .1s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc:hover{background:#1e2030;color:#e2e8f0}
+.sc-dot{width:4px;height:4px;border-radius:50%;background:#0ea5a4;flex-shrink:0}
+/* ── Terminal ─────────────────────────────────────────────── */
+#terminal{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+#output{flex:1;overflow-y:auto;padding:12px 16px;font-family:'JetBrains Mono',Consolas,'Courier New',monospace;font-size:13px;line-height:1.65}
+#output::-webkit-scrollbar{width:6px}
+#output::-webkit-scrollbar-thumb{background:#1e2030;border-radius:3px}
+.ln{padding:1px 0;word-break:break-all}
+.ln.pl{color:#0ea5a4;font-weight:600}
+.ln.rp{color:#c9d1d9}
+.ln.er{color:#f87171}
+.ln.sy{color:#64748b;font-style:italic}
+.ln.bt{color:#6ee7b7}
+.ln.sp{color:#1e2030;user-select:none}
+#inputbar{display:flex;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid #1e2030;background:#0d0d13;flex-shrink:0;position:relative}
+.prompt{color:#0ea5a4;font-family:'JetBrains Mono',Consolas,monospace;font-weight:700;font-size:13px;white-space:nowrap}
+#cmd-input{flex:1;background:transparent;border:none;outline:none;color:#e2e8f0;font-family:'JetBrains Mono',Consolas,monospace;font-size:13px;caret-color:#0ea5a4;min-width:0}
+#cmd-input::placeholder{color:#334155}
+#send-btn{background:#0ea5a4;border:none;color:#0b0b0f;padding:5px 14px;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0}
+#send-btn:hover{background:#0ccbca}
+#send-btn:disabled{background:#1e2030;color:#4b5563;cursor:not-allowed}
+#sug-box{position:absolute;bottom:52px;left:56px;right:60px;background:#1a1a24;border:1px solid #334155;border-radius:4px;font-family:monospace;font-size:12px;z-index:100;display:none;max-height:140px;overflow-y:auto}
+.sug-item{padding:5px 10px;cursor:pointer;color:#94a3b8}
+.sug-item:hover,.sug-item.act{background:#0ea5a4;color:#0b0b0f}
+/* ── Status panel ─────────────────────────────────────────── */
+#status{width:240px;flex-shrink:0;background:#111116;border-left:1px solid #1e2030;display:flex;flex-direction:column;overflow:hidden}
+.sp-head{padding:10px 12px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#64748b;flex-shrink:0;border-bottom:1px solid #1e2030}
+#status-inner{flex:1;overflow-y:auto;padding:10px 12px}
+#status-inner::-webkit-scrollbar{width:4px}
+#status-inner::-webkit-scrollbar-thumb{background:#1e2030;border-radius:2px}
+.sp-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #0d0d13}
+.sp-k{color:#64748b;font-size:12px}
+.sp-v{font-size:12px;color:#e2e8f0;text-align:right;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-v.ok{color:#6ee7b7}.sp-v.er{color:#f87171}.sp-v.wa{color:#fbbf24}
+.sp-sec{margin-top:10px;margin-bottom:4px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#4b5563}
+.sp-topic{padding:3px 6px;margin:3px 0;background:#0d0d13;border-radius:3px;font-size:11px;color:#94a3b8;border-left:2px solid #0ea5a4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:800px){#sidebar{display:none}#status{display:none}}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="logo">&#x1F916; NIBLIT AI</div>
+  <div id="live-dot" class="dot red" title="Connecting..."></div>
+  <div class="tstat">Core: <span id="t-core">...</span></div>
+  <div class="tstat">Threads: <span id="t-threads">&#8212;</span></div>
+  <div class="tstat">ALE: <span id="t-ale">&#8212;</span></div>
+  <div class="spacer"></div>
+  <div class="tstat" id="t-clock"></div>
+</div>
+<div id="main">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sb-head">Commands</div>
+    <div id="sidebar-inner"><div id="cmd-groups"><div class="sg-label">&#x23F3; Loading&#8230;</div></div></div>
+  </div>
+  <!-- Terminal -->
+  <div id="terminal">
+    <div id="output"></div>
+    <div id="inputbar">
+      <span class="prompt">niblit&gt;</span>
+      <input id="cmd-input" type="text" placeholder="type a command or message&#8230;" autocomplete="off" autocorrect="off" spellcheck="false">
+      <div id="sug-box"></div>
+      <button id="send-btn" onclick="doSend()">Send &#x23CE;</button>
+    </div>
+  </div>
+  <!-- Status panel -->
+  <div id="status">
+    <div class="sp-head">System Status</div>
+    <div id="status-inner">
+      <div class="sp-row"><span class="sp-k">Core</span><span class="sp-v" id="sp-core">&#8230;</span></div>
+      <div class="sp-row"><span class="sp-k">ALE</span><span class="sp-v" id="sp-ale">&#8230;</span></div>
+      <div class="sp-row"><span class="sp-k">Cycle</span><span class="sp-v" id="sp-cycle">&#8212;</span></div>
+      <div class="sp-row"><span class="sp-k">Threads</span><span class="sp-v" id="sp-threads">&#8212;</span></div>
+      <div class="sp-row"><span class="sp-k">Facts</span><span class="sp-v" id="sp-facts">&#8212;</span></div>
+      <div class="sp-row"><span class="sp-k">Updated</span><span class="sp-v" id="sp-ts">&#8212;</span></div>
+      <div class="sp-sec">Current Topic</div>
+      <div class="sp-topic" id="sp-topic">&#8212;</div>
+      <div class="sp-sec">Research Queue</div>
+      <div id="sp-topics"></div>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+var out=document.getElementById('output'),inp=document.getElementById('cmd-input');
+var sugBox=document.getElementById('sug-box');
+var hist=[],histIdx=-1,busy=false,sugItems=[],sugSel=-1;
+
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function addLine(text,cls){
+  var d=document.createElement('div');
+  d.className='ln '+(cls||'rp');
+  d.textContent=text;
+  out.appendChild(d);
+  out.scrollTop=out.scrollHeight;
+}
+function addSep(){addLine('\\u2500'.repeat(58),'sp');}
+
+function setBusy(b){
+  busy=b;
+  document.getElementById('send-btn').disabled=b;
+  inp.disabled=b;
+  document.getElementById('send-btn').textContent=b?'\\u2026':'Send \\u23CE';
+}
+
+async function doSend(){
+  var text=inp.value.trim();
+  if(!text||busy)return;
+  inp.value='';hist.unshift(text);histIdx=-1;
+  hideSug();
+  addLine('niblit> '+text,'pl');
+  setBusy(true);
+  try{
+    var res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});
+    var data=await res.json();
+    if(data.error){addLine('[error] '+data.error,'er');}
+    else{(data.reply||'').split('\\n').forEach(function(l){addLine(l,'rp');});}
+  }catch(e){addLine('[network error] '+e.message,'er');}
+  setBusy(false);inp.focus();
+}
+
+function hideSug(){sugBox.style.display='none';sugItems=[];sugSel=-1;}
+
+function showSug(items){
+  sugItems=items;sugSel=-1;
+  sugBox.innerHTML='';
+  if(!items.length){hideSug();return;}
+  items.forEach(function(s,i){
+    var d=document.createElement('div');d.className='sug-item';d.textContent=s;
+    d.addEventListener('mousedown',function(e){e.preventDefault();inp.value=s+' ';hideSug();inp.focus();});
+    sugBox.appendChild(d);
+  });
+  sugBox.style.display='block';
+}
+
+inp.addEventListener('input',function(){
+  var v=inp.value;
+  if(!v){hideSug();return;}
+  fetch('/api/suggest?q='+encodeURIComponent(v)).then(function(r){return r.json();}).then(function(d){
+    if(inp.value===v)showSug(d.suggestions||[]);
+  }).catch(function(){});
+});
+
+inp.addEventListener('keydown',function(e){
+  if(e.key==='Enter'){e.preventDefault();if(sugSel>=0&&sugItems[sugSel]){inp.value=sugItems[sugSel]+' ';hideSug();}else{doSend();}return;}
+  if(e.key==='Escape'){hideSug();return;}
+  if(e.key==='Tab'){e.preventDefault();if(sugItems.length===1){inp.value=sugItems[0]+' ';hideSug();}else if(sugItems.length>1){sugSel=(sugSel+1)%sugItems.length;Array.from(sugBox.children).forEach(function(c,i){c.className='sug-item'+(i===sugSel?' act':'');});}return;}
+  if(e.key==='ArrowDown'){e.preventDefault();if(sugItems.length){sugSel=(sugSel+1)%sugItems.length;Array.from(sugBox.children).forEach(function(c,i){c.className='sug-item'+(i===sugSel?' act':'');});}else if(histIdx>0){histIdx--;inp.value=hist[histIdx];}else{histIdx=-1;inp.value='';}return;}
+  if(e.key==='ArrowUp'){e.preventDefault();if(sugItems.length){if(sugSel>0)sugSel--;Array.from(sugBox.children).forEach(function(c,i){c.className='sug-item'+(i===sugSel?' act':'');});}else if(histIdx<hist.length-1){histIdx++;inp.value=hist[histIdx];}return;}
+});
+document.addEventListener('click',function(e){if(!sugBox.contains(e.target)&&e.target!==inp)hideSug();});
+
+async function loadBoot(){
+  addLine('\\u250c'+('\\u2500'.repeat(43))+'\\u2510','bt');
+  addLine('\\u2502           NIBLIT AI  TERMINAL            \\u2502','bt');
+  addLine('\\u2502     Autonomous Intelligence Platform     \\u2502','bt');
+  addLine('\\u2514'+('\\u2500'.repeat(43))+'\\u2518','bt');
+  addLine('Connecting to Niblit core\\u2026','sy');
+  try{
+    var res=await fetch('/api/boot');
+    var data=await res.json();
+    addSep();
+    (data.messages||[]).forEach(function(m){addLine(m,'bt');});
+    addSep();
+    if(data.ready){
+      addLine('\\u2713 Core ready. Type any command or message below.','sy');
+      addLine('  Tip: Tab = autocomplete  \\u2191/\\u2193 = history  Click sidebar = run command','sy');
+    }else{
+      addLine('\\u26a0 Running in degraded mode \\u2014 NiblitCore unavailable.','er');
+      addLine('  Commands will return errors until core loads.','sy');
+    }
+  }catch(e){addLine('[boot error] '+e.message,'er');}
+}
+
+async function loadCommands(){
+  try{
+    var res=await fetch('/api/commands');
+    var data=await res.json();
+    var ctr=document.getElementById('cmd-groups');ctr.innerHTML='';
+    (data.commands||[]).forEach(function(g){
+      var lbl=document.createElement('div');lbl.className='sg-label';
+      lbl.innerHTML='<span class="gi">'+esc(g.icon||'')+'</span>'+esc(g.group||'');
+      ctr.appendChild(lbl);
+      (g.commands||[]).forEach(function(c){
+        var div=document.createElement('div');div.className='sc';div.title=esc(c.desc||'');
+        div.innerHTML='<span class="sc-dot"></span>'+esc(c.label||c.cmd||'');
+        div.addEventListener('click',function(){inp.value=c.cmd||'';inp.focus();if(!c.has_input)doSend();});
+        ctr.appendChild(div);
+      });
+    });
+  }catch(e){document.getElementById('cmd-groups').innerHTML='<div class="sg-label">Failed to load</div>';}
+}
+
+async function pollBg(){
+  try{
+    var res=await fetch('/api/bg_status');
+    var d=await res.json();
+    document.getElementById('t-threads').textContent=d.threads||'\\u2014';
+    document.getElementById('sp-threads').textContent=d.threads||'\\u2014';
+    document.getElementById('sp-ts').textContent=(d.ts||'').slice(11)||'\\u2014';
+    if(d.ale){
+      var a=d.ale,run=a.running;
+      document.getElementById('t-ale').textContent=run?'running':'stopped';
+      var sv=document.getElementById('sp-ale');sv.textContent=run?'running':'stopped';sv.className='sp-v '+(run?'ok':'wa');
+      document.getElementById('sp-cycle').textContent=a.cycle||'0';
+      document.getElementById('sp-topic').textContent=a.topic||'\\u2014';
+    }
+    if((d.topics||[]).length){
+      var tp=document.getElementById('sp-topics');tp.innerHTML='';
+      d.topics.forEach(function(t){var div=document.createElement('div');div.className='sp-topic';div.textContent=t;tp.appendChild(div);});
+    }
+    document.getElementById('live-dot').className='dot';
+    document.getElementById('live-dot').title='Live';
+  }catch(e){document.getElementById('live-dot').className='dot red';}
+}
+
+async function pollStatus(){
+  try{
+    var res=await fetch('/api/status');
+    var d=await res.json();
+    var ok=d.core_loaded;
+    document.getElementById('t-core').textContent=ok?'ok':'error';
+    var sv=document.getElementById('sp-core');
+    sv.textContent=ok?'\\u2713 loaded':'\\u2717 '+(d.core_error||'unavailable');
+    sv.className='sp-v '+(ok?'ok':'er');
+    if(d.facts_count!==undefined)document.getElementById('sp-facts').textContent=d.facts_count;
+  }catch(e){}
+}
+
+function updateClock(){document.getElementById('t-clock').textContent=new Date().toLocaleTimeString();}
+
+loadBoot();loadCommands();pollBg();pollStatus();
+setInterval(pollBg,15000);setInterval(pollStatus,30000);setInterval(updateClock,1000);
+inp.focus();
+</script>
+</body>
+</html>"""
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -297,24 +563,7 @@ def health():
 def index(request: Request):
     accept = request.headers.get("accept", "")
     if "text/html" in accept:
-        html = (
-            "<!doctype html><html><head>"
-            "<meta charset='utf-8'><title>Niblit AI</title>"
-            "<style>body{font-family:Inter,sans-serif;background:#0b0b0f;"
-            "color:#eaeaea;padding:2rem}h1{color:#0ea5a4}a{color:#6ee7b7}"
-            "ul{line-height:2}</style></head><body>"
-            "<h1>Niblit AI — Serverless API</h1>"
-            "<p>The Niblit AI backend is running. Available endpoints:</p><ul>"
-            "<li><a href='/health'>/health</a> — liveness probe</li>"
-            "<li><a href='/ping'>/ping</a> — latency check</li>"
-            "<li><a href='/api/status'>/api/status</a> — system status</li>"
-            "<li><a href='/api/commands'>/api/commands</a> — command catalog</li>"
-            "<li><a href='/api/boot'>/api/boot</a> — boot sequence</li>"
-            "<li><b>POST /chat</b> — send a message to Niblit</li>"
-            "<li><a href='/memory'>/memory</a> — stored facts (API key required)</li>"
-            "</ul></body></html>"
-        )
-        return HTMLResponse(html)
+        return HTMLResponse(_DASHBOARD_HTML)
     return {
         "service": "Niblit AI",
         "status": "ok",
