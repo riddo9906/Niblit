@@ -17,6 +17,7 @@ import os
 import sys
 import logging
 import json
+import tempfile
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -48,7 +49,11 @@ class WorkspaceInitializer:
         Args:
             base_path: Base path for workspace (default: current directory)
         """
-        self.base_path = Path(base_path) if base_path else Path.cwd()
+        if base_path:
+            self.base_path = Path(base_path)
+        else:
+            cwd = Path.cwd()
+            self.base_path = cwd if os.access(str(cwd), os.W_OK) else Path(tempfile.gettempdir())
         self.workspace_path = self.base_path / "ProjectOne"
         self.config = {}
         self.created_dirs = []

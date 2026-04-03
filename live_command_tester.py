@@ -42,7 +42,19 @@ os.chdir(BASE_DIR)
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-REPORT_PATH = os.path.join(BASE_DIR, "niblit_live_test_report.json")
+try:
+    from niblit_memory import _writable_path as _mem_writable_path
+except Exception:
+    import tempfile as _tempfile
+    def _mem_writable_path(fn, env_var=None):  # type: ignore[misc]
+        if env_var:
+            v = os.environ.get(env_var, "").strip()
+            if v:
+                return v
+        cwd = os.getcwd()
+        return os.path.join(cwd, fn) if os.access(cwd, os.W_OK) else os.path.join(_tempfile.gettempdir(), fn)
+
+REPORT_PATH = _mem_writable_path("niblit_live_test_report.json", "NIBLIT_TEST_REPORT_PATH")
 
 # ─────────────────────────────────────────────
 # HELPERS

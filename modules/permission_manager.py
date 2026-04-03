@@ -1,6 +1,18 @@
 import json, os
 
-PERM_FILE = "niblit_perms.json"
+try:
+    from niblit_memory import _writable_path as _mem_writable_path
+except Exception:
+    import tempfile as _tempfile
+    def _mem_writable_path(fn, env_var=None):  # type: ignore[misc]
+        if env_var:
+            v = os.environ.get(env_var, "").strip()
+            if v:
+                return v
+        cwd = os.getcwd()
+        return os.path.join(cwd, fn) if os.access(cwd, os.W_OK) else os.path.join(_tempfile.gettempdir(), fn)
+
+PERM_FILE = _mem_writable_path("niblit_perms.json")
 
 class PermissionManager:
     def __init__(self):

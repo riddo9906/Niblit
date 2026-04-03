@@ -60,6 +60,22 @@ except ImportError:
     pass  # python-dotenv not available; rely on os.environ
 
 # ---------------------------------------------------------------------------
+# Writable-path helper
+# ---------------------------------------------------------------------------
+
+try:
+    from niblit_memory import _writable_path as _mem_writable_path
+except Exception:
+    import tempfile as _tempfile
+    def _mem_writable_path(fn, env_var=None):  # type: ignore[misc]
+        if env_var:
+            v = os.environ.get(env_var, "").strip()
+            if v:
+                return v
+        cwd = os.getcwd()
+        return os.path.join(cwd, fn) if os.access(cwd, os.W_OK) else os.path.join(_tempfile.gettempdir(), fn)
+
+# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
 
@@ -67,7 +83,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
     handlers=[
-        logging.FileHandler("niblit_full_pipeline.log"),
+        logging.FileHandler(_mem_writable_path("niblit_full_pipeline.log")),
         logging.StreamHandler(),
     ],
 )
@@ -87,7 +103,7 @@ SANDBOX_IMAGE: str = os.getenv("SANDBOX_IMAGE", "python:3.12-slim")
 SANDBOX_TIMEOUT: int = int(os.getenv("SANDBOX_TIMEOUT", "30"))
 PROMETHEUS_ENABLED: bool = os.getenv("PROMETHEUS_ENABLED", "false").lower() in ("1", "true", "yes")
 PROMETHEUS_PORT: int = int(os.getenv("PROMETHEUS_PORT", "9090"))
-DB_PATH: str = os.getenv("NIBLIT_DB_PATH", "niblit_memory.db")
+DB_PATH: str = os.getenv("NIBLIT_DB_PATH") or _mem_writable_path("niblit_memory.db")
 
 # ---------------------------------------------------------------------------
 # Optional heavy dependencies (all gracefully absent)

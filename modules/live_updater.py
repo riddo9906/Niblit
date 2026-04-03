@@ -21,6 +21,7 @@ import importlib.util
 import ast
 import traceback
 import shutil
+import tempfile
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -75,7 +76,11 @@ class LiveUpdater:
         self._history: List[Dict[str, Any]] = []
         # Reload timestamps keyed by module name — avoids monkey-patching modules
         self._reload_times: Dict[str, float] = {}
-        self._backup_dir = self.base_dir / ".update_backups"
+        # Use a writable backup dir: fall back to /tmp when base_dir is read-only
+        if os.access(str(self.base_dir), os.W_OK):
+            self._backup_dir = self.base_dir / ".update_backups"
+        else:
+            self._backup_dir = Path(tempfile.gettempdir()) / ".update_backups"
         self._backup_dir.mkdir(exist_ok=True)
         log.info("[LiveUpdater] Initialized — base_dir=%s", self.base_dir)
 

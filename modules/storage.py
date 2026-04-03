@@ -1,12 +1,24 @@
 # modules/storage.py
 import json, os, time
 
+try:
+    from niblit_memory import _writable_path as _mem_writable_path
+except Exception:
+    import tempfile as _tempfile
+    def _mem_writable_path(fn, env_var=None):  # type: ignore[misc]
+        if env_var:
+            v = os.environ.get(env_var, "").strip()
+            if v:
+                return v
+        cwd = os.getcwd()
+        return os.path.join(cwd, fn) if os.access(cwd, os.W_OK) else os.path.join(_tempfile.gettempdir(), fn)
+
 def now_ts():
     return int(time.time())
 
 class KnowledgeDB:
-    def __init__(self, path='niblit_memory.json'):
-        self.path = path
+    def __init__(self, path=''):
+        self.path = path or _mem_writable_path('niblit_memory.json', 'NIBLIT_MEMORY_PATH')
         self.data = {
             'facts': [],
             'interactions': [],
