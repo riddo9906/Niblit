@@ -16,7 +16,7 @@ uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
 requests>=2.28.0
 python-dotenv>=1.0.0
-huggingface-hub==0.19.4
+huggingface-hub>=0.20.0
 
 # ── Self-Teaching / Autonomous Learning ─────────────────────────────────────
 
