@@ -19,6 +19,12 @@ import re
 
 log = logging.getLogger("KnowledgeDigest")
 
+# Maximum characters of raw content sent to the LLM for rephrasing
+_MAX_LLM_INPUT_LENGTH = 900
+
+# Maximum characters returned when no LLM is available (fallback path)
+_MAX_FALLBACK_LENGTH = 600
+
 # Patterns for internal metadata that should never appear in stored facts
 _INTERNAL_KEY_PATTERNS = re.compile(
     r"\b(?:gap_learned|self_teach_summary|quiz|ale_reflection|ale_learned"
@@ -97,7 +103,7 @@ class KnowledgeDigest:
             try:
                 prompt = _DIGEST_PROMPT.format(
                     topic=topic,
-                    content=cleaned[:900],
+                    content=cleaned[:_MAX_LLM_INPUT_LENGTH],
                 )
                 messages = [{"role": "user", "content": prompt}]
                 result = active_llm.query_llm(messages, max_tokens=280)
@@ -114,4 +120,4 @@ class KnowledgeDigest:
                 log.debug("[KnowledgeDigest] LLM digest failed for '%s': %s", topic, exc)
 
         # Fallback: cleaned text, trimmed to a readable length
-        return cleaned[:600]
+        return cleaned[:_MAX_FALLBACK_LENGTH]
