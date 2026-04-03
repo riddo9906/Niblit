@@ -18,6 +18,7 @@ import time
 import threading
 import logging
 import platform
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -112,8 +113,6 @@ class StructuralAwareness:
         The legacy ``filter_prefix`` parameter is preserved for compatibility but
         the report always covers the whole project tree.
         """
-        from collections import defaultdict as _dd
-
         # Determine project root from this file's location
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -121,7 +120,7 @@ class StructuralAwareness:
                       "node_modules", ".vercel", "venv", ".venv", "env"}
 
         # Build tree: rel_dir -> [filename, ...]
-        tree: Dict[str, List[str]] = _dd(list)
+        tree: Dict[str, List[str]] = defaultdict(list)
 
         for dirpath, dirnames, filenames in os.walk(base):
             dirnames[:] = sorted(d for d in dirnames if d not in _SKIP_DIRS)

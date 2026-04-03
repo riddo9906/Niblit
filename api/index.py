@@ -1319,7 +1319,8 @@ def api_slsa_start(request: Request):
         result = core._start_slsa_engine()
         return {"result": result, "ts": int(time.time())}
     except Exception as exc:
-        return JSONResponse({"error": str(exc)}, status_code=500)
+        log.error("SLSA start failed: %s", exc)
+        return JSONResponse({"error": "SLSA start failed — see server logs"}, status_code=500)
 
 
 @app.post("/api/slsa-stop")
@@ -1336,7 +1337,8 @@ def api_slsa_stop(request: Request):
         result = core._stop_slsa_engine()
         return {"result": result, "ts": int(time.time())}
     except Exception as exc:
-        return JSONResponse({"error": str(exc)}, status_code=500)
+        log.error("SLSA stop failed: %s", exc)
+        return JSONResponse({"error": "SLSA stop failed — see server logs"}, status_code=500)
 
 
 # ── Module Inventory ──────────────────────────────────────────────────────────
