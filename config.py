@@ -23,8 +23,8 @@ class Config:
     PORT: int = int(os.getenv("PORT", "5000"))
     SECRET_KEY: str = os.getenv("SECRET_KEY", "niblit-secret-change-me")
 
-    # HuggingFace
-    HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+    # HuggingFace — accepts HF_TOKEN, HUGGINGFACE_TOKEN, or HF_API_KEY (Vercel)
+    HF_TOKEN: str = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_API_KEY", "")
 
     # SerpEx search API (https://serpex.dev)
     SERPEX_API_KEY: str = os.getenv("SERPEX_API_KEY", "")
