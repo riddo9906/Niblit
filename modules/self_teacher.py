@@ -186,6 +186,14 @@ class SelfTeacher:
 
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
 
+        # Digest the summary into Niblit's own words before persisting
+        # (purely additive: falls back to the cleaned summary when no LLM)
+        try:
+            from modules.knowledge_digest import KnowledgeDigest as _KD
+            summary = _KD(llm=self.llm).digest(topic, summary)
+        except Exception:
+            pass
+
         ts = int(time.time())
         try:
             if hasattr(self.db, "add_fact"):
@@ -243,6 +251,15 @@ class SelfTeacher:
             learned = self._get_recent_facts(topic, limit=5)
 
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
+
+        # Digest the summary into Niblit's own words before persisting
+        # (purely additive: falls back to the cleaned summary when no LLM)
+        if learned:
+            try:
+                from modules.knowledge_digest import KnowledgeDigest as _KD
+                summary = _KD(llm=self.llm).digest(topic, summary)
+            except Exception:
+                pass
 
         if learned:
             try:

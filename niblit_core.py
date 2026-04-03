@@ -4962,6 +4962,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as _e:
                     log.debug("[INIT] self_teacher.llm wire failed: %s", _e)
 
+            # Initialise KnowledgeDigest (purely additive — used by router and
+            # self_teacher to rephrase raw research before KB storage)
+            try:
+                from modules.knowledge_digest import KnowledgeDigest as _KD
+                self.knowledge_digest = _KD(llm=getattr(self, "llm", None))
+                log.debug("[INIT] knowledge_digest initialised ✅")
+            except Exception as _e:
+                self.knowledge_digest = None  # type: ignore[assignment]
+                log.debug("[INIT] knowledge_digest init failed: %s", _e)
+
             # Also wire reflect_module back into TradingBrain so each
             # cycle() call automatically stores a market-state reflection.
             if getattr(self, "trading_brain", None) and getattr(self, "reflect", None):

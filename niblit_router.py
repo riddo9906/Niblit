@@ -2309,17 +2309,28 @@ Ask me about:
 
         # ── 3. Store & respond if we got results ──────────────────────────────
         if quick_results:
-            # Persist each result as a KB fact so the next ask hits the cache
+            # Persist each result as a KB fact so the next ask hits the cache.
+            # Run raw text through KnowledgeDigest so only internalized,
+            # metadata-free content is stored (purely additive step).
             if kb and hasattr(kb, "add_fact"):
+                try:
+                    from modules.knowledge_digest import KnowledgeDigest as _KD
+                    _digest = _KD(llm=getattr(self.core, "llm", None))
+                except Exception:
+                    _digest = None  # type: ignore[assignment]
+
+                _store_ts = int(time.time())
                 for i, r in enumerate(quick_results[:4]):
                     text_val = (
                         r.get("text", r.get("summary", str(r)))
                         if isinstance(r, dict) else str(r)
                     )
+                    if _digest is not None:
+                        text_val = _digest.digest(topic, text_val)
                     try:
                         safe_call(
                             kb.add_fact,
-                            f"gap_learned:{topic.replace(' ', '_')}:{time.time_ns()}:{i}",
+                            f"gap_learned:{topic.replace(' ', '_')}:{_store_ts}:{i}",
                             text_val[:500],
                             tags=["gap_learning", "research", "autonomous"],
                         )
