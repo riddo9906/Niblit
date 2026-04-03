@@ -25,6 +25,7 @@ Production Enhancements:
 
 import os
 import ast
+import tempfile
 import time
 import sys
 import importlib.util
@@ -129,8 +130,7 @@ class RepoAuditor:
         self.orphaned_modules = []
         self.file_errors = defaultdict(list)
         self.script_inventory: List[Dict[str, Any]] = []
-        import tempfile as _tf
-        _report_dir = self.base_dir if os.access(self.base_dir, os.W_OK) else _tf.gettempdir()
+        _report_dir = self.base_dir if os.access(self.base_dir, os.W_OK) else tempfile.gettempdir()
         self.json_report_path = os.path.join(_report_dir, "niblit_audit_report.json")
 
         # ─────── IMPROVEMENTS INITIALIZATION ───────

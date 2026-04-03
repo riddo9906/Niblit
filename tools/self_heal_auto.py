@@ -170,8 +170,7 @@ ORPHANS = [
 
 _orphan_log_dir = os.path.dirname(os.path.dirname(__file__))
 if not os.access(_orphan_log_dir, os.W_OK):
-    import tempfile as _tf
-    _orphan_log_dir = _tf.gettempdir()
+    _orphan_log_dir = tempfile.gettempdir()
 LOG_PATH = os.path.join(_orphan_log_dir, "niblit_orphan_fix.log")
 
 def log(msg):

@@ -38,6 +38,7 @@ Compatible with main.py, server.py, and app.py.
 # ============================================================
 import os
 import sys
+import tempfile
 import time
 import asyncio
 import threading
@@ -5992,8 +5993,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("[ORCHESTRATOR] Generating fix guide...")
             db = LocalDB() if LocalDB is not None else self.db
             fg = FixGuideGenerator(db)
-            import tempfile as _tf
-            _guide_dir = BASE_DIR if os.access(BASE_DIR, os.W_OK) else _tf.gettempdir()
+            _guide_dir = BASE_DIR if os.access(BASE_DIR, os.W_OK) else tempfile.gettempdir()
             fix_guide_path = os.path.join(_guide_dir, "Fix_Guide.txt")
             msg = fg.generate_fix_guide(fix_guide_path)
             log.info(f"[ORCHESTRATOR] Fix guide generated: {fix_guide_path}")
