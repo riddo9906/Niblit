@@ -65,10 +65,19 @@ except ImportError:
 log = logging.getLogger("ParameterManager")
 
 # Default path for the local parameter store file
-_DEFAULT_PARAMS_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "niblit_params.json",
-)
+try:
+    from niblit_memory import _writable_path as _mem_writable_path
+except Exception:
+    import tempfile as _tempfile
+    def _mem_writable_path(fn, env_var=None):  # type: ignore[misc]
+        if env_var:
+            v = os.environ.get(env_var, "").strip()
+            if v:
+                return v
+        cwd = os.getcwd()
+        return os.path.join(cwd, fn) if os.access(cwd, os.W_OK) else os.path.join(_tempfile.gettempdir(), fn)
+
+_DEFAULT_PARAMS_FILE = _mem_writable_path("niblit_params.json", "NIBLIT_PARAMS_FILE")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

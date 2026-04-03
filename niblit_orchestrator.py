@@ -18,6 +18,7 @@ during long-running operations.
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 
 # Repo root
@@ -61,7 +62,8 @@ except Exception as _e:
     def hf_query(prompt):
         return "[HF query unavailable]"
 
-LOG_FILE = os.path.join(REPO_ROOT, "niblit_orchestrator.log")
+_log_dir = REPO_ROOT if os.access(REPO_ROOT, os.W_OK) else tempfile.gettempdir()
+LOG_FILE = os.path.join(_log_dir, "niblit_orchestrator.log")
 
 
 def log(msg):
@@ -146,7 +148,8 @@ def generate_fix_guide():
         return None
     db = LocalDB()
     fg = FixGuideGenerator(db)
-    fix_guide_path = os.path.join(REPO_ROOT, "Fix_Guide.txt")
+    _guide_dir = REPO_ROOT if os.access(REPO_ROOT, os.W_OK) else tempfile.gettempdir()
+    fix_guide_path = os.path.join(_guide_dir, "Fix_Guide.txt")
     msg = fg.generate_fix_guide(fix_guide_path)
     log(msg)
     return fix_guide_path

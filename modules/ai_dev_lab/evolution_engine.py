@@ -29,12 +29,16 @@ Usage::
 
 import logging
 import os
+import tempfile
 import time
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("EvolutionEngine")
 
-_EVOLVED_DIR = os.path.join(os.getcwd(), "evolved")
+_EVOLVED_DIR = os.environ.get("EVOLVED_DIR") or os.path.join(
+    os.getcwd() if os.access(os.getcwd(), os.W_OK) else tempfile.gettempdir(),
+    "evolved",
+)
 _IMPROVEMENT_PREFIX = "improvement_"
 
 

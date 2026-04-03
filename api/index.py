@@ -571,6 +571,59 @@ COMMAND_GROUPS = [
             {"label": "loop-errors",             "cmd": "loop-errors",          "desc": "Display all errors captured by the LoopTracer since startup"},
         ],
     },
+    # ── HFBrain ──────────────────────────────────────────────────────────────
+    {
+        "group": "HFBrain",
+        "icon": "🤗",
+        "commands": [
+            {"label": "hf-status",               "cmd": "hf-status",            "desc": "Show HuggingFace Brain status (model, enabled, token set)"},
+            {"label": "hf-enable",               "cmd": "hf-enable",            "desc": "Enable HFBrain LLM responses"},
+            {"label": "hf-disable",              "cmd": "hf-disable",           "desc": "Disable HFBrain (research-only mode)"},
+            {"label": "hf-ask <prompt>",         "cmd": "hf-ask ",              "desc": "Send a prompt directly to HFBrain",                  "has_input": True},
+        ],
+    },
+    # ── Deployment Bridge ────────────────────────────────────────────────────
+    {
+        "group": "Deployment Bridge",
+        "icon": "🔗",
+        "commands": [
+            {"label": "deploy-bridge status",    "cmd": "deploy-bridge status", "desc": "Show cross-deployment snapshot status (facts, ALE cycles)"},
+            {"label": "deploy-bridge save",      "cmd": "deploy-bridge save",   "desc": "Persist current state to deployment snapshot"},
+            {"label": "deploy-bridge load",      "cmd": "deploy-bridge load",   "desc": "Merge previous deployment snapshot into live system"},
+        ],
+    },
+    # ── Autonomous Network ───────────────────────────────────────────────────
+    {
+        "group": "Autonomous Network",
+        "icon": "🌐",
+        "commands": [
+            {"label": "net status",              "cmd": "net status",           "desc": "Show autonomous network builder status and endpoint scores"},
+            {"label": "net start",               "cmd": "net start",            "desc": "Start autonomous network evolution loops"},
+            {"label": "net stop",                "cmd": "net stop",             "desc": "Stop autonomous network loops"},
+            {"label": "net reflect",             "cmd": "net reflect",          "desc": "Run reflection on network performance and suggest improvements"},
+        ],
+    },
+    # ── Module Autonomy ──────────────────────────────────────────────────────
+    {
+        "group": "Module Autonomy",
+        "icon": "🤖",
+        "commands": [
+            {"label": "autonomy status",         "cmd": "autonomy status",      "desc": "Show module autonomy framework status and health"},
+            {"label": "autonomy start",          "cmd": "autonomy start",       "desc": "Start module autonomy health/improve/unify loops"},
+            {"label": "autonomy stop",           "cmd": "autonomy stop",        "desc": "Stop module autonomy loops"},
+            {"label": "module-autonomy module <name>", "cmd": "module-autonomy module ", "desc": "Show health/improvement info for a specific module", "has_input": True},
+        ],
+    },
+    # ── Structural Awareness ─────────────────────────────────────────────────
+    {
+        "group": "Structural Awareness",
+        "icon": "🔩",
+        "commands": [
+            {"label": "sa-scripts",              "cmd": "sa-scripts",           "desc": "List every repo script and its function"},
+            {"label": "my structure",            "cmd": "my structure",         "desc": "Full component inventory (all 47+ tracked components)"},
+            {"label": "sa-awareness",            "cmd": "sa-awareness",         "desc": "All structural awareness in one combined view"},
+        ],
+    },
 ]
 
 _ALL_CMDS: list = [c["cmd"].strip() for g in COMMAND_GROUPS for c in g["commands"]]
@@ -1059,3 +1112,167 @@ def memory(request: Request):
         except Exception:
             pass
     return {"facts": facts, "count": len(facts)}
+
+
+# ── HFBrain ───────────────────────────────────────────────────────────────────
+
+class HFAskBody(BaseModel):
+    prompt: str = ""
+
+
+@app.get("/api/hf-status")
+def api_hf_status(request: Request):
+    """Return HFBrain status."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    hf = None
+    if core:
+        hf = (getattr(core, "hf_brain", None)
+              or getattr(core, "hf", None)
+              or getattr(getattr(core, "brain", None), "hf_brain", None))
+    if hf is None:
+        return {"enabled": False, "model": None, "token_set": False, "status": "not_loaded"}
+    return {
+        "enabled": getattr(hf, "enabled", False),
+        "model": getattr(hf, "model", None),
+        "token_set": bool(getattr(hf, "token", None)),
+        "status": "ready" if getattr(hf, "enabled", False) else "disabled",
+    }
+
+
+@app.post("/api/hf-ask")
+def api_hf_ask(request: Request, body: HFAskBody):
+    """Send a prompt to HFBrain and return the reply."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if _rate_limited(request):
+        return JSONResponse({"error": "rate limit reached"}, status_code=429)
+    if not body.prompt.strip():
+        return JSONResponse({"error": "prompt required"}, status_code=400)
+    core = _get_core()
+    hf = None
+    if core:
+        hf = (getattr(core, "hf_brain", None)
+              or getattr(core, "hf", None)
+              or getattr(getattr(core, "brain", None), "hf_brain", None))
+    if hf is None:
+        # Fallback: instantiate directly if HF_API_KEY is set
+        try:
+            from modules.hf_brain import HFBrain  # type: ignore[import]
+            db = getattr(core, "db", None) if core else None
+            hf = HFBrain(db=db)
+        except Exception:
+            return JSONResponse({"error": "HFBrain not available"}, status_code=503)
+    try:
+        reply = hf.ask_single(body.prompt)
+        return {"reply": reply, "ts": int(time.time())}
+    except Exception:
+        return JSONResponse({"error": "HFBrain request failed"}, status_code=500)
+
+
+# ── Deployment Bridge ─────────────────────────────────────────────────────────
+
+@app.get("/api/deploy-bridge")
+def api_deploy_bridge_status(request: Request):
+    """Return deployment bridge snapshot status."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    bridge = getattr(core, "deployment_bridge", None) if core else None
+    if bridge is None:
+        try:
+            from modules.deployment_bridge import get_deployment_bridge  # type: ignore[import]
+            bridge = get_deployment_bridge()
+        except Exception:
+            return JSONResponse({"error": "DeploymentBridge not available"}, status_code=503)
+    return {"status": bridge.status(), "ts": int(time.time())}
+
+
+@app.post("/api/deploy-bridge/save")
+def api_deploy_bridge_save(request: Request):
+    """Persist current state to deployment snapshot."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    bridge = getattr(core, "deployment_bridge", None) if core else None
+    if bridge is None:
+        try:
+            from modules.deployment_bridge import get_deployment_bridge  # type: ignore[import]
+            bridge = get_deployment_bridge()
+        except Exception:
+            return JSONResponse({"error": "DeploymentBridge not available"}, status_code=503)
+    result = bridge.save(core)
+    return {"result": result, "ts": int(time.time())}
+
+
+# ── Autonomous Network ────────────────────────────────────────────────────────
+
+@app.get("/api/net-status")
+def api_net_status(request: Request):
+    """Return autonomous network builder status."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    net = getattr(core, "autonomous_network", None) if core else None
+    if net is None:
+        try:
+            from modules.autonomous_network import get_autonomous_network  # type: ignore[import]
+            net = get_autonomous_network()
+        except Exception:
+            return JSONResponse({"error": "AutonomousNetwork not available"}, status_code=503)
+    return {"status": net.status(), "running": net._running, "ts": int(time.time())}
+
+
+# ── Module Autonomy ───────────────────────────────────────────────────────────
+
+@app.get("/api/autonomy-status")
+def api_autonomy_status(request: Request):
+    """Return module autonomy framework status."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    ma = getattr(core, "module_autonomy", None) if core else None
+    if ma is None:
+        try:
+            from modules.module_autonomy import get_module_autonomy  # type: ignore[import]
+            ma = get_module_autonomy()
+        except Exception:
+            return JSONResponse({"error": "ModuleAutonomy not available"}, status_code=503)
+    return {"report": ma.report(), "ts": int(time.time())}
+
+
+# ── Structural Scripts Inventory ──────────────────────────────────────────────
+
+@app.get("/api/sa-scripts")
+def api_sa_scripts(request: Request):
+    """Return all repo scripts and their descriptions."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    sa = getattr(core, "structural_awareness", None) if core else None
+    if sa and hasattr(sa, "all_scripts_report"):
+        return {"report": sa.all_scripts_report(), "ts": int(time.time())}
+    # Fallback: instantiate directly
+    try:
+        from modules.structural_awareness import StructuralAwareness  # type: ignore[import]
+        sa = StructuralAwareness()
+        return {"report": sa.all_scripts_report(), "scripts": sa._KNOWN_SCRIPTS, "ts": int(time.time())}
+    except Exception:
+        return JSONResponse({"error": "StructuralAwareness not available"}, status_code=503)
+
+
+# ── Component Inventory ───────────────────────────────────────────────────────
+
+@app.get("/api/components")
+def api_components(request: Request):
+    """Return full component inventory (all tracked modules)."""
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    core = _get_core()
+    if core is None:
+        return JSONResponse({"error": "NiblitCore unavailable"}, status_code=503)
+    sa = getattr(core, "structural_awareness", None)
+    if sa and hasattr(sa, "component_report"):
+        return {"report": sa.component_report(core), "ts": int(time.time())}
+    return JSONResponse({"error": "StructuralAwareness not loaded"}, status_code=503)

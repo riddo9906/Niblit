@@ -14,6 +14,8 @@ Features:
 - Metrics tracking
 """
 
+import os
+import tempfile
 import time
 import logging
 from typing import Optional, Any, Dict
@@ -152,7 +154,10 @@ class RedisCache(CacheLevel):
 class DatabaseCache(CacheLevel):
     """L3: Database cache using SQLite (stdlib, no extra deps)."""
 
-    _DB_PATH = "niblit_cache.db"
+    _DB_PATH = os.environ.get("NIBLIT_CACHE_DB_PATH") or os.path.join(
+        os.getcwd() if os.access(os.getcwd(), os.W_OK) else tempfile.gettempdir(),
+        "niblit_cache.db",
+    )
 
     def __init__(self, db_path: Optional[str] = None):
         self.metrics = {"hits": 0, "misses": 0}

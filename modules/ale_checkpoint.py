@@ -63,6 +63,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 import threading
 import time
 from copy import deepcopy
@@ -70,11 +71,18 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("ALECheckpoint")
 
-# Default checkpoint file path (relative to repo root, overridden via env)
-_DEFAULT_CHECKPOINT_PATH = os.environ.get(
-    "ALE_CHECKPOINT_PATH",
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ale_state.json"),
-)
+# Default checkpoint file path (overridden via ALE_CHECKPOINT_PATH env var).
+# Falls back to /tmp when the repo root is on a read-only filesystem (Vercel).
+def _default_checkpoint_path() -> str:
+    env_val = os.environ.get("ALE_CHECKPOINT_PATH", "").strip()
+    if env_val:
+        return env_val
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if os.access(repo_root, os.W_OK):
+        return os.path.join(repo_root, "ale_state.json")
+    return os.path.join(tempfile.gettempdir(), "ale_state.json")
+
+_DEFAULT_CHECKPOINT_PATH = _default_checkpoint_path()
 
 # Maximum number of named anchors to retain before pruning oldest
 _MAX_ANCHORS = 20

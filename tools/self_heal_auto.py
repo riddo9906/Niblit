@@ -17,6 +17,7 @@ USAGE:
 import os
 import sys
 import ast
+import tempfile
 import time
 import shutil
 import subprocess
@@ -24,7 +25,8 @@ from datetime import datetime
 
 # --- config ---
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-LOG_PATH = os.path.join(REPO_ROOT, "niblit_self_heal.log")
+_log_dir = REPO_ROOT if os.access(REPO_ROOT, os.W_OK) else tempfile.gettempdir()
+LOG_PATH = os.path.join(_log_dir, "niblit_self_heal.log")
 BACKUP_SUFFIX = f".bak.{int(time.time())}"
 HF_OLD = "router.huggingface.co"
 HF_NEW = "router.huggingface.co"
@@ -166,7 +168,10 @@ ORPHANS = [
     "tools.FixGuideGenerator"
 ]
 
-LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "niblit_orphan_fix.log")
+_orphan_log_dir = os.path.dirname(os.path.dirname(__file__))
+if not os.access(_orphan_log_dir, os.W_OK):
+    _orphan_log_dir = tempfile.gettempdir()
+LOG_PATH = os.path.join(_orphan_log_dir, "niblit_orphan_fix.log")
 
 def log(msg):
     with open(LOG_PATH, "a") as f:

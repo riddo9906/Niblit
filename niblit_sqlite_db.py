@@ -29,6 +29,19 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("NiblitSQLiteDB")
 
+try:
+    from niblit_memory import _writable_path as _mem_writable_path
+except Exception:
+    import tempfile as _tempfile
+    def _mem_writable_path(fn, env_var=None):  # type: ignore[misc]
+        import os as _os
+        if env_var:
+            v = _os.environ.get(env_var, "").strip()
+            if v:
+                return v
+        cwd = _os.getcwd()
+        return _os.path.join(cwd, fn) if _os.access(cwd, _os.W_OK) else _os.path.join(_tempfile.gettempdir(), fn)
+
 
 class NiblitSQLiteDB:
     """SQLite-backed persistent store for Niblit."""
@@ -37,8 +50,8 @@ class NiblitSQLiteDB:
     # Construction / schema
     # ------------------------------------------------------------------
 
-    def __init__(self, db_path: str = "niblit_data.sqlite") -> None:
-        self.db_path = db_path
+    def __init__(self, db_path: str = "") -> None:
+        self.db_path = db_path or _mem_writable_path("niblit_data.sqlite", "NIBLIT_SQLITE_DB_PATH")
         self._lock = threading.Lock()
         # Use a single shared connection (check_same_thread=False) protected
         # by a mutex.  This works correctly for both file-based and

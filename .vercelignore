@@ -4,12 +4,9 @@ __pycache__/
 *.pyo
 *.pkl
 
-# Test and diagnostic files
+# Test files (not needed at runtime)
 tests/
-live_command_tester.py
-run_diagnostics.py
 hf_test.py
-workspace_init.py
 
 # Generated report artifacts
 niblit_live_test_report.json
@@ -31,8 +28,9 @@ ProjectOne/
 niblit_audit_report.json
 niblit_state.json
 
-# Development-only full-module drafts
-*_full.py
+# Development-only draft variants (true dev-only refactor copies — not imported)
+niblit_core_full.py
+niblit_core_refactor_full.py
 
 # Misc files accidentally committed
 Fix_Guide.txt

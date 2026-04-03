@@ -170,7 +170,8 @@ class ChatDetector:
 class NiblitRouter:
 
     COMMAND_PREFIXES = (
-        "toggle-llm", "self-research", "search", "summary", "remember", "learn",
+        "toggle-llm", "hf-status", "hf-enable", "hf-disable", "hf-ask",
+        "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
         "status", "health", "time", "help", "commands",
@@ -184,6 +185,7 @@ class NiblitRouter:
         # Structural awareness shorthand commands
         "my", "sa-structure", "sa-threads", "sa-loops", "sa-modules",
         "sa-commands", "sa-dashboard", "sa-flow", "sa-resources", "sa-awareness",
+        "sa-scripts",
         "dashboard", "struct",
         # Intelligent reasoning
         "reasoning",
@@ -250,6 +252,12 @@ class NiblitRouter:
         "game",
         # Universal file manager (additive)
         "file",
+        # Deployment bridge — cross-deployment checkpoint (additive)
+        "deploy-bridge", "deployment-bridge",
+        # Autonomous network builder (additive)
+        "net", "autonomous-network",
+        # Module autonomy framework (additive)
+        "autonomy", "module-autonomy",
     )
 
     CHAT_RESPONSES = {
@@ -1524,7 +1532,148 @@ Ask me about:
         except Exception as exc:
             return f"[file] UniversalFileManager not available: {exc}"
 
-    # ── Phase-2 agents handler (additive) ─────────────────────────────────────
+    # ── HFBrain handler (additive) ────────────────────────────────────────────
+
+    def _handle_hf_brain(self, cmd: str) -> str:
+        """Route 'hf-status/enable/disable/ask ...' commands to HFBrain."""
+        lower = cmd.strip().lower()
+
+        # Resolve HFBrain instance — prefer brain.hf_brain, fallback to core.hf
+        hf = None
+        if self.core:
+            hf = (getattr(self.core, "hf_brain", None)
+                  or getattr(self.core, "hf", None)
+                  or getattr(getattr(self.core, "brain", None), "hf_brain", None))
+
+        if lower == "hf-status":
+            if hf is None:
+                return "⚫ HFBrain not loaded (set HF_API_KEY env var)"
+            enabled = getattr(hf, "enabled", False)
+            model = getattr(hf, "model", "unknown")
+            token_set = bool(getattr(hf, "token", None))
+            return (f"🤗 **HFBrain**\n"
+                    f"  Enabled   : {'✅' if enabled else '⚫'}\n"
+                    f"  Model     : {model}\n"
+                    f"  Token set : {'✅' if token_set else '❌'}")
+
+        if lower.startswith("hf-enable"):
+            if hf is None:
+                return "⚫ HFBrain not loaded"
+            hf.enable()
+            return "✅ HFBrain enabled"
+
+        if lower.startswith("hf-disable"):
+            if hf is None:
+                return "⚫ HFBrain not loaded"
+            hf.disable()
+            return "✅ HFBrain disabled"
+
+        if lower.startswith("hf-ask"):
+            prompt = cmd.strip()[len("hf-ask"):].strip()
+            if not prompt:
+                return "Usage: hf-ask <your prompt>"
+            if hf is None:
+                return "⚫ HFBrain not loaded (set HF_API_KEY)"
+            try:
+                return hf.ask_single(prompt)
+            except Exception as exc:
+                return f"[HFBrain error] {exc}"
+
+        return "Usage: hf-status | hf-enable | hf-disable | hf-ask <prompt>"
+
+    # ── Deployment Bridge handler (additive) ──────────────────────────────────
+
+    def _handle_deploy_bridge(self, cmd: str) -> str:
+        """Route 'deploy-bridge ...' commands to DeploymentBridge."""
+        sub = cmd.strip()
+        for prefix in ("deployment-bridge", "deploy-bridge"):
+            if sub.lower().startswith(prefix):
+                sub = sub[len(prefix):].strip()
+                break
+
+        bridge = getattr(self.core, "deployment_bridge", None)
+        if bridge is None:
+            try:
+                from modules.deployment_bridge import get_deployment_bridge
+                bridge = get_deployment_bridge()
+            except Exception as exc:
+                return f"[deploy-bridge] Not available: {exc}"
+
+        sub_lower = sub.lower()
+        if not sub or sub_lower == "status":
+            return bridge.status()
+        if sub_lower == "save":
+            return bridge.save(self.core) if self.core else bridge.status()
+        if sub_lower == "load":
+            return bridge.load(self.core) if self.core else "[deploy-bridge] Core not available"
+        return (f"[deploy-bridge] Commands: status | save | load\n{bridge.status()}")
+
+    # ── Autonomous Network handler (additive) ─────────────────────────────────
+
+    def _handle_autonomous_network(self, cmd: str) -> str:
+        """Route 'net ...' / 'autonomous-network ...' commands."""
+        sub = cmd.strip()
+        for prefix in ("autonomous-network", "net"):
+            if sub.lower().startswith(prefix):
+                sub = sub[len(prefix):].strip()
+                break
+
+        net = getattr(self.core, "autonomous_network", None)
+        if net is None:
+            try:
+                from modules.autonomous_network import get_autonomous_network
+                net = get_autonomous_network(core=self.core)
+            except Exception as exc:
+                return f"[net] Not available: {exc}"
+
+        sub_lower = sub.lower()
+        if not sub or sub_lower == "status":
+            return net.status()
+        if sub_lower == "start":
+            net.start()
+            return "✅ Autonomous network loops started"
+        if sub_lower == "stop":
+            net.stop()
+            return "⏹ Autonomous network loops stopped"
+        if sub_lower == "reflect":
+            return net.reflect()
+        if sub_lower.startswith("register "):
+            url = sub[len("register "):].strip()
+            net.register(url)
+            return f"✅ Registered endpoint: {url}"
+        return f"[net] Commands: status | start | stop | reflect | register <url>\n{net.status()}"
+
+    # ── Module Autonomy handler (additive) ────────────────────────────────────
+
+    def _handle_module_autonomy(self, cmd: str) -> str:
+        """Route 'autonomy ...' / 'module-autonomy ...' commands."""
+        sub = cmd.strip()
+        for prefix in ("module-autonomy", "autonomy"):
+            if sub.lower().startswith(prefix):
+                sub = sub[len(prefix):].strip()
+                break
+
+        ma = getattr(self.core, "module_autonomy", None)
+        if ma is None:
+            try:
+                from modules.module_autonomy import get_module_autonomy
+                ma = get_module_autonomy(core=self.core)
+            except Exception as exc:
+                return f"[autonomy] Not available: {exc}"
+
+        sub_lower = sub.lower()
+        if not sub or sub_lower == "status":
+            return ma.report()
+        if sub_lower == "start":
+            ma.start()
+            return "✅ Module autonomy loops started"
+        if sub_lower == "stop":
+            ma.stop()
+            return "⏹ Module autonomy loops stopped"
+        if sub_lower.startswith("module "):
+            name = sub[len("module "):].strip()
+            return ma.module_status(name)
+        return f"[autonomy] Commands: status | start | stop | module <name>\n{ma.report()}"
 
     def _handle_agents(self, cmd: str) -> str:
         """Route 'agents ...' commands to core._cmd_agents().
@@ -2946,6 +3095,18 @@ Ask me about:
         if lower == "file" or lower.startswith("file "):
             return self._handle_file(cmd)
 
+        # DEPLOYMENT BRIDGE (additive)
+        if lower in ("deploy-bridge", "deployment-bridge") or lower.startswith("deploy-bridge ") or lower.startswith("deployment-bridge "):
+            return self._handle_deploy_bridge(cmd)
+
+        # AUTONOMOUS NETWORK BUILDER (additive)
+        if lower in ("net", "autonomous-network") or lower.startswith("net ") or lower.startswith("autonomous-network "):
+            return self._handle_autonomous_network(cmd)
+
+        # MODULE AUTONOMY FRAMEWORK (additive)
+        if lower in ("autonomy", "module-autonomy") or lower.startswith("autonomy ") or lower.startswith("module-autonomy "):
+            return self._handle_module_autonomy(cmd)
+
         # PHASE-2 AGENTS — architecture inspection + task dispatch (additive)
         if lower == "agents" or lower.startswith("agents "):
             return self._handle_agents(cmd)
@@ -3067,6 +3228,10 @@ Ask me about:
                 self.core.llm_enabled = False
                 return "✅ LLM disabled. Using research + conversation for responses."
             return "Usage: toggle-llm on/off"
+
+        # HFBRAIN COMMANDS
+        if lower in ("hf-status",) or lower.startswith("hf-enable") or lower.startswith("hf-disable") or lower.startswith("hf-ask"):
+            return self._handle_hf_brain(cmd)
 
         # HELP
         if lower in ("help", "commands"):
