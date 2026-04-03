@@ -848,6 +848,99 @@ def register_flask_routes(app: Any) -> None:
 
 
 # ───────────────────────────────────────────────────────────────────────────
+# FastAPI route registrar (called from app.py)
+# ───────────────────────────────────────────────────────────────────────────
+
+def register_fastapi_routes(app: Any) -> None:
+    """
+    Register ``/mcp`` (JSON-RPC POST) and ``/mcp/sse`` (SSE GET) routes on a
+    FastAPI *app* object.
+
+    Call this from your FastAPI application factory after creating the app::
+
+        from modules.mcp_server import register_fastapi_routes
+        register_fastapi_routes(app)
+    """
+    if not MCP_ENABLED:
+        log.info("[MCP] MCP_ENABLED=false — HTTP routes skipped")
+        return
+
+    try:
+        from fastapi import Request as _FARequest
+        from fastapi.responses import (
+            Response as _FAResponse,
+            JSONResponse as _FAJsonResponse,
+            StreamingResponse as _FAStreamingResponse,
+        )
+    except ImportError:
+        log.warning("[MCP] FastAPI not available — HTTP routes not registered")
+        return
+
+    handler = get_handler()
+
+    @app.post("/mcp")
+    async def mcp_endpoint(request: _FARequest):
+        """MCP JSON-RPC endpoint (HTTP transport)."""
+        if MCP_SECRET:
+            auth = request.headers.get("Authorization", "")
+            token = auth[7:] if auth.startswith("Bearer ") else auth
+            if token != MCP_SECRET:
+                return _FAJsonResponse({"error": "Unauthorized"}, status_code=401)
+
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+
+        if not body:
+            return _FAJsonResponse(
+                {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}},
+                status_code=400,
+            )
+
+        response = handler.handle(body)
+        if response is None:
+            return _FAResponse(status_code=204)
+        return _FAJsonResponse(response)
+
+    @app.get("/mcp/sse")
+    async def mcp_sse(request: _FARequest):
+        """MCP Server-Sent Events endpoint for push notifications."""
+        if MCP_SECRET:
+            auth = request.headers.get("Authorization", "")
+            token = auth[7:] if auth.startswith("Bearer ") else auth
+            if token != MCP_SECRET:
+                return _FAJsonResponse({"error": "Unauthorized"}, status_code=401)
+
+        session_id = str(uuid.uuid4())
+        q = handler.subscribe_sse(session_id)
+
+        async def generate():
+            yield "event: endpoint\ndata: /mcp\n\n"
+            try:
+                while True:
+                    try:
+                        data = q.get(timeout=30)
+                        yield f"data: {data}\n\n"
+                    except Empty:
+                        yield ": heartbeat\n\n"
+            finally:
+                handler.unsubscribe_sse(session_id)
+
+        return _FAStreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+
+    log.info("[MCP] FastAPI routes registered: POST /mcp  GET /mcp/sse")
+
+
+# ───────────────────────────────────────────────────────────────────────────
 # Stdio transport (subprocess mode — for Claude Desktop, etc.)
 # ───────────────────────────────────────────────────────────────────────────
 
@@ -905,17 +998,22 @@ def run_stdio() -> None:
 
 def run_http_server(host: str = MCP_HOST, port: int = MCP_PORT) -> None:
     """
-    Run Niblit as a standalone HTTP MCP server using Flask's built-in server.
+    Run Niblit as a standalone HTTP MCP server using FastAPI + uvicorn.
 
-    Prefer this only for development; use Gunicorn/Uvicorn in production.
+    Prefer this only for development; use Gunicorn with uvicorn workers in production.
     """
-    if not _FLASK_AVAILABLE:
-        log.error("[MCP] Flask required for HTTP server mode")
+    try:
+        from fastapi import FastAPI
+        from fastapi.middleware.cors import CORSMiddleware
+        import uvicorn
+    except ImportError:
+        log.error("[MCP] FastAPI and uvicorn are required for HTTP server mode")
         return
 
-    from flask import Flask
-    standalone_app = Flask("niblit_mcp_standalone")
-    register_flask_routes(standalone_app)
+    standalone_app = FastAPI(title="niblit_mcp_standalone", docs_url=None, redoc_url=None)
+    standalone_app.add_middleware(CORSMiddleware, allow_origins=["*"],
+                                  allow_methods=["*"], allow_headers=["*"])
+    register_fastapi_routes(standalone_app)
 
     handler = get_handler()
     try:
@@ -926,7 +1024,7 @@ def run_http_server(host: str = MCP_HOST, port: int = MCP_PORT) -> None:
         log.warning("[MCP/http] NiblitCore unavailable: %s", exc)
 
     log.info("[MCP] Starting HTTP server on %s:%d", host, port)
-    standalone_app.run(host=host, port=port, threaded=True)
+    uvicorn.run(standalone_app, host=host, port=port)
 
 
 # ───────────────────────────────────────────────────────────────────────────

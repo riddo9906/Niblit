@@ -4,6 +4,6 @@
     { "source": "/(.*)", "destination": "/api/index" }
   ],
   "env": {
-    "FLASK_ENV": "production"
+    "APP_ENV": "production"
   }
 }

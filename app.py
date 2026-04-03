@@ -1,9 +1,9 @@
 """
-app.py — Niblit Flask API for Vercel serverless deployment
+app.py — Niblit FastAPI application for Vercel serverless deployment
 
-Implements Flask-API style content negotiation with JSONRenderer,
-HTMLRenderer, and BrowsableAPIRenderer.  All endpoints auto-select
-the best renderer based on the incoming Accept header.
+Implements content negotiation with JSONRenderer, HTMLRenderer, and
+BrowsableAPIRenderer.  All endpoints auto-select the best renderer based on
+the incoming Accept header.
 
 The /chat endpoint mirrors the run_shell() logic from main.py so that
 the web experience is identical to running Niblit in a Termux terminal.
@@ -17,23 +17,15 @@ import time
 import logging
 import os
 
-try:
-    from flask import Flask, request, jsonify, render_template_string, Response
-    _flask_available = True
-except ImportError:
-    Flask = request = jsonify = render_template_string = Response = None
-    _flask_available = False
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, HTMLResponse, JSONResponse
+from pydantic import BaseModel
 
 try:
     from niblit_core import NiblitCore
 except Exception:
     NiblitCore = None
-
-if _flask_available:
-    app = Flask(__name__)
-else:
-    app = None
-    logging.getLogger("NiblitApp").warning("Flask not installed — app.py web server unavailable")
 
 # ══════════════════════════════════════════════════════════════
 # FLASK-API STYLE RENDERERS
@@ -44,8 +36,10 @@ class JSONRenderer:
     media_type = "application/json"
     charset = None
 
-    def render(self, data, media_type=None, **options):
-        indent = options.get("indent") or request.args.get("indent")
+    def render(self, data, request: Request = None, media_type=None, **options):
+        indent = options.get("indent")
+        if request is not None:
+            indent = indent or request.query_params.get("indent")
         try:
             indent = int(indent)
         except (TypeError, ValueError):
@@ -60,7 +54,7 @@ class HTMLRenderer:
     media_type = "text/html"
     charset = "utf-8"
 
-    def render(self, data, media_type=None, **options):
+    def render(self, data, request: Request = None, media_type=None, **options):
         if isinstance(data, str):
             return data, "text/html; charset=utf-8"
         body = _json.dumps(data, indent=2, default=str)
@@ -87,9 +81,9 @@ font-size:12px;font-weight:bold;background:#134e4a;color:#6ee7b7}}
 <pre>{data}</pre>
 </body></html>"""
 
-    def render(self, data, media_type=None, **options):
+    def render(self, data, request: Request = None, media_type=None, **options):
         status = options.get("status", "200 OK")
-        url = request.url if request else ""
+        url = str(request.url) if request is not None else ""
         body = _json.dumps(data, indent=2, default=str)
         html = self._TMPL.format(status=status, url=url, data=body)
         return html, "text/html; charset=utf-8"
@@ -98,18 +92,18 @@ font-size:12px;font-weight:bold;background:#134e4a;color:#6ee7b7}}
 _DEFAULT_RENDERERS = [JSONRenderer(), BrowsableAPIRenderer()]
 
 
-def negotiate_renderer(renderers=None):
+def negotiate_renderer(request: Request, renderers=None):
     """Pick the best renderer via Accept-header content negotiation."""
     active = renderers if renderers is not None else _DEFAULT_RENDERERS
-    best = request.accept_mimetypes.best_match([r.media_type for r in active])
+    accept = request.headers.get("accept", "") if request is not None else ""
     for r in active:
-        if r.media_type == best:
+        if r.media_type in accept:
             return r
     return active[0]
 
 
-def render_response(data, status=200, renderers=None, headers=None):
-    """Content-negotiate and return a Flask Response."""
+def render_response(request: Request, data, status=200, renderers=None, headers=None):
+    """Content-negotiate and return a FastAPI Response."""
     # Standard HTTP status phrases for common codes
     _PHRASES = {
         200: "OK", 201: "Created", 204: "No Content",
@@ -119,13 +113,9 @@ def render_response(data, status=200, renderers=None, headers=None):
     }
     phrase = _PHRASES.get(status, "OK" if status < 400 else "Error")
     status_str = f"{status} {phrase}"
-    renderer = negotiate_renderer(renderers)
-    body, ct = renderer.render(data, status_code=status, status=status_str)
-    resp = Response(body, status=status, content_type=ct)
-    if headers:
-        for k, v in headers.items():
-            resp.headers[k] = v
-    return resp
+    renderer = negotiate_renderer(request, renderers)
+    body, ct = renderer.render(data, request=request, status_code=status, status=status_str)
+    return Response(content=body, status_code=status, media_type=ct, headers=headers)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -135,7 +125,7 @@ def render_response(data, status=200, renderers=None, headers=None):
 API_KEY = os.environ.get("NIBLIT_API_KEY", None)
 
 
-def require_key():
+def require_key(request: Request):
     if not API_KEY:
         return True
     req_key = request.headers.get("X-API-Key")
@@ -151,7 +141,8 @@ RATE_WINDOW = 60
 rate_store: dict = {}
 
 
-def rate_limited(ip):
+def rate_limited(request: Request):
+    ip = (request.client.host if request.client else None) or "unknown"
     now = time.time()
     entry = [t for t in rate_store.get(ip, []) if now - t < RATE_WINDOW]
     rate_store[ip] = entry
@@ -174,8 +165,7 @@ def get_core():
         try:
             _core = NiblitCore()
         except Exception as exc:
-            if app:
-                app.logger.error("NiblitCore init error: %s", exc)
+            logging.getLogger("NiblitApp").error("NiblitCore init error: %s", exc)
     return _core
 
 
@@ -1546,203 +1536,273 @@ def _build_dashboard():
 # FLASK ROUTES
 # ══════════════════════════════════════════════════════════════
 
-if _flask_available:
+# ══════════════════════════════════════════════════════════════
+# FASTAPI APPLICATION
+# ══════════════════════════════════════════════════════════════
 
-    # ── Liveness probe ──────────────────────────────────────
-    @app.route("/health", methods=["GET"])
-    def health():
-        """Lightweight liveness probe — no NiblitCore init required."""
-        return render_response({"status": "ok", "service": "niblit"})
+app = FastAPI(title="Niblit AIOS", docs_url=None, redoc_url=None)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    # ── Dashboard / root ────────────────────────────────────
-    @app.route("/", methods=["GET"])
-    def dashboard():
-        renderer = negotiate_renderer([HTMLRenderer(), JSONRenderer()])
-        if isinstance(renderer, HTMLRenderer):
-            return Response(_build_dashboard(), content_type="text/html; charset=utf-8")
-        return render_response({"service": "niblit", "status": "ok",
-                                "endpoints": ["/api/boot", "/api/commands", "/api/search",
-                                              "/api/status", "/api/suggest", "/api/threads",
-                                              "/ping", "/chat", "/memory"]})
 
-    # ── Ping / personality ──────────────────────────────────
-    @app.route("/ping", methods=["GET"])
-    def ping():
-        if rate_limited(request.remote_addr):
-            return render_response({"error": "rate limit reached"}, status=429)
-        core = get_core()
-        try:
-            p = core.memory.get_personality() if core else {}
-        except Exception:
-            p = {}
-        return render_response({"status": "ok" if core else "no-core", "personality": p})
+# ── Security headers middleware ──────────────────────────────
+from starlette.middleware.base import BaseHTTPMiddleware
 
-    # ── API: boot messages (mirrors main.py boot()) ─────────
-    @app.route("/api/boot", methods=["GET"])
-    def api_boot():
-        """
-        Return the boot messages that main.py prints on startup.
-        Triggers lazy NiblitCore init so the web user sees the same
-        sequence as running Niblit in a Termux terminal.
-        """
-        msgs = _get_boot_messages()
-        core = get_core()
-        return render_response({"messages": msgs, "ready": core is not None})
 
-    # ── API: command suggestions ─────────────────────────────
-    @app.route("/api/suggest", methods=["GET"])
-    def api_suggest():
-        """Return close-match command suggestions like main.py suggest_command()."""
-        q = request.args.get("q", "").strip()
-        if not q:
-            return render_response({"suggestions": []})
-        return render_response({"suggestions": suggest_command(q), "query": q})
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        return response
 
-    # ── API: thread list ────────────────────────────────────
-    @app.route("/api/threads", methods=["GET"])
-    def api_threads():
-        """Return the live thread list — same as the 'threads' command in main.py."""
-        return render_response({"threads": _list_threads()})
 
-    # ── API: list commands ───────────────────────────────────
-    @app.route("/api/commands", methods=["GET"])
-    def api_commands():
-        """Return the full command catalogue (used by the sidebar menu)."""
-        return render_response({"commands": COMMAND_GROUPS,
-                                "count": sum(len(g["commands"]) for g in COMMAND_GROUPS)})
+app.add_middleware(SecurityHeadersMiddleware)
 
-    # ── API: system status ───────────────────────────────────
-    @app.route("/api/status", methods=["GET"])
-    def api_status():
-        """Return detailed system status."""
-        if rate_limited(request.remote_addr):
-            return render_response({"error": "rate limit reached"}, status=429)
-        core = get_core()
-        data = {"online": core is not None, "service": "niblit"}
-        if core:
-            try:
-                data["personality"] = core.memory.get_personality()
-            except Exception:
-                pass
-            try:
-                # Use a small limit just to obtain a count — the memory API
-                # does not currently expose a dedicated count method.
-                data["facts_count"] = len(core.memory.list_facts(limit=500))
-            except Exception:
-                pass
-        return render_response(data)
 
-    # ── API: background status (lightweight, polls every 15s) ──
-    @app.route("/api/bg_status", methods=["GET"])
-    def api_bg_status():
-        """Background status — lightweight, polls every 15s from UI."""
-        core = get_core()
-        data = {
-            "ts": _ts(),
-            "ale": None,
-            "topics": [],
-            "dtm": None,
-            "threads": len(threading.enumerate()),
-        }
-        if core:
-            ale = getattr(core, "autonomous_engine", None)
-            if ale:
-                data["ale"] = {
-                    "running": getattr(ale, "running", False),
-                    "cycle": getattr(ale, "_cycle_count", 0),
-                    "topic": ale.get_current_topic() if hasattr(ale, "get_current_topic") else None,
-                }
-                topics = getattr(ale, "research_topics", [])
-                data["topics"] = topics[:5] if topics else []
-            dtm = getattr(core, "dynamic_topic_manager", None)
-            if dtm:
-                refresh_thread = getattr(core, "_topic_refresh_thread", None)
-                data["dtm"] = {
-                    "seeds": len(getattr(dtm, "seed_topics", [])),
-                    "thread_alive": refresh_thread is not None and refresh_thread.is_alive(),
-                }
-        return render_response(data)
+# ── Request models ────────────────────────────────────────────
 
-    # ── API: search ─────────────────────────────────────────
-    @app.route("/api/search", methods=["GET", "POST"])
-    def api_search():
-        """Dedicated search endpoint — wraps the 'search <query>' command."""
-        if not require_key():
-            return render_response({"error": "unauthorized"}, status=401)
-        if rate_limited(request.remote_addr):
-            return render_response({"error": "rate limit reached"}, status=429)
-        # Accept query from JSON body, form data, or query string
-        if request.method == "POST":
-            body = request.get_json(force=True, silent=True) or {}
-            query = body.get("query") or body.get("text") or ""
-        else:
-            query = request.args.get("q") or request.args.get("query") or ""
-        query = query.strip()
-        if not query:
-            return render_response(
-                {"error": "missing query — send ?q=<query> or POST {\"query\":\"...\"}"},
-                status=400)
-        core = get_core()
-        if not core:
-            return render_response({"error": "core failed"}, status=500)
-        try:
-            result = core.handle(f"search {query}")
-        except Exception as exc:
-            result = f"[error] {exc}"
-        return render_response({"query": query, "result": result})
+class ChatBody(BaseModel):
+    text: str = ""
 
-    # ── Chat (mirrors run_shell() from main.py) ─────────────
-    @app.route("/chat", methods=["POST"])
-    def chat():
-        """
-        Process user input using the same logic as main.py run_shell():
-        direct commands → router-routed commands → core.handle() catch-all
-        + suggestion engine.  Returns reply, suggestion, ts, debug_lines.
-        """
-        if not require_key():
-            return render_response({"error": "unauthorized"}, status=401)
-        if rate_limited(request.remote_addr):
-            return render_response({"error": "rate limit reached"}, status=429)
-        core = get_core()
-        if not core:
-            return render_response({"error": "core failed"}, status=500)
-        data = request.get_json(force=True, silent=True) or {}
-        text = data.get("text", "").strip()
-        if not text:
-            return render_response({"error": "no text provided"}, status=400)
-        try:
-            result = _shell_process(core, text)
-        except Exception as exc:
-            result = {"reply": f"[error] {exc}", "suggestion": None,
-                      "ts": _ts(), "debug_lines": []}
-        return render_response(result)
 
-    # ── Memory ──────────────────────────────────────────────
-    @app.route("/memory", methods=["GET"])
-    def memory():
-        if not require_key():
-            return render_response({"error": "unauthorized"}, status=401)
-        if rate_limited(request.remote_addr):
-            return render_response({"error": "rate limit reached"}, status=429)
-        core = get_core()
-        facts = []
-        if core:
-            try:
-                facts = core.memory.list_facts(limit=200)
-            except Exception:
-                pass
-        return render_response({"facts": facts, "count": len(facts)})
+class SearchBody(BaseModel):
+    query: str = ""
+    text: str = ""
 
-    # ── MCP — Model Context Protocol ───────────────────────────────────────
-    # Register /mcp (JSON-RPC POST) and /mcp/sse (SSE notifications).
-    # Any MCP-compatible client (Claude Desktop, VS Code Copilot, Cursor …)
-    # can connect to Niblit through these endpoints.
+
+# ── Liveness probe ──────────────────────────────────────
+@app.get("/health")
+def health(request: Request):
+    """Lightweight liveness probe — no NiblitCore init required."""
+    return render_response(request, {"status": "ok", "service": "niblit"})
+
+
+# ── Dashboard / root ────────────────────────────────────
+@app.get("/")
+def dashboard(request: Request):
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return HTMLResponse(_build_dashboard())
+    return render_response(request, {"service": "niblit", "status": "ok",
+                            "endpoints": ["/api/boot", "/api/commands", "/api/search",
+                                          "/api/status", "/api/suggest", "/api/threads",
+                                          "/ping", "/chat", "/memory"]})
+
+
+# ── Ping / personality ──────────────────────────────────
+@app.get("/ping")
+def ping(request: Request):
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    core = get_core()
     try:
-        from modules.mcp_server import register_flask_routes as _mcp_register
-        _mcp_register(app)
-    except Exception as _mcp_exc:
-        import logging as _lg
-        _lg.getLogger("NiblitApp").debug("MCP routes not registered: %s", _mcp_exc)
+        p = core.memory.get_personality() if core else {}
+    except Exception:
+        p = {}
+    return render_response(request, {"status": "ok" if core else "no-core", "personality": p})
+
+
+# ── API: boot messages (mirrors main.py boot()) ─────────
+@app.get("/api/boot")
+def api_boot(request: Request):
+    """
+    Return the boot messages that main.py prints on startup.
+    Triggers lazy NiblitCore init so the web user sees the same
+    sequence as running Niblit in a Termux terminal.
+    """
+    msgs = _get_boot_messages()
+    core = get_core()
+    return render_response(request, {"messages": msgs, "ready": core is not None})
+
+
+# ── API: command suggestions ─────────────────────────────
+@app.get("/api/suggest")
+def api_suggest(request: Request, q: str = ""):
+    """Return close-match command suggestions like main.py suggest_command()."""
+    q = q.strip()
+    if not q:
+        return render_response(request, {"suggestions": []})
+    return render_response(request, {"suggestions": suggest_command(q), "query": q})
+
+
+# ── API: thread list ────────────────────────────────────
+@app.get("/api/threads")
+def api_threads(request: Request):
+    """Return the live thread list — same as the 'threads' command in main.py."""
+    return render_response(request, {"threads": _list_threads()})
+
+
+# ── API: list commands ───────────────────────────────────
+@app.get("/api/commands")
+def api_commands(request: Request):
+    """Return the full command catalogue (used by the sidebar menu)."""
+    return render_response(request, {"commands": COMMAND_GROUPS,
+                            "count": sum(len(g["commands"]) for g in COMMAND_GROUPS)})
+
+
+# ── API: system status ───────────────────────────────────
+@app.get("/api/status")
+def api_status(request: Request):
+    """Return detailed system status."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    core = get_core()
+    data = {"online": core is not None, "service": "niblit"}
+    if core:
+        try:
+            data["personality"] = core.memory.get_personality()
+        except Exception:
+            pass
+        try:
+            # Use a small limit just to obtain a count — the memory API
+            # does not currently expose a dedicated count method.
+            data["facts_count"] = len(core.memory.list_facts(limit=500))
+        except Exception:
+            pass
+    return render_response(request, data)
+
+
+# ── API: background status (lightweight, polls every 15s) ──
+@app.get("/api/bg_status")
+def api_bg_status(request: Request):
+    """Background status — lightweight, polls every 15s from UI."""
+    core = get_core()
+    data = {
+        "ts": _ts(),
+        "ale": None,
+        "topics": [],
+        "dtm": None,
+        "threads": len(threading.enumerate()),
+    }
+    if core:
+        ale = getattr(core, "autonomous_engine", None)
+        if ale:
+            data["ale"] = {
+                "running": getattr(ale, "running", False),
+                "cycle": getattr(ale, "_cycle_count", 0),
+                "topic": ale.get_current_topic() if hasattr(ale, "get_current_topic") else None,
+            }
+            topics = getattr(ale, "research_topics", [])
+            data["topics"] = topics[:5] if topics else []
+        dtm = getattr(core, "dynamic_topic_manager", None)
+        if dtm:
+            refresh_thread = getattr(core, "_topic_refresh_thread", None)
+            data["dtm"] = {
+                "seeds": len(getattr(dtm, "seed_topics", [])),
+                "thread_alive": refresh_thread is not None and refresh_thread.is_alive(),
+            }
+    return render_response(request, data)
+
+
+# ── API: search (GET or POST) ────────────────────────────
+@app.get("/api/search")
+def api_search_get(request: Request, q: str = "", query: str = ""):
+    """Dedicated search endpoint (GET) — wraps the 'search <query>' command."""
+    if not require_key(request):
+        return render_response(request, {"error": "unauthorized"}, status=401)
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    search_q = (q or query).strip()
+    if not search_q:
+        return render_response(request,
+            {"error": "missing query — send ?q=<query> or POST {\"query\":\"...\"}"},
+            status=400)
+    core = get_core()
+    if not core:
+        return render_response(request, {"error": "core failed"}, status=500)
+    try:
+        result = core.handle(f"search {search_q}")
+    except Exception as exc:
+        result = f"[error] {exc}"
+    return render_response(request, {"query": search_q, "result": result})
+
+
+@app.post("/api/search")
+async def api_search_post(request: Request):
+    """Dedicated search endpoint (POST) — wraps the 'search <query>' command."""
+    if not require_key(request):
+        return render_response(request, {"error": "unauthorized"}, status=401)
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    search_q = (body.get("query") or body.get("text") or "").strip()
+    if not search_q:
+        return render_response(request,
+            {"error": "missing query — send ?q=<query> or POST {\"query\":\"...\"}"},
+            status=400)
+    core = get_core()
+    if not core:
+        return render_response(request, {"error": "core failed"}, status=500)
+    try:
+        result = core.handle(f"search {search_q}")
+    except Exception as exc:
+        result = f"[error] {exc}"
+    return render_response(request, {"query": search_q, "result": result})
+
+
+# ── Chat (mirrors run_shell() from main.py) ─────────────
+@app.post("/chat")
+def chat(request: Request, body: ChatBody):
+    """
+    Process user input using the same logic as main.py run_shell():
+    direct commands → router-routed commands → core.handle() catch-all
+    + suggestion engine.  Returns reply, suggestion, ts, debug_lines.
+    """
+    if not require_key(request):
+        return render_response(request, {"error": "unauthorized"}, status=401)
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    core = get_core()
+    if not core:
+        return render_response(request, {"error": "core failed"}, status=500)
+    text = body.text.strip()
+    if not text:
+        return render_response(request, {"error": "no text provided"}, status=400)
+    try:
+        result = _shell_process(core, text)
+    except Exception as exc:
+        result = {"reply": f"[error] {exc}", "suggestion": None,
+                  "ts": _ts(), "debug_lines": []}
+    return render_response(request, result)
+
+
+# ── Memory ──────────────────────────────────────────────
+@app.get("/memory")
+def memory(request: Request):
+    if not require_key(request):
+        return render_response(request, {"error": "unauthorized"}, status=401)
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    core = get_core()
+    facts = []
+    if core:
+        try:
+            facts = core.memory.list_facts(limit=200)
+        except Exception:
+            pass
+    return render_response(request, {"facts": facts, "count": len(facts)})
+
+
+# ── MCP — Model Context Protocol ───────────────────────────────────────
+# Register /mcp (JSON-RPC POST) and /mcp/sse (SSE notifications).
+# Any MCP-compatible client (Claude Desktop, VS Code Copilot, Cursor …)
+# can connect to Niblit through these endpoints.
+try:
+    from modules.mcp_server import register_fastapi_routes as _mcp_register
+    _mcp_register(app)
+except Exception as _mcp_exc:
+    import logging as _lg
+    _lg.getLogger("NiblitApp").debug("MCP routes not registered: %s", _mcp_exc)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1750,9 +1810,9 @@ if _flask_available:
 # ══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    if not _flask_available:
-        print("ERROR: Flask is not installed. Run: pip install flask")
-    else:
-        port = int(os.environ.get("PORT", 5000))
-        print(f"Starting Niblit Web AI on http://0.0.0.0:{port}")
-        app.run(host="0.0.0.0", port=port, debug=os.environ.get("FLASK_DEBUG", "0") == "1")
+    import uvicorn
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Starting Niblit Web AI on http://0.0.0.0:{port}")
+    uvicorn.run("app:app", host="0.0.0.0", port=port,
+                reload=os.environ.get("APP_DEBUG", "0") == "1")
+
