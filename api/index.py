@@ -1162,13 +1162,13 @@ def api_hf_ask(request: Request, body: HFAskBody):
             from modules.hf_brain import HFBrain  # type: ignore[import]
             db = getattr(core, "db", None) if core else None
             hf = HFBrain(db=db)
-        except Exception as exc:
-            return JSONResponse({"error": f"HFBrain not available: {exc}"}, status_code=503)
+        except Exception:
+            return JSONResponse({"error": "HFBrain not available"}, status_code=503)
     try:
         reply = hf.ask_single(body.prompt)
         return {"reply": reply, "ts": int(time.time())}
-    except Exception as exc:
-        return JSONResponse({"error": str(exc)}, status_code=500)
+    except Exception:
+        return JSONResponse({"error": "HFBrain request failed"}, status_code=500)
 
 
 # ── Deployment Bridge ─────────────────────────────────────────────────────────
@@ -1184,8 +1184,8 @@ def api_deploy_bridge_status(request: Request):
         try:
             from modules.deployment_bridge import get_deployment_bridge  # type: ignore[import]
             bridge = get_deployment_bridge()
-        except Exception as exc:
-            return JSONResponse({"error": f"DeploymentBridge not available: {exc}"}, status_code=503)
+        except Exception:
+            return JSONResponse({"error": "DeploymentBridge not available"}, status_code=503)
     return {"status": bridge.status(), "ts": int(time.time())}
 
 
@@ -1200,8 +1200,8 @@ def api_deploy_bridge_save(request: Request):
         try:
             from modules.deployment_bridge import get_deployment_bridge  # type: ignore[import]
             bridge = get_deployment_bridge()
-        except Exception as exc:
-            return JSONResponse({"error": f"DeploymentBridge not available: {exc}"}, status_code=503)
+        except Exception:
+            return JSONResponse({"error": "DeploymentBridge not available"}, status_code=503)
     result = bridge.save(core)
     return {"result": result, "ts": int(time.time())}
 
@@ -1219,8 +1219,8 @@ def api_net_status(request: Request):
         try:
             from modules.autonomous_network import get_autonomous_network  # type: ignore[import]
             net = get_autonomous_network()
-        except Exception as exc:
-            return JSONResponse({"error": f"AutonomousNetwork not available: {exc}"}, status_code=503)
+        except Exception:
+            return JSONResponse({"error": "AutonomousNetwork not available"}, status_code=503)
     return {"status": net.status(), "running": net._running, "ts": int(time.time())}
 
 
@@ -1237,8 +1237,8 @@ def api_autonomy_status(request: Request):
         try:
             from modules.module_autonomy import get_module_autonomy  # type: ignore[import]
             ma = get_module_autonomy()
-        except Exception as exc:
-            return JSONResponse({"error": f"ModuleAutonomy not available: {exc}"}, status_code=503)
+        except Exception:
+            return JSONResponse({"error": "ModuleAutonomy not available"}, status_code=503)
     return {"report": ma.report(), "ts": int(time.time())}
 
 
@@ -1258,8 +1258,8 @@ def api_sa_scripts(request: Request):
         from modules.structural_awareness import StructuralAwareness  # type: ignore[import]
         sa = StructuralAwareness()
         return {"report": sa.all_scripts_report(), "scripts": sa._KNOWN_SCRIPTS, "ts": int(time.time())}
-    except Exception as exc:
-        return JSONResponse({"error": str(exc)}, status_code=503)
+    except Exception:
+        return JSONResponse({"error": "StructuralAwareness not available"}, status_code=503)
 
 
 # ── Component Inventory ───────────────────────────────────────────────────────
