@@ -94,8 +94,19 @@ class ReflectModule:
 
     @staticmethod
     def _extract_themes(text: str, n: int = 5) -> str:
-        """Return the *n* most-frequent meaningful words in *text*."""
-        words = [w.strip(".,!?;:()[]{}\"'") for w in text.split() if len(w) > 3]
+        """Return the *n* most-frequent meaningful words in *text*.
+
+        Pure-numeric tokens (timestamps, IDs) and internal key fragments
+        (e.g. ``gap_learned:topic:1775212073``) are excluded so that
+        implementation details never surface as apparent topics.
+        """
+        import re as _re
+        _noise = _re.compile(r"^\d+$|.*\d{8,}.*|^[a-z_]+:[a-z_:0-9]+$")
+        words = [
+            w.strip(".,!?;:()[]{}\"'")
+            for w in text.split()
+            if len(w) > 3 and not _noise.match(w.strip(".,!?;:()[]{}\"'").lower())
+        ]
         if not words:
             return "(no themes)"
         top = sorted(set(words), key=lambda x: words.count(x), reverse=True)

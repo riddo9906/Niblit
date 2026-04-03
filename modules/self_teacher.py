@@ -44,6 +44,14 @@ class SelfTeacher:
         self.review_queue = []
         self.last_reviewed = {}
 
+        # KnowledgeDigest: rewrites raw research in Niblit's own words before
+        # storage (purely additive — created once, updated when self.llm changes)
+        try:
+            from modules.knowledge_digest import KnowledgeDigest as _KD
+            self._knowledge_digest = _KD(llm=self.llm)
+        except Exception:
+            self._knowledge_digest = None  # type: ignore[assignment]
+
     # ── Spaced repetition (interval-based, persisted) ─────────────────────
 
     def _load_review_queue(self):
@@ -186,6 +194,16 @@ class SelfTeacher:
 
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
 
+        # Digest the summary into Niblit's own words before persisting
+        # (purely additive: falls back to the cleaned summary when no LLM)
+        try:
+            if self._knowledge_digest is not None:
+                # Re-sync llm in case it was wired after __init__
+                self._knowledge_digest.llm = self.llm
+                summary = self._knowledge_digest.digest(topic, summary)
+        except Exception:
+            pass
+
         ts = int(time.time())
         try:
             if hasattr(self.db, "add_fact"):
@@ -243,6 +261,16 @@ class SelfTeacher:
             learned = self._get_recent_facts(topic, limit=5)
 
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
+
+        # Digest the summary into Niblit's own words before persisting
+        # (purely additive: falls back to the cleaned summary when no LLM)
+        if learned:
+            try:
+                if self._knowledge_digest is not None:
+                    self._knowledge_digest.llm = self.llm
+                    summary = self._knowledge_digest.digest(topic, summary)
+            except Exception:
+                pass
 
         if learned:
             try:
