@@ -1,21 +1,10 @@
-# server.py
+# server.py — Niblit FastAPI server (lightweight alternative to app.py)
 import os
 
-try:
-    from flask import Flask, request, jsonify, render_template_string
-    _flask_available = True
-except ImportError:
-    Flask = request = jsonify = render_template_string = None
-    _flask_available = False
-    import logging as _logging
-    _logging.getLogger("NiblitServer").warning("Flask not installed — server.py web server unavailable")
-
-try:
-    from flask_cors import CORS as _CORS
-    _cors_available = True
-except ImportError:
-    _CORS = None
-    _cors_available = False
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel
 
 try:
     from niblit_core import NiblitCore
@@ -27,19 +16,16 @@ try:
 except Exception:
     _settings = None
 
-if _flask_available:
-    app = Flask("niblit_server")
-    # Enable CORS for mobile and web clients
-    if _cors_available and _CORS:
-        _origins = getattr(_settings, "CORS_ORIGINS", "*") if _settings else "*"
-        _CORS(app, resources={
-            r"/chat": {"origins": _origins},
-            r"/memory": {"origins": _origins},
-            r"/health": {"origins": _origins},
-            r"/ping": {"origins": _origins},
-        })
-else:
-    app = None
+_origins = getattr(_settings, "CORS_ORIGINS", "*") if _settings else "*"
+_origins_list = [_origins] if isinstance(_origins, str) else list(_origins)
+
+app = FastAPI(title="Niblit Server", docs_url=None, redoc_url=None)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins_list,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Lazy-initialize NiblitCore to reduce cold-start time on serverless
 _core = None
@@ -109,57 +95,54 @@ checkStatus();
 </html>
 """
 
-if _flask_available and app is not None:
-    @app.after_request
-    def _add_security_headers(response):
-        """Attach basic security headers to every response."""
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
-        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        return response
 
-    @app.route("/")
-    def dashboard():
-        return render_template_string(DASHBOARD_HTML)
+class ChatBody(BaseModel):
+    text: str = ""
 
-    @app.route("/health", methods=["GET"])
-    def health():
-        """Lightweight liveness probe — does not initialize NiblitCore."""
-        return jsonify({"status": "ok", "service": "niblit"})
 
-    @app.route("/ping", methods=["GET"])
-    def ping():
-        n = get_core()
-        return jsonify({"status": "ok", "personality": n.db.get_personality() if n else {}})
+@app.get("/")
+def dashboard():
+    return HTMLResponse(DASHBOARD_HTML)
 
-    @app.route("/chat", methods=["POST"])
-    def chat():
-        n = get_core()
-        data = request.get_json(force=True, silent=True) or {}
-        text = data.get("text", "").strip()
-        if not text:
-            return jsonify({"error": "no text provided"}), 400
-        if not n:
-            return jsonify({"error": "core unavailable"}), 500
-        reply = n.handle(text)
-        return jsonify({"reply": reply})
 
-    @app.route("/memory", methods=["GET"])
-    def memory():
-        n = get_core()
-        if not n:
-            return jsonify({"facts": []})
-        facts = n.db.list_facts(limit=200)
-        return jsonify({"facts": facts})
+@app.get("/health")
+def health():
+    """Lightweight liveness probe — does not initialize NiblitCore."""
+    return {"status": "ok", "service": "niblit"}
+
+
+@app.get("/ping")
+def ping():
+    n = get_core()
+    return {"status": "ok", "personality": n.db.get_personality() if n else {}}
+
+
+@app.post("/chat")
+def chat(body: ChatBody):
+    n = get_core()
+    text = body.text.strip()
+    if not text:
+        return JSONResponse({"error": "no text provided"}, status_code=400)
+    if not n:
+        return JSONResponse({"error": "core unavailable"}, status_code=500)
+    reply = n.handle(text)
+    return {"reply": reply}
+
+
+@app.get("/memory")
+def memory():
+    n = get_core()
+    if not n:
+        return {"facts": []}
+    facts = n.db.list_facts(limit=200)
+    return {"facts": facts}
+
 
 def run_server():
-    if not _flask_available:
-        print("ERROR: Flask is not installed. Run: pip install flask")
-        return
+    import uvicorn
     port = int(os.environ.get("PORT", 5000))
     print(f"Starting Niblit HTTP server on http://0.0.0.0:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    uvicorn.run("server:app", host="0.0.0.0", port=port)
 
 if __name__ == "__main__":
     run_server()

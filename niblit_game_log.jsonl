@@ -1,0 +1,5 @@
+{"ts": 1775203410.4021232, "event": "reset"}
+{"ts": 1775203410.4022644, "event": "play", "game": "pong"}
+{"ts": 1775203410.402338, "event": "step", "n": 5, "tick": 5}
+{"ts": 1775203410.4025924, "event": "reset"}
+{"ts": 1775203410.402717, "event": "load", "path": "/tmp/niblit_game_test.json"}

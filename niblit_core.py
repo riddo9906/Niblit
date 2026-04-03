@@ -335,6 +335,29 @@ except Exception as e:
     log.debug(f"TermuxWakeLock import failed: {e}")
     TermuxWakeLock = None
 
+# ── GameEngine (additive) ─────────────────────────────────────────────────────
+try:
+    from modules.game_engine import GameEngine as _GameEngine, get_game_engine as _get_game_engine
+    _GAME_ENGINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"GameEngine import failed: {_e}")
+    _GameEngine = None  # type: ignore[assignment,misc]
+    _get_game_engine = None  # type: ignore[assignment]
+    _GAME_ENGINE_AVAILABLE = False
+
+# ── UniversalFileManager (additive) ──────────────────────────────────────────
+try:
+    from modules.universal_file_manager import (
+        UniversalFileManager as _UniversalFileManager,
+        get_file_manager as _get_file_manager,
+    )
+    _UNIVERSAL_FILE_MANAGER_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"UniversalFileManager import failed: {_e}")
+    _UniversalFileManager = None  # type: ignore[assignment,misc]
+    _get_file_manager = None  # type: ignore[assignment]
+    _UNIVERSAL_FILE_MANAGER_AVAILABLE = False
+
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
@@ -1362,6 +1385,10 @@ class NiblitCore:
         # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
         self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
         self.phase2_agents: dict = {}  # {task_type: agent_instance}
+        # ── Additive: Game engine ─────────────────────────────────────────
+        self.game_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Universal file manager ─────────────────────────────
+        self.universal_file_manager: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.researcher = None
         self.self_researcher = None
@@ -3623,6 +3650,171 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "  lean sweep <n> p=v1,v2 | lean params [n] | lean jobs"
         )
 
+    # ── Game engine commands (additive) ───────────────────────────────────────
+
+    def _cmd_game(self, cmd: str) -> str:
+        """Route a 'game ...' command to the GameEngine.
+
+        Sub-commands
+        ------------
+        game status              — Engine status
+        game list                — List active entities
+        game add <name> [x=N] [y=N] [vx=N] [vy=N] [tag=v]
+                                 — Add an entity
+        game remove <name>       — Remove an entity
+        game step [N]            — Advance N ticks
+        game reset               — Reset the world
+        game save [path]         — Serialise world to JSON
+        game load <path>         — Restore world from JSON
+        game log [N]             — Show last N event log entries
+        game score [+N]          — Show score or add N points
+        game play <template>     — Load a built-in template (pong/gravity/adventure)
+        game action <entity> k=v — Apply action dict to an entity
+        """
+        engine = getattr(self, "game_engine", None)
+        if engine is None:
+            return "[game] GameEngine not initialised — check startup logs"
+
+        parts = cmd.strip().split()
+        if not parts:
+            return engine.status()
+        sub = parts[0].lower()
+        rest = parts[1:]
+
+        if sub in ("status", ""):
+            return engine.status()
+        if sub in ("list", "ls", "entities"):
+            return engine.list_entities()
+        if sub == "add":
+            if not rest:
+                return "Usage: game add <name> [x=N] [y=N] [vx=N] [vy=N] [tag=v]"
+            name = rest[0]
+            kwargs: Dict[str, Any] = {}
+            for kv in rest[1:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    try:
+                        kwargs[k] = float(v)
+                    except ValueError:
+                        kwargs[k] = v
+            return engine.add_entity(name, **kwargs)
+        if sub == "remove":
+            if not rest:
+                return "Usage: game remove <name>"
+            return engine.remove_entity(rest[0])
+        if sub == "step":
+            n = 1
+            if rest:
+                try:
+                    n = int(rest[0])
+                except ValueError:
+                    pass
+            return engine.step(n)
+        if sub == "reset":
+            return engine.reset()
+        if sub == "save":
+            return engine.save_state(rest[0] if rest else None)
+        if sub == "load":
+            if not rest:
+                return "Usage: game load <path>"
+            return engine.load_state(rest[0])
+        if sub in ("log", "events"):
+            n = 20
+            if rest:
+                try:
+                    n = int(rest[0])
+                except ValueError:
+                    pass
+            return engine.event_log(n)
+        if sub == "score":
+            if rest and rest[0].lstrip("+-").isdigit():
+                return engine.add_score(float(rest[0]))
+            return f"🏆 Current score: {engine.score}"
+        if sub == "play":
+            if not rest:
+                return "Usage: game play <template>  (pong / gravity / adventure)"
+            return engine.play(rest[0])
+        if sub == "action":
+            if len(rest) < 2:
+                return "Usage: game action <entity_name> key=value [key=value ...]"
+            ename = rest[0]
+            action: Dict[str, Any] = {}
+            for kv in rest[1:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    try:
+                        action[k] = float(v)
+                    except ValueError:
+                        action[k] = v
+            return engine.apply_action(ename, action)
+        return (
+            "Game commands:\n"
+            "  game status | list | add <n> [x= y= vx= vy=] | remove <n>\n"
+            "  game step [N] | reset | save [path] | load <path>\n"
+            "  game log [N] | score [+N] | play <template> | action <n> k=v"
+        )
+
+    # ── Universal file manager commands (additive) ────────────────────────────
+
+    def _cmd_file(self, cmd: str) -> str:
+        """Route a 'file ...' command to the UniversalFileManager.
+
+        Sub-commands
+        ------------
+        file status              — Handler registry summary
+        file formats             — List all registered format handlers
+        file detect <path>       — Detect file type and handler
+        file read <path>         — Read and display a file
+        file write <path> <txt>  — Write text content to a file
+        file edit <path> OLD==>NEW
+                                 — Replace first occurrence of OLD with NEW
+        file execute <path> [args]
+                                 — Execute a script file
+        """
+        fm = getattr(self, "universal_file_manager", None)
+        if fm is None:
+            return "[file] UniversalFileManager not initialised — check startup logs"
+
+        parts = cmd.strip().split(None, 2)
+        if not parts:
+            return fm.status()
+        sub = parts[0].lower()
+        rest_str = parts[1] if len(parts) > 1 else ""
+        tail_str = parts[2] if len(parts) > 2 else ""
+
+        if sub in ("status", ""):
+            return fm.status()
+        if sub == "formats":
+            return fm.list_formats()
+        if sub == "detect":
+            if not rest_str:
+                return "Usage: file detect <path>"
+            return fm.detect(rest_str)
+        if sub == "read":
+            if not rest_str:
+                return "Usage: file read <path>"
+            return fm.read_file(rest_str)
+        if sub == "write":
+            if not rest_str or not tail_str:
+                return "Usage: file write <path> <content>"
+            return fm.write_file(rest_str, tail_str)
+        if sub == "edit":
+            if not rest_str or "==>" not in tail_str:
+                return "Usage: file edit <path> OLD_TEXT==>NEW_TEXT"
+            old_part, new_part = tail_str.split("==>", 1)
+            return fm.edit_file(rest_str, old_part, new_part)
+        if sub in ("execute", "exec", "run"):
+            if not rest_str:
+                return "Usage: file execute <path> [args...]"
+            extra_args = tail_str.split() if tail_str else []
+            return fm.execute_file(rest_str, extra_args)
+        return (
+            "File commands:\n"
+            "  file status | formats | detect <path>\n"
+            "  file read <path> | file write <path> <content>\n"
+            "  file edit <path> OLD==>NEW | file execute <path> [args]"
+        )
+
     # ── Phase-2 agent commands (additive) ─────────────────────────────────────
 
     def _cmd_agents(self, cmd: str = "") -> str:
@@ -5062,6 +5254,26 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _lee:
                 log.debug("[INIT] LeanEngine init failed: %s", _lee)
                 self.startup_report.add("lean_engine", "degraded", str(_lee))
+
+        # ── GameEngine (additive) ─────────────────────────────────────────────
+        if _GAME_ENGINE_AVAILABLE and _get_game_engine is not None:
+            try:
+                self.game_engine = _get_game_engine()
+                log.info("✅ GameEngine initialised (headless mode)")
+                self.startup_report.add("game_engine", "ready")
+            except Exception as _gee:
+                log.debug("[INIT] GameEngine init failed: %s", _gee)
+                self.startup_report.add("game_engine", "degraded", str(_gee))
+
+        # ── UniversalFileManager (additive) ───────────────────────────────────
+        if _UNIVERSAL_FILE_MANAGER_AVAILABLE and _get_file_manager is not None:
+            try:
+                self.universal_file_manager = _get_file_manager()
+                log.info("✅ UniversalFileManager initialised")
+                self.startup_report.add("universal_file_manager", "ready")
+            except Exception as _ufme:
+                log.debug("[INIT] UniversalFileManager init failed: %s", _ufme)
+                self.startup_report.add("universal_file_manager", "degraded", str(_ufme))
 
         # ── Phase-2 Agent Architecture (additive) ────────────────────────────
         # Initialise RuntimeManager and all Phase-2 agents, register them with
