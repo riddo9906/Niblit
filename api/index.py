@@ -1181,7 +1181,7 @@ def api_hf_ask(request: Request, body: HFAskBody):
         if not reply:
             # HFBrain disabled (no HF_API_KEY) — surface a clear error
             return JSONResponse(
-                {"error": "HFBrain offline — set HF_API_KEY in Vercel environment variables"},
+                {"error": "HFBrain offline — set HF_TOKEN (or HF_API_KEY) in Vercel environment variables"},
                 status_code=503,
             )
         return {"reply": reply, "ts": int(time.time())}

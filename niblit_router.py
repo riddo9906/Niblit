@@ -1547,7 +1547,7 @@ Ask me about:
 
         if lower == "hf-status":
             if hf is None:
-                return "⚫ HFBrain not loaded (set HF_API_KEY env var)"
+                return "⚫ HFBrain not loaded (set HF_TOKEN or HF_API_KEY env var)"
             enabled = getattr(hf, "enabled", False)
             model = getattr(hf, "model", "unknown")
             token_set = bool(getattr(hf, "token", None))
@@ -1573,7 +1573,7 @@ Ask me about:
             if not prompt:
                 return "Usage: hf-ask <your prompt>"
             if hf is None:
-                return "⚫ HFBrain not loaded (set HF_API_KEY)"
+                return "⚫ HFBrain not loaded (set HF_TOKEN or HF_API_KEY)"
             try:
                 return hf.ask_single(prompt)
             except Exception as exc:
