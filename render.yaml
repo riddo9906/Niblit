@@ -1,0 +1,98 @@
+services:
+  - type: web
+    name: niblit
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+
+    envVars:
+      # ── Core ──────────────────────────────────────────────────────────────
+      - key: APP_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.12"
+
+      # ── Required — LLM ────────────────────────────────────────────────────
+      - key: HF_TOKEN
+        sync: false          # set manually in Render dashboard
+
+      # ── Security ──────────────────────────────────────────────────────────
+      - key: SECRET_KEY
+        generateValue: true  # Render generates a random value automatically
+      - key: NIBLIT_API_KEY
+        sync: false          # optional: protects /chat and /memory
+      - key: CORS_ORIGINS
+        value: "*"
+
+      # ── Optional LLM providers ────────────────────────────────────────────
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # ── Autonomous engine flags ───────────────────────────────────────────
+      - key: NIBLIT_AUTONOMOUS_ENGINE
+        value: "true"
+      - key: NIBLIT_IMPROVEMENTS
+        value: "true"
+      - key: NIBLIT_SELF_IMPROVEMENTS
+        value: "true"
+      - key: NIBLIT_LOOPS
+        value: "true"
+      - key: NIBLIT_GAME_DISPLAY
+        value: "0"           # no display on Render
+      - key: NIBLIT_DEBUG
+        value: "false"
+      - key: NIBLIT_LOG_LEVEL
+        value: INFO
+
+      # ── Research / web-search ─────────────────────────────────────────────
+      - key: SERPEX_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        sync: false
+      - key: GITHUB_BRANCH
+        value: "niblit/auto-improve"
+      - key: NIBLIT_GITHUB_DRY_RUN
+        value: "1"
+
+      # ── Trading Brain ─────────────────────────────────────────────────────
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+      - key: TRADING_SYMBOL
+        value: BTCUSDT
+      - key: TRADING_INTERVAL
+        value: 1m
+      - key: TRADING_CYCLE_SECS
+        value: "60"
+
+      # ── Vector DB (Qdrant) ────────────────────────────────────────────────
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_COLLECTION
+        value: niblit_knowledge
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+
+      # ── Background Trainer ────────────────────────────────────────────────
+      - key: TRAINER_BATCH_SIZE
+        value: "32"
+      - key: TRAINER_INTERVAL_SECS
+        value: "60"
+      - key: TRAINER_STEP_TIMEOUT_SECS
+        value: "30"
+
+      # ── MCP Server ────────────────────────────────────────────────────────
+      - key: MCP_ENABLED
+        value: "true"
+      - key: MCP_SECRET
+        sync: false
