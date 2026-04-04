@@ -3562,6 +3562,13 @@ Ask me about:
         if lower == "kernel" or lower.startswith("kernel "):
             return self._handle_kernel(cmd)
 
+        # MEMORY RESET — flush all memory, caches and state files
+        if lower == "memory-reset" or lower.startswith("memory-reset "):
+            sub = cmd[len("memory-reset"):].strip()
+            if self.core and hasattr(self.core, "_cmd_memory_reset"):
+                return safe_call(lambda: self.core._cmd_memory_reset(sub))
+            return "[memory-reset] Core not initialised."
+
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
                      "memory dump on", "memory dump off",
@@ -3940,6 +3947,15 @@ Ask me about:
             "toggle-llm on                — Enable LLM (use AI)",
             "status, health               — System status",
             "time                         — Current time",
+            "",
+            "=== MEMORY MANAGEMENT ===",
+            "memory-reset                 — Show warning + usage before clearing",
+            "memory-reset status          — Preview what will be cleared (dry-run)",
+            "memory-reset confirm         — ⚠️  WIPE all memory, ALE state, caches",
+            "                               (facts, events, learning_log, SQLite tables,",
+            "                                ale_state.json, deployment bridge, research cache,",
+            "                                ALE counters, SelfTeacher queue, history)",
+            "  Tip: after reset run 'autonomous-learn start' for a clean ALE cycle.",
             "",
             "=== LOOP & OUTPUT CONTROL ===",
             "loop hide / loops hide       — Silence all log output (INFO/WARNING/EVENT etc.)",

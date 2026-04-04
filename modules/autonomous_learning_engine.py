@@ -566,14 +566,19 @@ class AutonomousLearningEngine:
                     self.knowledge_db.log_event(
                         f"Autonomous research completed: {topic} ({len(results)} results)"
                     )
-                    # Store structured acquired data fact including full results text
-                    all_text = "\n---\n".join(str(r)[:400] for r in results[:5])
+                    # Store structured acquired data fact with clean text only
+                    def _rtext(r):
+                        if isinstance(r, dict):
+                            return (r.get("snippet") or r.get("text") or r.get("description")
+                                    or r.get("content") or r.get("summary") or str(r))
+                        return str(r)
+                    all_text = "\n---\n".join(_rtext(r)[:400] for r in results[:5])
                     self.knowledge_db.add_fact(
                         f"ale_research:{topic.replace(' ', '_')}:{int(time.time())}",
                         {
                             "topic": topic,
                             "results_count": len(results),
-                            "summary": str(results[0])[:300] if results else "no results",
+                            "summary": _rtext(results[0])[:300] if results else "no results",
                             "full_text": all_text[:800],
                             "step": "step1_research",
                         },
@@ -601,8 +606,10 @@ class AutonomousLearningEngine:
             if self.hybrid_manager and results:
                 try:
                     result = results[0] if results else None
+                    rtext = (result.get("snippet") or result.get("text") or result.get("description")
+                             or result.get("content") or result.get("summary") or str(result)) if isinstance(result, dict) else str(result)
                     self.hybrid_manager.upsert(
-                        str(result)[:2000],
+                        rtext[:2000],
                         {"type": "research", "topic": self._current_cycle_topic, "cycle": self._cycle_count},
                         collection="niblit_research"
                     )
@@ -806,12 +813,18 @@ class AutonomousLearningEngine:
 
             log.info(f"🧠 [AUTONOMOUS REFLECT] Reflecting on '{last_topic}'...")
 
-            result = self.reflect.collect_and_summarize(reflection_text)
+            # Use reflect_on_research(topic, findings, idea) when available so
+            # only the clean topic string is forwarded to self_teacher, not the
+            # full compound "Research topic: ...\n\nFindings: ..." blob.
+            research_text = raw_content[:500] if raw_content else "(no research findings)"
+            if hasattr(self.reflect, "reflect_on_research"):
+                result = self.reflect.reflect_on_research(last_topic, research_text, last_idea or "")
+            else:
+                result = self.reflect.collect_and_summarize(last_topic)
 
             self.learning_history["reflections_conducted"] += 1
 
             # Build a condensed, recallable research+reflection record
-            research_text = raw_content[:500] if raw_content else "(no research findings)"
             reflection_output = str(result or "")[:400]
 
             # Persist to knowledge base
@@ -4296,7 +4309,26 @@ class AutonomousLearningEngine:
 
     # ─────────────────��───────────────────────────
     def add_research_topic(self, topic: str):
-        """Add new topic to autonomous research list"""
+        """Add new topic to autonomous research list.
+
+        Rejects compound strings (containing newlines or payload keywords like
+        'Insights:', 'Findings:', 'Research finding:') and very short fragments
+        so that blob noise never enters the research queue.
+        """
+        if not topic or not isinstance(topic, str):
+            return False
+        # Reject multi-line compound strings (results / reflection blobs)
+        if "\n" in topic:
+            return False
+        # Reject strings that look like embedded result payloads
+        _noise_markers = ("insights:", "findings:", "research finding:", "no data found",
+                          "implementation plan", "auto-research topic:", "research query:")
+        topic_lower = topic.lower()
+        if any(marker in topic_lower for marker in _noise_markers):
+            return False
+        # Reject very short fragments (single words < 4 chars)
+        if len(topic.strip()) < 4:
+            return False
         if topic not in self.research_topics:
             self.research_topics.append(topic)
             log.info(f"✅ Added research topic: {topic}")

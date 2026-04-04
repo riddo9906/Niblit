@@ -647,6 +647,14 @@ def safe_call(fn: Callable, *a, **kw) -> Optional[Any]:
         return None
 
 
+class _noop_lock:
+    """Trivial no-op context manager used as a fallback when an object has no lock."""
+    def __enter__(self):
+        return self
+    def __exit__(self, *_):
+        pass
+
+
 def sorted_walk(base):
     """os.walk wrapper that yields directories in sorted order."""
     for root, dirs, files in os.walk(base):
@@ -3797,6 +3805,260 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "  ale pause / ale resume-cycle / ale history [N] / ale incomplete"
         )
 
+    def _cmd_memory_reset(self, confirm: str = "") -> str:
+        """Flush ALL of Niblit's memory, caches, and state files for a clean start.
+
+        Sub-commands
+        ------------
+        memory-reset confirm   — Perform the full wipe (requires 'confirm' keyword).
+        memory-reset status    — Show what would be cleared without touching anything.
+        memory-reset           — Print usage / warn before clearing.
+
+        What is cleared
+        ---------------
+        • KnowledgeDB / NiblitMemory in-memory state (facts, events, interactions,
+          learning_log, learning_queue) and their backing JSON files.
+        • LocalDB JSON file (niblit.db).
+        • FusedMemory SQLite tables (events, knowledge, graph_nodes, graph_edges).
+        • ALE checkpoint file (ale_state.json) so learning restarts from cycle 0.
+        • Deployment bridge snapshot (niblit_deployment_bridge.json).
+        • In-memory research cache (CachedOperation TTL store).
+        • ALE learning_history counters and research_topics queue.
+        • SelfTeacher review queue in KB.
+        • SelfResearcher history list.
+
+        After reset, Niblit starts fresh — no contaminated facts, no blob topics.
+        """
+        import os
+        import sqlite3
+
+        confirm = (confirm or "").strip().lower()
+
+        # ── STATUS (dry-run) ─────────────────────────────────────────────────
+        if confirm == "status":
+            lines = ["=== memory-reset status (dry-run) ==="]
+            # JSON memory files
+            for attr, label in (
+                ("db", "KnowledgeDB / NiblitMemory"),
+                ("memory", "NiblitMemory standalone"),
+            ):
+                obj = getattr(self, attr, None)
+                path = getattr(obj, "path", None) or getattr(obj, "filename", None)
+                if path:
+                    size = os.path.getsize(path) if os.path.exists(path) else 0
+                    facts = len(getattr(getattr(obj, "data", {}), "get", lambda *a: [])(
+                        "facts", getattr(obj, "data", {}).get("facts", [])))
+                    lines.append(f"  • {label}: {path} ({size} bytes)")
+            # FusedMemory SQLite
+            fused = getattr(self, "fused_memory", None)
+            if fused:
+                sp = getattr(fused, "_sqlite_path", None)
+                if sp and os.path.exists(sp):
+                    lines.append(f"  • FusedMemory SQLite: {sp} ({os.path.getsize(sp)} bytes)")
+            # ALE checkpoint
+            ckpt = getattr(self, "ale_checkpoint", None)
+            if ckpt:
+                cp = getattr(ckpt, "checkpoint_path", None)
+                if cp and os.path.exists(cp):
+                    lines.append(f"  • ALE checkpoint: {cp} ({os.path.getsize(cp)} bytes)")
+            # Research cache
+            rc = getattr(self, "research_cache", None)
+            if rc:
+                lines.append(f"  • Research cache: {len(getattr(rc, '_cache', {}))} entries (in-memory)")
+            lines.append("")
+            lines.append("Run 'memory-reset confirm' to wipe all of the above.")
+            return "\n".join(lines)
+
+        # ── SAFETY GUARD ─────────────────────────────────────────────────────
+        if confirm != "confirm":
+            return (
+                "⚠️  memory-reset: This will wipe ALL stored memory, knowledge, ALE state,\n"
+                "   research cache, and learning history so Niblit starts completely fresh.\n\n"
+                "   Run 'memory-reset status' to see what will be cleared.\n"
+                "   Run 'memory-reset confirm' to proceed."
+            )
+
+        # ── PERFORM FULL WIPE ────────────────────────────────────────────────
+        log.info("[MEMORY-RESET] Full memory wipe initiated by user.")
+        cleared: list = []
+        errors: list = []
+
+        _BLANK_STATE = {
+            "facts": [], "interactions": [], "learning_log": [],
+            "learning_queue": [], "preferences": {}, "events": [], "meta": {},
+        }
+
+        # 1. KnowledgeDB / NiblitMemory in-memory + file
+        for attr in ("db", "memory"):
+            obj = getattr(self, attr, None)
+            if obj is None:
+                continue
+            try:
+                with getattr(obj, "lock", _noop_lock()):
+                    for field in ("facts", "interactions", "learning_log",
+                                  "learning_queue", "events"):
+                        if hasattr(obj, "data") and isinstance(obj.data, dict):
+                            obj.data[field] = []
+                        if hasattr(obj, "state") and isinstance(obj.state, dict):
+                            obj.state[field] = []
+                path = getattr(obj, "path", None) or getattr(obj, "filename", None)
+                if path and os.path.exists(path):
+                    import json as _json
+                    with open(path, "w", encoding="utf-8") as f:
+                        _json.dump(_BLANK_STATE, f, indent=2)
+                    cleared.append(f"KnowledgeDB/NiblitMemory file: {path}")
+                cleared.append(f"{attr} in-memory state cleared")
+            except Exception as exc:
+                errors.append(f"{attr}: {exc}")
+
+        # 2. LocalDB file (niblit.db)
+        local_db = getattr(self, "local_db", None)
+        if local_db is None:
+            # Try to find through common attributes
+            for attr_name in ("brain_db", "local_db", "localdb"):
+                local_db = getattr(self, attr_name, None)
+                if local_db is not None:
+                    break
+        if local_db and hasattr(local_db, "path"):
+            try:
+                local_db.data = {
+                    "interactions": [], "facts": [],
+                    "learning_log": [], "preferences": {},
+                }
+                local_db._save()  # type: ignore[attr-defined]
+                cleared.append(f"LocalDB: {local_db.path}")
+            except Exception as exc:
+                errors.append(f"LocalDB: {exc}")
+
+        # 3. FusedMemory SQLite tables
+        fused = getattr(self, "fused_memory", None)
+        if fused and hasattr(fused, "_conn"):
+            try:
+                with fused._lock:
+                    fused._conn.executescript(
+                        "DELETE FROM events; DELETE FROM knowledge; "
+                        "DELETE FROM graph_nodes; DELETE FROM graph_edges;"
+                    )
+                    fused._conn.commit()
+                cleared.append(f"FusedMemory SQLite tables cleared ({fused._sqlite_path})")
+            except Exception as exc:
+                errors.append(f"FusedMemory: {exc}")
+        # Also try via db.fused_memory
+        db_fused = getattr(getattr(self, "db", None), "fused_memory", None)
+        if db_fused and db_fused is not fused and hasattr(db_fused, "_conn"):
+            try:
+                with db_fused._lock:
+                    db_fused._conn.executescript(
+                        "DELETE FROM events; DELETE FROM knowledge; "
+                        "DELETE FROM graph_nodes; DELETE FROM graph_edges;"
+                    )
+                    db_fused._conn.commit()
+                cleared.append("NiblitMemory FusedMemory SQLite tables cleared")
+            except Exception as exc:
+                errors.append(f"NiblitMemory FusedMemory: {exc}")
+
+        # 4. ALE checkpoint file
+        ckpt = getattr(self, "ale_checkpoint", None)
+        if ckpt:
+            cp = getattr(ckpt, "checkpoint_path", None)
+            if cp and os.path.exists(cp):
+                try:
+                    os.remove(cp)
+                    cleared.append(f"ALE checkpoint: {cp}")
+                except Exception as exc:
+                    errors.append(f"ALE checkpoint: {exc}")
+            # Reset in-memory ALE state
+            try:
+                ckpt._state = {
+                    "cycle_count": 0,
+                    "learning_history": {},
+                    "research_topics": [],
+                    "step_results_history": [],
+                }
+                cleared.append("ALE checkpoint in-memory state cleared")
+            except Exception as exc:
+                errors.append(f"ALE checkpoint state: {exc}")
+
+        # 5. Deployment bridge snapshot
+        from modules.deployment_bridge import _BRIDGE_FILE as _bridge_file  # type: ignore[import]
+        try:
+            if os.path.exists(_bridge_file):
+                os.remove(_bridge_file)
+                cleared.append(f"Deployment bridge: {_bridge_file}")
+        except Exception as exc:
+            errors.append(f"Deployment bridge: {exc}")
+
+        # 6. In-memory research cache
+        rc = getattr(self, "research_cache", None)
+        if rc and hasattr(rc, "_cache"):
+            try:
+                rc._cache.clear()
+                cleared.append("Research cache (in-memory) cleared")
+            except Exception as exc:
+                errors.append(f"Research cache: {exc}")
+
+        # 7. ALE engine learning_history + research_topics
+        ale = getattr(self, "autonomous_engine", None)
+        if ale:
+            try:
+                ale.learning_history = {k: 0 if isinstance(v, int) else "" if isinstance(v, str) else v
+                                        for k, v in getattr(ale, "learning_history", {}).items()}
+                for key in list(ale.learning_history):
+                    if isinstance(ale.learning_history[key], int):
+                        ale.learning_history[key] = 0
+                    elif isinstance(ale.learning_history[key], str):
+                        ale.learning_history[key] = ""
+                cleared.append("ALE learning_history counters reset")
+            except Exception as exc:
+                errors.append(f"ALE learning_history: {exc}")
+            try:
+                ale.research_topics.clear()
+                cleared.append("ALE research_topics queue cleared")
+            except Exception as exc:
+                errors.append(f"ALE research_topics: {exc}")
+            try:
+                ale._last_research_results = []
+                ale._cycle_count = 0
+                cleared.append("ALE cycle counter + last results cleared")
+            except Exception:
+                pass
+
+        # 8. SelfTeacher review queue in KB
+        st = getattr(self, "self_teacher", None)
+        if st:
+            try:
+                st._review_queue = []
+                st.review_queue = []
+                st.last_reviewed = {}
+                cleared.append("SelfTeacher review queue cleared")
+            except Exception as exc:
+                errors.append(f"SelfTeacher: {exc}")
+
+        # 9. SelfResearcher history
+        researcher = getattr(self, "researcher", None)
+        if researcher:
+            try:
+                researcher.history = []
+                researcher.responses = {}
+                cleared.append("SelfResearcher history cleared")
+            except Exception as exc:
+                errors.append(f"SelfResearcher: {exc}")
+
+        log.info("[MEMORY-RESET] Cleared %d item(s). Errors: %d", len(cleared), len(errors))
+
+        lines = ["✅ Memory reset complete. Niblit starts fresh.\n", "Cleared:"]
+        for item in cleared:
+            lines.append(f"  ✓ {item}")
+        if errors:
+            lines.append("\nWarnings (non-fatal):")
+            for err in errors:
+                lines.append(f"  ⚠ {err}")
+        lines.append(
+            "\n💡 Tip: Restart the autonomous engine with 'autonomous-learn start' "
+            "so ALE begins from a clean state."
+        )
+        return "\n".join(lines)
+
     def _cmd_reload_params(self) -> str:
         """On-demand ParameterManager reload (additive).
 
@@ -6924,41 +7186,50 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             result = safe_call(self.researcher.search, topic)
 
                         if result and self.db and hasattr(self.db, "add_fact"):
-                            result_text = str(result)
-                            # Store raw research result
+                            # Convert result list to clean joined text — never use str(list)
+                            if isinstance(result, list):
+                                result_text = "\n".join(
+                                    (r.get("snippet") or r.get("text") or r.get("description")
+                                     or r.get("content") or r.get("summary") or str(r))
+                                    if isinstance(r, dict) else str(r)
+                                    for r in result if r
+                                )
+                            else:
+                                result_text = str(result)
+                            result_text = result_text.strip()
+                            # Store clean research text
                             try:
                                 self.db.add_fact(
                                     f"auto_research:{topic}",
-                                    result_text,
+                                    result_text[:800],
                                     tags=["research", "auto"]
                                 )
                             except Exception:
                                 pass
 
-                            # Reflect on the research result
+                            # Reflect on the research result using topic + clean text
                             reflection_output = ""
                             reflect = getattr(self, "reflect", None)
-                            if reflect and hasattr(reflect, "collect_and_summarize"):
+                            if reflect:
                                 try:
-                                    reflection_output = str(
-                                        reflect.collect_and_summarize(
-                                            f"Auto-research topic: {topic}\n\n"
-                                            f"Findings:\n{result_text[:600]}"
-                                        ) or ""
-                                    )
+                                    if hasattr(reflect, "reflect_on_research"):
+                                        reflection_output = str(
+                                            reflect.reflect_on_research(topic, result_text[:600]) or ""
+                                        )
+                                    elif hasattr(reflect, "collect_and_summarize"):
+                                        reflection_output = str(
+                                            reflect.collect_and_summarize(topic) or ""
+                                        )
                                     if getattr(self, '_loops_verbose', True):
                                         log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
                                 except Exception as _re:
                                     log.debug(f"[AUTO RESEARCH] Reflection failed: {_re}")
 
-                            # Feed to self-teacher so the content is internalised
+                            # Feed to self-teacher with clean topic only
                             self_teacher = getattr(self, "self_teacher", None)
                             if self_teacher and hasattr(self_teacher, "teach"):
                                 try:
-                                    safe_call(
-                                        self_teacher.teach,
-                                        f"{topic}: {result_text[:300]}"
-                                    )
+                                    safe_call(self_teacher.teach, topic)
                                     if getattr(self, '_loops_verbose', True):
                                         log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
                                 except Exception as _te:
@@ -7080,41 +7351,50 @@ SW Categories: {stats.get('software_study_categories', 0)}
                                     self.research_cache.set(cache_key, result)
 
                         if result and self.db and hasattr(self.db, "add_fact"):
-                            # Store raw research result
-                            result_text = str(result)
+                            # Convert result list to clean joined text — never use str(list)
+                            if isinstance(result, list):
+                                result_text = "\n".join(
+                                    (r.get("snippet") or r.get("text") or r.get("description")
+                                     or r.get("content") or r.get("summary") or str(r))
+                                    if isinstance(r, dict) else str(r)
+                                    for r in result if r
+                                )
+                            else:
+                                result_text = str(result)
+                            result_text = result_text.strip()
+                            # Store clean research text
                             try:
                                 self.db.add_fact(
                                     f"auto_research:{topic}",
-                                    result_text,
+                                    result_text[:800],
                                     tags=["research", "auto"]
                                 )
                             except Exception:
                                 pass
 
-                            # Reflect on the research result
+                            # Reflect on the research result using topic + clean text
                             reflection_output = ""
                             reflect = getattr(self, "reflect", None)
-                            if reflect and hasattr(reflect, "collect_and_summarize"):
+                            if reflect:
                                 try:
-                                    reflection_output = str(
-                                        reflect.collect_and_summarize(
-                                            f"Auto-research topic: {topic}\n\n"
-                                            f"Findings:\n{result_text[:600]}"
-                                        ) or ""
-                                    )
+                                    if hasattr(reflect, "reflect_on_research"):
+                                        reflection_output = str(
+                                            reflect.reflect_on_research(topic, result_text[:600]) or ""
+                                        )
+                                    elif hasattr(reflect, "collect_and_summarize"):
+                                        reflection_output = str(
+                                            reflect.collect_and_summarize(topic) or ""
+                                        )
                                     if getattr(self, '_loops_verbose', True):
                                         log.info(f"[AUTO RESEARCH] Reflected on '{topic}'")
                                 except Exception as _re:
                                     log.debug(f"[AUTO RESEARCH] Reflection failed: {_re}")
 
-                            # Feed to self-teacher so the content is internalised
+                            # Feed to self-teacher with clean topic only
                             self_teacher = getattr(self, "self_teacher", None)
                             if self_teacher and hasattr(self_teacher, "teach"):
                                 try:
-                                    safe_call(
-                                        self_teacher.teach,
-                                        f"{topic}: {result_text[:300]}"
-                                    )
+                                    safe_call(self_teacher.teach, topic)
                                     if getattr(self, '_loops_verbose', True):
                                         log.info(f"[AUTO RESEARCH] Taught '{topic}' to self-teacher")
                                 except Exception as _te:
