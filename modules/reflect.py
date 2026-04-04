@@ -41,6 +41,39 @@ _MAX_KB_SNIPPET = 300
 
 _default_instance: Optional["ReflectModule"] = None
 
+# Maximum characters for a clean topic string extracted from a compound entry.
+_MAX_TOPIC_LENGTH = 200
+
+# ── Utility: extract a clean, searchable topic from a compound reflection entry ──
+# Entries fed to collect_and_summarize() often look like:
+#   "Research Query: <topic>\n\nInsights: <long text>"
+#   "Auto-research topic: <topic>\n\nFindings:\n['...']"
+#   "Research topic: <topic>\n\nResearch findings:\n..."
+# We want only the <topic> part so self_teacher / learner don't re-search with
+# the full compound string (which contaminates search_web calls).
+import re as _re
+_COMPOUND_PREFIX_RE = _re.compile(
+    r"^\s*(Research Query|Auto-research topic|Research topic|Learned about|Review-learned about)\s*:?\s*",
+    _re.I,
+)
+
+
+def _topic_from_entry(entry: str) -> str:
+    """Return the clean topic portion of a (possibly compound) reflection entry.
+
+    Strips well-known prefixes and truncates at the first blank line so that
+    only the genuine topic string (not findings or insights) is returned.
+    """
+    if not entry:
+        return entry
+    # Take only the first non-empty paragraph (before first double newline)
+    first_block = entry.split("\n\n")[0].strip()
+    # Remove well-known label prefixes
+    first_block = _COMPOUND_PREFIX_RE.sub("", first_block).strip()
+    # Final safety: if still very long or contains newlines, take first line only
+    first_line = first_block.split("\n")[0].strip()
+    return first_line[:_MAX_TOPIC_LENGTH] if first_line else first_block[:_MAX_TOPIC_LENGTH]
+
 
 class ReflectModule:
     """Unified reflection engine for Niblit.
@@ -194,16 +227,19 @@ class ReflectModule:
         self._ingest_brain(f"reflect:{topic_word}", reflection)
 
         # ── Feed SelfTeacher ────────────────────────────────────────────
+        # Pass only the clean topic, not the full compound entry, so that
+        # self_teacher.teach() → researcher.search() → search_web() is never
+        # called with an "Insights: {...}" or "Findings: ['...']" blob string.
         if self.self_teacher:
             try:
-                self.self_teacher.teach(entry)
+                self.self_teacher.teach(_topic_from_entry(entry))
             except Exception:
                 pass
 
         # ── Feed Learner module ──────────────────────────────────────────
         if self.learner:
             try:
-                self.learner.learn(entry)
+                self.learner.learn(_topic_from_entry(entry))
             except Exception:
                 pass
 

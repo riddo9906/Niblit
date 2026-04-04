@@ -23,6 +23,14 @@ import difflib
 import datetime
 import threading
 
+# Load .env file when running locally (e.g. Termux).  niblit_core also calls
+# load_dotenv(), but doing it here ensures vars are set before any imports.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed — rely on os.environ
+
 from niblit_core import NiblitCore
 from niblit_io import NiblitIO
 from niblit_router import safe_call

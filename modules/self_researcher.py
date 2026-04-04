@@ -464,9 +464,13 @@ class SelfResearcher:
 
         try:
             insights = self._extract_insights(query, results)
-            reflection = self.reflect.collect_and_summarize(
-                f"Research Query: {query}\n\nInsights: {insights}"
-            )
+            # Prefer reflect_on_research(topic, findings) so the compound
+            # "Research Query: ...\n\nInsights: ..." string is never passed
+            # as a search query downstream.
+            if hasattr(self.reflect, "reflect_on_research"):
+                reflection = self.reflect.reflect_on_research(query, insights)
+            else:
+                reflection = self.reflect.collect_and_summarize(query)
             log.info(f"[REFLECT] Reflection triggered: {reflection}")
         except Exception as e:
             log.debug(f"Reflection feedback skipped: {e}")
@@ -478,8 +482,9 @@ class SelfResearcher:
             return
 
         try:
-            learning_content = self._synthesize_learning(query, results)
-            self.self_teacher.teach(learning_content)
+            # Pass only the clean query topic, not the full synthesized text,
+            # so that researcher.search() is called with a proper topic string.
+            self.self_teacher.teach(query)
             log.info(f"[TEACHER] Self-teaching triggered for: {query}")
         except Exception as e:
             log.debug(f"Teacher feedback skipped: {e}")
@@ -489,7 +494,18 @@ class SelfResearcher:
         """Extract key insights from research results"""
         insights = []
         for result in results[:3]:
-            result_str = str(result)
+            # Extract clean text; never stringify raw dict blobs
+            if isinstance(result, dict):
+                result_str = (
+                    result.get("snippet")
+                    or result.get("text")
+                    or result.get("description")
+                    or result.get("content")
+                    or result.get("summary")
+                    or ""
+                )
+            else:
+                result_str = str(result)
             sentences = re.split(r'[.!?]+', result_str)
             important = [s.strip() for s in sentences if len(s.strip()) > 20][:2]
             insights.extend(important)
@@ -501,9 +517,15 @@ class SelfResearcher:
         if not results:
             return query
 
+        def _rtext(r):
+            if isinstance(r, dict):
+                return (r.get("snippet") or r.get("text") or r.get("description")
+                        or r.get("content") or r.get("summary") or "")
+            return str(r)
+
         if self.llm and hasattr(self.llm, "generate"):
             try:
-                learning_text = " ".join(str(r) for r in results[:3])
+                learning_text = " ".join(_rtext(r) for r in results[:3])
                 synthesized = self.llm.generate(
                     f"Summarize the key learning point from this research for '{query}':\n{learning_text}",
                     max_tokens=200
@@ -512,7 +534,7 @@ class SelfResearcher:
             except Exception:
                 pass
 
-        return " ".join(str(r) for r in results[:2])
+        return " ".join(_rtext(r) for r in results[:2])
 
     # ─────────────────────────────────────────────
     def _store_research_in_knowledge_db(self, query, results):
@@ -648,7 +670,7 @@ class SelfResearcher:
                 web_results = self._internet.search(query, max_results=max_results * 3)
                 if web_results:
                     relevant_web = [
-                        r for r in web_results
+                        _result_text(r) for r in web_results
                         if is_relevant(query, _result_text(r))
                     ]
                     if not relevant_web:
@@ -709,9 +731,13 @@ class SelfResearcher:
         if not no_real_data:
             try:
                 for r in collected_results[:max_results]:
-                    self.db.add_fact(f"research:{query}", r, tags=["research", "web"])
+                    # Always store plain text — never raw dicts
+                    r_text = _result_text(r) if not isinstance(r, str) else r
+                    if not r_text:
+                        continue
+                    self.db.add_fact(f"research:{query}", r_text, tags=["research", "web"])
                     try:
-                        self.db.add_fact(f"research_response:{query}", r, tags=["research", "response"])
+                        self.db.add_fact(f"research_response:{query}", r_text, tags=["research", "response"])
                     except Exception:
                         pass
             except Exception as e:

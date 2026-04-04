@@ -424,10 +424,10 @@ class EvolveEngine:
         if not self.self_teacher:
             return None
         try:
-            topic = f"evolution improvement: {direction}"
-            if research:
-                topic = f"{topic}\n\nResearch finding: {research[:200]}"
-            result = self.self_teacher.teach(topic)
+            # Pass only the clean direction topic — never embed research findings
+            # in the topic string, as self_teacher.teach() → researcher.search()
+            # would then query search_web() with the full compound string.
+            result = self.self_teacher.teach(direction)
             self._stats["taught"] += 1
             return str(result or "taught")[:100]
         except Exception as exc:

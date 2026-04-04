@@ -356,27 +356,34 @@ class NiblitRouter:
     # DEDUPLICATION HELPER
     # ─────────────────────────────────
     def _deduplicate_results(self, items):
-        """Order-preserving deduplication for mixed str/dict results."""
+        """Order-preserving deduplication for mixed str/dict results.
+
+        Dict results (e.g. from InternetManager) are reduced to their text
+        content so callers receive clean human-readable strings, not raw blobs.
+        """
         seen = set()
         result = []
 
         for item in items:
             if isinstance(item, str):
-                key = item
                 text = item
             elif isinstance(item, dict):
-                try:
-                    key = json.dumps(item, sort_keys=True)
-                    text = json.dumps(item)
-                except (TypeError, ValueError):
-                    key = str(item)
-                    text = str(item)
+                # Extract the most meaningful text field; fall back to str() only
+                # when none of the standard fields are present.
+                text = (
+                    item.get("snippet")
+                    or item.get("text")
+                    or item.get("description")
+                    or item.get("content")
+                    or item.get("summary")
+                    or item.get("extract")
+                    or str(item)
+                )
             else:
-                key = str(item)
                 text = str(item)
 
-            if key not in seen:
-                seen.add(key)
+            if text and text not in seen:
+                seen.add(text)
                 result.append(text)
 
         return result
@@ -776,13 +783,31 @@ Ask me about:
                 results.append(summary)
 
         for r in results:
+            # Extract plain text from dict results before storing so the
+            # knowledge base only receives human-readable content, not raw blobs.
+            if isinstance(r, dict):
+                r_text = (
+                    r.get("snippet")
+                    or r.get("text")
+                    or r.get("description")
+                    or r.get("content")
+                    or r.get("summary")
+                    or r.get("extract")
+                    or str(r)
+                )
+            else:
+                r_text = str(r) if not isinstance(r, str) else r
+
+            if not r_text:
+                continue
+
             if hasattr(self.memory, "add_fact"):
-                safe_call(self.memory.add_fact, f"research:{query}", r, ["research"])
+                safe_call(self.memory.add_fact, f"research:{query}", r_text, ["research"])
             elif hasattr(self.memory, "store_learning"):
                 safe_call(self.memory.store_learning, {
                     "time": timestamp(),
                     "input": query,
-                    "response": r,
+                    "response": r_text,
                     "source": "research"
                 })
 
@@ -3537,6 +3562,13 @@ Ask me about:
         if lower == "kernel" or lower.startswith("kernel "):
             return self._handle_kernel(cmd)
 
+        # MEMORY RESET — flush all memory, caches and state files
+        if lower == "memory-reset" or lower.startswith("memory-reset "):
+            sub = cmd[len("memory-reset"):].strip()
+            if self.core and hasattr(self.core, "_cmd_memory_reset"):
+                return safe_call(lambda: self.core._cmd_memory_reset(sub))
+            return "[memory-reset] Core not initialised."
+
         # MEMORY DUMP VISIBILITY COMMANDS
         if lower in ("dump visible", "dump invisible", "dump on", "dump off",
                      "memory dump on", "memory dump off",
@@ -3915,6 +3947,15 @@ Ask me about:
             "toggle-llm on                — Enable LLM (use AI)",
             "status, health               — System status",
             "time                         — Current time",
+            "",
+            "=== MEMORY MANAGEMENT ===",
+            "memory-reset                 — Show warning + usage before clearing",
+            "memory-reset status          — Preview what will be cleared (dry-run)",
+            "memory-reset confirm         — ⚠️  WIPE all memory, ALE state, caches",
+            "                               (facts, events, learning_log, SQLite tables,",
+            "                                ale_state.json, deployment bridge, research cache,",
+            "                                ALE counters, SelfTeacher queue, history)",
+            "  Tip: after reset run 'autonomous-learn start' for a clean ALE cycle.",
             "",
             "=== LOOP & OUTPUT CONTROL ===",
             "loop hide / loops hide       — Silence all log output (INFO/WARNING/EVENT etc.)",
