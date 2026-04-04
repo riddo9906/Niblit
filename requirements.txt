@@ -38,6 +38,25 @@ python-binance>=1.0.17
 pandas>=2.0.0
 ta>=0.11.0
 
+# ── Multi-Provider Free Market Data ──────────────────────────────────────────
+# Yahoo Finance — stocks, ETFs, indices (^GSPC, ^DJI, ^FTSE…), forex, crypto
+# No API key required.
+yfinance>=0.2.61
+# CCXT — 100+ crypto exchanges (Binance, Coinbase, Kraken, Bybit, OKX, …)
+# No API key needed for public market-data endpoints.
+ccxt>=4.3.0
+# Twelve Data — stocks, ETFs, forex, crypto, indices. Free tier: 800 req/day.
+# Requires TWELVE_DATA_API_KEY env var.
+twelvedata>=1.2.0
+# OANDA REST v20 — forex, CFDs, equity indices. Free practice account.
+# Requires OANDA_API_KEY + OANDA_ACCOUNT_ID env vars.
+oandapyV20>=0.7.2
+# Alpaca — US equities and crypto. Free paper-trading account.
+# Requires ALPACA_API_KEY + ALPACA_API_SECRET env vars.
+alpaca-py>=0.26.0
+# QuantConnect LEAN CLI — for lean backtest / lean cloud live / lean login
+lean>=1.0.0
+
 # ── Advanced Pipeline / Autonomous Execution ─────────────────────────────────
 docker>=6.0.0
 prometheus-client>=0.19.0

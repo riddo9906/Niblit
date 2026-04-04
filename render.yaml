@@ -121,3 +121,28 @@ services:
         value: /data/niblit_game_state.json  # Game engine saved state
       - key: LEAN_WORKSPACE
         value: /data/lean_workspace          # QuantConnect/LEAN project root
+
+      # ── QuantConnect Cloud (LeanDeployEngine) ────────────────────────────
+      - key: QC_USER_ID
+        sync: false       # QuantConnect numeric user ID
+      - key: QC_API_TOKEN
+        sync: false       # QuantConnect API token
+
+      # ── Multi-Provider Market Data ────────────────────────────────────────
+      # Twelve Data (stocks, ETFs, forex, crypto, indices) — free tier
+      - key: TWELVE_DATA_API_KEY
+        sync: false
+      # OANDA (forex, CFDs, indices) — free practice account
+      - key: OANDA_API_KEY
+        sync: false
+      - key: OANDA_ACCOUNT_ID
+        sync: false
+      - key: OANDA_ENVIRONMENT
+        value: practice   # practice | live
+      # Alpaca (US equities + crypto) — free paper account
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_API_SECRET
+        sync: false
+      - key: ALPACA_PAPER
+        value: "true"     # set to false only for live Alpaca trading

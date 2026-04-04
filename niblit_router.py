@@ -230,6 +230,12 @@ class NiblitRouter:
         "run_selfheal", "run-selfheal",
         # LEAN CLI / QuantConnect backtesting engine (additive)
         "lean",
+        # QuantConnect REST API — live trade deployment (additive)
+        "lean deploy",
+        # Multi-provider free market data (additive)
+        "market", "market data",
+        # Trading study, reflect, metacognition (additive)
+        "trading study",
         # Phase-2 agent architecture inspection + task dispatch (additive)
         "agents",
         # Self-enhancement cycle trigger (additive)
@@ -1468,9 +1474,10 @@ Ask me about:
     # ── LEAN CLI handler (additive) ───────────────────────────────────────────
 
     def _handle_lean(self, cmd: str) -> str:
-        """Route 'lean ...' commands to the LeanEngine via NiblitCore.
+        """Route 'lean ...' commands to the LeanEngine / LeanDeployEngine.
 
-        Strips the leading 'lean' token and delegates to core._cmd_lean().
+        Strips the leading 'lean' token and delegates to core._cmd_lean()
+        or core._cmd_lean_deploy() for 'lean deploy ...' sub-commands.
         Falls back gracefully if core or LeanEngine is unavailable.
         """
         # Strip leading 'lean' token
@@ -1478,7 +1485,18 @@ Ask me about:
         if stripped.lower().startswith("lean"):
             stripped = stripped[4:].lstrip()
 
-        # Delegate to core
+        # Route 'lean deploy ...' to LeanDeployEngine
+        if stripped.lower().startswith("deploy"):
+            deploy_cmd = stripped[6:].lstrip()
+            if self.core and hasattr(self.core, "_cmd_lean_deploy"):
+                return safe_call(lambda: self.core._cmd_lean_deploy(deploy_cmd))
+            try:
+                from modules.lean_deploy_engine import get_lean_deploy_engine as _glde
+                return _glde().status()
+            except Exception as exc:
+                return f"[lean deploy] LeanDeployEngine not available: {exc}"
+
+        # Delegate to core's _cmd_lean
         if self.core and hasattr(self.core, "_cmd_lean"):
             return safe_call(lambda: self.core._cmd_lean(stripped))
 
@@ -1489,6 +1507,51 @@ Ask me about:
             return engine.status() if not stripped else "[lean] Core not available — limited LEAN support"
         except Exception as exc:
             return f"[lean] LeanEngine not available: {exc}"
+
+    # ── Market data handler (additive) ────────────────────────────────────────
+
+    def _handle_market_data(self, cmd: str) -> str:
+        """Route 'market ...' commands to MarketDataProviders.
+
+        Sub-commands: status, overview, fetch, multi, info, oanda-*, ccxt-*, alpaca-*.
+        """
+        stripped = cmd.strip()
+        for prefix in ("market data", "market"):
+            if stripped.lower().startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+
+        if self.core and hasattr(self.core, "_cmd_market_data"):
+            return safe_call(lambda: self.core._cmd_market_data(stripped))
+
+        try:
+            from modules.market_data_providers import get_market_data_providers as _gmdp
+            return _gmdp().status()
+        except Exception as exc:
+            return f"[market] MarketDataProviders not available: {exc}"
+
+    # ── Trading study handler (additive) ──────────────────────────────────────
+
+    def _handle_trading_study(self, cmd: str) -> str:
+        """Route 'trading study ...' commands to TradingStudy.
+
+        Sub-commands: status, brain, market, lean, live, deep, journal, meta,
+                      auto-start, auto-stop, log.
+        """
+        stripped = cmd.strip()
+        for prefix in ("trading study", ):
+            if stripped.lower().startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+
+        if self.core and hasattr(self.core, "_cmd_trading_study"):
+            return safe_call(lambda: self.core._cmd_trading_study(stripped))
+
+        try:
+            from modules.trading_study import get_trading_study as _gts
+            return _gts().status()
+        except Exception as exc:
+            return f"[trading study] TradingStudy not available: {exc}"
 
     # ── Game engine handler (additive) ────────────────────────────────────────
 
@@ -3090,6 +3153,11 @@ Ask me about:
         if lower.startswith("trading swing"):
             return self._handle_trading_swing(cmd)
 
+        # TRADING STUDY — study/reflect/metacognition for lean+live trading (additive)
+        # Check BEFORE generic 'trading' so 'trading study ...' routes here.
+        if lower.startswith("trading study"):
+            return self._handle_trading_study(cmd)
+
         # TRADING BRAIN COMMANDS (start/stop/status/cycle)
         if lower.startswith("trading"):
             return self._handle_trading(cmd)
@@ -3114,9 +3182,13 @@ Ask me about:
         if lower in ("run_selfheal", "run-selfheal"):
             return self._handle_run_selfheal()
 
-        # LEAN CLI — QuantConnect/LEAN backtesting and live trading (additive)
+        # LEAN CLI / QuantConnect — backtesting, live trading, REST API (additive)
         if lower == "lean" or lower.startswith("lean "):
             return self._handle_lean(cmd)
+
+        # MULTI-PROVIDER MARKET DATA (additive)
+        if lower in ("market", "market data") or lower.startswith("market "):
+            return self._handle_market_data(cmd)
 
         # GAME ENGINE COMMANDS (additive)
         if lower == "game" or lower.startswith("game "):
@@ -3578,6 +3650,51 @@ Ask me about:
             "lean sweep <n> p=v1,v2 ...   — Parameter grid sweep (background, finds best)",
             "lean params [name]           — Show stored optimal parameter sets",
             "lean jobs                    — Show active LEAN background jobs",
+            "",
+            "=== LEAN DEPLOY ENGINE (QuantConnect REST API) ===",
+            "lean deploy status           — Show credentials + available commands",
+            "lean deploy projects         — List cloud projects",
+            "lean deploy create <name>    — Create a new cloud project",
+            "lean deploy compile <id>     — Compile a cloud project",
+            "lean deploy backtest <id>    — Launch a cloud backtest",
+            "lean deploy backtests <id>   — List backtests for a project",
+            "lean deploy live-list        — List all live algorithm deployments",
+            "lean deploy live-read <pid> <did> — Read live algorithm status",
+            "lean deploy live-stop <id>   — Stop a live algorithm",
+            "lean deploy liquidate <id>   — Liquidate all positions",
+            "lean deploy templates        — List available algorithm templates",
+            "lean deploy generate <tmpl> <name> [symbol=X] [fast=N] [slow=N]",
+            "lean deploy quick <tmpl> <name> [brokerage=PaperBrokerage]",
+            "lean deploy monitor <pid> <did> — Start live monitoring thread",
+            "lean deploy orders <pid>     — List live algorithm orders",
+            "",
+            "=== MULTI-PROVIDER FREE MARKET DATA ===",
+            "market status                — Show provider availability + API key status",
+            "market overview [sym ...]    — Quick price overview (yfinance, no key needed)",
+            "market fetch <symbol> [provider=yfinance] [interval=1d] [bars=50]",
+            "market multi <s1,s2,...> [provider] [interval] [bars]",
+            "market info <symbol>         — Yahoo Finance fundamentals",
+            "market oanda-candles <instr> [interval=H1] [bars=100]",
+            "market oanda-account         — OANDA account summary",
+            "market oanda-order <instr> <units>",
+            "market oanda-instruments     — List OANDA forex/CFD/index instruments",
+            "market ccxt-exchanges        — List all CCXT exchange IDs",
+            "market ccxt-tickers [exchange=binance]",
+            "market alpaca-account        — Alpaca account info",
+            "market alpaca-order <sym> <qty> [side=buy]",
+            "",
+            "=== TRADING STUDY / REFLECT / METACOGNITION ===",
+            "trading study status         — Study engine status",
+            "trading study brain          — Study last TradingBrain cycle",
+            "trading study market [syms]  — Market snapshot study",
+            "trading study lean <name>    — Study LEAN backtest results",
+            "trading study live <deployId> — Study live algorithm status",
+            "trading study deep           — Full deep study session",
+            "trading study journal [n=50] — Analyse trade journal",
+            "trading study meta           — Metacognition self-assessment",
+            "trading study auto-start [interval=300]",
+            "trading study auto-stop",
+            "trading study log <sym> <side> <price> <qty> [pnl=N]",
             "",
             "=== PHASE-2 AGENT ARCHITECTURE ===",
             "agents                       — Show all registered Phase-2 agents + metrics",

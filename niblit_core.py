@@ -1017,6 +1017,36 @@ except Exception as _e:
     _get_lean_engine = None  # type: ignore[assignment]
     _LEAN_ENGINE_AVAILABLE = False
 
+# ── LeanDeployEngine (additive) ───────────────────────────────────────────────
+# QuantConnect REST API client for cloud project management and live trading.
+try:
+    from modules.lean_deploy_engine import get_lean_deploy_engine as _get_lean_deploy_engine
+    _LEAN_DEPLOY_AVAILABLE = True
+except Exception as _lde:
+    log.debug(f"lean_deploy_engine not available: {_lde}")
+    _get_lean_deploy_engine = None  # type: ignore[assignment]
+    _LEAN_DEPLOY_AVAILABLE = False
+
+# ── MarketDataProviders (additive) ────────────────────────────────────────────
+# Unified gateway for free market data: yfinance, CCXT, TwelveData, OANDA, Alpaca.
+try:
+    from modules.market_data_providers import get_market_data_providers as _get_market_data_providers
+    _MARKET_DATA_AVAILABLE = True
+except Exception as _mde:
+    log.debug(f"market_data_providers not available: {_mde}")
+    _get_market_data_providers = None  # type: ignore[assignment]
+    _MARKET_DATA_AVAILABLE = False
+
+# ── TradingStudy (additive) ───────────────────────────────────────────────────
+# Trading study, reflection, and metacognition engine.
+try:
+    from modules.trading_study import get_trading_study as _get_trading_study
+    _TRADING_STUDY_AVAILABLE = True
+except Exception as _tse:
+    log.debug(f"trading_study not available: {_tse}")
+    _get_trading_study = None  # type: ignore[assignment]
+    _TRADING_STUDY_AVAILABLE = False
+
 # ── Phase-2 Agent architecture (additive) ─────────────────────────────────────
 # RuntimeManager + all agents (PlannerAgent, ResearchAgent, CodingAgent,
 # TestingAgent, ReflectionAgent, ArchitectureAgent) — wired into core so that
@@ -1418,6 +1448,12 @@ class NiblitCore:
         self.parameter_manager: Optional[Any] = _parameter_manager if _PARAMETER_MANAGER_AVAILABLE else None
         # ── Additive: LEAN engine ─────────────────────────────────────────
         self.lean_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: LeanDeployEngine (QuantConnect REST API) ────────────
+        self.lean_deploy_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: MarketDataProviders (multi-provider free data) ──────
+        self.market_data_providers: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: TradingStudy (study/reflect/metacognition) ──────────
+        self.trading_study: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
         self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
         self.phase2_agents: dict = {}  # {task_type: agent_instance}
@@ -3756,8 +3792,322 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "LEAN commands:\n"
             "  lean status | login | create <n> | list | delete <n>\n"
             "  lean backtest <n> [cloud] | lean live <n> [broker]\n"
-            "  lean sweep <n> p=v1,v2 | lean params [n] | lean jobs"
+            "  lean sweep <n> p=v1,v2 | lean params [n] | lean jobs\n"
+            "  lean deploy <sub>   — QuantConnect REST API (see 'lean deploy status')"
         )
+
+    # ── LeanDeployEngine commands (additive) ─────────────────────────────────
+
+    def _cmd_lean_deploy(self, cmd: str) -> str:
+        """Route 'lean deploy ...' to LeanDeployEngine (QuantConnect REST API).
+
+        Sub-commands
+        ------------
+        lean deploy status
+        lean deploy projects
+        lean deploy create <name>
+        lean deploy backtest <projectId>
+        lean deploy live-list
+        lean deploy live-read <projectId> <deployId>
+        lean deploy live-stop <projectId>
+        lean deploy liquidate <projectId>
+        lean deploy templates
+        lean deploy generate <template> <name> [symbol=X] [fast=N] [slow=N]
+        lean deploy quick <template> <name> [brokerage=PaperBrokerage] [symbol=X]
+        lean deploy monitor <projectId> <deployId>
+        lean deploy orders <projectId>
+        lean deploy compile <projectId>
+        """
+        engine = getattr(self, "lean_deploy_engine", None)
+        if engine is None:
+            return "[lean deploy] LeanDeployEngine not initialised — check startup logs"
+
+        parts = cmd.strip().split()
+        if not parts:
+            return engine.status()
+        sub = parts[0].lower()
+        rest = parts[1:]
+
+        if sub == "status":
+            return engine.status()
+        if sub in ("projects", "list"):
+            return engine.list_projects()
+        if sub == "create":
+            if not rest:
+                return "Usage: lean deploy create <name>"
+            return engine.create_project(rest[0])
+        if sub in ("backtest", "bt"):
+            if not rest:
+                return "Usage: lean deploy backtest <projectId>"
+            return engine.create_backtest(int(rest[0]))
+        if sub in ("backtests", "list-backtests"):
+            if not rest:
+                return "Usage: lean deploy backtests <projectId>"
+            return engine.list_backtests(int(rest[0]))
+        if sub == "read-backtest":
+            if len(rest) < 2:
+                return "Usage: lean deploy read-backtest <projectId> <backtestId>"
+            return engine.read_backtest(int(rest[0]), rest[1])
+        if sub in ("live-list", "live", "running"):
+            return engine.list_live_algorithms()
+        if sub in ("live-read", "live-status"):
+            if len(rest) < 2:
+                return "Usage: lean deploy live-read <projectId> <deployId>"
+            return engine.read_live_algorithm(int(rest[0]), rest[1])
+        if sub in ("live-stop", "stop"):
+            if not rest:
+                return "Usage: lean deploy live-stop <projectId>"
+            return engine.stop_live_algorithm(int(rest[0]))
+        if sub == "liquidate":
+            if not rest:
+                return "Usage: lean deploy liquidate <projectId>"
+            return engine.liquidate_live_algorithm(int(rest[0]))
+        if sub == "compile":
+            if not rest:
+                return "Usage: lean deploy compile <projectId>"
+            return engine.compile_project(int(rest[0]))
+        if sub in ("templates", "list-templates"):
+            return engine.list_templates()
+        if sub == "generate":
+            if len(rest) < 2:
+                return "Usage: lean deploy generate <template> <name> [key=val ...]"
+            tmpl, name = rest[0], rest[1]
+            kwargs: dict = {}
+            for kv in rest[2:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    try:
+                        kwargs[k] = int(v)
+                    except ValueError:
+                        try:
+                            kwargs[k] = float(v)
+                        except ValueError:
+                            kwargs[k] = v
+            return engine.generate_algorithm(template=tmpl, name=name, **kwargs)
+        if sub == "quick":
+            if len(rest) < 2:
+                return "Usage: lean deploy quick <template> <name> [brokerage=PaperBrokerage] [symbol=X]"
+            tmpl, name = rest[0], rest[1]
+            broker = "PaperBrokerage"
+            kwargs2: dict = {}
+            for kv in rest[2:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    if k == "brokerage":
+                        broker = v
+                    else:
+                        try:
+                            kwargs2[k] = int(v)
+                        except ValueError:
+                            kwargs2[k] = v
+            return engine.quick_deploy(template=tmpl, name=name, brokerage=broker, **kwargs2)
+        if sub == "monitor":
+            if len(rest) < 2:
+                return "Usage: lean deploy monitor <projectId> <deployId>"
+            return engine.start_monitor(int(rest[0]), rest[1])
+        if sub == "stop-monitor":
+            if not rest:
+                return "Usage: lean deploy stop-monitor <deployId>"
+            return engine.stop_monitor(rest[0])
+        if sub == "orders":
+            if not rest:
+                return "Usage: lean deploy orders <projectId>"
+            return engine.read_live_orders(int(rest[0]))
+        return engine.status()
+
+    # ── MarketDataProviders commands (additive) ───────────────────────────────
+
+    def _cmd_market_data(self, cmd: str) -> str:
+        """Route 'market ...' commands to MarketDataProviders.
+
+        Sub-commands
+        ------------
+        market status
+        market overview [sym1 sym2 ...]
+        market fetch <symbol> [provider=yfinance] [interval=1d] [bars=50]
+        market multi <sym1,sym2,...> [provider] [interval] [bars]
+        market info <symbol>               — Yahoo Finance fundamental info
+        market oanda-candles <instrument> [interval=H1] [bars=100]
+        market oanda-account
+        market oanda-order <instrument> <units>
+        market oanda-instruments
+        market ccxt-exchanges
+        market ccxt-tickers [exchange=binance]
+        market alpaca-account
+        market alpaca-order <symbol> <qty> [side=buy]
+        """
+        mdp = getattr(self, "market_data_providers", None)
+        if mdp is None:
+            return "[market] MarketDataProviders not initialised — check startup logs"
+
+        parts = cmd.strip().split()
+        if not parts:
+            return mdp.status()
+        sub = parts[0].lower()
+        rest = parts[1:]
+
+        if sub == "status":
+            return mdp.status()
+        if sub == "overview":
+            syms = rest if rest else None
+            return mdp.market_overview(syms)
+        if sub == "fetch":
+            if not rest:
+                return "Usage: market fetch <symbol> [provider=yfinance] [interval=1d] [bars=50]"
+            sym = rest[0]
+            provider = "auto"
+            interval = "1d"
+            bars = 50
+            for kv in rest[1:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    if k == "provider":
+                        provider = v
+                    elif k == "interval":
+                        interval = v
+                    elif k == "bars":
+                        bars = int(v)
+            result = mdp.fetch(sym, provider=provider, interval=interval, bars=bars)
+            if hasattr(result, "to_string"):
+                return f"Fetched {sym} ({provider}/{interval}):\n{result.tail(5).to_string()}"
+            return str(result)[:800]
+        if sub == "multi":
+            if not rest:
+                return "Usage: market multi <sym1,sym2,...> [provider] [interval] [bars]"
+            syms = rest[0].split(",")
+            provider = rest[1] if len(rest) > 1 else "yfinance"
+            interval = rest[2] if len(rest) > 2 else "1d"
+            bars = int(rest[3]) if len(rest) > 3 else 20
+            results = mdp.fetch_multi(syms, provider=provider, interval=interval, bars=bars)
+            lines = [f"Multi-fetch ({provider}/{interval}):"]
+            for s, r in results.items():
+                if hasattr(r, "tail"):
+                    close = r["Close"].iloc[-1] if "Close" in r.columns else "?"
+                    lines.append(f"  {s}: latest_close={close}")
+                else:
+                    lines.append(f"  {s}: {str(r)[:80]}")
+            return "\n".join(lines)
+        if sub == "info":
+            if not rest:
+                return "Usage: market info <symbol>"
+            info = mdp.yfinance_info(rest[0])
+            if isinstance(info, dict):
+                keys = ["longName", "sector", "marketCap", "trailingPE",
+                        "dividendYield", "52WeekHigh", "52WeekLow"]
+                lines = [f"Yahoo Finance info — {rest[0]}:"]
+                for k in keys:
+                    if k in info:
+                        lines.append(f"  {k}: {info[k]}")
+                return "\n".join(lines) if len(lines) > 1 else str(info)[:400]
+            return str(info)[:400]
+        if sub in ("oanda-candles", "oanda"):
+            instr = rest[0] if rest else "EUR_USD"
+            interval = rest[1] if len(rest) > 1 else "H1"
+            bars = int(rest[2]) if len(rest) > 2 else 50
+            result = mdp.oanda_candles(instr, interval=interval, bars=bars)
+            return f"OANDA {instr} {interval}: {str(result)[:600]}"
+        if sub == "oanda-account":
+            return str(mdp.oanda_account_summary())[:600]
+        if sub == "oanda-order":
+            if len(rest) < 2:
+                return "Usage: market oanda-order <instrument> <units>"
+            return str(mdp.oanda_place_order(rest[0], int(rest[1])))[:400]
+        if sub == "oanda-instruments":
+            return "OANDA instruments:\n" + "\n".join(
+                f"  {i}" for i in mdp.available_instruments_oanda()
+            )
+        if sub == "ccxt-exchanges":
+            exchanges = mdp.ccxt_exchanges()
+            return f"CCXT exchanges ({len(exchanges)}):\n" + " ".join(exchanges[:30])
+        if sub == "ccxt-tickers":
+            exchange = rest[0] if rest else "binance"
+            tickers = mdp.ccxt_tickers(exchange)
+            if isinstance(tickers, dict):
+                return f"CCXT {exchange} tickers ({len(tickers)} pairs)"
+            return str(tickers)[:300]
+        if sub == "alpaca-account":
+            return str(mdp.alpaca_account())[:400]
+        if sub == "alpaca-order":
+            if len(rest) < 2:
+                return "Usage: market alpaca-order <symbol> <qty> [side=buy]"
+            sym = rest[0]
+            qty = float(rest[1])
+            side = rest[2] if len(rest) > 2 else "buy"
+            return str(mdp.alpaca_place_order(sym, qty, side=side))[:400]
+        return mdp.status()
+
+    # ── TradingStudy commands (additive) ─────────────────────────────────────
+
+    def _cmd_trading_study(self, cmd: str) -> str:
+        """Route 'trading study ...' commands to TradingStudy.
+
+        Sub-commands
+        ------------
+        trading study status
+        trading study brain           — Study last TradingBrain cycle
+        trading study market [syms]   — Market snapshot study
+        trading study lean <name>     — Study LEAN backtest results
+        trading study live <deployId> — Study live algorithm status
+        trading study deep            — Full deep study session
+        trading study journal [n=50]  — Analyse trade journal
+        trading study meta            — Metacognition check
+        trading study auto-start [interval=300]
+        trading study auto-stop
+        trading study log <symbol> <side> <price> <qty> [pnl=N]
+        """
+        ts = getattr(self, "trading_study", None)
+        if ts is None:
+            return "[trading study] TradingStudy not initialised — check startup logs"
+
+        parts = cmd.strip().split()
+        if not parts:
+            return ts.status()
+        sub = parts[0].lower()
+        rest = parts[1:]
+
+        if sub == "status":
+            return ts.status()
+        if sub == "brain":
+            return ts.study_last_trade_brain_cycle()
+        if sub == "market":
+            syms = rest if rest else None
+            return ts.study_market_snapshot(syms)
+        if sub == "lean":
+            name = rest[0] if rest else ""
+            if not name:
+                return "Usage: trading study lean <project-name>"
+            return ts.study_lean_backtest(name)
+        if sub == "live":
+            if not rest:
+                return "Usage: trading study live <deployId>"
+            deploy_id = rest[0]
+            status_text = " ".join(rest[1:]) or "manual study trigger"
+            return ts.study_live_algorithm(deploy_id, status_text)
+        if sub == "deep":
+            return ts.deep_study_session()
+        if sub == "journal":
+            n = int(rest[0]) if rest and rest[0].isdigit() else 50
+            return ts.analyse_journal(n)
+        if sub == "meta":
+            return ts.metacognition_check()
+        if sub in ("auto-start", "auto"):
+            secs = int(rest[0]) if rest and rest[0].isdigit() else 300
+            return ts.start_auto_study(interval_secs=secs)
+        if sub == "auto-stop":
+            return ts.stop_auto_study()
+        if sub == "log":
+            if len(rest) < 4:
+                return "Usage: trading study log <symbol> <side> <price> <qty> [pnl=N]"
+            sym, side, price, qty = rest[0], rest[1], float(rest[2]), float(rest[3])
+            pnl = None
+            for kv in rest[4:]:
+                if kv.startswith("pnl="):
+                    try:
+                        pnl = float(kv.split("=", 1)[1])
+                    except ValueError:
+                        pass
+            return ts.log_trade(sym, side, price, qty, pnl=pnl)
+        return ts.status()
 
     # ── Game engine commands (additive) ───────────────────────────────────────
 
@@ -5376,6 +5726,54 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _lee:
                 log.debug("[INIT] LeanEngine init failed: %s", _lee)
                 self.startup_report.add("lean_engine", "degraded", str(_lee))
+
+        # ── MarketDataProviders (additive) ────────────────────────────────────
+        # Unified gateway for yfinance, CCXT, TwelveData, OANDA, Alpaca data.
+        if _MARKET_DATA_AVAILABLE and _get_market_data_providers is not None:
+            try:
+                self.market_data_providers = _get_market_data_providers(knowledge_db=self.db)
+                log.info("✅ MarketDataProviders initialised")
+                self.startup_report.add("market_data_providers", "ready")
+            except Exception as _mde2:
+                log.debug("[INIT] MarketDataProviders init failed: %s", _mde2)
+                self.startup_report.add("market_data_providers", "degraded", str(_mde2))
+
+        # ── LeanDeployEngine (additive) ───────────────────────────────────────
+        # QuantConnect REST API client for cloud live trading deployment.
+        if _LEAN_DEPLOY_AVAILABLE and _get_lean_deploy_engine is not None:
+            try:
+                self.lean_deploy_engine = _get_lean_deploy_engine(
+                    knowledge_db=self.db,
+                    reflect_module=getattr(self, "reflect", None),
+                )
+                log.info("✅ LeanDeployEngine initialised")
+                self.startup_report.add("lean_deploy_engine", "ready")
+            except Exception as _ldee:
+                log.debug("[INIT] LeanDeployEngine init failed: %s", _ldee)
+                self.startup_report.add("lean_deploy_engine", "degraded", str(_ldee))
+
+        # ── TradingStudy (additive) ───────────────────────────────────────────
+        # Study/reflect/metacognition engine for trading improvement.
+        if _TRADING_STUDY_AVAILABLE and _get_trading_study is not None:
+            try:
+                self.trading_study = _get_trading_study(
+                    knowledge_db=self.db,
+                    trading_brain=getattr(self, "trading_brain", None),
+                    lean_engine=getattr(self, "lean_engine", None),
+                    lean_deploy_engine=getattr(self, "lean_deploy_engine", None),
+                    market_data=getattr(self, "market_data_providers", None),
+                    brain_trainer=getattr(self, "background_trainer", None),
+                    reflect_module=getattr(self, "reflect", None),
+                    llm=getattr(self, "llm", None),
+                )
+                # Wire reflect_module back into LeanDeployEngine
+                if self.lean_deploy_engine is not None:
+                    self.lean_deploy_engine._reflect = self.trading_study
+                log.info("✅ TradingStudy initialised")
+                self.startup_report.add("trading_study", "ready")
+            except Exception as _tse2:
+                log.debug("[INIT] TradingStudy init failed: %s", _tse2)
+                self.startup_report.add("trading_study", "degraded", str(_tse2))
 
         # ── GameEngine (additive) ─────────────────────────────────────────────
         if _GAME_ENGINE_AVAILABLE and _get_game_engine is not None:
