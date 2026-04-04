@@ -648,7 +648,7 @@ class SelfResearcher:
                 web_results = self._internet.search(query, max_results=max_results * 3)
                 if web_results:
                     relevant_web = [
-                        r for r in web_results
+                        _result_text(r) for r in web_results
                         if is_relevant(query, _result_text(r))
                     ]
                     if not relevant_web:
@@ -709,9 +709,13 @@ class SelfResearcher:
         if not no_real_data:
             try:
                 for r in collected_results[:max_results]:
-                    self.db.add_fact(f"research:{query}", r, tags=["research", "web"])
+                    # Always store plain text — never raw dicts
+                    r_text = _result_text(r) if not isinstance(r, str) else r
+                    if not r_text:
+                        continue
+                    self.db.add_fact(f"research:{query}", r_text, tags=["research", "web"])
                     try:
-                        self.db.add_fact(f"research_response:{query}", r, tags=["research", "response"])
+                        self.db.add_fact(f"research_response:{query}", r_text, tags=["research", "response"])
                     except Exception:
                         pass
             except Exception as e:

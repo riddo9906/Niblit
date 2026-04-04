@@ -356,27 +356,34 @@ class NiblitRouter:
     # DEDUPLICATION HELPER
     # ─────────────────────────────────
     def _deduplicate_results(self, items):
-        """Order-preserving deduplication for mixed str/dict results."""
+        """Order-preserving deduplication for mixed str/dict results.
+
+        Dict results (e.g. from InternetManager) are reduced to their text
+        content so callers receive clean human-readable strings, not raw blobs.
+        """
         seen = set()
         result = []
 
         for item in items:
             if isinstance(item, str):
-                key = item
                 text = item
             elif isinstance(item, dict):
-                try:
-                    key = json.dumps(item, sort_keys=True)
-                    text = json.dumps(item)
-                except (TypeError, ValueError):
-                    key = str(item)
-                    text = str(item)
+                # Extract the most meaningful text field; fall back to str() only
+                # when none of the standard fields are present.
+                text = (
+                    item.get("snippet")
+                    or item.get("text")
+                    or item.get("description")
+                    or item.get("content")
+                    or item.get("summary")
+                    or item.get("extract")
+                    or str(item)
+                )
             else:
-                key = str(item)
                 text = str(item)
 
-            if key not in seen:
-                seen.add(key)
+            if text and text not in seen:
+                seen.add(text)
                 result.append(text)
 
         return result
@@ -776,13 +783,31 @@ Ask me about:
                 results.append(summary)
 
         for r in results:
+            # Extract plain text from dict results before storing so the
+            # knowledge base only receives human-readable content, not raw blobs.
+            if isinstance(r, dict):
+                r_text = (
+                    r.get("snippet")
+                    or r.get("text")
+                    or r.get("description")
+                    or r.get("content")
+                    or r.get("summary")
+                    or r.get("extract")
+                    or str(r)
+                )
+            else:
+                r_text = str(r) if not isinstance(r, str) else r
+
+            if not r_text:
+                continue
+
             if hasattr(self.memory, "add_fact"):
-                safe_call(self.memory.add_fact, f"research:{query}", r, ["research"])
+                safe_call(self.memory.add_fact, f"research:{query}", r_text, ["research"])
             elif hasattr(self.memory, "store_learning"):
                 safe_call(self.memory.store_learning, {
                     "time": timestamp(),
                     "input": query,
-                    "response": r,
+                    "response": r_text,
                     "source": "research"
                 })
 
