@@ -238,6 +238,16 @@ class NiblitRouter:
         "hardware",
         # OS integration / platform bootstrap (additive)
         "os", "platform",
+        # BIOS/UEFI integration (additive)
+        "bios",
+        # Kernel integration — sysctl, modules, dmesg (additive)
+        "krnl", "kernel",
+        # Device control — sandboxed command execution + serial/G-code (additive)
+        "ctrl", "cmd exec",
+        # Device mesh — LAN discovery + spread (additive)
+        "mesh",
+        # GitHub deep research — trending repos + tracked-repo PR/issue updater (additive)
+        "github-deep", "github deep",
         # Trading study, reflect, metacognition (additive)
         "trading study",
         # Phase-2 agent architecture inspection + task dispatch (additive)
@@ -1580,6 +1590,66 @@ Ask me about:
             return _goi().info()
         except Exception as exc:
             return f"[os] OSIntegration not available: {exc}"
+
+    # ── BIOS integration handler (additive) ──────────────────────────────────
+
+    def _handle_bios(self, cmd: str) -> str:
+        """Route 'bios ...' commands to BIOSIntegration."""
+        if self.core and hasattr(self.core, "_cmd_bios"):
+            return safe_call(lambda: self.core._cmd_bios(cmd))
+        try:
+            from modules.bios_integration import get_bios_integration as _gbi
+            return _gbi().summary()
+        except Exception as exc:
+            return f"[bios] BIOSIntegration not available: {exc}"
+
+    # ── Kernel integration handler (additive) ────────────────────────────────
+
+    def _handle_krnl(self, cmd: str) -> str:
+        """Route 'krnl ...' / 'kernel ...' commands to KernelIntegration."""
+        if self.core and hasattr(self.core, "_cmd_krnl"):
+            return safe_call(lambda: self.core._cmd_krnl(cmd))
+        try:
+            from modules.kernel_integration import get_kernel_integration as _gki
+            return _gki().summary()
+        except Exception as exc:
+            return f"[krnl] KernelIntegration not available: {exc}"
+
+    # ── Device control handler (additive) ────────────────────────────────────
+
+    def _handle_device_ctrl(self, cmd: str) -> str:
+        """Route 'cmd exec ...' / 'ctrl ...' commands to DeviceControl."""
+        if self.core and hasattr(self.core, "_cmd_device_ctrl"):
+            return safe_call(lambda: self.core._cmd_device_ctrl(cmd))
+        try:
+            from modules.device_control import get_device_control as _gdc
+            return _gdc().status()
+        except Exception as exc:
+            return f"[device ctrl] DeviceControl not available: {exc}"
+
+    # ── Device mesh handler (additive) ───────────────────────────────────────
+
+    def _handle_mesh(self, cmd: str) -> str:
+        """Route 'mesh ...' commands to DeviceMesh."""
+        if self.core and hasattr(self.core, "_cmd_mesh"):
+            return safe_call(lambda: self.core._cmd_mesh(cmd))
+        try:
+            from modules.device_mesh import get_device_mesh as _gdm
+            return _gdm().summary()
+        except Exception as exc:
+            return f"[mesh] DeviceMesh not available: {exc}"
+
+    # ── GitHub deep research handler (additive) ───────────────────────────────
+
+    def _handle_github_deep(self, cmd: str) -> str:
+        """Route 'github-deep ...' commands to GitHubDeepResearch."""
+        if self.core and hasattr(self.core, "_cmd_github_deep"):
+            return safe_call(lambda: self.core._cmd_github_deep(cmd))
+        try:
+            from modules.github_deep_research import get_github_deep_research as _ggh
+            return _ggh().status()
+        except Exception as exc:
+            return f"[github-deep] GitHubDeepResearch not available: {exc}"
 
     # ── Game engine handler (additive) ────────────────────────────────────────
 
@@ -3225,6 +3295,27 @@ Ask me about:
         # OS INTEGRATION / PLATFORM BOOTSTRAP (additive)
         if lower in ("os", "platform") or lower.startswith("os ") or lower.startswith("platform "):
             return self._handle_os(cmd)
+
+        # BIOS / UEFI INTEGRATION (additive)
+        if lower in ("bios",) or lower.startswith("bios "):
+            return self._handle_bios(cmd)
+
+        # KERNEL INTEGRATION (additive)
+        if lower in ("krnl", "kernel") or lower.startswith("krnl ") or lower.startswith("kernel "):
+            return self._handle_krnl(cmd)
+
+        # DEVICE CONTROL / SANDBOXED CMD EXECUTION (additive)
+        if lower in ("ctrl",) or lower.startswith("cmd exec") or lower.startswith("ctrl "):
+            return self._handle_device_ctrl(cmd)
+
+        # DEVICE MESH — LAN discovery + spread (additive)
+        if lower in ("mesh",) or lower.startswith("mesh "):
+            return self._handle_mesh(cmd)
+
+        # GITHUB DEEP RESEARCH — trending + tracked repos (additive)
+        if lower in ("github-deep", "github deep") or \
+                lower.startswith("github-deep ") or lower.startswith("github deep "):
+            return self._handle_github_deep(cmd)
 
         # GAME ENGINE COMMANDS (additive)
         if lower == "game" or lower.startswith("game "):

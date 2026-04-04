@@ -1090,6 +1090,56 @@ except Exception as _pbe:
 # ── Phase-2 Agent architecture (additive) ─────────────────────────────────────
 # RuntimeManager + all agents (PlannerAgent, ResearchAgent, CodingAgent,
 # TestingAgent, ReflectionAgent, ArchitectureAgent) — wired into core so that
+# ── BIOSIntegration (additive) ────────────────────────────────────────────────
+# BIOS/UEFI probe + controlled write (GRUB cmdline, EFI vars) on any platform.
+try:
+    from modules.bios_integration import get_bios_integration as _get_bios_integration
+    _BIOS_INTEGRATION_AVAILABLE = True
+except Exception as _biose:
+    log.debug(f"bios_integration not available: {_biose}")
+    _get_bios_integration = None  # type: ignore[assignment]
+    _BIOS_INTEGRATION_AVAILABLE = False
+
+# ── KernelIntegration (additive) ──────────────────────────────────────────────
+# Kernel version, sysctl, modules, dmesg, temperature sensors.
+try:
+    from modules.kernel_integration import get_kernel_integration as _get_kernel_integration
+    _KERNEL_INTEGRATION_AVAILABLE = True
+except Exception as _kie:
+    log.debug(f"kernel_integration not available: {_kie}")
+    _get_kernel_integration = None  # type: ignore[assignment]
+    _KERNEL_INTEGRATION_AVAILABLE = False
+
+# ── DeviceControl (additive) ──────────────────────────────────────────────────
+# Sandboxed command exec, process manager, serial/G-code bridge for robots/3D printers.
+try:
+    from modules.device_control import get_device_control as _get_device_control
+    _DEVICE_CONTROL_AVAILABLE = True
+except Exception as _dce:
+    log.debug(f"device_control not available: {_dce}")
+    _get_device_control = None  # type: ignore[assignment]
+    _DEVICE_CONTROL_AVAILABLE = False
+
+# ── DeviceMesh (additive) ─────────────────────────────────────────────────────
+# LAN discovery, mDNS, SSH spread — Niblit mesh network.
+try:
+    from modules.device_mesh import get_device_mesh as _get_device_mesh
+    _DEVICE_MESH_AVAILABLE = True
+except Exception as _dme:
+    log.debug(f"device_mesh not available: {_dme}")
+    _get_device_mesh = None  # type: ignore[assignment]
+    _DEVICE_MESH_AVAILABLE = False
+
+# ── GitHubDeepResearch (additive) ─────────────────────────────────────────────
+# Trending repos, tracked-repo PRs/issues, self-improvement proposals from GitHub.
+try:
+    from modules.github_deep_research import get_github_deep_research as _get_github_deep_research
+    _GITHUB_DEEP_AVAILABLE = True
+except Exception as _ghde:
+    log.debug(f"github_deep_research not available: {_ghde}")
+    _get_github_deep_research = None  # type: ignore[assignment]
+    _GITHUB_DEEP_AVAILABLE = False
+
 # Niblit can create, dispatch, and reflect on agent tasks autonomously.
 try:
     from core.runtime_manager import RuntimeManager as _RuntimeManager
@@ -1500,6 +1550,16 @@ class NiblitCore:
         self.os_integration: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: PlatformBootstrap (platform type + capabilities) ────
         self.platform_bootstrap: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: BIOS/UEFI integration ──────────────────────────────────
+        self.bios_integration: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Kernel integration ─────────────────────────────────────
+        self.kernel_integration: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Device control (cmd exec, serial, G-code) ──────────────
+        self.device_control: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Device mesh (LAN discovery + spread) ───────────────────
+        self.device_mesh: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: GitHub deep research (trending + tracked repos) ─────────
+        self.github_deep_research: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
         self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
         self.phase2_agents: dict = {}  # {task_type: agent_instance}
@@ -4424,6 +4484,230 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "  platform info          — Platform type and capability flags\n"
         )
 
+    # ── BIOSIntegration commands (additive) ───────────────────────────────────
+    def _cmd_bios(self, cmd: str) -> str:
+        """Route 'bios ...' commands to BIOSIntegration."""
+        lower = cmd.strip().lower()
+        sub = lower.removeprefix("bios").strip()
+        bi = getattr(self, "bios_integration", None)
+        if bi is None:
+            return "[bios] BIOSIntegration not initialised — check startup logs"
+        if sub in ("probe", "scan", "rescan"):
+            bi.probe()
+            return bi.summary()
+        if sub in ("status", ""):
+            return bi.status()
+        if sub in ("summary", "info"):
+            return bi.summary()
+        if sub in ("uefi", "efi", "uefi vars", "efi vars"):
+            return bi.uefi_vars()
+        if sub.startswith("cmdline "):
+            # bios cmdline <flag> [value] [--write]
+            parts = sub.removeprefix("cmdline ").split()
+            flag = parts[0] if parts else ""
+            value = parts[1] if len(parts) > 1 and not parts[1].startswith("--") else ""
+            write = "--write" in parts
+            return bi.set_cmdline_flag(flag, value, write=write)
+        return (
+            "BIOS/UEFI sub-commands:\n"
+            "  bios summary          — BIOS/UEFI profile summary\n"
+            "  bios probe            — Re-probe firmware\n"
+            "  bios status           — Integration status\n"
+            "  bios uefi vars        — List EFI variable names (Linux)\n"
+            "  bios cmdline <flag> [value] [--write]  — Add kernel boot flag\n"
+        )
+
+    # ── KernelIntegration commands (additive) ────────────────────────────────
+    def _cmd_krnl(self, cmd: str) -> str:
+        """Route 'krnl ...' commands to KernelIntegration."""
+        lower = cmd.strip().lower()
+        sub = lower
+        for prefix in ("krnl ", "kernel "):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        if lower in ("krnl", "kernel"):
+            sub = "status"
+
+        ki = getattr(self, "kernel_integration", None)
+        if ki is None:
+            return "[krnl] KernelIntegration not initialised — check startup logs"
+        if sub in ("status", ""):
+            return ki.status()
+        if sub in ("summary", "info"):
+            return ki.summary()
+        if sub in ("dmesg",) or sub.startswith("dmesg"):
+            n = 40
+            parts = sub.split()
+            if len(parts) > 1 and parts[1].isdigit():
+                n = int(parts[1])
+            return ki.dmesg(lines=n)
+        if sub in ("modules", "lsmod"):
+            return ki.list_modules()
+        if sub.startswith("sysctl "):
+            # krnl sysctl key=value [--write]
+            parts = sub.removeprefix("sysctl ").split()
+            kv = parts[0] if parts else ""
+            k, _, v = kv.partition("=")
+            write = "--write" in parts
+            return ki.set_sysctl(k, v, write=write)
+        if sub.startswith("modprobe ") or sub.startswith("load "):
+            mod = sub.split()[-1]
+            write = "--write" in sub
+            return ki.load_module(mod, write=write)
+        if sub.startswith("rmmod ") or sub.startswith("unload "):
+            mod = sub.split()[-1]
+            write = "--write" in sub
+            return ki.unload_module(mod, write=write)
+        return (
+            "Kernel sub-commands:\n"
+            "  krnl summary          — Kernel profile summary\n"
+            "  krnl status           — Integration status\n"
+            "  krnl dmesg [N]        — Last N dmesg lines\n"
+            "  krnl modules          — List loaded kernel modules\n"
+            "  krnl sysctl key=val [--write]  — Read/set sysctl param\n"
+            "  krnl load <module> [--write]   — Load kernel module\n"
+            "  krnl unload <module> [--write] — Unload kernel module\n"
+        )
+
+    # ── DeviceControl commands (additive) ────────────────────────────────────
+    def _cmd_device_ctrl(self, cmd: str) -> str:
+        """Route 'cmd exec / device ctrl' commands to DeviceControl."""
+        lower = cmd.strip()
+        sub = lower
+        for prefix in ("cmd exec ", "device ctrl ", "ctrl "):
+            if lower.lower().startswith(prefix):
+                sub = lower[len(prefix):]
+                break
+
+        dc = getattr(self, "device_control", None)
+        if dc is None:
+            return "[device ctrl] DeviceControl not initialised — check startup logs"
+
+        lower_sub = sub.strip().lower()
+        if lower_sub in ("status", ""):
+            return dc.status()
+        if lower_sub in ("history", "log"):
+            return dc.history()
+        if lower_sub in ("sensors", "sensor"):
+            return dc.sensors()
+        if lower_sub in ("usb", "lsusb"):
+            return dc.list_usb()
+        if lower_sub in ("serial", "ports"):
+            return ", ".join(dc.list_serial_ports()) or "No serial ports found"
+        if lower_sub.startswith("ps") or lower_sub in ("processes", "procs"):
+            flt = lower_sub.removeprefix("ps").strip()
+            return dc.list_processes(flt)
+        if lower_sub.startswith("kill "):
+            parts = sub.strip().split()
+            try:
+                pid = int(parts[1])
+            except Exception:
+                return "Usage: cmd exec kill <pid>"
+            force = "-9" in sub or "--force" in sub
+            return dc.kill_process(pid, force=force)
+        if lower_sub.startswith("gcode "):
+            parts = sub.strip().split(maxsplit=2)
+            port = parts[1] if len(parts) > 1 else ""
+            gcode = parts[2] if len(parts) > 2 else ""
+            return dc.gcode(port, gcode)
+        # Default: execute the command
+        if sub.strip():
+            return dc.execute_str(sub.strip())
+        return (
+            "Device Control sub-commands:\n"
+            "  cmd exec <shell cmd>  — Execute a sandboxed shell command\n"
+            "  cmd exec status       — DeviceControl status\n"
+            "  cmd exec history      — Recent command history\n"
+            "  cmd exec sensors      — Hardware temperatures / battery\n"
+            "  cmd exec usb          — List USB devices\n"
+            "  cmd exec serial       — List serial/COM ports\n"
+            "  cmd exec ps [filter]  — Process list\n"
+            "  cmd exec kill <pid>   — Kill a process\n"
+            "  cmd exec gcode <port> <cmds>  — Send G-code to 3D printer/robot\n"
+        )
+
+    # ── DeviceMesh commands (additive) ───────────────────────────────────────
+    def _cmd_mesh(self, cmd: str) -> str:
+        """Route 'mesh ...' commands to DeviceMesh."""
+        lower = cmd.strip().lower()
+        sub = lower.removeprefix("mesh").strip()
+        dm = getattr(self, "device_mesh", None)
+        if dm is None:
+            return "[mesh] DeviceMesh not initialised — check startup logs"
+        if sub in ("scan", "discover"):
+            dm.scan()
+            return dm.summary()
+        if sub in ("status", ""):
+            return dm.status()
+        if sub in ("nodes", "list"):
+            return dm.summary()
+        if sub.startswith("ping "):
+            ip = sub.removeprefix("ping ").strip()
+            return dm.ping(ip)
+        if sub.startswith("ssh "):
+            parts = sub.split(maxsplit=2)
+            ip = parts[1] if len(parts) > 1 else ""
+            remote_cmd = parts[2] if len(parts) > 2 else "echo hello"
+            return dm.ssh_run(ip, remote_cmd)
+        if sub.startswith("spread "):
+            parts = sub.split()
+            ip = parts[1] if len(parts) > 1 else ""
+            user = parts[2] if len(parts) > 2 else "niblit"
+            return dm.spread(ip, user)
+        return (
+            "Device Mesh sub-commands:\n"
+            "  mesh scan             — Discover devices on LAN\n"
+            "  mesh nodes            — List discovered nodes\n"
+            "  mesh status           — Mesh status\n"
+            "  mesh ping <ip>        — Ping a host\n"
+            "  mesh ssh <ip> <cmd>   — Run SSH command on a node\n"
+            "  mesh spread <ip> [user] — Copy Niblit to remote device\n"
+            "                          (requires NIBLIT_MESH_SPREAD=1)\n"
+        )
+
+    # ── GitHubDeepResearch commands (additive) ───────────────────────────────
+    def _cmd_github_deep(self, cmd: str) -> str:
+        """Route 'github-deep ...' commands to GitHubDeepResearch."""
+        lower = cmd.strip().lower()
+        sub = lower
+        for prefix in ("github-deep ", "github deep "):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):]
+                break
+        if lower in ("github-deep", "github deep"):
+            sub = "status"
+
+        gh = getattr(self, "github_deep_research", None)
+        if gh is None:
+            return "[github-deep] GitHubDeepResearch not initialised — check startup logs"
+
+        if sub in ("status", ""):
+            return gh.status()
+        if sub in ("scan", "scan all"):
+            result = gh.scan_all_tracked()
+            return f"Scanned {len(result)} tracked repos. Run 'github-deep proposals' to see findings."
+        if sub.startswith("trending"):
+            topic = sub.removeprefix("trending").strip() or "machine-learning"
+            return gh.trending_summary(topic)
+        if sub.startswith("repo ") or sub.startswith("updates "):
+            repo = sub.split(maxsplit=1)[-1].strip()
+            return gh.repo_report(repo)
+        if sub.startswith("track "):
+            repo = sub.removeprefix("track ").strip()
+            return gh.add_tracked_repo(repo)
+        if sub in ("proposals", "ideas"):
+            return gh.proposals()
+        return (
+            "GitHub Deep Research sub-commands:\n"
+            "  github-deep status              — Status & token info\n"
+            "  github-deep scan                — Scan all tracked repos\n"
+            "  github-deep trending [topic]    — Top trending repos\n"
+            "  github-deep repo <owner/repo>   — Repo PR/issue report\n"
+            "  github-deep track <owner/repo>  — Add a repo to tracking\n"
+            "  github-deep proposals           — Show improvement proposals\n"
+        )
+
     def _cmd_agents(self, cmd: str = "") -> str:
         """Inspect and interact with the Phase-2 agent architecture.
 
@@ -5972,6 +6256,71 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _oie2:
                 log.debug("[INIT] OSIntegration init failed: %s", _oie2)
                 self.startup_report.add("os_integration", "degraded", str(_oie2))
+
+        # ── BIOSIntegration (additive) ────────────────────────────────────────
+        if _BIOS_INTEGRATION_AVAILABLE and _get_bios_integration is not None:
+            try:
+                self.bios_integration = _get_bios_integration(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ BIOSIntegration initialised — uefi=%s",
+                         self.bios_integration.get_profile().get("uefi_boot"))
+                self.startup_report.add("bios_integration", "ready")
+            except Exception as _biose2:
+                log.debug("[INIT] BIOSIntegration init failed: %s", _biose2)
+                self.startup_report.add("bios_integration", "degraded", str(_biose2))
+
+        # ── KernelIntegration (additive) ──────────────────────────────────────
+        if _KERNEL_INTEGRATION_AVAILABLE and _get_kernel_integration is not None:
+            try:
+                self.kernel_integration = _get_kernel_integration(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ KernelIntegration initialised — kernel=%s",
+                         self.kernel_integration.get_profile().get("kernel_version", "?")[:40])
+                self.startup_report.add("kernel_integration", "ready")
+            except Exception as _kie2:
+                log.debug("[INIT] KernelIntegration init failed: %s", _kie2)
+                self.startup_report.add("kernel_integration", "degraded", str(_kie2))
+
+        # ── DeviceControl (additive) ──────────────────────────────────────────
+        if _DEVICE_CONTROL_AVAILABLE and _get_device_control is not None:
+            try:
+                self.device_control = _get_device_control(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ DeviceControl initialised")
+                self.startup_report.add("device_control", "ready")
+            except Exception as _dce2:
+                log.debug("[INIT] DeviceControl init failed: %s", _dce2)
+                self.startup_report.add("device_control", "degraded", str(_dce2))
+
+        # ── DeviceMesh (additive) ─────────────────────────────────────────────
+        if _DEVICE_MESH_AVAILABLE and _get_device_mesh is not None:
+            try:
+                self.device_mesh = _get_device_mesh(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ DeviceMesh initialised (spread=%s)",
+                         getattr(self.device_mesh, "_spread_enabled", False))
+                self.startup_report.add("device_mesh", "ready")
+            except Exception as _dme2:
+                log.debug("[INIT] DeviceMesh init failed: %s", _dme2)
+                self.startup_report.add("device_mesh", "degraded", str(_dme2))
+
+        # ── GitHubDeepResearch (additive) ─────────────────────────────────────
+        if _GITHUB_DEEP_AVAILABLE and _get_github_deep_research is not None:
+            try:
+                self.github_deep_research = _get_github_deep_research(
+                    knowledge_db=getattr(self, "db", None),
+                    improvement_integrator=getattr(self, "improvements", None),
+                )
+                log.info("✅ GitHubDeepResearch initialised (%d tracked repos)",
+                         len(self.github_deep_research.tracked_repos))
+                self.startup_report.add("github_deep_research", "ready")
+            except Exception as _ghde2:
+                log.debug("[INIT] GitHubDeepResearch init failed: %s", _ghde2)
+                self.startup_report.add("github_deep_research", "degraded", str(_ghde2))
 
         # ── GameEngine (additive) ─────────────────────────────────────────────
         if _GAME_ENGINE_AVAILABLE and _get_game_engine is not None:
