@@ -1,0 +1,23 @@
+{
+  "name": "@niblit/node",
+  "version": "1.0.0",
+  "description": "Niblit TypeScript/Node.js deployment node — communicates with the Niblit Python core and maintains portable cross-environment state.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "jest"
+  },
+  "keywords": ["niblit", "ai", "node", "runtime"],
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  }
+}

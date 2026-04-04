@@ -1,0 +1,148 @@
+services:
+  - type: web
+    name: niblit
+    runtime: python
+    region: oregon
+    plan: starter              # free tier has no disk; starter enables persistent disk
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+
+    # ── Persistent disk — survives deploys and restarts ───────────────────────
+    disk:
+      name: niblit-data
+      mountPath: /data
+      sizeGB: 1
+
+    envVars:
+      # ── Core ──────────────────────────────────────────────────────────────
+      - key: APP_ENV
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.12"
+
+      # ── Required — LLM ────────────────────────────────────────────────────
+      - key: HF_TOKEN
+        sync: false          # set manually in Render dashboard
+
+      # ── Security ──────────────────────────────────────────────────────────
+      - key: SECRET_KEY
+        generateValue: true  # Render generates a random value automatically
+      - key: NIBLIT_API_KEY
+        sync: false          # optional: protects /chat and /memory
+      - key: CORS_ORIGINS
+        value: "*"
+
+      # ── Optional LLM providers ────────────────────────────────────────────
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # ── Autonomous engine flags ───────────────────────────────────────────
+      - key: NIBLIT_AUTONOMOUS_ENGINE
+        value: "true"
+      - key: NIBLIT_IMPROVEMENTS
+        value: "true"
+      - key: NIBLIT_SELF_IMPROVEMENTS
+        value: "true"
+      - key: NIBLIT_LOOPS
+        value: "true"
+      - key: NIBLIT_GAME_DISPLAY
+        value: "0"           # no display on Render
+      - key: NIBLIT_DEBUG
+        value: "false"
+      - key: NIBLIT_LOG_LEVEL
+        value: INFO
+
+      # ── Research / web-search ─────────────────────────────────────────────
+      - key: SERPEX_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        sync: false
+      - key: GITHUB_BRANCH
+        value: "niblit/auto-improve"
+      - key: NIBLIT_GITHUB_DRY_RUN
+        value: "1"
+
+      # ── Trading Brain ─────────────────────────────────────────────────────
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+      - key: TRADING_SYMBOL
+        value: BTCUSDT
+      - key: TRADING_INTERVAL
+        value: 1m
+      - key: TRADING_CYCLE_SECS
+        value: "60"
+
+      # ── Vector DB (Qdrant) ────────────────────────────────────────────────
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: QDRANT_COLLECTION
+        value: niblit_knowledge
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+
+      # ── Background Trainer ────────────────────────────────────────────────
+      - key: TRAINER_BATCH_SIZE
+        value: "32"
+      - key: TRAINER_INTERVAL_SECS
+        value: "60"
+      - key: TRAINER_STEP_TIMEOUT_SECS
+        value: "30"
+
+      # ── MCP Server ────────────────────────────────────────────────────────
+      - key: MCP_ENABLED
+        value: "true"
+      - key: MCP_SECRET
+        sync: false
+
+      # ── Persistent storage paths (disk mounted at /data) ──────────────────
+      # All runtime state files land on the persistent disk so they survive
+      # restarts and deploys.  Without these vars the files go to the
+      # ephemeral container root and are lost on every restart.
+      - key: NIBLIT_MEMORY_PATH
+        value: /data/niblit_memory.json      # NiblitMemory + KnowledgeDB
+      - key: NIBLIT_DB_PATH
+        value: /data/niblit.db               # LocalDB
+      - key: FUSED_MEMORY_DB_PATH
+        value: /data/niblit_fused.sqlite     # FusedMemory SQLite vector store
+      - key: ALE_CHECKPOINT_PATH
+        value: /data/ale_state.json          # ALE autonomous-learning checkpoint
+      - key: NIBLIT_GAME_LOG_PATH
+        value: /data/niblit_game_log.jsonl   # Game engine event log
+      - key: NIBLIT_GAME_STATE_PATH
+        value: /data/niblit_game_state.json  # Game engine saved state
+      - key: LEAN_WORKSPACE
+        value: /data/lean_workspace          # QuantConnect/LEAN project root
+
+      # ── QuantConnect Cloud (LeanDeployEngine) ────────────────────────────
+      - key: QC_USER_ID
+        sync: false       # QuantConnect numeric user ID
+      - key: QC_API_TOKEN
+        sync: false       # QuantConnect API token
+
+      # ── Multi-Provider Market Data ────────────────────────────────────────
+      # Twelve Data (stocks, ETFs, forex, crypto, indices) — free tier
+      - key: TWELVE_DATA_API_KEY
+        sync: false
+      # OANDA (forex, CFDs, indices) — free practice account
+      - key: OANDA_API_KEY
+        sync: false
+      - key: OANDA_ACCOUNT_ID
+        sync: false
+      - key: OANDA_ENVIRONMENT
+        value: practice   # practice | live
+      # Alpaca (US equities + crypto) — free paper account
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_API_SECRET
+        sync: false
+      - key: ALPACA_PAPER
+        value: "true"     # set to false only for live Alpaca trading

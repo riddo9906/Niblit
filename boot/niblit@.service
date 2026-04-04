@@ -1,0 +1,34 @@
+[Unit]
+Description=Niblit AI System — autonomous learning & OS integration layer
+Documentation=https://github.com/riddo9906/Niblit
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Change 'User' to the user that owns the Niblit directory
+User=%i
+WorkingDirectory=/opt/niblit
+ExecStart=/usr/bin/python3 /opt/niblit/app.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=15
+TimeoutStopSec=30
+
+# Resource limits — tune for embedded / low-RAM devices
+# MemoryMax=512M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=niblit
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="NIBLIT_BOOT_MODE=service"
+# Uncomment and set your secrets below (or use 'fly secrets set' / render env)
+# Environment="HF_TOKEN=hf_..."
+# Environment="NIBLIT_DATA_DIR=/data/niblit"
+
+[Install]
+WantedBy=multi-user.target

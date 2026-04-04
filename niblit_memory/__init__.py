@@ -728,7 +728,7 @@ class LocalDB:
     """
 
     def __init__(self, path: str = "") -> None:
-        self.path = path or _writable_path("niblit.db")
+        self.path = path or _writable_path("niblit.db", "NIBLIT_DB_PATH")
         self.lock = threading.Lock()
 
         if not os.path.exists(self.path):
@@ -1088,12 +1088,59 @@ class KnowledgeDB:
     # ── facts / queue ─────────────────────────────────────────────────────────
 
     def add_fact(self, key: str, value: Any, tags: Optional[List[str]] = None) -> None:
+        # ── Knowledge filter guard (additive) ────────────────────────────────
+        # Only persist genuine research/learning facts, not internal system
+        # metadata such as routing events, loop ticks, or ALE step counters.
+        try:
+            from modules.knowledge_filter import get_knowledge_filter as _gkf
+            _kf = _gkf()
+            if not _kf.should_store(key, value, tags):
+                return
+            # Compress value for readability & disk efficiency
+            if isinstance(value, str) and len(value) > 600:
+                value = _kf.compress(value, max_len=600)
+        except ImportError:
+            pass  # filter not yet available — store as-is
+        # ── Original storage logic ────────────────────────────────────────────
         with self.lock:
             self.data.setdefault("facts", [])
             self.data["facts"].append({
                 "key": key,
                 "value": value,
                 "tags": tags or [],
+                "ts": int(time.time()),
+            })
+        self._save(blocking=False)
+
+    def store_research(
+        self,
+        key: str,
+        text: str,
+        tags: Optional[List[str]] = None,
+        source: str = "research",
+    ) -> None:
+        """Preferred entry-point for persisting research & learning content.
+
+        Unlike ``add_fact()``, this method:
+        * Always passes the knowledge filter (``research`` tag is whitelisted).
+        * Summarizes long text before storage so the KB stays readable.
+        * Includes ``source`` in the stored record for provenance.
+        """
+        tags = list(tags or [])
+        if "research" not in tags:
+            tags.append("research")
+        try:
+            from modules.knowledge_filter import get_knowledge_filter as _gkf
+            summary = _gkf().summarize_for_storage(key, text, tags)
+        except ImportError:
+            summary = str(text)[:600]
+        with self.lock:
+            self.data.setdefault("facts", [])
+            self.data["facts"].append({
+                "key": key,
+                "value": summary,
+                "tags": tags,
+                "source": source,
                 "ts": int(time.time()),
             })
         self._save(blocking=False)
@@ -1271,7 +1318,11 @@ class KnowledgeDB:
         return filtered[:limit]
 
     def get_knowledge_summary(self) -> str:
-        """Return a human-readable summary of everything stored in the KnowledgeDB."""
+        """Return a human-readable summary of everything stored in the KnowledgeDB.
+
+        Uses the KnowledgeFilter to present only genuine research/learning facts
+        as clean bullet points, not raw system metadata or JSON blobs.
+        """
         with self.lock:
             facts = list(self.data.get("facts", []))
             events = list(self.data.get("events", []))
@@ -1324,6 +1375,30 @@ class KnowledgeDB:
             "", "ℹ️  Use 'recall <topic>' to query any stored fact.",
             "  Use 'acquired data [category]' to browse by category.",
         ]
+
+        # ── Readable knowledge digest (additive, uses KnowledgeFilter) ────────
+        # Show the most recent genuine research/learning facts in readable form.
+        try:
+            from modules.knowledge_filter import get_knowledge_filter as _gkf
+            _kf = _gkf()
+            # Get the 20 most recent facts that pass the knowledge filter
+            sorted_facts = sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)
+            knowledge_bullets = _kf.summarize_facts(
+                sorted_facts, max_items=20, title=""
+            ).splitlines()
+            # Remove the empty title header and blank lines
+            knowledge_bullets = [
+                ln for ln in knowledge_bullets
+                if ln.strip() and ln.strip() != "==="
+            ]
+            if knowledge_bullets:
+                lines += ["", "📖 Recent knowledge (research & learning):"]
+                lines += knowledge_bullets
+                lines += ["  … use 'recall <topic>' for full-text search"]
+        except Exception:
+            pass
+        # ── end of additive digest ────────────────────────────────────────────
+
         return "\n".join(lines)
 
     # ── compatibility ─────────────────────────────────────────────────────────
@@ -2302,6 +2377,18 @@ class NiblitMemory:
     ) -> None:
         """Store a tagged fact.  Mirrors to the fused knowledge store."""
         tags = tags or []
+        # ── Knowledge filter guard (additive) ─────────────────────────────────
+        # Skip internal system metadata; only persist research & learning facts.
+        try:
+            from modules.knowledge_filter import get_knowledge_filter as _gkf
+            _kf = _gkf()
+            if not _kf.should_store(key, value, tags):
+                return
+            if isinstance(value, str) and len(value) > 600:
+                value = _kf.compress(value, max_len=600)
+        except ImportError:
+            pass
+        # ── Original storage logic ─────────────────────────────────────────────
         with self.lock:
             self.state.setdefault("facts", [])
             now = time.time()

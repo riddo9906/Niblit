@@ -1756,10 +1756,30 @@ def chat(request: Request, body: ChatBody):
         return render_response(request, {"error": "unauthorized"}, status=401)
     if rate_limited(request):
         return render_response(request, {"error": "rate limit reached"}, status=429)
+
+    # SecurityMembrane: inspect and sanitize the incoming request
+    try:
+        from modules.security_membrane import get_security_membrane
+        core_ref = get_core()
+        membrane = get_security_membrane(
+            knowledge_db=getattr(core_ref, "db", None) if core_ref else None
+        )
+        client_ip = request.client.host if request.client else "unknown"
+        text_raw = body.text
+        result_sm = membrane.inspect(ip=client_ip, payload=text_raw, command=text_raw)
+        if not result_sm.allowed:
+            return render_response(
+                request, {"error": f"Request blocked: {result_sm.reason}"}, status=429
+            )
+        # Sanitize the input
+        text_sanitized = membrane.sanitize(text_raw)
+    except Exception:
+        text_sanitized = body.text  # graceful fallback
+
     core = get_core()
     if not core:
         return render_response(request, {"error": "core failed"}, status=500)
-    text = body.text.strip()
+    text = text_sanitized.strip()
     if not text:
         return render_response(request, {"error": "no text provided"}, status=400)
     try:
@@ -1786,6 +1806,67 @@ def memory(request: Request):
         except Exception:
             pass
     return render_response(request, {"facts": facts, "count": len(facts)})
+
+
+# ── Cross-environment state exchange endpoints ──────────────────────────────
+
+@app.get("/api/state")
+def api_state_get(request: Request):
+    """Return the current NiblitStateEnvelope (for Node/Rust nodes to pull)."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    try:
+        from modules.env_state import get_env_state_manager
+        core = get_core()
+        mgr = get_env_state_manager(knowledge_db=getattr(core, "db", None) if core else None)
+        import json as _json
+        return JSONResponse(content=_json.loads(mgr.to_json()))
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=503)
+
+
+@app.post("/api/state")
+async def api_state_post(request: Request):
+    """Accept a NiblitStateEnvelope from a foreign runtime (Node/Rust)."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    try:
+        payload = await request.body()
+        from modules.env_state import get_env_state_manager
+        core = get_core()
+        mgr = get_env_state_manager(knowledge_db=getattr(core, "db", None) if core else None)
+        ok = mgr.merge_from_json(payload.decode("utf-8", errors="replace"))
+        if ok:
+            mgr.save()
+            return JSONResponse(content={"status": "merged"})
+        return JSONResponse(content={"error": "checksum mismatch or invalid payload"}, status_code=400)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/env/capabilities")
+async def api_env_capabilities(request: Request):
+    """Accept environment capability report from a foreign runtime node."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    try:
+        data = await request.json()
+        from modules.env_state import get_env_state_manager
+        core = get_core()
+        mgr = get_env_state_manager(knowledge_db=getattr(core, "db", None) if core else None)
+        runtime = data.get("runtime", "unknown")
+        caps = data.get("capabilities", {})
+        if isinstance(caps, list):
+            caps = {c: True for c in caps}
+        mgr.update({"env_capabilities": {f"{runtime}.{k}": v for k, v in caps.items()}}, runtime=runtime)
+        # Also register with niblit_runtime if available
+        if core and hasattr(core, "niblit_runtime") and core.niblit_runtime:
+            name = data.get("component_name", runtime)
+            level = float(data.get("declared_level", 1.0))
+            core.niblit_runtime.adapt_component(name, level)
+        return JSONResponse(content={"status": "accepted"})
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
 # ── MCP — Model Context Protocol ───────────────────────────────────────

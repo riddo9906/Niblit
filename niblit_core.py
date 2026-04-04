@@ -1017,9 +1017,165 @@ except Exception as _e:
     _get_lean_engine = None  # type: ignore[assignment]
     _LEAN_ENGINE_AVAILABLE = False
 
+# ── LeanDeployEngine (additive) ───────────────────────────────────────────────
+# QuantConnect REST API client for cloud project management and live trading.
+try:
+    from modules.lean_deploy_engine import get_lean_deploy_engine as _get_lean_deploy_engine
+    _LEAN_DEPLOY_AVAILABLE = True
+except Exception as _lde:
+    log.debug(f"lean_deploy_engine not available: {_lde}")
+    _get_lean_deploy_engine = None  # type: ignore[assignment]
+    _LEAN_DEPLOY_AVAILABLE = False
+
+# ── MarketDataProviders (additive) ────────────────────────────────────────────
+# Unified gateway for free market data: yfinance, CCXT, TwelveData, OANDA, Alpaca.
+try:
+    from modules.market_data_providers import get_market_data_providers as _get_market_data_providers
+    _MARKET_DATA_AVAILABLE = True
+except Exception as _mde:
+    log.debug(f"market_data_providers not available: {_mde}")
+    _get_market_data_providers = None  # type: ignore[assignment]
+    _MARKET_DATA_AVAILABLE = False
+
+# ── TradingStudy (additive) ───────────────────────────────────────────────────
+# Trading study, reflection, and metacognition engine.
+try:
+    from modules.trading_study import get_trading_study as _get_trading_study
+    _TRADING_STUDY_AVAILABLE = True
+except Exception as _tse:
+    log.debug(f"trading_study not available: {_tse}")
+    _get_trading_study = None  # type: ignore[assignment]
+    _TRADING_STUDY_AVAILABLE = False
+
+# ── KnowledgeFilter (additive) ────────────────────────────────────────────────
+# Filter + summarizer: only genuine research/learning enters the KB.
+try:
+    from modules.knowledge_filter import get_knowledge_filter as _get_knowledge_filter
+    _KNOWLEDGE_FILTER_AVAILABLE = True
+except Exception as _kfe:
+    log.debug(f"knowledge_filter not available: {_kfe}")
+    _get_knowledge_filter = None  # type: ignore[assignment]
+    _KNOWLEDGE_FILTER_AVAILABLE = False
+
+# ── HardwareScanner (additive) ────────────────────────────────────────────────
+# Cross-platform hardware profiler: CPU arch, RAM, GPU, storage, sensors.
+try:
+    from modules.hardware_scanner import get_hardware_scanner as _get_hardware_scanner
+    _HARDWARE_SCANNER_AVAILABLE = True
+except Exception as _hse:
+    log.debug(f"hardware_scanner not available: {_hse}")
+    _get_hardware_scanner = None  # type: ignore[assignment]
+    _HARDWARE_SCANNER_AVAILABLE = False
+
+# ── OSIntegration (additive) ───────────────────────────────────────────────────
+# Installs Niblit as a persistent OS service (systemd / Termux:Boot / LaunchAgent / Windows SCM).
+try:
+    from modules.os_integration import get_os_integration as _get_os_integration
+    _OS_INTEGRATION_AVAILABLE = True
+except Exception as _oie:
+    log.debug(f"os_integration not available: {_oie}")
+    _get_os_integration = None  # type: ignore[assignment]
+    _OS_INTEGRATION_AVAILABLE = False
+
+# ── PlatformBootstrap (additive) ──────────────────────────────────────────────
+# Detects platform type, sets capability flags, configures writable data root.
+try:
+    from modules.platform_bootstrap import get_platform_bootstrap as _get_platform_bootstrap
+    _PLATFORM_BOOTSTRAP_AVAILABLE = True
+except Exception as _pbe:
+    log.debug(f"platform_bootstrap not available: {_pbe}")
+    _get_platform_bootstrap = None  # type: ignore[assignment]
+    _PLATFORM_BOOTSTRAP_AVAILABLE = False
+
 # ── Phase-2 Agent architecture (additive) ─────────────────────────────────────
 # RuntimeManager + all agents (PlannerAgent, ResearchAgent, CodingAgent,
 # TestingAgent, ReflectionAgent, ArchitectureAgent) — wired into core so that
+# ── BIOSIntegration (additive) ────────────────────────────────────────────────
+# BIOS/UEFI probe + controlled write (GRUB cmdline, EFI vars) on any platform.
+try:
+    from modules.bios_integration import get_bios_integration as _get_bios_integration
+    _BIOS_INTEGRATION_AVAILABLE = True
+except Exception as _biose:
+    log.debug(f"bios_integration not available: {_biose}")
+    _get_bios_integration = None  # type: ignore[assignment]
+    _BIOS_INTEGRATION_AVAILABLE = False
+
+# ── KernelIntegration (additive) ──────────────────────────────────────────────
+# Kernel version, sysctl, modules, dmesg, temperature sensors.
+try:
+    from modules.kernel_integration import get_kernel_integration as _get_kernel_integration
+    _KERNEL_INTEGRATION_AVAILABLE = True
+except Exception as _kie:
+    log.debug(f"kernel_integration not available: {_kie}")
+    _get_kernel_integration = None  # type: ignore[assignment]
+    _KERNEL_INTEGRATION_AVAILABLE = False
+
+# ── DeviceControl (additive) ──────────────────────────────────────────────────
+# Sandboxed command exec, process manager, serial/G-code bridge for robots/3D printers.
+try:
+    from modules.device_control import get_device_control as _get_device_control
+    _DEVICE_CONTROL_AVAILABLE = True
+except Exception as _dce:
+    log.debug(f"device_control not available: {_dce}")
+    _get_device_control = None  # type: ignore[assignment]
+    _DEVICE_CONTROL_AVAILABLE = False
+
+# ── DeviceMesh (additive) ─────────────────────────────────────────────────────
+# LAN discovery, mDNS, SSH spread — Niblit mesh network.
+try:
+    from modules.device_mesh import get_device_mesh as _get_device_mesh
+    _DEVICE_MESH_AVAILABLE = True
+except Exception as _dme:
+    log.debug(f"device_mesh not available: {_dme}")
+    _get_device_mesh = None  # type: ignore[assignment]
+    _DEVICE_MESH_AVAILABLE = False
+
+# ── GitHubDeepResearch (additive) ─────────────────────────────────────────────
+# Trending repos, tracked-repo PRs/issues, self-improvement proposals from GitHub.
+try:
+    from modules.github_deep_research import get_github_deep_research as _get_github_deep_research
+    _GITHUB_DEEP_AVAILABLE = True
+except Exception as _ghde:
+    log.debug(f"github_deep_research not available: {_ghde}")
+    _get_github_deep_research = None  # type: ignore[assignment]
+    _GITHUB_DEEP_AVAILABLE = False
+
+# ── SecurityMembrane (additive) ──────────────────────────────────────────────
+try:
+    from modules.security_membrane import get_security_membrane as _get_security_membrane
+    _SECURITY_MEMBRANE_AVAILABLE = True
+except Exception as _sme:
+    log.debug(f"security_membrane not available: {_sme}")
+    _get_security_membrane = None  # type: ignore[assignment]
+    _SECURITY_MEMBRANE_AVAILABLE = False
+
+# ── EnvStateManager (additive) ───────────────────────────────────────────────
+try:
+    from modules.env_state import get_env_state_manager as _get_env_state_manager
+    _ENV_STATE_AVAILABLE = True
+except Exception as _ese:
+    log.debug(f"env_state not available: {_ese}")
+    _get_env_state_manager = None  # type: ignore[assignment]
+    _ENV_STATE_AVAILABLE = False
+
+# ── EnvAdapterRegistry (additive) ────────────────────────────────────────────
+try:
+    from modules.env_adapter import get_env_adapter_registry as _get_env_adapter_registry
+    _ENV_ADAPTER_AVAILABLE = True
+except Exception as _eae:
+    log.debug(f"env_adapter not available: {_eae}")
+    _get_env_adapter_registry = None  # type: ignore[assignment]
+    _ENV_ADAPTER_AVAILABLE = False
+
+# ── NiblitRuntime (additive) ─────────────────────────────────────────────────
+try:
+    from modules.niblit_runtime import get_niblit_runtime as _get_niblit_runtime
+    _NIBLIT_RUNTIME_AVAILABLE = True
+except Exception as _nre:
+    log.debug(f"niblit_runtime not available: {_nre}")
+    _get_niblit_runtime = None  # type: ignore[assignment]
+    _NIBLIT_RUNTIME_AVAILABLE = False
+
 # Niblit can create, dispatch, and reflect on agent tasks autonomously.
 try:
     from core.runtime_manager import RuntimeManager as _RuntimeManager
@@ -1418,6 +1574,36 @@ class NiblitCore:
         self.parameter_manager: Optional[Any] = _parameter_manager if _PARAMETER_MANAGER_AVAILABLE else None
         # ── Additive: LEAN engine ─────────────────────────────────────────
         self.lean_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: LeanDeployEngine (QuantConnect REST API) ────────────
+        self.lean_deploy_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: MarketDataProviders (multi-provider free data) ──────
+        self.market_data_providers: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: TradingStudy (study/reflect/metacognition) ──────────
+        self.trading_study: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: HardwareScanner (cross-platform hardware profiler) ──
+        self.hardware_scanner: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: OSIntegration (install Niblit as OS service) ────────
+        self.os_integration: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: PlatformBootstrap (platform type + capabilities) ────
+        self.platform_bootstrap: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: BIOS/UEFI integration ──────────────────────────────────
+        self.bios_integration: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Kernel integration ─────────────────────────────────────
+        self.kernel_integration: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Device control (cmd exec, serial, G-code) ──────────────
+        self.device_control: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Device mesh (LAN discovery + spread) ───────────────────
+        self.device_mesh: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: GitHub deep research (trending + tracked repos) ─────────
+        self.github_deep_research: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Security membrane ──────────────────────────────────────
+        self.security_membrane: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Cross-environment state manager ─────────────────────────
+        self.env_state_manager: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Environment adapter registry ────────────────────────────
+        self.env_adapter_registry: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Niblit self-improving runtime environment ───────────────
+        self.niblit_runtime: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
         self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
         self.phase2_agents: dict = {}  # {task_type: agent_instance}
@@ -3756,8 +3942,322 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "LEAN commands:\n"
             "  lean status | login | create <n> | list | delete <n>\n"
             "  lean backtest <n> [cloud] | lean live <n> [broker]\n"
-            "  lean sweep <n> p=v1,v2 | lean params [n] | lean jobs"
+            "  lean sweep <n> p=v1,v2 | lean params [n] | lean jobs\n"
+            "  lean deploy <sub>   — QuantConnect REST API (see 'lean deploy status')"
         )
+
+    # ── LeanDeployEngine commands (additive) ─────────────────────────────────
+
+    def _cmd_lean_deploy(self, cmd: str) -> str:
+        """Route 'lean deploy ...' to LeanDeployEngine (QuantConnect REST API).
+
+        Sub-commands
+        ------------
+        lean deploy status
+        lean deploy projects
+        lean deploy create <name>
+        lean deploy backtest <projectId>
+        lean deploy live-list
+        lean deploy live-read <projectId> <deployId>
+        lean deploy live-stop <projectId>
+        lean deploy liquidate <projectId>
+        lean deploy templates
+        lean deploy generate <template> <name> [symbol=X] [fast=N] [slow=N]
+        lean deploy quick <template> <name> [brokerage=PaperBrokerage] [symbol=X]
+        lean deploy monitor <projectId> <deployId>
+        lean deploy orders <projectId>
+        lean deploy compile <projectId>
+        """
+        engine = getattr(self, "lean_deploy_engine", None)
+        if engine is None:
+            return "[lean deploy] LeanDeployEngine not initialised — check startup logs"
+
+        parts = cmd.strip().split()
+        if not parts:
+            return engine.status()
+        sub = parts[0].lower()
+        rest = parts[1:]
+
+        if sub == "status":
+            return engine.status()
+        if sub in ("projects", "list"):
+            return engine.list_projects()
+        if sub == "create":
+            if not rest:
+                return "Usage: lean deploy create <name>"
+            return engine.create_project(rest[0])
+        if sub in ("backtest", "bt"):
+            if not rest:
+                return "Usage: lean deploy backtest <projectId>"
+            return engine.create_backtest(int(rest[0]))
+        if sub in ("backtests", "list-backtests"):
+            if not rest:
+                return "Usage: lean deploy backtests <projectId>"
+            return engine.list_backtests(int(rest[0]))
+        if sub == "read-backtest":
+            if len(rest) < 2:
+                return "Usage: lean deploy read-backtest <projectId> <backtestId>"
+            return engine.read_backtest(int(rest[0]), rest[1])
+        if sub in ("live-list", "live", "running"):
+            return engine.list_live_algorithms()
+        if sub in ("live-read", "live-status"):
+            if len(rest) < 2:
+                return "Usage: lean deploy live-read <projectId> <deployId>"
+            return engine.read_live_algorithm(int(rest[0]), rest[1])
+        if sub in ("live-stop", "stop"):
+            if not rest:
+                return "Usage: lean deploy live-stop <projectId>"
+            return engine.stop_live_algorithm(int(rest[0]))
+        if sub == "liquidate":
+            if not rest:
+                return "Usage: lean deploy liquidate <projectId>"
+            return engine.liquidate_live_algorithm(int(rest[0]))
+        if sub == "compile":
+            if not rest:
+                return "Usage: lean deploy compile <projectId>"
+            return engine.compile_project(int(rest[0]))
+        if sub in ("templates", "list-templates"):
+            return engine.list_templates()
+        if sub == "generate":
+            if len(rest) < 2:
+                return "Usage: lean deploy generate <template> <name> [key=val ...]"
+            tmpl, name = rest[0], rest[1]
+            kwargs: dict = {}
+            for kv in rest[2:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    try:
+                        kwargs[k] = int(v)
+                    except ValueError:
+                        try:
+                            kwargs[k] = float(v)
+                        except ValueError:
+                            kwargs[k] = v
+            return engine.generate_algorithm(template=tmpl, name=name, **kwargs)
+        if sub == "quick":
+            if len(rest) < 2:
+                return "Usage: lean deploy quick <template> <name> [brokerage=PaperBrokerage] [symbol=X]"
+            tmpl, name = rest[0], rest[1]
+            broker = "PaperBrokerage"
+            kwargs2: dict = {}
+            for kv in rest[2:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    if k == "brokerage":
+                        broker = v
+                    else:
+                        try:
+                            kwargs2[k] = int(v)
+                        except ValueError:
+                            kwargs2[k] = v
+            return engine.quick_deploy(template=tmpl, name=name, brokerage=broker, **kwargs2)
+        if sub == "monitor":
+            if len(rest) < 2:
+                return "Usage: lean deploy monitor <projectId> <deployId>"
+            return engine.start_monitor(int(rest[0]), rest[1])
+        if sub == "stop-monitor":
+            if not rest:
+                return "Usage: lean deploy stop-monitor <deployId>"
+            return engine.stop_monitor(rest[0])
+        if sub == "orders":
+            if not rest:
+                return "Usage: lean deploy orders <projectId>"
+            return engine.read_live_orders(int(rest[0]))
+        return engine.status()
+
+    # ── MarketDataProviders commands (additive) ───────────────────────────────
+
+    def _cmd_market_data(self, cmd: str) -> str:
+        """Route 'market ...' commands to MarketDataProviders.
+
+        Sub-commands
+        ------------
+        market status
+        market overview [sym1 sym2 ...]
+        market fetch <symbol> [provider=yfinance] [interval=1d] [bars=50]
+        market multi <sym1,sym2,...> [provider] [interval] [bars]
+        market info <symbol>               — Yahoo Finance fundamental info
+        market oanda-candles <instrument> [interval=H1] [bars=100]
+        market oanda-account
+        market oanda-order <instrument> <units>
+        market oanda-instruments
+        market ccxt-exchanges
+        market ccxt-tickers [exchange=binance]
+        market alpaca-account
+        market alpaca-order <symbol> <qty> [side=buy]
+        """
+        mdp = getattr(self, "market_data_providers", None)
+        if mdp is None:
+            return "[market] MarketDataProviders not initialised — check startup logs"
+
+        parts = cmd.strip().split()
+        if not parts:
+            return mdp.status()
+        sub = parts[0].lower()
+        rest = parts[1:]
+
+        if sub == "status":
+            return mdp.status()
+        if sub == "overview":
+            syms = rest if rest else None
+            return mdp.market_overview(syms)
+        if sub == "fetch":
+            if not rest:
+                return "Usage: market fetch <symbol> [provider=yfinance] [interval=1d] [bars=50]"
+            sym = rest[0]
+            provider = "auto"
+            interval = "1d"
+            bars = 50
+            for kv in rest[1:]:
+                if "=" in kv:
+                    k, v = kv.split("=", 1)
+                    if k == "provider":
+                        provider = v
+                    elif k == "interval":
+                        interval = v
+                    elif k == "bars":
+                        bars = int(v)
+            result = mdp.fetch(sym, provider=provider, interval=interval, bars=bars)
+            if hasattr(result, "to_string"):
+                return f"Fetched {sym} ({provider}/{interval}):\n{result.tail(5).to_string()}"
+            return str(result)[:800]
+        if sub == "multi":
+            if not rest:
+                return "Usage: market multi <sym1,sym2,...> [provider] [interval] [bars]"
+            syms = rest[0].split(",")
+            provider = rest[1] if len(rest) > 1 else "yfinance"
+            interval = rest[2] if len(rest) > 2 else "1d"
+            bars = int(rest[3]) if len(rest) > 3 else 20
+            results = mdp.fetch_multi(syms, provider=provider, interval=interval, bars=bars)
+            lines = [f"Multi-fetch ({provider}/{interval}):"]
+            for s, r in results.items():
+                if hasattr(r, "tail"):
+                    close = r["Close"].iloc[-1] if "Close" in r.columns else "?"
+                    lines.append(f"  {s}: latest_close={close}")
+                else:
+                    lines.append(f"  {s}: {str(r)[:80]}")
+            return "\n".join(lines)
+        if sub == "info":
+            if not rest:
+                return "Usage: market info <symbol>"
+            info = mdp.yfinance_info(rest[0])
+            if isinstance(info, dict):
+                keys = ["longName", "sector", "marketCap", "trailingPE",
+                        "dividendYield", "52WeekHigh", "52WeekLow"]
+                lines = [f"Yahoo Finance info — {rest[0]}:"]
+                for k in keys:
+                    if k in info:
+                        lines.append(f"  {k}: {info[k]}")
+                return "\n".join(lines) if len(lines) > 1 else str(info)[:400]
+            return str(info)[:400]
+        if sub in ("oanda-candles", "oanda"):
+            instr = rest[0] if rest else "EUR_USD"
+            interval = rest[1] if len(rest) > 1 else "H1"
+            bars = int(rest[2]) if len(rest) > 2 else 50
+            result = mdp.oanda_candles(instr, interval=interval, bars=bars)
+            return f"OANDA {instr} {interval}: {str(result)[:600]}"
+        if sub == "oanda-account":
+            return str(mdp.oanda_account_summary())[:600]
+        if sub == "oanda-order":
+            if len(rest) < 2:
+                return "Usage: market oanda-order <instrument> <units>"
+            return str(mdp.oanda_place_order(rest[0], int(rest[1])))[:400]
+        if sub == "oanda-instruments":
+            return "OANDA instruments:\n" + "\n".join(
+                f"  {i}" for i in mdp.available_instruments_oanda()
+            )
+        if sub == "ccxt-exchanges":
+            exchanges = mdp.ccxt_exchanges()
+            return f"CCXT exchanges ({len(exchanges)}):\n" + " ".join(exchanges[:30])
+        if sub == "ccxt-tickers":
+            exchange = rest[0] if rest else "binance"
+            tickers = mdp.ccxt_tickers(exchange)
+            if isinstance(tickers, dict):
+                return f"CCXT {exchange} tickers ({len(tickers)} pairs)"
+            return str(tickers)[:300]
+        if sub == "alpaca-account":
+            return str(mdp.alpaca_account())[:400]
+        if sub == "alpaca-order":
+            if len(rest) < 2:
+                return "Usage: market alpaca-order <symbol> <qty> [side=buy]"
+            sym = rest[0]
+            qty = float(rest[1])
+            side = rest[2] if len(rest) > 2 else "buy"
+            return str(mdp.alpaca_place_order(sym, qty, side=side))[:400]
+        return mdp.status()
+
+    # ── TradingStudy commands (additive) ─────────────────────────────────────
+
+    def _cmd_trading_study(self, cmd: str) -> str:
+        """Route 'trading study ...' commands to TradingStudy.
+
+        Sub-commands
+        ------------
+        trading study status
+        trading study brain           — Study last TradingBrain cycle
+        trading study market [syms]   — Market snapshot study
+        trading study lean <name>     — Study LEAN backtest results
+        trading study live <deployId> — Study live algorithm status
+        trading study deep            — Full deep study session
+        trading study journal [n=50]  — Analyse trade journal
+        trading study meta            — Metacognition check
+        trading study auto-start [interval=300]
+        trading study auto-stop
+        trading study log <symbol> <side> <price> <qty> [pnl=N]
+        """
+        ts = getattr(self, "trading_study", None)
+        if ts is None:
+            return "[trading study] TradingStudy not initialised — check startup logs"
+
+        parts = cmd.strip().split()
+        if not parts:
+            return ts.status()
+        sub = parts[0].lower()
+        rest = parts[1:]
+
+        if sub == "status":
+            return ts.status()
+        if sub == "brain":
+            return ts.study_last_trade_brain_cycle()
+        if sub == "market":
+            syms = rest if rest else None
+            return ts.study_market_snapshot(syms)
+        if sub == "lean":
+            name = rest[0] if rest else ""
+            if not name:
+                return "Usage: trading study lean <project-name>"
+            return ts.study_lean_backtest(name)
+        if sub == "live":
+            if not rest:
+                return "Usage: trading study live <deployId>"
+            deploy_id = rest[0]
+            status_text = " ".join(rest[1:]) or "manual study trigger"
+            return ts.study_live_algorithm(deploy_id, status_text)
+        if sub == "deep":
+            return ts.deep_study_session()
+        if sub == "journal":
+            n = int(rest[0]) if rest and rest[0].isdigit() else 50
+            return ts.analyse_journal(n)
+        if sub == "meta":
+            return ts.metacognition_check()
+        if sub in ("auto-start", "auto"):
+            secs = int(rest[0]) if rest and rest[0].isdigit() else 300
+            return ts.start_auto_study(interval_secs=secs)
+        if sub == "auto-stop":
+            return ts.stop_auto_study()
+        if sub == "log":
+            if len(rest) < 4:
+                return "Usage: trading study log <symbol> <side> <price> <qty> [pnl=N]"
+            sym, side, price, qty = rest[0], rest[1], float(rest[2]), float(rest[3])
+            pnl = None
+            for kv in rest[4:]:
+                if kv.startswith("pnl="):
+                    try:
+                        pnl = float(kv.split("=", 1)[1])
+                    except ValueError:
+                        pass
+            return ts.log_trade(sym, side, price, qty, pnl=pnl)
+        return ts.status()
 
     # ── Game engine commands (additive) ───────────────────────────────────────
 
@@ -3925,6 +4425,332 @@ SW Categories: {stats.get('software_study_categories', 0)}
         )
 
     # ── Phase-2 agent commands (additive) ─────────────────────────────────────
+
+    # ── HardwareScanner commands (additive) ───────────────────────────────────
+    def _cmd_hardware(self, cmd: str) -> str:
+        """Route 'hardware ...' commands to HardwareScanner.
+
+        Sub-commands
+        ------------
+        hardware scan             — Run a full hardware scan now
+        hardware status           — Scanner status and last scan time
+        hardware profile          — Full profile as JSON
+        hardware summary          — Human-readable hardware summary
+        hardware requirements     — Deployment recommendation for this hardware
+        """
+        lower = cmd.strip().lower()
+        # Strip leading 'hardware' token
+        sub = lower.removeprefix("hardware").strip()
+
+        hw = getattr(self, "hardware_scanner", None)
+        if hw is None:
+            return "[hardware] HardwareScanner not initialised — check startup logs"
+
+        if sub in ("scan", "rescan"):
+            profile = hw.scan()
+            return hw.summary() + f"\n✅ Scan complete ({profile.get('scanned_at', '')})"
+        if sub in ("status", ""):
+            return hw.status()
+        if sub in ("profile", "json"):
+            import json as _json
+            return _json.dumps(hw.get_profile(), indent=2, default=str)
+        if sub in ("summary", "info"):
+            return hw.summary()
+        if sub in ("requirements", "recommend", "req"):
+            return hw.requirements_report()
+        return (
+            "Hardware Scanner sub-commands:\n"
+            "  hardware scan          — Run a full hardware scan\n"
+            "  hardware status        — Scanner status\n"
+            "  hardware summary       — Human-readable summary\n"
+            "  hardware profile       — Full JSON profile\n"
+            "  hardware requirements  — Deployment recommendation\n"
+        )
+
+    # ── OSIntegration commands (additive) ────────────────────────────────────
+    def _cmd_os(self, cmd: str) -> str:
+        """Route 'os ...' commands to OSIntegration.
+
+        Sub-commands
+        ------------
+        os info                   — Show integration layer info
+        os install                — Install Niblit as an auto-starting OS service
+        os install --system       — Install system-wide (requires root/admin)
+        os uninstall              — Remove the auto-start entry
+        os status                 — Check service / boot-hook status
+        platform info             — Platform type and capability flags
+        platform requirements     — Setup hints for the current platform
+        """
+        lower = cmd.strip().lower()
+        sub = lower
+        for prefix in ("os ", "platform "):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        if lower in ("os", "platform"):
+            sub = "info"
+
+        osi = getattr(self, "os_integration", None)
+        pb = getattr(self, "platform_bootstrap", None)
+
+        if sub in ("info", ""):
+            parts = []
+            if pb:
+                parts.append(pb.info())
+            if osi:
+                parts.append(osi.info())
+            return "\n\n".join(parts) if parts else "[os] Neither OSIntegration nor PlatformBootstrap initialised"
+
+        if osi is None:
+            return "[os] OSIntegration not initialised — check startup logs"
+
+        if sub in ("install", "install --user"):
+            return osi.install(system_wide=False)
+        if sub in ("install --system", "install system", "install system-wide"):
+            return osi.install(system_wide=True)
+        if sub in ("uninstall", "remove"):
+            return osi.uninstall()
+        if sub in ("status",):
+            return osi.status()
+        if sub in ("requirements", "req", "setup"):
+            if pb:
+                return pb.requirements_hint()
+            return "[os] PlatformBootstrap not initialised"
+
+        return (
+            "OS integration sub-commands:\n"
+            "  os info                — Integration layer info\n"
+            "  os install             — Install Niblit as auto-starting service\n"
+            "  os install --system    — System-wide install (root/admin required)\n"
+            "  os uninstall           — Remove auto-start entry\n"
+            "  os status              — Service / boot-hook status\n"
+            "  os requirements        — Setup hints for this platform\n"
+            "  platform info          — Platform type and capability flags\n"
+        )
+
+    # ── BIOSIntegration commands (additive) ───────────────────────────────────
+    def _cmd_bios(self, cmd: str) -> str:
+        """Route 'bios ...' commands to BIOSIntegration."""
+        lower = cmd.strip().lower()
+        sub = lower.removeprefix("bios").strip()
+        bi = getattr(self, "bios_integration", None)
+        if bi is None:
+            return "[bios] BIOSIntegration not initialised — check startup logs"
+        if sub in ("probe", "scan", "rescan"):
+            bi.probe()
+            return bi.summary()
+        if sub in ("status", ""):
+            return bi.status()
+        if sub in ("summary", "info"):
+            return bi.summary()
+        if sub in ("uefi", "efi", "uefi vars", "efi vars"):
+            return bi.uefi_vars()
+        if sub.startswith("cmdline "):
+            # bios cmdline <flag> [value] [--write]
+            parts = sub.removeprefix("cmdline ").split()
+            flag = parts[0] if parts else ""
+            value = parts[1] if len(parts) > 1 and not parts[1].startswith("--") else ""
+            write = "--write" in parts
+            return bi.set_cmdline_flag(flag, value, write=write)
+        return (
+            "BIOS/UEFI sub-commands:\n"
+            "  bios summary          — BIOS/UEFI profile summary\n"
+            "  bios probe            — Re-probe firmware\n"
+            "  bios status           — Integration status\n"
+            "  bios uefi vars        — List EFI variable names (Linux)\n"
+            "  bios cmdline <flag> [value] [--write]  — Add kernel boot flag\n"
+        )
+
+    # ── KernelIntegration commands (additive) ────────────────────────────────
+    def _cmd_krnl(self, cmd: str) -> str:
+        """Route 'krnl ...' commands to KernelIntegration."""
+        lower = cmd.strip().lower()
+        sub = lower
+        for prefix in ("krnl ", "kernel "):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        if lower in ("krnl", "kernel"):
+            sub = "status"
+
+        ki = getattr(self, "kernel_integration", None)
+        if ki is None:
+            return "[krnl] KernelIntegration not initialised — check startup logs"
+        if sub in ("status", ""):
+            return ki.status()
+        if sub in ("summary", "info"):
+            return ki.summary()
+        if sub in ("dmesg",) or sub.startswith("dmesg"):
+            n = 40
+            parts = sub.split()
+            if len(parts) > 1 and parts[1].isdigit():
+                n = int(parts[1])
+            return ki.dmesg(lines=n)
+        if sub in ("modules", "lsmod"):
+            return ki.list_modules()
+        if sub.startswith("sysctl "):
+            # krnl sysctl key=value [--write]
+            parts = sub.removeprefix("sysctl ").split()
+            kv = parts[0] if parts else ""
+            k, _, v = kv.partition("=")
+            write = "--write" in parts
+            return ki.set_sysctl(k, v, write=write)
+        if sub.startswith("modprobe ") or sub.startswith("load "):
+            mod = sub.split()[-1]
+            write = "--write" in sub
+            return ki.load_module(mod, write=write)
+        if sub.startswith("rmmod ") or sub.startswith("unload "):
+            mod = sub.split()[-1]
+            write = "--write" in sub
+            return ki.unload_module(mod, write=write)
+        return (
+            "Kernel sub-commands:\n"
+            "  krnl summary          — Kernel profile summary\n"
+            "  krnl status           — Integration status\n"
+            "  krnl dmesg [N]        — Last N dmesg lines\n"
+            "  krnl modules          — List loaded kernel modules\n"
+            "  krnl sysctl key=val [--write]  — Read/set sysctl param\n"
+            "  krnl load <module> [--write]   — Load kernel module\n"
+            "  krnl unload <module> [--write] — Unload kernel module\n"
+        )
+
+    # ── DeviceControl commands (additive) ────────────────────────────────────
+    def _cmd_device_ctrl(self, cmd: str) -> str:
+        """Route 'cmd exec / device ctrl' commands to DeviceControl."""
+        lower = cmd.strip()
+        sub = lower
+        for prefix in ("cmd exec ", "device ctrl ", "ctrl "):
+            if lower.lower().startswith(prefix):
+                sub = lower[len(prefix):]
+                break
+
+        dc = getattr(self, "device_control", None)
+        if dc is None:
+            return "[device ctrl] DeviceControl not initialised — check startup logs"
+
+        lower_sub = sub.strip().lower()
+        if lower_sub in ("status", ""):
+            return dc.status()
+        if lower_sub in ("history", "log"):
+            return dc.history()
+        if lower_sub in ("sensors", "sensor"):
+            return dc.sensors()
+        if lower_sub in ("usb", "lsusb"):
+            return dc.list_usb()
+        if lower_sub in ("serial", "ports"):
+            return ", ".join(dc.list_serial_ports()) or "No serial ports found"
+        if lower_sub.startswith("ps") or lower_sub in ("processes", "procs"):
+            flt = lower_sub.removeprefix("ps").strip()
+            return dc.list_processes(flt)
+        if lower_sub.startswith("kill "):
+            parts = sub.strip().split()
+            try:
+                pid = int(parts[1])
+            except Exception:
+                return "Usage: cmd exec kill <pid>"
+            force = "-9" in sub or "--force" in sub
+            return dc.kill_process(pid, force=force)
+        if lower_sub.startswith("gcode "):
+            parts = sub.strip().split(maxsplit=2)
+            port = parts[1] if len(parts) > 1 else ""
+            gcode = parts[2] if len(parts) > 2 else ""
+            return dc.gcode(port, gcode)
+        # Default: execute the command
+        if sub.strip():
+            return dc.execute_str(sub.strip())
+        return (
+            "Device Control sub-commands:\n"
+            "  cmd exec <shell cmd>  — Execute a sandboxed shell command\n"
+            "  cmd exec status       — DeviceControl status\n"
+            "  cmd exec history      — Recent command history\n"
+            "  cmd exec sensors      — Hardware temperatures / battery\n"
+            "  cmd exec usb          — List USB devices\n"
+            "  cmd exec serial       — List serial/COM ports\n"
+            "  cmd exec ps [filter]  — Process list\n"
+            "  cmd exec kill <pid>   — Kill a process\n"
+            "  cmd exec gcode <port> <cmds>  — Send G-code to 3D printer/robot\n"
+        )
+
+    # ── DeviceMesh commands (additive) ───────────────────────────────────────
+    def _cmd_mesh(self, cmd: str) -> str:
+        """Route 'mesh ...' commands to DeviceMesh."""
+        lower = cmd.strip().lower()
+        sub = lower.removeprefix("mesh").strip()
+        dm = getattr(self, "device_mesh", None)
+        if dm is None:
+            return "[mesh] DeviceMesh not initialised — check startup logs"
+        if sub in ("scan", "discover"):
+            dm.scan()
+            return dm.summary()
+        if sub in ("status", ""):
+            return dm.status()
+        if sub in ("nodes", "list"):
+            return dm.summary()
+        if sub.startswith("ping "):
+            ip = sub.removeprefix("ping ").strip()
+            return dm.ping(ip)
+        if sub.startswith("ssh "):
+            parts = sub.split(maxsplit=2)
+            ip = parts[1] if len(parts) > 1 else ""
+            remote_cmd = parts[2] if len(parts) > 2 else "echo hello"
+            return dm.ssh_run(ip, remote_cmd)
+        if sub.startswith("spread "):
+            parts = sub.split()
+            ip = parts[1] if len(parts) > 1 else ""
+            user = parts[2] if len(parts) > 2 else "niblit"
+            return dm.spread(ip, user)
+        return (
+            "Device Mesh sub-commands:\n"
+            "  mesh scan             — Discover devices on LAN\n"
+            "  mesh nodes            — List discovered nodes\n"
+            "  mesh status           — Mesh status\n"
+            "  mesh ping <ip>        — Ping a host\n"
+            "  mesh ssh <ip> <cmd>   — Run SSH command on a node\n"
+            "  mesh spread <ip> [user] — Copy Niblit to remote device\n"
+            "                          (requires NIBLIT_MESH_SPREAD=1)\n"
+        )
+
+    # ── GitHubDeepResearch commands (additive) ───────────────────────────────
+    def _cmd_github_deep(self, cmd: str) -> str:
+        """Route 'github-deep ...' commands to GitHubDeepResearch."""
+        lower = cmd.strip().lower()
+        sub = lower
+        for prefix in ("github-deep ", "github deep "):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):]
+                break
+        if lower in ("github-deep", "github deep"):
+            sub = "status"
+
+        gh = getattr(self, "github_deep_research", None)
+        if gh is None:
+            return "[github-deep] GitHubDeepResearch not initialised — check startup logs"
+
+        if sub in ("status", ""):
+            return gh.status()
+        if sub in ("scan", "scan all"):
+            result = gh.scan_all_tracked()
+            return f"Scanned {len(result)} tracked repos. Run 'github-deep proposals' to see findings."
+        if sub.startswith("trending"):
+            topic = sub.removeprefix("trending").strip() or "machine-learning"
+            return gh.trending_summary(topic)
+        if sub.startswith("repo ") or sub.startswith("updates "):
+            repo = sub.split(maxsplit=1)[-1].strip()
+            return gh.repo_report(repo)
+        if sub.startswith("track "):
+            repo = sub.removeprefix("track ").strip()
+            return gh.add_tracked_repo(repo)
+        if sub in ("proposals", "ideas"):
+            return gh.proposals()
+        return (
+            "GitHub Deep Research sub-commands:\n"
+            "  github-deep status              — Status & token info\n"
+            "  github-deep scan                — Scan all tracked repos\n"
+            "  github-deep trending [topic]    — Top trending repos\n"
+            "  github-deep repo <owner/repo>   — Repo PR/issue report\n"
+            "  github-deep track <owner/repo>  — Add a repo to tracking\n"
+            "  github-deep proposals           — Show improvement proposals\n"
+        )
 
     def _cmd_agents(self, cmd: str = "") -> str:
         """Inspect and interact with the Phase-2 agent architecture.
@@ -5376,6 +6202,222 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _lee:
                 log.debug("[INIT] LeanEngine init failed: %s", _lee)
                 self.startup_report.add("lean_engine", "degraded", str(_lee))
+
+        # ── MarketDataProviders (additive) ────────────────────────────────────
+        # Unified gateway for yfinance, CCXT, TwelveData, OANDA, Alpaca data.
+        if _MARKET_DATA_AVAILABLE and _get_market_data_providers is not None:
+            try:
+                self.market_data_providers = _get_market_data_providers(knowledge_db=self.db)
+                log.info("✅ MarketDataProviders initialised")
+                self.startup_report.add("market_data_providers", "ready")
+            except Exception as _mde2:
+                log.debug("[INIT] MarketDataProviders init failed: %s", _mde2)
+                self.startup_report.add("market_data_providers", "degraded", str(_mde2))
+
+        # ── LeanDeployEngine (additive) ───────────────────────────────────────
+        # QuantConnect REST API client for cloud live trading deployment.
+        if _LEAN_DEPLOY_AVAILABLE and _get_lean_deploy_engine is not None:
+            try:
+                self.lean_deploy_engine = _get_lean_deploy_engine(
+                    knowledge_db=self.db,
+                    reflect_module=getattr(self, "reflect", None),
+                )
+                log.info("✅ LeanDeployEngine initialised")
+                self.startup_report.add("lean_deploy_engine", "ready")
+            except Exception as _ldee:
+                log.debug("[INIT] LeanDeployEngine init failed: %s", _ldee)
+                self.startup_report.add("lean_deploy_engine", "degraded", str(_ldee))
+
+        # ── TradingStudy (additive) ───────────────────────────────────────────
+        # Study/reflect/metacognition engine for trading improvement.
+        if _TRADING_STUDY_AVAILABLE and _get_trading_study is not None:
+            try:
+                self.trading_study = _get_trading_study(
+                    knowledge_db=self.db,
+                    trading_brain=getattr(self, "trading_brain", None),
+                    lean_engine=getattr(self, "lean_engine", None),
+                    lean_deploy_engine=getattr(self, "lean_deploy_engine", None),
+                    market_data=getattr(self, "market_data_providers", None),
+                    brain_trainer=getattr(self, "background_trainer", None),
+                    reflect_module=getattr(self, "reflect", None),
+                    llm=getattr(self, "llm", None),
+                )
+                # Wire reflect_module back into LeanDeployEngine
+                if self.lean_deploy_engine is not None:
+                    self.lean_deploy_engine._reflect = self.trading_study
+                log.info("✅ TradingStudy initialised")
+                self.startup_report.add("trading_study", "ready")
+            except Exception as _tse2:
+                log.debug("[INIT] TradingStudy init failed: %s", _tse2)
+                self.startup_report.add("trading_study", "degraded", str(_tse2))
+
+        # ── KnowledgeFilter (additive) ────────────────────────────────────────
+        # Wire the LLM into the filter so it can produce richer summaries.
+        if _KNOWLEDGE_FILTER_AVAILABLE and _get_knowledge_filter is not None:
+            try:
+                kf = _get_knowledge_filter(llm=getattr(self, "llm", None))
+                log.info("✅ KnowledgeFilter initialised")
+                self.startup_report.add("knowledge_filter", "ready")
+                # Expose on core for any module that wants to call it directly
+                self.knowledge_filter = kf
+            except Exception as _kfe2:
+                log.debug("[INIT] KnowledgeFilter init failed: %s", _kfe2)
+                self.startup_report.add("knowledge_filter", "degraded", str(_kfe2))
+
+        # ── PlatformBootstrap (additive) ──────────────────────────────────────
+        if _PLATFORM_BOOTSTRAP_AVAILABLE and _get_platform_bootstrap is not None:
+            try:
+                self.platform_bootstrap = _get_platform_bootstrap()
+                log.info("✅ PlatformBootstrap initialised — platform=%s",
+                         self.platform_bootstrap.platform_type)
+                self.startup_report.add("platform_bootstrap", "ready")
+            except Exception as _pbe2:
+                log.debug("[INIT] PlatformBootstrap init failed: %s", _pbe2)
+                self.startup_report.add("platform_bootstrap", "degraded", str(_pbe2))
+
+        # ── HardwareScanner (additive) ────────────────────────────────────────
+        if _HARDWARE_SCANNER_AVAILABLE and _get_hardware_scanner is not None:
+            try:
+                self.hardware_scanner = _get_hardware_scanner(
+                    knowledge_db=getattr(self, "db", None),
+                    autoscan=True,
+                )
+                log.info("✅ HardwareScanner initialised (background scan started)")
+                self.startup_report.add("hardware_scanner", "ready")
+            except Exception as _hse2:
+                log.debug("[INIT] HardwareScanner init failed: %s", _hse2)
+                self.startup_report.add("hardware_scanner", "degraded", str(_hse2))
+
+        # ── OSIntegration (additive) ──────────────────────────────────────────
+        if _OS_INTEGRATION_AVAILABLE and _get_os_integration is not None:
+            try:
+                self.os_integration = _get_os_integration(
+                    hardware_scanner=getattr(self, "hardware_scanner", None),
+                )
+                log.info("✅ OSIntegration initialised — platform=%s",
+                         type(self.os_integration._installer).__name__)
+                self.startup_report.add("os_integration", "ready")
+            except Exception as _oie2:
+                log.debug("[INIT] OSIntegration init failed: %s", _oie2)
+                self.startup_report.add("os_integration", "degraded", str(_oie2))
+
+        # ── BIOSIntegration (additive) ────────────────────────────────────────
+        if _BIOS_INTEGRATION_AVAILABLE and _get_bios_integration is not None:
+            try:
+                self.bios_integration = _get_bios_integration(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ BIOSIntegration initialised — uefi=%s",
+                         self.bios_integration.get_profile().get("uefi_boot"))
+                self.startup_report.add("bios_integration", "ready")
+            except Exception as _biose2:
+                log.debug("[INIT] BIOSIntegration init failed: %s", _biose2)
+                self.startup_report.add("bios_integration", "degraded", str(_biose2))
+
+        # ── KernelIntegration (additive) ──────────────────────────────────────
+        if _KERNEL_INTEGRATION_AVAILABLE and _get_kernel_integration is not None:
+            try:
+                self.kernel_integration = _get_kernel_integration(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ KernelIntegration initialised — kernel=%s",
+                         self.kernel_integration.get_profile().get("kernel_version", "?")[:40])
+                self.startup_report.add("kernel_integration", "ready")
+            except Exception as _kie2:
+                log.debug("[INIT] KernelIntegration init failed: %s", _kie2)
+                self.startup_report.add("kernel_integration", "degraded", str(_kie2))
+
+        # ── DeviceControl (additive) ──────────────────────────────────────────
+        if _DEVICE_CONTROL_AVAILABLE and _get_device_control is not None:
+            try:
+                self.device_control = _get_device_control(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ DeviceControl initialised")
+                self.startup_report.add("device_control", "ready")
+            except Exception as _dce2:
+                log.debug("[INIT] DeviceControl init failed: %s", _dce2)
+                self.startup_report.add("device_control", "degraded", str(_dce2))
+
+        # ── DeviceMesh (additive) ─────────────────────────────────────────────
+        if _DEVICE_MESH_AVAILABLE and _get_device_mesh is not None:
+            try:
+                self.device_mesh = _get_device_mesh(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ DeviceMesh initialised (spread=%s)",
+                         getattr(self.device_mesh, "_spread_enabled", False))
+                self.startup_report.add("device_mesh", "ready")
+            except Exception as _dme2:
+                log.debug("[INIT] DeviceMesh init failed: %s", _dme2)
+                self.startup_report.add("device_mesh", "degraded", str(_dme2))
+
+        # ── GitHubDeepResearch (additive) ─────────────────────────────────────
+        if _GITHUB_DEEP_AVAILABLE and _get_github_deep_research is not None:
+            try:
+                self.github_deep_research = _get_github_deep_research(
+                    knowledge_db=getattr(self, "db", None),
+                    improvement_integrator=getattr(self, "improvements", None),
+                )
+                log.info("✅ GitHubDeepResearch initialised (%d tracked repos)",
+                         len(self.github_deep_research.tracked_repos))
+                self.startup_report.add("github_deep_research", "ready")
+            except Exception as _ghde2:
+                log.debug("[INIT] GitHubDeepResearch init failed: %s", _ghde2)
+                self.startup_report.add("github_deep_research", "degraded", str(_ghde2))
+
+        # ── SecurityMembrane (additive) ───────────────────────────────────────
+        if _SECURITY_MEMBRANE_AVAILABLE and _get_security_membrane is not None:
+            try:
+                self.security_membrane = _get_security_membrane(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ SecurityMembrane initialised")
+                self.startup_report.add("security_membrane", "ready")
+            except Exception as _sme2:
+                log.debug("[INIT] SecurityMembrane init failed: %s", _sme2)
+                self.startup_report.add("security_membrane", "degraded", str(_sme2))
+
+        # ── EnvStateManager (additive) ────────────────────────────────────────
+        if _ENV_STATE_AVAILABLE and _get_env_state_manager is not None:
+            try:
+                self.env_state_manager = _get_env_state_manager(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ EnvStateManager initialised (session=%s…)",
+                         self.env_state_manager.snapshot().session_id[:8])
+                self.startup_report.add("env_state_manager", "ready")
+            except Exception as _ese2:
+                log.debug("[INIT] EnvStateManager init failed: %s", _ese2)
+                self.startup_report.add("env_state_manager", "degraded", str(_ese2))
+
+        # ── EnvAdapterRegistry (additive) ────────────────────────────────────
+        if _ENV_ADAPTER_AVAILABLE and _get_env_adapter_registry is not None:
+            try:
+                self.env_adapter_registry = _get_env_adapter_registry(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ EnvAdapterRegistry initialised (adapters: %s)",
+                         self.env_adapter_registry.adapter_names())
+                self.startup_report.add("env_adapter_registry", "ready")
+            except Exception as _eae2:
+                log.debug("[INIT] EnvAdapterRegistry init failed: %s", _eae2)
+                self.startup_report.add("env_adapter_registry", "degraded", str(_eae2))
+
+        # ── NiblitRuntime (additive) ──────────────────────────────────────────
+        if _NIBLIT_RUNTIME_AVAILABLE and _get_niblit_runtime is not None:
+            try:
+                self.niblit_runtime = _get_niblit_runtime(
+                    knowledge_db=getattr(self, "db", None),
+                    env_adapter_registry=getattr(self, "env_adapter_registry", None),
+                    env_state_manager=getattr(self, "env_state_manager", None),
+                )
+                self.niblit_runtime.start()
+                log.info("✅ NiblitRuntime initialised (level=%.4f)", self.niblit_runtime.level)
+                self.startup_report.add("niblit_runtime", "ready")
+            except Exception as _nre2:
+                log.debug("[INIT] NiblitRuntime init failed: %s", _nre2)
+                self.startup_report.add("niblit_runtime", "degraded", str(_nre2))
 
         # ── GameEngine (additive) ─────────────────────────────────────────────
         if _GAME_ENGINE_AVAILABLE and _get_game_engine is not None:

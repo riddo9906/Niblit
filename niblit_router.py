@@ -230,6 +230,26 @@ class NiblitRouter:
         "run_selfheal", "run-selfheal",
         # LEAN CLI / QuantConnect backtesting engine (additive)
         "lean",
+        # QuantConnect REST API — live trade deployment (additive)
+        "lean deploy",
+        # Multi-provider free market data (additive)
+        "market", "market data",
+        # Hardware scanner — cross-platform hardware profiling (additive)
+        "hardware",
+        # OS integration / platform bootstrap (additive)
+        "os", "platform",
+        # BIOS/UEFI integration (additive)
+        "bios",
+        # Kernel integration — sysctl, modules, dmesg (additive)
+        "krnl", "kernel",
+        # Device control — sandboxed command execution + serial/G-code (additive)
+        "ctrl", "cmd exec",
+        # Device mesh — LAN discovery + spread (additive)
+        "mesh",
+        # GitHub deep research — trending repos + tracked-repo PR/issue updater (additive)
+        "github-deep", "github deep",
+        # Trading study, reflect, metacognition (additive)
+        "trading study",
         # Phase-2 agent architecture inspection + task dispatch (additive)
         "agents",
         # Self-enhancement cycle trigger (additive)
@@ -258,6 +278,14 @@ class NiblitRouter:
         "net", "autonomous-network",
         # Module autonomy framework (additive)
         "autonomy", "module-autonomy",
+        # Defensive security membrane (additive)
+        "security", "sec-membrane",
+        # Cross-environment state manager (additive)
+        "env-state", "envstate",
+        # Environment adapter registry (additive)
+        "env-adapter", "envadapter",
+        # Niblit self-improving runtime environment (additive)
+        "niblit-runtime", "nrt",
     )
 
     CHAT_RESPONSES = {
@@ -1468,9 +1496,10 @@ Ask me about:
     # ── LEAN CLI handler (additive) ───────────────────────────────────────────
 
     def _handle_lean(self, cmd: str) -> str:
-        """Route 'lean ...' commands to the LeanEngine via NiblitCore.
+        """Route 'lean ...' commands to the LeanEngine / LeanDeployEngine.
 
-        Strips the leading 'lean' token and delegates to core._cmd_lean().
+        Strips the leading 'lean' token and delegates to core._cmd_lean()
+        or core._cmd_lean_deploy() for 'lean deploy ...' sub-commands.
         Falls back gracefully if core or LeanEngine is unavailable.
         """
         # Strip leading 'lean' token
@@ -1478,7 +1507,18 @@ Ask me about:
         if stripped.lower().startswith("lean"):
             stripped = stripped[4:].lstrip()
 
-        # Delegate to core
+        # Route 'lean deploy ...' to LeanDeployEngine
+        if stripped.lower().startswith("deploy"):
+            deploy_cmd = stripped[6:].lstrip()
+            if self.core and hasattr(self.core, "_cmd_lean_deploy"):
+                return safe_call(lambda: self.core._cmd_lean_deploy(deploy_cmd))
+            try:
+                from modules.lean_deploy_engine import get_lean_deploy_engine as _glde
+                return _glde().status()
+            except Exception as exc:
+                return f"[lean deploy] LeanDeployEngine not available: {exc}"
+
+        # Delegate to core's _cmd_lean
         if self.core and hasattr(self.core, "_cmd_lean"):
             return safe_call(lambda: self.core._cmd_lean(stripped))
 
@@ -1489,6 +1529,275 @@ Ask me about:
             return engine.status() if not stripped else "[lean] Core not available — limited LEAN support"
         except Exception as exc:
             return f"[lean] LeanEngine not available: {exc}"
+
+    # ── Market data handler (additive) ────────────────────────────────────────
+
+    def _handle_market_data(self, cmd: str) -> str:
+        """Route 'market ...' commands to MarketDataProviders.
+
+        Sub-commands: status, overview, fetch, multi, info, oanda-*, ccxt-*, alpaca-*.
+        """
+        stripped = cmd.strip()
+        for prefix in ("market data", "market"):
+            if stripped.lower().startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+
+        if self.core and hasattr(self.core, "_cmd_market_data"):
+            return safe_call(lambda: self.core._cmd_market_data(stripped))
+
+        try:
+            from modules.market_data_providers import get_market_data_providers as _gmdp
+            return _gmdp().status()
+        except Exception as exc:
+            return f"[market] MarketDataProviders not available: {exc}"
+
+    # ── Trading study handler (additive) ──────────────────────────────────────
+
+    def _handle_trading_study(self, cmd: str) -> str:
+        """Route 'trading study ...' commands to TradingStudy.
+
+        Sub-commands: status, brain, market, lean, live, deep, journal, meta,
+                      auto-start, auto-stop, log.
+        """
+        stripped = cmd.strip()
+        for prefix in ("trading study", ):
+            if stripped.lower().startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+
+        if self.core and hasattr(self.core, "_cmd_trading_study"):
+            return safe_call(lambda: self.core._cmd_trading_study(stripped))
+
+        try:
+            from modules.trading_study import get_trading_study as _gts
+            return _gts().status()
+        except Exception as exc:
+            return f"[trading study] TradingStudy not available: {exc}"
+
+    # ── Hardware scanner handler (additive) ───────────────────────────────────
+
+    def _handle_hardware(self, cmd: str) -> str:
+        """Route 'hardware ...' commands to HardwareScanner."""
+        if self.core and hasattr(self.core, "_cmd_hardware"):
+            return safe_call(lambda: self.core._cmd_hardware(cmd))
+        try:
+            from modules.hardware_scanner import get_hardware_scanner as _ghs
+            return _ghs().summary()
+        except Exception as exc:
+            return f"[hardware] HardwareScanner not available: {exc}"
+
+    # ── OS integration handler (additive) ─────────────────────────────────────
+
+    def _handle_os(self, cmd: str) -> str:
+        """Route 'os ...' / 'platform ...' commands to OSIntegration."""
+        if self.core and hasattr(self.core, "_cmd_os"):
+            return safe_call(lambda: self.core._cmd_os(cmd))
+        try:
+            from modules.os_integration import get_os_integration as _goi
+            return _goi().info()
+        except Exception as exc:
+            return f"[os] OSIntegration not available: {exc}"
+
+    # ── BIOS integration handler (additive) ──────────────────────────────────
+
+    def _handle_bios(self, cmd: str) -> str:
+        """Route 'bios ...' commands to BIOSIntegration."""
+        if self.core and hasattr(self.core, "_cmd_bios"):
+            return safe_call(lambda: self.core._cmd_bios(cmd))
+        try:
+            from modules.bios_integration import get_bios_integration as _gbi
+            return _gbi().summary()
+        except Exception as exc:
+            return f"[bios] BIOSIntegration not available: {exc}"
+
+    # ── Kernel integration handler (additive) ────────────────────────────────
+
+    def _handle_krnl(self, cmd: str) -> str:
+        """Route 'krnl ...' / 'kernel ...' commands to KernelIntegration."""
+        if self.core and hasattr(self.core, "_cmd_krnl"):
+            return safe_call(lambda: self.core._cmd_krnl(cmd))
+        try:
+            from modules.kernel_integration import get_kernel_integration as _gki
+            return _gki().summary()
+        except Exception as exc:
+            return f"[krnl] KernelIntegration not available: {exc}"
+
+    # ── Device control handler (additive) ────────────────────────────────────
+
+    def _handle_device_ctrl(self, cmd: str) -> str:
+        """Route 'cmd exec ...' / 'ctrl ...' commands to DeviceControl."""
+        if self.core and hasattr(self.core, "_cmd_device_ctrl"):
+            return safe_call(lambda: self.core._cmd_device_ctrl(cmd))
+        try:
+            from modules.device_control import get_device_control as _gdc
+            return _gdc().status()
+        except Exception as exc:
+            return f"[device ctrl] DeviceControl not available: {exc}"
+
+    # ── Device mesh handler (additive) ───────────────────────────────────────
+
+    def _handle_mesh(self, cmd: str) -> str:
+        """Route 'mesh ...' commands to DeviceMesh."""
+        if self.core and hasattr(self.core, "_cmd_mesh"):
+            return safe_call(lambda: self.core._cmd_mesh(cmd))
+        try:
+            from modules.device_mesh import get_device_mesh as _gdm
+            return _gdm().summary()
+        except Exception as exc:
+            return f"[mesh] DeviceMesh not available: {exc}"
+
+    # ── GitHub deep research handler (additive) ───────────────────────────────
+
+    def _handle_github_deep(self, cmd: str) -> str:
+        """Route 'github-deep ...' commands to GitHubDeepResearch."""
+        if self.core and hasattr(self.core, "_cmd_github_deep"):
+            return safe_call(lambda: self.core._cmd_github_deep(cmd))
+        try:
+            from modules.github_deep_research import get_github_deep_research as _ggh
+            return _ggh().status()
+        except Exception as exc:
+            return f"[github-deep] GitHubDeepResearch not available: {exc}"
+
+    # ── SecurityMembrane handler (additive) ───────────────────────────────────
+
+    def _handle_security(self, cmd: str) -> str:
+        """Route 'security ...' / 'sec-membrane ...' commands."""
+        lower = cmd.strip().lower()
+        # Strip prefix
+        for prefix in ("sec-membrane", "security"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.security_membrane import get_security_membrane as _gsm
+            membrane = _gsm(knowledge_db=getattr(self.core, "db", None) if self.core else None)
+            if sub in ("", "status"):
+                import json as _json
+                return _json.dumps(membrane.status(), indent=2, default=str)
+            if sub.startswith("events"):
+                import json as _json
+                return _json.dumps(membrane.get_events(50), indent=2, default=str)
+            return (
+                "Security membrane commands:\n"
+                "  security status   — rate-limit stats & recent events\n"
+                "  security events   — last 50 security events"
+            )
+        except Exception as exc:
+            return f"[security] SecurityMembrane not available: {exc}"
+
+    # ── EnvStateManager handler (additive) ───────────────────────────────────
+
+    def _handle_env_state(self, cmd: str) -> str:
+        """Route 'env-state ...' commands."""
+        lower = cmd.strip().lower()
+        for prefix in ("envstate", "env-state"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.env_state import get_env_state_manager as _gesm
+            mgr = _gesm(knowledge_db=getattr(self.core, "db", None) if self.core else None)
+            if sub in ("", "status"):
+                import json as _json
+                return _json.dumps(mgr.status(), indent=2, default=str)
+            if sub == "save":
+                ok = mgr.save()
+                return "State saved." if ok else "State save failed."
+            if sub == "load":
+                ok = mgr.load()
+                return "State loaded." if ok else "State not found on disk."
+            if sub in ("snapshot", "show"):
+                return mgr.to_json(indent=2)
+            return (
+                "Env-state commands:\n"
+                "  env-state status    — session & runtime summary\n"
+                "  env-state snapshot  — full state envelope JSON\n"
+                "  env-state save      — write state to disk\n"
+                "  env-state load      — reload state from disk"
+            )
+        except Exception as exc:
+            return f"[env-state] EnvStateManager not available: {exc}"
+
+    # ── EnvAdapterRegistry handler (additive) ────────────────────────────────
+
+    def _handle_env_adapter(self, cmd: str) -> str:
+        """Route 'env-adapter ...' commands."""
+        lower = cmd.strip().lower()
+        for prefix in ("envadapter", "env-adapter"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.env_adapter import get_env_adapter_registry as _gear
+            reg = _gear(knowledge_db=getattr(self.core, "db", None) if self.core else None)
+            if sub in ("", "status"):
+                import json as _json
+                return _json.dumps(reg.status(), indent=2, default=str)
+            if sub.startswith("caps") or sub.startswith("capabilities"):
+                import json as _json
+                return _json.dumps(reg.capabilities(), indent=2, default=str)
+            if sub == "learn":
+                results = reg.learn(force=True)
+                return f"Learning complete — {len(results)} adapters probed."
+            return (
+                "Env-adapter commands:\n"
+                "  env-adapter status        — registered adapters & last learn time\n"
+                "  env-adapter capabilities  — full merged capability dict\n"
+                "  env-adapter learn         — run extended environment probe now"
+            )
+        except Exception as exc:
+            return f"[env-adapter] EnvAdapterRegistry not available: {exc}"
+
+    # ── NiblitRuntime handler (additive) ─────────────────────────────────────
+
+    def _handle_niblit_runtime(self, cmd: str) -> str:
+        """Route 'niblit-runtime ...' / 'nrt ...' commands."""
+        lower = cmd.strip().lower()
+        for prefix in ("niblit-runtime", "nrt"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.niblit_runtime import get_niblit_runtime as _gnr
+            rt = _gnr(
+                knowledge_db=getattr(self.core, "db", None) if self.core else None,
+                env_adapter_registry=getattr(self.core, "env_adapter_registry", None) if self.core else None,
+                env_state_manager=getattr(self.core, "env_state_manager", None) if self.core else None,
+            )
+            if sub in ("", "status"):
+                import json as _json
+                return _json.dumps(rt.status(), indent=2, default=str)
+            if sub == "improve":
+                spec = rt.improve()
+                return f"Runtime improved → level {spec.level:.4f}"
+            if sub in ("history", "growth"):
+                import json as _json
+                return _json.dumps(rt.growth_history()[-10:], indent=2, default=str)
+            if sub.startswith("spec"):
+                import json as _json
+                return _json.dumps(rt.spec.to_dict(), indent=2, default=str)
+            return (
+                "Niblit runtime commands:\n"
+                "  nrt status    — runtime level, components, improvement history\n"
+                "  nrt improve   — trigger one improvement cycle now\n"
+                "  nrt history   — last 10 growth events\n"
+                "  nrt spec      — current RuntimeSpec (capabilities & compat rules)"
+            )
+        except Exception as exc:
+            return f"[niblit-runtime] NiblitRuntime not available: {exc}"
 
     # ── Game engine handler (additive) ────────────────────────────────────────
 
@@ -3090,6 +3399,11 @@ Ask me about:
         if lower.startswith("trading swing"):
             return self._handle_trading_swing(cmd)
 
+        # TRADING STUDY — study/reflect/metacognition for lean+live trading (additive)
+        # Check BEFORE generic 'trading' so 'trading study ...' routes here.
+        if lower.startswith("trading study"):
+            return self._handle_trading_study(cmd)
+
         # TRADING BRAIN COMMANDS (start/stop/status/cycle)
         if lower.startswith("trading"):
             return self._handle_trading(cmd)
@@ -3114,9 +3428,62 @@ Ask me about:
         if lower in ("run_selfheal", "run-selfheal"):
             return self._handle_run_selfheal()
 
-        # LEAN CLI — QuantConnect/LEAN backtesting and live trading (additive)
+        # LEAN CLI / QuantConnect — backtesting, live trading, REST API (additive)
         if lower == "lean" or lower.startswith("lean "):
             return self._handle_lean(cmd)
+
+        # MULTI-PROVIDER MARKET DATA (additive)
+        if lower in ("market", "market data") or lower.startswith("market "):
+            return self._handle_market_data(cmd)
+
+        # HARDWARE SCANNER (additive)
+        if lower in ("hardware", "hardware scan") or lower.startswith("hardware "):
+            return self._handle_hardware(cmd)
+
+        # OS INTEGRATION / PLATFORM BOOTSTRAP (additive)
+        if lower in ("os", "platform") or lower.startswith("os ") or lower.startswith("platform "):
+            return self._handle_os(cmd)
+
+        # BIOS / UEFI INTEGRATION (additive)
+        if lower in ("bios",) or lower.startswith("bios "):
+            return self._handle_bios(cmd)
+
+        # KERNEL INTEGRATION (additive)
+        if lower in ("krnl", "kernel") or lower.startswith("krnl ") or lower.startswith("kernel "):
+            return self._handle_krnl(cmd)
+
+        # DEVICE CONTROL / SANDBOXED CMD EXECUTION (additive)
+        if lower in ("ctrl",) or lower.startswith("cmd exec") or lower.startswith("ctrl "):
+            return self._handle_device_ctrl(cmd)
+
+        # DEVICE MESH — LAN discovery + spread (additive)
+        if lower in ("mesh",) or lower.startswith("mesh "):
+            return self._handle_mesh(cmd)
+
+        # GITHUB DEEP RESEARCH — trending + tracked repos (additive)
+        if lower in ("github-deep", "github deep") or \
+                lower.startswith("github-deep ") or lower.startswith("github deep "):
+            return self._handle_github_deep(cmd)
+
+        # SECURITY MEMBRANE — rate-limit, anomaly detection, intrusion log (additive)
+        if lower in ("security", "sec-membrane") or \
+                lower.startswith("security ") or lower.startswith("sec-membrane "):
+            return self._handle_security(cmd)
+
+        # CROSS-ENVIRONMENT STATE MANAGER (additive)
+        if lower in ("env-state", "envstate") or \
+                lower.startswith("env-state ") or lower.startswith("envstate "):
+            return self._handle_env_state(cmd)
+
+        # ENVIRONMENT ADAPTER REGISTRY (additive)
+        if lower in ("env-adapter", "envadapter") or \
+                lower.startswith("env-adapter ") or lower.startswith("envadapter "):
+            return self._handle_env_adapter(cmd)
+
+        # NIBLIT SELF-IMPROVING RUNTIME ENVIRONMENT (additive)
+        if lower in ("niblit-runtime", "nrt") or \
+                lower.startswith("niblit-runtime ") or lower.startswith("nrt "):
+            return self._handle_niblit_runtime(cmd)
 
         # GAME ENGINE COMMANDS (additive)
         if lower == "game" or lower.startswith("game "):
@@ -3578,6 +3945,51 @@ Ask me about:
             "lean sweep <n> p=v1,v2 ...   — Parameter grid sweep (background, finds best)",
             "lean params [name]           — Show stored optimal parameter sets",
             "lean jobs                    — Show active LEAN background jobs",
+            "",
+            "=== LEAN DEPLOY ENGINE (QuantConnect REST API) ===",
+            "lean deploy status           — Show credentials + available commands",
+            "lean deploy projects         — List cloud projects",
+            "lean deploy create <name>    — Create a new cloud project",
+            "lean deploy compile <id>     — Compile a cloud project",
+            "lean deploy backtest <id>    — Launch a cloud backtest",
+            "lean deploy backtests <id>   — List backtests for a project",
+            "lean deploy live-list        — List all live algorithm deployments",
+            "lean deploy live-read <pid> <did> — Read live algorithm status",
+            "lean deploy live-stop <id>   — Stop a live algorithm",
+            "lean deploy liquidate <id>   — Liquidate all positions",
+            "lean deploy templates        — List available algorithm templates",
+            "lean deploy generate <tmpl> <name> [symbol=X] [fast=N] [slow=N]",
+            "lean deploy quick <tmpl> <name> [brokerage=PaperBrokerage]",
+            "lean deploy monitor <pid> <did> — Start live monitoring thread",
+            "lean deploy orders <pid>     — List live algorithm orders",
+            "",
+            "=== MULTI-PROVIDER FREE MARKET DATA ===",
+            "market status                — Show provider availability + API key status",
+            "market overview [sym ...]    — Quick price overview (yfinance, no key needed)",
+            "market fetch <symbol> [provider=yfinance] [interval=1d] [bars=50]",
+            "market multi <s1,s2,...> [provider] [interval] [bars]",
+            "market info <symbol>         — Yahoo Finance fundamentals",
+            "market oanda-candles <instr> [interval=H1] [bars=100]",
+            "market oanda-account         — OANDA account summary",
+            "market oanda-order <instr> <units>",
+            "market oanda-instruments     — List OANDA forex/CFD/index instruments",
+            "market ccxt-exchanges        — List all CCXT exchange IDs",
+            "market ccxt-tickers [exchange=binance]",
+            "market alpaca-account        — Alpaca account info",
+            "market alpaca-order <sym> <qty> [side=buy]",
+            "",
+            "=== TRADING STUDY / REFLECT / METACOGNITION ===",
+            "trading study status         — Study engine status",
+            "trading study brain          — Study last TradingBrain cycle",
+            "trading study market [syms]  — Market snapshot study",
+            "trading study lean <name>    — Study LEAN backtest results",
+            "trading study live <deployId> — Study live algorithm status",
+            "trading study deep           — Full deep study session",
+            "trading study journal [n=50] — Analyse trade journal",
+            "trading study meta           — Metacognition self-assessment",
+            "trading study auto-start [interval=300]",
+            "trading study auto-stop",
+            "trading study log <sym> <side> <price> <qty> [pnl=N]",
             "",
             "=== PHASE-2 AGENT ARCHITECTURE ===",
             "agents                       — Show all registered Phase-2 agents + metrics",

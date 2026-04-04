@@ -1,10 +1,21 @@
-import subprocess, os
+import shlex
+import subprocess
+import os
+
 
 class TerminalTools:
     def run(self, cmd, timeout=10):
         try:
-            result = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT, timeout=timeout)
+            # Split into argument list to avoid shell injection; never use shell=True
+            args = shlex.split(cmd) if isinstance(cmd, str) else list(cmd)
+            result = subprocess.check_output(  # noqa: S603
+                args, shell=False, stderr=subprocess.STDOUT, timeout=timeout
+            )
             return result.decode(errors='replace')
+        except FileNotFoundError as e:
+            return f"Command not found: {e}"
+        except subprocess.TimeoutExpired:
+            return "Error: command timed out"
         except Exception as e:
             return f"Error running command: {e}"
 
