@@ -1,5 +1,5 @@
 /*
- * ale_c_system_calls_and_posix_api_1775333322 — system calls and POSIX API 1775333322: Unix time is a date and time representation widely used in computing. It measures time by the number of non-leap seconds
+ * ale_c_memory_management_and_pointers_177533245 — memory management and pointers 1775332451: C is a general-purpose programming language created in the 1970s by Dennis Ritchie. By design, C gives the programmer re
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,5 +17,5 @@ int main(int argc, char *argv[]) {
 }
 
 void run(void) {
-    printf("ale_c_system_calls_and_posix_api_1775333322: system calls and POSIX API 1775333322: Unix time is a date and time representation widely used in computing. It measures time by the number of non-leap seconds\n");
+    printf("ale_c_memory_management_and_pointers_177533245: memory management and pointers 1775332451: C is a general-purpose programming language created in the 1970s by Dennis Ritchie. By design, C gives the programmer re\n");
 }

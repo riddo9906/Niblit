@@ -1,24 +1,22 @@
 /*
- * ale_cpp_template_metaprogramming.cpp — template metaprogramming: ✅ Researched cpp template metaprogramming: 2 result(s) fetched.
-First result: No data found for 'cpp template metaprogra
+ * ale_cpp_raii_and_smart_pointers_1775334002.cpp — RAII and smart pointers 1775334002: The syntax of C++ is the set of rules defining how a C++ program is written and compiled.
  */
 #include <iostream>
 #include <string>
-#include "ale_cpp_template_metaprogramming.h"
+#include "ale_cpp_raii_and_smart_pointers_1775334002.h"
 
-class AleCppTemplateMetaprogramming {
+class AleCppRaiiAndSmartPointers1775334002 {
 public:
-    AleCppTemplateMetaprogramming() = default;
-    ~AleCppTemplateMetaprogramming() = default;
+    AleCppRaiiAndSmartPointers1775334002() = default;
+    ~AleCppRaiiAndSmartPointers1775334002() = default;
 
     void run() {
-        std::cout << "ale_cpp_template_metaprogramming: template metaprogramming: ✅ Researched cpp template metaprogramming: 2 result(s) fetched.
-First result: No data found for 'cpp template metaprogra" << std::endl;
+        std::cout << "ale_cpp_raii_and_smart_pointers_1775334002: RAII and smart pointers 1775334002: The syntax of C++ is the set of rules defining how a C++ program is written and compiled." << std::endl;
     }
 };
 
 int main() {
-    AleCppTemplateMetaprogramming obj;
+    AleCppRaiiAndSmartPointers1775334002 obj;
     obj.run();
     return 0;
 }
