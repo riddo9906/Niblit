@@ -32,6 +32,7 @@ User Input → CommandRegistry (commands only, zero LLM)
 
 Compatible with main.py, server.py, and app.py.
 """
+# pylint: disable=too-many-lines
 
 # ============================================================
 # STDLIB IMPORTS
@@ -421,6 +422,7 @@ COMMANDS = [
 @dataclass
 class NiblitConfig:
     """Configuration for NiblitCore with environment variable support."""
+    # pylint: disable=too-many-instance-attributes
     base_dir: Path = Path(__file__).parent
     tools_dir: Optional[Path] = None
     memory_path: Optional[Path] = None
@@ -694,6 +696,7 @@ def parse_intent(text: str) -> Tuple[str, Dict[str, str]]:
 
 class Stub:
     """Placeholder for optional modules that are unavailable."""
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, *a, **k):
         pass
     def __getattr__(self, name):
@@ -1435,9 +1438,11 @@ class NiblitCore:
 
     Compatible with main.py, server.py, and app.py.
     """
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self, config: Optional[NiblitConfig] = None, memory_path: Optional[str] = None):
         """Initialize NiblitCore with optional config."""
+        # pylint: disable=too-many-statements
         # Configuration
         self.config = config or NiblitConfig.from_env()
         if memory_path:
@@ -1590,6 +1595,16 @@ class NiblitCore:
         self.parameter_manager: Optional[Any] = _parameter_manager if _PARAMETER_MANAGER_AVAILABLE else None
         # ── Additive: LEAN engine ─────────────────────────────────────────
         self.lean_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: HybridQdrantManager ────────────────────────────────
+        self.hybrid_qdrant: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: SelfMonitor ────────────────────────────────────────
+        self.self_monitor: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: NiblitKernel ───────────────────────────────────────
+        self.kernel: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: KnowledgeDigest ────────────────────────────────────
+        self.knowledge_digest: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: KnowledgeFilter ────────────────────────────────────
+        self.knowledge_filter: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: LeanDeployEngine (QuantConnect REST API) ────────────
         self.lean_deploy_engine: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: MarketDataProviders (multi-provider free data) ──────
@@ -1685,6 +1700,7 @@ class NiblitCore:
 
     def _init_improvements(self):
         """Initialize all production improvements."""
+        # pylint: disable=too-many-branches,too-many-statements
         log.info("[IMPROVEMENTS] Initializing 17 production enhancements...")
 
         try:
@@ -1781,6 +1797,7 @@ class NiblitCore:
 
     def _register_commands(self):
         """Register commands with CommandRegistry."""
+        # pylint: disable=too-many-statements
         if not self.command_registry:
             return
 
@@ -2069,7 +2086,7 @@ class NiblitCore:
         )
 
 
-    def _cmd_autonomous_start(self, text: str) -> str:
+    def _cmd_autonomous_start(self, _text: str) -> str:
         """Start autonomous learning engine."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -2077,7 +2094,7 @@ class NiblitCore:
         result = self.autonomous_engine.start()
         return "🚀 [AUTONOMOUS] Learning started ✅" if result else "ℹ️ [AUTONOMOUS] Already running"
 
-    def _cmd_autonomous_stop(self, text: str) -> str:
+    def _cmd_autonomous_stop(self, _text: str) -> str:
         """Stop autonomous learning engine."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -2085,7 +2102,7 @@ class NiblitCore:
         result = self.autonomous_engine.stop()
         return "⏹️ [AUTONOMOUS] Learning stopped ✅" if result else "ℹ️ [AUTONOMOUS] Not running"
 
-    def _cmd_autonomous_status(self, text: str) -> str:
+    def _cmd_autonomous_status(self, _text: str) -> str:
         """Show autonomous learning status."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -2154,7 +2171,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 """
         return result.strip()
 
-    def _cmd_autonomous_code_status(self, text: str) -> str:
+    def _cmd_autonomous_code_status(self, _text: str) -> str:
         """Show programming literacy / code loop status in detail."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -2170,16 +2187,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
             f"  Software Studied : {s.get('software_studied', 0)} categories",
             f"  Last Language    : {s.get('last_language_studied', 'none')}",
             f"  Last SW Category : {s.get('last_software_category', 'none')}",
-            f"\n🔌 Module Availability:",
+            "\n🔌 Module Availability:",
             f"  internet         : {'✅' if mods.get('internet') else '❌'}",
             f"  code_generator   : {'✅' if mods.get('code_generator') else '❌'}",
             f"  code_compiler    : {'✅' if mods.get('code_compiler') else '❌'}",
             f"  software_studier : {'✅' if mods.get('software_studier') else '❌'}",
             f"  researcher       : {'✅' if mods.get('researcher') else '❌'}",
-            f"\n📋 Pending:",
+            "\n📋 Pending:",
             f"  Compilations     : {stats.get('pending_compilations', 0)}",
             f"  Reflections      : {stats.get('pending_reflections', 0)}",
-            f"\n⚙️ Loop runs during idle time. Use 'autonomous-learn start' to enable.",
+            "\n⚙️ Loop runs during idle time. Use 'autonomous-learn start' to enable.",
         ]
         return "\n".join(lines)
 
@@ -2234,6 +2251,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_acquired_data(self, text: str) -> str:
         """Show acquired data stored in KnowledgeDB, optionally filtered by category."""
+        # pylint: disable=too-many-locals
         rest = text.strip()
         for prefix in ("acquired data ", "acquired data", "acquired-data ", "acquired-data"):
             if rest.lower().startswith(prefix):
@@ -2273,7 +2291,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         lines.append(f"\n📂 Available categories: {', '.join(categories)}")
         return "\n".join(lines)
 
-    def _cmd_knowledge_stats(self, text: str) -> str:
+    def _cmd_knowledge_stats(self, _text: str) -> str:
         """Show a summary of all stored knowledge and ALE process awareness."""
         if not self.db:
             return "[❌ KnowledgeDB not available]"
@@ -2295,7 +2313,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as exc:
             return f"[Knowledge stats error: {exc}]"
 
-    def _cmd_ale_process_awareness(self, text: str) -> str:
+    def _cmd_ale_process_awareness(self, _text: str) -> str:
         """Explain all Niblit ALE processes and how data flows through them."""
         ale_stats = {}
         if self.autonomous_engine:
@@ -2318,7 +2336,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             f"  Step 3 — Implementation : SelfImplementer executes  [{s.get('ideas_implemented', 0)} implemented]",
             f"  Step 4 — Reflection     : ReflectModule summarizes  [{s.get('reflections_conducted', 0)} reflections]",
             f"  Step 5 — SLSA           : generates knowledge artif [{s.get('slsa_runs', 0)} runs]",
-            f"  Step 6 — Learning       : SelfTeacher internalizes  [see KB: learning]",
+            "  Step 6 — Learning       : SelfTeacher internalizes  [see KB: learning]",
             f"  Step 7 — Evolution      : EvolveEngine self-evolves [{s.get('evolve_steps', 0)} steps]",
             "",
             "━━━ PROGRAMMING LITERACY LOOP ━━━",
@@ -2370,7 +2388,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # SELF-IMPROVEMENT COMMANDS
     # ============================
 
-    def _cmd_show_improvements(self, text: str) -> str:
+    def _cmd_show_improvements(self, _text: str) -> str:
         """Show all 10 self-improvement modules."""
         if not self.improvements:
             return "[❌ Self-improvements not available]"
@@ -2378,12 +2396,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
         status = self.improvements.get_improvement_status()
         result = "🚀 **10 SELF-IMPROVEMENT MODULES:**\n\n"
 
-        for i, (name, desc) in enumerate(status.items(), 1):
+        for i, (_name, desc) in enumerate(status.items(), 1):
             result += f"{i}. {desc}\n"
 
         return result
 
-    def _cmd_run_improvement_cycle(self, text: str) -> str:
+    def _cmd_run_improvement_cycle(self, _text: str) -> str:
         """Run complete improvement cycle."""
         if not self.improvements:
             return "[❌ Self-improvements not available]"
@@ -2404,7 +2422,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.error(f"[IMPROVEMENTS] Improvement cycle failed: {e}", exc_info=True)
             return f"[❌ Improvement cycle failed: {e}]"
 
-    def _cmd_improvement_status(self, text: str) -> str:
+    def _cmd_improvement_status(self, _text: str) -> str:
         """Show improvement system status."""
         if not self.improvements:
             return "[❌ Self-improvements not available]"
@@ -2417,12 +2435,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         result += f"Active Improvements: {active}/{total}\n\n"
         result += "Details:\n"
-        for name, state in status.items():
+        for _name, state in status.items():
             result += f"  {state}\n"
 
         return result
 
-    def _cmd_show_new_commands(self, text: str = "") -> str:
+    def _cmd_show_new_commands(self, _text: str = "") -> str:
         """Show all commands added in recent updates."""
         return (
             "🆕 **NEW COMMANDS (Recent Updates)**\n\n"
@@ -2524,7 +2542,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         record = self.agentic_workflows.run_workflow(workflow_name, context)
         return self.agentic_workflows.format_result(record)
 
-    def _cmd_agentic_list(self, text: str = "") -> str:
+    def _cmd_agentic_list(self, _text: str = "") -> str:
         """List all registered agentic workflows."""
         if not self.agentic_workflows:
             return "[❌ AgenticWorkflow not available]"
@@ -2536,7 +2554,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         lines.append("Usage: agentic run <name> [topic=<topic>]")
         return "\n".join(lines)
 
-    def _cmd_agentic_status(self, text: str = "") -> str:
+    def _cmd_agentic_status(self, _text: str = "") -> str:
         """Show agentic workflow module status."""
         if not self.agentic_workflows:
             return "[❌ AgenticWorkflow not available]"
@@ -2555,7 +2573,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # ENTERPRISE UTILITY COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_enterprise_summary(self, text: str = "") -> str:
+    def _cmd_enterprise_summary(self, _text: str = "") -> str:
         """Show enterprise operational summary."""
         if not self.enterprise_utility:
             return "[❌ EnterpriseUtility not available]"
@@ -2578,7 +2596,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                          + (f" — {e['details']}" if e.get('details') else ""))
         return "\n".join(lines)
 
-    def _cmd_enterprise_health(self, text: str = "") -> str:
+    def _cmd_enterprise_health(self, _text: str = "") -> str:
         """Show component health report."""
         if not self.enterprise_utility:
             return "[❌ EnterpriseUtility not available]"
@@ -2592,7 +2610,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             lines.append(f"  {icon} {comp}: {info['status']}")
         return "\n".join(lines)
 
-    def _cmd_enterprise_sla(self, text: str = "") -> str:
+    def _cmd_enterprise_sla(self, _text: str = "") -> str:
         """Show SLA metrics."""
         if not self.enterprise_utility:
             return "[❌ EnterpriseUtility not available]"
@@ -2623,7 +2641,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         result = self.multimodal_intelligence.process(content, modality=modality)
         return f"🧠 **MULTIMODAL [{result.modality.upper()}]:**\n{result.content}"
 
-    def _cmd_multimodal_status(self, text: str = "") -> str:
+    def _cmd_multimodal_status(self, _text: str = "") -> str:
         """Show multimodal intelligence module status."""
         if not self.multimodal_intelligence:
             return "[❌ MultimodalIntelligence not available]"
@@ -2645,7 +2663,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # REASONING ENGINE COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_reasoning_build(self, text: str = "") -> str:
+    def _cmd_reasoning_build(self, _text: str = "") -> str:
         """Build knowledge graph from current KnowledgeDB facts."""
         if not self.reasoning_engine:
             return "[❌ ReasoningEngine not available]"
@@ -2666,7 +2684,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as e:
             return f"[❌ Reasoning build failed: {e}]"
 
-    def _cmd_reasoning_status(self, text: str = "") -> str:
+    def _cmd_reasoning_status(self, _text: str = "") -> str:
         """Show reasoning engine status."""
         if not self.reasoning_engine:
             return "[❌ ReasoningEngine not available]"
@@ -2686,7 +2704,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         chain = self.reasoning_engine.create_reasoning_chain(concept.strip())
         return f"🔗 **REASONING CHAIN from '{concept}':**\n{' → '.join(chain)}"
 
-    def _cmd_reasoning_infer(self, text: str = "") -> str:
+    def _cmd_reasoning_infer(self, _text: str = "") -> str:
         """Infer new knowledge from the current knowledge graph."""
         if not self.reasoning_engine:
             return "[❌ ReasoningEngine not available]"
@@ -2704,7 +2722,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # COLLABORATIVE SYSTEMS COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_collab_status(self, text: str = "") -> str:
+    def _cmd_collab_status(self, _text: str = "") -> str:
         """Show collaborative learner status."""
         if not self.collaborative_learner:
             return "[❌ CollaborativeLearner not available]"
@@ -2753,16 +2771,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return result["message"]
         # Fallback: importlib.reload
         try:
-            import importlib
+            import importlib as _importlib
             mod = sys.modules.get(module_name)
             if mod is None:
-                mod = importlib.import_module(module_name)
-            importlib.reload(mod)
+                mod = _importlib.import_module(module_name)
+            _importlib.reload(mod)
             return f"✅ Module '{module_name}' reloaded (direct fallback)."
         except Exception as e:
             return f"❌ Reload failed for '{module_name}': {e}"
 
-    def _cmd_upgrade(self, text: str = "") -> str:
+    def _cmd_upgrade(self, _text: str = "") -> str:
         """Reload all modules whose files changed on disk."""
         if self.live_updater:
             changed = self.live_updater.reload_all_changed()
@@ -2772,7 +2790,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "🔄 **Self-Upgrade Complete:**\n" + "\n".join(f"  • {m}" for m in msgs)
         return "[LiveUpdater not available — restart to pick up file changes]"
 
-    def _cmd_update_history(self, text: str = "") -> str:
+    def _cmd_update_history(self, _text: str = "") -> str:
         """Show recent hot-reload history."""
         if self.live_updater:
             return self.live_updater.summarize_history()
@@ -2782,13 +2800,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # GITHUB SYNC COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_github_status(self, text: str = "") -> str:
+    def _cmd_github_status(self, _text: str = "") -> str:
         """Show git status of the Niblit build directory."""
         if not self.github_sync:
             return "[❌ GitHubSync not available]"
         return f"🐙 **GitHub Status:**\n{self.github_sync.status()}"
 
-    def _cmd_github_pull(self, text: str = "") -> str:
+    def _cmd_github_pull(self, _text: str = "") -> str:
         """Pull the latest changes from GitHub into the build directory."""
         if not self.github_sync:
             return "[❌ GitHubSync not available]"
@@ -2852,13 +2870,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
         suffix = "\n…[truncated]" if len(content) > 1500 else ""
         return f"📄 **{filepath}** ({result['size']} bytes):\n```\n{preview}{suffix}\n```"
 
-    def _cmd_build_summary(self, text: str = "") -> str:
+    def _cmd_build_summary(self, _text: str = "") -> str:
         """Show a summary of the Niblit build directory."""
         if not self.build_scanner:
             return "[❌ BuildScanner not available]"
         return self.build_scanner.summarize()
 
-    def _cmd_build_path(self, text: str = "") -> str:
+    def _cmd_build_path(self, _text: str = "") -> str:
         """Show the Niblit build path used by evolve and code generator."""
         lines = [
             "🏗️ **Niblit Build Path:**",
@@ -2897,7 +2915,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # Fallback: stdlib walk
         lines = [f"🌲 **Tree: `{target}`**"]
         try:
-            for root, dirs, files in sorted_walk(target):
+            for root, _dirs, files in sorted_walk(target):
                 depth = len(Path(root).relative_to(target).parts)
                 indent = "  " * depth
                 lines.append(f"{indent}📁 {Path(root).name}/")
@@ -2976,7 +2994,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # IMPORT / DEPLOY IMPROVEMENTS COMMAND
     # ──────────────────────────────────────
 
-    def _cmd_import_improvements(self, text: str = "") -> str:
+    def _cmd_import_improvements(self, _text: str = "") -> str:
         """Scan the evolved/ directory, read improvement files, and hot-reload them.
 
         This command:
@@ -2986,6 +3004,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         3. Attempts to hot-reload each improvement via LiveUpdater.apply_patch()
            so the improvement takes effect without restarting Niblit.
         """
+        # pylint: disable=too-many-branches
         # Locate evolved/ — prefer the evolve engine deploy path, then repo root
         evolved_dir: Optional[Path] = None
         if self.evolve_engine:
@@ -3057,13 +3076,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # STRUCTURAL AWARENESS COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_sa_structure(self, text: str = "") -> str:
+    def _cmd_sa_structure(self, _text: str = "") -> str:
         """Show full component inventory."""
         if self.structural_awareness:
             return self.structural_awareness.component_report(self)
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_threads(self, text: str = "") -> str:
+    def _cmd_sa_threads(self, _text: str = "") -> str:
         """Show all active threads."""
         if self.structural_awareness:
             return self.structural_awareness.thread_report()
@@ -3072,19 +3091,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
             lines.append(f"  • {t.name} ({'alive' if t.is_alive() else 'dead'})")
         return "\n".join(lines)
 
-    def _cmd_sa_loops(self, text: str = "") -> str:
+    def _cmd_sa_loops(self, _text: str = "") -> str:
         """Show background loop status."""
         if self.structural_awareness:
             return self.structural_awareness.loop_report(self)
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_modules(self, text: str = "") -> str:
+    def _cmd_sa_modules(self, _text: str = "") -> str:
         """Show loaded Niblit modules."""
         if self.structural_awareness:
             return self.structural_awareness.module_report()
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_commands(self, text: str = "") -> str:
+    def _cmd_sa_commands(self, _text: str = "") -> str:
         """Show all registered commands."""
         if self.structural_awareness:
             return self.structural_awareness.command_report(router=self.router)
@@ -3092,7 +3111,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return self.router.help_text()
         return self.help_text()
 
-    def _cmd_sa_dashboard(self, text: str = "") -> str:
+    def _cmd_sa_dashboard(self, _text: str = "") -> str:
         """Show full runtime dashboard."""
         if self.structural_awareness:
             return self.structural_awareness.runtime_dashboard(
@@ -3100,19 +3119,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
             )
         return self._cmd_status("")
 
-    def _cmd_sa_flow(self, text: str = "") -> str:
+    def _cmd_sa_flow(self, _text: str = "") -> str:
         """Show operational flow description."""
         if self.structural_awareness:
             return self.structural_awareness.operational_flow()
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_resources(self, text: str = "") -> str:
+    def _cmd_sa_resources(self, _text: str = "") -> str:
         """Show resource usage."""
         if self.structural_awareness:
             return self.structural_awareness.resource_report()
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_awareness(self, text: str = "") -> str:
+    def _cmd_sa_awareness(self, _text: str = "") -> str:
         """Show all structural awareness in one combined view."""
         if self.structural_awareness:
             sa = self.structural_awareness
@@ -3128,7 +3147,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "\n".join(sections)
         return "[StructuralAwareness not available]"
 
-    def _cmd_sa_scripts(self, text: str = "") -> str:
+    def _cmd_sa_scripts(self, _text: str = "") -> str:
         """List every repo script and its function."""
         if self.structural_awareness and hasattr(self.structural_awareness, "all_scripts_report"):
             return self.structural_awareness.all_scripts_report()
@@ -3188,7 +3207,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # EXTENDED AUTONOMOUS LEARNING COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_autonomous_self_learn(self, text: str) -> str:
+    def _cmd_autonomous_self_learn(self, _text: str) -> str:
         """Run the structural self-learn sequence immediately."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -3197,7 +3216,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         result = self.autonomous_engine.run_self_learn_sequence()
         return result or "✅ Self-learn sequence completed"
 
-    def _cmd_autonomous_evolve_sequence(self, text: str) -> str:
+    def _cmd_autonomous_evolve_sequence(self, _text: str) -> str:
         """Run the structured evolve sequence immediately."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -3206,7 +3225,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         result = self.autonomous_engine.run_evolve_sequence()
         return result or "✅ Evolve sequence completed"
 
-    def _cmd_autonomous_command_awareness(self, text: str) -> str:
+    def _cmd_autonomous_command_awareness(self, _text: str) -> str:
         """Trigger ALE Step 13: catalogue all registered commands into KnowledgeDB."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -3215,7 +3234,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         result = self.autonomous_engine._autonomous_command_awareness()
         return result or "✅ Command awareness complete"
 
-    def _cmd_autonomous_command_exec(self, text: str) -> str:
+    def _cmd_autonomous_command_exec(self, _text: str) -> str:
         """Trigger ALE Step 14: execute safe diagnostic commands autonomously."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -3224,7 +3243,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         result = self.autonomous_engine._autonomous_command_execution()
         return result or "✅ Command execution complete"
 
-    def _cmd_autonomous_topic_seed(self, text: str) -> str:
+    def _cmd_autonomous_topic_seed(self, _text: str) -> str:
         """Trigger ALE Step 15: derive new topics from KB and seed to ALE + SLSA + KB queue."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -3233,7 +3252,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         result = self.autonomous_engine._autonomous_topic_seeding()
         return result or "✅ Topic seeding complete"
 
-    def _cmd_autonomous_serpex_research(self, text: str) -> str:
+    def _cmd_autonomous_serpex_research(self, _text: str) -> str:
         """Trigger ALE Step 27: Serpex-backed validated web research with relevance filter."""
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
@@ -3367,7 +3386,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[CodeGenerator not available]"
         return self.code_generator.list_templates(language or None)
 
-    def _cmd_available_languages(self, text: str = "") -> str:
+    def _cmd_available_languages(self, _text: str = "") -> str:
         """Show available languages for code compiler."""
         lines = []
         if self.code_generator:
@@ -3447,7 +3466,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             lines.append(f"\n❗ {result['error']}")
         return "\n".join(lines)
 
-    def _cmd_file_environment(self, text: str = "") -> str:
+    def _cmd_file_environment(self, _text: str = "") -> str:
         """Show filesystem environment info."""
         if not self.file_manager:
             return "[FilesystemManager not available]"
@@ -3463,7 +3482,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[SoftwareStudier not available]"
         return self.software_studier.study_category(category)
 
-    def _cmd_software_categories(self, text: str = "") -> str:
+    def _cmd_software_categories(self, _text: str = "") -> str:
         """List software study categories."""
         if not self.software_studier:
             return "[SoftwareStudier not available]"
@@ -3481,7 +3500,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[SoftwareStudier not available]"
         return self.software_studier.design_software(description)
 
-    def _cmd_software_studied(self, text: str = "") -> str:
+    def _cmd_software_studied(self, _text: str = "") -> str:
         """Show what software has been studied."""
         if not self.software_studier:
             return "[SoftwareStudier not available]"
@@ -3491,7 +3510,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # EVOLVE ENGINE COMMANDS
     # ──────────────────────────────────────
 
-    def _cmd_evolve_step(self, text: str = "") -> str:
+    def _cmd_evolve_step(self, _text: str = "") -> str:
         """Run one evolution step."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
@@ -3509,7 +3528,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.error("Evolve step failed: %s", exc)
             return f"[Evolve error: {exc}]"
 
-    def _cmd_evolve_start(self, text: str = "") -> str:
+    def _cmd_evolve_start(self, _text: str = "") -> str:
         """Start background evolution."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
@@ -3517,14 +3536,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
         ok = self.evolve_engine.start_background_evolution()
         return "✅ Background evolution started." if ok else "⚠️ Evolution already running."
 
-    def _cmd_evolve_stop(self, text: str = "") -> str:
+    def _cmd_evolve_stop(self, _text: str = "") -> str:
         """Stop background evolution."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
         self.evolve_engine.stop_background_evolution()
         return "✅ Background evolution stopped."
 
-    def _cmd_evolve_status(self, text: str = "") -> str:
+    def _cmd_evolve_status(self, _text: str = "") -> str:
         """Show evolution status."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
@@ -3535,13 +3554,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
             f"  Iterations : {status['iteration']}",
             f"  Stats      : {status['stats']}",
             f"  Last Dir   : {status.get('last_direction', 'none')}",
-            f"  Modules    :",
+            "  Modules    :",
         ]
         for mod, avail in status.get("available_modules", {}).items():
             lines.append(f"    {'✅' if avail else '❌'} {mod}")
         return "\n".join(lines)
 
-    def _cmd_evolve_history(self, text: str = "") -> str:
+    def _cmd_evolve_history(self, _text: str = "") -> str:
         """Show evolution history."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
@@ -3558,9 +3577,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return self.researcher.research_code_and_feed_generator(
                 language, topic, code_generator=self.code_generator
             )
-        return f"[research_code not available — upgrade self_researcher.py]"
+        return "[research_code not available — upgrade self_researcher.py]"
 
-    def _cmd_help(self, text: str) -> str:
+    def _cmd_help(self, _text: str) -> str:
         """Help command."""
         return self.help_text()
 
@@ -3568,8 +3587,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
         self._loops_verbose = True
         logging.disable(logging.NOTSET)
         try:
-            from niblit_io import NiblitIO
-            NiblitIO._quiet = False
+            from niblit_io import NiblitIO as _NiblitIO
+            _NiblitIO._quiet = False
         except Exception:
             pass
         return "✅ Loop output visible"
@@ -3578,8 +3597,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
         self._loops_verbose = False
         logging.disable(logging.CRITICAL)
         try:
-            from niblit_io import NiblitIO
-            NiblitIO._quiet = True
+            from niblit_io import NiblitIO as _NiblitIO
+            _NiblitIO._quiet = True
         except Exception:
             pass
         return "⏹️ Loop output hidden (loops still running)"
@@ -3738,6 +3757,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         history [N]          — last N step results (default 20)
         incomplete           — list incomplete steps from last run
         """
+        # pylint: disable=too-many-branches
         ckpt = getattr(self, "ale_checkpoint", None)
         if ckpt is None:
             return (
@@ -3829,7 +3849,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         After reset, Niblit starts fresh — no contaminated facts, no blob topics.
         """
-        import os
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+        import os  # pylint: disable=redefined-outer-name
         import sqlite3
 
         confirm = (confirm or "").strip().lower()
@@ -3895,12 +3916,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 continue
             try:
                 with getattr(obj, "lock", _noop_lock()):
-                    for field in ("facts", "interactions", "learning_log",
+                    for _field in ("facts", "interactions", "learning_log",
                                   "learning_queue", "events"):
                         if hasattr(obj, "data") and isinstance(obj.data, dict):
-                            obj.data[field] = []
+                            obj.data[_field] = []
                         if hasattr(obj, "state") and isinstance(obj.state, dict):
-                            obj.state[field] = []
+                            obj.state[_field] = []
                 path = getattr(obj, "path", None) or getattr(obj, "filename", None)
                 if path and os.path.exists(path):
                     import json as _json
@@ -4119,6 +4140,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         lean params <name>                       — Show optimal params for a project
         lean jobs                                — Show active LEAN background jobs
         """
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         engine = getattr(self, "lean_engine", None)
         if engine is None:
             return "[lean] LeanEngine not initialised — check startup logs"
@@ -4237,6 +4259,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         lean deploy orders <projectId>
         lean deploy compile <projectId>
         """
+        # pylint: disable=too-many-branches,too-many-statements
         engine = getattr(self, "lean_deploy_engine", None)
         if engine is None:
             return "[lean deploy] LeanDeployEngine not initialised — check startup logs"
@@ -4355,6 +4378,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         market alpaca-account
         market alpaca-order <symbol> <qty> [side=buy]
         """
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         mdp = getattr(self, "market_data_providers", None)
         if mdp is None:
             return "[market] MarketDataProviders not initialised — check startup logs"
@@ -4474,6 +4498,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         trading study auto-stop
         trading study log <symbol> <side> <price> <qty> [pnl=N]
         """
+        # pylint: disable=too-many-locals,too-many-branches
         ts = getattr(self, "trading_study", None)
         if ts is None:
             return "[trading study] TradingStudy not initialised — check startup logs"
@@ -4549,6 +4574,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         game play <template>     — Load a built-in template (pong/gravity/adventure)
         game action <entity> k=v — Apply action dict to an entity
         """
+        # pylint: disable=too-many-branches,too-many-statements
         engine = getattr(self, "game_engine", None)
         if engine is None:
             return "[game] GameEngine not initialised — check startup logs"
@@ -4649,6 +4675,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         file execute <path> [args]
                                  — Execute a script file
         """
+        # pylint: disable=too-many-branches
         fm = getattr(self, "universal_file_manager", None)
         if fm is None:
             return "[file] UniversalFileManager not initialised — check startup logs"
@@ -4750,6 +4777,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         platform info             — Platform type and capability flags
         platform requirements     — Setup hints for the current platform
         """
+        # pylint: disable=too-many-branches
         lower = cmd.strip().lower()
         sub = lower
         for prefix in ("os ", "platform "):
@@ -4886,6 +4914,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # ── DeviceControl commands (additive) ────────────────────────────────────
     def _cmd_device_ctrl(self, cmd: str) -> str:
         """Route 'cmd exec / device ctrl' commands to DeviceControl."""
+        # pylint: disable=too-many-branches
         lower = cmd.strip()
         sub = lower
         for prefix in ("cmd exec ", "device ctrl ", "ctrl "):
@@ -5031,6 +5060,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         agents submit <type> [k=v ...] — Enqueue a task for a named agent
         agents pending           — Show pending tasks in the task queue
         """
+        # pylint: disable=too-many-locals,too-many-branches
         rm = getattr(self, "runtime_manager", None)
         if rm is None:
             return (
@@ -5113,7 +5143,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[self-enhance] RuntimeManager not initialised"
         try:
             goal = cmd.strip() or "Identify and implement the most impactful self-improvement"
-            task = rm.submit_task(
+            _task = rm.submit_task(
                 "plan_improvement",
                 payload={"goal": goal, "context": "Niblit self-enhancement cycle"},
                 priority="high",
@@ -5125,7 +5155,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as exc:
             return f"[self-enhance] Error: {exc}"
 
-    def _cmd_status(self, text: str) -> str:
+    def _cmd_status(self, _text: str) -> str:
         """Status command."""
         try:
             mem_count = self._get_memory_count()
@@ -5136,7 +5166,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.error(f"Status command failed: {e}")
             return f"Status: Error - {e}"
 
-    def _cmd_health(self, text: str) -> str:
+    def _cmd_health(self, _text: str) -> str:
         """Health check command."""
         hc = self.health_check()
         result = f"System Health: {hc.status}\n"
@@ -5151,7 +5181,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 result += f"  {error}\n"
         return result
 
-    def _cmd_metrics(self, text: str) -> str:
+    def _cmd_metrics(self, _text: str) -> str:
         """Metrics command."""
         result = "Performance Metrics:\n"
         for op_name in sorted(self.metrics.operation_counts.keys()):
@@ -5162,11 +5192,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 result += f"avg {stats['avg_ms']:.2f}ms\n"
         return result
 
-    def _cmd_time(self, text: str) -> str:
+    def _cmd_time(self, _text: str) -> str:
         """Time command."""
         return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    def _cmd_slsa_status(self, text: str) -> str:
+    def _cmd_slsa_status(self, _text: str) -> str:
         """SLSA status command."""
         return self._get_slsa_status()
 
@@ -5176,7 +5206,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         topics = rest.split() if rest else None
         return self._start_slsa_engine(topics)
 
-    def _cmd_slsa_stop(self, text: str) -> str:
+    def _cmd_slsa_stop(self, _text: str) -> str:
         """SLSA stop command."""
         return self._stop_slsa_engine()
 
@@ -5242,10 +5272,35 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.debug(f"Brain fallback failed: {e}")
         return "[Idea generation failed — no modules available]"
 
-    def _cmd_reflect(self, text: str) -> str:
+    def _cmd_reflect(self, _text: str) -> str:
         """Reflect command — uses ReflectModule directly, NOT LLM."""
-        topic = text[len("reflect"):].strip() or ""
+        topic = _text[len("reflect"):].strip() or ""
         # Direct module path: use reflect directly
+        if self.reflect and hasattr(self.reflect, "reflect_on_research"):
+            # When a short topic is given, research first so the stored reflection
+            # contains real knowledge content, not just a shallow "Themes:" entry.
+            is_short_topic = topic and "\n" not in topic and len(topic.split()) <= 6  # same threshold as NiblitRouter._MAX_SHORT_TOPIC_WORDS
+            if is_short_topic:
+                research_text = ""
+                try:
+                    researcher = getattr(self, "researcher", None)
+                    internet = getattr(self, "internet", None)
+                    if researcher and hasattr(researcher, "search"):
+                        res = researcher.search(topic)
+                        if isinstance(res, list):
+                            research_text = " ".join(str(r) for r in res[:3])
+                        elif res:
+                            research_text = str(res)
+                    if not research_text and internet and hasattr(internet, "quick_summary"):
+                        research_text = internet.quick_summary(topic) or ""
+                except Exception as e:
+                    log.debug(f"Reflect pre-research failed: {e}")
+                if research_text:
+                    try:
+                        result = self.reflect.reflect_on_research(topic, research_text)
+                        return str(result) if result else "[Reflection completed]"
+                    except Exception as e:
+                        log.debug(f"reflect_on_research failed: {e}")
         if self.reflect and hasattr(self.reflect, "collect_and_summarize"):
             try:
                 result = self.reflect.collect_and_summarize(topic or None)
@@ -5341,7 +5396,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.error(f"Summary failed: {e}")
             return f"[Summary failed: {e}]"
 
-    def _cmd_run_diagnostics(self, text: str) -> str:
+    def _cmd_run_diagnostics(self, _text: str) -> str:
         """
         Run the full niblit diagnostic suite (run_diagnostics.py) and return
         its output as a string so it can be displayed inline during a session.
@@ -5366,7 +5421,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.error(f"[DIAGNOSTICS] Failed: {e}")
             return f"[DIAGNOSTICS] Failed: {e}"
 
-    def _cmd_run_live_test(self, text: str) -> str:
+    def _cmd_run_live_test(self, _text: str) -> str:
         """
         Run the live command tester (live_command_tester.py) and return its
         output inline so results can be inspected without leaving the REPL.
@@ -5443,6 +5498,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _init_internet(self):
         """Initialize internet manager and GitHub Code Search client."""
+        # pylint: disable=too-many-statements
         try:
             self.internet = InternetManager(db=self.db) if InternetManager else None
             if self.internet:
@@ -5605,6 +5661,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _init_ai_adapters(self):
         """Initialize AI adapter modules."""
+        # pylint: disable=too-many-branches
         try:
             self.reflect = safe_call(Reflect_mod, self.db) if Reflect_mod else None
             self.self_healer = safe_call(SelfHealer_mod, self.db) if SelfHealer_mod else None
@@ -5688,6 +5745,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _init_brain_and_router(self):
         """Initialize brain and router."""
+        # pylint: disable=too-many-branches,too-many-statements
         try:
             self.researcher = safe_call(SelfResearcher, self.db, self.modules) if SelfResearcher else None
             # Alias used by structural_awareness.component_report() and live_updater
@@ -5695,9 +5753,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
             # ── Inject cognitive components into SelfResearcher (additive) ───
             if hasattr(self, 'researcher') and self.researcher is not None:
                 if hasattr(self.researcher, 'hybrid_manager') and hasattr(self, 'hybrid_qdrant'):
-                    self.researcher.hybrid_manager = self.hybrid_qdrant
+                    self.researcher.hybrid_manager = self.hybrid_qdrant  # pylint: disable=attribute-defined-outside-init
                 if hasattr(self.researcher, 'kernel') and hasattr(self, 'kernel'):
-                    self.researcher.kernel = self.kernel
+                    self.researcher.kernel = self.kernel  # pylint: disable=attribute-defined-outside-init
                 if hasattr(self, 'kernel') and self.kernel:
                     self.kernel.register_module("SelfResearcher", self.researcher)
 
@@ -5870,6 +5928,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _init_optional_services(self):
         """Initialize optional heavy modules including all improvements."""
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         try:
             self.membrane = safe_call(Membrane) if Membrane else None
             self.healer_obj = safe_call(Healer) if Healer else None
@@ -6164,7 +6223,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             # Late-wire llm into self_teacher
             if getattr(self, "self_teacher", None) and getattr(self, "llm", None):
                 try:
-                    self.self_teacher.llm = self.llm
+                    self.self_teacher.llm = self.llm  # pylint: disable=attribute-defined-outside-init
                     log.debug("[INIT] self_teacher.llm wired ✅")
                 except Exception as _e:
                     log.debug("[INIT] self_teacher.llm wire failed: %s", _e)
@@ -6812,6 +6871,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         - ``self.runtime_manager`` — :class:`~core.runtime_manager.RuntimeManager`
         - ``self.phase2_agents``   — dict mapping task_type → agent instance
         """
+        # pylint: disable=too-many-branches,too-many-statements
         if not _RUNTIME_MANAGER_AVAILABLE or _RuntimeManager is None:
             log.debug("[INIT] RuntimeManager not available — skipping Phase-2 agent init")
             return
@@ -6933,6 +6993,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _init_self_improvements(self):
         """Initialize 10 self-improvement modules."""
+        # pylint: disable=too-many-branches,too-many-statements
         log.info("[SELF-IMPROVEMENTS] Initializing 10 modules...")
 
         try:
@@ -7164,6 +7225,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         For each queued topic: search → reflect → teach → store ale_learned memory.
         """
+        # pylint: disable=too-many-branches,too-many-statements
         while self.running:
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
@@ -7317,6 +7379,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         For each queued topic: search → reflect → teach → store ale_learned memory.
         """
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         while self.running:
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
@@ -7764,6 +7827,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         10. Router fallback (complex routing)
         11. Brain.think() (ONLY for general chat)
         """
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         ltext = text.lower().strip()
 
         log.debug(f"[HANDLE] Input: '{text[:50]}...' | Normalized: '{ltext[:50]}...'")
@@ -7775,7 +7839,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             try:
                 result = self.command_registry.execute(ltext)
                 if result:
-                    log.debug(f"[COMMAND_REGISTRY] Command executed")
+                    log.debug("[COMMAND_REGISTRY] Command executed")
                     self._trigger_learning(text, result)
                     return result
             except Exception as e:
@@ -8468,6 +8532,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def shutdown(self, timeout_seconds: Optional[float] = None):
         """Gracefully shutdown NiblitCore and all services."""
+        # pylint: disable=too-many-branches
         timeout = timeout_seconds or self.config.shutdown_timeout_seconds
         log.info("✅ Shutdown initiated")
         self.running = False
@@ -8544,9 +8609,9 @@ if __name__ == "__main__":
     print("Type 'help' for available commands or 'shutdown' to exit.\n")
     try:
         while core.running:
-            cmd = input("Niblit > ").strip()
-            if cmd:
-                print(core.handle(cmd))
+            _cmd_input = input("Niblit > ").strip()
+            if _cmd_input:
+                print(core.handle(_cmd_input))
     except KeyboardInterrupt:
         print("\nShutting down...")
         core.shutdown()

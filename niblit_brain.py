@@ -146,7 +146,7 @@ try:
 except Exception as _e:
     log.warning(f"LocalDB unavailable: {_e}")
     LocalDB = None
-    def _mem_writable_path(filename, env_var=None):  # type: ignore[misc]
+    def _mem_writable_path(filename, _env_var=None):  # type: ignore[misc]
         return filename
 # pylint: enable=invalid-name
 
@@ -201,6 +201,7 @@ class _DBMemoryAdapter:
 
 # ───────── BrainTrainer ─────────
 class BrainTrainer:
+    # pylint: disable=too-many-instance-attributes
     """
     Autonomous Brain Trainer and Updater.
 
@@ -234,6 +235,7 @@ class BrainTrainer:
         "responses",
     ]
 
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     def __init__(self, memory, knowledge_db=None, self_teacher=None,
                  hybrid_manager=None, self_monitor=None, kernel=None):
         self.memory = memory

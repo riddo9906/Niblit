@@ -169,6 +169,16 @@ class ChatDetector:
 # ─────────────────────────────────
 class NiblitRouter:
 
+    # Maximum number of words in a topic string to be treated as a short
+    # keyword topic (vs. a full research-text entry).
+    _MAX_SHORT_TOPIC_WORDS = 6
+    # Number of leading characters used to deduplicate KB facts by text
+    # content (catches the same information stored under different timestamps).
+    _KB_TEXT_DEDUP_LENGTH = 100
+    # Facts whose value is shorter than this and starts with "Themes:" are
+    # considered reflection metadata rather than genuine knowledge content.
+    _MAX_METADATA_REFLECTION_LENGTH = 120
+
     COMMAND_PREFIXES = (
         "toggle-llm", "hf-status", "hf-enable", "hf-disable", "hf-ask",
         "self-research", "search", "summary", "remember", "learn",
@@ -286,6 +296,8 @@ class NiblitRouter:
         "env-adapter", "envadapter",
         # Niblit self-improving runtime environment (additive)
         "niblit-runtime", "nrt",
+        # Memory reset (flush all memory, caches and state files)
+        "memory-reset",
     )
 
     CHAT_RESPONSES = {
@@ -2619,16 +2631,27 @@ Ask me about:
                 if isinstance(hits, list):
                     facts.extend(hits)
 
-            # Deduplicate
+            # Deduplicate — first by key, then by text content (catches same
+            # information stored under different timestamped keys)
             seen_keys: set = set()
+            seen_texts: set = set()
             unique_facts = []
             for f in facts:
                 if isinstance(f, dict):
                     k = f.get("key", str(f))
+                    # Build a normalised snippet of the value for text-dedup
+                    raw_val = f.get("value") or f.get("text") or ""
+                    if isinstance(raw_val, dict):
+                        # Q&A dicts: use the answer text for dedup
+                        raw_val = raw_val.get("answer", json.dumps(raw_val))
+                    text_key = str(raw_val)[:self._KB_TEXT_DEDUP_LENGTH].lower().strip()
                 else:
                     k = str(f)
-                if k not in seen_keys:
+                    text_key = k[:100].lower().strip()
+                if k not in seen_keys and text_key not in seen_texts:
                     seen_keys.add(k)
+                    if text_key:
+                        seen_texts.add(text_key)
                     unique_facts.append(f)
 
             if not unique_facts:
@@ -2649,6 +2672,17 @@ Ask me about:
                     return False
                 # Skip known internal system key namespaces
                 if key.startswith("self_teacher:"):
+                    return False
+                # Skip quiz entries — they contain raw JSON Q&A, not prose
+                if key.startswith("quiz:"):
+                    return False
+                # Skip raw reflection metadata entries — their value is only
+                # "Themes: x, y, z\n<raw topic>" with no actual knowledge content
+                val_str = str(val) if val is not None else ""
+                if val_str.startswith("Themes:") and "\n" in val_str and len(val_str) < self._MAX_METADATA_REFLECTION_LENGTH:
+                    return False
+                # Skip compound reflection headers with no prose content
+                if val_str.startswith("[Research reflection") or val_str.startswith("[Code reflection"):
                     return False
                 return True
 
@@ -2684,8 +2718,9 @@ Ask me about:
             for fact in top:
                 if isinstance(fact, dict):
                     val = fact.get("value", fact.get("text", ""))
+                    # Extract the human-readable answer from Q&A dicts
                     if isinstance(val, dict):
-                        val = json.dumps(val, ensure_ascii=False)[:200]
+                        val = val.get("answer") or val.get("summary") or json.dumps(val, ensure_ascii=False)
                     lines.append(f"• {str(val)[:200]}")
                 else:
                     lines.append(f"• {str(fact)[:200]}")
@@ -3700,7 +3735,19 @@ Ask me about:
                 lang = sub.replace("code", "").strip() or "python"
                 return safe_call(reflect.reflect_on_code, lang, lang, "") or "[Code reflection completed]"
 
-            # Default: reflect on supplied text
+            # Default: reflect on supplied text/topic
+            # When a plain topic word is given (e.g. "reflect data"), first do a
+            # quick research pass so the stored reflection has real content.
+            # If no research results come back, fall back to collect_and_summarize.
+            if topic and not topic.strip().startswith("Research"):
+                # Check if it looks like a short topic keyword rather than a full
+                # research/text entry (no whitespace-heavy prose, no newlines)
+                is_short_topic = "\n" not in topic and len(topic.split()) <= self._MAX_SHORT_TOPIC_WORDS
+                if is_short_topic:
+                    research_text = safe_call(self._run_research, topic) or ""
+                    if research_text and research_text != f"[No data found for '{topic}']":
+                        result = safe_call(reflect.reflect_on_research, topic, research_text)
+                        return str(result) if result else "[Reflection completed]"
             return safe_call(reflect.collect_and_summarize, topic) or "[Reflection completed]"
 
         if lower.startswith("auto-reflect"):
