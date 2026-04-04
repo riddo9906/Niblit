@@ -3,10 +3,16 @@ services:
     name: niblit
     runtime: python
     region: oregon
-    plan: free
+    plan: starter              # free tier has no disk; starter enables persistent disk
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
+
+    # ── Persistent disk — survives deploys and restarts ───────────────────────
+    disk:
+      name: niblit-data
+      mountPath: /data
+      sizeGB: 1
 
     envVars:
       # ── Core ──────────────────────────────────────────────────────────────
@@ -96,3 +102,22 @@ services:
         value: "true"
       - key: MCP_SECRET
         sync: false
+
+      # ── Persistent storage paths (disk mounted at /data) ──────────────────
+      # All runtime state files land on the persistent disk so they survive
+      # restarts and deploys.  Without these vars the files go to the
+      # ephemeral container root and are lost on every restart.
+      - key: NIBLIT_MEMORY_PATH
+        value: /data/niblit_memory.json      # NiblitMemory + KnowledgeDB
+      - key: NIBLIT_DB_PATH
+        value: /data/niblit.db               # LocalDB
+      - key: FUSED_MEMORY_DB_PATH
+        value: /data/niblit_fused.sqlite     # FusedMemory SQLite vector store
+      - key: ALE_CHECKPOINT_PATH
+        value: /data/ale_state.json          # ALE autonomous-learning checkpoint
+      - key: NIBLIT_GAME_LOG_PATH
+        value: /data/niblit_game_log.jsonl   # Game engine event log
+      - key: NIBLIT_GAME_STATE_PATH
+        value: /data/niblit_game_state.json  # Game engine saved state
+      - key: LEAN_WORKSPACE
+        value: /data/lean_workspace          # QuantConnect/LEAN project root

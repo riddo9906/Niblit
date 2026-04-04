@@ -728,7 +728,7 @@ class LocalDB:
     """
 
     def __init__(self, path: str = "") -> None:
-        self.path = path or _writable_path("niblit.db")
+        self.path = path or _writable_path("niblit.db", "NIBLIT_DB_PATH")
         self.lock = threading.Lock()
 
         if not os.path.exists(self.path):
