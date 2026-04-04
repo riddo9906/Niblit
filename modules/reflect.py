@@ -41,6 +41,9 @@ _MAX_KB_SNIPPET = 300
 
 _default_instance: Optional["ReflectModule"] = None
 
+# Maximum characters for a clean topic string extracted from a compound entry.
+_MAX_TOPIC_LENGTH = 200
+
 # ── Utility: extract a clean, searchable topic from a compound reflection entry ──
 # Entries fed to collect_and_summarize() often look like:
 #   "Research Query: <topic>\n\nInsights: <long text>"
@@ -69,7 +72,7 @@ def _topic_from_entry(entry: str) -> str:
     first_block = _COMPOUND_PREFIX_RE.sub("", first_block).strip()
     # Final safety: if still very long or contains newlines, take first line only
     first_line = first_block.split("\n")[0].strip()
-    return first_line[:200] if first_line else first_block[:200]
+    return first_line[:_MAX_TOPIC_LENGTH] if first_line else first_block[:_MAX_TOPIC_LENGTH]
 
 
 class ReflectModule:

@@ -3846,9 +3846,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 path = getattr(obj, "path", None) or getattr(obj, "filename", None)
                 if path:
                     size = os.path.getsize(path) if os.path.exists(path) else 0
-                    facts = len(getattr(getattr(obj, "data", {}), "get", lambda *a: [])(
-                        "facts", getattr(obj, "data", {}).get("facts", [])))
-                    lines.append(f"  • {label}: {path} ({size} bytes)")
+                    data = getattr(obj, "data", None) or getattr(obj, "state", None) or {}
+                    fact_count = len(data.get("facts", [])) if isinstance(data, dict) else 0
+                    lines.append(f"  • {label}: {path} ({size} bytes, {fact_count} facts)")
             # FusedMemory SQLite
             fused = getattr(self, "fused_memory", None)
             if fused:
@@ -4001,13 +4001,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
         ale = getattr(self, "autonomous_engine", None)
         if ale:
             try:
-                ale.learning_history = {k: 0 if isinstance(v, int) else "" if isinstance(v, str) else v
-                                        for k, v in getattr(ale, "learning_history", {}).items()}
-                for key in list(ale.learning_history):
-                    if isinstance(ale.learning_history[key], int):
-                        ale.learning_history[key] = 0
-                    elif isinstance(ale.learning_history[key], str):
-                        ale.learning_history[key] = ""
+                lh = getattr(ale, "learning_history", {})
+                for key in list(lh):
+                    if isinstance(lh[key], int):
+                        lh[key] = 0
+                    elif isinstance(lh[key], str):
+                        lh[key] = ""
                 cleared.append("ALE learning_history counters reset")
             except Exception as exc:
                 errors.append(f"ALE learning_history: {exc}")

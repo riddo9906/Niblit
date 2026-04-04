@@ -76,6 +76,13 @@ logging.basicConfig(
 _MAX_FAILED_CODE_SNIPPET_LENGTH: int = 400
 # Maximum characters per research snippet collected from KB for code generation context.
 _MAX_RESEARCH_SNIPPET_LENGTH: int = 300
+
+# Topic strings containing any of these markers are noise (embedded result payloads)
+# and must not enter the research queue.
+_TOPIC_NOISE_MARKERS: tuple = (
+    "insights:", "findings:", "research finding:", "no data found",
+    "implementation plan", "auto-research topic:", "research query:",
+)
 # Maximum characters for code excerpt stored in learning facts.
 _MAX_LEARNING_CODE_EXCERPT: int = 150
 
@@ -4321,10 +4328,8 @@ class AutonomousLearningEngine:
         if "\n" in topic:
             return False
         # Reject strings that look like embedded result payloads
-        _noise_markers = ("insights:", "findings:", "research finding:", "no data found",
-                          "implementation plan", "auto-research topic:", "research query:")
         topic_lower = topic.lower()
-        if any(marker in topic_lower for marker in _noise_markers):
+        if any(marker in topic_lower for marker in _TOPIC_NOISE_MARKERS):
             return False
         # Reject very short fragments (single words < 4 chars)
         if len(topic.strip()) < 4:
