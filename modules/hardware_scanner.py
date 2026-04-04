@@ -155,7 +155,7 @@ def _gpu_info() -> List[Dict[str, Any]]:
                 parts = [p.strip() for p in line.split(",")]
                 gpus.append({
                     "name": parts[0] if parts else "unknown",
-                    "vram_mb": int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None,
+                    "vram_mb": (lambda v: int(float(v)) if v.replace(".", "", 1).isdigit() else None)(parts[1]) if len(parts) > 1 else None,
                     "driver": parts[2] if len(parts) > 2 else None,
                     "type": "nvidia",
                 })

@@ -331,8 +331,10 @@ class LeanDeployEngine:
         """
         ts = str(int(time.time()))
         token = self._api_token()
-        # nosec: SHA256 here is the QC API's required authentication scheme, not password hashing
-        hash_hex = hashlib.sha256(f"{ts}:{token}".encode()).hexdigest()
+        # nosec B324: SHA256 is mandated by the QuantConnect REST API v2 authentication
+        # specification (https://www.quantconnect.com/docs/v2/cloud-platform/api-reference/authentication).
+        # This is HMAC-style API credential hashing, NOT password storage.
+        hash_hex = hashlib.sha256(f"{ts}:{token}".encode()).hexdigest()  # nosec B324
         raw = f"{self._user_id()}:{hash_hex}"
         encoded = base64.b64encode(raw.encode()).decode()
         return f"Basic {encoded}", ts

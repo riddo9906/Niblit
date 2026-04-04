@@ -216,7 +216,7 @@ def build_iso(out_path: Path, write_to: str | None = None) -> None:
     if platform.system() != "Linux":
         print("Direct ISO building only works on Linux. Use --bundle instead.")
         sys.exit(1)
-    if os.geteuid() != 0:
+    if os.geteuid() != 0 if hasattr(os, "geteuid") else False:
         print("ISO building requires root (sudo python boot/niblit_usb.py --out ...)")
         sys.exit(1)
 
