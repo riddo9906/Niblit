@@ -278,6 +278,14 @@ class NiblitRouter:
         "net", "autonomous-network",
         # Module autonomy framework (additive)
         "autonomy", "module-autonomy",
+        # Defensive security membrane (additive)
+        "security", "sec-membrane",
+        # Cross-environment state manager (additive)
+        "env-state", "envstate",
+        # Environment adapter registry (additive)
+        "env-adapter", "envadapter",
+        # Niblit self-improving runtime environment (additive)
+        "niblit-runtime", "nrt",
     )
 
     CHAT_RESPONSES = {
@@ -1650,6 +1658,146 @@ Ask me about:
             return _ggh().status()
         except Exception as exc:
             return f"[github-deep] GitHubDeepResearch not available: {exc}"
+
+    # ── SecurityMembrane handler (additive) ───────────────────────────────────
+
+    def _handle_security(self, cmd: str) -> str:
+        """Route 'security ...' / 'sec-membrane ...' commands."""
+        lower = cmd.strip().lower()
+        # Strip prefix
+        for prefix in ("sec-membrane", "security"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.security_membrane import get_security_membrane as _gsm
+            membrane = _gsm(knowledge_db=getattr(self.core, "db", None) if self.core else None)
+            if sub in ("", "status"):
+                import json as _json
+                return _json.dumps(membrane.status(), indent=2, default=str)
+            if sub.startswith("events"):
+                import json as _json
+                return _json.dumps(membrane.get_events(50), indent=2, default=str)
+            return (
+                "Security membrane commands:\n"
+                "  security status   — rate-limit stats & recent events\n"
+                "  security events   — last 50 security events"
+            )
+        except Exception as exc:
+            return f"[security] SecurityMembrane not available: {exc}"
+
+    # ── EnvStateManager handler (additive) ───────────────────────────────────
+
+    def _handle_env_state(self, cmd: str) -> str:
+        """Route 'env-state ...' commands."""
+        lower = cmd.strip().lower()
+        for prefix in ("envstate", "env-state"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.env_state import get_env_state_manager as _gesm
+            mgr = _gesm(knowledge_db=getattr(self.core, "db", None) if self.core else None)
+            if sub in ("", "status"):
+                import json as _json
+                return _json.dumps(mgr.status(), indent=2, default=str)
+            if sub == "save":
+                ok = mgr.save()
+                return "State saved." if ok else "State save failed."
+            if sub == "load":
+                ok = mgr.load()
+                return "State loaded." if ok else "State not found on disk."
+            if sub in ("snapshot", "show"):
+                return mgr.to_json(indent=2)
+            return (
+                "Env-state commands:\n"
+                "  env-state status    — session & runtime summary\n"
+                "  env-state snapshot  — full state envelope JSON\n"
+                "  env-state save      — write state to disk\n"
+                "  env-state load      — reload state from disk"
+            )
+        except Exception as exc:
+            return f"[env-state] EnvStateManager not available: {exc}"
+
+    # ── EnvAdapterRegistry handler (additive) ────────────────────────────────
+
+    def _handle_env_adapter(self, cmd: str) -> str:
+        """Route 'env-adapter ...' commands."""
+        lower = cmd.strip().lower()
+        for prefix in ("envadapter", "env-adapter"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.env_adapter import get_env_adapter_registry as _gear
+            reg = _gear(knowledge_db=getattr(self.core, "db", None) if self.core else None)
+            if sub in ("", "status"):
+                import json as _json
+                return _json.dumps(reg.status(), indent=2, default=str)
+            if sub.startswith("caps") or sub.startswith("capabilities"):
+                import json as _json
+                return _json.dumps(reg.capabilities(), indent=2, default=str)
+            if sub == "learn":
+                results = reg.learn(force=True)
+                return f"Learning complete — {len(results)} adapters probed."
+            return (
+                "Env-adapter commands:\n"
+                "  env-adapter status        — registered adapters & last learn time\n"
+                "  env-adapter capabilities  — full merged capability dict\n"
+                "  env-adapter learn         — run extended environment probe now"
+            )
+        except Exception as exc:
+            return f"[env-adapter] EnvAdapterRegistry not available: {exc}"
+
+    # ── NiblitRuntime handler (additive) ─────────────────────────────────────
+
+    def _handle_niblit_runtime(self, cmd: str) -> str:
+        """Route 'niblit-runtime ...' / 'nrt ...' commands."""
+        lower = cmd.strip().lower()
+        for prefix in ("niblit-runtime", "nrt"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.niblit_runtime import get_niblit_runtime as _gnr
+            rt = _gnr(
+                knowledge_db=getattr(self.core, "db", None) if self.core else None,
+                env_adapter_registry=getattr(self.core, "env_adapter_registry", None) if self.core else None,
+                env_state_manager=getattr(self.core, "env_state_manager", None) if self.core else None,
+            )
+            if sub in ("", "status"):
+                import json as _json
+                return _json.dumps(rt.status(), indent=2, default=str)
+            if sub == "improve":
+                spec = rt.improve()
+                return f"Runtime improved → level {spec.level:.4f}"
+            if sub in ("history", "growth"):
+                import json as _json
+                return _json.dumps(rt.growth_history()[-10:], indent=2, default=str)
+            if sub.startswith("spec"):
+                import json as _json
+                return _json.dumps(rt.spec.to_dict(), indent=2, default=str)
+            return (
+                "Niblit runtime commands:\n"
+                "  nrt status    — runtime level, components, improvement history\n"
+                "  nrt improve   — trigger one improvement cycle now\n"
+                "  nrt history   — last 10 growth events\n"
+                "  nrt spec      — current RuntimeSpec (capabilities & compat rules)"
+            )
+        except Exception as exc:
+            return f"[niblit-runtime] NiblitRuntime not available: {exc}"
 
     # ── Game engine handler (additive) ────────────────────────────────────────
 
@@ -3316,6 +3464,26 @@ Ask me about:
         if lower in ("github-deep", "github deep") or \
                 lower.startswith("github-deep ") or lower.startswith("github deep "):
             return self._handle_github_deep(cmd)
+
+        # SECURITY MEMBRANE — rate-limit, anomaly detection, intrusion log (additive)
+        if lower in ("security", "sec-membrane") or \
+                lower.startswith("security ") or lower.startswith("sec-membrane "):
+            return self._handle_security(cmd)
+
+        # CROSS-ENVIRONMENT STATE MANAGER (additive)
+        if lower in ("env-state", "envstate") or \
+                lower.startswith("env-state ") or lower.startswith("envstate "):
+            return self._handle_env_state(cmd)
+
+        # ENVIRONMENT ADAPTER REGISTRY (additive)
+        if lower in ("env-adapter", "envadapter") or \
+                lower.startswith("env-adapter ") or lower.startswith("envadapter "):
+            return self._handle_env_adapter(cmd)
+
+        # NIBLIT SELF-IMPROVING RUNTIME ENVIRONMENT (additive)
+        if lower in ("niblit-runtime", "nrt") or \
+                lower.startswith("niblit-runtime ") or lower.startswith("nrt "):
+            return self._handle_niblit_runtime(cmd)
 
         # GAME ENGINE COMMANDS (additive)
         if lower == "game" or lower.startswith("game "):

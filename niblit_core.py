@@ -1140,6 +1140,42 @@ except Exception as _ghde:
     _get_github_deep_research = None  # type: ignore[assignment]
     _GITHUB_DEEP_AVAILABLE = False
 
+# ── SecurityMembrane (additive) ──────────────────────────────────────────────
+try:
+    from modules.security_membrane import get_security_membrane as _get_security_membrane
+    _SECURITY_MEMBRANE_AVAILABLE = True
+except Exception as _sme:
+    log.debug(f"security_membrane not available: {_sme}")
+    _get_security_membrane = None  # type: ignore[assignment]
+    _SECURITY_MEMBRANE_AVAILABLE = False
+
+# ── EnvStateManager (additive) ───────────────────────────────────────────────
+try:
+    from modules.env_state import get_env_state_manager as _get_env_state_manager
+    _ENV_STATE_AVAILABLE = True
+except Exception as _ese:
+    log.debug(f"env_state not available: {_ese}")
+    _get_env_state_manager = None  # type: ignore[assignment]
+    _ENV_STATE_AVAILABLE = False
+
+# ── EnvAdapterRegistry (additive) ────────────────────────────────────────────
+try:
+    from modules.env_adapter import get_env_adapter_registry as _get_env_adapter_registry
+    _ENV_ADAPTER_AVAILABLE = True
+except Exception as _eae:
+    log.debug(f"env_adapter not available: {_eae}")
+    _get_env_adapter_registry = None  # type: ignore[assignment]
+    _ENV_ADAPTER_AVAILABLE = False
+
+# ── NiblitRuntime (additive) ─────────────────────────────────────────────────
+try:
+    from modules.niblit_runtime import get_niblit_runtime as _get_niblit_runtime
+    _NIBLIT_RUNTIME_AVAILABLE = True
+except Exception as _nre:
+    log.debug(f"niblit_runtime not available: {_nre}")
+    _get_niblit_runtime = None  # type: ignore[assignment]
+    _NIBLIT_RUNTIME_AVAILABLE = False
+
 # Niblit can create, dispatch, and reflect on agent tasks autonomously.
 try:
     from core.runtime_manager import RuntimeManager as _RuntimeManager
@@ -1560,6 +1596,14 @@ class NiblitCore:
         self.device_mesh: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: GitHub deep research (trending + tracked repos) ─────────
         self.github_deep_research: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Security membrane ──────────────────────────────────────
+        self.security_membrane: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Cross-environment state manager ─────────────────────────
+        self.env_state_manager: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Environment adapter registry ────────────────────────────
+        self.env_adapter_registry: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Niblit self-improving runtime environment ───────────────
+        self.niblit_runtime: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
         self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
         self.phase2_agents: dict = {}  # {task_type: agent_instance}
@@ -6321,6 +6365,59 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _ghde2:
                 log.debug("[INIT] GitHubDeepResearch init failed: %s", _ghde2)
                 self.startup_report.add("github_deep_research", "degraded", str(_ghde2))
+
+        # ── SecurityMembrane (additive) ───────────────────────────────────────
+        if _SECURITY_MEMBRANE_AVAILABLE and _get_security_membrane is not None:
+            try:
+                self.security_membrane = _get_security_membrane(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ SecurityMembrane initialised")
+                self.startup_report.add("security_membrane", "ready")
+            except Exception as _sme2:
+                log.debug("[INIT] SecurityMembrane init failed: %s", _sme2)
+                self.startup_report.add("security_membrane", "degraded", str(_sme2))
+
+        # ── EnvStateManager (additive) ────────────────────────────────────────
+        if _ENV_STATE_AVAILABLE and _get_env_state_manager is not None:
+            try:
+                self.env_state_manager = _get_env_state_manager(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ EnvStateManager initialised (session=%s…)",
+                         self.env_state_manager.snapshot().session_id[:8])
+                self.startup_report.add("env_state_manager", "ready")
+            except Exception as _ese2:
+                log.debug("[INIT] EnvStateManager init failed: %s", _ese2)
+                self.startup_report.add("env_state_manager", "degraded", str(_ese2))
+
+        # ── EnvAdapterRegistry (additive) ────────────────────────────────────
+        if _ENV_ADAPTER_AVAILABLE and _get_env_adapter_registry is not None:
+            try:
+                self.env_adapter_registry = _get_env_adapter_registry(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ EnvAdapterRegistry initialised (adapters: %s)",
+                         self.env_adapter_registry.adapter_names())
+                self.startup_report.add("env_adapter_registry", "ready")
+            except Exception as _eae2:
+                log.debug("[INIT] EnvAdapterRegistry init failed: %s", _eae2)
+                self.startup_report.add("env_adapter_registry", "degraded", str(_eae2))
+
+        # ── NiblitRuntime (additive) ──────────────────────────────────────────
+        if _NIBLIT_RUNTIME_AVAILABLE and _get_niblit_runtime is not None:
+            try:
+                self.niblit_runtime = _get_niblit_runtime(
+                    knowledge_db=getattr(self, "db", None),
+                    env_adapter_registry=getattr(self, "env_adapter_registry", None),
+                    env_state_manager=getattr(self, "env_state_manager", None),
+                )
+                self.niblit_runtime.start()
+                log.info("✅ NiblitRuntime initialised (level=%.4f)", self.niblit_runtime.level)
+                self.startup_report.add("niblit_runtime", "ready")
+            except Exception as _nre2:
+                log.debug("[INIT] NiblitRuntime init failed: %s", _nre2)
+                self.startup_report.add("niblit_runtime", "degraded", str(_nre2))
 
         # ── GameEngine (additive) ─────────────────────────────────────────────
         if _GAME_ENGINE_AVAILABLE and _get_game_engine is not None:
