@@ -1,6 +1,14 @@
 # server.py — Niblit FastAPI server (lightweight alternative to app.py)
 import os
 
+# Load .env file when running locally (e.g. Termux).  On Vercel / Render the
+# platform injects env vars directly, so this is a no-op in those environments.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv not installed — rely on os.environ
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
