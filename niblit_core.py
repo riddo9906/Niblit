@@ -5272,10 +5272,35 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.debug(f"Brain fallback failed: {e}")
         return "[Idea generation failed — no modules available]"
 
-    def _cmd_reflect(self, text: str) -> str:
+    def _cmd_reflect(self, _text: str) -> str:
         """Reflect command — uses ReflectModule directly, NOT LLM."""
-        topic = text[len("reflect"):].strip() or ""
+        topic = _text[len("reflect"):].strip() or ""
         # Direct module path: use reflect directly
+        if self.reflect and hasattr(self.reflect, "reflect_on_research"):
+            # When a short topic is given, research first so the stored reflection
+            # contains real knowledge content, not just a shallow "Themes:" entry.
+            is_short_topic = topic and "\n" not in topic and len(topic.split()) <= 6  # same threshold as NiblitRouter._MAX_SHORT_TOPIC_WORDS
+            if is_short_topic:
+                research_text = ""
+                try:
+                    researcher = getattr(self, "researcher", None)
+                    internet = getattr(self, "internet", None)
+                    if researcher and hasattr(researcher, "search"):
+                        res = researcher.search(topic)
+                        if isinstance(res, list):
+                            research_text = " ".join(str(r) for r in res[:3])
+                        elif res:
+                            research_text = str(res)
+                    if not research_text and internet and hasattr(internet, "quick_summary"):
+                        research_text = internet.quick_summary(topic) or ""
+                except Exception as e:
+                    log.debug(f"Reflect pre-research failed: {e}")
+                if research_text:
+                    try:
+                        result = self.reflect.reflect_on_research(topic, research_text)
+                        return str(result) if result else "[Reflection completed]"
+                    except Exception as e:
+                        log.debug(f"reflect_on_research failed: {e}")
         if self.reflect and hasattr(self.reflect, "collect_and_summarize"):
             try:
                 result = self.reflect.collect_and_summarize(topic or None)

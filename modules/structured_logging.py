@@ -45,9 +45,9 @@ class StructuredLogger:
 
         # Add console StreamHandler only if one is not already attached.
         # Use exact type check (not isinstance) so that FileHandler subclasses
-        # are not counted as console handlers.
+        # (which are also StreamHandlers) are not mistaken for console handlers.
         has_stream = any(
-            type(h) is logging.StreamHandler  # noqa: E721
+            type(h) is logging.StreamHandler  # noqa: E721 — exact type, not isinstance
             for h in self.logger.handlers
         )
         if not has_stream:
