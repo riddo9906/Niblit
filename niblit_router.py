@@ -234,6 +234,10 @@ class NiblitRouter:
         "lean deploy",
         # Multi-provider free market data (additive)
         "market", "market data",
+        # Hardware scanner — cross-platform hardware profiling (additive)
+        "hardware",
+        # OS integration / platform bootstrap (additive)
+        "os", "platform",
         # Trading study, reflect, metacognition (additive)
         "trading study",
         # Phase-2 agent architecture inspection + task dispatch (additive)
@@ -1552,6 +1556,30 @@ Ask me about:
             return _gts().status()
         except Exception as exc:
             return f"[trading study] TradingStudy not available: {exc}"
+
+    # ── Hardware scanner handler (additive) ───────────────────────────────────
+
+    def _handle_hardware(self, cmd: str) -> str:
+        """Route 'hardware ...' commands to HardwareScanner."""
+        if self.core and hasattr(self.core, "_cmd_hardware"):
+            return safe_call(lambda: self.core._cmd_hardware(cmd))
+        try:
+            from modules.hardware_scanner import get_hardware_scanner as _ghs
+            return _ghs().summary()
+        except Exception as exc:
+            return f"[hardware] HardwareScanner not available: {exc}"
+
+    # ── OS integration handler (additive) ─────────────────────────────────────
+
+    def _handle_os(self, cmd: str) -> str:
+        """Route 'os ...' / 'platform ...' commands to OSIntegration."""
+        if self.core and hasattr(self.core, "_cmd_os"):
+            return safe_call(lambda: self.core._cmd_os(cmd))
+        try:
+            from modules.os_integration import get_os_integration as _goi
+            return _goi().info()
+        except Exception as exc:
+            return f"[os] OSIntegration not available: {exc}"
 
     # ── Game engine handler (additive) ────────────────────────────────────────
 
@@ -3189,6 +3217,14 @@ Ask me about:
         # MULTI-PROVIDER MARKET DATA (additive)
         if lower in ("market", "market data") or lower.startswith("market "):
             return self._handle_market_data(cmd)
+
+        # HARDWARE SCANNER (additive)
+        if lower in ("hardware", "hardware scan") or lower.startswith("hardware "):
+            return self._handle_hardware(cmd)
+
+        # OS INTEGRATION / PLATFORM BOOTSTRAP (additive)
+        if lower in ("os", "platform") or lower.startswith("os ") or lower.startswith("platform "):
+            return self._handle_os(cmd)
 
         # GAME ENGINE COMMANDS (additive)
         if lower == "game" or lower.startswith("game "):

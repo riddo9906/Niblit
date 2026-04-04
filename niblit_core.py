@@ -1057,6 +1057,36 @@ except Exception as _kfe:
     _get_knowledge_filter = None  # type: ignore[assignment]
     _KNOWLEDGE_FILTER_AVAILABLE = False
 
+# ── HardwareScanner (additive) ────────────────────────────────────────────────
+# Cross-platform hardware profiler: CPU arch, RAM, GPU, storage, sensors.
+try:
+    from modules.hardware_scanner import get_hardware_scanner as _get_hardware_scanner
+    _HARDWARE_SCANNER_AVAILABLE = True
+except Exception as _hse:
+    log.debug(f"hardware_scanner not available: {_hse}")
+    _get_hardware_scanner = None  # type: ignore[assignment]
+    _HARDWARE_SCANNER_AVAILABLE = False
+
+# ── OSIntegration (additive) ───────────────────────────────────────────────────
+# Installs Niblit as a persistent OS service (systemd / Termux:Boot / LaunchAgent / Windows SCM).
+try:
+    from modules.os_integration import get_os_integration as _get_os_integration
+    _OS_INTEGRATION_AVAILABLE = True
+except Exception as _oie:
+    log.debug(f"os_integration not available: {_oie}")
+    _get_os_integration = None  # type: ignore[assignment]
+    _OS_INTEGRATION_AVAILABLE = False
+
+# ── PlatformBootstrap (additive) ──────────────────────────────────────────────
+# Detects platform type, sets capability flags, configures writable data root.
+try:
+    from modules.platform_bootstrap import get_platform_bootstrap as _get_platform_bootstrap
+    _PLATFORM_BOOTSTRAP_AVAILABLE = True
+except Exception as _pbe:
+    log.debug(f"platform_bootstrap not available: {_pbe}")
+    _get_platform_bootstrap = None  # type: ignore[assignment]
+    _PLATFORM_BOOTSTRAP_AVAILABLE = False
+
 # ── Phase-2 Agent architecture (additive) ─────────────────────────────────────
 # RuntimeManager + all agents (PlannerAgent, ResearchAgent, CodingAgent,
 # TestingAgent, ReflectionAgent, ArchitectureAgent) — wired into core so that
@@ -1464,6 +1494,12 @@ class NiblitCore:
         self.market_data_providers: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: TradingStudy (study/reflect/metacognition) ──────────
         self.trading_study: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: HardwareScanner (cross-platform hardware profiler) ──
+        self.hardware_scanner: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: OSIntegration (install Niblit as OS service) ────────
+        self.os_integration: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: PlatformBootstrap (platform type + capabilities) ────
+        self.platform_bootstrap: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
         self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
         self.phase2_agents: dict = {}  # {task_type: agent_instance}
@@ -4286,6 +4322,108 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     # ── Phase-2 agent commands (additive) ─────────────────────────────────────
 
+    # ── HardwareScanner commands (additive) ───────────────────────────────────
+    def _cmd_hardware(self, cmd: str) -> str:
+        """Route 'hardware ...' commands to HardwareScanner.
+
+        Sub-commands
+        ------------
+        hardware scan             — Run a full hardware scan now
+        hardware status           — Scanner status and last scan time
+        hardware profile          — Full profile as JSON
+        hardware summary          — Human-readable hardware summary
+        hardware requirements     — Deployment recommendation for this hardware
+        """
+        lower = cmd.strip().lower()
+        # Strip leading 'hardware' token
+        sub = lower.removeprefix("hardware").strip()
+
+        hw = getattr(self, "hardware_scanner", None)
+        if hw is None:
+            return "[hardware] HardwareScanner not initialised — check startup logs"
+
+        if sub in ("scan", "rescan"):
+            profile = hw.scan()
+            return hw.summary() + f"\n✅ Scan complete ({profile.get('scanned_at', '')})"
+        if sub in ("status", ""):
+            return hw.status()
+        if sub in ("profile", "json"):
+            import json as _json
+            return _json.dumps(hw.get_profile(), indent=2, default=str)
+        if sub in ("summary", "info"):
+            return hw.summary()
+        if sub in ("requirements", "recommend", "req"):
+            return hw.requirements_report()
+        return (
+            "Hardware Scanner sub-commands:\n"
+            "  hardware scan          — Run a full hardware scan\n"
+            "  hardware status        — Scanner status\n"
+            "  hardware summary       — Human-readable summary\n"
+            "  hardware profile       — Full JSON profile\n"
+            "  hardware requirements  — Deployment recommendation\n"
+        )
+
+    # ── OSIntegration commands (additive) ────────────────────────────────────
+    def _cmd_os(self, cmd: str) -> str:
+        """Route 'os ...' commands to OSIntegration.
+
+        Sub-commands
+        ------------
+        os info                   — Show integration layer info
+        os install                — Install Niblit as an auto-starting OS service
+        os install --system       — Install system-wide (requires root/admin)
+        os uninstall              — Remove the auto-start entry
+        os status                 — Check service / boot-hook status
+        platform info             — Platform type and capability flags
+        platform requirements     — Setup hints for the current platform
+        """
+        lower = cmd.strip().lower()
+        sub = lower
+        for prefix in ("os ", "platform "):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        if lower in ("os", "platform"):
+            sub = "info"
+
+        osi = getattr(self, "os_integration", None)
+        pb = getattr(self, "platform_bootstrap", None)
+
+        if sub in ("info", ""):
+            parts = []
+            if pb:
+                parts.append(pb.info())
+            if osi:
+                parts.append(osi.info())
+            return "\n\n".join(parts) if parts else "[os] Neither OSIntegration nor PlatformBootstrap initialised"
+
+        if osi is None:
+            return "[os] OSIntegration not initialised — check startup logs"
+
+        if sub in ("install", "install --user"):
+            return osi.install(system_wide=False)
+        if sub in ("install --system", "install system", "install system-wide"):
+            return osi.install(system_wide=True)
+        if sub in ("uninstall", "remove"):
+            return osi.uninstall()
+        if sub in ("status",):
+            return osi.status()
+        if sub in ("requirements", "req", "setup"):
+            if pb:
+                return pb.requirements_hint()
+            return "[os] PlatformBootstrap not initialised"
+
+        return (
+            "OS integration sub-commands:\n"
+            "  os info                — Integration layer info\n"
+            "  os install             — Install Niblit as auto-starting service\n"
+            "  os install --system    — System-wide install (root/admin required)\n"
+            "  os uninstall           — Remove auto-start entry\n"
+            "  os status              — Service / boot-hook status\n"
+            "  os requirements        — Setup hints for this platform\n"
+            "  platform info          — Platform type and capability flags\n"
+        )
+
     def _cmd_agents(self, cmd: str = "") -> str:
         """Inspect and interact with the Phase-2 agent architecture.
 
@@ -5797,6 +5935,43 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _kfe2:
                 log.debug("[INIT] KnowledgeFilter init failed: %s", _kfe2)
                 self.startup_report.add("knowledge_filter", "degraded", str(_kfe2))
+
+        # ── PlatformBootstrap (additive) ──────────────────────────────────────
+        if _PLATFORM_BOOTSTRAP_AVAILABLE and _get_platform_bootstrap is not None:
+            try:
+                self.platform_bootstrap = _get_platform_bootstrap()
+                log.info("✅ PlatformBootstrap initialised — platform=%s",
+                         self.platform_bootstrap.platform_type)
+                self.startup_report.add("platform_bootstrap", "ready")
+            except Exception as _pbe2:
+                log.debug("[INIT] PlatformBootstrap init failed: %s", _pbe2)
+                self.startup_report.add("platform_bootstrap", "degraded", str(_pbe2))
+
+        # ── HardwareScanner (additive) ────────────────────────────────────────
+        if _HARDWARE_SCANNER_AVAILABLE and _get_hardware_scanner is not None:
+            try:
+                self.hardware_scanner = _get_hardware_scanner(
+                    knowledge_db=getattr(self, "db", None),
+                    autoscan=True,
+                )
+                log.info("✅ HardwareScanner initialised (background scan started)")
+                self.startup_report.add("hardware_scanner", "ready")
+            except Exception as _hse2:
+                log.debug("[INIT] HardwareScanner init failed: %s", _hse2)
+                self.startup_report.add("hardware_scanner", "degraded", str(_hse2))
+
+        # ── OSIntegration (additive) ──────────────────────────────────────────
+        if _OS_INTEGRATION_AVAILABLE and _get_os_integration is not None:
+            try:
+                self.os_integration = _get_os_integration(
+                    hardware_scanner=getattr(self, "hardware_scanner", None),
+                )
+                log.info("✅ OSIntegration initialised — platform=%s",
+                         type(self.os_integration._installer).__name__)
+                self.startup_report.add("os_integration", "ready")
+            except Exception as _oie2:
+                log.debug("[INIT] OSIntegration init failed: %s", _oie2)
+                self.startup_report.add("os_integration", "degraded", str(_oie2))
 
         # ── GameEngine (additive) ─────────────────────────────────────────────
         if _GAME_ENGINE_AVAILABLE and _get_game_engine is not None:
