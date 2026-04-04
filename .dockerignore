@@ -1,0 +1,63 @@
+# .dockerignore — files excluded from the Docker build context
+# ──────────────────────────────────────────────────────────────────────────────
+# Keeps the image lean by excluding files that are not needed at runtime.
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment files (never bake secrets into the image)
+.env
+.env.local
+.env.*
+
+# Development and test files
+tests/
+hf_test.py
+conftest.py
+test_*.py
+
+# Vercel / Render metadata
+.vercel/
+.render/
+
+# Git history (not needed at runtime)
+.git/
+.gitignore
+
+# Logs and runtime state files (these belong on /data volume, not in the image)
+*.log
+*.db
+*.jsonl
+*.key
+chat_logs/
+niblit_memory.json
+niblit_params.json
+niblit_lean_params.json
+niblit_state.json
+ale_state.json
+
+# Development-only draft variants
+niblit_core_full.py
+niblit_core_refactor_full.py
+
+# Large generated files
+Fix_Guide.txt
+niblit_audit_report.json
+
+# CI metadata
+.github/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

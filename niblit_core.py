@@ -1047,6 +1047,16 @@ except Exception as _tse:
     _get_trading_study = None  # type: ignore[assignment]
     _TRADING_STUDY_AVAILABLE = False
 
+# ── KnowledgeFilter (additive) ────────────────────────────────────────────────
+# Filter + summarizer: only genuine research/learning enters the KB.
+try:
+    from modules.knowledge_filter import get_knowledge_filter as _get_knowledge_filter
+    _KNOWLEDGE_FILTER_AVAILABLE = True
+except Exception as _kfe:
+    log.debug(f"knowledge_filter not available: {_kfe}")
+    _get_knowledge_filter = None  # type: ignore[assignment]
+    _KNOWLEDGE_FILTER_AVAILABLE = False
+
 # ── Phase-2 Agent architecture (additive) ─────────────────────────────────────
 # RuntimeManager + all agents (PlannerAgent, ResearchAgent, CodingAgent,
 # TestingAgent, ReflectionAgent, ArchitectureAgent) — wired into core so that
@@ -5774,6 +5784,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _tse2:
                 log.debug("[INIT] TradingStudy init failed: %s", _tse2)
                 self.startup_report.add("trading_study", "degraded", str(_tse2))
+
+        # ── KnowledgeFilter (additive) ────────────────────────────────────────
+        # Wire the LLM into the filter so it can produce richer summaries.
+        if _KNOWLEDGE_FILTER_AVAILABLE and _get_knowledge_filter is not None:
+            try:
+                kf = _get_knowledge_filter(llm=getattr(self, "llm", None))
+                log.info("✅ KnowledgeFilter initialised")
+                self.startup_report.add("knowledge_filter", "ready")
+                # Expose on core for any module that wants to call it directly
+                self.knowledge_filter = kf
+            except Exception as _kfe2:
+                log.debug("[INIT] KnowledgeFilter init failed: %s", _kfe2)
+                self.startup_report.add("knowledge_filter", "degraded", str(_kfe2))
 
         # ── GameEngine (additive) ─────────────────────────────────────────────
         if _GAME_ENGINE_AVAILABLE and _get_game_engine is not None:
