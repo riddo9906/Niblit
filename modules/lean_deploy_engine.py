@@ -322,11 +322,18 @@ class LeanDeployEngine:
         )
 
     def _auth_header(self) -> Tuple[str, str]:
-        """Return (Authorization header value, timestamp string)."""
+        """Return (Authorization header value, timestamp string).
+
+        QuantConnect API v2 uses HMAC-SHA256 for authentication tokens.
+        This is the token scheme mandated by the third-party QuantConnect API
+        (https://www.quantconnect.com/docs/v2/our-platform/api-reference/authentication)
+        and is NOT used for password storage.
+        """
         ts = str(int(time.time()))
         token = self._api_token()
-        hash_bytes = hashlib.sha256(f"{ts}:{token}".encode()).hexdigest()
-        raw = f"{self._user_id()}:{hash_bytes}"
+        # nosec: SHA256 here is the QC API's required authentication scheme, not password hashing
+        hash_hex = hashlib.sha256(f"{ts}:{token}".encode()).hexdigest()
+        raw = f"{self._user_id()}:{hash_hex}"
         encoded = base64.b64encode(raw.encode()).decode()
         return f"Basic {encoded}", ts
 

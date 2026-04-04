@@ -1383,19 +1383,14 @@ class KnowledgeDB:
             _kf = _gkf()
             # Get the 20 most recent facts that pass the knowledge filter
             sorted_facts = sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)
-            knowledge_bullets = []
-            for f in sorted_facts[:100]:
-                key_ = str(f.get("key", ""))
-                val_ = f.get("value", "")
-                tags_ = f.get("tags", [])
-                if _kf.should_store(key_, val_, tags_):
-                    from modules.knowledge_filter import _format_bullet, _unpack_fact
-                    _, _, _ = _unpack_fact(f)
-                    bullet = _format_bullet(key_, val_)
-                    if bullet:
-                        knowledge_bullets.append(f"  • {bullet}")
-                if len(knowledge_bullets) >= 20:
-                    break
+            knowledge_bullets = _kf.summarize_facts(
+                sorted_facts, max_items=20, title=""
+            ).splitlines()
+            # Remove the empty title header and blank lines
+            knowledge_bullets = [
+                ln for ln in knowledge_bullets
+                if ln.strip() and ln.strip() != "==="
+            ]
             if knowledge_bullets:
                 lines += ["", "📖 Recent knowledge (research & learning):"]
                 lines += knowledge_bullets

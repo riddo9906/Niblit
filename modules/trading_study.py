@@ -466,8 +466,8 @@ class TradingStudy:
             return None
         fast = params.get("fast_period", params.get("fast", None))
         slow = params.get("slow_period", params.get("slow", None))
-        if fast and slow:
-            ratio = slow / fast if fast else 0
+        if fast and slow and fast != 0:
+            ratio = slow / fast
             if score > 1.0:
                 return f"EMA ratio {fast}/{slow} (≈{ratio:.1f}x) → Sharpe>{score:.1f}"
         return None

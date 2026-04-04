@@ -68,8 +68,8 @@ swap_size_mb = 512
 
 # ── Health checks ─────────────────────────────────────────────────────────────
 [[vm]]
-  size   = "shared-cpu-1x"   # 256 MB RAM — upgrade to shared-cpu-2x for ML models
-  memory = "512mb"
+  size   = "shared-cpu-1x"   # 256 MB base RAM; overridden to 512 MB below
+  memory = "512mb"           # Upgrade to 1024mb if loading sentence-transformers
 
 # ── Process ───────────────────────────────────────────────────────────────────
 # Uvicorn serves Niblit's FastAPI app on $PORT.

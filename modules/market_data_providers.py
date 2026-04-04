@@ -557,9 +557,14 @@ class MarketDataProviders:
         try:
             tf = _tf_map.get(interval, _AlpacaTF.Day)  # type: ignore[attr-defined]
             end_dt = datetime.now(tz=timezone.utc)
-            # approximate start
-            days_back = bars * (1 if interval in ("1d", "1w", "1mo") else 1)
-            start_dt = end_dt - timedelta(days=max(days_back, 5))
+            # Approximate how many calendar days we need for `bars` bars at this interval
+            _bars_per_day = {
+                "1m": 390, "5m": 78, "15m": 26, "30m": 13,
+                "1h": 7, "4h": 2, "1d": 1, "1w": 1, "1mo": 1,
+            }
+            bpd = _bars_per_day.get(interval, 1)
+            days_back = max(5, bars // bpd + 1) if bpd > 1 else max(bars, 5)
+            start_dt = end_dt - timedelta(days=days_back)
             if asset_class == "crypto":
                 client = _AlpacaCryptoClient()  # type: ignore[misc]
                 req = _CryptoBarsReq(  # type: ignore[misc]
