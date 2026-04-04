@@ -28,17 +28,32 @@ class StructuredLogger:
         self.logger = logging.getLogger(name)
         self.name = name
         self.log_file = log_file
-        
-        # Set up JSON formatter
+
+        # Set up JSON formatter - only add handlers if not already present to
+        # prevent duplicate log entries when StructuredLogger is instantiated
+        # multiple times for the same logger name (e.g. inside RequestContext).
         if log_file:
-            handler = logging.FileHandler(log_file)
-            handler.setFormatter(JSONFormatter())
-            self.logger.addHandler(handler)
-        
-        # Also add console handler
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(JSONFormatter())
-        self.logger.addHandler(console_handler)
+            log_file_abs = str(Path(log_file).resolve())
+            if not any(
+                isinstance(h, logging.FileHandler)
+                and str(Path(getattr(h, 'baseFilename', '')).resolve()) == log_file_abs
+                for h in self.logger.handlers
+            ):
+                handler = logging.FileHandler(log_file)
+                handler.setFormatter(JSONFormatter())
+                self.logger.addHandler(handler)
+
+        # Add console StreamHandler only if one is not already attached.
+        # Use exact type check (not isinstance) so that FileHandler subclasses
+        # are not counted as console handlers.
+        has_stream = any(
+            type(h) is logging.StreamHandler  # noqa: E721
+            for h in self.logger.handlers
+        )
+        if not has_stream:
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(JSONFormatter())
+            self.logger.addHandler(console_handler)
     
     def _get_context(self) -> Dict[str, Any]:
         """Get logging context."""

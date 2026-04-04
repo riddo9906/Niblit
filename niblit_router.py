@@ -286,6 +286,8 @@ class NiblitRouter:
         "env-adapter", "envadapter",
         # Niblit self-improving runtime environment (additive)
         "niblit-runtime", "nrt",
+        # Memory reset (flush all memory, caches and state files)
+        "memory-reset",
     )
 
     CHAT_RESPONSES = {
