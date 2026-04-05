@@ -8,10 +8,9 @@ Singleton pattern - controls the SLSA engine dynamically
 import logging
 import threading
 import time
-from typing import Dict, List, Any, Optional, Tuple
+from typing import List, Optional
 
 log = logging.getLogger("SLSAManager")
-
 
 class SLSAManager:
     """Singleton manager to control SLSA engine dynamically."""
@@ -192,13 +191,11 @@ class SLSAManager:
             # Not running — start with all accumulated topics
             return self.start(topics=list(self.topics))
 
-
 # Global singleton instance
 slsa_manager = SLSAManager()
 
 # Export
 __all__ = ["SLSAManager", "slsa_manager"]
-
 
 if __name__ == "__main__":
     print('Running slsa_manager.py - Singleton SLSA Manager')

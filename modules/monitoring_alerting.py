@@ -15,7 +15,7 @@ Features:
 
 import logging
 import asyncio
-from typing import Dict, List, Callable, Optional, Any
+from typing import Dict, List, Callable, Any
 from enum import Enum
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -168,8 +168,8 @@ class AlertManager:
 
 # Example usage
 if __name__ == "__main__":
-    import asyncio
-    
+    # asyncio is already imported at the top of the module
+
     async def test():
         manager = AlertManager()
         

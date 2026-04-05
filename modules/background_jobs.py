@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
 import traceback
 from typing import Callable, List, Optional
 
@@ -49,7 +48,6 @@ except ImportError:
     _notif_queue = _NopQueue()  # type: ignore[assignment]
 
 log = logging.getLogger("BackgroundJobs")
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # BackgroundJobManager
@@ -162,7 +160,6 @@ class BackgroundJobManager:
             total = len(self._threads)
             alive = sum(1 for t in self._threads if t.is_alive())
         return f"BackgroundJobs: {alive}/{total} threads alive, stop_event={self._stop_event.is_set()}"
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Module-level singleton

@@ -27,8 +27,8 @@ Usage::
 
 import logging
 import re
-from collections import defaultdict, deque
-from typing import Any, Dict, List, Optional, Set, Tuple
+from collections import defaultdict
+from typing import Any, Dict, List, Set, Tuple
 
 import requests
 
@@ -39,7 +39,6 @@ _NPM_API  = "https://registry.npmjs.org/{}"
 
 # Regex to strip version constraints from PEP-508 strings
 _REQ_NAME_RE = re.compile(r"^([A-Za-z0-9_\-\.]+)")
-
 
 class DependencyMapper:
     """

@@ -1531,6 +1531,8 @@ class NiblitCore:
         self.background_trainer: Optional[Any] = None
         # NEW: ALECheckpointManager — persistent ALE state across restarts (additive)
         self.ale_checkpoint: Optional[Any] = None
+        # NEW: GradedCurriculum — education-system learning progression (additive)
+        self.graded_curriculum: Optional[Any] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -6196,6 +6198,26 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     self.kernel.register_module("BackgroundTrainer", self.background_trainer)
 
             # ============================
+            # GRADED CURRICULUM — education-system learning progression
+            # ============================
+            try:
+                from modules.graded_curriculum import get_graded_curriculum
+                self.graded_curriculum = get_graded_curriculum(
+                    db=getattr(self, "db", None),
+                    self_teacher=getattr(self, "self_teacher", None),
+                )
+                if self.graded_curriculum:
+                    log.info(
+                        "✅ GradedCurriculum started at %s",
+                        self.graded_curriculum.current_grade.name,
+                    )
+                    self.startup_report.add("graded_curriculum", "ready")
+            except Exception as _gc_err:
+                log.debug("GradedCurriculum init failed: %s", _gc_err)
+                self.startup_report.add("graded_curriculum", "degraded", str(_gc_err))
+
+
+            # ============================
             # LATE-WIRE ReflectModule v2 dependencies
             # (brain_trainer, llm, trading_brain, vector_store are all built now)
             # ============================
@@ -7487,6 +7509,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
                                 pass
             except Exception as e:
                 loop_tracer.record("ResearchLoop", e)
+            # Periodically check if the current grade exam should be run
+            try:
+                gc = getattr(self, "graded_curriculum", None)
+                if gc is not None:
+                    gc.maybe_run_exam()
+            except Exception:
+                pass
             time.sleep(150)
 
     def _self_heal_loop(self):

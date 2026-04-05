@@ -16,8 +16,8 @@ Features:
 import asyncio
 import logging
 from typing import Optional, Any, List
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime
 
 log = logging.getLogger("ConnectionPooling")
 

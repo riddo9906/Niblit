@@ -5,11 +5,10 @@ Learn patterns and predict trends/outcomes
 """
 
 import logging
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Any
 from collections import Counter
 
 log = logging.getLogger("PredictionEngine")
-
 
 class PredictionEngine:
     """Learn patterns and make predictions"""

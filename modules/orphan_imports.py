@@ -2,16 +2,13 @@
 import importlib
 import traceback
 import datetime
-import os
 
 LOG_FILE = "niblit_orphan_fix.log"
-
 
 def log(msg):
     timestamp = datetime.datetime.now()
     with open(LOG_FILE, "a") as f:
         f.write(f"[{timestamp}] {msg}\n")
-
 
 def try_import(module_name):
     """Attempt to import a module and log success or failure."""
@@ -23,7 +20,6 @@ def try_import(module_name):
         log(f"FAILED: {module_name} — {str(e)}")
         log(traceback.format_exc())
         return False
-
 
 def run_orphan_fix():
     log("===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====")
@@ -63,7 +59,6 @@ def run_orphan_fix():
         try_import(module)
 
     log("===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====")
-
 
 if __name__ == "__main__":
     run_orphan_fix()

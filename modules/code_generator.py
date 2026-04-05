@@ -12,7 +12,6 @@ Features:
 - Store generated code in KnowledgeDB for future reference
 """
 
-import os
 import re
 import textwrap
 import time
@@ -76,11 +75,9 @@ import logging
 
 log = logging.getLogger(__name__)
 
-
 def main():
     """Entry point."""
     pass
-
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -94,7 +91,6 @@ from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("{name}")
 
-
 class {classname}:
     """{classname} implementation."""
 
@@ -105,7 +101,6 @@ class {classname}:
     def run(self) -> Dict[str, Any]:
         """Run the main logic."""
         return {{"status": "ok"}}
-
 
 if __name__ == "__main__":
     import logging as _logging  # pylint: disable=reimported,ungrouped-imports
@@ -697,7 +692,6 @@ log = logging.getLogger("{name}")
 HOST = "0.0.0.0"
 PORT = 9000
 
-
 def handle_client(conn: socket.socket, addr: tuple) -> None:
     """Handle a single client connection."""
     with conn:
@@ -709,7 +703,6 @@ def handle_client(conn: socket.socket, addr: tuple) -> None:
             conn.sendall(data)  # echo
         log.info("Disconnected: %s", addr)
 
-
 def main() -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as srv:
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -719,7 +712,6 @@ def main() -> None:
         while True:
             conn, addr = srv.accept()
             threading.Thread(target=handle_client, args=(conn, addr), daemon=True).start()
-
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -734,7 +726,6 @@ log = logging.getLogger("{name}")
 HOST = "127.0.0.1"
 PORT = 9000
 
-
 def main() -> None:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
@@ -742,7 +733,6 @@ def main() -> None:
         s.sendall(b"Hello, {name}")
         data = s.recv(4096)
         log.info("Received: %s", data.decode())
-
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -1030,7 +1020,6 @@ from typing import Optional
 log = logging.getLogger("{name}")
 ROW_WIDTH = 16
 
-
 def hexdump(data: bytes, offset: int = 0) -> str:
     """Return a classic hexdump string for *data*."""
     rows = []
@@ -1041,7 +1030,6 @@ def hexdump(data: bytes, offset: int = 0) -> str:
         rows.append(f"{{offset + i:08x}}  {{hex_part:<48}}  |{{asc_part}}|")
     return "\n".join(rows)
 
-
 def read_binary(path: str) -> Optional[bytes]:
     """Read a file as raw bytes."""
     try:
@@ -1050,7 +1038,6 @@ def read_binary(path: str) -> Optional[bytes]:
     except OSError as exc:
         log.error("Cannot read %s: %s", path, exc)
         return None
-
 
 def write_binary(path: str, data: bytes) -> bool:
     """Write raw bytes to a file."""
@@ -1062,21 +1049,17 @@ def write_binary(path: str, data: bytes) -> bool:
         log.error("Cannot write %s: %s", path, exc)
         return False
 
-
 def to_hex_string(data: bytes) -> str:
     """Convert bytes to hex string."""
     return data.hex()
-
 
 def from_hex_string(hex_str: str) -> bytes:
     """Convert hex string to bytes."""
     return bytes.fromhex(hex_str.replace(" ", "").replace("\\n", ""))
 
-
 def bytes_to_binary_string(data: bytes) -> str:
     """Convert bytes to binary (0/1) string."""
     return " ".join(f"{{b:08b}}" for b in data)
-
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -1137,7 +1120,6 @@ _MAX_RESEARCH_SUMMARY_LEN: int = 300
 _RESEARCH_SUMMARY_WIDTH: int = 120
 # Maximum length for Go package names (Go identifiers must be short).
 _MAX_GO_PACKAGE_NAME_LEN: int = 20
-
 
 class CodeGenerator:
     """
@@ -1604,8 +1586,6 @@ class CodeGenerator:
         if "'use strict'" not in header and '"use strict"' not in header:
             code = "'use strict';\n\n" + code
         return code
-
-
 
     def study_language(self, language: str) -> str:
         """Return idioms and best practices for a language."""
@@ -3232,7 +3212,6 @@ class CodeGenerator:
                 self.self_monitor.record(event_type, event_data)
         except Exception as exc:
             log.debug("[CodeGenerator] self_monitor log failed: %s", exc)
-
 
 # ──────────────────────────────────────────────────────
 # STANDALONE SELF-TEST

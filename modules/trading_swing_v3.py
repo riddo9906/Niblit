@@ -588,6 +588,43 @@ class FilteredSwingTraderV3:
         with self._lock:
             return [l.to_dict() for l in self.legs[-last_n:]]
 
+    def kelly_position_size(
+        self,
+        win_rate: float,
+        avg_win_pct: float,
+        avg_loss_pct: float,
+        max_fraction: float = 0.25,
+    ) -> float:
+        """Compute the Kelly-criterion position size fraction.
+
+        Uses the formula: f* = (p * b - q) / b  where p = win_rate,
+        q = 1 - p, b = avg_win / avg_loss (the payoff ratio).
+
+        The result is clamped to [0, *max_fraction*] so Niblit never risks
+        more than a configurable fraction of its account on a single trade.
+
+        Parameters
+        ----------
+        win_rate:       Historical win rate (e.g. 0.55 for 55 %).
+        avg_win_pct:    Average winning trade return (e.g. 0.02 for 2 %).
+        avg_loss_pct:   Average losing trade return (positive, e.g. 0.01 for 1 %).
+        max_fraction:   Maximum allowed position fraction (default 25 %).
+
+        Returns
+        -------
+        float: Position size as a fraction of available capital.
+        """
+        if avg_loss_pct <= 0 or avg_win_pct <= 0:
+            return 0.0
+        b = avg_win_pct / avg_loss_pct   # payoff ratio
+        p = win_rate
+        q = 1.0 - p
+        kelly = (p * b - q) / b
+        # Apply square-root shrinkage to avoid over-betting in short histories
+        kelly = max(0.0, kelly)
+        shrunk = math.sqrt(kelly) * kelly if kelly > 0 else 0.0
+        return round(min(shrunk, max_fraction), 4)
+
     def explain_last_entry(self) -> str:
         """Plain-text explanation of the last entry signal for AI introspection."""
         with self._lock:

@@ -5,7 +5,7 @@ Integrates all 10 improvement modules into unified system
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import json
 
 log = logging.getLogger("ImprovementIntegrator")
@@ -271,6 +271,17 @@ class ImprovementIntegrator:
             "9_collaboration": "✅ Collaborative Learner - Ready for peer learning",
             "10_smart_implementation": "✅ Improvement Integrator - Smart idea evaluation & coordination"
         }
+
+    def get_status_json(self, indent: int = 2) -> str:
+        """Return the improvement status as a JSON string.
+
+        Useful for sending the status over HTTP, storing it in the knowledge
+        DB, or displaying it in a structured UI.
+        """
+        status = self.get_improvement_status()
+        status["modules_initialized"] = str(self.modules_initialized)
+        status["modules_available"] = list(self.modules.keys())
+        return json.dumps(status, indent=indent, default=str)
 
     def collect_and_summarize(self, interactions: List[Dict] = None) -> Dict[str, Any]:
         """

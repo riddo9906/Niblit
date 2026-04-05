@@ -25,13 +25,12 @@ import ast
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 log = logging.getLogger("CodeParser")
 
 _SUPPORTED_EXTENSIONS = {".py"}
 _MAX_FILE_SIZE = 512 * 1024  # 512 KB — skip huge generated files
-
 
 class CodeParser:
     """

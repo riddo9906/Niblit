@@ -32,7 +32,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 log = logging.getLogger(__name__)
 
@@ -257,6 +257,10 @@ class BIOSIntegration:
             f"uefi={uefi} | secure_boot={secure} | "
             f"read_only={self._read_only}"
         )
+
+    def to_json(self, indent: int = 2) -> str:
+        """Return the current BIOS/UEFI profile as a JSON string."""
+        return json.dumps(self.get_profile(), indent=indent, default=str)
 
     # ── Internal ──────────────────────────────────────────────────────────────
 

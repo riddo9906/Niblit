@@ -10,6 +10,13 @@ class SelfIdeaGenerator:
         self.db = db
         self.collector = collector
         self.running = True
+        # Start the autonomous loop in a daemon thread so it runs in the
+        # background without blocking the main application startup.
+        self._thread = threading.Thread(
+            target=self.autonomous_loop, daemon=True, name="SelfIdeaGenerator"
+        )
+        self._thread.start()
+        log.info("[SelfIdeaGenerator] Background idea-generation thread started")
 
     def generate_plan(self, idea_text):
         plan = f"Implementation plan for '{idea_text}' - {datetime.utcnow().isoformat()}"

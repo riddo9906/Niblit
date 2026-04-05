@@ -15,13 +15,12 @@ Features:
 
 import time
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List
 from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
 from datetime import datetime
 
 log = logging.getLogger("Observability")
-
 
 @dataclass
 class MetricSnapshot:
@@ -39,7 +38,6 @@ class MetricSnapshot:
             labels_str = "{" + ",".join(labels_list) + "}"
         
         return f"{self.name}{labels_str} {self.value} {int(self.timestamp * 1000)}"
-
 
 class TelemetryCollector:
     """
@@ -161,8 +159,8 @@ class TelemetryCollector:
                 for name in self.histograms
             },
             "traces": len(self.traces),
+            "snapshot_at": datetime.utcnow().isoformat() + "Z",
         }
-
 
 # Example usage
 if __name__ == "__main__":

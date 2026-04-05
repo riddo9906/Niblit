@@ -72,6 +72,19 @@ def _is_allowed(cmd_str: str) -> bool:
     return first_token in allowed
 
 
+# Regex that matches dangerous shell-injection characters/sequences.
+# These are blocked even when NIBLIT_CMD_UNRESTRICTED is set, unless the
+# command is already supplied as a pre-split list (no string parsing needed).
+_SHELL_INJECTION = re.compile(r"[;&|`$<>()\[\]{}\\\n]|\.\./|/etc/passwd|/etc/shadow")
+
+
+def _check_injection(cmd_str: str) -> Optional[str]:
+    """Return a description of a suspected injection attempt, or None if clean."""
+    m = _SHELL_INJECTION.search(cmd_str)
+    if m:
+        return f"suspicious character/sequence '{m.group()}' at position {m.start()}"
+    return None
+
 # ─────────────────────────────────────────────────────────────────────────────
 # DeviceControl
 # ─────────────────────────────────────────────────────────────────────────────
@@ -104,7 +117,20 @@ class DeviceControl:
         """
         Execute a command and return {stdout, stderr, returncode, cmd, duration}.
         Commands are validated against the allow-list unless unrestricted mode is on.
+        Shell-injection patterns are always blocked regardless of the allow-list.
         """
+        # Injection guard — runs before the allow-list check so it cannot be
+        # bypassed by setting NIBLIT_CMD_UNRESTRICTED.
+        injection = _check_injection(cmd)
+        if injection:
+            log.warning("[DeviceControl] Blocked suspected injection: %s", injection)
+            return {
+                "cmd": cmd,
+                "stdout": "",
+                "stderr": f"⛔ Command blocked — {injection}",
+                "returncode": 126,
+                "duration": 0,
+            }
         if not _is_allowed(cmd):
             return {
                 "cmd": cmd,

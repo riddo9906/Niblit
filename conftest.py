@@ -11,6 +11,7 @@ regardless of how pytest resolves the package hierarchy.
 import os
 import sys
 
+
 # Ensure the project root is always on sys.path so that bare imports such as
 #   from niblit_sqlite_db import NiblitSQLiteDB
 # work correctly even when the directory is treated as a package by pytest.
@@ -19,7 +20,18 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 
+# Store the exitstatus from pytest_sessionfinish so we can use it in
+# pytest_unconfigure (which fires after all terminal output is flushed).
+_exit_status: int = 0
+
+
 def pytest_sessionfinish(session, exitstatus):
+    """Capture the exit status for use in pytest_unconfigure."""
+    global _exit_status
+    _exit_status = int(exitstatus)
+
+
+def pytest_unconfigure(config):
     """Force a clean OS-level exit to prevent SIGABRT crashes.
 
     Heavy native extensions (torch, faiss-cpu, CUDA libraries) can trigger
@@ -28,5 +40,13 @@ def pytest_sessionfinish(session, exitstatus):
     shuts down.  Calling ``os._exit()`` bypasses the GC/atexit chain while
     still propagating the correct pytest exit code (0 = all passed, non-zero
     = failures).
+
+    This hook fires *after* the terminal reporter has written the full test
+    summary (including failure details), so no output is lost.
     """
-    os._exit(int(exitstatus))
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except Exception:
+        pass
+    os._exit(_exit_status)

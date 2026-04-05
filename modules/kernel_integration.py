@@ -31,7 +31,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 log = logging.getLogger(__name__)
 
@@ -183,6 +183,26 @@ class KernelIntegration:
             return "dmesg only available on Linux"
         raw = _run(["dmesg", "--notime", f"--lines={lines}"], timeout=5)
         return raw or "⚠️  dmesg returned no output (may need elevated permissions)"
+
+    def search_dmesg(self, pattern: str, lines: int = 200) -> str:
+        """Return dmesg lines matching *pattern* (a Python regex).
+
+        Useful for finding hardware errors, OOM events, driver messages, etc.
+        Example: ``ki.search_dmesg(r"error|fail|warn", lines=500)``
+        """
+        if self._system != "linux":
+            return "dmesg search only available on Linux"
+        raw = _run(["dmesg", "--notime", f"--lines={lines}"], timeout=5)
+        if not raw:
+            return "⚠️  dmesg returned no output"
+        try:
+            rx = re.compile(pattern, re.IGNORECASE)
+            matched = [l for l in raw.splitlines() if rx.search(l)]
+            if not matched:
+                return f"No dmesg lines matched {pattern!r}"
+            return "\n".join(matched[:100])
+        except re.error as exc:
+            return f"Invalid regex {pattern!r}: {exc}"
 
     def set_sysctl(self, key: str, value: str, write: bool = False) -> str:
         if self._system != "linux":

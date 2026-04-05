@@ -42,7 +42,7 @@ import threading
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
@@ -55,14 +55,12 @@ _ANOMALY_SPIKE_RATIO = float(os.environ.get("NIBLIT_SPIKE_RATIO", "3.0"))
 _MAX_FAIL_STREAK = int(os.environ.get("NIBLIT_MAX_FAIL_STREAK", "10"))
 _LOG_MAX_EVENTS = int(os.environ.get("NIBLIT_LOG_MAX_EVENTS", "1000"))
 
-
 @dataclass
 class SecurityResult:
     """Result of a membrane inspection."""
     allowed: bool
     reason: str = ""
     risk_score: float = 0.0  # 0.0 = clean, 1.0 = maximum risk
-
 
 @dataclass
 class _ClientRecord:
@@ -72,7 +70,6 @@ class _ClientRecord:
     blocked_until: float = 0.0
     total_requests: int = 0
     anomaly_count: int = 0
-
 
 class SecurityMembrane:
     """
@@ -306,16 +303,13 @@ class SecurityMembrane:
         self._baseline_rps = 0.8 * self._baseline_rps + 0.2 * new_rps
         self._last_baseline_update = now
 
-
 def _fingerprint(ip: str) -> str:
     """One-way hash of an IP so we never log raw addresses."""
     return hashlib.sha256(ip.encode()).hexdigest()[:12]
 
-
 # ── Singleton ──────────────────────────────────────────────────────────────
 _instance: Optional[SecurityMembrane] = None
 _instance_lock = threading.Lock()
-
 
 def get_security_membrane(knowledge_db: Optional[Any] = None) -> SecurityMembrane:
     """Return the process-level SecurityMembrane singleton."""

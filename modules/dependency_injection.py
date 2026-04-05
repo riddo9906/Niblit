@@ -10,11 +10,10 @@ Enables:
 """
 
 import logging
-from typing import Type, Any, Dict, Optional, Callable
+from typing import Any, Dict, Optional, Callable
 from abc import ABC, abstractmethod
 
 log = logging.getLogger("DependencyInjection")
-
 
 # ============= SERVICE INTERFACES =============
 
@@ -27,7 +26,6 @@ class DatabaseInterface(ABC):
     async def get_fact(self, key: str) -> Optional[Any]:
         pass
 
-
 class BrainInterface(ABC):
     @abstractmethod
     async def think(self, text: str) -> str:
@@ -37,18 +35,15 @@ class BrainInterface(ABC):
     async def handle_command(self, text: str) -> str:
         pass
 
-
 class InternetInterface(ABC):
     @abstractmethod
     async def search(self, query: str) -> list:
         pass
 
-
 class RouterInterface(ABC):
     @abstractmethod
     async def process(self, text: str) -> str:
         pass
-
 
 # ============= MOCK IMPLEMENTATIONS =============
 
@@ -64,7 +59,6 @@ class MockDatabase(DatabaseInterface):
     async def get_fact(self, key: str) -> Optional[Any]:
         return self.data.get(key)
 
-
 class MockBrain(BrainInterface):
     async def think(self, text: str) -> str:
         log.debug(f"MockBrain: Thinking about '{text}'")
@@ -74,18 +68,15 @@ class MockBrain(BrainInterface):
         log.debug(f"MockBrain: Handling command '{text}'")
         return f"[MockBrain] Command result: {text}"
 
-
 class MockInternet(InternetInterface):
     async def search(self, query: str) -> list:
         log.debug(f"MockInternet: Searching for '{query}'")
         return [f"Mock result for {query}"]
 
-
 class MockRouter(RouterInterface):
     async def process(self, text: str) -> str:
         log.debug(f"MockRouter: Processing '{text}'")
         return f"[MockRouter] Routed: {text}"
-
 
 # ============= DEPENDENCY CONTAINER =============
 
@@ -125,7 +116,6 @@ class Container:
         """Check if service is registered."""
         return name in self._services or name in self._factories
 
-
 # ============= SERVICE LOCATOR (Alternative Pattern) =============
 
 class ServiceLocator:
@@ -154,7 +144,6 @@ class ServiceLocator:
             raise KeyError(f"Service '{name}' not registered")
         return cls._services[name]
 
-
 # ============= EXAMPLE USAGE =============
 
 class NiblitCoreWithDI:
@@ -177,7 +166,6 @@ class NiblitCoreWithDI:
         """Handle command using injected services."""
         # Can use any implementation (real or mock)
         return await self.brain.think(text)
-
 
 if __name__ == "__main__":
     import asyncio

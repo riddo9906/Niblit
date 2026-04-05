@@ -67,7 +67,7 @@ import tempfile
 import threading
 import time
 from copy import deepcopy
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 log = logging.getLogger("ALECheckpoint")
 
@@ -89,7 +89,6 @@ _MAX_ANCHORS = 20
 
 # How many completed step results to keep in the checkpoint
 _MAX_STEP_HISTORY = 200
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Checkpoint data format
@@ -119,7 +118,6 @@ def _empty_checkpoint() -> Dict[str, Any]:
         "paused": False,                 # True when user issued 'ale pause'
         "paused_at_step": None,          # which step was active when paused
     }
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ALECheckpointManager

@@ -42,7 +42,6 @@ import json
 import logging
 import os
 import threading
-import time
 from typing import Any, Dict, Optional
 
 # ── notification queue ─────────────────────────────────────────────────────────
@@ -78,7 +77,6 @@ except Exception:
         return os.path.join(cwd, fn) if os.access(cwd, os.W_OK) else os.path.join(_tempfile.gettempdir(), fn)
 
 _DEFAULT_PARAMS_FILE = _mem_writable_path("niblit_params.json", "NIBLIT_PARAMS_FILE")
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ParameterManager
@@ -370,7 +368,6 @@ class ParameterManager:
             f"remote={remote} | "
             f"sync_thread={'alive ✅' if thread_alive else 'stopped ⏹️'}"
         )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Module-level singleton

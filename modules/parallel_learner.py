@@ -7,7 +7,7 @@ Enables simultaneous research on multiple topics for faster learning
 import threading
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 try:
     from niblit_memory import NiblitMemory as _NiblitMemory
@@ -16,7 +16,6 @@ except Exception:
     _GLOBAL_MEMORY = None  # type: ignore[assignment]
 
 log = logging.getLogger("ParallelLearner")
-
 
 class ParallelLearner:
     """Process multiple research topics concurrently"""

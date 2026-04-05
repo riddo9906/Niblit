@@ -21,7 +21,7 @@ import tempfile
 import threading
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 log = logging.getLogger("ModuleAutonomy")
 
@@ -29,9 +29,7 @@ _HEALTH_INTERVAL = int(os.getenv("NIBLIT_AUTONOMY_HEALTH_INTERVAL", "60"))
 _IMPROVE_INTERVAL = int(os.getenv("NIBLIT_AUTONOMY_IMPROVE_INTERVAL", "300"))
 _UNIFY_INTERVAL = int(os.getenv("NIBLIT_AUTONOMY_UNIFY_INTERVAL", "600"))
 
-
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 class ModuleRecord:
     """Metadata and health state for a single registered module."""
@@ -50,7 +48,6 @@ class ModuleRecord:
         self.last_improved: Optional[str] = None
         self.improvement_count = 0
         self.capabilities: Set[str] = set()
-
 
 class ModuleAutonomy:
     """Central autonomy manager for all Niblit modules.
@@ -302,6 +299,37 @@ class ModuleAutonomy:
             lines.append(f"\n  Latest unification: {self._unify_log[-1]}")
         return "\n".join(lines)
 
+    def write_module_snapshot(self, name: str) -> str:
+        """Write a JSON snapshot of a registered module's status to a temp file.
+
+        Uses ``tempfile`` to create an isolated file that can be read by the
+        evolve engine or health checks without cluttering the working directory.
+
+        Returns the path to the temp file, or an error string.
+        """
+        rec = self._modules.get(name)
+        if rec is None:
+            return f"⚫ Module '{name}' not registered"
+        import json as _json
+        data = {
+            "name": rec.name,
+            "category": rec.category,
+            "healthy": rec.healthy,
+            "fail_count": rec.fail_count,
+            "improvement_count": rec.improvement_count,
+            "last_health_check": rec.last_health_check,
+            "last_improved": rec.last_improved,
+            "capabilities": rec.capabilities,
+        }
+        try:
+            fd, path = tempfile.mkstemp(suffix=f"_{name}.json", prefix="niblit_module_")
+            import os as _os
+            with _os.fdopen(fd, "w", encoding="utf-8") as fh:
+                _json.dump(data, fh, indent=2, default=str)
+            return path
+        except Exception as exc:
+            return f"❌ snapshot write failed: {exc}"
+
     def module_status(self, name: str) -> str:
         rec = self._modules.get(name)
         if rec is None:
@@ -315,11 +343,9 @@ class ModuleAutonomy:
             f"  Capabilities: {', '.join(rec.capabilities) or 'none declared'}"
         )
 
-
 # ── singleton ─────────────────────────────────────────────────────────────────
 
 _instance: Optional[ModuleAutonomy] = None
-
 
 def get_module_autonomy(core: Optional[Any] = None) -> ModuleAutonomy:
     global _instance
@@ -328,7 +354,6 @@ def get_module_autonomy(core: Optional[Any] = None) -> ModuleAutonomy:
     elif core is not None and _instance.core is None:
         _instance.core = core
     return _instance
-
 
 if __name__ == "__main__":
     print("Running module_autonomy.py")

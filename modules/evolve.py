@@ -194,10 +194,20 @@ class EvolveEngine:
     # ──────────────────────────────────────────────
 
     def _select_next_evolve_direction(self) -> str:
-        """Rotate through EVOLVE_DIRECTIONS sequentially."""
-        directions = EVOLVE_DIRECTIONS or _EVOLUTION_DIRECTIONS
+        """Return the next evolution direction.
+
+        Every full pass through all directions, the list is shuffled so that
+        long-running sessions explore different orderings and don't always
+        hit the same sequence.  Within a pass, topics are served sequentially
+        so every direction gets at least one turn before repeating.
+        """
+        directions = list(EVOLVE_DIRECTIONS or _EVOLUTION_DIRECTIONS)
         if not directions:
             return "general improvement"
+        # Shuffle at the start of each new pass through the full list
+        if self._evolve_topic_index % len(directions) == 0 and self._evolve_topic_index > 0:
+            random.shuffle(directions)
+            log.debug("[EvolveEngine] Shuffled %d directions for next pass", len(directions))
         direction = directions[self._evolve_topic_index % len(directions)]
         self._evolve_topic_index += 1
         return direction
@@ -413,7 +423,11 @@ class EvolveEngine:
             )
             if result.get("success"):
                 self._stats["code_generated"] += 1
-                return f"Generated improve_{name}() in Python"
+                # Return the actual generated Python source so the caller can
+                # write valid Python to the improvement file.  The old code
+                # returned a prose description string, which produced 190+
+                # syntactically invalid .py files in evolved/.
+                return result.get("code") or f"# improve_{name}\ndef improve_{name}():\n    \"\"\"Improvement for: {direction}\"\"\"\n    pass\n"
             return None
         except Exception as exc:
             log.debug("[EvolveEngine] Code gen failed: %s", exc)

@@ -59,14 +59,14 @@ log = logging.getLogger("NiblitMCP")
 
 # ─── optional flask import ─────────────────────────────────────────────────
 try:
-    from flask import Flask as _Flask, request as _request, Response as _Response, jsonify as _jsonify
+    from flask import Flask as _Flask, request as _request, Response as _Response, jsonify as _jsonify  # noqa: F401
     _FLASK_AVAILABLE = True
 except ImportError:
     _FLASK_AVAILABLE = False
 
 # ─── MCP SDK (optional — falls back to built-in JSON-RPC handler) ──────────
 try:
-    import mcp  # type: ignore[import]
+    import mcp  # type: ignore[import]  # noqa: F401
     _MCP_SDK_AVAILABLE = True
 except ImportError:
     _MCP_SDK_AVAILABLE = False

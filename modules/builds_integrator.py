@@ -46,7 +46,6 @@ from __future__ import annotations
 import importlib.util
 import logging
 import sys
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -67,7 +66,6 @@ _CHAT_CLASS: Optional[Any] = None
 _DATA_PROC_CLASS: Optional[Any] = None
 _LOADED: bool = False
 
-
 def _load_module_from_path(name: str, path: Path) -> Optional[Any]:
     """Dynamically load a Python file from *path* under the module name *name*."""
     try:
@@ -81,7 +79,6 @@ def _load_module_from_path(name: str, path: Path) -> Optional[Any]:
     except Exception as exc:
         log.debug("[BuildsIntegrator] Failed to load %s from %s: %s", name, path, exc)
         return None
-
 
 def _ensure_loaded() -> None:
     """Import all builds/python scripts on first call (idempotent)."""
@@ -134,7 +131,6 @@ def _ensure_loaded() -> None:
             _DATA_PROC_CLASS = getattr(mod, "DataProcessor", None)
             if _DATA_PROC_CLASS:
                 log.info("[BuildsIntegrator] DataProcessor loaded ✅")
-
 
 # ---------------------------------------------------------------------------
 # Public API

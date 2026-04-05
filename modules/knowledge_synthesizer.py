@@ -5,10 +5,9 @@ Combines information from multiple sources into unified knowledge
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict
 
 log = logging.getLogger("KnowledgeSynthesizer")
-
 
 class KnowledgeSynthesizer:
     """Synthesize knowledge from multiple sources"""

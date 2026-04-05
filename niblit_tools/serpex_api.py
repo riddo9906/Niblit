@@ -98,9 +98,9 @@ class SerpexAPI:
             ``{"results": [{"title": str, "url": str, "snippet": str}, ...]}``
             or ``{"results": [], "error": str}`` on failure.
         """
-        scrapy_engine = self._engine or _get_scrapy_engine()
-        if scrapy_engine is None:
+        if self._engine is None:
             return {"results": [], "error": "ScrapySearchEngine unavailable"}
+        scrapy_engine = self._engine
         try:
             return scrapy_engine.search(query, category=category)
         except Exception as exc:

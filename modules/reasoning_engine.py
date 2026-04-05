@@ -4,9 +4,9 @@ REASONING ENGINE MODULE
 Connects disparate knowledge to create logical chains
 """
 
-import logging
-from typing import List, Dict, Set, Tuple, Optional
 import json
+import logging
+from typing import List, Dict, Set
 
 log = logging.getLogger("ReasoningEngine")
 
@@ -89,7 +89,30 @@ class ReasoningEngine:
         
         log.info(f"✅ [REASONING] Generated {len(inferences)} inferences")
         return inferences
-    
+
+    def export_graph(self, indent: int = 2) -> str:
+        """Serialize the knowledge graph to a JSON string.
+
+        Useful for persisting the graph between sessions or sending it to
+        other components (e.g. the knowledge DB or a visualiser).
+        """
+        return json.dumps(self.graph, indent=indent, default=str)
+
+    def import_graph(self, json_str: str) -> bool:
+        """Load a previously exported knowledge graph from a JSON string.
+
+        Returns True on success, False if the JSON could not be parsed.
+        """
+        try:
+            data = json.loads(json_str)
+            if isinstance(data, dict):
+                self.graph = data
+                log.info("[REASONING] Imported graph with %d concepts", len(self.graph))
+                return True
+        except (json.JSONDecodeError, TypeError) as exc:
+            log.warning("[REASONING] import_graph failed: %s", exc)
+        return False
+
     def _extract_concepts(self, text) -> Set[str]:
         """Extract key concepts from text"""
         words = str(text).lower().split()

@@ -14,7 +14,7 @@ Architecture role (Phase 2)
 import logging
 from typing import Any, Dict, Optional
 
-from base_agent import BaseAgent
+from agents.base_agent import BaseAgent
 from core.event_bus import Event, EventBus, EventType
 from core.task_queue import Task
 

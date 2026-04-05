@@ -52,7 +52,7 @@ Usage
 import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 log = logging.getLogger("SQLiteResearcher")
 
@@ -65,7 +65,6 @@ _PRIORITY_TAGS = (
     "ale_unified", "ale_step1", "ale_research", "ale_serpex_research",
     "ale_learned", "research", "serpex",
 )
-
 
 def is_relevant(query: str, text: str, threshold: float = 0.3) -> bool:
     """Return True when *text* overlaps with *query* terms by at least *threshold*.
@@ -80,7 +79,6 @@ def is_relevant(query: str, text: str, threshold: float = 0.3) -> bool:
     text_lower = text.lower()
     matched = sum(1 for t in query_terms if t in text_lower)
     return (matched / len(query_terms)) >= threshold
-
 
 class SQLiteResearcher:
     """Local SQLite-backed research agent — replaces SerpexAPI + ResearchAgent.

@@ -5,20 +5,17 @@ Enables Niblit to research multiple topics simultaneously instead of sequentiall
 Improvement #1: Faster Learning
 """
 
-import threading
 import logging
 import time
 from datetime import datetime
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import json
 
 log = logging.getLogger("ParallelLearning")
 logging.basicConfig(
     level=logging.INFO,
     format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
 )
-
 
 class ParallelLearningEngine:
     """Process multiple research topics in parallel for faster learning"""
@@ -208,7 +205,6 @@ class ParallelLearningEngine:
         """Gracefully shutdown executor"""
         self.executor.shutdown(wait=True)
         log.info("🛑 ParallelLearningEngine shutdown")
-
 
 if __name__ == "__main__":
     print("Running parallel_learning_engine.py")

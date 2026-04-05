@@ -27,12 +27,10 @@ import os
 import platform
 import sys
 import threading
-import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 
 log = logging.getLogger(__name__)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Platform capability constants
@@ -61,7 +59,6 @@ class Capabilities:
     def as_dict(self) -> Dict[str, bool]:
         return {k: v for k, v in self.__dict__.items()}
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Platform detectors
 # ─────────────────────────────────────────────────────────────────────────────
@@ -72,7 +69,6 @@ def _is_termux() -> bool:
         or "termux" in os.environ.get("PREFIX", "").lower()
     )
 
-
 def _is_cloud() -> bool:
     indicators = (
         "VERCEL", "RENDER", "FLY_APP_NAME",
@@ -81,14 +77,11 @@ def _is_cloud() -> bool:
     )
     return any(os.environ.get(k) for k in indicators)
 
-
 def _is_car() -> bool:
     return os.environ.get("NIBLIT_CAR_MODE", "").strip() in ("1", "true", "yes")
 
-
 def _is_console() -> bool:
     return os.environ.get("NIBLIT_CONSOLE_MODE", "").strip() in ("1", "true", "yes")
-
 
 def _is_embedded() -> bool:
     machine = platform.machine().lower()
@@ -99,7 +92,6 @@ def _is_embedded() -> bool:
         except Exception:
             return True  # ARM Linux — assume embedded
     return False
-
 
 def _total_ram_gb() -> float:
     try:
@@ -112,7 +104,6 @@ def _total_ram_gb() -> float:
         return mem_kb / 1024 ** 2
     except Exception:
         return 4.0  # assume 4 GB if unknown
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PlatformBootstrap
@@ -311,16 +302,13 @@ class PlatformBootstrap:
             if bin_path not in os.environ.get("PATH", ""):
                 os.environ["PATH"] = bin_path + ":" + os.environ.get("PATH", "")
 
-
 def _niblit_root() -> Path:
     return Path(__file__).resolve().parent.parent
-
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 
 _INSTANCE: Optional[PlatformBootstrap] = None
 _LOCK = threading.Lock()
-
 
 def get_platform_bootstrap() -> PlatformBootstrap:
     """Return the process-wide PlatformBootstrap singleton."""

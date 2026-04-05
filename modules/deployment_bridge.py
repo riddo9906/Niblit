@@ -16,7 +16,6 @@ import os
 import shutil
 import tempfile
 import threading
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -40,7 +39,6 @@ _BRIDGE_FILE = _mem_writable_path("niblit_deployment_bridge.json", "NIBLIT_BRIDG
 _BRIDGE_LOCK = threading.Lock()
 
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 class DeploymentBridge:
     """Persist and restore Niblit's learned state across deployments.
@@ -212,18 +210,15 @@ class DeploymentBridge:
     def stop_autosave(self) -> None:
         self._stop.set()
 
-
 # ── module-level singleton ────────────────────────────────────────────────────
 
 _bridge: Optional[DeploymentBridge] = None
-
 
 def get_deployment_bridge(path: Optional[str] = None) -> DeploymentBridge:
     global _bridge
     if _bridge is None:
         _bridge = DeploymentBridge(path=path)
     return _bridge
-
 
 if __name__ == "__main__":
     print("Running deployment_bridge.py")

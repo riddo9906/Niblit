@@ -27,7 +27,7 @@ import sys
 import textwrap
 import threading
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
@@ -41,15 +41,12 @@ def _is_termux() -> bool:
         or "termux" in os.environ.get("PREFIX", "").lower()
     )
 
-
 def _niblit_root() -> Path:
     """Return the absolute path of the Niblit project directory."""
     return Path(__file__).resolve().parent.parent
 
-
 def _python_exe() -> str:
     return sys.executable
-
 
 def _run(cmd: list, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
     return subprocess.run(
@@ -59,7 +56,6 @@ def _run(cmd: list, check: bool = True, capture: bool = True) -> subprocess.Comp
         text=True,
         timeout=30,
     )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Platform-specific installers
@@ -148,7 +144,6 @@ class _LinuxInstaller:
                 pass
         return "✅ Niblit systemd service removed"
 
-
 class _TermuxInstaller:
     """Installs Niblit via Termux:Boot for autostart on Android reboot."""
 
@@ -190,7 +185,6 @@ class _TermuxInstaller:
         except Exception:
             pass
         return "✅ Niblit Termux boot hook removed"
-
 
 class _MacOSInstaller:
     """Installs Niblit as a macOS LaunchAgent (user-level auto-start)."""
@@ -250,7 +244,6 @@ class _MacOSInstaller:
             pass
         return "✅ Niblit LaunchAgent removed"
 
-
 class _WindowsInstaller:
     """Installs Niblit via NSSM (Windows Service wrapper) or Task Scheduler."""
 
@@ -306,7 +299,6 @@ class _WindowsInstaller:
             _run(["schtasks", "/Delete", "/TN", self._SVC_NAME, "/F"], check=False)
         return "✅ Niblit Windows service/task removed"
 
-
 class _GenericInstaller:
     """Fallback: appends a Niblit autostart line to ~/.profile / ~/.bashrc."""
 
@@ -356,7 +348,6 @@ class _GenericInstaller:
             rc.write_text("".join(new_lines))
             removed.append(str(rc))
         return f"✅ Niblit autostart removed from {', '.join(removed) or 'N/A'}"
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OSIntegration — unified facade
@@ -432,12 +423,10 @@ class OSIntegration:
             return _WindowsInstaller()
         return _GenericInstaller()
 
-
 # ── Singleton ─────────────────────────────────────────────────────────────────
 
 _INSTANCE: Optional[OSIntegration] = None
 _LOCK = threading.Lock()
-
 
 def get_os_integration(hardware_scanner: Optional[Any] = None) -> OSIntegration:
     """Return the process-wide OSIntegration singleton."""
