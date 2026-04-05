@@ -882,7 +882,7 @@ class AutonomousLearningEngine:
                     ledger_text = (
                         f"{reflection_output or research_text[:300]}"
                     ).strip()
-                    if ledger_text:
+                    if ledger_text and not ledger_text.startswith("No data found"):
                         self.knowledge_db.add_fact(
                             f"topic_knowledge:{last_topic}",
                             ledger_text,

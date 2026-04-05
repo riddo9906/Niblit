@@ -203,6 +203,9 @@ class SelfTeacher:
         else:
             learned = self._get_recent_facts(topic, limit=5)
 
+        # Discard placeholder "No data found" entries — they are not real knowledge
+        learned = [r for r in learned if not (isinstance(r, str) and r.strip().startswith("No data found"))]
+
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
 
         if learned:
@@ -278,6 +281,9 @@ class SelfTeacher:
                 learned = []
         else:
             learned = self._get_recent_facts(topic, limit=5)
+
+        # Discard placeholder "No data found" entries — they are not real knowledge
+        learned = [r for r in learned if not (isinstance(r, str) and r.strip().startswith("No data found"))]
 
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
 

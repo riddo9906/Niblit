@@ -100,6 +100,9 @@ _NOISE_VALUE_PATTERNS: Tuple[re.Pattern, ...] = (
     re.compile(r"^\s*(routed|dispatched|command handled):", re.I),
     re.compile(r"^\s*heartbeat\s+tick", re.I),
     re.compile(r"^\s*loop iteration\s+\d+", re.I),
+    # "No data found" placeholder — not real knowledge
+    re.compile(r"^\s*No data found for\b", re.I),
+    re.compile(r"^\s*\[No data found for\b", re.I),
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
