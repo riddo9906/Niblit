@@ -1371,7 +1371,19 @@ class KnowledgeDB:
             tags_lower = [str(t).lower() for t in fact.get("tags", [])]
             for cat in ale_cats:
                 if cat not in recents and any(cat in t for t in tags_lower):
-                    recents[cat] = str(fact.get("value", ""))[:80].replace("\n", " ")
+                    raw_val = fact.get("value", "")
+                    # Extract a readable string from dict values instead of Python repr
+                    if isinstance(raw_val, dict):
+                        raw_val = (
+                            raw_val.get("summary")
+                            or raw_val.get("research")
+                            or raw_val.get("description")
+                            or raw_val.get("direction")
+                            or raw_val.get("content")
+                            or raw_val.get("text")
+                            or ""
+                        )
+                    recents[cat] = str(raw_val)[:80].replace("\n", " ")
 
         lines = [
             "📚 NIBLIT KNOWLEDGE BASE SUMMARY", "",
@@ -1397,13 +1409,22 @@ class KnowledgeDB:
 
         # ── Readable knowledge digest (additive, uses KnowledgeFilter) ────────
         # Show the most recent genuine research/learning facts in readable form.
+        # Exclude code/evolve artifacts (generated stubs, not learned knowledge).
+        _ARTIFACT_TAGS = frozenset({"evolve", "deploy", "builds", "improvement"})
         try:
             from modules.knowledge_filter import get_knowledge_filter as _gkf
             _kf = _gkf()
-            # Get the 20 most recent facts that pass the knowledge filter
+            # Get the 20 most recent facts that pass the knowledge filter,
+            # skipping pure code-artifact entries.
             sorted_facts = sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)
+            knowledge_facts = [
+                f for f in sorted_facts
+                if not (isinstance(f, dict) and _ARTIFACT_TAGS.intersection(
+                    str(t).lower() for t in (f.get("tags") or [])
+                ))
+            ]
             knowledge_bullets = _kf.summarize_facts(
-                sorted_facts, max_items=20, title=""
+                knowledge_facts, max_items=20, title=""
             ).splitlines()
             # Remove the empty title header and blank lines
             knowledge_bullets = [

@@ -2736,11 +2736,20 @@ Ask me about:
             # (e.g. all topics ever taught) under a single key.  recall() matches
             # them whenever *any* topic word appears in their serialised JSON,
             # which would cause unrelated topics to bleed into KB answers.
+            _CODE_ARTIFACT_TAGS = frozenset({"evolve", "deploy", "builds", "improvement"})
+
             def _is_knowledge_fact(f):
                 if not isinstance(f, dict):
                     return True
                 val = f.get("value")
                 key = f.get("key", "")
+                tags = set(str(t).lower() for t in (f.get("tags") or []))
+                # Skip code-artifact facts (evolve/deploy/builds/improvement) —
+                # these are generated Python stubs, not human-readable knowledge
+                if tags >= {"evolve"} or tags & _CODE_ARTIFACT_TAGS == {"deploy", "improvement"}:
+                    return False
+                if key.startswith(("ale_evolve_", "ale_evolve_directions:")):
+                    return False
                 # Skip facts whose value is a list — system queues, not knowledge
                 if isinstance(val, list):
                     return False
@@ -2750,9 +2759,12 @@ Ask me about:
                 # Skip quiz entries — they contain raw JSON Q&A, not prose
                 if key.startswith("quiz:"):
                     return False
+                # Skip "No data found" placeholder values — not real knowledge
+                val_str = str(val) if val is not None else ""
+                if val_str.startswith("No data found"):
+                    return False
                 # Skip raw reflection metadata entries — their value is only
                 # "Themes: x, y, z\n<raw topic>" with no actual knowledge content
-                val_str = str(val) if val is not None else ""
                 if val_str.startswith("Themes:") and "\n" in val_str and len(val_str) < self._MAX_METADATA_REFLECTION_LENGTH:
                     return False
                 # Skip compound reflection headers with no prose content
@@ -2792,12 +2804,27 @@ Ask me about:
             for fact in top:
                 if isinstance(fact, dict):
                     val = fact.get("value", fact.get("text", ""))
-                    # Extract the human-readable answer from Q&A dicts
+                    # Extract the most human-readable field from nested dicts
                     if isinstance(val, dict):
-                        val = val.get("answer") or val.get("summary") or json.dumps(val, ensure_ascii=False)
-                    lines.append(f"• {str(val)[:200]}")
+                        val = (
+                            val.get("answer")
+                            or val.get("summary")
+                            or val.get("research")
+                            or val.get("description")
+                            or val.get("direction")
+                            or val.get("content")
+                            or val.get("text")
+                            or json.dumps(val, ensure_ascii=False)
+                        )
+                    val_str = str(val).strip()
+                    # Skip placeholder / empty entries at display time too
+                    if not val_str or val_str.startswith("No data found"):
+                        continue
+                    lines.append(f"• {val_str[:200]}")
                 else:
-                    lines.append(f"• {str(fact)[:200]}")
+                    val_str = str(fact).strip()
+                    if val_str and not val_str.startswith("No data found"):
+                        lines.append(f"• {val_str[:200]}")
 
             lines.append(
                 f"\n_Use 'recall {keywords[0]}' to search more, "

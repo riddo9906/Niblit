@@ -7280,12 +7280,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             else:
                                 result_text = str(result)
                             result_text = result_text.strip()
-                            # Store clean research text
+                            # Store clean research text via store_research() so it
+                            # produces a fully-structured record (key, value, tags,
+                            # source, ts) rather than a raw string via add_fact().
                             try:
-                                self.db.add_fact(
+                                self.db.store_research(
                                     f"auto_research:{topic}",
-                                    result_text[:800],
-                                    tags=["research", "auto"]
+                                    result_text,
+                                    tags=["research", "auto"],
+                                    source="async_auto_research_loop",
                                 )
                             except Exception:
                                 pass
@@ -7446,12 +7449,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             else:
                                 result_text = str(result)
                             result_text = result_text.strip()
-                            # Store clean research text
+                            # Store clean research text via store_research() so it
+                            # produces a fully-structured record (key, value, tags,
+                            # source, ts) rather than a raw string via add_fact().
                             try:
-                                self.db.add_fact(
+                                self.db.store_research(
                                     f"auto_research:{topic}",
-                                    result_text[:800],
-                                    tags=["research", "auto"]
+                                    result_text,
+                                    tags=["research", "auto"],
+                                    source="auto_research_loop",
                                 )
                             except Exception:
                                 pass
