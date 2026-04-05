@@ -1153,6 +1153,23 @@ class KnowledgeDB:
     def queue_learning(self, topic: str) -> None:
         with self.lock:
             self.data.setdefault("learning_queue", [])
+            # Skip if an identical topic is already pending to prevent duplicate
+            # entries from piling up and causing an infinite research loop.
+            already_queued = any(
+                isinstance(item, dict)
+                and item.get("topic") == topic
+                and item.get("status") == "queued"
+                for item in self.data["learning_queue"]
+            )
+            if already_queued:
+                return
+            # Prune old "processed" entries for this topic so the queue does not
+            # grow without bound over long-running sessions.
+            self.data["learning_queue"] = [
+                item for item in self.data["learning_queue"]
+                if not (isinstance(item, dict) and item.get("topic") == topic
+                        and item.get("status") == "processed")
+            ]
             self.data["learning_queue"].append({
                 "topic": topic, "status": "queued", "ts": int(time.time()),
             })
