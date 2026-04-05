@@ -1242,11 +1242,12 @@ class AutonomousLearningEngine:
             if agent:
                 self.scrapy_research_agent = agent
                 return agent
-        # Attempt lazy construction — always succeeds when Scrapy is installed
+        # Attempt lazy construction — only succeeds when Scrapy is importable
+        # and ScrapySearchEngine initialises successfully (no API key needed).
         try:
             from niblit_agents.scrapy_research_agent import ScrapyResearchAgent
             agent = ScrapyResearchAgent()
-            if agent.is_configured():
+            if agent.is_configured():  # True only if scrapy is importable + engine ready
                 self.scrapy_research_agent = agent
                 return agent
         except Exception:
@@ -4451,6 +4452,9 @@ class AutonomousLearningEngine:
                 "binary_studier": bool(self.binary_studier or (self.core and getattr(self.core, "binary_studier", None))),
                 "github_code_search": bool(self._get_github_code_search()),
                 "searchcode_search": bool(self._get_searchcode_search()),
+                # True when the Serpex-specific agent is available OR when the
+                # Scrapy direct agent is available (no API key required for either).
+                # Preserved as "serpex_research_agent" for backward compatibility.
                 "serpex_research_agent": bool(self._get_serpex_agent() or self._get_scrapy_agent()),
                 "scrapy_research_agent": bool(self._get_scrapy_agent()),
             },
