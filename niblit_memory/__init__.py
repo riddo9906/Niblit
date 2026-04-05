@@ -1164,12 +1164,14 @@ class KnowledgeDB:
             if already_queued:
                 return
             # Prune old "processed" entries for this topic so the queue does not
-            # grow without bound over long-running sessions.
-            self.data["learning_queue"] = [
+            # grow without bound over long-running sessions.  A new list is built
+            # (not in-place modification) and assigned back intentionally.
+            pruned = [
                 item for item in self.data["learning_queue"]
                 if not (isinstance(item, dict) and item.get("topic") == topic
                         and item.get("status") == "processed")
             ]
+            self.data["learning_queue"] = pruned
             self.data["learning_queue"].append({
                 "topic": topic, "status": "queued", "ts": int(time.time()),
             })

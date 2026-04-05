@@ -265,7 +265,9 @@ class GradedCurriculum:
         self.exam_interval_secs = exam_interval_secs
 
         self._current_level: int = self._load_level()
-        self._last_exam_ts: float = 0.0
+        # Initialise to now so the first automatic exam runs after a full
+        # interval rather than immediately on startup.
+        self._last_exam_ts: float = time.time()
         self._exam_history: List[Dict[str, Any]] = []
 
         log.info(
