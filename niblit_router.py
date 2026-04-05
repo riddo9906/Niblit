@@ -298,6 +298,8 @@ class NiblitRouter:
         "niblit-runtime", "nrt",
         # Memory reset (flush all memory, caches and state files)
         "memory-reset",
+        # Graded curriculum — education-system learning progression (additive)
+        "curriculum",
     )
 
     CHAT_RESPONSES = {
@@ -2136,7 +2138,79 @@ Ask me about:
             return safe_call(self.core._cmd_trainer_status)
         return "[trainer] BackgroundTrainer not available"
 
-    # ── ALE persistent state handler (additive) ───────────────────────────────
+    # ── Graded Curriculum handler (additive) ──────────────────────────────────
+
+    def _handle_curriculum(self, cmd: str) -> str:
+        """Handle 'curriculum <sub-command>' for education-system learning progression.
+
+        Commands::
+
+            curriculum              — show current grade and progress
+            curriculum status       — same as above
+            curriculum topics       — list topics for the current grade
+            curriculum exam         — run the grade exam right now
+            curriculum advance      — manually advance one grade (admin/testing)
+        """
+        gc = (
+            getattr(self.core, "graded_curriculum", None)
+            if self.core else None
+        )
+        if gc is None:
+            return "[curriculum] GradedCurriculum not available"
+
+        stripped = cmd.strip()
+        # strip leading "curriculum" keyword
+        if stripped.lower().startswith("curriculum"):
+            stripped = stripped[len("curriculum"):].lstrip()
+        sub = stripped.lower()
+
+        if sub in ("", "status"):
+            st = gc.status()
+            lines = [
+                f"🎓 **Curriculum — {st['current_grade']}** (Level {st['level']}/{st['max_level']})",
+                f"   {st['description']}",
+                f"   Topics this grade: {len(st['topics'])}",
+                f"   Pass score required: {int(st['passing_score'] * 100)}%  |  Min facts/topic: {st['min_facts_per_topic']}",
+                f"   Exams run so far: {st['exam_history_count']}",
+            ]
+            return "\n".join(lines)
+
+        if sub == "topics":
+            grade = gc.current_grade
+            topic_lines = "\n".join(f"  • {t}" for t in grade.topics)
+            return (
+                f"**{grade.name} Topics:**\n{topic_lines}\n"
+                f"_(studying these so background research covers them)_"
+            )
+
+        if sub == "exam":
+            result = safe_call(gc.run_exam)
+            if not result:
+                return "[curriculum] Exam failed to run"
+            passed_str = "✅ PASSED" if result.get("passed") else "❌ NOT YET"
+            score_pct = int(result.get("score", 0) * 100)
+            topics_p = result.get("topics_passed", 0)
+            topics_t = result.get("topics_total", 0)
+            lines = [
+                f"**Exam result — {result.get('grade')}:** {passed_str}",
+                f"Score: {score_pct}%  ({topics_p}/{topics_t} topics passed)",
+            ]
+            for topic, ts in result.get("topic_scores", {}).items():
+                icon = "✅" if ts["passed"] else "❌"
+                lines.append(
+                    f"  {icon} {topic}: {ts['facts_found']}/{ts['required']} facts"
+                )
+            if result.get("passed") and result.get("level", 0) < gc.status()["max_level"]:
+                lines.append(f"\n🎓 Advanced to **{gc.current_grade.name}**!")
+            return "\n".join(lines)
+
+        if sub == "advance":
+            msg = safe_call(gc.advance_manual)
+            return str(msg or "[curriculum] Advance failed")
+
+        return (
+            "[curriculum] Unknown sub-command. Try: status | topics | exam | advance"
+        )
 
     def _handle_ale(self, cmd: str) -> str:
         """Handle 'ale <sub-command>' for ALE checkpoint / resume / backtrack.
@@ -3584,6 +3658,10 @@ Ask me about:
         # ALE CHECKPOINT / RESUME / BACKTRACK / ANCHOR (additive)
         if lower == "ale" or lower.startswith("ale "):
             return self._handle_ale(cmd)
+
+        # GRADED CURRICULUM — education-system learning progression (additive)
+        if lower == "curriculum" or lower.startswith("curriculum "):
+            return self._handle_curriculum(cmd)
 
         # SELF-MONITOR — experience tracking & trend analysis (additive)
         if lower == "self-monitor" or lower.startswith("self-monitor "):

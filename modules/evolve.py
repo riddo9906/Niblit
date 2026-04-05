@@ -413,7 +413,11 @@ class EvolveEngine:
             )
             if result.get("success"):
                 self._stats["code_generated"] += 1
-                return f"Generated improve_{name}() in Python"
+                # Return the actual generated Python source so the caller can
+                # write valid Python to the improvement file.  The old code
+                # returned a prose description string, which produced 190+
+                # syntactically invalid .py files in evolved/.
+                return result.get("code") or f"# improve_{name}\ndef improve_{name}():\n    \"\"\"Improvement for: {direction}\"\"\"\n    pass\n"
             return None
         except Exception as exc:
             log.debug("[EvolveEngine] Code gen failed: %s", exc)

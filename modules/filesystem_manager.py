@@ -588,6 +588,7 @@ class FilesystemManager:
 
     def _resolve(self, filepath: str) -> Path:
         """Resolve a path relative to base_dir, or absolute."""
+        p = Path(filepath)
         if p.is_absolute():
             return p
         return self.base_dir / p
