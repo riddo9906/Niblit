@@ -54,6 +54,15 @@ class SelfTeacher:
 
     # ── Spaced repetition (interval-based, persisted) ─────────────────────
 
+    @staticmethod
+    def _is_placeholder(result) -> bool:
+        """Return True if *result* is a "No data found" placeholder string."""
+        return isinstance(result, str) and result.strip().lower().startswith("no data found")
+
+    def _filter_placeholders(self, results):
+        """Remove placeholder "No data found" entries from a results list."""
+        return [r for r in results if not self._is_placeholder(r)]
+
     def _load_review_queue(self):
         try:
             if self.db and hasattr(self.db, "get_fact"):
@@ -203,6 +212,9 @@ class SelfTeacher:
         else:
             learned = self._get_recent_facts(topic, limit=5)
 
+        # Discard placeholder "No data found" entries — they are not real knowledge
+        learned = self._filter_placeholders(learned)
+
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
 
         if learned:
@@ -278,6 +290,9 @@ class SelfTeacher:
                 learned = []
         else:
             learned = self._get_recent_facts(topic, limit=5)
+
+        # Discard placeholder "No data found" entries — they are not real knowledge
+        learned = self._filter_placeholders(learned)
 
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
 
