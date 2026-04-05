@@ -5,11 +5,10 @@ Compress, organize, and optimize memory storage
 """
 
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Tuple
 import hashlib
 
 log = logging.getLogger("MemoryOptimizer")
-
 
 class MemoryOptimizer:
     """Optimize memory storage and retrieval"""

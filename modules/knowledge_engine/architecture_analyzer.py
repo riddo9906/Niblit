@@ -160,3 +160,33 @@ class ArchitectureAnalyzer:
             return "library", "medium", [], signals
 
         return "mixed", "low", list(lower_dirs[:5]), signals
+
+    def find_pattern_files(self, directory: str, pattern: str) -> List[str]:
+        """Return file paths whose basenames match the regex *pattern*.
+
+        This method makes the ``re`` import functional: architecture analysis
+        often needs to locate files by naming convention (e.g. ``*_controller.py``,
+        ``*Service.java``) rather than fixed directory names.
+
+        Parameters
+        ----------
+        directory:  Root directory to search (non-recursive, top-level only).
+        pattern:    Python regex tested against the file *basename* only.
+
+        Returns
+        -------
+        list[str]: Matching file paths sorted alphabetically.
+        """
+        try:
+            rx = re.compile(pattern)
+        except re.error as exc:
+            return [f"invalid regex {pattern!r}: {exc}"]
+        try:
+            names = os.listdir(directory)
+        except OSError:
+            return []
+        return sorted(
+            os.path.join(directory, n)
+            for n in names
+            if rx.search(n)
+        )

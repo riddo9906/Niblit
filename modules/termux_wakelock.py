@@ -46,7 +46,6 @@ import os
 import shutil
 import subprocess
 import threading
-import time
 from typing import Optional
 
 log = logging.getLogger("TermuxWakeLock")
@@ -54,7 +53,6 @@ log = logging.getLogger("TermuxWakeLock")
 # Notification ID used for the persistent Niblit notification.
 # Keep it fixed so we can remove the exact same notification on shutdown.
 _NOTIFICATION_ID = "niblit_bg"
-
 
 def _is_termux() -> bool:
     """Return True when running inside a Termux environment."""
@@ -64,7 +62,6 @@ def _is_termux() -> bool:
         or "TERMUX_VERSION" in os.environ
         or shutil.which("termux-wake-lock") is not None
     )
-
 
 def _run(cmd: list, *, timeout: int = 10) -> bool:
     """Run a shell command.  Return True on success, False on any error."""
@@ -78,7 +75,6 @@ def _run(cmd: list, *, timeout: int = 10) -> bool:
         return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return False
-
 
 class TermuxWakeLock:
     """
@@ -205,13 +201,11 @@ class TermuxWakeLock:
             self._available = _is_termux() and shutil.which("termux-wake-lock") is not None
         return self._available
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Module-level singleton — imported by niblit_core
 # ──────────────────────────────────────────────────────────────────────────────
 
 _global_wakelock: Optional[TermuxWakeLock] = None
-
 
 def get_wakelock() -> TermuxWakeLock:
     """Return (or lazily create) the process-wide TermuxWakeLock instance."""
@@ -219,7 +213,6 @@ def get_wakelock() -> TermuxWakeLock:
     if _global_wakelock is None:
         _global_wakelock = TermuxWakeLock()
     return _global_wakelock
-
 
 if __name__ == "__main__":
     print("Running termux_wakelock.py")

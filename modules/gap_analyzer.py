@@ -5,10 +5,9 @@ Identifies knowledge gaps and suggests learning topics
 """
 
 import logging
-from typing import List, Dict, Set
+from typing import List, Dict
 
 log = logging.getLogger("GapAnalyzer")
-
 
 class GapAnalyzer:
     """Identify and analyze knowledge gaps"""

@@ -514,6 +514,16 @@ class TradingStudy:
             self._meta["total_study_sessions"] += 1
             self._meta["last_study_ts"] = time.time()
 
+    def export_journal(self, last_n: int = 100, indent: int = 2) -> str:
+        """Return the trade journal as a JSON string.
+
+        Serialises the most recent *last_n* journal entries so they can be
+        saved to disk, sent over HTTP, or imported by external analysis tools.
+        """
+        with self._trade_lock:
+            entries = list(self._journal[-last_n:])
+        return json.dumps(entries, indent=indent, default=str)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Singleton

@@ -586,6 +586,32 @@ class UniversalFileManager:
         except Exception as exc:
             return f"❌ Execute error: {exc}"
 
+    def write_temp(self, content: str, suffix: str = ".txt") -> Dict[str, str]:
+        """Write *content* to a temporary file and return its details.
+
+        Uses ``io``, ``os``, and ``tempfile`` to create a named temporary file
+        that is not automatically deleted on close.  This lets other Niblit
+        components (code compiler, evolve engine, etc.) pass large content
+        through the file system without polluting the working directory.
+
+        Returns a dict with keys ``path``, ``size``, ``suffix``.
+        """
+        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        try:
+            with io.open(fd, "w", encoding="utf-8") as fh:
+                fh.write(content)
+        except Exception:
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+            raise
+        return {
+            "path": tmp_path,
+            "size": os.path.getsize(tmp_path),
+            "suffix": suffix,
+        }
+
     # ── Detect ────────────────────────────────────────────────────────────────
 
     def detect(self, path_str: str) -> str:

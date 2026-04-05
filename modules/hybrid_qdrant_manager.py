@@ -162,6 +162,16 @@ def _contains_non_ascii(text: str) -> bool:
         return True
 
 
+def _normalize_text(text: str) -> str:
+    """Normalize Unicode text before embedding.
+
+    Uses ``unicodedata.normalize`` (NFC form) to canonicalise combining
+    characters so that visually identical strings produce identical embeddings.
+    Also strips leading/trailing whitespace.
+    """
+    return unicodedata.normalize("NFC", text).strip()
+
+
 def _looks_like_code(text: str) -> bool:
     """Heuristic: does *text* look like source code?"""
     code_signals = ("def ", "class ", "import ", "return ", "function ", "const ",
@@ -441,6 +451,8 @@ class HybridQdrantManager:
             log.warning("[HybridQdrantManager] upsert called with no valid models")
             return False
 
+        # Normalise text before embedding so unicode variants hash/embed consistently
+        text = _normalize_text(text)
         full_name = self._prefixed(collection)
 
         # Ensure collection exists for the requested models
@@ -461,6 +473,9 @@ class HybridQdrantManager:
         point_id = int.from_bytes(stable_hash[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
 
         # Build the multi-vector dict: {vector_name: embedding}
+        # Dense vectors → NamedVector; sparse vectors → NamedSparseVector.
+        # Using the typed wrappers helps qdrant-client infer the correct wire
+        # format when the collection uses mixed (dense + sparse) vector schemas.
         vectors: Dict[str, Any] = {}
         success_count = 0
 
@@ -470,7 +485,22 @@ class HybridQdrantManager:
             if vector is None:
                 log.debug("[HybridQdrantManager] Skipping model '%s' (no embedding)", model_key)
                 continue
-            vectors[spec["vector_name"]] = vector
+            if spec.get("sparse"):
+                # Sparse vector: list of (index, value) pairs or a SparseVector
+                if _QDRANT_AVAILABLE and isinstance(vector, dict):
+                    vectors[spec["vector_name"]] = NamedSparseVector(
+                        name=spec["vector_name"], vector=vector
+                    )
+                else:
+                    vectors[spec["vector_name"]] = vector
+            else:
+                # Dense vector: wrap in NamedVector for explicit named-vector upserts
+                if _QDRANT_AVAILABLE and isinstance(vector, list):
+                    vectors[spec["vector_name"]] = NamedVector(
+                        name=spec["vector_name"], vector=vector
+                    )
+                else:
+                    vectors[spec["vector_name"]] = vector
 
         if not vectors:
             log.warning(
@@ -479,12 +509,20 @@ class HybridQdrantManager:
             return False
 
         try:
-            point = PointStruct(id=point_id, vector=vectors, payload={**payload, "_text": text[:1000]})
+            # Unwrap NamedVector/NamedSparseVector back to plain dict for PointStruct
+            # (some qdrant-client versions don't accept Named* in the vector kwarg).
+            plain_vectors = {
+                k: (v.vector if hasattr(v, "vector") else v)
+                for k, v in vectors.items()
+            }
+            point = PointStruct(id=point_id, vector=plain_vectors, payload={**payload, "_text": text[:1000]})
+            t0 = time.time()
             client.upsert(collection_name=full_name, points=[point])
-            success_count = len(vectors)
+            latency_ms = round((time.time() - t0) * 1000, 1)
+            success_count = len(plain_vectors)
             log.debug(
-                "[HybridQdrantManager] Upserted point %d into '%s' with %d vectors",
-                point_id, full_name, success_count,
+                "[HybridQdrantManager] Upserted point %d into '%s' with %d vectors (%.1fms)",
+                point_id, full_name, success_count, latency_ms,
             )
         except Exception as exc:
             log.warning("[HybridQdrantManager] upsert to '%s' failed: %s", full_name, exc)

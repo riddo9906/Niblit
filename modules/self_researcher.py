@@ -181,13 +181,16 @@ class KnowledgeBasedResponder:
         subject = intent_meta.get("subject", "topic")
         intent_type = intent_meta.get("intent_type", "question")
 
-        # Convert all sources to strings
+        # Convert all sources to strings, decoding any HTML entities that may
+        # have been returned from web search results (e.g. &amp; → &).
         source_texts = []
         for src in sources:
             if isinstance(src, dict):
                 src_text = src.get("text", src.get("summary", str(src)))
             else:
                 src_text = str(src)
+            # Decode HTML entities so the response reads naturally
+            src_text = html.unescape(src_text)
             source_texts.append(src_text[:200])  # Limit each source to 200 chars
 
         # Build response based on intent

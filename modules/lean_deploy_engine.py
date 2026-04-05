@@ -446,6 +446,17 @@ class LeanDeployEngine:
             lines.append(f"  [{pid}] {name}  ({lang})  — modified: {modified}")
         return "\n".join(lines)
 
+    def projects_json(self) -> str:
+        """Return the raw list of QC cloud projects as a formatted JSON string.
+
+        Useful for piping into other Niblit tools (e.g. file manager, KB store)
+        or for exporting a structured snapshot of the portfolio.
+        """
+        if not self._has_credentials():
+            return json.dumps({"error": "QC credentials not set"})
+        data = self._api("GET", "projects/read")
+        return json.dumps(data.get("projects", []), indent=2, default=str)
+
     def create_project(self, name: str, language: str = "Py") -> Any:
         """Create a new QC cloud project.
 

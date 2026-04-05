@@ -353,6 +353,14 @@ class HardwareScanner:
             f"CPU: {p.get('cpu', {}).get('architecture', '?')}"
         )
 
+    def to_json(self, indent: int = 2) -> str:
+        """Return the current hardware profile as a JSON string.
+
+        Useful for exporting scan results to files, sending over HTTP, or
+        storing a full structured snapshot in the knowledge DB.
+        """
+        return json.dumps(self.get_profile(), indent=indent, default=str)
+
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _collect(self) -> Dict[str, Any]:

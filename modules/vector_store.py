@@ -259,7 +259,6 @@ class VectorStore:
 
     def _init_faiss(self) -> None:
         try:
-            import numpy as np
             self._faiss_index = _faiss.IndexFlatIP(_EMBEDDING_DIM)  # inner-product
             self._backend_name = "faiss"
             log.info("[VectorStore] FAISS backend initialised (dim=%d)", _EMBEDDING_DIM)
@@ -296,6 +295,24 @@ class VectorStore:
             return self._add_faiss(doc_id, text, vector)
         self._memory_backend.add(doc_id, text, vector)
         return True
+
+    def timed_search(self, query: str, top_k: int = 5) -> Dict[str, Any]:
+        """Run a semantic search and include wall-clock timing in the result.
+
+        Uses ``time.time()`` to measure search latency so callers can track
+        performance over time and detect slow-downs as the vector index grows.
+
+        Returns a dict with keys ``results`` (the normal search output),
+        ``latency_ms`` (float), and ``backend`` (str).
+        """
+        t0 = time.time()
+        results = self.search(query, top_k=top_k)
+        latency_ms = round((time.time() - t0) * 1000, 2)
+        return {
+            "results": results,
+            "latency_ms": latency_ms,
+            "backend": self._backend_name,
+        }
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """

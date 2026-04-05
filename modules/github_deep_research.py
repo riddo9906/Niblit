@@ -313,7 +313,10 @@ class GitHubDeepResearch:
         if self.knowledge_db is None:
             return
         try:
-            self.knowledge_db.add_fact(key, value[:400])
+            # Prefix every stored fact with an ISO-8601 UTC timestamp so the
+            # knowledge DB can accurately track when the research was captured.
+            ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            self.knowledge_db.add_fact(key, f"[{ts}] {value}"[:400])
         except Exception as e:
             log.debug("[GHDeep] KB store failed: %s", e)
 

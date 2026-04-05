@@ -30,7 +30,7 @@ Usage::
 import logging
 import time
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("DiscoveryEngine")
 
@@ -38,7 +38,6 @@ log = logging.getLogger("DiscoveryEngine")
 _MIN_STARS = 50
 # Minimum fractional growth rate to flag as "emerging"
 _MIN_VELOCITY_THRESHOLD = 0.2
-
 
 class DiscoveryEngine:
     """

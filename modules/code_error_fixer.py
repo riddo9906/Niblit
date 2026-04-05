@@ -163,6 +163,21 @@ _FIXERS = {
 }
 
 
+def _ast_parse_error(code: str) -> Optional[str]:
+    """Try to parse *code* with the Python AST.
+
+    Returns the SyntaxError message string if the code is invalid, or None
+    if it parses cleanly.  This gives a precise error location without
+    needing to invoke a subprocess compiler.
+    """
+    try:
+        ast.parse(code)
+        return None
+    except SyntaxError as exc:
+        return f"SyntaxError: {exc.msg} (line {exc.lineno}, col {exc.offset})"
+    except Exception as exc:  # pragma: no cover
+        return str(exc)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN CLASS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -235,6 +250,19 @@ class CodeErrorFixer:
 
         self._stats["attempts"] += 1
 
+        # For Python, use the AST to get a precise error message before any
+        # regex-based fix attempts.  This fills in error_msg when the caller
+        # didn't provide one and gives the fixer functions an accurate line
+        # number to work with.
+        if lang in ("python", "python3") and not error_msg:
+            ast_err = _ast_parse_error(code)
+            if ast_err:
+                error_msg = ast_err
+                history.append(f"ast-pre-check: {ast_err}")
+            else:
+                # Code already parses — nothing to fix
+                return code, True, "ast-pre-check: no syntax errors found"
+
         for attempt in range(1, MAX_FIX_ATTEMPTS + 1):
             if not fixer_fn:
                 # No known fixer for this language — pass through
@@ -257,6 +285,20 @@ class CodeErrorFixer:
                 else:
                     # Update error_msg for next round
                     error_msg = check.get("error", error_msg) or error_msg
+            elif lang in ("python", "python3"):
+                # No external compiler available — use AST for fast Python re-validation
+                ast_err = _ast_parse_error(fixed_code)
+                if ast_err is None:
+                    current_code = fixed_code
+                    explanation = "; ".join(history) + " → ✅ ast-validated"
+                    self._stats["fixed"] += 1
+                    self._store_fix_record(lang, code, fixed_code, explanation, True)
+                    log.info("[CodeErrorFixer] Fixed python via AST after %d attempt(s): %s", attempt, fix_desc)
+                    return fixed_code, True, explanation
+                else:
+                    # AST still unhappy — update error_msg for next round
+                    error_msg = ast_err
+                    current_code = fixed_code
             else:
                 # No compiler — apply fix and assume improved
                 current_code = fixed_code

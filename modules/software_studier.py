@@ -11,7 +11,6 @@ Features:
 - Queue research topics for deeper study
 """
 
-import time
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -167,7 +166,6 @@ SOFTWARE_CATEGORIES: Dict[str, Dict[str, Any]] = {
         ],
     },
 }
-
 
 class SoftwareStudier:
     """
@@ -467,7 +465,6 @@ class SoftwareStudier:
                 log.debug("[SoftwareStudier] Queued research: %s", topic)
             except Exception as exc:
                 log.debug("[SoftwareStudier] Queue failed: %s", exc)
-
 
 # ──────────────────────────────────────────────────────
 # STANDALONE SELF-TEST

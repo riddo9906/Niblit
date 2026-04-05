@@ -1,7 +1,5 @@
 import shlex
 import subprocess
-import os
-
 
 class TerminalTools:
     def run(self, cmd, timeout=10):

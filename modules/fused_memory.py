@@ -11,3 +11,7 @@ from niblit_memory import (  # noqa: F401
     get_fused_memory,
     FusedMemoryPrimary,
 )
+
+# Explicit re-export declaration so that tools (mypy --no-implicit-reexport,
+# linters) understand this file intentionally exposes these names.
+__all__ = ["FusedMemory", "get_fused_memory", "FusedMemoryPrimary"]

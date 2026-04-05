@@ -147,8 +147,8 @@ class ScrapySearchEngine:
         self.timeout = timeout
 
     def is_configured(self) -> bool:
-        """Return ``True`` when Scrapy is installed."""
-        return _SCRAPY_AVAILABLE
+        """Always ``True`` — DuckDuckGo scraping needs no API key or config."""
+        return True
 
     def search(
         self,

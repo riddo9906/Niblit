@@ -49,7 +49,6 @@ Dependencies
 
 import asyncio
 import logging
-import time
 from collections import deque
 from datetime import datetime
 from typing import Any, Deque, Dict, List, Optional
@@ -66,7 +65,6 @@ _DEFAULT_INTERVAL: str = "1m"
 _MAX_CANDLE_BUFFER: int = 200        # keep last N closed candles
 _RECONNECT_DELAY: float = 5.0        # seconds before reconnect on error
 _INTRA_CANDLE: bool = False          # True → process every tick, not just close
-
 
 class RealtimeStream:
     """Real-time Binance kline stream → feature engine → fused memory → decision."""

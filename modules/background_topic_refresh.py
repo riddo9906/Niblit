@@ -31,14 +31,12 @@ pass ``stop_event`` and set it to stop the loop gracefully.
 
 import logging
 import threading
-import time
 from typing import Any, List, Optional
 
 log = logging.getLogger("BackgroundTopicRefresh")
 
 # Default refresh interval (seconds).  Override via `interval_secs` kwarg.
 DEFAULT_REFRESH_INTERVAL: int = 600  # 10 minutes
-
 
 def _inject_topics(ale: Any, new_topics: List[str]) -> bool:
     """Inject *new_topics* into *ale* if it supports the required method.
@@ -80,7 +78,6 @@ def _inject_topics(ale: Any, new_topics: List[str]) -> bool:
 
     log.debug("[BackgroundTopicRefresh] ALE has no compatible topic-injection API")
     return False
-
 
 def background_topic_refresh_loop(
     dtm: Any,
@@ -151,7 +148,6 @@ def background_topic_refresh_loop(
             chunk = min(30, remaining)
 
     log.info("[BackgroundTopicRefresh] Thread exiting cleanly")
-
 
 def start_background_refresh(
     dtm: Any,

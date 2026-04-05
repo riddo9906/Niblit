@@ -409,6 +409,34 @@ class FilesystemManager:
         base = self._resolve(search_dir)
         return [str(p) for p in base.glob(pattern)]
 
+    def build_file_index(self, dirpath: str = ".") -> "OrderedDict[str, Dict]":
+        """Build an ordered file index for a directory, sorted by name.
+
+        Uses ``OrderedDict`` so callers always get a stable insertion-ordered
+        mapping (important for reproducible KB snapshots and diff detection).
+
+        Returns
+        -------
+        OrderedDict mapping relative file path → ``{size, modified, type}``
+        """
+        base = self._resolve(dirpath)
+        index: OrderedDict = OrderedDict()
+        if not base.is_dir():
+            return index
+        try:
+            for entry in sorted(base.rglob("*")):
+                rel = str(entry.relative_to(base))
+                index[rel] = {
+                    "type": "dir" if entry.is_dir() else "file",
+                    "size": entry.stat().st_size if entry.is_file() else 0,
+                    "modified": datetime.fromtimestamp(
+                        entry.stat().st_mtime, tz=timezone.utc
+                    ).isoformat(),
+                }
+        except OSError:
+            pass
+        return index
+
     def environment_info(self) -> str:
         """Return info about the current runtime environment."""
         lines = ["Filesystem Environment:"]

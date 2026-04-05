@@ -13,12 +13,11 @@ Features:
 - Autonomous study queue: seeds KnowledgeDB with binary-domain topics
 """
 
-import os
 import struct
 import time
 import zipfile
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("BinaryTools")
 
@@ -60,7 +59,6 @@ BINARY_STUDY_TOPICS: List[str] = [
     "BIOS and UEFI firmware binary layout",
 ]
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # FILE I/O
 # ──────────────────────────────────────────────────────────────────────────────
@@ -74,7 +72,6 @@ def read_binary(path: str) -> Optional[bytes]:
         log.error("read_binary: cannot read %s: %s", path, exc)
         return None
 
-
 def write_binary(path: str, data: bytes) -> bool:
     """Write *data* as raw bytes to *path*.  Returns True on success."""
     try:
@@ -85,7 +82,6 @@ def write_binary(path: str, data: bytes) -> bool:
     except OSError as exc:
         log.error("write_binary: cannot write %s: %s", path, exc)
         return False
-
 
 def patch_binary(path: str, offset: int, patch: bytes) -> bool:
     """Overwrite *len(patch)* bytes at *offset* in-place.  Returns True on success."""
@@ -98,7 +94,6 @@ def patch_binary(path: str, offset: int, patch: bytes) -> bool:
     except OSError as exc:
         log.error("patch_binary: failed for %s: %s", path, exc)
         return False
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # DISPLAY / FORMATTING
@@ -124,7 +119,6 @@ def hexdump(data: bytes, offset: int = 0, max_rows: int = 64) -> str:
         rows.append(f"{offset + i:08x}  {hex_part}  |{asc_part}|")
     return "\n".join(rows)
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # CONVERSION UTILITIES
 # ──────────────────────────────────────────────────────────────────────────────
@@ -133,12 +127,10 @@ def to_hex(data: bytes) -> str:
     """Convert bytes to a contiguous hex string (e.g. b'AB' → '4142')."""
     return data.hex()
 
-
 def from_hex(hex_str: str) -> bytes:
     """Convert a hex string (with optional spaces/newlines) back to bytes."""
     cleaned = hex_str.replace(" ", "").replace("\n", "").replace("\r", "")
     return bytes.fromhex(cleaned)
-
 
 def to_binary_string(data: bytes) -> str:
     """Convert bytes to a space-separated binary string.
@@ -147,7 +139,6 @@ def to_binary_string(data: bytes) -> str:
     """
     return " ".join(f"{b:08b}" for b in data)
 
-
 def from_binary_string(bin_str: str) -> bytes:
     """Convert a space-separated binary string back to bytes.
 
@@ -155,7 +146,6 @@ def from_binary_string(bin_str: str) -> bytes:
     """
     groups = bin_str.strip().split()
     return bytes(int(g, 2) for g in groups if g)
-
 
 def int_to_representations(value: int) -> Dict[str, str]:
     """Return decimal *value* in binary, hex, octal, and decimal.
@@ -172,16 +162,13 @@ def int_to_representations(value: int) -> Dict[str, str]:
         "octal": oct(value),
     }
 
-
 def string_to_hex(text: str, encoding: str = "utf-8") -> str:
     """Encode *text* and return as a hex string."""
     return text.encode(encoding).hex()
 
-
 def string_to_binary(text: str, encoding: str = "utf-8") -> str:
     """Encode *text* and return as a binary string."""
     return to_binary_string(text.encode(encoding))
-
 
 def code_to_hex(source_code: str, encoding: str = "utf-8") -> Dict[str, str]:
     """Convert source *code* (any language) to its hex and binary representation.
@@ -195,7 +182,6 @@ def code_to_hex(source_code: str, encoding: str = "utf-8") -> Dict[str, str]:
         "length_bytes": str(len(raw)),
         "encoding": encoding,
     }
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ELF BINARY ANALYSIS
@@ -240,14 +226,12 @@ def parse_elf_header(data: bytes) -> Dict[str, Any]:
         "valid": True,
     }
 
-
 def analyze_elf(path: str) -> Dict[str, Any]:
     """Read *path* and return ELF header analysis."""
     data = read_binary(path)
     if data is None:
         return {"error": f"Cannot read file: {path}"}
     return parse_elf_header(data)
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # DEX (DALVIK) ANALYSIS
@@ -289,14 +273,12 @@ def parse_dex_header(data: bytes) -> Dict[str, Any]:
         "valid": True,
     }
 
-
 def analyze_dex(path: str) -> Dict[str, Any]:
     """Read *path* and return DEX header analysis."""
     data = read_binary(path)
     if data is None:
         return {"error": f"Cannot read file: {path}"}
     return parse_dex_header(data)
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # APK INSPECTION
@@ -335,7 +317,6 @@ def inspect_apk(path: str) -> Dict[str, Any]:
     except OSError as exc:
         result["error"] = f"Cannot open file: {exc}"
     return result
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # BINARY STUDIER — autonomous knowledge seeding
@@ -457,7 +438,6 @@ class BinaryStudier:
             "topics_available": len(BINARY_STUDY_TOPICS),
             "topics_seeded": self._topics_seeded,
         }
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # STANDALONE SELF-TEST

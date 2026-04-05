@@ -22,7 +22,7 @@ import threading
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("AutonomousNetwork")
 
@@ -178,6 +178,50 @@ class AutonomousNetworkBuilder:
                    if url not in self._quarantine
                    and (tag is None or tag in ep.tags)]
         return [ep.url for ep in sorted(eps, key=lambda e: e.yield_score, reverse=True)[:top_k]]
+
+    def endpoints_by_tag(self) -> Dict[str, List[str]]:
+        """Return a mapping of tag → [url, …] for all registered endpoints.
+
+        Uses ``defaultdict`` internally so every observed tag accumulates its
+        URLs without pre-initialising keys.
+        """
+        grouped: Dict[str, List[str]] = defaultdict(list)
+        with self._lock:
+            for url, ep in self._endpoints.items():
+                for tag in (ep.tags or []):
+                    grouped[tag].append(url)
+                if not ep.tags:
+                    grouped["untagged"].append(url)
+        return dict(grouped)
+
+    def latency_report(self) -> str:
+        """Return a summary of per-endpoint latency metrics.
+
+        Uses ``time.time()`` to show how many seconds ago each endpoint was
+        last contacted, giving an at-a-glance freshness view.
+        """
+        now = time.time()
+        with self._lock:
+            eps = list(self._endpoints.values())
+        if not eps:
+            return "No endpoints registered"
+        lines = ["⏱  **Endpoint Latency Report**"]
+        for ep in sorted(eps, key=lambda e: e.avg_latency_ms):
+            if ep.last_used:
+                try:
+                    # last_used stored as ISO-8601 string; fall back gracefully
+                    from datetime import datetime as _dt
+                    last_ts = _dt.fromisoformat(ep.last_used.replace("Z", "+00:00")).timestamp()
+                    age_s = int(now - last_ts)
+                    age_str = f"{age_s}s ago"
+                except Exception:
+                    age_str = ep.last_used
+            else:
+                age_str = "never"
+            lines.append(
+                f"  {ep.url[:60]:60s}  avg={ep.avg_latency_ms:.0f}ms  last={age_str}"
+            )
+        return "\n".join(lines)
 
     # ── background loops ──────────────────────────────────────────────────────
 

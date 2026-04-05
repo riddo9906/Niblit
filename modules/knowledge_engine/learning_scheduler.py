@@ -20,7 +20,7 @@ Usage::
 
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 from modules.knowledge_engine.repo_scanner import RepoScanner
 from modules.knowledge_engine.repo_downloader import RepoDownloader
@@ -35,7 +35,6 @@ log = logging.getLogger("LearningScheduler")
 _DEFAULT_QUERY = "machine learning language:python stars:>200"
 _DEFAULT_MAX_REPOS = 5
 _DEFAULT_INTERVAL = 3600  # 1 hour
-
 
 class LearningScheduler:
     """

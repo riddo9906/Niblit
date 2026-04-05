@@ -430,18 +430,30 @@ class NiblitRuntime:
                 pass
 
     def _persist(self) -> None:
-        """Push current level into the env_state envelope."""
+        """Push current level into the env_state envelope.
+
+        Falls back to writing a small JSON file (``niblit_runtime_level.json``)
+        when no EnvStateManager is available, so the level survives restarts
+        even in minimal deployments.
+        """
         if self._env_state:
             try:
                 self._env_state.update({
                     "extras": {"niblit_runtime_level": self._level}
                 })
                 self._env_state.save()
+                return
             except Exception:
                 pass
+        # Fallback: local JSON file
+        try:
+            _state_path = Path(os.environ.get("NIBLIT_RUNTIME_STATE", "niblit_runtime_level.json"))
+            _state_path.write_text(json.dumps({"level": self._level}), encoding="utf-8")
+        except Exception:
+            pass
 
     def _restore_level(self) -> None:
-        """Restore a previously persisted runtime level from env_state."""
+        """Restore a previously persisted runtime level from env_state or JSON fallback."""
         if self._env_state:
             try:
                 snap = self._env_state.snapshot()
@@ -449,8 +461,20 @@ class NiblitRuntime:
                 if stored and float(stored) > self._level:
                     self._level = float(stored)
                     log.debug("NiblitRuntime: restored level %.4f from env_state", self._level)
+                    return
             except Exception:
                 pass
+        # Fallback: local JSON file
+        try:
+            _state_path = Path(os.environ.get("NIBLIT_RUNTIME_STATE", "niblit_runtime_level.json"))
+            if _state_path.exists():
+                data = json.loads(_state_path.read_text(encoding="utf-8"))
+                stored = float(data.get("level", 0))
+                if stored > self._level:
+                    self._level = stored
+                    log.debug("NiblitRuntime: restored level %.4f from JSON fallback", self._level)
+        except Exception:
+            pass
 
 
 # ── Singleton ──────────────────────────────────────────────────────────────

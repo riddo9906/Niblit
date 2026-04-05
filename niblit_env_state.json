@@ -12,7 +12,7 @@
   "knowledge_summary": "",
   "last_command": "",
   "last_response_snippet": "",
-  "last_active_ts": 1775385503.1142087,
+  "last_active_ts": 1775387725.6412039,
   "env_capabilities": {
     "python.python_version": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
     "python.python_executable": "/usr/bin/python3",
@@ -25,11 +25,11 @@
       "httpx"
     ],
     "python.python_path_dirs": [
-      "/home/runner/work/Niblit",
       "/home/runner/work/Niblit/Niblit/tools",
+      "/home/runner/work/Niblit",
       "/home/runner/work/Niblit/Niblit",
-      "/home/runner/work/Niblit/Niblit",
-      "/usr/lib/python312.zip"
+      "/home/runner/work/Niblit",
+      "/home/runner/work/Niblit/Niblit"
     ],
     "node.node_available": true,
     "node.node_version": "v24.14.1",
@@ -50,5 +50,5 @@
     "linux_sys.has_systemd": true
   },
   "extras": {},
-  "checksum": "f5419c62293b8336"
+  "checksum": "c8937898e5447af9"
 }

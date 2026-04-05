@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import re
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 log = logging.getLogger("KnowledgeFilter")
 
@@ -136,7 +136,6 @@ _MAX_FACT_VALUE_LEN = 600
 _MAX_SUMMARY_LEN = 400
 # How many sentences to keep in a plain-text summary
 _MAX_SENTENCES = 4
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # KnowledgeFilter
@@ -338,7 +337,6 @@ class KnowledgeFilter:
 
         return self.compress(raw)
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper functions
 # ─────────────────────────────────────────────────────────────────────────────
@@ -347,7 +345,6 @@ def _split_sentences(text: str) -> List[str]:
     """Split text into sentences using a simple regex."""
     parts = re.split(r"(?<=[.!?])\s+", text.strip())
     return [p.strip() for p in parts if p.strip()]
-
 
 def _unpack_fact(fact: Any) -> Tuple[str, Any, List[str]]:
     """Extract (key, value, tags) from a fact dict or raw string."""
@@ -361,7 +358,6 @@ def _unpack_fact(fact: Any) -> Tuple[str, Any, List[str]]:
     if isinstance(fact, (list, tuple)) and len(fact) >= 2:
         return str(fact[0]), fact[1], []
     return "", str(fact), []
-
 
 def _format_bullet(key: str, value: Any) -> str:
     """Format a key/value pair as a single readable bullet line."""
@@ -402,13 +398,11 @@ def _format_bullet(key: str, value: Any) -> str:
         return f"[{display_key}] {val_str}"
     return val_str or display_key
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Singleton
 # ─────────────────────────────────────────────────────────────────────────────
 
 _knowledge_filter: Optional[KnowledgeFilter] = None
-
 
 def get_knowledge_filter(llm: Optional[Any] = None) -> KnowledgeFilter:
     """Return the global :class:`KnowledgeFilter` singleton."""

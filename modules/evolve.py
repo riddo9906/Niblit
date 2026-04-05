@@ -194,10 +194,20 @@ class EvolveEngine:
     # ──────────────────────────────────────────────
 
     def _select_next_evolve_direction(self) -> str:
-        """Rotate through EVOLVE_DIRECTIONS sequentially."""
-        directions = EVOLVE_DIRECTIONS or _EVOLUTION_DIRECTIONS
+        """Return the next evolution direction.
+
+        Every full pass through all directions, the list is shuffled so that
+        long-running sessions explore different orderings and don't always
+        hit the same sequence.  Within a pass, topics are served sequentially
+        so every direction gets at least one turn before repeating.
+        """
+        directions = list(EVOLVE_DIRECTIONS or _EVOLUTION_DIRECTIONS)
         if not directions:
             return "general improvement"
+        # Shuffle at the start of each new pass through the full list
+        if self._evolve_topic_index % len(directions) == 0 and self._evolve_topic_index > 0:
+            random.shuffle(directions)
+            log.debug("[EvolveEngine] Shuffled %d directions for next pass", len(directions))
         direction = directions[self._evolve_topic_index % len(directions)]
         self._evolve_topic_index += 1
         return direction
