@@ -142,6 +142,7 @@ class AutonomousLearningEngine:
                  stackoverflow_search=None, pypi_search=None,
                  searchcode_search=None,
                  serpex_research_agent=None,
+                 scrapy_research_agent=None,
                  semantic_agent=None,
                  claude_engine=None,
                  builds_integrator=None,
@@ -184,6 +185,9 @@ class AutonomousLearningEngine:
                                    relevance filtering (is_relevant) and automatic KnowledgeStore
                                    + Qdrant persistence (step 27).  Falls back to lazy construction
                                    from SERPEX_API_KEY env var when None.
+            scrapy_research_agent: niblit_agents.ScrapyResearchAgent — direct Scrapy/DuckDuckGo
+                                   research backend (no SerpexAPI shim, no API key required).
+                                   Runs as a dedicated ALE step (ScrapyResearch) each cycle.
             semantic_agent: niblit_agents.SemanticAgent — vector-store backed knowledge storage
                             and retrieval.  When provided, every research step embeds its results
                             into the vector store for semantic retrieval.
@@ -222,6 +226,7 @@ class AutonomousLearningEngine:
         self.pypi_search = pypi_search
         self.searchcode_search = searchcode_search
         self.serpex_research_agent = serpex_research_agent
+        self.scrapy_research_agent = scrapy_research_agent
         self.semantic_agent = semantic_agent
         self.claude_engine = claude_engine
         self.builds_integrator = builds_integrator
@@ -421,6 +426,7 @@ class AutonomousLearningEngine:
             "brain_training_cycles": 0,
             "cognitive_enhancement_cycles": 0,
             "serpex_research_cycles": 0,
+            "scrapy_research_cycles": 0,
             "last_research_topic": None,
             "last_serpex_query": None,
             "last_idea": None,
@@ -1216,6 +1222,133 @@ class AutonomousLearningEngine:
                 log.debug("[SERPEX RESEARCH] SemanticAgent store failed: %s", exc)
 
         return f"SerpexResearch: {topic!r} — {stored}/{len(valid)} snippet(s) validated + stored"
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # SCRAPY RESEARCH AGENT helpers
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _get_scrapy_agent(self):
+        """Lazily resolve or construct the niblit_agents.ScrapyResearchAgent.
+
+        Resolution order:
+        1. self.scrapy_research_agent (injected at construction time)
+        2. core.scrapy_research_agent (set by niblit_core)
+        3. Lazy on-demand construction (ScrapySearchEngine needs no API key)
+        """
+        if self.scrapy_research_agent:
+            return self.scrapy_research_agent
+        if self.core:
+            agent = getattr(self.core, "scrapy_research_agent", None)
+            if agent:
+                self.scrapy_research_agent = agent
+                return agent
+        # Attempt lazy construction — always succeeds when Scrapy is installed
+        try:
+            from niblit_agents.scrapy_research_agent import ScrapyResearchAgent
+            agent = ScrapyResearchAgent()
+            if agent.is_configured():
+                self.scrapy_research_agent = agent
+                return agent
+        except Exception:
+            pass
+        return None
+
+    def _autonomous_scrapy_research(self) -> str:
+        """ScrapyResearch step: use ScrapyResearchAgent for direct DuckDuckGo research.
+
+        This step:
+        1. Uses ``_current_cycle_topic`` so Scrapy data deepens the same subject
+           that all other steps are researching this cycle.
+        2. Calls ``ScrapyResearchAgent.search_web()`` which applies relevance
+           filtering so only semantically related snippets reach the knowledge base.
+        3. Stores each validated snippet in the knowledge DB under the
+           ``ale_scrapy_research:`` key prefix.
+        4. Feeds validated snippets to ``BrainTrainer.ingest_research()`` for
+           immediate quality improvement.
+        5. Appends validated text to ``self._last_research_results`` so Steps 2-6
+           in the current cycle are boosted by the freshly-gathered data.
+        6. Adds any new topic titles found in result titles to the research queue.
+        """
+        agent = self._get_scrapy_agent()
+        if not agent:
+            return "[ScrapyResearch skipped — niblit_agents.ScrapyResearchAgent unavailable]"
+
+        topic = (
+            self._current_cycle_topic
+            or self.learning_history.get("last_research_topic")
+            or (self._select_next_topic() if self.research_topics else None)
+        )
+        if not topic:
+            return "[ScrapyResearch skipped — no research topics]"
+
+        log.info("🕷️ [SCRAPY RESEARCH] Querying: %r", topic)
+
+        try:
+            results = agent.search_web(topic)
+        except Exception as exc:
+            log.debug("[SCRAPY RESEARCH] search_web failed: %s", exc)
+            return f"[ScrapyResearch error: {exc}]"
+
+        valid = [r for r in (results or []) if isinstance(r, dict) and "error" not in r]
+        if not valid:
+            return f"[ScrapyResearch] No valid results for {topic!r}"
+
+        stored = 0
+        for item in valid:
+            snippet = item.get("snippet", "")
+            title = item.get("title", "")
+            url = item.get("url", "")
+            if not snippet:
+                continue
+
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_scrapy_research:{topic.replace(' ', '_')}:{int(time.time())}",
+                        {
+                            "topic": topic,
+                            "title": title,
+                            "url": url,
+                            "snippet": snippet[:500],
+                            "step": "scrapy_research",
+                        },
+                        tags=["ale_scrapy", "scrapy", "research", "autonomous",
+                              topic.split()[0].lower()],
+                    )
+                    stored += 1
+                except Exception as exc:
+                    log.debug("[SCRAPY RESEARCH] KB store failed: %s", exc)
+
+            bt = self.brain_trainer or (
+                getattr(self.core, "brain", None) and
+                getattr(self.core.brain, "brain_trainer", None)
+            )
+            if bt and hasattr(bt, "ingest_research"):
+                try:
+                    bt.ingest_research(topic, snippet[:400])
+                except Exception as exc:
+                    log.debug("[SCRAPY RESEARCH] BrainTrainer ingest failed: %s", exc)
+
+            self._last_research_results.append(snippet[:400])
+
+            if title and title not in self.research_topics:
+                self.add_research_topic(title)
+
+        self.learning_history["scrapy_research_cycles"] = (
+            self.learning_history.get("scrapy_research_cycles", 0) + 1
+        )
+        self.learning_history["last_scrapy_query"] = topic
+
+        log.info("✅ [SCRAPY RESEARCH] %r — %d snippet(s) stored", topic, stored)
+
+        if self.semantic_agent and valid:
+            try:
+                self.semantic_agent.store_knowledge(valid, source="ale_scrapy", query=topic)
+                log.debug("[SCRAPY RESEARCH] %d snippet(s) pushed to SemanticAgent", len(valid))
+            except Exception as exc:
+                log.debug("[SCRAPY RESEARCH] SemanticAgent store failed: %s", exc)
+
+        return f"ScrapyResearch: {topic!r} — {stored}/{len(valid)} snippet(s) stored"
 
     # ─────────────────────────────────────────────
     # UNIFIED RESEARCH (replaces separate SerpexResearch + Research steps)
@@ -4147,6 +4280,9 @@ class AutonomousLearningEngine:
         # ── Step 27: Searchcode Discovery ────────────────────────────────
         _step("SearchcodeDiscovery", self._autonomous_searchcode_discovery)
 
+        # ── ScrapyResearch: direct DuckDuckGo research via ScrapyResearchAgent ──
+        _step("ScrapyResearch", self._autonomous_scrapy_research)
+
         # ── Step 29: Builds Integration ───────────────────────────────────
         _step("BuildsIntegration", self._autonomous_builds_integration)
 
@@ -4179,6 +4315,7 @@ class AutonomousLearningEngine:
             "brain_training_cycles", "cognitive_enhancement_cycles",
             "github_code_discovery_cycles", "searchcode_discovery_cycles",
             "serpex_research_cycles", "builds_integration_cycles",
+            "scrapy_research_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
@@ -4314,7 +4451,8 @@ class AutonomousLearningEngine:
                 "binary_studier": bool(self.binary_studier or (self.core and getattr(self.core, "binary_studier", None))),
                 "github_code_search": bool(self._get_github_code_search()),
                 "searchcode_search": bool(self._get_searchcode_search()),
-                "serpex_research_agent": bool(self._get_serpex_agent()),
+                "serpex_research_agent": bool(self._get_serpex_agent() or self._get_scrapy_agent()),
+                "scrapy_research_agent": bool(self._get_scrapy_agent()),
             },
         }
 
@@ -4500,7 +4638,8 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
                                  github_code_search=None,
                                  stackoverflow_search=None,
                                  pypi_search=None,
-                                 serpex_research_agent=None) -> AutonomousLearningEngine:
+                                 serpex_research_agent=None,
+                                 scrapy_research_agent=None) -> AutonomousLearningEngine:
     """Initialize and return singleton engine"""
     global _autonomous_engine
 
@@ -4530,6 +4669,7 @@ def initialize_autonomous_engine(core, researcher=None, idea_generator=None,
         stackoverflow_search=stackoverflow_search,
         pypi_search=pypi_search,
         serpex_research_agent=serpex_research_agent,
+        scrapy_research_agent=scrapy_research_agent,
     )
 
     log.info("✅ AutonomousLearningEngine factory initialized")

@@ -1075,6 +1075,29 @@ Ask me about:
             except Exception as exc:
                 return f"[Serpex search error: {exc}]"
 
+        if action in ("scrapy-research", "scrapy research", "scrapy"):
+            if hasattr(engine, "_autonomous_scrapy_research"):
+                return safe_call(engine._autonomous_scrapy_research) or "[Scrapy research failed]"
+            return "[Scrapy research not available — niblit_agents.ScrapyResearchAgent not wired]"
+
+        if action.startswith("scrapy-search "):
+            query = action.replace("scrapy-search", "").strip()
+            if not query:
+                return "Usage: autonomous-learn scrapy-search <query>"
+            agent = engine._get_scrapy_agent() if hasattr(engine, "_get_scrapy_agent") else None
+            if not agent:
+                return "[Scrapy agent unavailable — Scrapy not installed]"
+            try:
+                results = agent.search_web(query)
+                valid = [r for r in (results or []) if isinstance(r, dict) and "error" not in r]
+                if not valid:
+                    return f"No Scrapy results for: {query}"
+                lines = [f"  [{i+1}] {r.get('title','(no title)')} — {r.get('snippet','')[:120]}"
+                         for i, r in enumerate(valid[:5])]
+                return f"🕷️ Scrapy results for {query!r}:\n" + "\n".join(lines)
+            except Exception as exc:
+                return f"[Scrapy search error: {exc}]"
+
         return (
             "Usage:\n"
             "autonomous-learn start              — Start autonomous learning (incl. code loop)\n"
@@ -1088,6 +1111,8 @@ Ask me about:
             "autonomous-learn topic-seed         — Derive & seed new topics to ALE + SLSA + KB queue\n"
             "autonomous-learn serpex-research    — Run ALE Step 27 (Serpex validated research) now\n"
             "autonomous-learn serpex-search <q>  — Live Serpex web search for <q> with relevance filter\n"
+            "autonomous-learn scrapy-research    — Run ScrapyResearch step now\n"
+            "autonomous-learn scrapy-search <q>  — Live DuckDuckGo search via ScrapyResearchAgent\n"
             "autonomous-learn add-topic <topic>  — Add research topic\n"
             "autonomous-learn add-topics <t1,t2> — Add multiple topics"
         )

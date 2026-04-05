@@ -1666,6 +1666,7 @@ class NiblitCore:
         self.slsa_manager = None
         self.lifecycle = None
         self.serpex_research_agent = None
+        self.scrapy_research_agent = None
 
         log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
 
@@ -6022,6 +6023,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         log.debug("niblit_agents.ResearchAgent unavailable: %s", _e)
                         self.serpex_research_agent = None
 
+                    # Build a ScrapyResearchAgent — direct Scrapy backend, no SerpexAPI shim.
+                    _scrapy_agent = None
+                    try:
+                        from niblit_agents.scrapy_research_agent import ScrapyResearchAgent as _ScrapyRA
+                        _scrapy_agent = _ScrapyRA()
+                        self.scrapy_research_agent = _scrapy_agent
+                        log.info("✅ niblit_agents.ScrapyResearchAgent ready")
+                    except Exception as _e:
+                        log.debug("niblit_agents.ScrapyResearchAgent unavailable: %s", _e)
+                        self.scrapy_research_agent = None
+
                     # Wire Serpex agent into SelfResearcher so it is available as a
                     # primary research backend (now that the agent has been constructed).
                     if _serpex_agent and getattr(self, "researcher", None):
@@ -6062,6 +6074,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         pypi_search=getattr(self, "pypi_search", None),
                         searchcode_search=getattr(self, "searchcode_search", None),
                         serpex_research_agent=_serpex_agent,
+                        scrapy_research_agent=_scrapy_agent,
                         semantic_agent=getattr(self, "semantic_agent", None),
                         claude_engine=getattr(self, "claude_engine", None),
                         builds_integrator=getattr(self, "builds_integrator", None),
