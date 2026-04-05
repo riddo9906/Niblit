@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # Niblit Self-Learning System
 
-from niblit_io import NiblitIO
+import logging
 import re
+
+log = logging.getLogger(__name__)
 
 class NiblitLearning:
     def __init__(self, memory):
@@ -29,7 +31,7 @@ class NiblitLearning:
         }
 
         self.memory.store_learning(data)
-        NiblitIO.out("Learning module updated patterns.")
+        log.debug("Learning module updated patterns.")
 
     def evolve(self):
         """Simple pattern evolution loop."""
