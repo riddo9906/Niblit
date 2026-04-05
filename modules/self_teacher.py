@@ -205,35 +205,36 @@ class SelfTeacher:
 
         summary = self._synthesize_with_llm(topic, learned) if learned else f"No external data found for {topic}"
 
-        # Digest the summary into Niblit's own words before persisting
-        # (purely additive: falls back to the cleaned summary when no LLM)
-        try:
-            if self._knowledge_digest is not None:
-                # Re-sync llm in case it was wired after __init__
-                self._knowledge_digest.llm = self.llm
-                summary = self._knowledge_digest.digest(topic, summary)
-        except Exception:
-            pass
+        if learned:
+            # Digest the summary into Niblit's own words before persisting
+            # (purely additive: falls back to the cleaned summary when no LLM)
+            try:
+                if self._knowledge_digest is not None:
+                    # Re-sync llm in case it was wired after __init__
+                    self._knowledge_digest.llm = self.llm
+                    summary = self._knowledge_digest.digest(topic, summary)
+            except Exception:
+                pass
 
-        ts = int(time.time())
-        try:
-            if hasattr(self.db, "add_fact"):
-                self.db.add_fact(
-                    f"self_teach_summary:{topic}:{ts}",
-                    summary,
-                    tags=["learn", "self-teach", topic]
-                )
-                # Update the per-topic learning ledger — single authoritative entry
-                # for this topic so recall always returns the latest digest.
-                self.db.add_fact(
-                    f"topic_knowledge:{topic}",
-                    summary,
-                    tags=["knowledge", "ledger", topic]
-                )
-            elif hasattr(self.db, "store_learning"):
-                self.db.store_learning({"topic": topic, "summary": summary, "tags": ["learn", "self-teach", topic]})
-        except Exception:
-            pass
+            ts = int(time.time())
+            try:
+                if hasattr(self.db, "add_fact"):
+                    self.db.add_fact(
+                        f"self_teach_summary:{topic}:{ts}",
+                        summary,
+                        tags=["learn", "self-teach", topic]
+                    )
+                    # Update the per-topic learning ledger — single authoritative entry
+                    # for this topic so recall always returns the latest digest.
+                    self.db.add_fact(
+                        f"topic_knowledge:{topic}",
+                        summary,
+                        tags=["knowledge", "ledger", topic]
+                    )
+                elif hasattr(self.db, "store_learning"):
+                    self.db.store_learning({"topic": topic, "summary": summary, "tags": ["learn", "self-teach", topic]})
+            except Exception:
+                pass
 
         if learned:
             try:
