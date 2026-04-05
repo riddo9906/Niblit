@@ -58,6 +58,7 @@ Research backends (preferred order, from SelfResearcher.search())
 """
 
 import concurrent.futures
+import os
 import threading
 import time
 import logging
@@ -1098,13 +1099,16 @@ class AutonomousLearningEngine:
             if agent:
                 self.serpex_research_agent = agent
                 return agent
-        # Attempt lazy construction — only succeeds when SERPEX_API_KEY is set
+        # Attempt lazy construction — only succeeds when SERPEX_API_KEY is set.
+        # is_configured() always returns True since Scrapy needs no key, so
+        # check the env var directly to preserve the original gating behaviour.
+        if not os.getenv("SERPEX_API_KEY"):
+            return None
         try:
             from niblit_agents.research_agent import ResearchAgent
             agent = ResearchAgent()
-            if agent.is_configured():  # has a Serpex API key
-                self.serpex_research_agent = agent
-                return agent
+            self.serpex_research_agent = agent
+            return agent
         except Exception:
             pass
         return None
