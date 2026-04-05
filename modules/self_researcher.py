@@ -548,13 +548,28 @@ class SelfResearcher:
         try:
             ts = int(time.time())
             for i, result in enumerate(results):
-                # Include timestamp + index so each result gets its own unique key
-                # (avoids the previous behaviour where every call on the same query
-                # would overwrite the single `research:{query}` entry).
-                self.knowledge_db.add_fact(
+                # Normalise each result to a plain string so store_research()
+                # can produce a fully-structured record (key, value, tags,
+                # source, ts) instead of persisting raw strings via add_fact().
+                if isinstance(result, dict):
+                    text = (
+                        result.get("snippet")
+                        or result.get("text")
+                        or result.get("description")
+                        or result.get("content")
+                        or result.get("summary")
+                        or str(result)
+                    )
+                else:
+                    text = str(result)
+
+                # Include timestamp + index so each result gets its own unique
+                # key (avoids overwriting the single `research:{query}` entry).
+                self.knowledge_db.store_research(
                     f"research:{query}:{ts}:{i}",
-                    result,
-                    tags=["research", "web", "autonomous"]
+                    text,
+                    tags=["research", "web", "autonomous"],
+                    source="self_researcher",
                 )
 
             if hasattr(self.knowledge_db, "log_event"):
