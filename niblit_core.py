@@ -8255,8 +8255,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "Queued for autonomous research."
         if intent == "toggle_llm":
             log.debug("[CORE-CMD] Intercepted: toggle-llm")
-            self.llm_enabled = str(meta.get("state")).lower() in ("on", "true", "1")
-            return f"LLM {'enabled' if self.llm_enabled else 'disabled'}"
+            turning_on = str(meta.get("state")).lower() in ("on", "true", "1")
+            self.llm_enabled = turning_on
+            # Propagate pause/resume to HFBrain for chat history preservation
+            brain = getattr(self, "brain", None)
+            hf = getattr(brain, "hf_brain", None) if brain else None
+            if hf:
+                if turning_on:
+                    if hasattr(hf, "enable"):
+                        hf.enable()
+                else:
+                    if hasattr(hf, "disable"):
+                        hf.disable()
+            return f"LLM {'resumed' if self.llm_enabled else 'paused (chat history preserved)'}"
         if intent == "ideas":
             log.debug("[CORE-CMD] Intercepted: ideas")
             topic = meta.get("topic", "")

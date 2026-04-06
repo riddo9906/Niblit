@@ -4,6 +4,7 @@
 HFAdapter: higher-level adapter used by niblit_core.
 Uses huggingface_hub.InferenceClient where available.
 Maintains previous HFAdapter.is_online() and .query() signatures.
+Now also persists chat exchanges to LLMChatMemory for cross-session context.
 """
 import os
 import logging
@@ -26,6 +27,20 @@ except Exception:
 HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_API_KEY", "")
 DEFAULT_MODEL = os.getenv("NIBLIT_LLM_MODEL") or "moonshotai/Kimi-K2-Instruct-0905"
 
+# Lazy chat memory import
+_chat_memory = None
+
+def _get_chat_memory():
+    global _chat_memory
+    if _chat_memory is None:
+        try:
+            from modules.llm_chat_memory import get_llm_chat_memory
+            _chat_memory = get_llm_chat_memory()
+        except Exception:
+            pass
+    return _chat_memory
+
+
 class HFAdapter:
     def __init__(self, db=None):
         self.db = db
@@ -33,6 +48,7 @@ class HFAdapter:
         self._last_check = 0
         self._last_result = False
         self.client = None
+        self.chat_memory = _get_chat_memory()
         if HF_CLIENT_AVAILABLE and self.api_key:
             try:
                 self.client = InferenceClient(api_key=self.api_key)
@@ -70,6 +86,13 @@ class HFAdapter:
             return "[HFAdapter] No HF_TOKEN set or client unavailable."
 
         messages = []
+
+        # Load persistent chat history for cross-session context
+        if self.chat_memory and not context:
+            stored = self.chat_memory.load_messages(limit=20)
+            if stored:
+                messages.extend(stored)
+
         # preserve previous behaviour: build messages from context if present
         if context:
             for it in (context or [])[-10:]:
@@ -95,6 +118,12 @@ class HFAdapter:
                     text = getattr(msg, "content", None) or str(msg)
             except Exception:
                 text = str(resp)
+
+            # Persist to chat memory for cross-session context
+            if self.chat_memory and text:
+                self.chat_memory.add("user", prompt)
+                self.chat_memory.add("assistant", text)
+
             # optional: persist to DB if available
             if self.db and hasattr(self.db, "add_entry"):
                 try:

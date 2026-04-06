@@ -189,6 +189,7 @@ class NiblitRouter:
 
     COMMAND_PREFIXES = (
         "toggle-llm", "hf-status", "hf-enable", "hf-disable", "hf-ask",
+        "chat-memory",
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
@@ -1968,6 +1969,66 @@ Ask me about:
                 return f"[HFBrain error] {exc}"
 
         return "Usage: hf-status | hf-enable | hf-disable | hf-ask <prompt>"
+
+    # ── Chat Memory handler (LLM inference provider memory) ───────────────────
+
+    def _handle_chat_memory(self, cmd: str) -> str:
+        """Route 'chat-memory ...' commands to LLMChatMemory.
+
+        Subcommands::
+
+            chat-memory status  — show message count, session info
+            chat-memory recent  — show last 5 messages
+            chat-memory trim    — trim to most recent 200 messages
+            chat-memory clear   — delete all chat history
+        """
+        sub = cmd.strip().lower().replace("chat-memory", "").strip()
+
+        try:
+            from modules.llm_chat_memory import get_llm_chat_memory
+            mem = get_llm_chat_memory()
+        except Exception as exc:
+            return f"[chat-memory] Not available: {exc}"
+
+        if not sub or sub == "status":
+            s = mem.status()
+            return (
+                "💬 **LLM Chat Memory**\n"
+                f"• Messages stored: {s['message_count']}\n"
+                f"• Session: {s['session_id']}\n"
+                f"• Paused: {'⏸️ Yes' if s['paused'] else '🟢 No'}\n"
+                f"• DB: {s['db_path']}\n\n"
+                "This memory is visible to the LLM inference provider across sessions.\n"
+                "When you toggle-llm off/on, all history is preserved and reloaded."
+            )
+
+        if sub == "recent":
+            messages = mem.load_messages(limit=5)
+            if not messages:
+                return "💬 No chat history yet."
+            lines = ["💬 **Recent Chat History** (last 5 messages)\n"]
+            for msg in messages:
+                role = msg["role"]
+                icon = "👤" if role == "user" else "🤖"
+                content = msg["content"][:150]
+                lines.append(f"{icon} **{role}**: {content}")
+            return "\n".join(lines)
+
+        if sub == "trim":
+            deleted = mem.trim(keep=200)
+            return f"✅ Trimmed {deleted} old messages. Kept most recent 200."
+
+        if sub == "clear":
+            mem.clear()
+            return "🗑️ All chat history cleared. The LLM will start fresh next session."
+
+        return (
+            "Usage: chat-memory [status|recent|trim|clear]\n"
+            "  status — message count and session info\n"
+            "  recent — last 5 messages\n"
+            "  trim   — keep only the most recent 200 messages\n"
+            "  clear  — delete all chat history"
+        )
 
     # ── Deployment Bridge handler (additive) ──────────────────────────────────
 
@@ -3872,15 +3933,54 @@ Ask me about:
             state = lower.replace("toggle-llm", "").strip()
             if state in ("on", "true", "1"):
                 self.core.llm_enabled = True
+                # Resume HFBrain with full chat history reload
+                brain = getattr(self.core, "brain", None)
+                hf = getattr(brain, "hf_brain", None) if brain else None
+                if hf and hasattr(hf, "enable"):
+                    hf.enable()
+                    mem_status = hf.chat_memory_status() if hasattr(hf, "chat_memory_status") else {}
+                    count = mem_status.get("message_count", 0)
+                    return (
+                        f"✅ LLM resumed. Full chat history reloaded ({count} messages).\n"
+                        "The inference provider can see your entire conversation history."
+                    )
                 return "✅ LLM enabled. Using AI for responses."
             if state in ("off", "false", "0"):
+                # Pause HFBrain — preserve chat history
+                brain = getattr(self.core, "brain", None)
+                hf = getattr(brain, "hf_brain", None) if brain else None
+                if hf and hasattr(hf, "disable"):
+                    hf.disable()
                 self.core.llm_enabled = False
-                return "✅ LLM disabled. Using research + conversation for responses."
-            return "Usage: toggle-llm on/off"
+                return (
+                    "⏸️ LLM paused. Chat history preserved.\n"
+                    "Use 'toggle-llm on' to resume — the AI will remember everything."
+                )
+            if state == "status":
+                brain = getattr(self.core, "brain", None)
+                hf = getattr(brain, "hf_brain", None) if brain else None
+                if hf and hasattr(hf, "chat_memory_status"):
+                    s = hf.chat_memory_status()
+                    llm_on = getattr(self.core, "llm_enabled", False)
+                    return (
+                        f"**LLM Session Status**\n"
+                        f"• LLM: {'🟢 Active' if llm_on else '⏸️ Paused'}\n"
+                        f"• Chat history: {s.get('message_count', 0)} messages\n"
+                        f"• Session: {s.get('session_id', 'unknown')}\n"
+                        f"• Paused: {s.get('paused', False)}\n"
+                        f"• DB: {s.get('db_path', 'N/A')}"
+                    )
+                llm_on = getattr(self.core, "llm_enabled", False)
+                return f"LLM: {'enabled' if llm_on else 'disabled'}"
+            return "Usage: toggle-llm on/off/status"
 
         # HFBRAIN COMMANDS
         if lower in ("hf-status",) or lower.startswith("hf-enable") or lower.startswith("hf-disable") or lower.startswith("hf-ask"):
             return self._handle_hf_brain(cmd)
+
+        # CHAT-MEMORY COMMANDS
+        if lower.startswith("chat-memory"):
+            return self._handle_chat_memory(cmd)
 
         # HELP
         if lower in ("help", "commands"):
@@ -4174,12 +4274,17 @@ Ask me about:
             "improvement-status           — View improvement status",
             "",
             "=== SETTINGS ===",
-            "toggle-llm off               — Disable LLM (use research mode)",
-            "toggle-llm on                — Enable LLM (use AI)",
+            "toggle-llm off               — Pause LLM (chat history preserved)",
+            "toggle-llm on                — Resume LLM (full history reloaded)",
+            "toggle-llm status            — Show LLM session & chat memory status",
             "status, health               — System status",
             "time                         — Current time",
             "",
             "=== MEMORY MANAGEMENT ===",
+            "chat-memory status           — Show LLM chat memory (message count, session)",
+            "chat-memory recent           — Show last 5 messages sent to the LLM",
+            "chat-memory trim             — Keep only the most recent 200 messages",
+            "chat-memory clear            — Delete all LLM chat history",
             "memory-reset                 — Show warning + usage before clearing",
             "memory-reset status          — Preview what will be cleared (dry-run)",
             "memory-reset confirm         — ⚠️  WIPE all memory, ALE state, caches",
