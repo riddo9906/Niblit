@@ -131,6 +131,12 @@ class AutonomousLearningEngine:
     _RESEARCH_INGEST_WAIT: float = 60.0
     _CODE_TOPIC_INGEST_WAIT: float = 30.0
 
+    # Curriculum grade thresholds for code-research topics.
+    # "computer science basics" is introduced at Grade 8 in the graded
+    # curriculum, so code-literacy research is skipped before that level.
+    _CS_INTRO_GRADE: int = 8
+    _ADVANCED_PROGRAMMING_GRADE: int = 10
+
     def __init__(self, core, researcher=None, idea_generator=None,
                  reflect_module=None, self_teacher=None, slsa_manager=None,
                  knowledge_db=None, idle_threshold=300, poll_interval=60,
@@ -425,11 +431,11 @@ class AutonomousLearningEngine:
         except Exception:
             level = 1  # assume earliest grade when curriculum unavailable
 
-        if level < 8:
+        if level < self._CS_INTRO_GRADE:
             # Pre-computer-science grades: no real code topics
             return [("python", "simple arithmetic with numbers")]
 
-        if level < 10:
+        if level < self._ADVANCED_PROGRAMMING_GRADE:
             # Grades 8-9: introductory programming
             return [
                 ("python", "code structure and indentation"),

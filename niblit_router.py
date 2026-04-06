@@ -2896,8 +2896,11 @@ Ask me about:
             "nah", "nope", "just", "ask me", "bored", "chill",
             "sup", "yo", "hm", "hmm", "idk", "dunno",
         )
+        # Short casual messages (≤ this many words) with a chat marker are
+        # treated as conversational openers, not knowledge queries.
+        _MAX_CASUAL_WORDS = 8
         if (
-            len(lower.split()) <= 8
+            len(lower.split()) <= _MAX_CASUAL_WORDS
             and any(m in lower for m in _CASUAL_MARKERS)
         ):
             return self._get_chat_response('conversation')
