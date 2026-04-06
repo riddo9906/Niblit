@@ -1,0 +1,144 @@
+# Dependabot version update configuration for Niblit.
+#
+# Covers every package ecosystem present in the repository:
+#   pip           — Python dependencies (requirements.txt, requirements-dev.txt)
+#   npm           — TypeScript/Node.js deployment node (nodes/typescript/)
+#   cargo         — Rust deployment node (nodes/rust/)
+#   swift         — Swift deployment node (nodes/swift/)
+#   docker        — Container base images (Dockerfile)
+#   github-actions — Workflow action pins (.github/workflows/)
+#
+# All ecosystems share the same weekly cadence (Monday 06:00 UTC) so PRs
+# arrive on the same day and can be batched for review.  Each section caps
+# open dependency PRs so the board doesn't get flooded.
+#
+# Security-only alert PRs are always created regardless of the open-PR limit.
+
+version: 2
+updates:
+
+  # ── Python (pip) ───────────────────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps(pip)"
+      include: "scope"
+    groups:
+      # Batch all non-security pip bumps into a single PR to reduce noise.
+      python-non-security:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Pin numpy/pandas to major versions — breaking changes are common.
+      - dependency-name: "numpy"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pandas"
+        update-types: ["version-update:semver-major"]
+
+  # ── npm (TypeScript/Node.js node) ──────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/nodes/typescript"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "javascript"
+    commit-message:
+      prefix: "deps(npm)"
+      include: "scope"
+    groups:
+      typescript-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Cargo (Rust node) ──────────────────────────────────────────────────────
+  - package-ecosystem: "cargo"
+    directory: "/nodes/rust"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "deps(cargo)"
+      include: "scope"
+    groups:
+      rust-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ── Swift Package Manager (Swift node) ────────────────────────────────────
+  - package-ecosystem: "swift"
+    directory: "/nodes/swift"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "swift"
+    commit-message:
+      prefix: "deps(swift)"
+      include: "scope"
+
+  # ── Docker ────────────────────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "deps(docker)"
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "deps(actions)"
+    groups:
+      # Keep all action bumps together so they're reviewed and merged at once.
+      github-actions-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"

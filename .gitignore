@@ -1,6 +1,7 @@
 # Vercel deployment files
 .vercel
 .env
+.env.local
 
 # Python cache
 __pycache__/
