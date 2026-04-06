@@ -109,6 +109,14 @@ class ChatDetector:
         r'^bye\s*$|^goodbye\s*$|^see\s+you\s*$',
         r'^lol\s*$|^haha\s*$',
         r'^(yes|no)\s*$',
+        # Conversational openers — should produce a natural reply, NOT a KB dump
+        r'let\'?s\s+(have\s+a\s+)?(normal\s+)?(talk|chat|conversation)',
+        r'(can|could)\s+we\s+(just\s+)?(talk|chat|have\s+a\s+conversation)',
+        r'^(talk|chat)\s+to\s+me',
+        r'^(nothing|nothin|nah|nope)\s*$',
+        r'^just\s+(talking|chatting|chilling)',
+        r'^i\s+(just\s+)?want\s+to\s+(talk|chat)',
+        r'^ask\s+me\s+(a\s+question|something|anything)',
     ]
 
     # System query patterns
@@ -327,6 +335,13 @@ class NiblitRouter:
             "Goodbye! See you next time!",
             "Take care!",
             "See you soon!",
+        ],
+        'conversation': [
+            "Sure! What should we talk about? Ask me a question and I'll see what I know!",
+            "I'd love to chat! What's on your mind?",
+            "Alright, let's talk! Pick a topic or ask me anything.",
+            "Sure thing! Ask me a question, or tell me what you're interested in.",
+            "I'm all ears! What would you like to discuss?",
         ],
     }
 
@@ -2867,17 +2882,45 @@ Ask me about:
         that are not explicit info-queries.
 
         Priority order:
-        1. KB facts about the topic
-        2. Status / identity facts synthesised from core
-        3. Trigger gap-learning and return a live-research result or
-           an "I'm learning about this" message
+        1. Detect casual / open-ended messages and reply naturally — never
+           dump knowledge-base results when the user just wants to chat.
+        2. If the message contains a real subject, try KB facts.
+        3. Status / identity facts synthesised from core.
+        4. Trigger gap-learning only as a last resort.
         """
-        # 1. Try KB
-        kb_resp = self._get_kb_response(text)
-        if kb_resp:
-            return kb_resp
+        lower = text.lower().strip()
 
-        # 2. Synthesise from what the core knows about itself
+        # ─── 1. Casual / open-ended → reply naturally ───────────────────
+        _CASUAL_MARKERS = (
+            "talk", "chat", "conversation", "nothing", "nothin",
+            "nah", "nope", "just", "ask me", "bored", "chill",
+            "sup", "yo", "hm", "hmm", "idk", "dunno",
+        )
+        if (
+            len(lower.split()) <= 8
+            and any(m in lower for m in _CASUAL_MARKERS)
+        ):
+            return self._get_chat_response('conversation')
+
+        # ─── 2. Try KB only when the text looks like a real question ────
+        # Build keyword list the same way _get_kb_response does; if no
+        # meaningful keywords survive the stop-word filter the message is
+        # content-free and should *not* trigger a KB dump.
+        _stop = {"what", "is", "are", "how", "the", "a", "an", "do", "does",
+                 "you", "know", "about", "tell", "me", "explain", "can", "i",
+                 "to", "of", "in", "for", "on", "and", "or", "with", "let",
+                 "lets", "have", "us", "just", "want", "we", "should", "could",
+                 "would", "its", "that", "this", "not", "but", "so", "be",
+                 "normal"}
+        keywords = [w for w in re.sub(r"[^\w\s]", "", lower).split()
+                    if len(w) > 2 and w not in _stop]
+
+        if keywords:
+            kb_resp = self._get_kb_response(text)
+            if kb_resp:
+                return kb_resp
+
+        # ─── 3. Synthesise from what the core knows about itself ────────
         if self.core:
             mem = getattr(self.core, "memory", None)
             fact_count = 0
@@ -2891,7 +2934,6 @@ Ask me about:
             if ale and hasattr(ale, "learning_history"):
                 ale_cycles = ale.learning_history.get("research_cycles", 0)
 
-            lower = text.lower()
             # Generic reflection topics the user might ask conversationally
             if any(w in lower for w in ("think", "feel", "opinion", "view", "believe")):
                 return (
@@ -2901,7 +2943,11 @@ Ask me about:
                     "ask me a specific question or try 'recall <topic>'."
                 )
 
-        # 3. No KB answer and no identity match — trigger gap learning
+        # ─── 4. No meaningful content — offer to chat ───────────────────
+        if not keywords:
+            return self._get_chat_response('conversation')
+
+        # ─── 5. Real topic but no KB answer — trigger gap learning ──────
         return self._trigger_gap_learning(text, text)
 
     # ─────────────────────────────────
@@ -3138,6 +3184,11 @@ Ask me about:
                     response = self._get_chat_response('goodbye')
                 elif any(p in lower_text for p in ['ok', 'okay', 'got it', 'nice', 'cool', 'awesome', 'great']):
                     response = self._get_chat_response('okay')
+                elif any(kw in lower_text for kw in [
+                    'talk', 'chat', 'conversation', 'ask me',
+                    'nothing', 'nothin', 'nah', 'nope', 'just',
+                ]):
+                    response = self._get_chat_response('conversation')
                 else:
                     response = self._get_chat_response('greeting')
 

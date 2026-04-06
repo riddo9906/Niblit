@@ -245,123 +245,19 @@ class AutonomousLearningEngine:
         # Event used to wake up the inter-cycle sleep early (e.g. on stop())
         self._stop_event = threading.Event()
 
-        # Topics to autonomously research (grows over time)
-        self.research_topics = [
-            # ── TOP PRIORITY: code structure & quality ──────────────────────
-            "code indentation and structure best practices",
-            "proper code formatting standards for all languages",
-            "code syntax correctness and linting",
-            # ── cognitive / language / communication ─────────────────────────
-            "natural language understanding and generation",
-            "language model prompt engineering and chat completions",
-            "conversational AI response quality and fluency",
-            "human communication styles and pragmatics",
-            "language grammar syntax and semantics",
-            "multilingual language translation techniques",
-            "dialogue management and context tracking",
-            "question answering and information retrieval",
-            "text summarization and generation best practices",
-            "sentiment analysis and tone detection",
-            # ── reasoning / logic / mathematics ──────────────────────────────
-            "logical reasoning and deductive inference",
-            "mathematical reasoning and arithmetic problem solving",
-            "symbolic AI planning and constraint solving",
-            "common-sense reasoning and world knowledge",
-            "causal reasoning and counterfactual thinking",
-            "chain-of-thought prompting and multi-step reasoning",
-            "numerical computation and floating point arithmetic",
-            "algebra calculus and statistical mathematics",
-            "probabilistic reasoning and Bayesian inference",
-            "formal verification and theorem proving",
-            # ── chat completions / response quality ──────────────────────────
-            "chat completion API design and usage patterns",
-            "LLM response formatting and structured output",
-            "context window management and long conversation handling",
-            "retrieval-augmented generation and knowledge grounding",
-            "response coherence consistency and factual accuracy",
-            "instruction following and alignment techniques",
-            # ── low-level / systems ─────────────────────────────────────────
-            "binary file formats ELF DEX PE Mach-O",
-            "hexadecimal binary number systems and conversions",
-            "assembly language x86-64 and ARM programming",
-            "Linux kernel module development",
-            "firmware and embedded systems programming",
-            "BIOS UEFI bootloader development",
-            "Android internals DEX smali ART",
-            "networking TCP IP sockets protocols",
-            "operating system internals process memory scheduling",
-            "kernel driver development char block network devices",
-            "binary exploitation and reverse engineering fundamentals",
-            "cross-compilation toolchains and build systems",
-            # ── general AI/ML topics ────────────────────────────────────────
-            "artificial intelligence advances",
-            "machine learning techniques",
-            "data science trends",
-            "automation systems",
-            "neural networks",
-            "natural language processing",
-            "computer vision",
-            "knowledge graphs",
-            "reasoning systems",
-            "multi-agent systems",
-            "system optimization",
-            "performance tuning",
-            "error handling best practices",
-            "code quality metrics",
-            "software architecture patterns",
-        ]
+        # Topics to autonomously research.
+        # When the GradedCurriculum module is available the ALE pulls topics
+        # directly from the *current* grade level so learning follows the
+        # structured Grade 1 → University progression.  The hardcoded fallback
+        # list is only used when the curriculum module is absent.
+        self.research_topics = self._build_curriculum_topics()
 
-        # Code-literacy research topics (used by _autonomous_code_research)
-        self.code_research_topics = [
-            # ── TOP PRIORITY: structure/indentation ─────────────────────────
-            ("python", "code structure and indentation"),
-            ("bash", "proper script structure and indentation"),
-            ("javascript", "code structure and formatting"),
-            # ── cognitive / language / NLP ───────────────────────────────────
-            ("python", "natural language processing with NLTK and spaCy"),
-            ("python", "text generation with transformers and language models"),
-            ("python", "chat completion API client implementations"),
-            ("python", "conversation history management and context windows"),
-            ("python", "tokenization stemming and lemmatization"),
-            ("python", "reasoning chains and multi-step problem solving"),
-            ("python", "arithmetic and mathematical expression evaluation"),
-            ("python", "string formatting and template rendering"),
-            ("javascript", "chat UI components and streaming responses"),
-            ("typescript", "LLM API integration and response handling"),
-            # ── compiled / systems languages ─────────────────────────────────
-            ("java", "object-oriented design patterns"),
-            ("java", "Android development best practices"),
-            ("c", "memory management and pointers"),
-            ("c", "system calls and POSIX API"),
-            ("cpp", "RAII and smart pointers"),
-            ("cpp", "template metaprogramming"),
-            ("rust", "ownership and borrowing"),
-            ("rust", "async programming and tokio"),
-            ("go", "goroutines and channels"),
-            ("go", "error handling patterns"),
-            ("kotlin", "coroutines and Android development"),
-            ("typescript", "type system and generics"),
-            ("assembly", "x86-64 system call interface"),
-            ("assembly", "ARM Cortex-M bare metal programming"),
-            # ── networking & systems ──────────────────────────────────────────
-            ("python", "socket programming and networking"),
-            ("c", "Linux socket and epoll networking"),
-            ("bash", "network diagnostic scripting"),
-            # ── binary / low-level ───────────────────────────────────────────
-            ("python", "binary file parsing with struct"),
-            ("python", "ELF and DEX format analysis"),
-            ("c", "kernel module and device driver programming"),
-            ("c", "firmware bare-metal embedded programming"),
-            # ── existing topics ─────────────────────────────────────────────
-            ("python", "data structures"),
-            ("python", "algorithms"),
-            ("python", "design patterns"),
-            ("python", "async programming"),
-            ("python", "error handling"),
-            ("javascript", "async patterns"),
-            ("javascript", "functional programming"),
-            ("bash", "scripting best practices"),
-        ]
+        # Code-literacy research topics (used by _autonomous_code_research).
+        # Only populated with advanced code topics once the curriculum reaches
+        # a level where programming is introduced (Grade 8+).  For early grades
+        # the list stays minimal so the ALE doesn't study code indentation
+        # while the student is still learning counting numbers.
+        self.code_research_topics = self._build_code_research_topics()
 
         # Software study categories (rotated each idle cycle)
         self.software_study_categories = [
@@ -455,6 +351,105 @@ class AutonomousLearningEngine:
         self._current_code_topic: Optional[str] = None
 
         log.info("✅ AutonomousLearningEngine initialized")
+
+    # ─────────────────────────────────────────────
+    # Curriculum-aware topic builder
+    # ─────────────────────────────────────────────
+    # Minimal fallback when the GradedCurriculum module is not available
+    _FALLBACK_RESEARCH_TOPICS: List[str] = [
+        "primary colors", "counting numbers", "common animals",
+        "basic shapes", "days of the week", "seasons of the year",
+    ]
+
+    def _build_curriculum_topics(self) -> List[str]:
+        """Return the research-topic list from the GradedCurriculum.
+
+        When the curriculum module is available the topics are taken from
+        the *current* grade level (and the previous one, to reinforce
+        retention).  This ensures the ALE studies subjects appropriate
+        to its education stage — e.g. Grade 1 topics like "primary
+        colors" and "counting numbers" instead of "code indentation".
+
+        Returns the minimal fallback list if the curriculum is not loaded.
+        """
+        try:
+            from modules.graded_curriculum import get_graded_curriculum, CURRICULUM
+            gc = get_graded_curriculum(
+                db=self.knowledge_db,
+                self_teacher=self.self_teacher,
+            )
+            current = gc.current_grade
+            topics: List[str] = list(current.topics)
+            # Also include the previous grade's topics for reinforcement
+            if current.level > 1:
+                for grade in CURRICULUM:
+                    if grade.level == current.level - 1:
+                        topics.extend(grade.topics)
+                        break
+            log.info(
+                "[ALE] Research topics sourced from curriculum — %s (%d topics)",
+                current.name, len(topics),
+            )
+            return topics
+        except Exception as exc:
+            log.debug("[ALE] GradedCurriculum unavailable (%s), using fallback topics", exc)
+            return list(self._FALLBACK_RESEARCH_TOPICS)
+
+    def refresh_curriculum_topics(self) -> None:
+        """Re-sync research_topics with the current curriculum grade.
+
+        Call this after a grade advancement so the ALE immediately starts
+        studying the new grade's material instead of finishing the old list.
+        """
+        self.research_topics = self._build_curriculum_topics()
+        self.code_research_topics = self._build_code_research_topics()
+        self._topic_index = 0
+        self._code_topic_index = 0
+        log.info("[ALE] Research topics refreshed (%d topics)", len(self.research_topics))
+
+    def _build_code_research_topics(self) -> List[Tuple[str, str]]:
+        """Return code research topics appropriate for the current grade.
+
+        Code literacy is only introduced at Grade 8 ("computer science basics")
+        in the graded curriculum.  Before that, the code-research step is
+        effectively a no-op (returns a minimal placeholder list so the step
+        index doesn't break).
+        """
+        try:
+            from modules.graded_curriculum import get_graded_curriculum
+            gc = get_graded_curriculum(
+                db=self.knowledge_db,
+                self_teacher=self.self_teacher,
+            )
+            level = gc.current_grade.level
+        except Exception:
+            level = 1  # assume earliest grade when curriculum unavailable
+
+        if level < 8:
+            # Pre-computer-science grades: no real code topics
+            return [("python", "simple arithmetic with numbers")]
+
+        if level < 10:
+            # Grades 8-9: introductory programming
+            return [
+                ("python", "code structure and indentation"),
+                ("python", "data structures"),
+                ("python", "error handling"),
+                ("bash", "scripting best practices"),
+            ]
+
+        # Grade 10+: full code-literacy spectrum
+        return [
+            ("python", "code structure and indentation"),
+            ("python", "data structures"),
+            ("python", "algorithms"),
+            ("python", "design patterns"),
+            ("python", "async programming"),
+            ("python", "error handling"),
+            ("javascript", "code structure and formatting"),
+            ("javascript", "async patterns"),
+            ("bash", "scripting best practices"),
+        ]
 
     # ─────────────────────────────────────────────
     def is_idle(self) -> bool:
