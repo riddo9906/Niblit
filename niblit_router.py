@@ -189,7 +189,7 @@ class NiblitRouter:
 
     COMMAND_PREFIXES = (
         "toggle-llm", "hf-status", "hf-enable", "hf-disable", "hf-ask",
-        "chat-memory",
+        "chat-memory", "llm-train",
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
@@ -2028,6 +2028,84 @@ Ask me about:
             "  recent — last 5 messages\n"
             "  trim   — keep only the most recent 200 messages\n"
             "  clear  — delete all chat history"
+        )
+
+    # ── LLM Training Agent handler ────────────────────────────────────────────
+
+    def _handle_llm_train(self, cmd: str) -> str:
+        """Route 'llm-train ...' commands to LLMTrainingAgent.
+
+        Subcommands::
+
+            llm-train status  — show agent status and capabilities
+            llm-train gaps    — detect knowledge gaps that need training
+            llm-train run     — execute one LLM-assisted training cycle
+        """
+        sub = cmd.strip().lower().replace("llm-train", "").strip()
+
+        try:
+            from modules.llm_training_agent import get_llm_training_agent
+        except Exception as exc:
+            return f"[llm-train] Module not available: {exc}"
+
+        # Resolve components for the agent
+        brain = getattr(self.core, "brain", None) if self.core else None
+        hf = getattr(brain, "hf_brain", None) if brain else None
+        bt = getattr(brain, "brain_trainer", None) if brain else None
+        kb = getattr(self.core, "db", None) if self.core else None
+        ale = getattr(self.core, "autonomous_engine", None) if self.core else None
+
+        gc = None
+        try:
+            from modules.graded_curriculum import get_graded_curriculum
+            gc = get_graded_curriculum()
+        except Exception:
+            pass
+
+        agent = get_llm_training_agent(
+            brain_trainer=bt,
+            hf_brain=hf,
+            knowledge_db=kb,
+            ale=ale,
+            graded_curriculum=gc,
+        )
+
+        if not sub or sub == "status":
+            s = agent.status()
+            return (
+                "🎓 **LLM Training Agent**\n"
+                f"• Total cycles: {s['total_cycles']}\n"
+                f"• Training pairs generated: {s['total_pairs_generated']}\n"
+                f"• Topics trained recently: {s['recently_trained_topics']}\n"
+                f"• HFBrain available: {'✅' if s['hf_brain_available'] else '❌'}\n"
+                f"• BrainTrainer available: {'✅' if s['brain_trainer_available'] else '❌'}\n"
+                f"• KnowledgeDB available: {'✅' if s['knowledge_db_available'] else '❌'}\n\n"
+                "This agent asks the LLM to generate training data for knowledge gaps.\n"
+                "Use 'llm-train gaps' to see current gaps, 'llm-train run' to train."
+            )
+
+        if sub == "gaps":
+            gaps = agent.detect_gaps()
+            if not gaps:
+                return "✅ No knowledge gaps detected — training is up to date!"
+            lines = ["🔍 **Knowledge Gaps** (topics needing LLM training)\n"]
+            for i, gap in enumerate(gaps, 1):
+                count = agent._count_facts(gap)
+                lines.append(f"  {i}. {gap} ({count} facts)")
+            lines.append(f"\nRun 'llm-train run' to request training data from the LLM.")
+            return "\n".join(lines)
+
+        if sub == "run":
+            if not hf or not hf.is_enabled():
+                return "❌ LLM is not available. Enable it with 'toggle-llm on' first."
+            result = agent.run_training_cycle()
+            return f"🎓 **Training Complete**\n\n{result}"
+
+        return (
+            "Usage: llm-train [status|gaps|run]\n"
+            "  status — show agent capabilities\n"
+            "  gaps   — detect knowledge gaps\n"
+            "  run    — generate training data from LLM for detected gaps"
         )
 
     # ── Deployment Bridge handler (additive) ──────────────────────────────────
@@ -3982,6 +4060,10 @@ Ask me about:
         if lower.startswith("chat-memory"):
             return self._handle_chat_memory(cmd)
 
+        # LLM TRAINING AGENT COMMANDS
+        if lower.startswith("llm-train"):
+            return self._handle_llm_train(cmd)
+
         # HELP
         if lower in ("help", "commands"):
             return self.help_text()
@@ -4279,6 +4361,11 @@ Ask me about:
             "toggle-llm status            — Show LLM session & chat memory status",
             "status, health               — System status",
             "time                         — Current time",
+            "",
+            "=== LLM TRAINING ===",
+            "llm-train status             — Show LLM training agent status",
+            "llm-train gaps               — Detect knowledge gaps needing training",
+            "llm-train run                — Ask LLM to generate training data for gaps",
             "",
             "=== MEMORY MANAGEMENT ===",
             "chat-memory status           — Show LLM chat memory (message count, session)",

@@ -29,10 +29,12 @@ DEFAULT_MODEL = os.getenv("NIBLIT_LLM_MODEL") or "moonshotai/Kimi-K2-Instruct-09
 
 # Lazy chat memory import
 _chat_memory = None
+_chat_memory_tried = False
 
 def _get_chat_memory():
-    global _chat_memory
-    if _chat_memory is None:
+    global _chat_memory, _chat_memory_tried
+    if _chat_memory is None and not _chat_memory_tried:
+        _chat_memory_tried = True
         try:
             from modules.llm_chat_memory import get_llm_chat_memory
             _chat_memory = get_llm_chat_memory()

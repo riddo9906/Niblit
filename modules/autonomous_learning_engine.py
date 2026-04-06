@@ -3605,6 +3605,8 @@ class AutonomousLearningEngine:
         - Wires the current KnowledgeDB and optional SelfTeacher into the BrainTrainer.
         - Feeds recent autonomous research results into the BrainTrainer as fresh facts.
         - Activates full self-teaching and knowledge ingestion pipeline.
+        - Runs the LLMTrainingAgent to generate structured training data from
+          the inference provider for detected knowledge gaps.
         - Increments training cycle count.
         - Returns a training summary string for metrics/history.
         """
@@ -3634,6 +3636,11 @@ class AutonomousLearningEngine:
             # Run the main (self-teaching + ingestion) training cycle
             summary = self.brain_trainer.run_training_cycle()
 
+            # ── LLM Training Agent: ask the inference provider to fill gaps ──
+            llm_summary = self._run_llm_training_agent()
+            if llm_summary:
+                summary += f"\n{llm_summary}"
+
             self.learning_history["brain_training_cycles"] = (
                 self.learning_history.get("brain_training_cycles", 0) + 1
             )
@@ -3643,6 +3650,44 @@ class AutonomousLearningEngine:
         except Exception as exc:
             log.debug("[BRAIN TRAINING] step failed: %s", exc)
             return f"BrainTraining: error — {exc}"
+
+    def _run_llm_training_agent(self) -> str:
+        """Run the LLMTrainingAgent to generate structured training data
+        from the inference provider for detected knowledge gaps.
+
+        The agent is constructed lazily and wired with the current
+        BrainTrainer, HFBrain, KnowledgeDB, ALE, and GradedCurriculum.
+        """
+        try:
+            from modules.llm_training_agent import get_llm_training_agent
+
+            # Resolve HFBrain from the core's brain
+            hf_brain = None
+            core = getattr(self, "core", None)
+            if core:
+                brain = getattr(core, "brain", None)
+                hf_brain = getattr(brain, "hf_brain", None) if brain else None
+
+            # Resolve GradedCurriculum
+            gc = None
+            try:
+                from modules.graded_curriculum import get_graded_curriculum
+                gc = get_graded_curriculum()
+            except Exception:
+                pass
+
+            agent = get_llm_training_agent(
+                brain_trainer=self.brain_trainer,
+                hf_brain=hf_brain,
+                knowledge_db=self.knowledge_db,
+                ale=self,
+                graded_curriculum=gc,
+            )
+
+            return agent.run_training_cycle()
+        except Exception as exc:
+            log.debug("[ALE] LLMTrainingAgent step failed: %s", exc)
+            return ""
 
     # ─────────────────────────────────────────────
     # COGNITIVE ENHANCEMENT (step 25)

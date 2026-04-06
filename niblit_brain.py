@@ -1284,6 +1284,8 @@ class NiblitBrain:
     def _trigger_gap_learning(self, topic: str) -> None:
         """Queue *topic* for autonomous background research when the brain
         has no answer.  Works on Vercel (lightweight: just adds to ALE topics).
+        Also notifies the LLMTrainingAgent so the inference provider can
+        generate structured training data for this gap.
         """
         if not topic or len(topic.strip()) < 3:
             return
@@ -1294,7 +1296,6 @@ class NiblitBrain:
                 if topic not in ale.research_topics:
                     ale.research_topics.append(topic)
                     log.debug("[Brain] Gap-learning: queued ALE topic '%s'", topic)
-                    return
         except Exception:
             pass
         # Fallback: try SelfResearcher.add_topic

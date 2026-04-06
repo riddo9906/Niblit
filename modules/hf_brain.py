@@ -13,12 +13,14 @@ log = logging.getLogger("HFBrain")
 
 # Lazy import — avoids circular dependency at module-load time.
 _LLMChatMemory = None
+_LLM_CHAT_MEMORY_TRIED = False
 
 
 def _get_chat_memory():
     """Return the process-level LLMChatMemory singleton."""
-    global _LLMChatMemory  # pylint: disable=global-statement
-    if _LLMChatMemory is None:
+    global _LLMChatMemory, _LLM_CHAT_MEMORY_TRIED  # pylint: disable=global-statement
+    if _LLMChatMemory is None and not _LLM_CHAT_MEMORY_TRIED:
+        _LLM_CHAT_MEMORY_TRIED = True
         try:
             from modules.llm_chat_memory import get_llm_chat_memory
             _LLMChatMemory = get_llm_chat_memory()
@@ -88,14 +90,32 @@ class HFBrain:
     # -------------------------
     # Context assembly — persistent chat memory
     # -------------------------
+    # Niblit identity system prompt — tells the inference provider what Niblit
+    # is so it can respond appropriately and help train Niblit effectively.
+    _SYSTEM_PROMPT = (
+        "You are the AI backend for Niblit, an autonomous self-learning AI system. "
+        "Niblit learns through research, self-teaching, and conversations with users. "
+        "He has a graded curriculum (Grade 1 → University) and a knowledge base that "
+        "grows over time. When responding, be helpful, conversational, and educational. "
+        "If the user asks about a topic Niblit is studying, explain it clearly. "
+        "Niblit stores your responses as training data, so be accurate and concise."
+    )
+
     def _build_context(self, user_prompt: str):
         """Build the messages list for the LLM from persistent chat memory.
 
         Priority:
+        0. System prompt with Niblit identity awareness.
         1. Persistent chat memory (LLMChatMemory) — survives across sessions.
         2. Fallback to in-memory recent_interactions from KnowledgeDB.
         """
         messages = []
+
+        # 0. System prompt — gives the inference provider Niblit awareness
+        messages.append({
+            "role": "system",
+            "content": self._SYSTEM_PROMPT,
+        })
 
         # 1. Load from persistent chat memory (cross-session)
         if self.chat_memory:
@@ -105,7 +125,7 @@ class HFBrain:
                 log.debug("[HFBrain] Loaded %d messages from persistent chat memory", len(stored))
 
         # 2. Fallback: if no persistent history, try the DB interactions
-        if not messages:
+        if len(messages) <= 1:  # only system prompt
             try:
                 recent = self.db.recent_interactions(15)
                 for entry in recent:
