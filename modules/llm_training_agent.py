@@ -145,7 +145,7 @@ class LLMTrainingAgent:
                 for topic in grade.topics:
                     if topic not in gaps and self._not_recently_trained(topic, now):
                         # Check if we have enough facts for this topic
-                        count = self._count_facts(topic)
+                        count = self.count_facts(topic)
                         if count < _MIN_FACTS_THRESHOLD:
                             gaps.append(topic)
                             if len(gaps) >= max_gaps:
@@ -158,7 +158,7 @@ class LLMTrainingAgent:
             try:
                 for topic in getattr(self.ale, "research_topics", [])[:20]:
                     if topic not in gaps and self._not_recently_trained(topic, now):
-                        count = self._count_facts(topic)
+                        count = self.count_facts(topic)
                         if count < _MIN_FACTS_THRESHOLD:
                             gaps.append(topic)
                             if len(gaps) >= max_gaps:
@@ -173,7 +173,7 @@ class LLMTrainingAgent:
         last = self._recently_trained.get(topic, 0)
         return (now - last) > self._cooldown_secs
 
-    def _count_facts(self, topic: str) -> int:
+    def count_facts(self, topic: str) -> int:
         """Count how many facts exist for a topic in the KnowledgeDB."""
         if not self.knowledge_db:
             return 0
@@ -324,9 +324,10 @@ class LLMTrainingAgent:
             # 2. Persist to KnowledgeDB as a fact
             if self.knowledge_db and hasattr(self.knowledge_db, "add_fact"):
                 try:
-                    ts = int(time.time())
+                    # Use microsecond timestamp for guaranteed key uniqueness
+                    fact_ts = f"{time.time():.6f}".replace(".", "")
                     self.knowledge_db.add_fact(
-                        f"llm_training:{topic}:{ts}:{stored}",
+                        f"llm_training:{topic}:{fact_ts}",
                         f"Q: {prompt}\nA: {response}",
                         tags=["training", "llm_generated", topic],
                     )

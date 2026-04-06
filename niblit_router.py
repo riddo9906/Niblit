@@ -2090,7 +2090,7 @@ Ask me about:
                 return "✅ No knowledge gaps detected — training is up to date!"
             lines = ["🔍 **Knowledge Gaps** (topics needing LLM training)\n"]
             for i, gap in enumerate(gaps, 1):
-                count = agent._count_facts(gap)
+                count = agent.count_facts(gap)
                 lines.append(f"  {i}. {gap} ({count} facts)")
             lines.append(f"\nRun 'llm-train run' to request training data from the LLM.")
             return "\n".join(lines)
