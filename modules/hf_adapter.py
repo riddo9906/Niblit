@@ -24,7 +24,7 @@ except Exception:
     HF_CLIENT_AVAILABLE = False
 
 HF_TOKEN = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_API_KEY", "")
-DEFAULT_MODEL = "moonshotai/Kimi-K2-Instruct-0905"
+DEFAULT_MODEL = os.getenv("NIBLIT_LLM_MODEL") or "moonshotai/Kimi-K2-Instruct-0905"
 
 class HFAdapter:
     def __init__(self, db=None):

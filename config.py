@@ -33,6 +33,10 @@ class Config:
     GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
 
     # ── Phase 4 LLM providers ─────────────────────────────────────────────────
+    # Primary LLM model — used by llm_adapter, llm_module, hf_adapter, hf_brain
+    # unless overridden by provider-specific env vars.
+    LLM_MODEL: str = os.getenv("NIBLIT_LLM_MODEL", "")
+
     # OpenAI (https://platform.openai.com/api-keys)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")

@@ -154,6 +154,12 @@ class SelfIdeaImplementation:
         except Exception:
             research_results = []
 
+        # Filter out "No data found" placeholder entries — they are not real
+        # research and must never be stored or turned into plans.
+        import re as _re
+        _ndf = _re.compile(r"No data found for\b", _re.IGNORECASE)
+        research_results = [r for r in research_results if not _ndf.search(r)]
+
         # -----------------------------
         # BUILD IMPLEMENTATION PLAN
         # -----------------------------

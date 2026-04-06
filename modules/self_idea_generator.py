@@ -1,6 +1,6 @@
 # self_idea_generator.py
 
-import threading, time, logging
+import threading, time, logging, re
 from datetime import datetime
 
 log = logging.getLogger("SelfIdeaGenerator")
@@ -19,6 +19,10 @@ class SelfIdeaGenerator:
         log.info("[SelfIdeaGenerator] Background idea-generation thread started")
 
     def generate_plan(self, idea_text):
+        # Skip ideas that are just "No data found" placeholders.
+        if idea_text and re.search(r"No data found for\b", idea_text, re.IGNORECASE):
+            log.debug("[Generator] Skipping 'No data found' placeholder idea")
+            return None
         plan = f"Implementation plan for '{idea_text}' - {datetime.utcnow().isoformat()}"
         if self.db:
             try:
