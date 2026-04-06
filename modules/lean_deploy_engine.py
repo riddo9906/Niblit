@@ -331,10 +331,10 @@ class LeanDeployEngine:
         """
         ts = str(int(time.time()))
         token = self._api_token()
-        # SHA256 is mandated by the QuantConnect REST API v2 authentication specification
-        # (https://www.quantconnect.com/docs/v2/our-platform/api-reference/authentication).
-        # This is an HMAC-style API credential scheme required by a third-party API,
-        # NOT password storage.  The algorithm cannot be changed.
+        # SHA-256 hashing is required by the QuantConnect REST API v2 authentication
+        # specification (https://www.quantconnect.com/docs/v2/our-platform/api-reference/authentication).
+        # The algorithm and structure are mandated by the third-party API and cannot be
+        # changed.  This is NOT password storage — it is a credential MAC scheme.
         hash_hex = hashlib.sha256(f"{ts}:{token}".encode()).hexdigest()  # nosec B324  # lgtm[py/weak-sensitive-data-hashing]
         raw = f"{self._user_id()}:{hash_hex}"
         encoded = base64.b64encode(raw.encode()).decode()

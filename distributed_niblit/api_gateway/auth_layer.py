@@ -9,7 +9,6 @@ Usage example::
 
 from __future__ import annotations
 
-import hashlib
 import hmac
 import logging
 import os
@@ -19,16 +18,26 @@ from typing import Dict, List, Optional
 
 log = logging.getLogger("AuthLayer")
 
-# HMAC secret used to derive a keyed hash of each API key before storage.
-# A per-deployment secret ensures the stored digests cannot be reversed even
-# if the key table is leaked.  Falls back to a deterministic value in dev;
-# set AUTH_KEY_HASH_SECRET in production environments.
-_KEY_HASH_SECRET: bytes = os.getenv("AUTH_KEY_HASH_SECRET", "niblit-auth-hmac-secret").encode()
+# HMAC secret used to derive a keyed digest of each API key before storage.
+# A per-deployment secret ensures stored digests cannot be reversed if the
+# key table is leaked.  Supply AUTH_KEY_HASH_SECRET via the environment in
+# production; a random per-process secret is generated when the variable is
+# absent so that security is maintained even without explicit configuration.
+_env_secret = os.getenv("AUTH_KEY_HASH_SECRET")
+if _env_secret:
+    _KEY_HASH_SECRET: bytes = _env_secret.encode()
+else:
+    _KEY_HASH_SECRET = secrets.token_bytes(32)
+    log.warning(
+        "AUTH_KEY_HASH_SECRET not set — using a random per-process secret. "
+        "API keys will not survive server restarts. Set AUTH_KEY_HASH_SECRET "
+        "in the environment for production deployments."
+    )
 
 
 def _hash_api_key(api_key: str) -> str:
-    """Return a keyed HMAC-SHA256 digest of *api_key* for safe storage."""
-    return hmac.new(_KEY_HASH_SECRET, api_key.encode(), hashlib.sha256).hexdigest()
+    """Return a keyed HMAC digest of *api_key* for safe storage."""
+    return hmac.new(_KEY_HASH_SECRET, api_key.encode(), "sha256").hexdigest()
 
 
 class AuthLayer:
