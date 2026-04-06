@@ -138,7 +138,7 @@ def chat(body: ChatBody):
         reply = n.handle(text)
     except Exception as exc:
         logging.getLogger("NiblitServer").error("chat error: %s", exc)
-        reply = "[error] request failed — see server logs"
+        reply = "[error] chat failed — see server logs"
     return {"reply": reply}
 
 
