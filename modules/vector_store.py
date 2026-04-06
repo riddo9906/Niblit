@@ -108,7 +108,7 @@ class _EmbeddingService:
         if self._model is None:
             return None
         try:
-            vec = self._model.encode(text, convert_to_numpy=True)
+            vec = self._model.encode(text, convert_to_numpy=True, show_progress_bar=False)
             return vec.tolist()
         except Exception as exc:
             log.debug("[VectorStore] encode failed: %s", exc)

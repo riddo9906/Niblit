@@ -63,6 +63,7 @@ import threading
 import time
 import logging
 import random
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
@@ -570,6 +571,40 @@ class AutonomousLearningEngine:
 
             self.learning_history["research_completed"] += 1
             self.learning_history["last_research_topic"] = topic
+
+            # ── "No data found" guard — skip topic and rotate ─────────────
+            # When all search backends return nothing, SelfResearcher fills
+            # the list with a placeholder string.  Detect this early, rotate
+            # to the next topic, and retry once so the cycle is productive.
+            _ndf_found = False
+            if results:
+                _clean = [
+                    r for r in results
+                    if not (isinstance(r, str) and
+                            re.search(r"No data found for\b", r, re.IGNORECASE))
+                ]
+                if not _clean:
+                    _ndf_found = True
+                    results = []
+            if _ndf_found:
+                log.info("[ALE] 'No data found' for %r — rotating to next topic", topic)
+                self._current_cycle_topic = self._select_next_topic()
+                # Single retry with the new topic
+                if self.researcher:
+                    try:
+                        results = list(self.researcher.search(
+                            self._current_cycle_topic,
+                            max_results=5, use_history=True,
+                            synthesize=True, enable_autonomous_learning=True,
+                        ) or [])
+                        results = [
+                            r for r in results
+                            if not (isinstance(r, str) and
+                                    re.search(r"No data found for\b", r, re.IGNORECASE))
+                        ]
+                    except Exception:
+                        results = []
+                topic = self._current_cycle_topic
 
             # Forward raw results to Step 4 (reflection) so it has full content.
             self._last_research_results = results

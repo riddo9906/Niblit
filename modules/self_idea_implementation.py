@@ -12,7 +12,7 @@ import logging
 # ✅ SLSA generator
 from slsa_generator_full import SLSAGenerator
 # ✅ Niblit canonical memory
-from niblit_memory import MemoryManager
+from niblit_memory import MemoryManager, _is_no_data_placeholder
 
 log = logging.getLogger("SelfIdeaImpl")
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s')
@@ -153,6 +153,10 @@ class SelfIdeaImplementation:
                     research_results.append(str(r))
         except Exception:
             research_results = []
+
+        # Filter out "No data found" placeholder entries — they are not real
+        # research and must never be stored or turned into plans.
+        research_results = [r for r in research_results if not _is_no_data_placeholder(r)]
 
         # -----------------------------
         # BUILD IMPLEMENTATION PLAN

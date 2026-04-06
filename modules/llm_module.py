@@ -38,7 +38,7 @@ except ImportError:
     _QdrantClient = None  # type: ignore[assignment,misc]
     _QDRANT_LIB_AVAILABLE = False
 
-DEFAULT_MODEL = "moonshotai/Kimi-K2-Instruct-0905"
+DEFAULT_MODEL = os.getenv("NIBLIT_LLM_MODEL") or "moonshotai/Kimi-K2-Instruct-0905"
 # Maximum characters of research context forwarded to the LLM in generate_code().
 _MAX_CONTEXT_LENGTH: int = 600
 # Maximum characters of vector-store context injected automatically.

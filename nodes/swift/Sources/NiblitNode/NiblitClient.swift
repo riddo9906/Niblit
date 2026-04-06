@@ -12,6 +12,9 @@
 //   POST /api/env/capabilities — report Swift environment capabilities
 
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 // MARK: – Response types
 

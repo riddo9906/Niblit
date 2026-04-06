@@ -18,8 +18,8 @@ class HFBrain:
     def __init__(self, db):
         self.db = db
 
-        # KEEP YOUR MODEL
-        self.model = "moonshotai/Kimi-K2-Instruct-0905"
+        # KEEP YOUR MODEL — configurable via NIBLIT_LLM_MODEL env var
+        self.model = os.getenv("NIBLIT_LLM_MODEL") or "moonshotai/Kimi-K2-Instruct-0905"
 
         self.enabled = True
 

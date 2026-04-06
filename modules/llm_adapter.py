@@ -13,7 +13,7 @@ HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN") or os.getenv(
 class LLMAdapter:
 
     def __init__(self):
-        self.model = "moonshotai/Kimi-K2-Instruct-0905:groq"
+        self.model = os.getenv("NIBLIT_LLM_MODEL") or "moonshotai/Kimi-K2-Instruct-0905:groq"
 
     # -------------------------
     # Query Moonshot via HF Router
