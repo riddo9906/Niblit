@@ -1,0 +1,47 @@
+name: "🤖 Nibblebot: Improvement Scanner"
+
+# Runs weekly like Dependabot — studies top GitHub repos and compares
+# patterns with Niblit, then opens (or updates) a GitHub Issue with
+# actionable improvement suggestions.
+
+on:
+  schedule:
+    # Every Monday at 07:00 UTC (right after Dependabot runs at 06:00)
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      topics:
+        description: "Comma-separated topics to study"
+        required: false
+        default: "ai-agent,llm-framework"
+      dry_run:
+        description: "Dry run (print issue instead of creating it)"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  improve:
+    name: Run Nibblebot Improvement Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Nibblebot improvement scan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          NIBBLEBOT_TOPICS: ${{ inputs.topics || 'ai-agent,llm-framework' }}
+          NIBBLEBOT_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: python nibblebots/improvement_bot.py
