@@ -12,7 +12,11 @@
 // All four runtimes (Python / Node / Rust / Swift) use this same algorithm,
 // so envelopes can be safely transferred between them over the REST API.
 
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 // MARK: – Envelope

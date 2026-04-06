@@ -41,6 +41,11 @@ let package = Package(
             url: "https://github.com/apple/swift-argument-parser",
             from: "1.3.0"
         ),
+        // Cross-platform SHA-256 (CryptoKit on Apple, swift-crypto on Linux)
+        .package(
+            url: "https://github.com/apple/swift-crypto",
+            from: "3.0.0"
+        ),
     ],
     targets: [
         // Library target — all core logic (testable)
@@ -48,6 +53,7 @@ let package = Package(
             name: "NiblitNode",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux, .windows])),
             ],
             path: "Sources/NiblitNode"
         ),
