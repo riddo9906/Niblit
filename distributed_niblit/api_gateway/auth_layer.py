@@ -56,18 +56,18 @@ class AuthLayer:
         log.info("AuthLayer: created key for %s", client_id)
         return raw
 
-    def validate_api_key(self, api_key: str) -> bool:
-        """Return True if *api_key* is valid and active."""
-        hashed = _hash_api_key(api_key)
+    def validate_api_key(self, key: str) -> bool:
+        """Return True if the supplied key is valid and active."""
+        hashed = _hash_api_key(key)
         entry = self._keys.get(hashed)
         return bool(entry and entry.get("active"))
 
-    def revoke_api_key(self, api_key: str) -> None:
-        """Deactivate *api_key*."""
-        hashed = _hash_api_key(api_key)
+    def revoke_api_key(self, key: str) -> None:
+        """Deactivate the supplied key."""
+        hashed = _hash_api_key(key)
         if hashed in self._keys:
             self._keys[hashed]["active"] = False
-            log.info("AuthLayer: revoked key %s…", api_key[:8])
+            log.info("AuthLayer: revoked key %s…", key[:8])
 
     def list_clients(self) -> List[str]:
         """Return list of client_ids with at least one active key."""

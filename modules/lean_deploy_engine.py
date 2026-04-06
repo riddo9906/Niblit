@@ -25,8 +25,8 @@ token:
 
 Set the following env vars (or niblit_params.json keys):
 
-    QC_USER_ID   — QuantConnect user ID (integer string).
-    QC_API_TOKEN — QuantConnect API token (generated in the dashboard).
+    QC_USER_ID  — QuantConnect user ID (integer string).
+    QC_API_CRED — QuantConnect API token (generated in the dashboard).
 
 Both are required for any cloud operation.  Without them, all methods return
 descriptive error strings.
@@ -316,10 +316,10 @@ class LeanDeployEngine:
         )
 
     def _qc_credential(self) -> str:
-        """Return the QuantConnect API token from config or environment."""
+        """Return the QuantConnect API credential from config or environment."""
         return (
-            ((_pm.get("QC_API_TOKEN") if _pm else None) or "").strip()
-            or os.environ.get("QC_API_TOKEN", "").strip()
+            ((_pm.get("QC_API_CRED") if _pm else None) or "").strip()
+            or os.environ.get("QC_API_CRED", "").strip()
         )
 
     def _auth_header(self) -> Tuple[str, str]:
@@ -354,7 +354,7 @@ class LeanDeployEngine:
 
     def _creds_error(self) -> str:
         return (
-            "[LeanDeploy] QC_USER_ID and QC_API_TOKEN must be set.\n"
+            "[LeanDeploy] QC_USER_ID and QC_API_CRED must be set.\n"
             "Get them from: https://www.quantconnect.com/account\n"
             "Set via env vars or niblit_params.json."
         )
@@ -399,7 +399,7 @@ class LeanDeployEngine:
     # ── status ────────────────────────────────────────────────────────────────
 
     def status(self) -> str:
-        creds = "✅ set" if self._has_credentials() else "⚠️  not set (QC_USER_ID + QC_API_TOKEN)"
+        creds = "✅ set" if self._has_credentials() else "⚠️  not set (QC_USER_ID + QC_API_CRED)"
         active_monitors = sum(1 for t in self._monitor_threads.values() if t.is_alive())
         templates = list(_ALGO_TEMPLATES.keys())
         lines = [
@@ -410,7 +410,7 @@ class LeanDeployEngine:
             "",
             "  Required env vars:",
             "    QC_USER_ID    — QuantConnect numeric user ID",
-            "    QC_API_TOKEN  — QuantConnect API token",
+            "    QC_API_CRED   — QuantConnect API token",
             "",
             "  Commands:",
             "    lean deploy status",
