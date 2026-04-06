@@ -326,7 +326,7 @@ class NiblitMCPHandler:
             return self._err(msg_id, exc.code, exc.message)
         except Exception as exc:
             log.error("[MCP] unhandled error in %s: %s", method, exc)
-            return self._err(msg_id, -32603, f"Internal error: {exc}")
+            return self._err(msg_id, -32603, "Internal error")
 
     def _dispatch(self, method: str, params: Dict[str, Any]) -> Any:
         handlers: Dict[str, Callable] = {

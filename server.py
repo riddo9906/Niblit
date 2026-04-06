@@ -1,4 +1,5 @@
 # server.py — Niblit FastAPI server (lightweight alternative to app.py)
+import logging
 import os
 
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
@@ -133,7 +134,11 @@ def chat(body: ChatBody):
         return JSONResponse({"error": "no text provided"}, status_code=400)
     if not n:
         return JSONResponse({"error": "core unavailable"}, status_code=500)
-    reply = n.handle(text)
+    try:
+        reply = n.handle(text)
+    except Exception as exc:
+        logging.getLogger("NiblitServer").error("chat error: %s", exc)
+        reply = "[error] chat failed — see server logs"
     return {"reply": reply}
 
 

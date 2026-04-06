@@ -60,6 +60,7 @@ swap_size_mb = 512
   auto_stop_machines  = false   # Keep alive — Niblit has background daemon threads
   auto_start_machines = true
   min_machines_running = 1
+  processes           = ["web"] # Must match the process name defined in [processes]
 
   [http_service.concurrency]
     type       = "requests"

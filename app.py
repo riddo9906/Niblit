@@ -1725,7 +1725,8 @@ def api_search_get(request: Request, q: str = "", query: str = ""):
     try:
         result = core.handle(f"search {search_q}")
     except Exception as exc:
-        result = f"[error] {exc}"
+        logging.getLogger("NiblitApp").error("search error: %s", exc)
+        result = "[error] search failed — see server logs"
     return render_response(request, {"query": search_q, "result": result})
 
 
@@ -1830,9 +1831,8 @@ def api_state_get(request: Request):
         import json as _json
         return JSONResponse(content=_json.loads(mgr.to_json()))
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=503)
-
-
+        logging.getLogger("NiblitApp").error("api_state_get error: %s", exc)
+        return JSONResponse(content={"error": "state unavailable — see server logs"}, status_code=503)
 @app.post("/api/state")
 async def api_state_post(request: Request):
     """Accept a NiblitStateEnvelope from a foreign runtime (Node/Rust)."""
@@ -1849,10 +1849,8 @@ async def api_state_post(request: Request):
             return JSONResponse(content={"status": "merged"})
         return JSONResponse(content={"error": "checksum mismatch or invalid payload"}, status_code=400)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-@app.post("/api/env/capabilities")
+        logging.getLogger("NiblitApp").error("api_state_post error: %s", exc)
+        return JSONResponse(content={"error": "state merge failed — see server logs"}, status_code=500)
 async def api_env_capabilities(request: Request):
     """Accept environment capability report from a foreign runtime node."""
     if rate_limited(request):
@@ -1874,10 +1872,8 @@ async def api_env_capabilities(request: Request):
             core.niblit_runtime.adapt_component(name, level)
         return JSONResponse(content={"status": "accepted"})
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-# ── MCP — Model Context Protocol ───────────────────────────────────────
+        logging.getLogger("NiblitApp").error("api_env_capabilities error: %s", exc)
+        return JSONResponse(content={"error": "capabilities update failed — see server logs"}, status_code=500)
 # Register /mcp (JSON-RPC POST) and /mcp/sse (SSE notifications).
 # Any MCP-compatible client (Claude Desktop, VS Code Copilot, Cursor …)
 # can connect to Niblit through these endpoints.

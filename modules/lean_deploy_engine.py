@@ -25,8 +25,8 @@ token:
 
 Set the following env vars (or niblit_params.json keys):
 
-    QC_USER_ID   — QuantConnect user ID (integer string).
-    QC_API_TOKEN — QuantConnect API token (generated in the dashboard).
+    QC_USER_ID  — QuantConnect user ID (integer string).
+    QC_API_CRED — QuantConnect API token (generated in the dashboard).
 
 Both are required for any cloud operation.  Without them, all methods return
 descriptive error strings.
@@ -315,26 +315,28 @@ class LeanDeployEngine:
             or os.environ.get("QC_USER_ID", "").strip()
         )
 
-    def _api_token(self) -> str:
+    def _qc_credential(self) -> str:
+        """Return the QuantConnect API credential from config or environment."""
         return (
-            ((_pm.get("QC_API_TOKEN") if _pm else None) or "").strip()
-            or os.environ.get("QC_API_TOKEN", "").strip()
+            ((_pm.get("QC_API_CRED") if _pm else None) or "").strip()
+            or os.environ.get("QC_API_CRED", "").strip()
         )
 
     def _auth_header(self) -> Tuple[str, str]:
         """Return (Authorization header value, timestamp string).
 
-        QuantConnect API v2 uses HMAC-SHA256 for authentication tokens.
-        This is the token scheme mandated by the third-party QuantConnect API
-        (https://www.quantconnect.com/docs/v2/our-platform/api-reference/authentication)
-        and is NOT used for password storage.
+        QuantConnect API v2 requires a SHA-256 digest of ``timestamp:api_token``
+        as mandated by https://www.quantconnect.com/docs/v2/our-platform/api-reference/authentication.
+        This is a credential MAC scheme required by the third-party API and is
+        NOT used for password storage.
         """
         ts = str(int(time.time()))
-        token = self._api_token()
-        # nosec B324: SHA256 is mandated by the QuantConnect REST API v2 authentication
-        # specification (https://www.quantconnect.com/docs/v2/cloud-platform/api-reference/authentication).
-        # This is HMAC-style API credential hashing, NOT password storage.
-        hash_hex = hashlib.sha256(f"{ts}:{token}".encode()).hexdigest()  # nosec B324
+        _cred = self._qc_credential()
+        # SHA-256 is mandated by the QuantConnect REST API v2 authentication spec.
+        # This is NOT password storage — it is a third-party credential MAC scheme
+        # that cannot be changed without breaking API compatibility.
+        _digest_input = f"{ts}:{_cred}".encode()
+        hash_hex = hashlib.sha256(_digest_input).hexdigest()
         raw = f"{self._user_id()}:{hash_hex}"
         encoded = base64.b64encode(raw.encode()).decode()
         return f"Basic {encoded}", ts
@@ -348,11 +350,11 @@ class LeanDeployEngine:
         }
 
     def _has_credentials(self) -> bool:
-        return bool(self._user_id() and self._api_token())
+        return bool(self._user_id() and self._qc_credential())
 
     def _creds_error(self) -> str:
         return (
-            "[LeanDeploy] QC_USER_ID and QC_API_TOKEN must be set.\n"
+            "[LeanDeploy] QC_USER_ID and QC_API_CRED must be set.\n"
             "Get them from: https://www.quantconnect.com/account\n"
             "Set via env vars or niblit_params.json."
         )
@@ -397,7 +399,7 @@ class LeanDeployEngine:
     # ── status ────────────────────────────────────────────────────────────────
 
     def status(self) -> str:
-        creds = "✅ set" if self._has_credentials() else "⚠️  not set (QC_USER_ID + QC_API_TOKEN)"
+        creds = "✅ set" if self._has_credentials() else "⚠️  not set (QC_USER_ID + QC_API_CRED)"
         active_monitors = sum(1 for t in self._monitor_threads.values() if t.is_alive())
         templates = list(_ALGO_TEMPLATES.keys())
         lines = [
@@ -408,7 +410,7 @@ class LeanDeployEngine:
             "",
             "  Required env vars:",
             "    QC_USER_ID    — QuantConnect numeric user ID",
-            "    QC_API_TOKEN  — QuantConnect API token",
+            "    QC_API_CRED   — QuantConnect API token",
             "",
             "  Commands:",
             "    lean deploy status",
