@@ -1,11 +1,17 @@
-# CodeQL Advanced — static analysis for Python and Swift
+# CodeQL Advanced — static analysis for Swift
 #
-# Python  : build-mode "none"  → interpreted; no compilation step needed.
+# Python is handled by GitHub's Default Code Scanning setup (enabled in repo
+# settings). Running a custom advanced workflow for Python alongside Default
+# Setup causes the error:
+#   "CodeQL analyses from advanced configurations cannot be processed when
+#    the default setup is enabled"
+# So this workflow covers only Swift, which Default Setup cannot analyse.
+#
 # Swift   : build-mode "manual" → CodeQL autobuild cannot discover the Swift
 #           Package (it's under nodes/swift/, not at the repo root). We run
 #           `swift build` explicitly so CodeQL can trace the full build.
 #
-# Runners : Python on ubuntu-latest; Swift MUST run on macos-latest
+# Runners : Swift MUST run on macos-latest
 #           (CryptoKit and Foundation are Apple platform frameworks).
 #
 # Schedule: Runs weekly in addition to every push/PR to main so new CVEs are
@@ -24,9 +30,9 @@ on:
 
 jobs:
   analyze:
-    name: Analyze (${{ matrix.language }})
-    # Swift must run on macOS; Python runs fine on ubuntu-latest.
-    runs-on: ${{ matrix.language == 'swift' && 'macos-latest' || 'ubuntu-latest' }}
+    name: Analyze (swift)
+    # Swift requires macOS (CryptoKit, Foundation).
+    runs-on: macos-latest
     timeout-minutes: 60
 
     permissions:
@@ -35,50 +41,27 @@ jobs:
       contents: read
       security-events: write
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # ── Python ─────────────────────────────────────────────────────────
-          - language: python
-            build-mode: none
-
-          # ── Swift ──────────────────────────────────────────────────────────
-          # build-mode "manual" is required because our Package.swift lives
-          # under nodes/swift/ rather than the repo root; CodeQL's autobuild
-          # (swift-autobuilder) only looks at the repo root and would fail with
-          # "no-project-found".  We provide the explicit build steps below.
-          - language: swift
-            build-mode: manual
-
     steps:
       # ── Checkout ────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Xcode version pin (Swift only) ──────────────────────────────────────
-      # Ensure a known-good Xcode / Swift toolchain is selected before we
-      # initialise the CodeQL database so the traced build uses the same tools.
-      - name: Select Xcode (Swift only)
-        if: matrix.language == 'swift'
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-
       # ── CodeQL init ─────────────────────────────────────────────────────────
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: swift
+          build-mode: manual
           # Enable all default security queries plus the security-extended suite
           # for deeper vulnerability coverage.
           queries: security-extended,security-and-quality
 
       # ── Manual Swift build ───────────────────────────────────────────────────
-      # Only executed when build-mode is "manual" (i.e. the Swift matrix row).
-      # We resolve dependencies first so the build is traceable and the CodeQL
-      # extractor can see all resolved source files.
+      # build-mode "manual" is required because our Package.swift lives under
+      # nodes/swift/ rather than the repo root; CodeQL's autobuild
+      # (swift-autobuilder) only looks at the repo root and would fail with
+      # "no-project-found".  We provide the explicit build steps below.
       - name: Build Swift package (CodeQL trace)
-        if: matrix.build-mode == 'manual'
         working-directory: nodes/swift
         run: |
           swift package resolve
@@ -88,7 +71,7 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:${{ matrix.language }}"
+          category: "/language:swift"
           # Upload SARIF results even when the build step fails so we always get
           # partial results rather than a silent failure.
           upload: always
