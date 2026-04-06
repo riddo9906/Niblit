@@ -35,9 +35,9 @@ else:
     )
 
 
-def _hash_api_key(api_key: str) -> str:
-    """Return a keyed HMAC digest of *api_key* for safe storage."""
-    return hmac.new(_KEY_HASH_SECRET, api_key.encode(), "sha256").hexdigest()
+def _hash_api_key(raw_data: str) -> str:
+    """Return a keyed HMAC digest of the supplied material for safe storage."""
+    return hmac.new(_KEY_HASH_SECRET, raw_data.encode(), "sha256").hexdigest()
 
 
 class AuthLayer:

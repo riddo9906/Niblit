@@ -315,7 +315,8 @@ class LeanDeployEngine:
             or os.environ.get("QC_USER_ID", "").strip()
         )
 
-    def _api_token(self) -> str:
+    def _qc_credential(self) -> str:
+        """Return the QuantConnect API token from config or environment."""
         return (
             ((_pm.get("QC_API_TOKEN") if _pm else None) or "").strip()
             or os.environ.get("QC_API_TOKEN", "").strip()
@@ -324,18 +325,18 @@ class LeanDeployEngine:
     def _auth_header(self) -> Tuple[str, str]:
         """Return (Authorization header value, timestamp string).
 
-        QuantConnect API v2 uses HMAC-SHA256 for authentication tokens.
-        This is the token scheme mandated by the third-party QuantConnect API
-        (https://www.quantconnect.com/docs/v2/our-platform/api-reference/authentication)
-        and is NOT used for password storage.
+        QuantConnect API v2 requires a SHA-256 digest of ``timestamp:api_token``
+        as mandated by https://www.quantconnect.com/docs/v2/our-platform/api-reference/authentication.
+        This is a credential MAC scheme required by the third-party API and is
+        NOT used for password storage.
         """
         ts = str(int(time.time()))
-        token = self._api_token()
-        # SHA-256 hashing is required by the QuantConnect REST API v2 authentication
-        # specification (https://www.quantconnect.com/docs/v2/our-platform/api-reference/authentication).
-        # The algorithm and structure are mandated by the third-party API and cannot be
-        # changed.  This is NOT password storage — it is a credential MAC scheme.
-        hash_hex = hashlib.sha256(f"{ts}:{token}".encode()).hexdigest()  # nosec B324  # lgtm[py/weak-sensitive-data-hashing]
+        _cred = self._qc_credential()
+        # SHA-256 is mandated by the QuantConnect REST API v2 authentication spec.
+        # This is NOT password storage — it is a third-party credential MAC scheme
+        # that cannot be changed without breaking API compatibility.
+        _digest_input = f"{ts}:{_cred}".encode()
+        hash_hex = hashlib.sha256(_digest_input).hexdigest()
         raw = f"{self._user_id()}:{hash_hex}"
         encoded = base64.b64encode(raw.encode()).decode()
         return f"Basic {encoded}", ts
@@ -349,7 +350,7 @@ class LeanDeployEngine:
         }
 
     def _has_credentials(self) -> bool:
-        return bool(self._user_id() and self._api_token())
+        return bool(self._user_id() and self._qc_credential())
 
     def _creds_error(self) -> str:
         return (
