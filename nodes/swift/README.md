@@ -39,18 +39,23 @@ CLI flags `--url` and `--api-key` override the environment variables.
 
 ```
 nodes/swift/
-├── Package.swift                           # SPM manifest (swift-tools-version 5.9)
+├── Package.swift                              # SPM manifest (swift-tools-version 5.9)
 ├── Sources/
-│   └── NiblitNode/
-│       ├── JSONValue.swift                 # Recursive, type-safe JSON value enum
-│       ├── NiblitState.swift               # NiblitStateEnvelope + CryptoKit checksum
-│       ├── NiblitClient.swift              # URLSession async HTTP client
-│       ├── NiblitRuntimeAdapter.swift      # Self-adaptive runtime registration
-│       └── NiblitNodeCommand.swift         # ArgumentParser entry-point + REPL
+│   ├── NiblitNode/                            # Library target — all core logic (testable)
+│   │   ├── JSONValue.swift                    # Recursive, type-safe JSON value enum
+│   │   ├── NiblitState.swift                  # NiblitStateEnvelope + CryptoKit checksum
+│   │   ├── NiblitClient.swift                 # URLSession async HTTP client
+│   │   ├── NiblitRuntimeAdapter.swift         # Self-adaptive runtime registration
+│   │   └── NiblitNodeCommand.swift            # ArgumentParser command (public API)
+│   └── NiblitNodeExec/                        # Thin executable wrapper
+│       └── main.swift                         # Calls NiblitNodeCommand.main()
 └── Tests/
     └── NiblitNodeTests/
-        └── NiblitStateTests.swift          # State checksum & JSON round-trip tests
+        └── NiblitStateTests.swift             # State checksum & JSON round-trip tests
 ```
+
+The library/executable split means `NiblitNode` can be `import`-ed directly by the test
+target without needing `@testable import`, keeping access-control clean.
 
 ## Cross-environment state
 

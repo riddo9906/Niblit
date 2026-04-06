@@ -12,8 +12,8 @@
 // platform-native frameworks that require no additional packages.
 //
 // Targets:
-//   NiblitNodeCore   — library with all logic (importable by tests)
-//   NiblitNode       — thin executable wrapper that calls NiblitNodeCore
+//   NiblitNode      — library target with all core logic (importable by tests)
+//   NiblitNodeExec  — thin executable wrapper that calls NiblitNodeCommand.main()
 //
 // Build:
 //   swift build                   # debug

@@ -143,7 +143,7 @@ public final class NiblitClient: Sendable {
 
 extension JSONEncoder {
     /// Canonical encoder: sorted keys so checksums are stable.
-    static let niblit: JSONEncoder = {
+    public static let niblit: JSONEncoder = {
         let enc = JSONEncoder()
         enc.outputFormatting = .sortedKeys
         return enc
@@ -151,5 +151,5 @@ extension JSONEncoder {
 }
 
 extension JSONDecoder {
-    static let niblit = JSONDecoder()
+    public static let niblit = JSONDecoder()
 }

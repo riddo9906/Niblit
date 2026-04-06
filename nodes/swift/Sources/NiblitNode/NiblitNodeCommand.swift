@@ -14,16 +14,18 @@
 // Environment variables:
 //   NIBLIT_URL      — Base URL for the Niblit core API (default: http://localhost:8000)
 //   NIBLIT_API_KEY  — Optional API key (X-Niblit-Key header)
+//
+// Note: @main lives in Sources/NiblitNodeExec/main.swift so this struct can
+// be part of the library target and imported directly by the test target.
 
 import ArgumentParser
 import Foundation
 
-// MARK: – Entry point
+// MARK: – Command
 
-@main
-struct NiblitNodeCommand: AsyncParsableCommand {
+public struct NiblitNodeCommand: AsyncParsableCommand {
 
-    static var configuration = CommandConfiguration(
+    public static var configuration = CommandConfiguration(
         commandName: "niblit-node",
         abstract:    "Niblit Swift deployment node",
         discussion:  """
@@ -37,24 +39,26 @@ struct NiblitNodeCommand: AsyncParsableCommand {
         version:     "1.0.0"
     )
 
+    public init() {}
+
     // ── Options ──────────────────────────────────────────────────────────────
 
     @Option(name: .long, help: "Niblit API base URL.")
-    var url: String = ProcessInfo.processInfo.environment["NIBLIT_URL"]
-                      ?? "http://localhost:8000"
+    public var url: String = ProcessInfo.processInfo.environment["NIBLIT_URL"]
+                             ?? "http://localhost:8000"
 
     @Option(name: .long, help: "Optional API key (X-Niblit-Key header).")
-    var apiKey: String? = ProcessInfo.processInfo.environment["NIBLIT_API_KEY"]
+    public var apiKey: String? = ProcessInfo.processInfo.environment["NIBLIT_API_KEY"]
 
     @Option(name: .long, help: "HTTP timeout in seconds.")
-    var timeout: Double = 20
+    public var timeout: Double = 20
 
     @Argument(help: "Message to send (non-interactive mode). Omit for REPL.")
-    var message: [String] = []
+    public var message: [String] = []
 
     // ── Run ──────────────────────────────────────────────────────────────────
 
-    mutating func run() async throws {
+    public mutating func run() async throws {
         let client  = NiblitClient(baseURL: url, apiKey: apiKey, timeoutSeconds: timeout)
         let adapter = DefaultSwiftRuntimeAdapter(client: client)
 
@@ -86,14 +90,14 @@ struct NiblitNodeCommand: AsyncParsableCommand {
 
         // 3 ── Report Swift environment capabilities ─────────────────────────
         let swiftCaps: [String: JSONValue] = [
-            "runtime":          "swift",
-            "platform":         .string(envelope.originPlatform),
-            "swift_version":    .string(swiftVersionString()),
-            "component_name":   "niblit-swift-node",
-            "declared_level":   .double(1.0),
-            "capabilities":     ["state_portability", "knowledge_exchange", "swift_native"],
-            "memory_model":     "ARC",
-            "concurrency_model": "Swift Structured Concurrency (async/await)",
+            "runtime":            "swift",
+            "platform":           .string(envelope.originPlatform),
+            "swift_version":      .string(swiftVersionString()),
+            "component_name":     "niblit-swift-node",
+            "declared_level":     .double(1.0),
+            "capabilities":       ["state_portability", "knowledge_exchange", "swift_native"],
+            "memory_model":       "ARC",
+            "concurrency_model":  "Swift Structured Concurrency (async/await)",
         ]
         _ = try? await client.reportEnvCapabilities(swiftCaps)
         await adapter.reportLevel()
@@ -123,7 +127,7 @@ struct NiblitNodeCommand: AsyncParsableCommand {
         client:   NiblitClient,
         envelope: inout NiblitStateEnvelope
     ) async throws {
-        envelope.lastCommand = message
+        envelope.lastCommand    = message
         envelope.totalCommands += 1
         do {
             let resp = try await client.chat(message: message, sessionId: envelope.sessionId)
@@ -156,25 +160,30 @@ struct NiblitNodeCommand: AsyncParsableCommand {
 
             // Local commands ─────────────────────────────────────────────────
             if input == "state" {
-                if let data = try? JSONEncoder.niblit.encode(envelope),
-                   let pretty = try? JSONSerialization
-                       .data(withJSONObject: JSONSerialization.jsonObject(with: data),
-                             options: .prettyPrinted),
-                   let str = String(data: pretty, encoding: .utf8) {
+                if let data   = try? JSONEncoder.niblit.encode(envelope),
+                   let obj    = try? JSONSerialization.jsonObject(with: data),
+                   let pretty = try? JSONSerialization.data(withJSONObject: obj, options: .prettyPrinted),
+                   let str    = String(data: pretty, encoding: .utf8) {
                     print(str)
                 }
                 continue
             }
 
             if input == "capabilities" {
-                await adapter_reportLevel(client: client, envelope: envelope)
+                let caps: [String: JSONValue] = [
+                    "component_name": "niblit-swift-node",
+                    "declared_level": .double(1.0),
+                    "capabilities":   ["state_portability", "knowledge_exchange", "swift_native"],
+                    "runtime":        "swift",
+                ]
+                _ = try? await client.reportEnvCapabilities(caps)
                 continue
             }
 
             // Remote chat ────────────────────────────────────────────────────
-            envelope.lastCommand     = input
-            envelope.totalCommands  += 1
-            envelope.lastActiveTs    = Date().timeIntervalSince1970
+            envelope.lastCommand    = input
+            envelope.totalCommands += 1
+            envelope.lastActiveTs   = Date().timeIntervalSince1970
 
             do {
                 let resp = try await client.chat(message: input, sessionId: envelope.sessionId)
@@ -189,20 +198,6 @@ struct NiblitNodeCommand: AsyncParsableCommand {
                 fputs("[Niblit Swift] Error: \(error)\n", stderr)
             }
         }
-    }
-
-    // Helper to call reportLevel without capturing self mutably
-    private func adapter_reportLevel(
-        client:   NiblitClient,
-        envelope: NiblitStateEnvelope
-    ) async {
-        let caps: [String: JSONValue] = [
-            "component_name": "niblit-swift-node",
-            "declared_level": .double(1.0),
-            "capabilities":   ["state_portability", "knowledge_exchange", "swift_native"],
-            "runtime":        "swift",
-        ]
-        _ = try? await client.reportEnvCapabilities(caps)
     }
 }
 
