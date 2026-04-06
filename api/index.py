@@ -999,7 +999,7 @@ def api_status():
     core = _get_core()
     data: dict = {
         "core_loaded": core is not None,
-        "core_error": _core_error,
+        "core_error": bool(_core_error),
         "ts": int(time.time()),
     }
     if core:
@@ -1059,7 +1059,7 @@ def api_search_get(request: Request, q: str = "", query: str = ""):
         result = core.handle(f"search {search_q}")
     except Exception as exc:
         log.error("search error: %s", exc)
-        result = f"[error] {exc}"
+        result = "[error] search failed — see server logs"
     return {"query": search_q, "result": result}
 
 
@@ -1080,7 +1080,7 @@ def api_search_post(request: Request, body: SearchBody):
         result = core.handle(f"search {search_q}")
     except Exception as exc:
         log.error("search error: %s", exc)
-        result = f"[error] {exc}"
+        result = "[error] search failed — see server logs"
     return {"query": search_q, "result": result}
 
 
