@@ -87,7 +87,7 @@ services:
       - key: QDRANT_COLLECTION
         value: niblit_knowledge
       - key: EMBEDDING_MODEL
-        value: all-MiniLM-L6-v2
+        value: intfloat/multilingual-e5-small
 
       # ── Background Trainer ────────────────────────────────────────────────
       - key: TRAINER_BATCH_SIZE

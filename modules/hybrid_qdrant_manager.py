@@ -17,12 +17,8 @@ Providers
       exact terms even when dense embeddings under-rank them.
 
   intfloat multilingual-e5-small  (intfloat/multilingual-e5-small)
-      Multilingual dense model; preferred when the input text contains
-      non-English characters or spans multiple languages.
-
-  MiniLM  (sentence-transformers/all-minilm-l6-v2)
-      Lightweight dense model; fastest option, ideal for high-throughput
-      chat context retrieval and general short-text search.
+      Multilingual dense model; supports 100 languages. Used for
+      general dense retrieval, chat context, and multilingual text.
 
 Public API
 ──────────
@@ -134,15 +130,7 @@ _MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "dim":         384,
         "distance":    "Cosine",
         "sparse":      False,
-        "description": "Multilingual dense retrieval (non-English text)",
-    },
-    "minilm": {
-        "model_id":    "sentence-transformers/all-minilm-l6-v2",
-        "vector_name": "minilm",
-        "dim":         384,
-        "distance":    "Cosine",
-        "sparse":      False,
-        "description": "Fast chat / short-text dense retrieval",
+        "description": "Multilingual dense retrieval (100 languages, chat & general text)",
     },
 }
 
@@ -365,7 +353,7 @@ class HybridQdrantManager:
         1. Non-ASCII / multilingual content       → always include ``e5``
         2. Source code signals                    → always include ``colbert``
         3. Long text (>256 chars) for deep search → always include ``colbert``
-        4. Short text / chat                      → always include ``minilm``
+        4. Short text / chat                      → always include ``e5``
         5. BM25 included for all cases as lexical safety net
 
         The returned list always contains at least one model.  ``context``
@@ -383,7 +371,7 @@ class HybridQdrantManager:
             selected.append("e5")
 
         if ctx == "chat" or (not _is_long(text) and "colbert" not in selected and "e5" not in selected):
-            selected.append("minilm")
+            selected.append("e5")
 
         if _is_long(text) and "colbert" not in selected:
             selected.append("colbert")
@@ -399,9 +387,9 @@ class HybridQdrantManager:
                 seen.add(k)
                 ordered.append(k)
 
-        # Guarantee at least minilm as a fallback if everything else was skipped
+        # Guarantee at least e5 as a fallback if everything else was skipped
         if not ordered:
-            ordered = ["minilm", "bm25"]
+            ordered = ["e5", "bm25"]
 
         log.debug("[HybridQdrantManager] select_models → %s (len=%d, context=%s)", ordered, len(text), context)
         return ordered
