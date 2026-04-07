@@ -115,6 +115,35 @@ class ChatDetector:
         r'^ask\s+me\s+(a\s+question|something|anything)',
     ]
 
+    # Knowledge-share patterns — user asking Niblit to share what it has learned.
+    # These require a KB-driven answer, never a generic LLM/chat reply.
+    KNOWLEDGE_SHARE_PATTERNS = [
+        # "tell me (something/anything) you (have) (learned/know/discovered/studied)"
+        r'tell\s+me\s+(something|anything)\s+(you\s+)?(have\s+)?(learned|know|knows|discovered|studied)',
+        # "tell me what you (know/have learned/learned/discovered)"
+        r'tell\s+me\s+what\s+you\s+(know|have\s+learned|learned|discovered|have\s+been\s+learning)',
+        # "what have you been (studying/learning/researching)"
+        r'what\s+have\s+you\s+been\s+(studying|learning|researching)',
+        # "share (something/anything) (with me / you know)"
+        r'share\s+(something|anything)\s+(with\s+me|you\s+know|from\s+what\s+you)',
+        # "share your knowledge / share what you know"
+        r'share\s+(your\s+knowledge|what\s+you\s+(know|have\s+learned))',
+        # "show me what you know / have learned"
+        r'show\s+me\s+what\s+you\s+(know|have\s+learned|have\s+been\s+learning)',
+        # "what are you learning / studying"
+        r'what\s+are\s+you\s+(currently\s+)?(learning|studying|researching)',
+        # "what have you learned recently"
+        r'what\s+have\s+you\s+learned\s+(recently|lately|so\s+far)',
+        # "what's in your (knowledge base/memory/brain)"
+        r"what'?s?\s+in\s+your\s+(knowledge\s*base|memory|brain|database)",
+        # "give me something from your knowledge"
+        r'give\s+me\s+(something|anything)\s+(from\s+)?(your\s+)?(knowledge|memory)',
+        # "teach me something" / "teach me anything"
+        r'^teach\s+me\s+(something|anything)\s*$',
+        # "what do you know about anything" (broad open-ended)
+        r'^what\s+do\s+you\s+know\s*\??$',
+    ]
+
     # System query patterns
     SYSTEM_QUERY_PATTERNS = [
         r'^what\s+is\s+the\s+time\s*\??$',
@@ -148,6 +177,12 @@ class ChatDetector:
         for pattern in ChatDetector.SELF_REFERENTIAL_PATTERNS:
             if re.search(pattern, lower):
                 return 'self_referential', None
+
+        # Check knowledge-share patterns (user wants Niblit to share what it learned)
+        # Priority: above system + chat, below self_referential (which is more specific).
+        for pattern in ChatDetector.KNOWLEDGE_SHARE_PATTERNS:
+            if re.search(pattern, lower):
+                return 'knowledge_share', None
 
         # Check system queries
         for pattern in ChatDetector.SYSTEM_QUERY_PATTERNS:
@@ -2839,6 +2874,148 @@ Ask me about:
             return None
 
     # ─────────────────────────────────
+    def _get_knowledge_share_response(self, query: str) -> Optional[str]:
+        """Return a curated digest of what Niblit has actually been learning about.
+
+        This is the answer to open-ended "tell me something you've learned" queries.
+        It draws directly from the KB's ``topic_knowledge:`` ledger (the comprehension-
+        enriched summaries written by KnowledgeComprehension and SelfTeacher) and
+        recent ``ale_learned:`` entries.  Never goes to the internet — only shows
+        what is genuinely already in the KB.
+
+        Returns a formatted string when ≥1 learned topics are found, or None when
+        the KB is still empty (caller should fall through to gap-learning or the LLM).
+        """
+        if not self.core:
+            return None
+        kb = (
+            getattr(self.core, "knowledge_db", None)
+            or getattr(self.core, "memory", None)
+        )
+        if not kb:
+            return None
+
+        try:
+            # ── 1. Collect topic_knowledge ledger entries (best source: comprehension-enriched) ─
+            ledger_facts: list = []
+            if hasattr(kb, "list_facts"):
+                all_facts = safe_call(kb.list_facts, 200) or []
+                for f in all_facts:
+                    if not isinstance(f, dict):
+                        continue
+                    key = str(f.get("key", ""))
+                    val = f.get("value", "")
+                    val_str = str(val).strip() if val is not None else ""
+                    # topic_knowledge: entries are the single-authoritative digest per topic
+                    if key.startswith("topic_knowledge:") and val_str and not val_str.startswith("No data found"):
+                        ledger_facts.append(f)
+
+            # ── 2. Fall back to ale_learned: entries when ledger is sparse ────────────────────
+            ale_facts: list = []
+            if len(ledger_facts) < 3 and hasattr(kb, "list_facts"):
+                all_facts = safe_call(kb.list_facts, 100) or []
+                for f in all_facts:
+                    if not isinstance(f, dict):
+                        continue
+                    key = str(f.get("key", ""))
+                    val = f.get("value", "")
+                    if not key.startswith("ale_learned:"):
+                        continue
+                    # Extract prose from nested dict values
+                    if isinstance(val, dict):
+                        val_str = (
+                            val.get("reflection")
+                            or val.get("research")
+                            or val.get("summary")
+                            or ""
+                        )
+                    else:
+                        val_str = str(val)
+                    val_str = val_str.strip()
+                    if val_str and not val_str.startswith("No data found") and len(val_str) > 20:
+                        ale_facts.append({"key": key, "value": val_str})
+
+            # Combine: ledger first (most readable), then ale backup
+            candidates = ledger_facts + ale_facts
+
+            if not candidates:
+                return None
+
+            # ── 3. Pick the most recent / diverse entries ─────────────────────────────────────
+            # topic_knowledge: entries are keyed "topic_knowledge:<topic>" — deduplicate
+            # by topic name so the same topic doesn't appear twice.
+            seen_topics: set = set()
+            unique: list = []
+            for f in candidates:
+                key = str(f.get("key", ""))
+                # Derive a short topic label for dedup
+                if key.startswith("topic_knowledge:"):
+                    topic_label = key[len("topic_knowledge:"):]
+                elif key.startswith("ale_learned:"):
+                    # ale_learned:<topic>:<ts>
+                    parts = key[len("ale_learned:"):].rsplit(":", 1)
+                    topic_label = parts[0] if parts else key
+                else:
+                    topic_label = key
+                if topic_label and topic_label not in seen_topics:
+                    seen_topics.add(topic_label)
+                    unique.append(f)
+                if len(unique) >= 5:
+                    break
+
+            if not unique:
+                return None
+
+            # ── 4. Format the digest ──────────────────────────────────────────────────────────
+            lines = ["🎓 **Here's what I've been learning about recently:**\n"]
+            for fact in unique:
+                key = str(fact.get("key", ""))
+                val = fact.get("value", "")
+                if isinstance(val, dict):
+                    val_str = (
+                        val.get("reflection")
+                        or val.get("research")
+                        or val.get("summary")
+                        or ""
+                    )
+                else:
+                    val_str = str(val)
+                val_str = val_str.strip()
+                if not val_str or val_str.startswith("No data found"):
+                    continue
+                # Build a topic label from the key for the bullet header
+                if key.startswith("topic_knowledge:"):
+                    topic_label = key[len("topic_knowledge:"):].replace("_", " ").strip()
+                elif key.startswith("ale_learned:"):
+                    topic_label = key[len("ale_learned:"):].rsplit(":", 1)[0].replace("_", " ").strip()
+                else:
+                    topic_label = ""
+                if topic_label:
+                    lines.append(f"📖 **{topic_label}**")
+                # Trim to a readable snippet — first 250 chars
+                snippet = val_str[:250]
+                if len(val_str) > 250:
+                    snippet += "..."
+                lines.append(f"   {snippet}\n")
+
+            if len(lines) < 2:
+                return None
+
+            # Show learning cycle count if available for a sense of "how busy" Niblit has been
+            ale = getattr(self.core, "autonomous_engine", None)
+            if ale and hasattr(ale, "learning_history"):
+                cycles = ale.learning_history.get("research_completed", 0)
+                if cycles:
+                    lines.append(f"_({cycles} research cycle(s) completed — ask me about any topic above, or try 'recall <topic>' for more detail)_")
+            else:
+                lines.append("_Ask me about any topic above, or try 'recall <topic>' for more detail._")
+
+            return "\n".join(lines)
+
+        except Exception as exc:
+            log.debug("[KNOWLEDGE-SHARE] response failed: %s", exc)
+            return None
+
     def _get_kb_response(self, query: str) -> Optional[str]:
         """Search the knowledge base for facts relevant to *query* and compose
         a direct answer from what Niblit has already learned — no web request.
@@ -3324,6 +3501,21 @@ Ask me about:
                     self._collect(cleaned, response, "self_reference")
                     return response
 
+            # ─────── KNOWLEDGE-SHARE QUERY ───────
+            # User is asking Niblit to share what it has actually learned.
+            # Always route to the KB digest — never to a generic chat reply.
+            if msg_type == 'knowledge_share':
+                log.debug("[KNOWLEDGE-SHARE] User wants KB digest — querying ledger")
+                response = self._get_knowledge_share_response(cleaned)
+                if response:
+                    self._collect(cleaned, response, "knowledge_share")
+                    return response
+                # KB empty — fall through to self_referential handler which shows stats
+                response = self._get_self_referential_response(cleaned)
+                if response:
+                    self._collect(cleaned, response, "knowledge_share_stats")
+                    return response
+
             # ─────── CHAT MESSAGE ───────
             if msg_type == 'chat':
                 lower_text = cleaned.lower().strip()
@@ -3395,6 +3587,23 @@ Ask me about:
         # ═══════════════════════════════════════════════════════════
         # NORMAL MODE: Use brain with LLM or fallback to core
         # ═══════════════════════════════════════════════════════════
+        # Pre-intercept: knowledge-share and self-referential queries about what
+        # Niblit has learned should ALWAYS return KB content directly.  Passing
+        # them to the LLM produces generic "How can I help?" responses because
+        # the LLM has no KB context.  Check intent first; only fall through to
+        # brain.think() when the KB has nothing to show.
+        _pre_type, _ = self.chat_detector.classify(cleaned)
+        if _pre_type in ('knowledge_share', 'self_referential'):
+            log.debug("[PRE-INTERCEPT] %s query — trying KB before LLM", _pre_type)
+            _pre_resp = self._get_knowledge_share_response(cleaned)
+            if not _pre_resp and _pre_type == 'self_referential':
+                # self_referential with no KB content → stats/identity page
+                _pre_resp = self._get_self_referential_response(cleaned)
+            if _pre_resp:
+                self._collect(cleaned, _pre_resp, "knowledge_share_normal")
+                return _pre_resp
+            # KB empty — let the LLM try (it may still give a useful answer)
+
         if hasattr(self.brain, "think"):
             response = safe_call(self.brain.think, cleaned)
         else:
