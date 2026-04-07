@@ -213,6 +213,46 @@ Nibblebot progressively more knowledgeable about software patterns.
 
 ---
 
+### 7. AI Trading Study Bot (`nibblebot-ai-trading`)
+
+Researches AI trading platforms, algorithms, bootcamp documentation, and
+deployment patterns across GitHub. Scans Niblit's own trading modules to
+map current capabilities, performs gap analysis, and generates prioritised
+improvement recommendations. Accumulates knowledge autonomously across runs.
+
+**Schedule:** Every Saturday at 08:00 UTC.
+
+**What it studies:**
+- AI trading platforms: Freqtrade, Zipline, Backtrader, QuantConnect, LEAN
+- Trading algorithms: RSI, MACD, EMA, momentum, swing, RL-based (PPO, DQN)
+- Backtesting and simulation frameworks
+- Live broker integrations: Binance, Alpaca, OANDA, Interactive Brokers
+- Deployment patterns for trading systems (Docker, fly.io, Render, cloud)
+- Bootcamp / tutorial / Jupyter notebook resources
+- Risk management patterns (Kelly Criterion, VAR, stop-loss strategies)
+
+**Niblit integration:**
+- Scans `modules/trading_brain.py`, `modules/trading_study.py`,
+  `modules/trading_swing_v3.py`, `modules/lean_deploy_engine.py`, and related files
+- Performs capability gap analysis comparing Niblit vs. top repos
+- Generates categorised improvement issues (HIGH / MEDIUM / LOW priority)
+
+**Autonomous knowledge layer:**
+- Reads past `nibblebot-trading` issues to accumulate knowledge across runs
+- Skips repos already studied; focuses on genuinely new material each run
+- Tracks algorithm discoveries, platform coverage, and deployment patterns
+
+**Configuration:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TRADING_TOPICS` | *(built-in 18 topics)* | Override research topics |
+| `TRADING_MAX_REPOS` | `6` | Max repos per topic |
+| `TRADING_DEEP_DIVE` | `false` | Fetch language breakdown per repo |
+| `TRADING_DRY_RUN` | `false` | Print instead of creating issue |
+
+---
+
 ## Weekly Schedule
 
 | Day | Bot | Purpose |
@@ -222,6 +262,7 @@ Nibblebot progressively more knowledgeable about software patterns.
 | Wednesday 09:00 | AIOS Architecture | Module mapping & system design |
 | Thursday 10:00 | AIOS Integration | Integration roadmap from top projects |
 | Friday 09:00 | Live Research Bot | GitHub REST API research + knowledge layer |
+| Saturday 08:00 | AI Trading Study Bot | Trading platforms, algos, gaps, bootcamp docs |
 | Daily 06:00 | Deployment Bot | Monitor & diagnose failed CI/CD builds |
 
 ---
@@ -242,3 +283,4 @@ Nibblebot progressively more knowledgeable about software patterns.
 - **`nibblebot-aios`** (blue `#0075ca`) — AIOS research, architecture, and integration proposals
 - **`nibblebot-deploy`** (red `#d73a4a`) — deployment failure diagnosis reports
 - **`nibblebot-research`** (green `#0e8a16`) — live GitHub research + knowledge layer reports
+- **`nibblebot-trading`** (orange `#e4e669`) — AI trading study, gap analysis, and improvement roadmap

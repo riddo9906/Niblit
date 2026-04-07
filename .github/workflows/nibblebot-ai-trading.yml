@@ -1,0 +1,60 @@
+name: "📈 Nibblebot: AI Trading Study Bot"
+
+# Researches AI trading platforms, algorithms, documentation, and deployment
+# patterns on GitHub, scans Niblit's own trading modules, performs gap
+# analysis, and opens/updates a GitHub Issue with improvement recommendations
+# and an autonomous knowledge layer that grows with each run.
+#
+# Schedule: Every Saturday at 08:00 UTC
+
+on:
+  schedule:
+    - cron: "0 8 * * 6"  # Every Saturday at 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      topics:
+        description: "Comma-separated trading topics (leave blank for defaults)"
+        required: false
+        default: ""
+      max_repos:
+        description: "Max repos per topic"
+        required: false
+        default: "6"
+      deep_dive:
+        description: "Enable deep dive (language breakdown per repo — uses more API quota)"
+        required: false
+        default: "false"
+        type: boolean
+      dry_run:
+        description: "Dry run (print instead of creating issue)"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  issues: write      # create/update issues
+  contents: read     # checkout
+
+jobs:
+  ai-trading-study:
+    name: Run Nibblebot AI Trading Study Bot
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Nibblebot AI Trading Study Bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TRADING_TOPICS: ${{ inputs.topics || '' }}
+          TRADING_MAX_REPOS: ${{ inputs.max_repos || '6' }}
+          TRADING_DEEP_DIVE: ${{ inputs.deep_dive || 'false' }}
+          TRADING_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: python nibblebots/ai_trading_bot.py
