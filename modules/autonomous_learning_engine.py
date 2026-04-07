@@ -84,6 +84,15 @@ _TOPIC_NOISE_MARKERS: tuple = (
 # Maximum characters for code excerpt stored in learning facts.
 _MAX_LEARNING_CODE_EXCERPT: int = 150
 
+# Compiled regex used by _generate_subtopics to strip overly broad topic
+# suffixes (e.g. "best practices", "tutorial") before appending specific
+# qualifiers.  Defined at module level so it is compiled once.
+_BROAD_TOPIC_SUFFIX_RE = re.compile(
+    r'\b(best practices?|guide|tutorial|introduction|basics?|'
+    r'overview|advanced|fundamentals?)\b',
+    re.IGNORECASE,
+)
+
 # Lazy singleton for TopicConstructor — imported on first use to avoid
 # circular import if this module is loaded before modules/ is on sys.path.
 _TOPIC_CONSTRUCTOR = None
@@ -126,6 +135,23 @@ class AutonomousLearningEngine:
     # write and index the results before the next research call begins.
     _RESEARCH_INGEST_WAIT: float = 60.0
     _CODE_TOPIC_INGEST_WAIT: float = 30.0
+
+    # Cross-cycle snippet dedup cache size.  When the cache exceeds this many
+    # entries it is cleared so memory stays bounded and content from much
+    # earlier cycles can be re-learned if it has genuinely changed.
+    _SEEN_HASH_CAP: int = 500
+
+    # How many consecutive cycles a topic may produce only already-seen
+    # snippets before it is considered "stale" and automatically expanded into
+    # more specific subtopics.  The original topic is moved to the back of the
+    # queue so other topics get their turn.
+    _TOPIC_STALE_LIMIT: int = 2
+
+    # Number of leading characters used as the cross-cycle dedup key for each
+    # snippet.  200 chars is large enough to distinguish most snippets that
+    # differ in body content while keeping the cache small
+    # (200 × _SEEN_HASH_CAP entries ≈ 100 KB max).
+    _SNIPPET_PREFIX_LEN: int = 200
 
     # Curriculum grade thresholds for code-research topics.
     # "computer science basics" is introduced at Grade 8 in the graded
@@ -351,6 +377,21 @@ class AutonomousLearningEngine:
         # Code-step topic lock: all code steps 8-12 share one topic per cycle
         self._code_topic_index: int = 0
         self._current_code_topic: Optional[str] = None
+
+        # ── Synergy: cross-cycle snippet deduplication ────────────────────────
+        # Stores the first _SEEN_HASH_CAP snippet prefixes (150 chars each) that
+        # have already been written to the KB.  Before storing a new snippet,
+        # _unified_research checks this set and skips duplicates so the same
+        # generic text is not re-stored every cycle.  Cleared when the cap is
+        # hit to avoid unbounded growth and to allow re-learning of content that
+        # may have genuinely changed.
+        self._seen_snippet_prefixes: set = set()
+
+        # Per-topic stale counter: how many consecutive ALE cycles produced
+        # zero novel snippets for that topic.  When the count reaches
+        # _TOPIC_STALE_LIMIT, _unified_research auto-generates more specific
+        # subtopics and moves the stale topic to the back of the queue.
+        self._topic_stale_count: Dict[str, int] = {}
 
         log.info("✅ AutonomousLearningEngine initialized")
 
@@ -923,10 +964,29 @@ class AutonomousLearningEngine:
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
-            # Clear forwarded results now that they've been reflected on
+            # Clear forwarded results now that they've been reflected on.
+            # Capture them first so comprehension can still read them.
+            snippets_for_comprehension = list(self._last_research_results)
             self._last_research_results = []
 
             log.info(f"✅ [AUTONOMOUS REFLECT] '{last_topic}' — stored in ale_learned")
+
+            # ── Additive: comprehension pass ──────────────────────────────────
+            # Runs immediately after the ledger is written so the topic_knowledge
+            # entry gets upgraded from a raw reflection string to a structured
+            # concept-driven summary.  Uses the snippets captured before clearing.
+            if snippets_for_comprehension:
+                try:
+                    from modules.knowledge_comprehension import get_knowledge_comprehension
+                    comp = get_knowledge_comprehension(
+                        knowledge_db=self.knowledge_db,
+                        self_teacher=self.self_teacher,
+                        llm=getattr(self.core, "llm", None) if self.core else None,
+                    )
+                    comp_result = comp.process(last_topic, snippets_for_comprehension)
+                    log.info("🧩 [COMPREHENSION] %s", comp_result)
+                except Exception as _ce:
+                    log.debug("[ALE] Comprehension step error: %s", _ce)
 
             # ── Additive: self-completing gap detection ───────────────────────
             # After every reflection cycle, check for under-covered topics and
@@ -1520,7 +1580,7 @@ class AutonomousLearningEngine:
             except Exception as exc:
                 log.debug("[UNIFIED] SemanticAgent retrieve failed: %s", exc)
 
-        # ── Merge + de-duplicate snippets ─────────────────────────────────
+        # ── Merge + de-duplicate snippets (within this call) ─────────────
         seen: set = set()
         deduped: List[str] = []
         for s in collected_snippets:
@@ -1529,17 +1589,76 @@ class AutonomousLearningEngine:
                 seen.add(key)
                 deduped.append(s)
 
+        # ── Cross-cycle dedup: filter out snippets stored in previous cycles ──
+        # Use first 200 chars as a stable prefix key.  200 chars is large enough
+        # to distinguish most snippets that differ in body content while keeping
+        # cache entries small (200 chars × 500 entries ≈ 100 KB max).
+        novel: List[str] = []
+        for s in deduped:
+            prefix = s[:self._SNIPPET_PREFIX_LEN]
+            if prefix not in self._seen_snippet_prefixes:
+                novel.append(s)
+
+        if novel:
+            # Register new prefixes so future cycles skip them.
+            for s in novel:
+                self._seen_snippet_prefixes.add(s[:self._SNIPPET_PREFIX_LEN])
+            # Evict cache when it exceeds the cap to keep memory bounded.
+            if len(self._seen_snippet_prefixes) > self._SEEN_HASH_CAP:
+                self._seen_snippet_prefixes.clear()
+                log.debug("[UNIFIED] Snippet prefix cache cleared (hit cap %d)",
+                          self._SEEN_HASH_CAP)
+            # Topic is producing fresh content — reset its stale counter.
+            self._topic_stale_count[topic] = 0
+        else:
+            # All snippets were already seen in previous cycles.
+            stale_count = self._topic_stale_count.get(topic, 0) + 1
+            self._topic_stale_count[topic] = stale_count
+            log.info(
+                "[UNIFIED] %r — all %d snippet(s) already stored; "
+                "stale count %d/%d",
+                topic, len(deduped), stale_count, self._TOPIC_STALE_LIMIT,
+            )
+            if stale_count >= self._TOPIC_STALE_LIMIT:
+                # Auto-generate specific subtopics to break the repetition loop.
+                subtopics = self._generate_subtopics(topic)
+                if subtopics:
+                    # Prioritize the first subtopic so it is studied NEXT cycle
+                    # rather than being buried behind all existing topics.
+                    self.prioritize_research_topic(subtopics[0])
+                    # Append remaining subtopics to the back of the queue.
+                    for st in subtopics[1:]:
+                        self.add_research_topic(st)
+                log.info(
+                    "[UNIFIED] Stale topic %r — queued %d subtopic(s): %s; "
+                    "deprioritizing to back of queue",
+                    topic, len(subtopics), subtopics,
+                )
+                # Move the stale topic to the end so subtopics run first.
+                # Do NOT reset _topic_index here — the priority insertion of
+                # subtopics[0] already set it to 0 via prioritize_research_topic.
+                if topic in self.research_topics:
+                    self.research_topics.remove(topic)
+                    self.research_topics.append(topic)
+                self._topic_stale_count[topic] = 0
+
+        # Use novel snippets for KB storage / downstream steps; fall back to
+        # the full deduped list if everything was already seen (so downstream
+        # steps like Reflection and BrainTrainer still have something to work
+        # with even when nothing new was stored to the KB this cycle).
+        effective = novel if novel else deduped
+
         # ── Persist merged results to KB ───────────────────────────────────
-        if deduped and self.knowledge_db:
+        if novel and self.knowledge_db:
             try:
-                all_text = "\n---\n".join(deduped[:6])
+                all_text = "\n---\n".join(novel[:6])
                 self.knowledge_db.add_fact(
                     f"ale_unified_research:{topic.replace(' ', '_')}:{ts}",
                     {
                         "topic": topic,
-                        "results_count": len(deduped),
+                        "results_count": len(novel),
                         "backends": backend_summaries,
-                        "summary": deduped[0][:300] if deduped else "",
+                        "summary": novel[0][:300] if novel else "",
                         "full_text": all_text[:1000],
                         "step": "unified_research",
                     },
@@ -1548,13 +1667,15 @@ class AutonomousLearningEngine:
                 )
                 self.knowledge_db.log_event(
                     f"Unified research: {topic!r} — "
-                    f"{len(deduped)} snippets from {len(backend_summaries)} backends"
+                    f"{len(novel)} novel snippet(s) from {len(backend_summaries)} backend(s)"
                 )
             except Exception as exc:
                 log.debug("[UNIFIED] KB store failed: %s", exc)
+        elif not novel:
+            log.debug("[UNIFIED] KB store skipped — no novel snippets for %r", topic)
 
         # ── Forward results to downstream steps ───────────────────────────
-        self._last_research_results = deduped
+        self._last_research_results = effective
         self.learning_history["research_completed"] += 1
         self.learning_history["last_research_topic"] = topic
         self.learning_history["serpex_research_cycles"] = (
@@ -1567,21 +1688,21 @@ class AutonomousLearningEngine:
             and getattr(self.core.brain, "brain_trainer", None)
         )
         if bt and hasattr(bt, "ingest_research"):
-            for snippet in deduped[:3]:
+            for snippet in effective[:3]:
                 try:
                     bt.ingest_research(topic, snippet[:400])
                 except Exception:
                     pass
 
         # ── Push all results to SemanticAgent vector store ────────────────
-        if sa and deduped:
+        if sa and novel:
             try:
-                docs = [{"snippet": s} for s in deduped if s]
+                docs = [{"snippet": s} for s in novel if s]
                 sa.store_knowledge(docs, source="ale_unified_research", query=topic)
             except Exception as exc:
                 log.debug("[UNIFIED] SemanticAgent store failed: %s", exc)
 
-        total = len(deduped)
+        total = len(effective)
         summary_str = ", ".join(backend_summaries) if backend_summaries else "no backends"
         log.info(
             "✅ [UNIFIED RESEARCH] %r — %d unique snippet(s) from [%s]",
@@ -1597,6 +1718,93 @@ class AutonomousLearningEngine:
         if not self.semantic_agent and self.core:
             self.semantic_agent = getattr(self.core, "semantic_agent", None)
         return self.semantic_agent
+
+    # ─────────────────────────────────────────────
+    # Subtopic expansion helper
+    # ─────────────────────────────────────────────
+
+    def _generate_subtopics(self, topic: str) -> List[str]:
+        """Return a list of more specific research subtopics derived from *topic*.
+
+        Called automatically when a topic has produced only already-seen snippets
+        for ``_TOPIC_STALE_LIMIT`` consecutive cycles.  Appends concrete
+        specificity qualifiers so the next research pass fetches actionable
+        content rather than repeating the same generic overview.
+
+        Example::
+
+            _generate_subtopics("python programming best practices")
+            → ["python programming examples",
+               "python programming common mistakes",
+               "python programming advanced techniques"]
+        """
+        # Strip broad suffixes using the pre-compiled module-level pattern so
+        # we don't create compound generics like "best practices examples".
+        base = _BROAD_TOPIC_SUFFIX_RE.sub("", topic).strip()
+        if not base or len(base) < 4:
+            base = topic  # keep original if stripping made it empty
+
+        qualifiers = [
+            "examples",
+            "common mistakes",
+            "advanced techniques",
+            "real world usage",
+            "step by step",
+            "tips and tricks",
+            "quick reference",
+        ]
+
+        subtopics: List[str] = []
+        for q in qualifiers:
+            candidate = f"{base} {q}".strip()
+            if (
+                candidate.lower() != topic.lower()
+                and candidate not in self.research_topics
+                and len(subtopics) < 3
+            ):
+                subtopics.append(candidate)
+        return subtopics
+
+    # ─────────────────────────────────────────────
+    # Priority topic insertion (called from router gap-learning)
+    # ─────────────────────────────────────────────
+
+    def prioritize_research_topic(self, topic: str) -> bool:
+        """Insert *topic* at the FRONT of the research queue.
+
+        Unlike :meth:`add_research_topic` which appends to the end,
+        this method moves the topic to position 0 and resets
+        ``_topic_index`` so ALE studies it in the very next cycle.
+
+        This is the correct method to call from the router when a user
+        asks a question that triggers gap-learning — their question is
+        the strongest learning signal available and should be studied
+        immediately, not after cycling through all existing topics.
+
+        Returns ``True`` if the topic was successfully queued or
+        re-prioritised, ``False`` if it was rejected by the noise filter.
+        """
+        # Run the same noise/validation filter as add_research_topic.
+        if not topic or not isinstance(topic, str):
+            return False
+        if "\n" in topic:
+            return False
+        topic_lower = topic.lower()
+        if any(marker in topic_lower for marker in _TOPIC_NOISE_MARKERS):
+            return False
+        if len(topic.strip()) < 4:
+            return False
+
+        if topic in self.research_topics:
+            # Already queued — move it to the front.
+            self.research_topics.remove(topic)
+
+        self.research_topics.insert(0, topic)
+        self._topic_index = 0
+        # Reset its stale counter so it gets a fair first attempt.
+        self._topic_stale_count.pop(topic, None)
+        log.info("⭐ [ALE] Priority research topic: %r (front of queue)", topic)
+        return True
 
     def _get_claude_engine(self):
         """Lazily resolve ClaudeEngine from core."""
@@ -4538,12 +4746,19 @@ class AutonomousLearningEngine:
         }
 
     # ─────────────────��───────────────────────────
-    def add_research_topic(self, topic: str):
-        """Add new topic to autonomous research list.
+    def add_research_topic(self, topic: str, priority: bool = False) -> bool:
+        """Add *topic* to the autonomous research list.
 
         Rejects compound strings (containing newlines or payload keywords like
         'Insights:', 'Findings:', 'Research finding:') and very short fragments
         so that blob noise never enters the research queue.
+
+        Args:
+            topic:    The research topic string to add.
+            priority: When ``True``, insert at the front of the queue so the
+                      topic is studied in the next cycle.  Use this when the
+                      topic was requested by the user (highest learning signal).
+                      When ``False`` (default), append to the end as before.
         """
         if not topic or not isinstance(topic, str):
             return False
@@ -4557,9 +4772,12 @@ class AutonomousLearningEngine:
         # Reject very short fragments (single words < 4 chars)
         if len(topic.strip()) < 4:
             return False
+        if priority:
+            # Use prioritize_research_topic for front-of-queue insertion.
+            return self.prioritize_research_topic(topic)
         if topic not in self.research_topics:
             self.research_topics.append(topic)
-            log.info(f"✅ Added research topic: {topic}")
+            log.info("✅ Added research topic: %s", topic)
             return True
         return False
 

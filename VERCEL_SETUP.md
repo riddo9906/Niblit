@@ -80,7 +80,7 @@ Phase-2 Agents, etc.) are fully activated on your deployed instance.
 | `QDRANT_URL` | *(blank — uses in-memory fallback)* | Qdrant instance URL. Cloud: https://cloud.qdrant.io. Leave blank for the lightweight in-memory backend. |
 | `QDRANT_API_KEY` | *(blank)* | Qdrant API key (only needed for cloud instances). |
 | `QDRANT_COLLECTION` | `niblit_knowledge` | Collection name shared across all components. |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence-transformer model for embeddings. |
+| `EMBEDDING_MODEL` | `intfloat/multilingual-e5-small` | Sentence-transformer model for embeddings (multilingual, 384-dim). |
 
 ---
 

@@ -783,6 +783,19 @@ class NiblitBrain:
         except Exception as _e:
             log.debug("[BRAIN] ClaudeEngine unavailable: %s", _e)
 
+        # LLMProviderManager — routes HF ↔ Anthropic with runtime switching
+        self.llm_provider_manager = None
+        try:
+            from modules.llm_provider_manager import get_llm_provider_manager
+            self.llm_provider_manager = get_llm_provider_manager()
+            self.llm_provider_manager.wire(
+                hf_brain=self.hf_brain,
+                claude=self.claude,
+            )
+            log.debug("[BRAIN] LLMProviderManager wired (active=%s)", self.llm_provider_manager.active)
+        except Exception as _e:
+            log.debug("[BRAIN] LLMProviderManager unavailable: %s", _e)
+
     def get_tools(self):
         """
         Return a list of GPT tool definition dicts for all registered tool functions.
@@ -1099,6 +1112,24 @@ class NiblitBrain:
                 except Exception as _e:
                     log.debug(f"[BRAIN] Brain trainer context failed: {_e}")
 
+            # ── SECA: inject multi-hop graph context ─────────────────────────
+            _seca_snippets: list = []
+            _seca_node_ids: list = []
+            try:
+                from modules.knowledge_comprehension import get_knowledge_comprehension
+                _kc = get_knowledge_comprehension()
+                _hits = _kc.search_graph(user_input, top_k=3, depth=2)
+                if _hits:
+                    _seca_snippets = [h.get("text", "") for h in _hits if h.get("text")]
+                    _seca_node_ids = [h["id"] for h in _hits if h.get("id")]
+                    _graph_ctx = "Relevant knowledge (multi-hop retrieval):\n" + "\n".join(
+                        f"- {s}" for s in _seca_snippets[:3]
+                    ) + "\n"
+                    context = _graph_ctx + context
+            except Exception as _seca_err:
+                log.debug("[BRAIN] SECA graph retrieval skipped: %s", _seca_err)
+            # ─────────────────────────────────────────────────────────────────
+
             prompt = context + user_input
 
             if not self.llm_enabled:
@@ -1108,42 +1139,67 @@ class NiblitBrain:
 
             response = None
 
-            # Use HF brain for general chat
-            if self.hf_brain:
+            # Route through LLMProviderManager (HF primary → Anthropic fallback)
+            if self.llm_provider_manager:
+                try:
+                    response = self.llm_provider_manager.ask(prompt)
+                except Exception as _pm_err:
+                    log.debug("[BRAIN] LLMProviderManager.ask failed: %s", _pm_err)
+
+            # Legacy fallback: direct HFBrain if manager not available
+            if not response and self.hf_brain:
                 try:
                     response = self.hf_brain.ask_single(prompt)
+                except Exception as _hf_err:
+                    log.debug("[BRAIN] HFBrain direct fallback failed: %s", _hf_err)
 
-                    if response and isinstance(response, str):
-                        response = response.strip()
+            if response and isinstance(response, str):
+                response = response.strip()
 
-                        # Feed successful response back to brain trainer for learning
-                        if hasattr(self, 'brain_trainer') and self.brain_trainer:
-                            try:
-                                self.brain_trainer.record_exchange(user_input, response)
-                            except Exception:
-                                pass
+                # Feed successful response back to brain trainer for learning
+                if hasattr(self, 'brain_trainer') and self.brain_trainer:
+                    try:
+                        self.brain_trainer.record_exchange(user_input, response)
+                    except Exception:
+                        pass
 
-                        # Cache the response - skip if already in event loop
-                        if hasattr(self, 'cache') and self.cache:
-                            try:
-                                try:
-                                    asyncio.get_running_loop()
-                                    log.debug("[BRAIN] Skipping cache store (already in event loop)")
-                                except RuntimeError:
-                                    asyncio.run(self.cache.set(f"think:{user_input[:50]}", response))
-                            except Exception as e:
-                                log.debug(f"Cache store failed: {e}")
+                # ── SECA: reward feedback ────────────────────────────────────
+                try:
+                    from modules.reward_model import get_reward_model
+                    from modules.memory_graph import get_memory_graph
+                    _rm = get_reward_model()
+                    _mg = get_memory_graph()
+                    _rm.record_feedback(
+                        query=user_input,
+                        answer=response,
+                        snippets=_seca_snippets,
+                        node_ids=_seca_node_ids or None,
+                        memory_graph=_mg if _seca_node_ids else None,
+                    )
+                except Exception as _rf_err:
+                    log.debug("[BRAIN] Reward feedback skipped: %s", _rf_err)
+                # ─────────────────────────────────────────────────────────────
 
-                        # Record telemetry
-                        if hasattr(self, 'telemetry') and self.telemetry:
-                            self.telemetry.increment_counter("brain_think_success")
+                # Cache the response - skip if already in event loop
+                if hasattr(self, 'cache') and self.cache:
+                    try:
+                        try:
+                            asyncio.get_running_loop()
+                            log.debug("[BRAIN] Skipping cache store (already in event loop)")
+                        except RuntimeError:
+                            asyncio.run(self.cache.set(f"think:{user_input[:50]}", response))
+                    except Exception as e:
+                        log.debug(f"Cache store failed: {e}")
 
-                        _exit_stack.close()
-                        return response
-                except Exception as e:
-                    log.warning(f"HFBrain ask failed: {e}")
-                    if hasattr(self, 'telemetry') and self.telemetry:
-                        self.telemetry.increment_counter("brain_think_failure")
+                # Record telemetry
+                if hasattr(self, 'telemetry') and self.telemetry:
+                    self.telemetry.increment_counter("brain_think_success")
+
+                _exit_stack.close()
+                return response
+
+            if hasattr(self, 'telemetry') and self.telemetry:
+                self.telemetry.increment_counter("brain_think_failure")
 
             _exit_stack.close()
             # ── Gap-learning trigger: when HFBrain has no answer, queue research ──

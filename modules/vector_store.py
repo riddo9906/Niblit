@@ -15,7 +15,7 @@ Activation::
     QDRANT_URL=https://your-cluster.cloud.qdrant.io
     QDRANT_API_KEY=your-qdrant-api-key
     QDRANT_COLLECTION=niblit_knowledge
-    EMBEDDING_MODEL=all-MiniLM-L6-v2
+    EMBEDDING_MODEL=intfloat/multilingual-e5-small
 
     # Self-hosted Qdrant (Docker)
     # docker run -p 6333:6333 qdrant/qdrant
@@ -78,8 +78,8 @@ except ImportError:
     _QDRANT_AVAILABLE = False
 
 
-_EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
-_EMBEDDING_DIM = 384       # default dim for all-MiniLM-L6-v2
+_EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
+_EMBEDDING_DIM = 384       # default dim for intfloat/multilingual-e5-small
 _MAX_STORED_ITEMS = 10_000  # in-memory/FAISS safety cap
 
 
@@ -140,7 +140,7 @@ def _load_sentence_transformer(model_name: str) -> Any:
     **stdout** when unexpected keys like ``embeddings.position_ids`` are
     found.  The ``tqdm`` progress bar ("Loading weights: 100%|…") goes to
     **stderr**.  Both are benign — newer transformers dropped
-    ``position_ids`` from the state-dict but the all-MiniLM-L6-v2
+    ``position_ids`` from the state-dict but the intfloat/multilingual-e5-small
     checkpoint still ships it.
 
     This function:

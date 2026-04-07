@@ -90,42 +90,97 @@ class HFBrain:
     # -------------------------
     # Context assembly — persistent chat memory
     # -------------------------
-    # Niblit identity system prompt — tells the inference provider what Niblit
-    # is so it can respond appropriately and help train Niblit effectively.
+    # Niblit identity + runtime architecture system prompt.
+    # Describes Niblit's full logical runtime so the inference provider can
+    # give context-aware, architecture-relevant responses rather than generic ones.
     _SYSTEM_PROMPT = (
-        "You are the AI backend for Niblit, an autonomous self-learning AI system. "
-        "Niblit learns through research, self-teaching, and conversations with users. "
-        "Niblit has a graded curriculum (Grade 1 → University) and a knowledge base that "
-        "grows over time. When responding, be helpful, conversational, and educational. "
-        "If the user asks about a topic Niblit is studying, explain it clearly. "
-        "Niblit stores your responses as training data, so be accurate and concise."
+        "You are the AI inference backend for Niblit — an autonomous, self-learning AI "
+        "assistant that runs on-device (Termux/Android or Linux desktop). "
+        "Niblit's logical runtime consists of the following layers:\n\n"
+
+        "CORE RUNTIME\n"
+        "• niblit_core.py — orchestrates all subsystems, exposes core.handle()\n"
+        "• niblit_router.py — intent-based message router with ChatDetector that classifies "
+        "  messages into: knowledge_share, self_referential, self_introspection, info_query, "
+        "  chat, system. Commands (e.g. 'notifications', 'status', 'loops') are dispatched "
+        "  before reaching the LLM.\n"
+        "• main.py — CLI shell loop; DIRECT_COMMANDS (notifications, status, self-heal, "
+        "  self-teach, threads, reload_params, run_selfheal) run without touching the router.\n\n"
+
+        "KNOWLEDGE & LEARNING\n"
+        "• Autonomous Learning Engine (ALE) — background thread that continuously researches "
+        "  topics from a GradedCurriculum (Grade 1 → University). Writes 'ale_learned:' "
+        "  and 'topic_knowledge:' ledger entries to the KB after each cycle.\n"
+        "• KnowledgeComprehension — concept extraction layer wired into ALE and SelfTeacher. "
+        "  Writes 'ale_concepts:' and enriched 'topic_knowledge:' entries.\n"
+        "• SelfTeacher — on-demand teach() cycle that triggers ALE research + comprehension.\n"
+        "• SelfHealer — monitors module health, repairs import failures, runs background.\n"
+        "• LLMTrainingAgent — generates structured Q/A pairs from knowledge gaps and stores "
+        "  them via BrainTrainer.\n\n"
+
+        "MEMORY & STORAGE\n"
+        "• KnowledgeDB (SQLite) — stores facts, interactions, ledger entries. "
+        "  Key ledger prefixes: 'ale_learned:<topic>', 'topic_knowledge:<topic>', "
+        "  'ale_concepts:<topic>'.\n"
+        "• LLMChatMemory (SQLite) — persists the full LLM conversation history across "
+        "  restarts and toggle-llm off/on cycles.\n"
+        "• Optional Qdrant vector store — semantic search over embedded snippets.\n\n"
+
+        "EMBEDDING\n"
+        "• Model: intfloat/multilingual-e5-small (384-dim, 100 languages). "
+        "  Configured via EMBEDDING_MODEL env var. Loaded once per process with "
+        "  thread-safe singleton caching in vector_store.py.\n\n"
+
+        "NOTIFICATIONS\n"
+        "• Background threads push output to core/notification_queue.py (notif_queue). "
+        "  The 'notifications' command drains this queue. All background log output is "
+        "  captured here so it never interrupts the user's prompt.\n\n"
+
+        "RESPONSE GUIDELINES\n"
+        "• When the user discusses Niblit's internals, modules, or architecture, answer "
+        "  specifically within the context of the runtime described above.\n"
+        "• When the user proposes improvements (e.g. 'add X to the concept extractor'), "
+        "  evaluate the suggestion against Niblit's existing stack — ALE, "
+        "  KnowledgeComprehension, vector_store, router — and explain how it would integrate.\n"
+        "• Be accurate and concise. Niblit stores your responses as training data."
     )
 
     def _build_context(self, user_prompt: str):
         """Build the messages list for the LLM from persistent chat memory.
 
         Priority:
-        0. System prompt with Niblit identity awareness.
-        1. Persistent chat memory (LLMChatMemory) — survives across sessions.
-        2. Fallback to in-memory recent_interactions from KnowledgeDB.
+        0. System prompt with Niblit identity and runtime architecture.
+        1. Dynamic KB snapshot — injects the topics Niblit has recently learned so
+           the LLM can give context-aware responses when the user discusses them.
+        2. Persistent chat memory (LLMChatMemory) — survives across sessions.
+        3. Fallback to in-memory recent_interactions from KnowledgeDB.
         """
         messages = []
 
-        # 0. System prompt — gives the inference provider Niblit awareness
+        # 0. System prompt — gives the inference provider full Niblit awareness
         messages.append({
             "role": "system",
             "content": self._SYSTEM_PROMPT,
         })
 
-        # 1. Load from persistent chat memory (cross-session)
+        # 1. Dynamic KB snapshot — surface the topics Niblit has learned so the
+        #    LLM can reference real KB content rather than guessing generically.
+        kb_snapshot = self._build_kb_snapshot()
+        if kb_snapshot:
+            messages.append({
+                "role": "system",
+                "content": kb_snapshot,
+            })
+
+        # 2. Load from persistent chat memory (cross-session)
         if self.chat_memory:
             stored = self.chat_memory.load_messages(limit=30)
             if stored:
                 messages.extend(stored)
                 log.debug("[HFBrain] Loaded %d messages from persistent chat memory", len(stored))
 
-        # 2. Fallback: if no persistent history, try the DB interactions
-        if len(messages) <= 1:  # only system prompt
+        # 3. Fallback: if no persistent history, try the DB interactions
+        if len(messages) <= 2:  # system prompt + optional KB snapshot only
             try:
                 recent = self.db.recent_interactions(15)
                 for entry in recent:
@@ -146,6 +201,51 @@ class HFBrain:
         })
 
         return messages
+
+    def _build_kb_snapshot(self) -> str:
+        """Return a compact summary of what Niblit has recently learned.
+
+        Reads up to 5 ``topic_knowledge:`` ledger entries (comprehension-enriched
+        summaries) from the KB, falling back to ``ale_learned:`` entries when the
+        ledger is sparse.  The result is injected into the LLM context as a
+        system message so the inference provider knows Niblit's current KB state.
+        """
+        if self.db is None:
+            return ""
+        try:
+            facts = self.db.list_facts(limit=200) if hasattr(self.db, "list_facts") else []
+        except Exception:
+            return ""
+
+        topics: dict = {}
+        ale_topics: list = []
+        for f in facts:
+            key = f.get("key", "") or f.get("tags", "")
+            val = f.get("value", "") or f.get("text", "")
+            if not key or not val:
+                continue
+            val_str = val if isinstance(val, str) else str(val)
+            if val_str.startswith("No data found"):
+                continue
+            if isinstance(key, str) and key.startswith("topic_knowledge:"):
+                topic_name = key[len("topic_knowledge:"):]
+                if topic_name not in topics:
+                    topics[topic_name] = val_str[:120]
+            elif isinstance(key, str) and key.startswith("ale_learned:") and len(ale_topics) < 5:
+                topic_name = key[len("ale_learned:"):]
+                ale_topics.append(topic_name)
+
+        lines = []
+        if topics:
+            lines.append("NIBLIT CURRENT KNOWLEDGE TOPICS (from KB ledger):")
+            for name, summary in list(topics.items())[:5]:
+                lines.append(f"• {name}: {summary.strip()}")
+        elif ale_topics:
+            lines.append("NIBLIT RECENTLY STUDIED TOPICS (ALE queue):")
+            for name in ale_topics[:5]:
+                lines.append(f"• {name}")
+
+        return "\n".join(lines) if lines else ""
 
     # -------------------------
     # Local fallback

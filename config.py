@@ -37,6 +37,10 @@ class Config:
     # unless overridden by provider-specific env vars.
     LLM_MODEL: str = os.getenv("NIBLIT_LLM_MODEL", "")
 
+    # Active LLM provider: "hf" (HuggingFace, default) or "anthropic".
+    # Can be switched at runtime with `llm-provider hf|anthropic`.
+    LLM_ACTIVE_PROVIDER: str = os.getenv("NIBLIT_LLM_PROVIDER", "hf")
+
     # OpenAI (https://platform.openai.com/api-keys)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -68,7 +72,7 @@ class Config:
 
     # Embedding model for vector store (local sentence-transformers model name
     # or HF repo ID; used when Qdrant is enabled)
-    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
 
     # ── Phase 5 Sandbox Execution ─────────────────────────────────────────────
     # Docker socket / host — set to empty string to disable sandboxed execution

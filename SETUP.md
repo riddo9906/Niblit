@@ -251,11 +251,11 @@ QDRANT_URL=http://localhost:6333
 ### Embedding model
 
 Niblit embeds text with a sentence-transformers model.  The default
-`all-MiniLM-L6-v2` (23 MB) is downloaded automatically on first use.
+`intfloat/multilingual-e5-small` is downloaded automatically on first use.
+It supports 100 languages and produces 384-dimensional dense vectors.
 
 ```dotenv
-EMBEDDING_MODEL=all-MiniLM-L6-v2   # default — good balance of speed and accuracy
-# EMBEDDING_MODEL=all-mpnet-base-v2  # higher quality, slower
+EMBEDDING_MODEL=intfloat/multilingual-e5-small   # default — multilingual, 384-dim
 ```
 
 Install the embedding dependency:
