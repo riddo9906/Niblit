@@ -147,6 +147,12 @@ class AutonomousLearningEngine:
     # queue so other topics get their turn.
     _TOPIC_STALE_LIMIT: int = 2
 
+    # Number of leading characters used as the cross-cycle dedup key for each
+    # snippet.  200 chars is large enough to distinguish most snippets that
+    # differ in body content while keeping the cache small
+    # (200 × _SEEN_HASH_CAP entries ≈ 100 KB max).
+    _SNIPPET_PREFIX_LEN: int = 200
+
     # Curriculum grade thresholds for code-research topics.
     # "computer science basics" is introduced at Grade 8 in the graded
     # curriculum, so code-literacy research is skipped before that level.
@@ -1589,14 +1595,14 @@ class AutonomousLearningEngine:
         # cache entries small (200 chars × 500 entries ≈ 100 KB max).
         novel: List[str] = []
         for s in deduped:
-            prefix = s[:200]
+            prefix = s[:self._SNIPPET_PREFIX_LEN]
             if prefix not in self._seen_snippet_prefixes:
                 novel.append(s)
 
         if novel:
             # Register new prefixes so future cycles skip them.
             for s in novel:
-                self._seen_snippet_prefixes.add(s[:200])
+                self._seen_snippet_prefixes.add(s[:self._SNIPPET_PREFIX_LEN])
             # Evict cache when it exceeds the cap to keep memory bounded.
             if len(self._seen_snippet_prefixes) > self._SEEN_HASH_CAP:
                 self._seen_snippet_prefixes.clear()

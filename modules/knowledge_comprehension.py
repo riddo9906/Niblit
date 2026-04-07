@@ -68,6 +68,12 @@ _MAX_LEDGER_LEN: int = 600
 # Maximum snippet length used for concept extraction (longer slows the regex).
 _MAX_SNIPPET_CHARS: int = 600
 
+# Scheduling limits — how many concepts/questions go into the SelfTeacher
+# spaced-repetition queue per cycle.  Intentionally smaller than _MAX_CONCEPTS
+# and _MAX_QUESTIONS_PER_CONCEPT to keep the queue from growing too fast.
+_SCHEDULER_MAX_CONCEPTS: int = 3
+_SCHEDULER_MAX_QUESTIONS: int = 2
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Noise words — excluded from concept candidates
 # ─────────────────────────────────────────────────────────────────────────────
@@ -130,7 +136,7 @@ def _extract_candidates(text: str) -> List[str]:
     # Bigrams and trigrams from consecutive content tokens
     for n in (2, 3):
         for i in range(len(content_tokens) - n + 1):
-            phrase = " ".join(content_tokens[i: i + n])
+            phrase = " ".join(content_tokens[i:i + n])
             candidates.append(phrase)
 
     # Technical identifiers (CamelCase, ALL_CAPS, hyphenated) as unigrams
@@ -481,8 +487,8 @@ class KnowledgeComprehension:
             return 0
 
         scheduled = 0
-        for phrase, questions in questions_by_concept[:3]:  # top 3 concepts only
-            for q in questions[:2]:  # max 2 questions per concept
+        for phrase, questions in questions_by_concept[:_SCHEDULER_MAX_CONCEPTS]:
+            for q in questions[:_SCHEDULER_MAX_QUESTIONS]:
                 try:
                     # Use the question as the "topic" for SelfTeacher so that
                     # when the review comes due, SelfTeacher searches the KB for
