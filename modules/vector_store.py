@@ -36,6 +36,7 @@ import io
 import logging
 import os
 import sys
+import threading
 import time
 import warnings
 from typing import Any, Dict, List, Optional
@@ -83,53 +84,129 @@ _MAX_STORED_ITEMS = 10_000  # in-memory/FAISS safety cap
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Embedding helper
+# Embedding helper — singleton model cache
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Module-level cache so ALL VectorStore instances share one loaded model per
+# model name.  This prevents the repeated "BertModel LOAD REPORT" and tqdm
+# "Loading weights" banners that previously flooded the console when multiple
+# VectorStore instances were created (e.g. by niblit_memory, niblit_core,
+# research agents, etc.).
+_model_cache: Dict[str, Any] = {}
+_model_cache_lock = threading.Lock()
+
+
+def _push_to_notification_queue(msg: str) -> None:
+    """Best-effort push to the notification queue (no-op if unavailable)."""
+    try:
+        from core.notification_queue import notif_queue
+        notif_queue.push(msg)
+    except Exception:
+        pass
+
+
+def _load_sentence_transformer(model_name: str) -> Any:
+    """Load a SentenceTransformer model, capturing all console output.
+
+    The safetensors/transformers loader *prints* a "LOAD REPORT" table to
+    **stdout** when unexpected keys like ``embeddings.position_ids`` are
+    found.  The ``tqdm`` progress bar ("Loading weights: 100%|…") goes to
+    **stderr**.  Both are benign — newer transformers dropped
+    ``position_ids`` from the state-dict but the all-MiniLM-L6-v2
+    checkpoint still ships it.
+
+    This function:
+    1. Redirects **both** stdout *and* stderr during model construction.
+    2. Suppresses the ``FutureWarning`` about ``position_ids``.
+    3. Routes captured output to the notification queue (viewable via the
+       ``notifications`` command) and to the DEBUG logger.
+    4. Sets ``SAFETENSORS_LOG_LEVEL=error`` so safetensors itself stays
+       silent on benign key mismatches.
+    """
+    # Tell safetensors to only log errors (suppresses the LOAD REPORT
+    # table and the "UNEXPECTED" advisory for position_ids).
+    _prev_st_log = os.environ.get("SAFETENSORS_LOG_LEVEL")
+    os.environ["SAFETENSORS_LOG_LEVEL"] = "error"
+
+    captured_stdout = io.StringIO()
+    captured_stderr = io.StringIO()
+    old_stdout, old_stderr = sys.stdout, sys.stderr
+    try:
+        sys.stdout = captured_stdout
+        sys.stderr = captured_stderr
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r".*position_ids.*",
+                category=FutureWarning,
+            )
+            # Suppress the tqdm-related DeprecationWarning / RuntimeWarning
+            warnings.filterwarnings(
+                "ignore",
+                category=DeprecationWarning,
+            )
+            model = _SentenceTransformer(model_name)
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+        # Restore the previous SAFETENSORS_LOG_LEVEL value
+        if _prev_st_log is None:
+            os.environ.pop("SAFETENSORS_LOG_LEVEL", None)
+        else:
+            os.environ["SAFETENSORS_LOG_LEVEL"] = _prev_st_log
+
+    # Gather any captured output — route to DEBUG logger and notification
+    # queue so it is only visible on demand (``notifications`` command).
+    banner_parts = []
+    stdout_text = captured_stdout.getvalue().strip()
+    stderr_text = captured_stderr.getvalue().strip()
+    if stdout_text:
+        banner_parts.append(stdout_text)
+    if stderr_text:
+        banner_parts.append(stderr_text)
+
+    if banner_parts:
+        combined = "\n".join(banner_parts)
+        log.debug("[VectorStore] Embedding model load report:\n%s", combined)
+        _push_to_notification_queue(
+            f"[VectorStore] Embedding model '{model_name}' loaded "
+            f"(load report captured — this is informational only)"
+        )
+
+    return model
+
+
 class _EmbeddingService:
-    """Lazy-loaded sentence-transformer embedding service."""
+    """Lazy-loaded sentence-transformer embedding service.
+
+    All instances sharing the same *model_name* use a **single** loaded
+    model via the module-level ``_model_cache``, so the heavyweight
+    download/load (and its console output) happens at most once per
+    process, regardless of how many ``VectorStore`` objects are created.
+    """
 
     def __init__(self, model_name: str = _EMBEDDING_MODEL_NAME) -> None:
         self.model_name = model_name
-        self._model: Optional[Any] = None
 
     def is_available(self) -> bool:
         return _ST_AVAILABLE
 
+    @property
+    def _model(self) -> Optional[Any]:
+        return _model_cache.get(self.model_name)
+
     def _load(self) -> None:
-        if self._model is None and _ST_AVAILABLE:
+        if self.model_name in _model_cache:
+            return
+        if not _ST_AVAILABLE:
+            return
+        with _model_cache_lock:
+            # Double-check after acquiring the lock
+            if self.model_name in _model_cache:
+                return
             try:
-                # The safetensors/transformers loader *prints* a "LOAD REPORT"
-                # table to stdout when unexpected keys like
-                # ``embeddings.position_ids`` are found.  This is benign —
-                # newer transformers dropped position_ids from the state-dict
-                # but the all-MiniLM-L6-v2 checkpoint still ships it.
-                #
-                # We redirect stdout during model construction so the banner
-                # is captured instead of leaking to the console, then forward
-                # the captured text to the DEBUG logger so the information is
-                # still available when needed.
-                captured = io.StringIO()
-                old_stdout = sys.stdout
-                try:
-                    sys.stdout = captured
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings(
-                            "ignore",
-                            message=r".*position_ids.*",
-                            category=FutureWarning,
-                        )
-                        self._model = _SentenceTransformer(self.model_name)
-                finally:
-                    sys.stdout = old_stdout
-
-                banner = captured.getvalue().strip()
-                if banner:
-                    log.debug(
-                        "[VectorStore] Embedding model load report:\n%s",
-                        banner,
-                    )
-
+                model = _load_sentence_transformer(self.model_name)
+                _model_cache[self.model_name] = model
                 log.info("[VectorStore] Embedding model '%s' loaded", self.model_name)
             except Exception as exc:
                 log.warning("[VectorStore] Failed to load embedding model: %s", exc)
