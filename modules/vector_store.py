@@ -105,6 +105,34 @@ def _push_to_notification_queue(msg: str) -> None:
         pass
 
 
+def get_embedding_model_cache() -> Dict[str, Any]:
+    """Return the process-wide embedding model cache (public API).
+
+    Other modules (e.g. ``dynamic_topic_manager``) should call this instead
+    of importing the private ``_model_cache`` directly.
+    """
+    return _model_cache
+
+
+def load_sentence_transformer(model_name: str) -> Any:
+    """Load a SentenceTransformer model via the singleton cache (public API).
+
+    Returns the cached model if already loaded; otherwise loads it with
+    full stdout/stderr capture and notification-queue routing.
+
+    Other modules should use this instead of importing the private
+    ``_load_sentence_transformer`` directly.
+    """
+    if model_name in _model_cache:
+        return _model_cache[model_name]
+    with _model_cache_lock:
+        if model_name in _model_cache:
+            return _model_cache[model_name]
+        model = _load_sentence_transformer(model_name)
+        _model_cache[model_name] = model
+        return model
+
+
 def _load_sentence_transformer(model_name: str) -> Any:
     """Load a SentenceTransformer model, capturing all console output.
 
