@@ -15,7 +15,6 @@ from slsa_generator_full import SLSAGenerator
 from niblit_memory import MemoryManager, _is_no_data_placeholder
 
 log = logging.getLogger("SelfIdeaImpl")
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s')
 
 
 # ---------------------------------------------------

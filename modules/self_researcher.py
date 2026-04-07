@@ -26,10 +26,6 @@ import logging
 from typing import List, Dict, Tuple, Optional, Any
 
 log = logging.getLogger("SelfResearcher")
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
-)
 
 try:
     from niblit_agents.research_agent import is_relevant, should_reflect

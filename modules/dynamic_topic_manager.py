@@ -40,13 +40,17 @@ from typing import Any, Callable, List, Optional, Set
 
 log = logging.getLogger("DynamicTopicManager")
 
-# ── optional: sentence-transformers (intfloat/e5 or similar) ──────────────────
+# ── optional: sentence-transformers via vector_store's singleton cache ─────────
+# Delegate model loading to vector_store.load_sentence_transformer() so that
+# all SentenceTransformer instances share the same singleton cache and their
+# noisy console output (LOAD REPORT, tqdm progress) is captured/suppressed.
 try:
-    from sentence_transformers import SentenceTransformer as _SentenceTransformer  # type: ignore[import]
+    from modules.vector_store import load_sentence_transformer, get_embedding_model_cache  # type: ignore[import]
     _ST_AVAILABLE = True
 except ImportError:
     _ST_AVAILABLE = False
-    _SentenceTransformer = None  # type: ignore[assignment,misc]
+    load_sentence_transformer = None  # type: ignore[assignment,misc]
+    get_embedding_model_cache = None  # type: ignore[assignment,misc]
 
 # ── optional: numpy (for vector similarity) ───────────────────────────────────
 try:

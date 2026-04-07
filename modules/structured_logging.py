@@ -53,6 +53,14 @@ class StructuredLogger:
         if not has_stream:
             console_handler = logging.StreamHandler()
             console_handler.setFormatter(JSONFormatter())
+            # Apply the notification-queue filter so background-thread records
+            # don't flood the console.  Safe to call even before the queue
+            # handler is installed (it will be a no-op).
+            try:
+                from core.notification_queue import apply_filter_to_handler
+                apply_filter_to_handler(console_handler)
+            except Exception:
+                pass
             self.logger.addHandler(console_handler)
     
     def _get_context(self) -> Dict[str, Any]:

@@ -69,10 +69,6 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 
 log = logging.getLogger("AutonomousLearning")
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
-)
 
 # Maximum characters stored from a failed code snippet in the KB / reflection queue.
 _MAX_FAILED_CODE_SNIPPET_LENGTH: int = 400

@@ -174,6 +174,88 @@ class _MainThreadOnlyFilter(logging.Filter):
 
 _handler_installed: bool = False
 
+# Third-party libraries that produce noisy console output during model
+# loading, HTTP requests, or progress bars.  Their loggers are set to
+# WARNING (or ERROR) so only genuine problems reach the console.
+_NOISY_THIRD_PARTY_LOGGERS = (
+    "transformers",
+    "sentence_transformers",
+    "safetensors",
+    "huggingface_hub",
+    "tqdm",
+    "urllib3",
+    "requests",
+    "filelock",
+    "torch",
+    "tensorflow",
+)
+
+# Reference to the shared _MainThreadOnlyFilter so apply_filter_to_handler()
+# can use it without re-creating one each time.
+_shared_filter: Optional[_MainThreadOnlyFilter] = None
+
+
+def apply_filter_to_handler(handler: logging.Handler) -> None:
+    """Apply the :class:`_MainThreadOnlyFilter` to *handler* if applicable.
+
+    Call this on any :class:`logging.StreamHandler` that is created **after**
+    :func:`install_queue_log_handler` has run.  It is safe to call even before
+    installation (it will be a no-op).
+
+    This is the public API that other modules should use when they create
+    their own StreamHandler instances.
+    """
+    if not _handler_installed or _shared_filter is None:
+        return
+    if isinstance(handler, logging.StreamHandler) and not isinstance(handler, NotificationQueueHandler):
+        # Avoid adding the same filter twice
+        if _shared_filter not in handler.filters:
+            handler.addFilter(_shared_filter)
+
+
+def _suppress_noisy_loggers() -> None:
+    """Set noisy third-party library loggers to WARNING or higher.
+
+    These libraries produce verbose INFO/DEBUG output (connection banners,
+    download progress, load reports, tokenizer info) that floods the console
+    during normal Niblit operation.  Genuine warnings and errors still appear.
+    """
+    for name in _NOISY_THIRD_PARTY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
+def _apply_filter_to_all_stream_handlers(
+    filt: logging.Filter,
+) -> None:
+    """Walk the entire logger hierarchy and apply *filt* to every
+    :class:`logging.StreamHandler` that doesn't already have it.
+
+    This catches StreamHandlers created on child loggers (e.g. by
+    :class:`~modules.structured_logging.StructuredLogger`) — not just
+    on the root logger.
+    """
+    visited: set = set()
+
+    def _apply(logger: logging.Logger) -> None:
+        lid = id(logger)
+        if lid in visited:
+            return
+        visited.add(lid)
+        for h in list(logger.handlers):
+            if isinstance(h, logging.StreamHandler) and not isinstance(h, NotificationQueueHandler):
+                if filt not in h.filters:
+                    h.addFilter(filt)
+
+    # Root logger
+    _apply(logging.getLogger())
+
+    # All registered child loggers
+    manager = logging.Logger.manager
+    # manager.loggerDict values are either Logger or PlaceHolder instances
+    for _, logger_ref in list(manager.loggerDict.items()):
+        if isinstance(logger_ref, logging.Logger):
+            _apply(logger_ref)
+
 
 def install_queue_log_handler(
     level: int = logging.INFO,
@@ -190,6 +272,15 @@ def install_queue_log_handler(
     whatever handlers were already installed (e.g. the ``basicConfig``
     StreamHandler).
 
+    Additionally:
+    - Noisy third-party library loggers (transformers, safetensors, tqdm,
+      etc.) are set to WARNING level so their verbose INFO output is
+      suppressed.
+    - The :class:`_MainThreadOnlyFilter` is applied to **all** existing
+      StreamHandlers across the entire logger hierarchy — not just the root
+      logger — so that child-logger StreamHandlers created by modules like
+      :class:`~modules.structured_logging.StructuredLogger` are also covered.
+
     Parameters
     ----------
     level:
@@ -202,7 +293,7 @@ def install_queue_log_handler(
     NotificationQueueHandler
         The handler that was added (or the one that was already installed).
     """
-    global _handler_installed
+    global _handler_installed, _shared_filter
     root = logging.getLogger()
 
     # Idempotent: don't add the handler twice
@@ -215,14 +306,15 @@ def install_queue_log_handler(
     handler.setLevel(level)
     root.addHandler(handler)
 
-    # Suppress background-thread log output on existing stream handlers so
-    # they no longer write to the terminal while the user is typing.
-    # Records from background threads will appear in the notification queue
-    # instead (surfaced after the user presses Enter).
-    _filter = _MainThreadOnlyFilter()
-    for h in list(root.handlers):
-        if isinstance(h, logging.StreamHandler) and not isinstance(h, NotificationQueueHandler):
-            h.addFilter(_filter)
+    # Suppress background-thread log output on ALL existing stream handlers
+    # across the whole logger hierarchy so they no longer write to the
+    # terminal while the user is typing.  Records from background threads
+    # will appear in the notification queue instead (surfaced after Enter).
+    _shared_filter = _MainThreadOnlyFilter()
+    _apply_filter_to_all_stream_handlers(_shared_filter)
+
+    # Suppress noisy third-party library loggers
+    _suppress_noisy_loggers()
 
     _handler_installed = True
     return handler

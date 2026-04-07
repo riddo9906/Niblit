@@ -23,6 +23,17 @@ import difflib
 import datetime
 import threading
 
+# ── Centralised logging configuration ──────────────────────────────────────
+# Set up the root logger ONCE here, before any module imports.  Individual
+# modules should only call ``logging.getLogger(name)`` — never
+# ``logging.basicConfig()`` — so that all log output flows through this
+# single StreamHandler.  The notification queue handler installed at boot
+# adds its own filter to this handler to suppress background-thread output.
+logging.basicConfig(
+    level=logging.WARNING,
+    format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s",
+)
+
 # Load .env file when running locally (e.g. Termux).  niblit_core also calls
 # load_dotenv(), but doing it here ensures vars are set before any imports.
 try:

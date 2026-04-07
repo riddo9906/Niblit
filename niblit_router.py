@@ -16,10 +16,6 @@ from typing import Optional
 from modules.slsa_manager import slsa_manager
 
 log = logging.getLogger("NiblitRouter")
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
-)
 
 # Maximum character length for a single gap-learned KB fact value
 _GAP_FACT_MAX_LEN = 500
@@ -355,12 +351,12 @@ class NiblitRouter:
 
     # ─────────────────────────────────
     def start(self):
-        log.info("NiblitRouter started.")
+        log.debug("NiblitRouter started.")
 
     # ─────────────────────────────────
     def log_event(self, msg):
         ts = timestamp()
-        log.info(f"[ROUTER EVENT] {msg}")
+        log.debug(f"[ROUTER EVENT] {msg}")
         if hasattr(self.memory, "log_event"):
             safe_call(self.memory.log_event, f"{ts} - {msg}")
 
@@ -431,7 +427,7 @@ class NiblitRouter:
             return None
 
         try:
-            log.info(f"[INTROSPECTION] Processing self-introspection query: {query}")
+            log.debug(f"[INTROSPECTION] Processing self-introspection query: {query}")
 
             query_lower = query.lower()
 
@@ -585,7 +581,7 @@ What aspect of my improvement interests you?"""
             return None
 
         try:
-            log.info(f"[SELF-REF] Processing self-referential query: {query}")
+            log.debug(f"[SELF-REF] Processing self-referential query: {query}")
 
             db = getattr(self.core, "db", None)
             autonomous_engine = getattr(self.core, "autonomous_engine", None)
@@ -2815,7 +2811,7 @@ Ask me about:
             return None
 
         try:
-            log.info(f"🔍 [LLM-FREE] Researching query: {query}")
+            log.debug(f"[LLM-FREE] Researching query: {query}")
 
             research_results = []
 
@@ -2835,7 +2831,7 @@ Ask me about:
                 return None
 
             response = self._format_research_response(query, research_results)
-            log.info(f"✅ [LLM-FREE] Generated researched response")
+            log.debug("[LLM-FREE] Generated researched response")
             return response
 
         except Exception as e:
@@ -3140,7 +3136,7 @@ Ask me about:
             except Exception:
                 pass
 
-        log.info(
+        log.debug(
             "[GAP-LEARNING] Topic '%s' queued — ALE:%s KB:%s",
             topic, queued_ale, queued_kb,
         )
@@ -3292,11 +3288,11 @@ Ask me about:
         # ═══════════════════════════════════════════════════════════
         if self.core and not llm_enabled:
             msg_type, subject = self.chat_detector.classify(cleaned)
-            log.info(f"[MESSAGE TYPE] {msg_type} | Subject: {subject}")
+            log.debug(f"[MESSAGE TYPE] {msg_type} | Subject: {subject}")
 
             # ─────── SELF-INTROSPECTION (NEW - HIGHEST PRIORITY) ───────
             if msg_type == 'self_introspection':
-                log.info("[INTROSPECTION] Processing self-awareness question")
+                log.debug("[INTROSPECTION] Processing self-awareness question")
                 response = self._get_self_introspection_response(cleaned)
 
                 if response:
@@ -3305,7 +3301,7 @@ Ask me about:
 
             # ─────── SELF-REFERENTIAL QUERY ───────
             if msg_type == 'self_referential':
-                log.info("[SELF-REF] Answering question about Niblit")
+                log.debug("[SELF-REF] Answering question about Niblit")
                 response = self._get_self_referential_response(cleaned)
 
                 if response:
@@ -3354,7 +3350,7 @@ Ask me about:
 
             # ─────── INFORMATION QUERY ───────
             if msg_type == 'info_query':
-                log.info(f"[QUERY] Information query detected: {subject}")
+                log.debug(f"[QUERY] Information query detected: {subject}")
                 # 1. Try knowledge base first — no network required
                 kb_resp = self._get_kb_response(cleaned)
                 if kb_resp and kb_resp.strip():
@@ -3393,7 +3389,7 @@ Ask me about:
             if self.core and hasattr(self.core, "handle"):
                 response = safe_call(self.core.handle, cleaned)
 
-        log.info(f"[ROUTER RESPONSE] {response}")
+        log.debug(f"[ROUTER RESPONSE] {str(response)[:100]}")
         self._collect(cleaned, response, "brain")
         return response
 

@@ -35,10 +35,6 @@ if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
 
 log = logging.getLogger("NiblitBrain")
-logging.basicConfig(
-    level=logging.WARNING,
-    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
-)
 
 # ───────── Improvement Imports ─────────
 # pylint: disable=invalid-name

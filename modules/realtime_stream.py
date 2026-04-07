@@ -54,10 +54,6 @@ from datetime import datetime
 from typing import Any, Deque, Dict, List, Optional
 
 log = logging.getLogger("RealtimeStream")
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s",
-)
 
 # ── tuneable constants ────────────────────────────────────────────────────────
 _DEFAULT_SYMBOL: str = "btcusdt"

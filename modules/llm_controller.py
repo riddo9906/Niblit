@@ -2,7 +2,6 @@
 import logging
 
 log = logging.getLogger("LLMController")
-logging.basicConfig(level=logging.INFO, format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s')
 
 class LLMController:
     """

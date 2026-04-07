@@ -79,12 +79,15 @@ except Exception:
 # Logging
 # ---------------------------------------------------------------------------
 
+# Use only a FileHandler at module level.  The notification queue (installed by
+# main.py at boot) handles routing background-thread output to the console at
+# appropriate times.  A bare StreamHandler here would bypass that filter and
+# flood the terminal during background pipeline runs.
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
     handlers=[
         logging.FileHandler(_mem_writable_path("niblit_full_pipeline.log")),
-        logging.StreamHandler(),
     ],
 )
 logger = logging.getLogger("NiblitFullPipeline")

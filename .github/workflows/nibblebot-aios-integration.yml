@@ -1,0 +1,41 @@
+name: "🔗 Nibblebot: AIOS Integration Roadmap"
+
+on:
+  schedule:
+    - cron: "0 10 * * 4"  # Every Thursday at 10:00 UTC
+  workflow_dispatch:
+    inputs:
+      topics:
+        description: "Comma-separated search topics"
+        required: false
+        default: ""
+      dry_run:
+        description: "Dry run (print roadmap instead of creating issue)"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  integration:
+    name: Generate AIOS Integration Roadmap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run AIOS integration bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          INTEGRATION_TOPICS: ${{ inputs.topics || '' }}
+          INTEGRATION_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: python nibblebots/aios_integration_bot.py
