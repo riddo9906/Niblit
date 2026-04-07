@@ -26,6 +26,12 @@ sentence-transformers>=2.2.2
 numpy>=1.24.0
 faiss-cpu>=1.7.4
 
+# ── SECA — Self-Evolving Cognitive Architecture (optional extras) ─────────────
+# scikit-learn: enables k-means clustering in ConceptSynthesizer (memory compression).
+#   Without it, ConceptSynthesizer falls back to greedy cosine grouping.
+#   Install with: pip install scikit-learn>=1.3.0
+# scikit-learn>=1.3.0
+
 # ── Web Scraping ────────────────────────────────────────────────────────────
 # Provides advanced crawling, extraction, and scraping capabilities for Niblit
 scrapy>=2.11.0

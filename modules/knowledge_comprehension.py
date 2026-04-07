@@ -9,34 +9,40 @@ into durable, structured knowledge Niblit can actually *use*:
   Self-questions →  SelfTeacher queue →  spaced review
   Best concepts →  topic ledger      →  recall answers it
 
+SECA — Self-Evolving Cognitive Architecture (Upgrade 3)
+-------------------------------------------------------
+Three additional components are wired in when available:
+
+* **MemoryGraph** (``modules/memory_graph.py``) — Active Retrieval Graph.
+  Every snippet is embedded and added as a graph node.  Edges are drawn
+  automatically between semantically similar nodes.  Query-time retrieval
+  does multi-hop graph expansion + weighted re-ranking instead of flat
+  FAISS top-k.
+
+* **RewardModel** (``modules/reward_model.py``) — Self-Critique layer.
+  Scores generated answers against source snippets.  Feeds quality
+  deltas back to MemoryGraph node scores so well-supported nodes rise
+  and unsupported ones sink over time.
+
+* **ConceptSynthesizer** (``modules/concept_synthesizer.py``) — Memory
+  Compression.  Periodically clusters raw snippet nodes into compact
+  meta-nodes (abstractions), reducing graph size and improving retrieval
+  speed at scale.
+
 Design
 ------
-* **Pure stdlib** — no spaCy, no NLTK, no new pip dependencies.  Uses regex
-  and simple frequency analysis to extract candidate concepts.
 * **Purely additive** — slots in *between* existing modules; nothing is removed
   or rewritten.
-* **Complementary loop:**
-  1. ALE research step collects raw snippets.
-  2. Reflection step stores them as ``ale_learned`` facts.
-  3. **Comprehension step** (new) extracts concepts from those snippets and:
-     a. Writes/updates the ``topic_knowledge:<topic>`` ledger so ``recall``
-        always returns useful content.
-     b. Schedules the top concepts as self-questions in SelfTeacher's spaced-
-        repetition review queue, so the *next* idle cycle reviews them.
-  4. Metacognition step uses the enriched ledger to raise the topic's
-     confidence score from "uncertain" to "medium" or "high".
-
-Integration points
-------------------
-* Called from ALE ``_autonomous_reflection`` after the ledger is written,
-  so comprehension always has fresh data.
-* Called from ``SelfTeacher.teach()`` so user-triggered study also runs the
-  comprehension pass.
+* All SECA components are optional — module degrades gracefully when
+  unavailable (no sentence-transformers, no numpy, etc.).
+* Pure stdlib for concept extraction; SECA components use numpy/faiss/sklearn
+  when available.
 * Singleton: ``get_knowledge_comprehension()`` returns a shared instance.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import time
@@ -306,6 +312,11 @@ class KnowledgeComprehension:
     4. Write/update the ``topic_knowledge:<topic>`` ledger with a clean
        concept summary so that future ``recall`` queries return useful content.
 
+    SECA components (optional, injected at construction or later):
+    * ``memory_graph``       — Active Retrieval Graph for multi-hop retrieval.
+    * ``reward_model``       — Self-Critique quality scorer.
+    * ``concept_synthesizer`` — Memory compression / abstraction layer.
+
     All parameters are optional — the module degrades gracefully when
     subsystems are unavailable.
     """
@@ -315,10 +326,18 @@ class KnowledgeComprehension:
         knowledge_db: Optional[Any] = None,
         self_teacher: Optional[Any] = None,
         llm: Optional[Any] = None,
+        memory_graph: Optional[Any] = None,
+        reward_model: Optional[Any] = None,
+        concept_synthesizer: Optional[Any] = None,
     ):
         self.knowledge_db = knowledge_db
         self.self_teacher = self_teacher
         self.llm = llm
+
+        # SECA components
+        self.memory_graph = memory_graph
+        self.reward_model = reward_model
+        self.concept_synthesizer = concept_synthesizer
 
         self._extractor = ConceptExtractor()
         self._question_gen = SelfQuestionGenerator(llm=llm)
@@ -353,6 +372,30 @@ class KnowledgeComprehension:
             log.debug("[Comprehension] process() error: %s", exc)
             return f"[Comprehension error: {exc}]"
 
+    def search_graph(
+        self,
+        query: str,
+        top_k: int = 5,
+        depth: int = 2,
+    ) -> List[Dict[str, Any]]:
+        """Multi-hop graph search for *query* using the Active Retrieval Graph.
+
+        Falls back to an empty list when the MemoryGraph or embedding model is
+        unavailable.  Results are ``{"id", "text", "score", "hops"}`` dicts.
+        """
+        if self.memory_graph is None:
+            return []
+        try:
+            query_embedding = self._embed_text(query)
+            return self.memory_graph.search(
+                query_embedding=query_embedding,
+                top_k=top_k,
+                depth=depth,
+            )
+        except Exception as exc:
+            log.debug("[Comprehension] search_graph() error: %s", exc)
+            return []
+
     # ── Internal pipeline ─────────────────────────────────────────────────────
 
     def _process_safe(
@@ -375,6 +418,9 @@ class KnowledgeComprehension:
             fallback_text = str(snippets[0])[:_MAX_LEDGER_LEN].strip()
             if fallback_text and not fallback_text.lower().startswith("no data found"):
                 self._write_ledger(topic, fallback_text, concepts=[], ts=ts)
+                # SECA: embed the fallback snippet into the graph even when no
+                # repeated concepts were found.
+                self._embed_snippets_to_graph(topic, [fallback_text], ts)
                 return (
                     f"Comprehension({topic!r}): no repeated concepts — "
                     f"wrote raw-snippet ledger"
@@ -413,17 +459,92 @@ class KnowledgeComprehension:
         # 5. Persist concepts as individual KB facts so Metacognition can score them
         self._store_concept_facts(topic, concepts, ts)
 
+        # 6. SECA — embed snippets into the Active Retrieval Graph
+        n_embedded = self._embed_snippets_to_graph(topic, snippets, ts)
+
+        # 7. SECA — trigger memory compression when graph has grown enough
+        self._maybe_compress()
+
         n_concepts = len(concepts)
         n_questions = sum(len(qs) for _, qs in all_questions)
+        graph_suffix = f", {n_embedded} embedded" if n_embedded else ""
         log.info(
-            "✅ [Comprehension] %r — %d concept(s), %d question(s), %d scheduled",
-            topic, n_concepts, n_questions, scheduled,
+            "✅ [Comprehension] %r — %d concept(s), %d question(s), %d scheduled%s",
+            topic, n_concepts, n_questions, scheduled, graph_suffix,
         )
         return (
             f"Comprehension({topic!r}): "
             f"{n_concepts} concept(s), {n_questions} question(s), "
-            f"{scheduled} review(s) scheduled"
+            f"{scheduled} review(s) scheduled{graph_suffix}"
         )
+
+    # ── SECA helpers ──────────────────────────────────────────────────────────
+
+    def _embed_text(self, text: str) -> Optional[List[float]]:
+        """Embed *text* using the existing VectorStore embedding service.
+
+        Returns a list[float] embedding or None when the embedding model is
+        unavailable.  Uses the module-level singleton from vector_store.py so
+        no second model copy is loaded.
+        """
+        try:
+            from modules.vector_store import load_sentence_transformer
+            model = load_sentence_transformer()
+            if model is None:
+                return None
+            result = model.encode(text, normalize_embeddings=True)
+            if hasattr(result, "tolist"):
+                return result.tolist()
+            return list(result)
+        except Exception as exc:
+            log.debug("[Comprehension] _embed_text error: %s", exc)
+            return None
+
+    def _embed_snippets_to_graph(
+        self,
+        topic: str,
+        snippets: List[str],
+        ts: int,
+    ) -> int:
+        """Embed each snippet and add it as a node in the Active Retrieval Graph.
+
+        Returns the number of nodes successfully added.  No-op when
+        ``self.memory_graph`` is None.
+        """
+        if self.memory_graph is None:
+            return 0
+        added = 0
+        for i, snippet in enumerate(snippets):
+            if not snippet or snippet.lower().startswith("no data found"):
+                continue
+            try:
+                text = snippet[:_MAX_SNIPPET_CHARS]
+                # Stable node ID: hash of topic + snippet truncated
+                raw_id = f"{topic}:{ts}:{i}:{text[:64]}"
+                node_id = "snip:" + hashlib.md5(raw_id.encode()).hexdigest()[:16]
+                embedding = self._embed_text(text)
+                self.memory_graph.add(node_id=node_id, text=text, embedding=embedding)
+                added += 1
+            except Exception as exc:
+                log.debug("[Comprehension] graph add error (snippet %d): %s", i, exc)
+        return added
+
+    def _maybe_compress(self) -> None:
+        """Trigger ConceptSynthesizer when enough new graph nodes have accumulated."""
+        if self.concept_synthesizer is None or self.memory_graph is None:
+            return
+        try:
+            n_created = self.concept_synthesizer.maybe_synthesize(
+                graph=self.memory_graph,
+                knowledge_db=self.knowledge_db,
+            )
+            if n_created:
+                log.debug(
+                    "[Comprehension] ConceptSynthesizer created %d meta-node(s)",
+                    n_created,
+                )
+        except Exception as exc:
+            log.debug("[Comprehension] _maybe_compress error: %s", exc)
 
     def _write_ledger(
         self,
@@ -529,20 +650,50 @@ def get_knowledge_comprehension(
     knowledge_db: Optional[Any] = None,
     self_teacher: Optional[Any] = None,
     llm: Optional[Any] = None,
+    memory_graph: Optional[Any] = None,
+    reward_model: Optional[Any] = None,
+    concept_synthesizer: Optional[Any] = None,
 ) -> KnowledgeComprehension:
     """Return the global :class:`KnowledgeComprehension` singleton.
 
     Lazily creates on first call.  Subsequent calls update missing fields
-    (``knowledge_db``, ``self_teacher``, ``llm``) if they were unavailable
-    at construction time — this lets the module be imported early and
-    fully wired up later.
+    (``knowledge_db``, ``self_teacher``, ``llm``, and the three SECA
+    components) if they were unavailable at construction time — this lets the
+    module be imported early and fully wired up later.
+
+    SECA components are also auto-bootstrapped from their own singletons when
+    not explicitly provided, so callers don't need to import them manually.
     """
     global _comprehension_singleton
+
+    # Auto-bootstrap SECA components from their own singletons when not given
+    if memory_graph is None:
+        try:
+            from modules.memory_graph import get_memory_graph
+            memory_graph = get_memory_graph()
+        except Exception:
+            pass
+    if reward_model is None:
+        try:
+            from modules.reward_model import get_reward_model
+            reward_model = get_reward_model()
+        except Exception:
+            pass
+    if concept_synthesizer is None:
+        try:
+            from modules.concept_synthesizer import get_concept_synthesizer
+            concept_synthesizer = get_concept_synthesizer()
+        except Exception:
+            pass
+
     if _comprehension_singleton is None:
         _comprehension_singleton = KnowledgeComprehension(
             knowledge_db=knowledge_db,
             self_teacher=self_teacher,
             llm=llm,
+            memory_graph=memory_graph,
+            reward_model=reward_model,
+            concept_synthesizer=concept_synthesizer,
         )
     else:
         # Fill in any newly-available dependencies
@@ -553,4 +704,10 @@ def get_knowledge_comprehension(
         if llm is not None and _comprehension_singleton.llm is None:
             _comprehension_singleton.llm = llm
             _comprehension_singleton._question_gen.llm = llm
+        if memory_graph is not None and _comprehension_singleton.memory_graph is None:
+            _comprehension_singleton.memory_graph = memory_graph
+        if reward_model is not None and _comprehension_singleton.reward_model is None:
+            _comprehension_singleton.reward_model = reward_model
+        if concept_synthesizer is not None and _comprehension_singleton.concept_synthesizer is None:
+            _comprehension_singleton.concept_synthesizer = concept_synthesizer
     return _comprehension_singleton
