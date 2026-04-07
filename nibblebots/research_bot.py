@@ -470,7 +470,9 @@ def synthesise(
         return sorted(d.items(), key=lambda x: x[1], reverse=True)[:n]
 
     # Identify high-value repos (many patterns + high stars)
-    star_p75 = sorted(a["stars"] for a in analyses)[int(len(analyses) * 0.75)] if analyses else 0
+    sorted_stars = sorted(a["stars"] for a in analyses)
+    p75_idx = min(int(len(sorted_stars) * 0.75), len(sorted_stars) - 1)
+    star_p75 = sorted_stars[p75_idx] if sorted_stars else 0
     high_value = sorted(
         [a for a in analyses if a["total_patterns"] >= 3 and a["stars"] >= star_p75],
         key=lambda x: x["total_patterns"] * x["stars"],

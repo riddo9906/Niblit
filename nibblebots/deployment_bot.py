@@ -245,7 +245,7 @@ def gh_patch(path: str, body: Dict[str, Any]) -> Any:
 def fetch_failed_runs() -> List[Dict[str, Any]]:
     """Return recent failed workflow runs within the lookback window."""
     print(f"  🔍 Fetching failed workflow runs (last {LOOKBACK_HOURS}h)…")
-    cutoff = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(hours=LOOKBACK_HOURS)
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=LOOKBACK_HOURS)
     # GitHub Actions API — list runs with failure status
     data = gh_get(f"/repos/{REPO}/actions/runs?status=failure&per_page=50")
     if not data or "workflow_runs" not in data:
@@ -284,7 +284,7 @@ def fetch_failed_jobs(run_id: int) -> List[Dict[str, Any]]:
 def fetch_job_log(job_id: int) -> str:
     """Fetch the plain-text log for a job (follows redirect)."""
     log = gh_get_raw(f"/repos/{REPO}/actions/jobs/{job_id}/logs")
-    return (log or "")[:20000]  # cap at 20 KB for analysis
+    return (log or "")[:20000]  # cap at 20,000 characters for analysis
 
 
 # ---------------------------------------------------------------------------
@@ -303,12 +303,11 @@ def diagnose_log(log_text: str, job_name: str) -> _Diagnosis:
 
     for pattern, error_type, severity, fix_hint in _ERROR_PATTERNS:
         compiled = re.compile(pattern, re.IGNORECASE)
-        for line in lines:
+        for idx, line in enumerate(lines):
             m = compiled.search(line)
             if m and error_type not in seen_types:
                 seen_types.add(error_type)
-                # Grab surrounding context (2 lines before, 2 after)
-                idx = lines.index(line)
+                # Grab surrounding context (1 line before, 2 after)
                 context = lines[max(0, idx - 1): idx + 3]
                 matches.append({
                     "error_type": error_type,
