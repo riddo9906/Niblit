@@ -709,15 +709,15 @@ def build_issue_body(
         "",
     ]
     for plat in _PLATFORM_DOCS:
-        lines += [
+        header = [
             f"### {plat['name']} ([docs]({plat['docs_url']}))",
             "",
             f"**Config file:** `{plat.get('config_file', 'N/A')}`  ",
-            f"**Deploy command:** `{plat.get('deploy_cmd', 'see docs')}`" if plat.get('deploy_cmd') else "",
-            "",
-            "**Deployment checklist:**",
-            "",
         ]
+        if plat.get("deploy_cmd"):
+            header.append(f"**Deploy command:** `{plat['deploy_cmd']}`")
+        header += ["", "**Deployment checklist:**", ""]
+        lines += header
         for item in plat.get("checklist", []):
             lines.append(f"- [ ] {item}")
         lines.append("")
