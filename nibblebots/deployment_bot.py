@@ -146,6 +146,218 @@ _ERROR_PATTERNS: List[Tuple[str, str, str, str]] = [
         "HIGH",
         "A step exited with a failure code. Review the preceding output lines for the root cause.",
     ),
+    # ── Fly.io ────────────────────────────────────────────────────────────────
+    (
+        r"Error: app not found",
+        "Fly.io App Not Found",
+        "CRITICAL",
+        (
+            "The Fly.io app does not exist in the account linked to FLY_API_TOKEN. "
+            "Fix options: (1) Create it — `fly apps create <name>`; "
+            "(2) Correct the app name in fly.toml (`app = \"<name>\"`); "
+            "(3) Verify FLY_API_TOKEN belongs to the right Fly.io organization "
+            "(Settings → Secrets → FLY_API_TOKEN)."
+        ),
+    ),
+    (
+        r"(Error|error): ?unauthorized|fly.*unauthorized|FLY_API_TOKEN.*not set",
+        "Fly.io Authorization Error",
+        "CRITICAL",
+        (
+            "FLY_API_TOKEN is missing, expired, or lacks permissions. "
+            "Generate a new token at fly.io/user/personal_access_tokens and add it "
+            "to GitHub Secrets (Settings → Secrets → Actions → FLY_API_TOKEN)."
+        ),
+    ),
+    (
+        r"unsuccessful command.*flyctl",
+        "Fly.io Command Failed",
+        "HIGH",
+        (
+            "A flyctl command exited with an error. Check the lines above for the "
+            "specific error message. Common causes: app not found, bad fly.toml, "
+            "missing secrets, or capacity issues."
+        ),
+    ),
+    (
+        r"fly\.toml.*not found|no fly\.toml|could not find.*fly\.toml",
+        "Fly.io Config File Missing",
+        "HIGH",
+        (
+            "fly.toml was not found. Ensure the file is committed to the repo root "
+            "and the workflow `--config` flag points to the correct path."
+        ),
+    ),
+    (
+        r"Error:.*fly\.toml|fly\.toml.*invalid|Validating fly\.toml.*fail",
+        "Fly.io Config Validation Error",
+        "HIGH",
+        (
+            "fly.toml failed validation. Run `fly config validate` locally, check "
+            "that `app`, `primary_region`, `[processes]`, and `[http_service]` "
+            "sections are correct, and compare against "
+            "https://fly.io/docs/reference/configuration/."
+        ),
+    ),
+    (
+        r"Error:.*no machines|insufficient capacity|no available hosts",
+        "Fly.io Capacity / Machines Error",
+        "MEDIUM",
+        (
+            "Fly.io has insufficient capacity in the selected region. "
+            "Try a different region in fly.toml (`primary_region`), or use "
+            "`fly machines list` to inspect existing machine state."
+        ),
+    ),
+    (
+        r"Error:.*volume.*not found|volume.*does not exist",
+        "Fly.io Volume Not Found",
+        "HIGH",
+        (
+            "A persistent volume referenced in fly.toml ([mounts]) does not exist. "
+            "Create it: `fly volumes create <name> --size <gb> --region <region>`."
+        ),
+    ),
+    (
+        r"Error:.*secret.*not set|fly secrets",
+        "Fly.io Secret Missing",
+        "HIGH",
+        (
+            "A required Fly.io secret is not set. "
+            "Add it: `fly secrets set KEY=value`. "
+            "List current secrets: `fly secrets list`."
+        ),
+    ),
+    # ── Render ────────────────────────────────────────────────────────────────
+    (
+        r"render\.com.*error|render deploy.*fail|==> Build failed",
+        "Render Deployment Error",
+        "HIGH",
+        (
+            "A Render.com deployment step failed. Check the Render dashboard for "
+            "the full build log. Verify render.yaml, ensure RENDER_API_KEY is set "
+            "in GitHub Secrets, and that the service name matches."
+        ),
+    ),
+    # ── Vercel ────────────────────────────────────────────────────────────────
+    (
+        r"vercel.*error|Error:.*vercel|VERCEL_TOKEN.*not set",
+        "Vercel Deployment Error",
+        "HIGH",
+        (
+            "A Vercel deployment failed. Verify VERCEL_TOKEN and VERCEL_PROJECT_ID "
+            "are set in GitHub Secrets. Check vercel.json is valid JSON and that the "
+            "project exists at vercel.com/dashboard."
+        ),
+    ),
+]
+
+# ---------------------------------------------------------------------------
+# Platform deployment documentation (known errors & best practices)
+# ---------------------------------------------------------------------------
+
+_PLATFORM_DOCS: List[Dict[str, Any]] = [
+    {
+        "name": "Fly.io",
+        "docs_url": "https://fly.io/docs/",
+        "deploy_cmd": "fly deploy",
+        "config_file": "fly.toml",
+        "known_errors": [
+            {
+                "error": "app not found",
+                "cause": "The app name used in fly.toml or the `-a` flag does not exist in the Fly.io account linked to FLY_API_TOKEN.",
+                "fix": [
+                    "Create the app first: `fly apps create <app-name>`",
+                    "Ensure the `app` field in fly.toml matches an app you own",
+                    "Check that FLY_API_TOKEN belongs to the correct Fly.io organization",
+                    "Generate a new token: fly.io → Account → Access Tokens",
+                ],
+                "docs": "https://fly.io/docs/apps/",
+            },
+            {
+                "error": "unauthorized / FLY_API_TOKEN missing",
+                "cause": "FLY_API_TOKEN GitHub Secret is not set, has expired, or lacks the required permissions.",
+                "fix": [
+                    "Generate a new token at https://fly.io/user/personal_access_tokens",
+                    "Add it as FLY_API_TOKEN in GitHub Settings → Secrets → Actions",
+                    "Ensure the token has 'Deploy & manage apps' scope",
+                ],
+                "docs": "https://fly.io/docs/flyctl/tokens-create/",
+            },
+            {
+                "error": "volume not found",
+                "cause": "The persistent volume named in fly.toml [mounts] does not exist.",
+                "fix": [
+                    "Create the volume: `fly volumes create niblit_data --size 3 --region lax`",
+                    "List existing volumes: `fly volumes list`",
+                ],
+                "docs": "https://fly.io/docs/reference/volumes/",
+            },
+            {
+                "error": "no machines / insufficient capacity",
+                "cause": "No available Fly.io machines in the requested region.",
+                "fix": [
+                    "Try a different region in fly.toml (`primary_region = 'ord'`)",
+                    "Check machine state: `fly machines list`",
+                    "Contact Fly.io support if the region is consistently unavailable",
+                ],
+                "docs": "https://fly.io/docs/reference/regions/",
+            },
+        ],
+        "checklist": [
+            "fly.toml committed to repo root with correct `app` name",
+            "FLY_API_TOKEN secret set in GitHub → Settings → Secrets → Actions",
+            "App created on Fly.io (`fly apps list` to verify)",
+            "Persistent volumes created before first deploy (`fly volumes create …`)",
+            "Secrets set on Fly.io (`fly secrets set HF_TOKEN=… NIBLIT_API_KEY=…`)",
+            "Region set to one with available capacity (`fly platform regions`)",
+            "Dockerfile builds locally (`docker build .`)",
+        ],
+    },
+    {
+        "name": "Render",
+        "docs_url": "https://render.com/docs",
+        "config_file": "render.yaml",
+        "known_errors": [
+            {
+                "error": "Build failed / ==> Build failed",
+                "cause": "Dependency install or build step failed on Render.",
+                "fix": [
+                    "Check the Render dashboard build log for the specific error",
+                    "Verify render.yaml is valid and service names match",
+                    "Ensure RENDER_API_KEY is set in GitHub Secrets",
+                ],
+                "docs": "https://render.com/docs/infrastructure-as-code",
+            },
+        ],
+        "checklist": [
+            "render.yaml committed and valid",
+            "RENDER_API_KEY set in GitHub Secrets",
+            "Service name matches the Render dashboard",
+        ],
+    },
+    {
+        "name": "Vercel",
+        "docs_url": "https://vercel.com/docs",
+        "config_file": "vercel.json",
+        "known_errors": [
+            {
+                "error": "VERCEL_TOKEN not set / deploy failed",
+                "cause": "VERCEL_TOKEN or VERCEL_PROJECT_ID GitHub Secret is missing.",
+                "fix": [
+                    "Generate a token at vercel.com → Settings → Tokens",
+                    "Set VERCEL_TOKEN and VERCEL_PROJECT_ID in GitHub Secrets",
+                    "Verify vercel.json is valid JSON (`python -c 'import json; json.load(open(\"vercel.json\"))'`)",
+                ],
+                "docs": "https://vercel.com/docs/deployments/deploying-with-github-actions",
+            },
+        ],
+        "checklist": [
+            "vercel.json committed and valid JSON",
+            "VERCEL_TOKEN set in GitHub Secrets",
+            "VERCEL_PROJECT_ID set in GitHub Secrets",
+        ],
+    },
 ]
 
 
@@ -256,7 +468,9 @@ def fetch_failed_runs() -> List[Dict[str, Any]]:
     for run in data["workflow_runs"]:
         created_at_str = run.get("created_at", "")
         try:
-            created_at = datetime.datetime.strptime(created_at_str, "%Y-%m-%dT%H:%M:%SZ")
+            created_at = datetime.datetime.strptime(
+                created_at_str, "%Y-%m-%dT%H:%M:%SZ"
+            ).replace(tzinfo=datetime.timezone.utc)
         except ValueError:
             continue
         if created_at < cutoff:
@@ -470,7 +684,7 @@ def build_issue_body(
                     "",
                 ]
 
-    # Footer
+    # Footer — General checklist
     lines += [
         "---",
         "",
@@ -482,6 +696,53 @@ def build_issue_body(
         "- [ ] Tests pass locally (`pytest -q`)",
         "- [ ] No hardcoded credentials in code (`git grep -i 'password\\|secret\\|token'`)",
         "- [ ] Dockerfile builds locally (`docker build .`)",
+        "",
+    ]
+
+    # Platform-specific sections from _PLATFORM_DOCS
+    lines += [
+        "---",
+        "",
+        "## 🌐 Platform Deployment Reference",
+        "",
+        "_The bot studies the following platform documentation to diagnose errors._",
+        "",
+    ]
+    for plat in _PLATFORM_DOCS:
+        lines += [
+            f"### {plat['name']} ([docs]({plat['docs_url']}))",
+            "",
+            f"**Config file:** `{plat.get('config_file', 'N/A')}`  ",
+            f"**Deploy command:** `{plat.get('deploy_cmd', 'see docs')}`" if plat.get('deploy_cmd') else "",
+            "",
+            "**Deployment checklist:**",
+            "",
+        ]
+        for item in plat.get("checklist", []):
+            lines.append(f"- [ ] {item}")
+        lines.append("")
+        lines += ["**Known error patterns:**", ""]
+        for err in plat.get("known_errors", []):
+            lines += [
+                f"<details><summary>❗ <code>{err['error']}</code></summary>",
+                "",
+                f"**Cause:** {err['cause']}",
+                "",
+                "**Fix:**",
+                "",
+            ]
+            for step in err.get("fix", []):
+                lines.append(f"- {step}")
+            lines += [
+                "",
+                f"📖 [Documentation]({err['docs']})",
+                "",
+                "</details>",
+                "",
+            ]
+
+    lines += [
+        "---",
         "",
         "_Nibblebot Deployment Bot — part of the [Niblit](https://github.com/riddo9906/Niblit) project_",
     ]

@@ -157,6 +157,17 @@ automatically when any workflow fails, and also runs on a daily schedule.
 - Docker build errors
 - Network timeouts and connection failures
 - Non-zero exit codes with root-cause context
+- **Fly.io errors** — app not found, unauthorized, volume not found, capacity issues
+- **Render** — build failures
+- **Vercel** — token / project missing
+
+**Platform deployment reference (studied per run):**
+
+| Platform | Config | Known errors covered |
+|----------|--------|----------------------|
+| [Fly.io](https://fly.io/docs/) | `fly.toml` | app not found, unauthorized, volume not found, capacity, missing secrets |
+| [Render](https://render.com/docs) | `render.yaml` | build failures |
+| [Vercel](https://vercel.com/docs) | `vercel.json` | missing token / project ID |
 
 **Configuration:**
 
