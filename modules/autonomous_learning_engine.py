@@ -84,6 +84,15 @@ _TOPIC_NOISE_MARKERS: tuple = (
 # Maximum characters for code excerpt stored in learning facts.
 _MAX_LEARNING_CODE_EXCERPT: int = 150
 
+# Compiled regex used by _generate_subtopics to strip overly broad topic
+# suffixes (e.g. "best practices", "tutorial") before appending specific
+# qualifiers.  Defined at module level so it is compiled once.
+_BROAD_TOPIC_SUFFIX_RE = re.compile(
+    r'\b(best practices?|guide|tutorial|introduction|basics?|'
+    r'overview|advanced|fundamentals?)\b',
+    re.IGNORECASE,
+)
+
 # Lazy singleton for TopicConstructor — imported on first use to avoid
 # circular import if this module is loaded before modules/ is on sys.path.
 _TOPIC_CONSTRUCTOR = None
@@ -1556,19 +1565,19 @@ class AutonomousLearningEngine:
                 deduped.append(s)
 
         # ── Cross-cycle dedup: filter out snippets stored in previous cycles ──
-        # Use first 150 chars as a stable prefix key.  This prevents the same
-        # generic snippet (e.g. a repeated Python intro paragraph) from being
-        # re-stored and re-reflected every cycle, wasting pipeline capacity.
+        # Use first 200 chars as a stable prefix key.  200 chars is large enough
+        # to distinguish most snippets that differ in body content while keeping
+        # cache entries small (200 chars × 500 entries ≈ 100 KB max).
         novel: List[str] = []
         for s in deduped:
-            prefix = s[:150]
+            prefix = s[:200]
             if prefix not in self._seen_snippet_prefixes:
                 novel.append(s)
 
         if novel:
             # Register new prefixes so future cycles skip them.
             for s in novel:
-                self._seen_snippet_prefixes.add(s[:150])
+                self._seen_snippet_prefixes.add(s[:200])
             # Evict cache when it exceeds the cap to keep memory bounded.
             if len(self._seen_snippet_prefixes) > self._SEEN_HASH_CAP:
                 self._seen_snippet_prefixes.clear()
@@ -1588,18 +1597,24 @@ class AutonomousLearningEngine:
             if stale_count >= self._TOPIC_STALE_LIMIT:
                 # Auto-generate specific subtopics to break the repetition loop.
                 subtopics = self._generate_subtopics(topic)
-                for st in subtopics:
-                    self.add_research_topic(st)
+                if subtopics:
+                    # Prioritize the first subtopic so it is studied NEXT cycle
+                    # rather than being buried behind all existing topics.
+                    self.prioritize_research_topic(subtopics[0])
+                    # Append remaining subtopics to the back of the queue.
+                    for st in subtopics[1:]:
+                        self.add_research_topic(st)
                 log.info(
                     "[UNIFIED] Stale topic %r — queued %d subtopic(s): %s; "
                     "deprioritising to back of queue",
                     topic, len(subtopics), subtopics,
                 )
-                # Move the stale topic to the end so other topics run first.
+                # Move the stale topic to the end so subtopics run first.
+                # Do NOT reset _topic_index here — the priority insertion of
+                # subtopics[0] already set it to 0 via prioritize_research_topic.
                 if topic in self.research_topics:
                     self.research_topics.remove(topic)
                     self.research_topics.append(topic)
-                    self._topic_index = 0
                 self._topic_stale_count[topic] = 0
 
         # Use novel snippets for KB storage / downstream steps; fall back to
@@ -1698,14 +1713,9 @@ class AutonomousLearningEngine:
                "python programming common mistakes",
                "python programming advanced techniques"]
         """
-        # Generic suffixes that signal the topic is already broad — strip them
-        # before building subtopics so we don't create "best practices examples".
-        _BROAD_SUFFIXES = re.compile(
-            r'\b(best practices?|guide|tutorial|introduction|basics?|'
-            r'overview|advanced|fundamentals?)\b',
-            re.IGNORECASE,
-        )
-        base = _BROAD_SUFFIXES.sub("", topic).strip()
+        # Strip broad suffixes using the pre-compiled module-level pattern so
+        # we don't create compound generics like "best practices examples".
+        base = _BROAD_TOPIC_SUFFIX_RE.sub("", topic).strip()
         if not base or len(base) < 4:
             base = topic  # keep original if stripping made it empty
 
