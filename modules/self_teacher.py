@@ -271,6 +271,24 @@ class SelfTeacher:
             except Exception:
                 pass
 
+        # ── Additive: comprehension pass ─────────────────────────────────────
+        # Extract concepts + schedule self-questions from what we just learned.
+        # Runs after the reflector so the ledger is already primed; comprehension
+        # either enriches it with concept structure or leaves it unchanged.
+        if learned:
+            try:
+                from modules.knowledge_comprehension import get_knowledge_comprehension
+                comp = get_knowledge_comprehension(
+                    knowledge_db=self.db,
+                    self_teacher=self,
+                    llm=self.llm,
+                )
+                # Convert mixed result types to plain strings for the extractor
+                snippets = [str(r) for r in learned if r]
+                comp.process(topic, snippets)
+            except Exception:
+                pass
+
         self._is_teaching = False
         return f"Self-teach completed for '{topic}'."
 

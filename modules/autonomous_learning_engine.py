@@ -958,10 +958,29 @@ class AutonomousLearningEngine:
                 except Exception as e:
                     log.debug(f"Knowledge DB logging failed: {e}")
 
-            # Clear forwarded results now that they've been reflected on
+            # Clear forwarded results now that they've been reflected on.
+            # Capture them first so comprehension can still read them.
+            snippets_for_comprehension = list(self._last_research_results)
             self._last_research_results = []
 
             log.info(f"✅ [AUTONOMOUS REFLECT] '{last_topic}' — stored in ale_learned")
+
+            # ── Additive: comprehension pass ──────────────────────────────────
+            # Runs immediately after the ledger is written so the topic_knowledge
+            # entry gets upgraded from a raw reflection string to a structured
+            # concept-driven summary.  Uses the snippets captured before clearing.
+            if snippets_for_comprehension:
+                try:
+                    from modules.knowledge_comprehension import get_knowledge_comprehension
+                    comp = get_knowledge_comprehension(
+                        knowledge_db=self.knowledge_db,
+                        self_teacher=self.self_teacher,
+                        llm=getattr(self.core, "llm", None) if self.core else None,
+                    )
+                    comp_result = comp.process(last_topic, snippets_for_comprehension)
+                    log.info("🧩 [COMPREHENSION] %s", comp_result)
+                except Exception as _ce:
+                    log.debug("[ALE] Comprehension step error: %s", _ce)
 
             # ── Additive: self-completing gap detection ───────────────────────
             # After every reflection cycle, check for under-covered topics and
