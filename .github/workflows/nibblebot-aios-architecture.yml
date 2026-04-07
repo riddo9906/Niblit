@@ -1,0 +1,36 @@
+name: "🏗️ Nibblebot: AIOS Architecture Proposal"
+
+on:
+  schedule:
+    - cron: "0 9 * * 3"  # Every Wednesday at 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (print proposal instead of creating issue)"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  architecture:
+    name: Generate AIOS Architecture Proposal
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run AIOS architecture bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          AIOS_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: python nibblebots/aios_architecture_bot.py
