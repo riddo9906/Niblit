@@ -38,7 +38,6 @@ from __future__ import annotations
 
 import logging
 import threading
-import weakref
 from collections import deque
 from typing import List, Optional
 
@@ -253,7 +252,7 @@ def _apply_filter_to_all_stream_handlers(
     # All registered child loggers
     manager = logging.Logger.manager
     # manager.loggerDict values are either Logger or PlaceHolder instances
-    for _name, logger_ref in list(manager.loggerDict.items()):
+    for _, logger_ref in list(manager.loggerDict.items()):
         if isinstance(logger_ref, logging.Logger):
             _apply(logger_ref)
 

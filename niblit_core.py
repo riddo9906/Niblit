@@ -83,10 +83,6 @@ if TOOLS_DIR not in sys.path:
 # ============================================================
 # LOGGING SETUP
 # ============================================================
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
-)
 log = logging.getLogger("NiblitCore")
 chat_log = logging.getLogger("NiblitChat")
 
