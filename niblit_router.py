@@ -3592,8 +3592,14 @@ Ask me about:
         # them to the LLM produces generic "How can I help?" responses because
         # the LLM has no KB context.  Check intent first; only fall through to
         # brain.think() when the KB has nothing to show.
+        #
+        # GUARD: COMMAND_PREFIXES (e.g. "notifications", "status", "loops") are
+        # dispatched to handle_command() at the top of process() and never reach
+        # this block.  The explicit check below is a defensive belt-and-suspenders
+        # guard so that adding new KNOWLEDGE_SHARE_PATTERNS in the future cannot
+        # accidentally swallow a command word.
         _pre_type, _ = self.chat_detector.classify(cleaned)
-        if _pre_type in ('knowledge_share', 'self_referential'):
+        if _pre_type in ('knowledge_share', 'self_referential') and cmd_word not in self.COMMAND_PREFIXES:
             log.debug("[PRE-INTERCEPT] %s query — trying KB before LLM", _pre_type)
             _pre_resp = self._get_knowledge_share_response(cleaned)
             if not _pre_resp and _pre_type == 'self_referential':
