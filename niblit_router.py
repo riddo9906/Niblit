@@ -3001,6 +3001,16 @@ Ask me about:
                     if val_str and not val_str.startswith("No data found"):
                         lines.append(f"• {val_str[:200]}")
 
+            # Only return a response when at least one content bullet was added.
+            # If every candidate fact was filtered out (empty value, "No data
+            # found", reflection metadata, etc.) the list contains only the
+            # header line — returning that would show a content-free banner to
+            # the user (e.g. "💡 From my knowledge base on: what is wate4"
+            # with nothing below).  Returning None lets the caller fall through
+            # to gap-learning which gives a much better UX.
+            if len(lines) < 2:  # only the header, no bullets
+                return None
+
             lines.append(
                 f"\n_Use 'recall {keywords[0]}' to search more, "
                 "or 'self-research <topic>' for a live update._"
@@ -3115,11 +3125,17 @@ Ask me about:
             )
 
         # ── 1. Queue in ALE (background deep learning) ───────────────────────
+        # User queries are the strongest learning signal — use priority
+        # insertion so ALE studies the topic in the NEXT cycle rather than
+        # after all existing topics have cycled through.
         ale = getattr(self.core, "autonomous_engine", None)
         queued_ale = False
-        if ale and hasattr(ale, "add_research_topic"):
+        if ale:
             try:
-                queued_ale = bool(safe_call(ale.add_research_topic, topic))
+                if hasattr(ale, "prioritize_research_topic"):
+                    queued_ale = bool(safe_call(ale.prioritize_research_topic, topic))
+                elif hasattr(ale, "add_research_topic"):
+                    queued_ale = bool(safe_call(ale.add_research_topic, topic))
             except Exception:
                 pass
 
