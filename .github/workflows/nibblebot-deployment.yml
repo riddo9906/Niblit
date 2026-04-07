@@ -1,0 +1,62 @@
+name: "🚨 Nibblebot: Deployment Bot"
+
+# Monitors failed GitHub Actions workflow runs, diagnoses the errors,
+# and opens (or updates) a GitHub Issue with root-cause analysis and
+# actionable fix suggestions.
+#
+# Triggers:
+#   - After any workflow run completes (checks for failures)
+#   - On a daily schedule (catches failures that slipped through)
+#   - Manual dispatch for on-demand runs
+
+on:
+  workflow_run:
+    workflows: ["*"]          # watch every workflow in the repo
+    types: [completed]
+  schedule:
+    # Every day at 06:00 UTC — daily deployment health check
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: "Hours to look back for failed runs"
+        required: false
+        default: "48"
+      dry_run:
+        description: "Dry run (print instead of creating issue)"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  actions: read      # read workflow runs and job logs
+  issues: write      # create/update issues
+  contents: read     # checkout
+
+jobs:
+  deploy-bot:
+    name: Run Nibblebot Deployment Bot
+    runs-on: ubuntu-latest
+
+    # Only run if the triggering workflow actually failed (for workflow_run trigger)
+    # or unconditionally for schedule / workflow_dispatch triggers
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'failure'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Nibblebot Deployment Bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEPLOY_BOT_LOOKBACK: ${{ inputs.lookback_hours || '48' }}
+          DEPLOY_BOT_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: python nibblebots/deployment_bot.py

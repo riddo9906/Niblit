@@ -352,7 +352,7 @@ def format_issue_body(
 
     # Recommendations
     lines.append("---\n### \u2705 Actionable Recommendations for Niblit AIOS Complete\n")
-    _add_recommendations(L, synthesis)
+    _add_recommendations(lines, synthesis)
 
     lines.append("\n---")
     lines.append(
