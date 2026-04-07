@@ -109,6 +109,14 @@ class ChatDetector:
         r'^bye\s*$|^goodbye\s*$|^see\s+you\s*$',
         r'^lol\s*$|^haha\s*$',
         r'^(yes|no)\s*$',
+        # Conversational openers — should produce a natural reply, NOT a KB dump
+        r'let\'?s\s+(have\s+a\s+)?(normal\s+)?(talk|chat|conversation)',
+        r'(can|could)\s+we\s+(just\s+)?(talk|chat|have\s+a\s+conversation)',
+        r'^(talk|chat)\s+to\s+me',
+        r'^(nothing|nothin|nah|nope)\s*$',
+        r'^just\s+(talking|chatting|chilling)',
+        r'^i\s+(just\s+)?want\s+to\s+(talk|chat)',
+        r'^ask\s+me\s+(a\s+question|something|anything)',
     ]
 
     # System query patterns
@@ -181,6 +189,7 @@ class NiblitRouter:
 
     COMMAND_PREFIXES = (
         "toggle-llm", "hf-status", "hf-enable", "hf-disable", "hf-ask",
+        "chat-memory", "llm-train",
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
@@ -327,6 +336,13 @@ class NiblitRouter:
             "Goodbye! See you next time!",
             "Take care!",
             "See you soon!",
+        ],
+        'conversation': [
+            "Sure! What should we talk about? Ask me a question and I'll see what I know!",
+            "I'd love to chat! What's on your mind?",
+            "Alright, let's talk! Pick a topic or ask me anything.",
+            "Sure thing! Ask me a question, or tell me what you're interested in.",
+            "I'm all ears! What would you like to discuss?",
         ],
     }
 
@@ -1954,6 +1970,144 @@ Ask me about:
 
         return "Usage: hf-status | hf-enable | hf-disable | hf-ask <prompt>"
 
+    # ── Chat Memory handler (LLM inference provider memory) ───────────────────
+
+    def _handle_chat_memory(self, cmd: str) -> str:
+        """Route 'chat-memory ...' commands to LLMChatMemory.
+
+        Subcommands::
+
+            chat-memory status  — show message count, session info
+            chat-memory recent  — show last 5 messages
+            chat-memory trim    — trim to most recent 200 messages
+            chat-memory clear   — delete all chat history
+        """
+        sub = cmd.strip().lower().replace("chat-memory", "").strip()
+
+        try:
+            from modules.llm_chat_memory import get_llm_chat_memory
+            mem = get_llm_chat_memory()
+        except Exception as exc:
+            return f"[chat-memory] Not available: {exc}"
+
+        if not sub or sub == "status":
+            s = mem.status()
+            return (
+                "💬 **LLM Chat Memory**\n"
+                f"• Messages stored: {s['message_count']}\n"
+                f"• Session: {s['session_id']}\n"
+                f"• Paused: {'⏸️ Yes' if s['paused'] else '🟢 No'}\n"
+                f"• DB: {s['db_path']}\n\n"
+                "This memory is visible to the LLM inference provider across sessions.\n"
+                "When you toggle-llm off/on, all history is preserved and reloaded."
+            )
+
+        if sub == "recent":
+            messages = mem.load_messages(limit=5)
+            if not messages:
+                return "💬 No chat history yet."
+            lines = ["💬 **Recent Chat History** (last 5 messages)\n"]
+            for msg in messages:
+                role = msg["role"]
+                icon = "👤" if role == "user" else "🤖"
+                content = msg["content"][:150]
+                lines.append(f"{icon} **{role}**: {content}")
+            return "\n".join(lines)
+
+        if sub == "trim":
+            deleted = mem.trim(keep=200)
+            return f"✅ Trimmed {deleted} old messages. Kept most recent 200."
+
+        if sub == "clear":
+            mem.clear()
+            return "🗑️ All chat history cleared. The LLM will start fresh next session."
+
+        return (
+            "Usage: chat-memory [status|recent|trim|clear]\n"
+            "  status — message count and session info\n"
+            "  recent — last 5 messages\n"
+            "  trim   — keep only the most recent 200 messages\n"
+            "  clear  — delete all chat history"
+        )
+
+    # ── LLM Training Agent handler ────────────────────────────────────────────
+
+    def _handle_llm_train(self, cmd: str) -> str:
+        """Route 'llm-train ...' commands to LLMTrainingAgent.
+
+        Subcommands::
+
+            llm-train status  — show agent status and capabilities
+            llm-train gaps    — detect knowledge gaps that need training
+            llm-train run     — execute one LLM-assisted training cycle
+        """
+        sub = cmd.strip().lower().replace("llm-train", "").strip()
+
+        try:
+            from modules.llm_training_agent import get_llm_training_agent
+        except Exception as exc:
+            return f"[llm-train] Module not available: {exc}"
+
+        # Resolve components for the agent
+        brain = getattr(self.core, "brain", None) if self.core else None
+        hf = getattr(brain, "hf_brain", None) if brain else None
+        bt = getattr(brain, "brain_trainer", None) if brain else None
+        kb = getattr(self.core, "db", None) if self.core else None
+        ale = getattr(self.core, "autonomous_engine", None) if self.core else None
+
+        gc = None
+        try:
+            from modules.graded_curriculum import get_graded_curriculum
+            gc = get_graded_curriculum()
+        except Exception:
+            pass
+
+        agent = get_llm_training_agent(
+            brain_trainer=bt,
+            hf_brain=hf,
+            knowledge_db=kb,
+            ale=ale,
+            graded_curriculum=gc,
+        )
+
+        if not sub or sub == "status":
+            s = agent.status()
+            return (
+                "🎓 **LLM Training Agent**\n"
+                f"• Total cycles: {s['total_cycles']}\n"
+                f"• Training pairs generated: {s['total_pairs_generated']}\n"
+                f"• Topics trained recently: {s['recently_trained_topics']}\n"
+                f"• HFBrain available: {'✅' if s['hf_brain_available'] else '❌'}\n"
+                f"• BrainTrainer available: {'✅' if s['brain_trainer_available'] else '❌'}\n"
+                f"• KnowledgeDB available: {'✅' if s['knowledge_db_available'] else '❌'}\n\n"
+                "This agent asks the LLM to generate training data for knowledge gaps.\n"
+                "Use 'llm-train gaps' to see current gaps, 'llm-train run' to train."
+            )
+
+        if sub == "gaps":
+            gaps = agent.detect_gaps()
+            if not gaps:
+                return "✅ No knowledge gaps detected — training is up to date!"
+            lines = ["🔍 **Knowledge Gaps** (topics needing LLM training)\n"]
+            for i, gap in enumerate(gaps, 1):
+                count = agent.count_facts(gap)
+                lines.append(f"  {i}. {gap} ({count} facts)")
+            lines.append(f"\nRun 'llm-train run' to request training data from the LLM.")
+            return "\n".join(lines)
+
+        if sub == "run":
+            if not hf or not hf.is_enabled():
+                return "❌ LLM is not available. Enable it with 'toggle-llm on' first."
+            result = agent.run_training_cycle()
+            return f"🎓 **Training Complete**\n\n{result}"
+
+        return (
+            "Usage: llm-train [status|gaps|run]\n"
+            "  status — show agent capabilities\n"
+            "  gaps   — detect knowledge gaps\n"
+            "  run    — generate training data from LLM for detected gaps"
+        )
+
     # ── Deployment Bridge handler (additive) ──────────────────────────────────
 
     def _handle_deploy_bridge(self, cmd: str) -> str:
@@ -2867,17 +3021,48 @@ Ask me about:
         that are not explicit info-queries.
 
         Priority order:
-        1. KB facts about the topic
-        2. Status / identity facts synthesised from core
-        3. Trigger gap-learning and return a live-research result or
-           an "I'm learning about this" message
+        1. Detect casual / open-ended messages and reply naturally — never
+           dump knowledge-base results when the user just wants to chat.
+        2. If the message contains a real subject, try KB facts.
+        3. Status / identity facts synthesised from core.
+        4. Trigger gap-learning only as a last resort.
         """
-        # 1. Try KB
-        kb_resp = self._get_kb_response(text)
-        if kb_resp:
-            return kb_resp
+        lower = text.lower().strip()
 
-        # 2. Synthesise from what the core knows about itself
+        # ─── 1. Casual / open-ended → reply naturally ───────────────────
+        _CASUAL_MARKERS = (
+            "talk", "chat", "conversation", "nothing", "nothin",
+            "nah", "nope", "just", "ask me", "bored", "chill",
+            "sup", "yo", "hm", "hmm", "idk", "dunno",
+        )
+        # Short casual messages (≤ this many words) with a chat marker are
+        # treated as conversational openers, not knowledge queries.
+        _MAX_CASUAL_WORDS = 8
+        if (
+            len(lower.split()) <= _MAX_CASUAL_WORDS
+            and any(m in lower for m in _CASUAL_MARKERS)
+        ):
+            return self._get_chat_response('conversation')
+
+        # ─── 2. Try KB only when the text looks like a real question ────
+        # Build keyword list the same way _get_kb_response does; if no
+        # meaningful keywords survive the stop-word filter the message is
+        # content-free and should *not* trigger a KB dump.
+        _stop = {"what", "is", "are", "how", "the", "a", "an", "do", "does",
+                 "you", "know", "about", "tell", "me", "explain", "can", "i",
+                 "to", "of", "in", "for", "on", "and", "or", "with", "let",
+                 "lets", "have", "us", "just", "want", "we", "should", "could",
+                 "would", "its", "that", "this", "not", "but", "so", "be",
+                 "normal"}
+        keywords = [w for w in re.sub(r"[^\w\s]", "", lower).split()
+                    if len(w) > 2 and w not in _stop]
+
+        if keywords:
+            kb_resp = self._get_kb_response(text)
+            if kb_resp:
+                return kb_resp
+
+        # ─── 3. Synthesise from what the core knows about itself ────────
         if self.core:
             mem = getattr(self.core, "memory", None)
             fact_count = 0
@@ -2891,7 +3076,6 @@ Ask me about:
             if ale and hasattr(ale, "learning_history"):
                 ale_cycles = ale.learning_history.get("research_cycles", 0)
 
-            lower = text.lower()
             # Generic reflection topics the user might ask conversationally
             if any(w in lower for w in ("think", "feel", "opinion", "view", "believe")):
                 return (
@@ -2901,7 +3085,11 @@ Ask me about:
                     "ask me a specific question or try 'recall <topic>'."
                 )
 
-        # 3. No KB answer and no identity match — trigger gap learning
+        # ─── 4. No meaningful content — offer to chat ───────────────────
+        if not keywords:
+            return self._get_chat_response('conversation')
+
+        # ─── 5. Real topic but no KB answer — trigger gap learning ──────
         return self._trigger_gap_learning(text, text)
 
     # ─────────────────────────────────
@@ -3138,6 +3326,11 @@ Ask me about:
                     response = self._get_chat_response('goodbye')
                 elif any(p in lower_text for p in ['ok', 'okay', 'got it', 'nice', 'cool', 'awesome', 'great']):
                     response = self._get_chat_response('okay')
+                elif any(kw in lower_text for kw in [
+                    'talk', 'chat', 'conversation', 'ask me',
+                    'nothing', 'nothin', 'nah', 'nope', 'just',
+                ]):
+                    response = self._get_chat_response('conversation')
                 else:
                     response = self._get_chat_response('greeting')
 
@@ -3818,15 +4011,58 @@ Ask me about:
             state = lower.replace("toggle-llm", "").strip()
             if state in ("on", "true", "1"):
                 self.core.llm_enabled = True
+                # Resume HFBrain with full chat history reload
+                brain = getattr(self.core, "brain", None)
+                hf = getattr(brain, "hf_brain", None) if brain else None
+                if hf and hasattr(hf, "enable"):
+                    hf.enable()
+                    mem_status = hf.chat_memory_status() if hasattr(hf, "chat_memory_status") else {}
+                    count = mem_status.get("message_count", 0)
+                    return (
+                        f"✅ LLM resumed. Full chat history reloaded ({count} messages).\n"
+                        "The inference provider can see your entire conversation history."
+                    )
                 return "✅ LLM enabled. Using AI for responses."
             if state in ("off", "false", "0"):
+                # Pause HFBrain — preserve chat history
+                brain = getattr(self.core, "brain", None)
+                hf = getattr(brain, "hf_brain", None) if brain else None
+                if hf and hasattr(hf, "disable"):
+                    hf.disable()
                 self.core.llm_enabled = False
-                return "✅ LLM disabled. Using research + conversation for responses."
-            return "Usage: toggle-llm on/off"
+                return (
+                    "⏸️ LLM paused. Chat history preserved.\n"
+                    "Use 'toggle-llm on' to resume — the AI will remember everything."
+                )
+            if state == "status":
+                brain = getattr(self.core, "brain", None)
+                hf = getattr(brain, "hf_brain", None) if brain else None
+                if hf and hasattr(hf, "chat_memory_status"):
+                    s = hf.chat_memory_status()
+                    llm_on = getattr(self.core, "llm_enabled", False)
+                    return (
+                        f"**LLM Session Status**\n"
+                        f"• LLM: {'🟢 Active' if llm_on else '⏸️ Paused'}\n"
+                        f"• Chat history: {s.get('message_count', 0)} messages\n"
+                        f"• Session: {s.get('session_id', 'unknown')}\n"
+                        f"• Paused: {s.get('paused', False)}\n"
+                        f"• DB: {s.get('db_path', 'N/A')}"
+                    )
+                llm_on = getattr(self.core, "llm_enabled", False)
+                return f"LLM: {'enabled' if llm_on else 'disabled'}"
+            return "Usage: toggle-llm on/off/status"
 
         # HFBRAIN COMMANDS
         if lower in ("hf-status",) or lower.startswith("hf-enable") or lower.startswith("hf-disable") or lower.startswith("hf-ask"):
             return self._handle_hf_brain(cmd)
+
+        # CHAT-MEMORY COMMANDS
+        if lower.startswith("chat-memory"):
+            return self._handle_chat_memory(cmd)
+
+        # LLM TRAINING AGENT COMMANDS
+        if lower.startswith("llm-train"):
+            return self._handle_llm_train(cmd)
 
         # HELP
         if lower in ("help", "commands"):
@@ -4120,12 +4356,22 @@ Ask me about:
             "improvement-status           — View improvement status",
             "",
             "=== SETTINGS ===",
-            "toggle-llm off               — Disable LLM (use research mode)",
-            "toggle-llm on                — Enable LLM (use AI)",
+            "toggle-llm off               — Pause LLM (chat history preserved)",
+            "toggle-llm on                — Resume LLM (full history reloaded)",
+            "toggle-llm status            — Show LLM session & chat memory status",
             "status, health               — System status",
             "time                         — Current time",
             "",
+            "=== LLM TRAINING ===",
+            "llm-train status             — Show LLM training agent status",
+            "llm-train gaps               — Detect knowledge gaps needing training",
+            "llm-train run                — Ask LLM to generate training data for gaps",
+            "",
             "=== MEMORY MANAGEMENT ===",
+            "chat-memory status           — Show LLM chat memory (message count, session)",
+            "chat-memory recent           — Show last 5 messages sent to the LLM",
+            "chat-memory trim             — Keep only the most recent 200 messages",
+            "chat-memory clear            — Delete all LLM chat history",
             "memory-reset                 — Show warning + usage before clearing",
             "memory-reset status          — Preview what will be cleared (dry-run)",
             "memory-reset confirm         — ⚠️  WIPE all memory, ALE state, caches",

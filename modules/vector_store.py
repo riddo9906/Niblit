@@ -32,9 +32,12 @@ See SETUP.md for full setup instructions.
 """
 
 import hashlib
+import io
 import logging
 import os
+import sys
 import time
+import warnings
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("VectorStore")
@@ -96,7 +99,37 @@ class _EmbeddingService:
     def _load(self) -> None:
         if self._model is None and _ST_AVAILABLE:
             try:
-                self._model = _SentenceTransformer(self.model_name)
+                # The safetensors/transformers loader *prints* a "LOAD REPORT"
+                # table to stdout when unexpected keys like
+                # ``embeddings.position_ids`` are found.  This is benign —
+                # newer transformers dropped position_ids from the state-dict
+                # but the all-MiniLM-L6-v2 checkpoint still ships it.
+                #
+                # We redirect stdout during model construction so the banner
+                # is captured instead of leaking to the console, then forward
+                # the captured text to the DEBUG logger so the information is
+                # still available when needed.
+                captured = io.StringIO()
+                old_stdout = sys.stdout
+                try:
+                    sys.stdout = captured
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            message=r".*position_ids.*",
+                            category=FutureWarning,
+                        )
+                        self._model = _SentenceTransformer(self.model_name)
+                finally:
+                    sys.stdout = old_stdout
+
+                banner = captured.getvalue().strip()
+                if banner:
+                    log.debug(
+                        "[VectorStore] Embedding model load report:\n%s",
+                        banner,
+                    )
+
                 log.info("[VectorStore] Embedding model '%s' loaded", self.model_name)
             except Exception as exc:
                 log.warning("[VectorStore] Failed to load embedding model: %s", exc)
