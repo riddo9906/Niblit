@@ -98,6 +98,10 @@ _STOP_WORDS: frozenset = frozenset({
     "like", "make", "makes", "made", "get", "gets", "got", "go", "going",
 })
 
+# Shared prefix used to detect "No data found" placeholder snippets throughout
+# this module.  Matches the check in niblit_memory/_is_no_data_placeholder().
+_NO_DATA_PREFIX: str = "no data found"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Concept extraction helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -416,7 +420,7 @@ class KnowledgeComprehension:
             # Still write a minimal ledger from the first snippet so recall
             # returns something rather than nothing.
             fallback_text = str(snippets[0])[:_MAX_LEDGER_LEN].strip()
-            if fallback_text and not fallback_text.lower().startswith("no data found"):
+            if fallback_text and not fallback_text.lower().startswith(_NO_DATA_PREFIX):
                 self._write_ledger(topic, fallback_text, concepts=[], ts=ts)
                 # SECA: embed the fallback snippet into the graph even when no
                 # repeated concepts were found.
@@ -515,7 +519,7 @@ class KnowledgeComprehension:
             return 0
         added = 0
         for i, snippet in enumerate(snippets):
-            if not snippet or snippet.lower().startswith("no data found"):
+            if not snippet or snippet.lower().startswith(_NO_DATA_PREFIX):
                 continue
             try:
                 text = snippet[:_MAX_SNIPPET_CHARS]

@@ -247,7 +247,8 @@ class MemoryGraph:
             if len(self._nodes) > _MAX_GRAPH_NODES:
                 self._prune_oldest()
 
-            # Checkpoint every 100 adds (outside lock to avoid blocking)
+        # Checkpoint every 100 adds.  save() re-acquires the lock internally;
+        # calling it outside this block avoids holding the lock while doing I/O.
         if self._total_adds % 100 == 0:
             self.save()
 
