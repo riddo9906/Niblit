@@ -1121,7 +1121,7 @@ class NiblitBrain:
                 _hits = _kc.search_graph(user_input, top_k=3, depth=2)
                 if _hits:
                     _seca_snippets = [h.get("text", "") for h in _hits if h.get("text")]
-                    _seca_node_ids = [h.get("id", "") for h in _hits if h.get("id")]
+                    _seca_node_ids = [h["id"] for h in _hits if h.get("id")]
                     _graph_ctx = "Relevant knowledge (multi-hop retrieval):\n" + "\n".join(
                         f"- {s}" for s in _seca_snippets[:3]
                     ) + "\n"

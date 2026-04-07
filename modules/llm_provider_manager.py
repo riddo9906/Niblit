@@ -37,7 +37,7 @@ VALID_PROVIDERS = ("hf", "anthropic")
 
 def get_llm_provider_manager() -> "LLMProviderManager":
     """Return the process-level :class:`LLMProviderManager` singleton."""
-    global _manager  # pylint: disable=global-statement
+    global _manager
     if _manager is None:
         with _manager_lock:
             if _manager is None:
