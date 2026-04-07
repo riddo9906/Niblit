@@ -76,7 +76,6 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 log = logging.getLogger("NiblitMemory")
-logging.basicConfig(level=logging.DEBUG, format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s")
 
 
 def _writable_path(filename: str, env_var: Optional[str] = None) -> str:
