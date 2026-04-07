@@ -60,7 +60,7 @@ except Exception as _e:
 # ── AIOS phase constants ───────────────────────────────────────────────────────
 
 AIOS_PHASES: List[str] = [
-    "INIT",         # Phase 0 — environment setup
+    "ENV",          # Phase 0 — environment setup
     "HAL",          # Phase 1 — hardware abstraction
     "BOOTLOADER",   # Phase 2 — kernel + runtime start
     "MEMORY",       # Phase 3 — memory subsystem

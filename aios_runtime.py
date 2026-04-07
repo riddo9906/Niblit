@@ -251,7 +251,7 @@ class AIOSRuntime:
 
         # AIOSScheduler
         try:
-            from aios_scheduler import get_aios_scheduler, PHASE_BOOTLOADER
+            from aios_scheduler import get_aios_scheduler
             self.scheduler = get_aios_scheduler()
             self.scheduler.start()
             self.scheduler.advance_phase(PHASE_BOOTLOADER)
@@ -270,7 +270,6 @@ class AIOSRuntime:
 
         if self.scheduler is not None:
             try:
-                from aios_scheduler import PHASE_MEMORY
                 self.scheduler.advance_phase(PHASE_MEMORY)
             except Exception:
                 pass
@@ -286,7 +285,6 @@ class AIOSRuntime:
 
         if self.scheduler is not None:
             try:
-                from aios_scheduler import PHASE_BRAIN
                 self.scheduler.advance_phase(PHASE_BRAIN)
             except Exception:
                 pass
@@ -302,7 +300,6 @@ class AIOSRuntime:
 
         if self.scheduler is not None:
             try:
-                from aios_scheduler import PHASE_LEARNING
                 self.scheduler.advance_phase(PHASE_LEARNING)
             except Exception:
                 pass
@@ -318,7 +315,6 @@ class AIOSRuntime:
 
         if self.scheduler is not None:
             try:
-                from aios_scheduler import PHASE_AGENTS
                 self.scheduler.advance_phase(PHASE_AGENTS)
             except Exception:
                 pass
@@ -334,7 +330,6 @@ class AIOSRuntime:
 
         if self.scheduler is not None:
             try:
-                from aios_scheduler import PHASE_INTERFACE
                 self.scheduler.advance_phase(PHASE_INTERFACE)
             except Exception:
                 pass
@@ -343,12 +338,13 @@ class AIOSRuntime:
 
     def _build_telemetry(self, total_ms: float = 0.0) -> Dict[str, Any]:
         import datetime
+        now = datetime.datetime.now(datetime.timezone.utc)
         return {
             "event": "aios.boot.complete",
             "boot_id": self._boot_id,
             "phases": [r.to_dict() for r in self._boot_results],
             "total_ms": total_ms,
-            "timestamp": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
 
     def _emit_telemetry(self, telemetry: Dict[str, Any]) -> None:
