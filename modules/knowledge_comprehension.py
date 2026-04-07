@@ -517,7 +517,6 @@ class KnowledgeComprehension:
 # ─────────────────────────────────────────────────────────────────────────────
 
 _comprehension_singleton: Optional[KnowledgeComprehension] = None
-_comprehension_lock_created = False
 
 
 def get_knowledge_comprehension(

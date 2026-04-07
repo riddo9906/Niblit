@@ -1625,7 +1625,7 @@ class AutonomousLearningEngine:
                         self.add_research_topic(st)
                 log.info(
                     "[UNIFIED] Stale topic %r — queued %d subtopic(s): %s; "
-                    "deprioritising to back of queue",
+                    "deprioritizing to back of queue",
                     topic, len(subtopics), subtopics,
                 )
                 # Move the stale topic to the end so subtopics run first.
