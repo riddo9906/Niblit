@@ -219,7 +219,7 @@ class NiblitRouter:
     _MAX_METADATA_REFLECTION_LENGTH = 120
 
     COMMAND_PREFIXES = (
-        "toggle-llm", "hf-status", "hf-enable", "hf-disable", "hf-ask",
+        "toggle-llm", "llm-provider", "hf-status", "hf-enable", "hf-disable", "hf-ask",
         "chat-memory", "llm-train",
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
@@ -2000,6 +2000,53 @@ Ask me about:
                 return f"[HFBrain error] {exc}"
 
         return "Usage: hf-status | hf-enable | hf-disable | hf-ask <prompt>"
+
+    # ── LLM Provider Switch handler ───────────────────────────────────────────
+
+    def _handle_llm_provider(self, cmd: str) -> str:
+        """Route ``llm-provider hf|anthropic|status`` commands.
+
+        Subcommands::
+
+            llm-provider hf         — set HuggingFace as primary (default)
+            llm-provider anthropic  — set Anthropic Claude as primary
+            llm-provider status     — show active provider and availability
+        """
+        lower = cmd.strip().lower()
+        arg = lower.replace("llm-provider", "").strip()
+
+        try:
+            from modules.llm_provider_manager import get_llm_provider_manager
+            mgr = get_llm_provider_manager()
+
+            # Also wire brain refs in case they were set after manager creation
+            brain = getattr(self.core, "brain", None) if self.core else None
+            if brain:
+                mgr.wire(
+                    hf_brain=getattr(brain, "hf_brain", None),
+                    claude=getattr(brain, "claude", None),
+                )
+        except Exception as exc:
+            return f"❌ LLMProviderManager unavailable: {exc}"
+
+        if arg == "status":
+            s = mgr.status()
+            hf_flag = "✅" if s["hf"] else "❌"
+            ant_flag = "✅" if s["anthropic"] else "❌"
+            primary_flag = "← active" if s["active"] == "hf" else ""
+            fallback_flag = "← active" if s["active"] == "anthropic" else ""
+            return (
+                f"**LLM Provider Status**\n"
+                f"• Active provider: **{s['active']}**\n"
+                f"• HuggingFace  {hf_flag}  (model: {s['hf_model']}) {primary_flag}\n"
+                f"• Anthropic    {ant_flag}  (model: {s['anthropic_model']}) {fallback_flag}\n"
+                f"\nSwitch: `llm-provider hf` or `llm-provider anthropic`"
+            )
+
+        if arg in ("hf", "anthropic"):
+            return mgr.switch(arg)
+
+        return "Usage: llm-provider hf|anthropic|status"
 
     # ── Chat Memory handler (LLM inference provider memory) ───────────────────
 
@@ -4283,6 +4330,10 @@ Ask me about:
         if lower in ("hf-status",) or lower.startswith("hf-enable") or lower.startswith("hf-disable") or lower.startswith("hf-ask"):
             return self._handle_hf_brain(cmd)
 
+        # LLM PROVIDER SWITCH (llm-provider hf | anthropic | status)
+        if lower.startswith("llm-provider"):
+            return self._handle_llm_provider(cmd)
+
         # CHAT-MEMORY COMMANDS
         if lower.startswith("chat-memory"):
             return self._handle_chat_memory(cmd)
@@ -4586,6 +4637,9 @@ Ask me about:
             "toggle-llm off               — Pause LLM (chat history preserved)",
             "toggle-llm on                — Resume LLM (full history reloaded)",
             "toggle-llm status            — Show LLM session & chat memory status",
+            "llm-provider hf              — Set HuggingFace as primary LLM (default)",
+            "llm-provider anthropic       — Set Anthropic Claude as primary LLM",
+            "llm-provider status          — Show active provider & availability",
             "status, health               — System status",
             "time                         — Current time",
             "",
