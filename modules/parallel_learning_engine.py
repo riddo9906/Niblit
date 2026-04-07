@@ -12,10 +12,6 @@ from typing import List, Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 log = logging.getLogger("ParallelLearning")
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s'
-)
 
 class ParallelLearningEngine:
     """Process multiple research topics in parallel for faster learning"""
