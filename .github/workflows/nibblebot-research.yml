@@ -1,0 +1,60 @@
+name: "🔬 Nibblebot: Live Research Bot"
+
+# Enhanced research bot that uses the GitHub REST API to study repositories
+# live, accumulates a knowledge layer from past nibblebot issues, and
+# generates synthesised insights to make Niblit and Nibblebot more
+# knowledgeable about software patterns and best practices.
+#
+# Schedule: Every Friday at 09:00 UTC (completes the weekly nibblebot cycle)
+
+on:
+  schedule:
+    - cron: "0 9 * * 5"  # Every Friday at 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      topics:
+        description: "Comma-separated research topics (leave blank for defaults)"
+        required: false
+        default: ""
+      max_repos:
+        description: "Max repos per topic"
+        required: false
+        default: "6"
+      deep_dive:
+        description: "Enable deep dive (language breakdown per repo — uses more API quota)"
+        required: false
+        default: "false"
+        type: boolean
+      dry_run:
+        description: "Dry run (print instead of creating issue)"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  issues: write      # create/update issues
+  contents: read     # checkout
+
+jobs:
+  research:
+    name: Run Nibblebot Research Bot
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Nibblebot Research Bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RESEARCH_TOPICS: ${{ inputs.topics || '' }}
+          RESEARCH_MAX_REPOS: ${{ inputs.max_repos || '6' }}
+          RESEARCH_DEEP_DIVE: ${{ inputs.deep_dive || 'false' }}
+          RESEARCH_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: python nibblebots/research_bot.py
