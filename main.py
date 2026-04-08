@@ -14,6 +14,7 @@ startup silently captures background-thread log records so they no
 longer print to the terminal mid-typing.
 """
 
+import argparse
 import logging
 import os
 import sys
@@ -122,6 +123,69 @@ def timestamp():
 
 def suggest_command(user_input):
     return difflib.get_close_matches(user_input, COMMANDS, n=3, cutoff=0.5)
+
+# ─────────────────────────────
+# CLI ARGUMENT PARSER (Ollama-inspired)
+# ─────────────────────────────
+def parse_args(argv=None):
+    """Parse Niblit AIOS command-line arguments.
+
+    Inspired by the clean CLI design of Ollama, this parser lets users:
+    - run a one-shot command without entering the interactive shell
+    - suppress verbose startup output in scripts
+    - override the debug flag at launch time
+    - query the current version
+
+    Args:
+        argv: Argument list (defaults to ``sys.argv[1:]``).
+
+    Returns:
+        :class:`argparse.Namespace` with attributes:
+        ``one_shot``, ``quiet``, ``debug``, ``version``.
+    """
+    try:
+        from config import settings as _settings  # type: ignore[import]
+        _version = getattr(_settings, "VERSION", None) or "AIOS"
+    except Exception:
+        _version = "AIOS"
+
+    p = argparse.ArgumentParser(
+        prog="niblit",
+        description="Niblit AIOS — Neural Integrated Baseline for Learning, Intelligence, and Tasking",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  niblit                          Start the interactive shell\n"
+            "  niblit -c 'status'              Run one command and exit\n"
+            "  niblit -c 'learn about python'  Learn a topic, then exit\n"
+            "  niblit --quiet                  Start shell without startup banners\n"
+            "  niblit --version                Show version information\n"
+        ),
+    )
+    p.add_argument(
+        "-c", "--one-shot",
+        metavar="CMD",
+        default=None,
+        help="Run a single command and exit (non-interactive mode)",
+    )
+    p.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        default=False,
+        help="Suppress startup banners and background notifications",
+    )
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Enable debug output from startup",
+    )
+    p.add_argument(
+        "--version",
+        action="version",
+        version=f"Niblit AIOS {_version}",
+    )
+    return p.parse_args(argv)
 
 # ─────────────────────────────
 # DEBUG PRINT
@@ -406,6 +470,18 @@ def run_shell(core, io):
 # MAIN
 # ─────────────────────────────
 if __name__ == "__main__":
+    # ── Parse CLI arguments (Ollama-inspired) ─────────────────────────────────
+    try:
+        _args = parse_args()
+    except SystemExit:
+        raise  # --help / --version already printed; honour the exit
+
+    # Apply CLI flags before boot
+    if _args.debug:
+        DEBUG_MODE = True
+    if _args.quiet:
+        NiblitIO._quiet = True
+
     # Register OS-level signal handlers so that SIGTERM (system kill) and
     # SIGHUP (Termux session close) also trigger a clean shutdown instead
     # of an abrupt process death that loses autonomous-growth data.
@@ -418,6 +494,30 @@ if __name__ == "__main__":
             pass
 
     core, io = boot()
+
+    # ── One-shot mode: run a single command then exit ─────────────────────────
+    if _args.one_shot is not None:
+        cmd = _args.one_shot.strip()
+        try:
+            cmd_lower = cmd.lower()
+            if cmd_lower in ("help",):
+                response = core.help_text()
+            elif core.router:
+                response = core.router.process(cmd)
+            else:
+                response = core.handle(cmd)
+            io.out(response)
+        except Exception as exc:
+            io.error(f"[ONE-SHOT ERROR] {exc}")
+            traceback.print_exc()
+        finally:
+            try:
+                core.shutdown()
+            except Exception:
+                pass
+        sys.exit(0)
+
+    # ── Interactive shell ─────────────────────────────────────────────────────
     try:
         run_shell(core, io)
     except Exception as e:
