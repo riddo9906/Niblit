@@ -2500,27 +2500,36 @@ Ask me about:
 
         if sub in ("", "status"):
             st = civ.get_status()
-            pm = civ._pop_manager
             agent_count = st.get("agents_active", 0)
-            metrics = st.get("metrics", {})
+            insights_buffered = len(civ._insights_buffer)
+            metrics_summary = {}
+            if civ._metrics:
+                try:
+                    metrics_summary = civ._metrics.get_summary()
+                except Exception:
+                    pass
             lines = [
                 "🏛️ **Civilization (STACA) Status**",
                 f"   Running:         {st['running']}",
                 f"   Cycles complete: {st['cycle_count']}",
                 f"   Agents active:   {agent_count}",
-                f"   Insights stored: {st.get('insights_accumulated', 0)}",
+                f"   Insights buffered: {insights_buffered}",
             ]
-            if metrics:
+            if metrics_summary:
                 lines.append(
-                    f"   Avg tasks/cycle: {metrics.get('avg_tasks', 0):.1f}"
+                    f"   Avg tasks/cycle: {metrics_summary.get('avg_tasks', 0):.1f}"
                 )
-            top = st.get("top_agents", [])
-            if top:
-                lines.append("   Top agents:")
-                for a in top[:3]:
-                    rep = a.get("reputation", 0.0)
-                    role = a.get("role", "?")
-                    lines.append(f"     • {a['agent_id'][:8]}… role={role} rep={rep:.3f}")
+            if civ._reputation:
+                try:
+                    top = civ._reputation.top_agents(n=3)
+                    if top:
+                        lines.append("   Top agents:")
+                        for a in top[:3]:
+                            lines.append(
+                                f"     • {a['agent_id'][:8]}… rep={a.get('reputation', 0):.3f}"
+                            )
+                except Exception:
+                    pass
             return "\n".join(lines)
 
         if sub == "cycle":

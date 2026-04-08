@@ -335,6 +335,20 @@ class GitHubCodeSearch:
         log.debug("[GH CODE SEARCH] find_training_data(%r) → %d", topic, len(combined))
         return combined[:max_results]
 
+    def search_repos(
+        self,
+        query: str,
+        topics: Optional[List[str]] = None,
+        max_results: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Search GitHub repositories by *query* and optional *topics*.
+
+        Public wrapper around the internal ``_search_repos`` helper.
+        Returns a list of dicts with keys: ``repo``, ``text``, ``url``,
+        ``stars``, ``source``.
+        """
+        return self._search_repos(query, topics=topics, max_results=max_results)
+
     def _search_repos(
         self,
         query: str,

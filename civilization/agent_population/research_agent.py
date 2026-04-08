@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from .base_agent import BaseAgent
 
 log = logging.getLogger("ResearchAgent")
 
-_MOCK_REPOS = [
+# Fallback repo list used only when GitHubCodeSearch is unavailable.
+_FALLBACK_REPOS = [
     {"name": "niblit-core", "stars": 120, "topic": "general"},
     {"name": "niblit-research", "stars": 85, "topic": "research"},
     {"name": "transformer-bench", "stars": 340, "topic": "transformers"},
@@ -26,15 +27,10 @@ _MOCK_REPOS = [
 class ResearchAgent(BaseAgent):
     """Conducts literature and repository research.
 
-    An optional ``github_code_search`` attribute (``GitHubCodeSearch`` instance)
-    can be set after construction to enable live GitHub repository search.  When
-    unavailable the agent falls back to a small static mock repository list.
+    Uses ``modules.github_code_search.GitHubCodeSearch`` for live repository
+    discovery when available; falls back to a static list when the module or
+    network is unreachable.
     """
-
-    def __init__(self, agent_id: str, role: str) -> None:
-        super().__init__(agent_id, role)
-        # Injected by CivilizationController when available
-        self.github_code_search: Optional[Any] = None
 
     # ── public API ──
 
@@ -44,49 +40,52 @@ class ResearchAgent(BaseAgent):
         log.info("ResearchAgent %s: researching %s", self._agent_id, goal[:60])
         repos = self.search_repositories(goal)
         findings = [
-            f"Research: '{goal}' — found {len(repos)} relevant sources via civilization research agent."
+            f"Finding: '{goal}' is studied across {len(repos)} relevant repositories.",
         ]
-        for r in repos[:3]:
-            name = r.get("name") or r.get("repo") or r.get("text", "")[:80]
-            if name:
-                findings.append(f"Source: {name}")
+        # Enrich findings with repo descriptions if available
+        for repo in repos[:3]:
+            desc = repo.get("description") or repo.get("topic", "")
+            name = repo.get("name") or repo.get("full_name", "")
+            if name and desc:
+                findings.append(f"Repo {name}: {desc[:120]}")
         result = {
             "insights": findings,
-            "sources": [
-                r.get("name") or r.get("repo") or r.get("text", "")[:60]
-                for r in repos
-            ],
-            "confidence": 0.75 if repos else 0.4,
+            "sources": [r.get("name") or r.get("full_name", "") for r in repos],
+            "confidence": min(0.95, 0.60 + len(repos) * 0.05),
             "researched_at": time.time(),
         }
         self._record_task()
         return result
 
     def search_repositories(self, topic: str) -> List[Dict[str, Any]]:
-        """Search for repositories relevant to *topic*.
+        """Return repository results for *topic*.
 
-        Uses the injected ``github_code_search`` (real GitHub API) when available;
-        falls back to the static mock list otherwise.
+        Tries ``GitHubCodeSearch._search_repos()`` first; falls back to
+        the static fallback list if that is unavailable or raises.
         """
-        # Real search via GitHubCodeSearch
-        if self.github_code_search is not None:
-            try:
-                raw = self.github_code_search.search_code(
-                    f"{topic} multi-agent OR evolutionary OR civilization",
-                    language="python",
-                    max_results=5,
-                )
-                if raw:
-                    log.debug(
-                        "ResearchAgent %s: GitHub search returned %d results",
-                        self._agent_id, len(raw),
-                    )
-                    return raw
-            except Exception as exc:
-                log.debug("ResearchAgent %s: GitHub search failed — %s", self._agent_id, exc)
-
-        # Fallback: static mock
-        return [r for r in _MOCK_REPOS if topic.lower() in r["topic"]][:3] or _MOCK_REPOS[:3]
+        try:
+            from modules.github_code_search import GitHubCodeSearch
+            gcs = GitHubCodeSearch()
+            raw = gcs.search_repos(topic, max_results=5)
+            if raw:
+                # Normalise to a consistent {"name", "description", "stars"} shape
+                normalized: List[Dict[str, Any]] = []
+                for r in raw[:5]:
+                    normalized.append({
+                        "name": r.get("repo") or r.get("name", ""),
+                        "full_name": r.get("repo") or r.get("full_name", ""),
+                        "description": r.get("text", ""),
+                        "stars": r.get("stars", 0),
+                        "url": r.get("url", ""),
+                    })
+                return normalized
+        except Exception as exc:
+            log.debug(
+                "ResearchAgent %s: GitHubCodeSearch unavailable (%s), using fallback",
+                self._agent_id, exc,
+            )
+        # Fallback: return static list (always matches — same behaviour as before)
+        return list(_FALLBACK_REPOS)[:3]
 
     def analyze_findings(self, findings: List[Any]) -> Dict[str, Any]:
         """Analyse a list of findings and return summary dict."""

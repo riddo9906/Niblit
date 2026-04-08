@@ -5,18 +5,20 @@ Architecture
 The controller wires together all civilization subsystems into a single
 run_cycle() call:
 
-  PopulationManager  → spawns / tracks agents
+  PopulationManager     → spawns / tracks agents
   CivilizationScheduler → assigns tasks by role
-  agent instances    → ResearchAgent / BuilderAgent / PlannerAgent /
-                        AnalystAgent / EvolutionAgent
-  ReputationEngine   → tracks agent quality scores (EWMA)
-  AuditSystem        → immutable action log
-  CivilizationMetrics → per-cycle aggregate statistics
-  MessageBus         → intra-civilization pub/sub
-  KnowledgeAPI       → civilization-internal vector+graph memory
-  KnowledgeDB        → Niblit's production knowledge store (optional)
-  GitHubCodeSearch   → live repository research for ResearchAgent (optional)
-  PopulationOptimizer / ArchitectureEvolver  → evolution every N cycles
+  agent instances       → ResearchAgent / BuilderAgent / PlannerAgent /
+                          AnalystAgent / EvolutionAgent
+  ReputationEngine      → tracks agent quality scores (EWMA)
+  SelectionEngine       → elite selection for evolution
+  MutationEngine        → mutates agent parameters
+  AuditSystem           → immutable action log
+  CivilizationMetrics   → per-cycle aggregate statistics
+  MessageBus            → intra-civilization pub/sub
+  KnowledgeAPI          → civilization-internal vector+graph memory
+  SafetyPolicies        → governance guardrails
+  KnowledgeDB           → Niblit's production knowledge store (optional)
+  GitHubCodeSearch      → live repository research for ResearchAgent (optional)
 
 Usage example::
 
@@ -34,147 +36,204 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("CivilizationController")
 
-# ── role → agent class registry ──────────────────────────────────────────────
-_ROLE_TOPIC_MAP: Dict[str, str] = {
-    "researcher": "multi-agent-systems",
-    "builder": "code-generation",
-    "planner": "software-architecture",
-    "analyst": "performance-analysis",
-    "evolution_agent": "evolutionary-algorithms",
-}
+# How many cycles between evolution (selection + mutation) steps.
+_EVOLVE_EVERY: int = 3
+# Default roles spawned at civilization start (two researchers for coverage).
+_DEFAULT_ROLES: List[str] = ["researcher", "researcher", "builder", "planner", "evolution_agent"]
 
-_EVOLUTION_INTERVAL = 5   # run evolution step every N cycles
-_INITIAL_AGENTS_PER_ROLE = 1
+
+def _make_typed_agent(agent_id: str, role: str) -> Any:
+    """Return a typed BaseAgent subclass for *role*, or a plain BaseAgent fallback."""
+    try:
+        from civilization.agent_population.research_agent import ResearchAgent
+        from civilization.agent_population.builder_agent import BuilderAgent
+        from civilization.agent_population.planner_agent import PlannerAgent
+        from civilization.agent_population.analyst_agent import AnalystAgent
+        from civilization.agent_population.evolution_agent import EvolutionAgent
+        from civilization.agent_population.base_agent import BaseAgent
+
+        _role_map = {
+            "researcher": ResearchAgent,
+            "builder": BuilderAgent,
+            "planner": PlannerAgent,
+            "analyst": AnalystAgent,
+            "evolution_agent": EvolutionAgent,
+        }
+        cls = _role_map.get(role, BaseAgent)
+        return cls(agent_id, role)
+    except Exception as exc:
+        log.debug(
+            "CivilizationController: typed agent creation failed (%s), using BaseAgent fallback: %s",
+            role, exc,
+        )
+        try:
+            from civilization.agent_population.base_agent import BaseAgent
+            return BaseAgent(agent_id, role)
+        except Exception:
+            return None
 
 
 class CivilizationController:
-    """Coordinates the full civilization life-cycle.
+    """Coordinates the civilization life-cycle.
 
-    All heavy dependencies are injected (optional) so the controller degrades
-    gracefully when components are unavailable.
+    All internal subsystems (PopulationManager, Scheduler, Metrics, etc.) are
+    created during ``__init__`` so the controller is fully self-contained.
+    ``niblit_core`` only needs to call ``start()`` and optionally
+    ``run_cycle()`` / ``to_findings_dict()``.
 
     Args:
-        knowledge_db:       Niblit's production KnowledgeDB (optional).
-        github_code_search: GitHubCodeSearch instance for real research (optional).
+        initial_roles:      Roles to spawn at startup (default: ``_DEFAULT_ROLES``).
+        knowledge_db:       Niblit's production KnowledgeDB — written after each
+                            cycle so civilization insights persist across restarts
+                            (optional).
+        github_code_search: GitHubCodeSearch instance injected into every
+                            ResearchAgent for live GitHub repository search
+                            (optional; agents fall back to static list).
     """
 
     def __init__(
         self,
+        initial_roles: Optional[List[str]] = None,
         knowledge_db: Optional[Any] = None,
         github_code_search: Optional[Any] = None,
     ) -> None:
         self._running: bool = False
         self._cycle_count: int = 0
         self._started_at: Optional[float] = None
+        self._initial_roles: List[str] = initial_roles or list(_DEFAULT_ROLES)
         self._knowledge_db = knowledge_db
         self._github_code_search = github_code_search
 
-        # ── lazily-imported subsystems ────────────────────────────────────────
-        self._pop_manager: Optional[Any] = None
-        self._scheduler: Optional[Any] = None
-        self._reputation: Optional[Any] = None
-        self._audit: Optional[Any] = None
-        self._metrics: Optional[Any] = None
-        self._message_bus: Optional[Any] = None
-        self._knowledge_api: Optional[Any] = None
-        self._pop_optimizer: Optional[Any] = None
-        self._arch_evolver: Optional[Any] = None
+        # ── subsystem instances ──
+        self._pop_manager: Any = None
+        self._scheduler: Any = None
+        self._metrics: Any = None
+        self._message_bus: Any = None
+        self._reputation: Any = None
+        self._selector: Any = None
+        self._mutator: Any = None
+        self._knowledge_api: Any = None
+        self._safety: Any = None
+        self._audit: Any = None
 
-        # live agent objects keyed by agent_id
+        # agent_id → typed BaseAgent instance
         self._agent_instances: Dict[str, Any] = {}
 
-        # accumulated findings for to_findings_dict()
-        self._all_insights: List[str] = []
-        self._all_repos: List[str] = []
+        # accumulated insights for to_findings_dict()
+        self._insights_buffer: List[str] = []
 
         self._init_subsystems()
 
     # ── initialisation ────────────────────────────────────────────────────────
 
     def _init_subsystems(self) -> None:
-        """Lazy-import and instantiate all civilization subsystems."""
+        """Instantiate all civilization subsystems; failures are non-fatal."""
         try:
             from civilization.civilization_core.population_manager import PopulationManager
+            self._pop_manager = PopulationManager()
+        except Exception as exc:
+            log.debug("CivilizationController: PopulationManager unavailable: %s", exc)
+
+        try:
             from civilization.civilization_core.civilization_scheduler import CivilizationScheduler
+            self._scheduler = CivilizationScheduler()
+        except Exception as exc:
+            log.debug("CivilizationController: CivilizationScheduler unavailable: %s", exc)
+
+        try:
             from civilization.civilization_core.civilization_metrics import CivilizationMetrics
-            from civilization.governance.reputation_engine import ReputationEngine
-            from civilization.governance.audit_system import AuditSystem
+            self._metrics = CivilizationMetrics()
+        except Exception as exc:
+            log.debug("CivilizationController: CivilizationMetrics unavailable: %s", exc)
+
+        try:
             from civilization.collaboration_network.message_bus import MessageBus
+            self._message_bus = MessageBus()
+        except Exception as exc:
+            log.debug("CivilizationController: MessageBus unavailable: %s", exc)
+
+        try:
+            from civilization.governance.reputation_engine import ReputationEngine
+            self._reputation = ReputationEngine()
+        except Exception as exc:
+            log.debug("CivilizationController: ReputationEngine unavailable: %s", exc)
+
+        try:
+            from civilization.evolution_engine.selection_engine import SelectionEngine
+            from civilization.evolution_engine.mutation_engine import MutationEngine
+            self._selector = SelectionEngine()
+            self._mutator = MutationEngine()
+        except Exception as exc:
+            log.debug("CivilizationController: evolution engine unavailable: %s", exc)
+
+        try:
             from civilization.knowledge_ecosystem.vector_memory import VectorMemory
             from civilization.knowledge_ecosystem.graph_memory import GraphMemory
             from civilization.knowledge_ecosystem.embedding_service import EmbeddingService
             from civilization.knowledge_ecosystem.knowledge_api import KnowledgeAPI
-            from civilization.evolution_engine.population_optimizer import PopulationOptimizer
-            from civilization.evolution_engine.architecture_evolver import ArchitectureEvolver
-
-            self._pop_manager = PopulationManager()
-            self._scheduler = CivilizationScheduler()
-            self._metrics = CivilizationMetrics()
-            self._reputation = ReputationEngine()
-            self._audit = AuditSystem()
-            self._message_bus = MessageBus()
             self._knowledge_api = KnowledgeAPI(VectorMemory(), GraphMemory(), EmbeddingService())
-            self._pop_optimizer = PopulationOptimizer()
-            self._arch_evolver = ArchitectureEvolver()
-            log.info("CivilizationController: subsystems initialised")
         except Exception as exc:
-            log.debug("CivilizationController: subsystem init partial — %s", exc)
+            log.debug("CivilizationController: KnowledgeAPI unavailable: %s", exc)
 
-    def _get_agent_class(self, role: str) -> Optional[Type]:
-        """Return the agent class for *role*, or None on import failure."""
-        _map = {
-            "researcher": "civilization.agent_population.research_agent.ResearchAgent",
-            "builder": "civilization.agent_population.builder_agent.BuilderAgent",
-            "planner": "civilization.agent_population.planner_agent.PlannerAgent",
-            "analyst": "civilization.agent_population.analyst_agent.AnalystAgent",
-            "evolution_agent": "civilization.agent_population.evolution_agent.EvolutionAgent",
-        }
-        dotpath = _map.get(role)
-        if not dotpath:
+        try:
+            from civilization.governance.safety_policies import SafetyPolicies
+            self._safety = SafetyPolicies()
+        except Exception as exc:
+            log.debug("CivilizationController: SafetyPolicies unavailable: %s", exc)
+
+        try:
+            from civilization.governance.audit_system import AuditSystem
+            self._audit = AuditSystem()
+        except Exception as exc:
+            log.debug("CivilizationController: AuditSystem unavailable: %s", exc)
+
+    def _spawn_agent(self, role: str) -> Optional[str]:
+        """Spawn one agent of *role*; return the new agent_id or None."""
+        if not self._pop_manager:
             return None
         try:
-            module_path, cls_name = dotpath.rsplit(".", 1)
-            import importlib
-            mod = importlib.import_module(module_path)
-            return getattr(mod, cls_name)
+            ids = self._pop_manager.spawn(role, count=1)
+            agent_id = ids[0]
+            typed = _make_typed_agent(agent_id, role)
+            if typed is not None:
+                # Inject optional external dependencies
+                if self._github_code_search is not None and role == "researcher":
+                    try:
+                        typed.github_code_search = self._github_code_search
+                    except Exception:
+                        pass
+                self._agent_instances[agent_id] = typed
+            return agent_id
         except Exception as exc:
-            log.debug("CivilizationController: agent class import failed for %s — %s", role, exc)
+            log.debug("CivilizationController: spawn(%s) failed: %s", role, exc)
             return None
 
-    def _ensure_population(self) -> None:
-        """Spawn the initial agent population if the population is empty."""
-        if self._pop_manager is None:
-            return
-        if self._pop_manager.agent_count() > 0:
-            return
-        roles = list(_ROLE_TOPIC_MAP.keys())
-        for role in roles:
-            agent_ids = self._pop_manager.spawn(role, count=_INITIAL_AGENTS_PER_ROLE)
-            for aid in agent_ids:
-                cls = self._get_agent_class(role)
-                if cls is not None:
-                    agent_obj = cls(aid, role)
-                    # Wire optional GitHubCodeSearch into ResearchAgent
-                    if role == "researcher" and self._github_code_search is not None:
-                        try:
-                            agent_obj.github_code_search = self._github_code_search
-                        except Exception:
-                            pass
-                    self._agent_instances[aid] = agent_obj
+    def _despawn_agent(self, agent_id: str) -> None:
+        """Remove agent from PopulationManager and instance registry."""
+        if self._pop_manager:
+            try:
+                self._pop_manager.despawn(agent_id)
+            except Exception:
+                pass
+        self._agent_instances.pop(agent_id, None)
 
     # ── public API ────────────────────────────────────────────────────────────
 
     def start(self) -> None:
-        """Activate the running flag and ensure the initial population exists."""
+        """Activate the running flag and seed the initial population."""
         self._running = True
         self._started_at = time.time()
-        self._ensure_population()
-        log.info("CivilizationController: started — %d agents active",
-                 self._pop_manager.agent_count() if self._pop_manager else 0)
+        if self._pop_manager and self._pop_manager.agent_count() == 0:
+            for role in self._initial_roles:
+                self._spawn_agent(role)
+        log.info(
+            "CivilizationController: started with %d agents",
+            self._pop_manager.agent_count() if self._pop_manager else 0,
+        )
 
     def stop(self) -> None:
         """Deactivate the running flag."""
@@ -182,140 +241,136 @@ class CivilizationController:
         log.info("CivilizationController: stopped after %d cycles", self._cycle_count)
 
     def run_cycle(self) -> Dict[str, Any]:
-        """Execute one full civilisation cycle and return a results dict.
+        """Execute one full civilisation cycle.
 
-        Pipeline per cycle
-        ------------------
-        1. Ensure population is populated (lazy spawn on first cycle).
-        2. For each active agent, assign a task via the scheduler.
-        3. Execute the task through the agent object; record outcome.
-        4. Store research insights into the KnowledgeAPI (and optionally KnowledgeDB).
-        5. Publish a cycle_completed event to the MessageBus.
-        6. Every _EVOLUTION_INTERVAL cycles, run a population evolution step.
-        7. Record aggregate cycle data in CivilizationMetrics.
+        Steps:
+          1. Ensure population is seeded.
+          2. Assign a task to every active agent via CivilizationScheduler.
+          3. Execute each typed agent; collect results.
+          4. Record action in AuditSystem; update ReputationEngine scores.
+          5. Store ResearchAgent insights in KnowledgeAPI; buffer for findings.
+             Also write new insights to the production KnowledgeDB when wired.
+          6. Every ``_EVOLVE_EVERY`` cycles, run selection + mutation on the
+             population and replace the bottom half with fresh offspring.
+          7. Record cycle metrics.
+
+        Returns a dict with cycle metadata.
         """
         self._cycle_count += 1
-        cycle_start = time.time()
         log.info("CivilizationController: cycle %d begin", self._cycle_count)
+        cycle_start = time.time()
 
-        self._ensure_population()
+        # 1. Ensure population is seeded ──────────────────────────────────────
+        if self._pop_manager and self._pop_manager.agent_count() == 0:
+            for role in self._initial_roles:
+                self._spawn_agent(role)
 
-        agents_active = 0
+        agents: List[Dict[str, Any]] = []
+        if self._pop_manager:
+            agents = self._pop_manager.get_agents()
+
         tasks_completed = 0
         cycle_insights: List[str] = []
-        cycle_repos: List[str] = []
-        errors: List[str] = []
-
-        agents = (self._pop_manager.get_agents() if self._pop_manager else [])
+        system_state: Dict[str, Any] = {"accuracy": 0.75, "latency_ms": 120}
 
         for agent_meta in agents:
-            agent_id = agent_meta["agent_id"]
-            role = agent_meta["role"]
-            agent_obj = self._agent_instances.get(agent_id)
-            if agent_obj is None:
-                continue
+            agent_id = agent_meta.get("agent_id", "")
+            role = agent_meta.get("role", "researcher")
+            typed = self._agent_instances.get(agent_id)
 
-            agents_active += 1
-
-            # Build task dict
+            # 2. Assign task ───────────────────────────────────────────────────
             task: Dict[str, Any] = {}
             if self._scheduler:
-                task = self._scheduler.assign_task(agent_meta)
-            topic = _ROLE_TOPIC_MAP.get(role, "general")
-            task.setdefault("goal", topic)
-            task.setdefault("topic", topic)
-            task.setdefault("architecture", {"type": "ai-service", "language": "python"})
-            task.setdefault("experiment", {"data": [0.75, 0.80, 0.85]})
-            task.setdefault("system_state", {"accuracy": 0.78, "latency_ms": 120})
+                try:
+                    task = self._scheduler.assign_task(agent_meta)
+                except Exception as exc:
+                    log.debug("CivilizationController: scheduler.assign_task failed: %s", exc)
+            if not task.get("goal"):
+                task["goal"] = f"civilization cycle {self._cycle_count} — {role} research"
+            task["system_state"] = system_state
 
-            # Execute
-            try:
-                result = agent_obj.execute(task)
-                success = True
-                tasks_completed += 1
+            # 3. Execute typed agent ───────────────────────────────────────────
+            result: Dict[str, Any] = {}
+            success = False
+            if typed is not None:
+                try:
+                    result = typed.execute(task)
+                    success = True
+                    tasks_completed += 1
+                except NotImplementedError:
+                    pass
+                except Exception as exc:
+                    log.debug("CivilizationController: agent %s execute failed: %s", agent_id, exc)
 
-                # Harvest insights from ResearchAgent
-                for insight in result.get("insights", []):
-                    cycle_insights.append(str(insight))
-                    self._all_insights.append(str(insight))
-                for src in result.get("sources", []):
-                    cycle_repos.append(str(src))
-                    self._all_repos.append(str(src))
+            # 4. Audit + reputation ────────────────────────────────────────────
+            if self._audit and agent_id:
+                try:
+                    self._audit.record(
+                        action_type=task.get("task_type", "execute"),
+                        agent_id=agent_id,
+                        details={"role": role, "success": success},
+                    )
+                except Exception:
+                    pass
+            if self._reputation and agent_id:
+                try:
+                    self._reputation.record_action(agent_id, success=success, score=1.0)
+                except Exception:
+                    pass
 
-                # Harvest hypotheses from EvolutionAgent
-                hyp = result.get("hypothesis", {})
-                if hyp and hyp.get("proposed_fix"):
-                    fix = f"evolution: {hyp['proposed_fix']}"
-                    cycle_insights.append(fix)
-                    self._all_insights.append(fix)
-
-                # Store insights into KnowledgeAPI
-                if self._knowledge_api and cycle_insights:
-                    for ins in cycle_insights[-3:]:  # cap per agent to avoid flood
+            # 5. Publish on MessageBus; harvest research insights ──────────────
+            if self._message_bus and result:
+                try:
+                    self._message_bus.publish(
+                        msg_type=f"{role}_result",
+                        sender_id=agent_id,
+                        payload=result,
+                    )
+                except Exception:
+                    pass
+            if role == "researcher" and isinstance(result.get("insights"), list):
+                for insight in result["insights"]:
+                    text = str(insight)
+                    cycle_insights.append(text)
+                    if self._knowledge_api:
                         try:
-                            self._knowledge_api.store_knowledge(ins, tags=[role, "civilization"])
+                            self._knowledge_api.store_knowledge(
+                                text,
+                                tags=["civilization", "research", f"cycle_{self._cycle_count}"],
+                            )
+                        except Exception:
+                            pass
+                    # Persist into Niblit's production KnowledgeDB when wired
+                    if self._knowledge_db:
+                        try:
+                            key = f"civilization:research:{uuid.uuid4().hex[:8]}"
+                            self._knowledge_db.add_fact(
+                                key, text, tags=["civilization", "research"]
+                            )
                         except Exception:
                             pass
 
-                # Store into KnowledgeDB (Niblit's production KB)
-                if self._knowledge_db and cycle_insights:
-                    for ins in cycle_insights[-2:]:
-                        try:
-                            key = f"civilization:{role}:{uuid.uuid4().hex[:8]}"
-                            self._knowledge_db.add_fact(key, ins, tags=["civilization", role])
-                        except Exception:
-                            pass
+        self._insights_buffer.extend(cycle_insights)
 
-                # Reputation
-                score = result.get("confidence", result.get("score", 0.7))
-                if self._reputation:
-                    self._reputation.record_action(agent_id, success=True, score=float(score))
+        # 6. Evolution step (every _EVOLVE_EVERY cycles) ──────────────────────
+        if (
+            self._cycle_count % _EVOLVE_EVERY == 0
+            and self._pop_manager
+            and self._selector
+            and self._mutator
+            and self._reputation
+        ):
+            self._run_evolution_step(agents)
 
-                # Audit
-                if self._audit:
-                    self._audit.record(f"{role}_execute", agent_id,
-                                       {"task_type": task.get("task_type", role),
-                                        "success": True})
-
-            except Exception as exc:
-                errors.append(f"{agent_id}: {exc}")
-                log.debug("CivilizationController: agent %s execute failed — %s", agent_id, exc)
-                if self._reputation:
-                    self._reputation.record_action(agent_id, success=False)
-                if self._audit:
-                    self._audit.record(f"{role}_error", agent_id, {"error": str(exc)})
-
-        # Publish cycle event on the MessageBus
-        if self._message_bus:
-            try:
-                self._message_bus.publish(
-                    "cycle_completed",
-                    "civilization_controller",
-                    {
-                        "cycle": self._cycle_count,
-                        "agents_active": agents_active,
-                        "tasks_completed": tasks_completed,
-                        "new_insights": len(cycle_insights),
-                    },
-                )
-            except Exception:
-                pass
-
-        # Run population evolution every _EVOLUTION_INTERVAL cycles
-        if self._cycle_count % _EVOLUTION_INTERVAL == 0:
-            self._run_evolution_step()
-
+        # 7. Record metrics ────────────────────────────────────────────────────
         elapsed_ms = round((time.time() - cycle_start) * 1000, 2)
-
         cycle_data = {
             "cycle": self._cycle_count,
-            "agents_active": agents_active,
+            "agents_active": len(agents),
             "tasks_completed": tasks_completed,
             "new_insights": len(cycle_insights),
             "elapsed_ms": elapsed_ms,
-            "errors": len(errors),
         }
-
         if self._metrics:
             try:
                 self._metrics.record_cycle(cycle_data)
@@ -323,82 +378,97 @@ class CivilizationController:
                 pass
 
         log.info(
-            "CivilizationController: cycle %d done — agents=%d tasks=%d insights=%d elapsed=%.1f ms",
-            self._cycle_count, agents_active, tasks_completed, len(cycle_insights), elapsed_ms,
+            "CivilizationController: cycle %d done — agents=%d tasks=%d insights=%d (%.1f ms)",
+            self._cycle_count, len(agents), tasks_completed, len(cycle_insights), elapsed_ms,
         )
         return cycle_data
 
-    def _run_evolution_step(self) -> None:
-        """Run one population evolution step using PopulationOptimizer."""
-        if self._pop_optimizer is None or self._reputation is None:
+    def _run_evolution_step(self, agents: List[Dict[str, Any]]) -> None:
+        """Select top agents by reputation and replace the bottom half with offspring."""
+        if not agents:
             return
         try:
-            population = self._pop_manager.get_agents() if self._pop_manager else []
-            if not population:
-                return
+            fitness: Dict[str, float] = {}
+            for a in agents:
+                aid = a.get("agent_id", "")
+                fitness[aid] = self._reputation.get_reputation(aid) if self._reputation else 0.5
 
-            def _fitness(agent: Dict[str, Any]) -> float:
-                return self._reputation.get_reputation(agent.get("agent_id", ""))
+            n_keep = max(1, len(agents) // 2)
+            survivors = self._selector.elite_select(agents, fitness, n=n_keep)
+            survivor_ids = {a["agent_id"] for a in survivors}
 
-            result = self._pop_optimizer.optimize(population, _fitness, generations=2)
+            for a in agents:
+                if a["agent_id"] not in survivor_ids:
+                    self._despawn_agent(a["agent_id"])
+
+            for a in survivors:
+                role = a.get("role", "researcher")
+                params = {"role": role, "fitness": fitness.get(a["agent_id"], 0.5)}
+                try:
+                    mutated = self._mutator.mutate(params, mutation_rate=0.15)
+                    new_role = mutated.get("role", role)
+                    self._spawn_agent(new_role)
+                except Exception:
+                    self._spawn_agent(role)
+
             log.info(
-                "CivilizationController: evolution step — best_fitness=%.4f",
-                result.get("best_fitness", 0.0),
+                "CivilizationController: evolution step — kept=%d spawned=%d",
+                len(survivors), len(agents) - len(survivors),
             )
         except Exception as exc:
-            log.debug("CivilizationController: evolution step failed — %s", exc)
+            log.debug("CivilizationController: evolution step failed: %s", exc)
 
     def to_findings_dict(self) -> Dict[str, Any]:
-        """Return accumulated findings in the format expected by
-        ``SelfImprovementOrchestrator.ingest_research_findings()``.
+        """Serialize accumulated civilization insights into the format expected
+        by ``SelfImprovementOrchestrator.ingest_research_findings()``.
+
+        Returns::
+
+            {
+                "patterns": {"Civilization Research": [<insight_text>, ...]},
+                "top_repos": [],
+                "new_insights": [<insight_text>, ...],
+                "recommendations": [<summary_str>],
+            }
+
+        The internal insights buffer is cleared after this call so repeated
+        calls do not double-ingest the same findings.
         """
-        top_agents: List[Dict[str, Any]] = []
-        if self._reputation:
-            try:
-                top_agents = self._reputation.top_agents(n=5)
-            except Exception:
-                pass
+        insights = list(dict.fromkeys(self._insights_buffer))[:20]
+        # Clear consumed insights to prevent double-ingestion
+        self._insights_buffer.clear()
 
-        patterns: Dict[str, List[str]] = {
-            "Research Sources": list(dict.fromkeys(self._all_repos))[:10],
-        }
-        recommendations: List[str] = [
-            f"{a['agent_id'][:8]}… (role={a.get('role','?')}) rep={a.get('reputation',0):.3f}"
-            for a in top_agents
-        ]
-
-        return {
-            "patterns": patterns,
-            "top_repos": [{"full_name": r, "stars": 0} for r in self._all_repos[:5]],
-            "new_insights": list(dict.fromkeys(self._all_insights))[:20],
-            "recommendations": recommendations,
-            "source": "civilization",
-            "cycle_count": self._cycle_count,
-        }
-
-    def get_status(self) -> Dict[str, Any]:
-        """Return current controller status."""
-        agent_count = self._pop_manager.agent_count() if self._pop_manager else 0
-        metrics_summary = {}
+        metrics_summary: Dict[str, Any] = {}
         if self._metrics:
             try:
                 metrics_summary = self._metrics.get_summary()
             except Exception:
                 pass
-        top_agents: List[Dict[str, Any]] = []
-        if self._reputation:
-            try:
-                top_agents = self._reputation.top_agents(n=3)
-            except Exception:
-                pass
+
+        n_agents = self._pop_manager.agent_count() if self._pop_manager else 0
+        recommendations: List[str] = []
+        if metrics_summary:
+            recommendations.append(
+                f"Civilization ran {metrics_summary.get('total_cycles', self._cycle_count)} cycles "
+                f"with avg {metrics_summary.get('avg_agents', 0)} agents."
+            )
+        if n_agents:
+            recommendations.append(f"Active agent count: {n_agents}")
+
+        return {
+            "patterns": {"Civilization Research": insights},
+            "top_repos": [],
+            "new_insights": insights,
+            "recommendations": recommendations,
+        }
+
+    def get_status(self) -> Dict[str, Any]:
+        """Return current controller status."""
         return {
             "running": self._running,
             "cycle_count": self._cycle_count,
             "started_at": self._started_at,
-            "agents_active": agent_count,
-            "insights_accumulated": len(self._all_insights),
-            "metrics": metrics_summary,
-            "top_agents": top_agents,
+            "agents_active": self._pop_manager.agent_count() if self._pop_manager else 0,
         }
 
     def get_cycle_count(self) -> int:
