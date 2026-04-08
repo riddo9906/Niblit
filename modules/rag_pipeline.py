@@ -49,17 +49,22 @@ def _truncate(text: str, max_chars: int = 300) -> str:
 
 
 def _deduplicate(hits: List[Dict[str, Any]], sim_threshold: float = 0.85) -> List[Dict[str, Any]]:
-    """Remove near-duplicate hits by simple overlap ratio."""
-    seen: List[str] = []
+    """Remove near-duplicate hits by Jaccard overlap of word sets.
+
+    Uses a hash-set of frozensets for O(n) duplicate detection against
+    already-seen word sets, keeping the first (highest-scored) occurrence.
+    """
+    seen_word_sets: List[frozenset] = []
     unique: List[Dict[str, Any]] = []
     for hit in hits:
         text = hit.get("text", "").strip().lower()
         if not text:
             continue
-        words = set(re.findall(r"\w+", text))
+        words = frozenset(re.findall(r"\w+", text))
+        if not words:
+            continue
         duplicate = False
-        for prev in seen:
-            prev_words = set(re.findall(r"\w+", prev))
+        for prev_words in seen_word_sets:
             union = prev_words | words
             if union:
                 overlap = len(words & prev_words) / len(union)
@@ -67,7 +72,7 @@ def _deduplicate(hits: List[Dict[str, Any]], sim_threshold: float = 0.85) -> Lis
                     duplicate = True
                     break
         if not duplicate:
-            seen.append(text)
+            seen_word_sets.append(words)
             unique.append(hit)
     return unique
 

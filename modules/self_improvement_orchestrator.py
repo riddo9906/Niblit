@@ -270,6 +270,8 @@ class SelfImprovementOrchestrator:
     # Research findings ingestion
     # ------------------------------------------------------------------
 
+    _MAX_FACT_KEY_LENGTH = 60  # max chars used from an insight when building DB key
+
     def ingest_research_findings(
         self,
         findings: Dict[str, Any],
@@ -334,7 +336,7 @@ class SelfImprovementOrchestrator:
             for insight in new_insights[:20]:
                 try:
                     self.db.add_fact(
-                        f"{source}:insight:{insight[:60]}",
+                        f"{source}:insight:{insight[:self._MAX_FACT_KEY_LENGTH]}",
                         insight,
                         tags=[source, "research", "insight"],
                     )

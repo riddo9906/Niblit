@@ -796,7 +796,7 @@ def niblit_integrate(findings: Dict[str, Any]) -> None:
             f"docs={result['docs_indexed']}"
         )
     except ImportError as exc:
-        print(f"  ℹ Niblit integration skipped (modules not importable): {exc}")
+        print(f"  ℹ Niblit integration skipped (SelfImprovementOrchestrator not importable): {exc}")
     except Exception as exc:
         print(f"  ⚠ Niblit integration error: {exc}")
 

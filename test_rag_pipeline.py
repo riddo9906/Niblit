@@ -87,8 +87,13 @@ class TestTruncate:
         from modules.rag_pipeline import _truncate
         text = "hello world foo bar baz"
         result = _truncate(text, 12)
-        # Should not cut in the middle of a word
-        assert " " not in result.rstrip("…").split(" ")[-1] or result.endswith("…")
+        # The result must end with "…" (truncated) and must not split a word mid-character
+        assert result.endswith("…"), f"Expected trailing ellipsis, got: {result!r}"
+        body = result[:-1]  # strip the ellipsis
+        assert body == body.rstrip(), "Body should not end with whitespace before the ellipsis"
+        # Every word in the body must appear intact in the original text
+        for word in body.split():
+            assert word in text, f"Word {word!r} was split mid-character"
 
 
 # ---------------------------------------------------------------------------
