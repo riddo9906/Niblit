@@ -341,7 +341,7 @@ class CivilizationController:
                         except Exception:
                             pass
                     # Persist into Niblit's production KnowledgeDB when wired
-                    if self._knowledge_db:
+                    if self._knowledge_db and hasattr(self._knowledge_db, "add_fact"):
                         try:
                             key = f"civilization:research:{uuid.uuid4().hex[:8]}"
                             self._knowledge_db.add_fact(

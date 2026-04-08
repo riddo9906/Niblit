@@ -2598,7 +2598,7 @@ Ask me about:
             "Try: status | cycle | agents | evolve | top | findings"
         )
 
-
+    def _handle_ale(self, cmd: str) -> str:
         """Handle 'ale <sub-command>' for ALE checkpoint / resume / backtrack.
 
         Commands::

@@ -51,8 +51,8 @@ class SelfImprovementOrchestrator:
         agentic=None,
         github=None,
         db=None,
-        cycle_interval: int = 600,
         civilization=None,
+        cycle_interval: int = 600,
     ):
         self.ale = ale
         self.evolve = evolve
