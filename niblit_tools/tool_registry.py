@@ -52,14 +52,10 @@ def _build_parameters_schema(fn: Callable) -> Dict[str, Any]:
     sig = inspect.signature(fn)
     hints = {}
     try:
-        hints = inspect.get_annotations(fn)  # type: ignore[attr-defined]
-    except AttributeError:
-        # Python < 3.10 fallback
-        try:
-            import typing
-            hints = typing.get_type_hints(fn)
-        except Exception:
-            pass
+        import typing
+        hints = typing.get_type_hints(fn)
+    except Exception:
+        pass
 
     properties: Dict[str, Any] = {}
     required: List[str] = []
@@ -67,7 +63,7 @@ def _build_parameters_schema(fn: Callable) -> Dict[str, Any]:
     for name, param in sig.parameters.items():
         annotation = hints.get(name, str)
         json_type = _py_type_to_json(annotation)
-        properties[name] = {"type": json_type, "description": name}
+        properties[name] = {"type": json_type, "description": f"Parameter '{name}'"}
 
         if param.default is inspect.Parameter.empty:
             required.append(name)
