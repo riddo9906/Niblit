@@ -418,7 +418,7 @@ class CivilizationController:
             "started_at": self._started_at,
             "agents_active": self._pop_manager.agent_count() if self._pop_manager else 0,
             "knowledge_items": (
-                self._knowledge_api._vectors.size() if self._knowledge_api else 0
+                self._knowledge_api.vector_count() if self._knowledge_api else 0
             ),
         }
 

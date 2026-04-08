@@ -66,7 +66,7 @@ class ResearchAgent(BaseAgent):
         try:
             from modules.github_code_search import GitHubCodeSearch
             gcs = GitHubCodeSearch()
-            raw = gcs._search_repos(topic, max_results=5)  # noqa: SLF001
+            raw = gcs.search_repos(topic, max_results=5)
             if raw:
                 # Normalise to a consistent {"name", "description", "stars"} shape
                 normalized: List[Dict[str, Any]] = []
