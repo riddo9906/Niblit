@@ -51,6 +51,7 @@ class SelfImprovementOrchestrator:
         agentic=None,
         github=None,
         db=None,
+        civilization=None,
         cycle_interval: int = 600,
     ):
         self.ale = ale
@@ -59,6 +60,7 @@ class SelfImprovementOrchestrator:
         self.agentic = agentic
         self.github = github
         self.db = db
+        self.civilization = civilization
         self.cycle_interval = cycle_interval
 
         self.running = False
@@ -138,6 +140,23 @@ class SelfImprovementOrchestrator:
             except Exception as exc:
                 record["errors"].append(f"github: {exc}")
                 log.warning("[Orchestrator] GitHub step failed: %s", exc)
+
+        # 6. Civilization (STACA) — run one population cycle and re-ingest findings
+        if self.civilization:
+            try:
+                civ_result = self.civilization.run_cycle()
+                tasks_done = civ_result.get("tasks_completed", 0)
+                insights = civ_result.get("new_insights", 0)
+                record["steps"]["civilization"] = (
+                    f"tasks={tasks_done} insights={insights}"
+                )
+                # Feed civilization discoveries back into ALE / KB / RAG
+                findings = self.civilization.to_findings_dict()
+                if findings.get("new_insights"):
+                    self.ingest_research_findings(findings, source="civilization")
+            except Exception as exc:
+                record["errors"].append(f"civilization: {exc}")
+                log.warning("[Orchestrator] Civilization step failed: %s", exc)
 
         # Persist to DB
         self._persist_cycle(record)
@@ -251,6 +270,7 @@ class SelfImprovementOrchestrator:
                 "reflect": bool(self.reflect),
                 "agentic": bool(self.agentic),
                 "github": bool(self.github),
+                "civilization": bool(self.civilization),
             },
             "last_cycle": self._history[-1] if self._history else None,
         }

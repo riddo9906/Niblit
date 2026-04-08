@@ -1640,6 +1640,9 @@ class NiblitCore:
         self.game_engine: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Universal file manager ─────────────────────────────
         self.universal_file_manager: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Civilization (STACA) ────────────────────────────────
+        self.civilization_controller: Optional[Any] = None  # initialised in _init_optional_services
+        self.self_improvement_orchestrator: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -6517,6 +6520,38 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as e:
                     log.debug(f"EvolveEngine init failed: {e}")
                     self.startup_report.add("evolve_engine", "degraded", str(e))
+
+            # ============================
+            # CIVILIZATION CONTROLLER (STACA — Self-Training AI Civilization Architecture)
+            # Runs after EvolveEngine so it can share the same DB / ALE references.
+            # ============================
+            try:
+                from civilization.civilization_core import CivilizationController
+                self.civilization_controller = CivilizationController()
+                self.civilization_controller.start()
+                log.info("✅ CivilizationController (STACA) initialized and started")
+                self.startup_report.add("civilization_controller", "ready")
+                # Wire civilization into a lightweight SelfImprovementOrchestrator so
+                # it participates in the ALE/reflect/evolve improvement loop.
+                try:
+                    from modules.self_improvement_orchestrator import SelfImprovementOrchestrator
+                    self.self_improvement_orchestrator = SelfImprovementOrchestrator(
+                        ale=getattr(self, "autonomous_engine", None),
+                        evolve=getattr(self, "evolve_engine", None),
+                        reflect=getattr(self, "reflect", None),
+                        agentic=getattr(self, "agentic_workflows", None),
+                        github=getattr(self, "github_sync", None),
+                        db=self.db,
+                        civilization=self.civilization_controller,
+                    )
+                    log.info("✅ SelfImprovementOrchestrator wired with civilization")
+                    self.startup_report.add("self_improvement_orchestrator", "ready")
+                except Exception as _sio_err:
+                    log.debug("SelfImprovementOrchestrator wire failed: %s", _sio_err)
+                    self.startup_report.add("self_improvement_orchestrator", "degraded", str(_sio_err))
+            except Exception as _civ_err:
+                log.debug("CivilizationController init failed: %s", _civ_err)
+                self.startup_report.add("civilization_controller", "degraded", str(_civ_err))
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))

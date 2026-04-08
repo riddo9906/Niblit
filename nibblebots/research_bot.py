@@ -65,7 +65,9 @@ _DEFAULT_TOPICS = (
     "knowledge-graph,vector-database,retrieval-augmented-generation,"
     "self-improving,continual-learning,online-learning,"
     "python-framework,software-architecture,design-patterns,"
-    "devops-automation,ci-cd,deployment-automation"
+    "devops-automation,ci-cd,deployment-automation,"
+    "multi-agent-system,evolutionary-algorithm,competitive-self-play,"
+    "agent-based-modeling,genetic-programming"
 )
 TOPICS = [
     t.strip()
@@ -81,6 +83,8 @@ for _cat, _keys in [
     ("Self-Improving Systems", ["self-improving", "continual-learning", "online-learning"]),
     ("Software Architecture", ["python-framework", "software-architecture", "design-patterns"]),
     ("Deployment & DevOps", ["devops-automation", "ci-cd", "deployment-automation"]),
+    ("Civilization & Evolution", ["multi-agent-system", "evolutionary-algorithm", "competitive-self-play",
+                                  "agent-based-modeling", "genetic-programming"]),
 ]:
     for _k in _keys:
         _TOPIC_CATEGORIES[_k] = _cat
