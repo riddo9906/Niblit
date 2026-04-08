@@ -398,6 +398,11 @@ class GitHubCodeSearch:
         code-generation and code-reflection steps can apply them to improve
         generated code.
 
+        When ``USE_GH_MODEL_REPORTS=true`` the raw snippets are additionally
+        sent to GitHub Models to produce a generalised **refactoring recipe**
+        (before/after pseudo-code, pitfalls, and Niblit-specific suggestions).
+        The recipe is attached to each result as ``result["recipe"]``.
+
         Args:
             language:    Target programming language.
             technique:   One of the keys in :data:`_REFACTORING_QUERIES` or any
@@ -406,7 +411,7 @@ class GitHubCodeSearch:
 
         Returns:
             List of ``{"source": "github_refactor", "technique": ..., ...}``
-            dicts.
+            dicts, optionally with a ``"recipe"`` key.
         """
         queries = _REFACTORING_QUERIES.get(technique, [f"{technique} refactor {language}"])
         results = self.search_code(queries[0], language=language, max_results=max_results)
@@ -414,6 +419,30 @@ class GitHubCodeSearch:
             r["source"] = "github_refactor"
             r["technique"] = technique
         log.debug("[GH CODE SEARCH] find_refactoring_patterns(%s/%s) → %d", language, technique, len(results))
+
+        # Optionally enrich with GitHub Models recipe
+        try:
+            from modules.github_models_client import (
+                GitHubModelsClient,
+                USE_GH_MODEL_REPORTS,
+            )
+            if USE_GH_MODEL_REPORTS and results:
+                client = GitHubModelsClient()
+                recipe = client.generate_refactor_recipes(
+                    language=language,
+                    technique=technique,
+                    examples=results[:5],
+                )
+                if recipe:
+                    log.info(
+                        "[GH CODE SEARCH] GitHub Models recipe generated for %s/%s",
+                        language, technique,
+                    )
+                    for r in results:
+                        r["recipe"] = recipe
+        except Exception as exc:  # noqa: BLE001
+            log.warning("[GH CODE SEARCH] GitHub Models recipe failed: %s", exc)
+
         return results
 
     # ── batch helper used by ALE ─────────────────────────────────────────────
