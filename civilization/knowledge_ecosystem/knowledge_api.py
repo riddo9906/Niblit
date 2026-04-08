@@ -80,3 +80,7 @@ class KnowledgeAPI:
             log.info("KnowledgeAPI: deleted %s", key)
             return True
         return False
+
+    def vector_count(self) -> int:
+        """Return number of vectors currently stored in VectorMemory."""
+        return self._vectors.size()
