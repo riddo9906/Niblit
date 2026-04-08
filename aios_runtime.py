@@ -130,6 +130,10 @@ class AIOSRuntime:
         self.ale: Optional[Any] = None
         self.router: Optional[Any] = None
         self.core: Optional[Any] = None
+        # Security & layer-registry subsystems (SEC layer)
+        self.security_hardening: Optional[Any] = None
+        self.security_membrane: Optional[Any] = None
+        self.layer_registry: Optional[Any] = None
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -203,6 +207,9 @@ class AIOSRuntime:
             "brain_available": self.brain is not None,
             "ale_available": self.ale is not None,
             "router_available": self.router is not None,
+            "security_hardening_available": self.security_hardening is not None,
+            "security_membrane_available": self.security_membrane is not None,
+            "layer_registry_available": self.layer_registry is not None,
         }
 
     # ── Phase implementations ─────────────────────────────────────────────────
@@ -258,6 +265,31 @@ class AIOSRuntime:
             log.debug("AIOSRuntime[2/BOOTLOADER]: AIOSScheduler started")
         except Exception as exc:
             log.debug("AIOSRuntime[2/BOOTLOADER]: AIOSScheduler unavailable — %s", exc)
+
+        # SecurityHardening — initialise early so all later phases can use it
+        try:
+            from modules.security_hardening import get_security_hardening
+            self.security_hardening = get_security_hardening()
+            log.debug("AIOSRuntime[2/BOOTLOADER]: SecurityHardening ready (%s)",
+                      self.security_hardening.status()["kdf_algorithm"])
+        except Exception as exc:
+            log.debug("AIOSRuntime[2/BOOTLOADER]: SecurityHardening unavailable — %s", exc)
+
+        # SecurityMembrane — defensive API wrapper
+        try:
+            from modules.security_membrane import get_security_membrane
+            self.security_membrane = get_security_membrane()
+            log.debug("AIOSRuntime[2/BOOTLOADER]: SecurityMembrane ready")
+        except Exception as exc:
+            log.debug("AIOSRuntime[2/BOOTLOADER]: SecurityMembrane unavailable — %s", exc)
+
+        # AIOSLayerRegistry — formal 8-layer architecture registry
+        try:
+            from modules.aios_layer_registry import get_aios_layer_registry
+            self.layer_registry = get_aios_layer_registry()
+            log.debug("AIOSRuntime[2/BOOTLOADER]: AIOSLayerRegistry ready")
+        except Exception as exc:
+            log.debug("AIOSRuntime[2/BOOTLOADER]: AIOSLayerRegistry unavailable — %s", exc)
 
     def _phase_3_memory(self) -> None:
         """Phase 3 — MEMORY: initialise memory subsystem."""
@@ -327,6 +359,17 @@ class AIOSRuntime:
             log.debug("AIOSRuntime[7/INTERFACE]: background log capture active")
         except Exception as exc:
             log.debug("AIOSRuntime[7/INTERFACE]: notification queue unavailable — %s", exc)
+
+        # Cross-wire all booted subsystems into the 8-layer registry
+        if self.layer_registry is not None:
+            try:
+                self.layer_registry.cross_wire(self)
+                log.debug(
+                    "AIOSRuntime[7/INTERFACE]: AIOSLayerRegistry cross-wired — %s",
+                    self.layer_registry.status(),
+                )
+            except Exception as exc:
+                log.debug("AIOSRuntime[7/INTERFACE]: layer registry cross-wire failed — %s", exc)
 
         if self.scheduler is not None:
             try:
