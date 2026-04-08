@@ -76,6 +76,7 @@ _TRENDING_TOPICS = [
 ]
 
 _SCAN_INTERVAL_SECS = 3600 * 6   # 6 hours
+_MAX_MODEL_ENHANCED_REPOS = 10  # max repos sent to GitHub Models per scan
 
 
 def _writable_path(filename: str) -> Path:
@@ -252,6 +253,7 @@ class GitHubDeepResearch:
                 summary[repo] = {"error": str(e)}
         self._last_scan = time.time()
         self._save_cache({"tracked": summary})
+        self._model_enhanced_proposals(summary)
         return summary
 
     def add_tracked_repo(self, repo_full: str) -> str:
@@ -364,6 +366,81 @@ class GitHubDeepResearch:
                 log.warning("[GHDeep] refactor proposal error for %s: %s", technique, exc)
 
         return recipes
+
+    def _model_enhanced_proposals(self, scan_summary: Optional[Dict[str, Any]] = None) -> None:
+        """Use GitHub Models to turn tracked repo scans into improvement proposals.
+
+        Calls ``GitHubModelsClient.summarise_repos`` with compact metadata built
+        from *scan_summary* (the dict already produced by ``scan_all_tracked``),
+        stores a short summary in the knowledge DB, and surfaces one human-readable
+        improvement proposal.
+
+        Args:
+            scan_summary: Mapping of ``repo_full -> scan_result`` as returned by
+                          ``scan_all_tracked``.  When ``None`` (e.g. when called
+                          standalone) a fresh scan of up to
+                          ``_MAX_MODEL_ENHANCED_REPOS`` tracked repos is performed.
+
+        No-ops when ``USE_GH_MODEL_REPORTS`` is not set to ``true`` or when the
+        models client is unavailable.  Never raises.
+        """
+        try:
+            from modules.github_models_client import (
+                GitHubModelsClient,
+                USE_GH_MODEL_REPORTS,
+            )
+        except Exception as exc:
+            log.debug("[GHDeep] GitHubModelsClient import failed: %s", exc)
+            return
+
+        if not USE_GH_MODEL_REPORTS:
+            return
+
+        # Build compact payloads from the already-available scan results
+        if scan_summary is None:
+            # Standalone call: scan repos now (rare; avoid in hot paths)
+            scan_summary = {}
+            for repo in self.tracked_repos[:_MAX_MODEL_ENHANCED_REPOS]:
+                try:
+                    scan_summary[repo] = self.scan_tracked_repo(repo)
+                except Exception as exc:
+                    log.debug("[GHDeep] standalone scan(%s) failed: %s", repo, exc)
+
+        compact: List[Dict[str, Any]] = []
+        for repo, r in list(scan_summary.items())[:_MAX_MODEL_ENHANCED_REPOS]:
+            if "error" in r:
+                continue
+            compact.append({
+                "full_name": repo,
+                "stars": r.get("stars", 0),
+                "open_issues": r.get("open_issues", 0),
+                "description": r.get("description", ""),
+                "recent_prs": [p.get("title", "") for p in r.get("prs", [])[:3]],
+                "recent_issues": [i.get("title", "") for i in r.get("issues", [])[:3]],
+            })
+
+        if not compact:
+            return
+
+        try:
+            client = GitHubModelsClient()
+            md = client.summarise_repos(
+                "deep-research-tracked-repos",
+                compact,
+                knowledge={},
+            )
+        except Exception as exc:
+            log.debug("[GHDeep] summarise_repos failed in _model_enhanced_proposals: %s", exc)
+            return
+
+        if not md:
+            return
+
+        self._store_fact("deep_research:model_summary", md[:400])
+        proposal = "Updated model-enhanced deep research summary (see knowledge DB)"
+        with self._lock:
+            self._proposals.append(proposal)
+        self._push_proposal(proposal)
 
     def status(self) -> str:
         age = time.time() - self._last_scan

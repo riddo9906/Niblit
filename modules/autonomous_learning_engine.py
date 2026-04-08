@@ -2872,24 +2872,31 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
 
     def _autonomous_reasoning(self) -> str:
-        """Step 16: Use ReasoningEngine to build a knowledge graph from recent facts,
-        create reasoning chains, and infer new knowledge.
+        """Step 16: Advanced LLM-level reasoning using chain-of-thought, multi-hop
+        graph traversal, LLM-augmented inference, and contradiction detection.
 
-        The inferred facts are stored back into KnowledgeDB so every subsequent
-        cycle benefits from the connected understanding built here.
+        Upgraded capabilities:
+          * ``build_knowledge_graph`` — co-occurrence graph from KB facts.
+          * ``chain_of_thought``      — LLM-driven CoT if provider available;
+                                       graph-traversal fallback.
+          * ``reason_paths``          — BFS multi-hop paths from the research topic.
+          * ``infer_with_llm``        — LLM-augmented typed inferences with scores.
+          * ``detect_contradictions`` — surfaces conflicting KB facts.
+
+        All results are stored in KnowledgeDB for subsequent cycles.
         """
         engine = self._get_reasoning_engine()
         if not engine:
             return "[Reasoning skipped — ReasoningEngine not available]"
 
-        log.info("🧠 [REASONING] Starting intelligent reasoning step...")
+        log.info("🧠 [REASONING] Starting advanced reasoning step...")
 
-        # Pull recent facts from knowledge DB to reason over
+        # ── 1. Load recent KB facts ───────────────────────────────────────────
         facts: List[Dict] = []
         if self.knowledge_db:
             try:
                 raw = (
-                    self.knowledge_db.list_facts(50)
+                    self.knowledge_db.list_facts(60)  # 60 gives richer graph without overwhelming the LLM
                     if hasattr(self.knowledge_db, "list_facts")
                     else []
                 )
@@ -2899,74 +2906,127 @@ class AutonomousLearningEngine:
                     elif isinstance(f, (list, tuple)) and len(f) >= 2:
                         facts.append({"key": str(f[0]), "value": str(f[1])})
             except Exception as exc:
-                log.debug(f"[REASONING] Failed to load facts from KB: {exc}")
+                log.debug("[REASONING] Failed to load facts from KB: %s", exc)
 
+        topic = self.learning_history.get("last_research_topic") or "artificial intelligence"
         if not facts:
-            # Nothing to reason over yet — seed with learning history
-            topic = self.learning_history.get("last_research_topic") or "artificial intelligence"
-            facts = [{"key": f"ale_seed:{topic}", "value": topic, "tags": ["ale"]}]
+            facts = [{"key": f"ale_seed:{topic}", "value": topic}]
 
         try:
-            # 1. Build knowledge graph
+            # ── 2. Build knowledge graph ──────────────────────────────────────
             graph = engine.build_knowledge_graph(facts)
             graph_size = len(graph)
 
-            # 2. Create reasoning chains from a starting concept
-            start_concept = (
-                self.learning_history.get("last_research_topic") or
-                next(iter(graph), "learning")
-            )
-            chain = engine.create_reasoning_chain(start_concept, depth=4)
+            start_concept = next(iter(graph), topic)
 
-            # 3. Infer new knowledge
-            inferences = engine.infer_new_knowledge()
-            inference_count = len(inferences)
+            # ── 3. Chain-of-Thought reasoning ─────────────────────────────────
+            cot_question = f"What are the key insights about '{topic}' in Niblit's current knowledge?"
+            cot = engine.chain_of_thought(cot_question, facts, max_steps=4)
+            cot_source = cot.source
+            cot_confidence = cot.confidence
 
-            # Store graph summary and inferences in KB
+            # ── 4. Multi-hop reasoning paths ──────────────────────────────────
+            paths = engine.reason_paths(start_concept, goal=None, max_hops=4, top_k=2)
+            best_path = paths[0].hops if paths else [start_concept]
+
+            # ── 5. LLM-augmented inference ────────────────────────────────────
+            typed_inferences = engine.infer_with_llm(topic, facts, max_inferences=5)
+            inference_count = len(typed_inferences)
+            # Also run legacy infer for backward compat
+            if not typed_inferences:
+                plain_inferences = engine.infer_new_knowledge()
+                inference_count = len(plain_inferences)
+            else:
+                plain_inferences = [inf.statement for inf in typed_inferences]
+
+            # ── 6. Contradiction detection ────────────────────────────────────
+            contradictions = engine.detect_contradictions(facts)
+            contradiction_count = len(contradictions)
+
+            # ── 7. Persist all results in KB ──────────────────────────────────
             if self.knowledge_db:
                 try:
+                    ts = int(time.time())
+                    # Graph + chain summary
                     self.knowledge_db.add_fact(
-                        f"ale_reasoning:{int(time.time())}",
+                        f"ale_reasoning:{ts}",
                         {
                             "graph_concepts": graph_size,
-                            "chain": chain,
+                            "chain": best_path,
                             "inferences_count": inference_count,
-                            "sample_inferences": inferences[:3],
-                            "step": "step16_reasoning",
+                            "sample_inferences": plain_inferences[:3],
+                            "cot_source": cot_source,
+                            "cot_confidence": round(cot_confidence, 3),
+                            "contradictions_found": contradiction_count,
+                            "step": "step16_advanced_reasoning",
                         },
                         tags=["ale_step16", "reasoning", "autonomous"],
                     )
-                    # Store each inference as a searchable fact
-                    for i, inference in enumerate(inferences[:5]):
+
+                    # CoT conclusion
+                    if cot.conclusion:
                         self.knowledge_db.add_fact(
-                            f"ale_inference:{int(time.time())}_{i}",
-                            inference,
+                            f"ale_cot:{ts}",
+                            cot.conclusion,
+                            tags=["ale_step16", "chain_of_thought", "reasoning"],
+                        )
+
+                    # Typed inferences with confidence
+                    for i, inf in enumerate(typed_inferences[:5]):
+                        self.knowledge_db.add_fact(
+                            f"ale_inference:{ts}_{i}",
+                            {"statement": inf.statement, "confidence": inf.confidence},
                             tags=["ale_step16", "inference", "reasoning"],
                         )
+
+                    # Contradictions warning
+                    for j, contra in enumerate(contradictions[:3]):
+                        self.knowledge_db.add_fact(
+                            f"ale_contradiction:{ts}_{j}",
+                            {
+                                "concept": contra.shared_concept,
+                                "fact_a": contra.fact_a_key,
+                                "fact_b": contra.fact_b_key,
+                                "score": contra.score,
+                            },
+                            tags=["ale_step16", "contradiction", "reasoning"],
+                        )
+
                     self.knowledge_db.log_event(
-                        f"Autonomous reasoning: {graph_size} concepts, "
-                        f"{len(chain)}-step chain, {inference_count} inferences"
+                        f"Advanced reasoning: {graph_size} concepts, "
+                        f"{len(best_path)}-hop path, {inference_count} inferences "
+                        f"(CoT:{cot_source}|conf:{cot_confidence:.2f}), "
+                        f"{contradiction_count} contradictions"
                     )
                 except Exception as exc:
-                    log.debug(f"[REASONING] KB store failed: {exc}")
+                    log.debug("[REASONING] KB store failed: %s", exc)
 
+            # ── 8. Update learning history ────────────────────────────────────
             self.learning_history["reasoning_cycles"] = (
                 self.learning_history.get("reasoning_cycles", 0) + 1
             )
             self.learning_history["last_reasoning_inferences"] = inference_count
+            self.learning_history["last_cot_confidence"] = round(cot_confidence, 3)
 
             log.info(
-                f"✅ [REASONING] Graph: {graph_size} concepts | "
-                f"Chain: {' → '.join(chain)} | Inferences: {inference_count}"
+                "✅ [REASONING] Graph:%d concepts | Path:%s | "
+                "Inferences:%d | CoT:%s(%.2f) | Contradictions:%d",
+                graph_size,
+                "→".join(best_path),
+                inference_count,
+                cot_source,
+                cot_confidence,
+                contradiction_count,
             )
             return (
-                f"Reasoning: {graph_size} concepts in graph, "
-                f"{len(chain)}-step chain from '{start_concept}', "
-                f"{inference_count} new inferences stored"
+                f"Advanced reasoning: {graph_size} concepts, "
+                f"{len(best_path)}-hop path from '{start_concept}', "
+                f"{inference_count} inferences (CoT:{cot_source} conf:{cot_confidence:.2f}), "
+                f"{contradiction_count} contradictions detected"
             )
 
         except Exception as exc:
-            log.error(f"❌ Autonomous reasoning failed: {exc}")
+            log.error("❌ Autonomous reasoning failed: %s", exc)
             return f"[Reasoning error: {exc}]"
 
     # ─────────────────────────────────────────────
