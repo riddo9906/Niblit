@@ -518,11 +518,9 @@ def _model_enhanced_report(
     if not USE_GH_MODEL_REPORTS:
         return ""
 
-    import sys as _sys
-    import os as _os
-    _repo_root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
-    if _repo_root not in _sys.path:
-        _sys.path.insert(0, _repo_root)
+    _repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _repo_root not in sys.path:
+        sys.path.insert(0, _repo_root)
 
     try:
         from modules.github_models_client import GitHubModelsClient
