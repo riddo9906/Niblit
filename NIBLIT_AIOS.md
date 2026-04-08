@@ -92,9 +92,11 @@ Consistent shorthand for code and documentation:
 | `niblit_brain` | `NiblitBrain`, `BrainTrainer`, `hf_query` | `niblit_brain.py` |
 | `niblit_router` | `NiblitRouter`, `ChatDetector` | `niblit_router.py` |
 | `aios_kernel` | `NiblitKernel` | `modules/niblit_kernel.py` |
-| `aios_runtime` | `NiblitRuntime`, `get_niblit_runtime()` | `modules/niblit_runtime.py` |
+| `aios_runtime` | `AIOSRuntime`, `get_aios_runtime()` | `aios_runtime.py` |
+| `niblit_runtime` | `NiblitRuntime`, `Adaptable`, `get_niblit_runtime()` | `modules/niblit_runtime.py` |
 | `aios_orchestrator` | orchestration + diagnostics | `niblit_orchestrator.py` |
-| `aios_scheduler` | `LifecycleEngine` | `lifecycle_engine.py` |
+| `aios_scheduler` | `AIOSScheduler`, `ScheduledTask`, `get_aios_scheduler()` | `aios_scheduler.py` |
+| `aios_hal` | `HAL`, `get_aios_hal()` | `aios_hal.py` |
 | `aios_memory` | `KnowledgeDB`, `MemoryManager`, `LocalDB` | `niblit_memory/__init__.py` |
 | `aios_persistence` | `KnowledgeStore`, SQLite | `niblit_memory/__init__.py` |
 
@@ -308,22 +310,29 @@ Signal (SIGINT / SIGTERM / SIGHUP)
 
 ---
 
-## Recommended Next Steps
+## Implemented Architecture Components
 
-1. **Implement `aios_runtime.py`** — a thin runtime manager that owns the
-   Phase 0→7 boot sequence as a callable `AIOSRuntime.boot()` method, replacing
-   the implicit ordering in `main.py`.
+The following components from the AIOS proposal have been implemented:
 
-2. **Formalise `aios_scheduler.py`** — promote `LifecycleEngine` to a proper
-   AIOS scheduler with priority queues for agent tasks.
+1. ✅ **`aios_runtime.py`** — `AIOSRuntime.boot()` owns the Phase 0→7 boot
+   sequence with per-phase timing, hook registration, and singleton access via
+   `get_aios_runtime()`.
 
-3. **Add `aios_hal.py`** — consolidate `bios.py`, `bios_integration.py`,
-   `hardware_scanner.py`, and `platform_bootstrap.py` into a single Hardware
-   Abstraction Layer with a unified `HAL.probe()` API.
+2. ✅ **`aios_scheduler.py`** — `AIOSScheduler` wraps `LifecycleEngine` and
+   adds a priority heap queue (`ScheduledTask`), phase advancement, task
+   submit/cancel, and singleton access via `get_aios_scheduler()`.
 
-4. **Define the `Adaptable` contract** — every module that implements
-   `niblit_runtime.Adaptable` becomes a first-class AIOS citizen that
-   auto-upgrades when the runtime level advances.
+3. ✅ **`aios_hal.py`** — `HAL` consolidates `bios.py`, `bios_integration.py`,
+   `hardware_scanner.py`, and `platform_bootstrap.py` behind a unified
+   `HAL.probe()` → `HALProfile` API.  Singleton via `get_aios_hal()`.
 
-5. **Boot telemetry** — emit a structured boot log at Phase 7 (`aios.boot.complete`)
-   so `MonitoringAlerting` can track cold-start time across deployments.
+4. ✅ **`Adaptable` Protocol** (`modules/niblit_runtime.py`) — `@runtime_checkable
+   class Adaptable(Protocol)` defines the `aios_component_name`,
+   `aios_declared_level`, and `on_adaptation_challenge()` contract for
+   first-class AIOS citizens.
+
+5. ✅ **Boot telemetry** — `AIOSRuntime._emit_telemetry()` emits a structured
+   `aios.boot.complete` event at Phase 7 with per-phase timing, total boot
+   duration, and `boot_id` to the `aios.runtime` logger (DEBUG) and the
+   notification queue.
+

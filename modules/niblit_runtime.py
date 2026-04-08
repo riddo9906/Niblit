@@ -48,6 +48,10 @@ import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+try:
+    from typing import Protocol, runtime_checkable
+except ImportError:  # Python < 3.8
+    from typing_extensions import Protocol, runtime_checkable  # type: ignore[assignment]
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +59,49 @@ log = logging.getLogger(__name__)
 _IMPROVE_INTERVAL_SECS = int(os.environ.get("NIBLIT_RT_IMPROVE_INTERVAL", "3600"))  # 1 h
 _INITIAL_LEVEL = float(os.environ.get("NIBLIT_RT_INITIAL_LEVEL", "1.0"))
 _LEVEL_INCREMENT = float(os.environ.get("NIBLIT_RT_INCREMENT", "0.1"))
+
+
+# ── Adaptable contract ────────────────────────────────────────────────────────
+
+@runtime_checkable
+class Adaptable(Protocol):
+    """
+    Contract for first-class AIOS citizens.
+
+    Any module that implements this Protocol becomes auto-upgradeable: when the
+    runtime level advances, ``on_adaptation_challenge`` is called with an
+    ``AdaptationChallenge`` describing the delta the component must adopt to
+    remain compatible.
+
+    Usage::
+
+        class MyModule:
+            aios_component_name: str = "my_module"
+            aios_declared_level: float = 1.0
+
+            def on_adaptation_challenge(self, challenge: "AdaptationChallenge") -> None:
+                # self-upgrade logic here
+                ...
+
+    Register with the runtime::
+
+        runtime = get_niblit_runtime()
+        runtime.register_component(
+            MyModule.aios_component_name,
+            declared_level=MyModule.aios_declared_level,
+            adapt_callback=my_instance.on_adaptation_challenge,
+        )
+    """
+
+    #: Unique component identifier (used in ``register_component``).
+    aios_component_name: str
+
+    #: The runtime level this component was built for.
+    aios_declared_level: float
+
+    def on_adaptation_challenge(self, challenge: "AdaptationChallenge") -> None:
+        """Called when the runtime issues an adaptation challenge."""
+        ...
 
 
 # ── Data structures ──────────────────────────────────────────────────────────
