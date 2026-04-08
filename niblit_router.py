@@ -3950,6 +3950,23 @@ Ask me about:
                 return safe_call(self.core._cmd_reasoning_status)
             return "[ReasoningEngine not available]"
 
+        if lower.startswith("reasoning cot ") or lower.startswith("reasoning-cot "):
+            question = cmd.split(None, 2)[-1].strip()
+            if self.core and hasattr(self.core, "_cmd_reasoning_cot"):
+                return safe_call(self.core._cmd_reasoning_cot, question)
+            return "[ReasoningEngine not available]"
+
+        if lower.startswith("reasoning paths ") or lower.startswith("reasoning-paths "):
+            concept = cmd.split(None, 2)[-1].strip()
+            if self.core and hasattr(self.core, "_cmd_reasoning_paths"):
+                return safe_call(self.core._cmd_reasoning_paths, concept)
+            return "[ReasoningEngine not available]"
+
+        if lower in ("reasoning contradict", "reasoning-contradict", "detect contradictions"):
+            if self.core and hasattr(self.core, "_cmd_reasoning_contradict"):
+                return safe_call(self.core._cmd_reasoning_contradict)
+            return "[ReasoningEngine not available]"
+
         # ===== AGENTIC WORKFLOW COMMANDS =====
         if lower.startswith("agentic run ") or lower.startswith("agentic-run "):
             spec = cmd.split(None, 2)[-1].strip()

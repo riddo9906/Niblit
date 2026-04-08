@@ -2475,6 +2475,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "study language <lang>              — Study language best practices\n"
             "study software <category>          — Study a software category\n"
             "research code <lang> [topic]       — Research lang from internet → CodeGenerator\n"
+            "\n--- REASONING ENGINE (LLM-level) ---\n"
+            "reasoning build                    — Build knowledge graph from KB facts\n"
+            "reasoning status                   — Show reasoning engine status\n"
+            "reasoning chain <concept>          — Multi-hop chain from concept (legacy)\n"
+            "reasoning paths <concept>          — BFS multi-hop paths with scores\n"
+            "reasoning infer                    — Graph-based inference (legacy)\n"
+            "reasoning cot <question>           — Chain-of-thought reasoning (LLM + graph)\n"
+            "reasoning contradict               — Detect contradictions in KB facts\n"
             "\n--- REASONING & METACOGNITION ---\n"
             "self-research <topic>              — Autonomous research + KB storage\n"
             "reflect [text]                     — Reflect on topic (results stored in ale_learned)\n"
@@ -2717,9 +2725,70 @@ SW Categories: {stats.get('software_study_categories', 0)}
             lines.append(f"  … and {len(inferences) - 15} more")
         return "\n".join(lines)
 
+    def _cmd_reasoning_cot(self, question: str) -> str:
+        """Run chain-of-thought reasoning for the given question."""
+        if not self.reasoning_engine:
+            return "[❌ ReasoningEngine not available]"
+        if not question.strip():
+            return "Usage: reasoning cot <question>"
+        facts = []
+        if self.db and hasattr(self.db, "list_facts"):
+            try:
+                raw = self.db.list_facts(40) or []
+                facts = [
+                    {"key": str(f.get("key", "")), "value": str(f.get("value", ""))}
+                    for f in raw if isinstance(f, dict)
+                ]
+            except Exception:
+                pass
+        cot = self.reasoning_engine.chain_of_thought(question.strip(), facts, max_steps=4)
+        lines = [f"🧠 **CHAIN-OF-THOUGHT: {question}**", f"Source: {cot.source} | Confidence: {cot.confidence:.2f}", ""]
+        for step in cot.steps:
+            lines.append(f"  Step {step.index}: {step.question}")
+            lines.append(f"    → {step.answer}")
+        lines += ["", f"**Conclusion:** {cot.conclusion}"]
+        return "\n".join(lines)
+
+    def _cmd_reasoning_paths(self, concept: str) -> str:
+        """Show multi-hop reasoning paths from the given concept."""
+        if not self.reasoning_engine:
+            return "[❌ ReasoningEngine not available]"
+        if not concept.strip():
+            return "Usage: reasoning paths <concept>"
+        paths = self.reasoning_engine.reason_paths(concept.strip(), goal=None, max_hops=4, top_k=3)
+        if not paths:
+            return f"🔗 No paths found from '{concept}' — run 'reasoning build' first."
+        lines = [f"🔗 **REASONING PATHS from '{concept}':**", ""]
+        for i, p in enumerate(paths, 1):
+            lines.append(f"  {i}. {' → '.join(p.hops)}  (score: {p.score:.3f})")
+        return "\n".join(lines)
+
+    def _cmd_reasoning_contradict(self, _text: str = "") -> str:
+        """Detect potential contradictions in KB facts."""
+        if not self.reasoning_engine:
+            return "[❌ ReasoningEngine not available]"
+        facts = []
+        if self.db and hasattr(self.db, "list_facts"):
+            try:
+                raw = self.db.list_facts(60) or []
+                facts = [
+                    {"key": str(f.get("key", "")), "value": str(f.get("value", ""))}
+                    for f in raw if isinstance(f, dict)
+                ]
+            except Exception:
+                pass
+        contradictions = self.reasoning_engine.detect_contradictions(facts)
+        if not contradictions:
+            return "✅ No contradictions detected in current KB facts."
+        lines = [f"⚠️ **{len(contradictions)} POTENTIAL CONTRADICTIONS DETECTED:**", ""]
+        for c in contradictions[:10]:
+            lines.append(f"  • [{c.shared_concept}] '{c.fact_a_key}' vs '{c.fact_b_key}' (score:{c.score:.2f})")
+        return "\n".join(lines)
+
     # ──────────────────────────────────────
     # COLLABORATIVE SYSTEMS COMMANDS
     # ──────────────────────────────────────
+
 
     def _cmd_collab_status(self, _text: str = "") -> str:
         """Show collaborative learner status."""
