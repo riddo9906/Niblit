@@ -51,8 +51,11 @@ class DeploymentBridge:
         bridge.start_autosave(core, interval=120)  # background autosave
     """
 
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
     _AUTOSAVE_INTERVAL_SECS = int(os.getenv("NIBLIT_BRIDGE_INTERVAL", "120"))
+
+    # Supported cloud deployment targets for documentation and gap tracking
+    CLOUD_TARGETS: List[str] = ["fly.io", "render", "docker", "aws", "gcp", "azure", "production"]
 
     def __init__(self, path: Optional[str] = None) -> None:
         self.path = Path(path or _BRIDGE_FILE)
@@ -96,6 +99,10 @@ class DeploymentBridge:
             "interactions_count": 0,
             "memory_meta": {},
             "learned_knowledge": [],
+            # Cloud deployment metadata — records which targets are configured
+            "deployment_targets": self._collect_deployment_targets(),
+            # RL policy snapshot (algorithm + reward stats)
+            "rl_policy_snapshot": self._collect_rl_snapshot(core),
         }
 
         # ALE state
@@ -122,10 +129,53 @@ class DeploymentBridge:
         with _BRIDGE_LOCK:
             self._write_snapshot(snap)
         self._last_save = datetime.now(timezone.utc)
-        log.info("[Bridge] Snapshot saved → %s (%d facts, %d ALE cycles)",
-                 self.path, snap["facts_count"], snap["ale_cycles"])
+        targets = snap.get("deployment_targets", {})
+        log.info("[Bridge] Snapshot saved → %s (%d facts, %d ALE cycles, targets=%s)",
+                 self.path, snap["facts_count"], snap["ale_cycles"],
+                 list(targets.keys()))
         return (f"✅ Deployment snapshot saved: {snap['facts_count']} facts, "
                 f"{snap['ale_cycles']} ALE cycles @ {snap['saved_at']}")
+
+    def _collect_deployment_targets(self) -> Dict[str, bool]:
+        """Probe environment variables to determine which cloud targets are live.
+
+        Returns a dict mapping target name → True/False (configured or not).
+        This is used for gap analysis and deployment documentation.
+        """
+        targets: Dict[str, bool] = {}
+        # fly.io: FLY_APP_NAME is set by the Fly.io runtime
+        targets["fly.io"] = bool(os.getenv("FLY_APP_NAME"))
+        # Render: RENDER is set by the Render runtime
+        targets["render"] = bool(os.getenv("RENDER"))
+        # Docker: running inside a container if /.dockerenv exists
+        targets["docker"] = os.path.exists("/.dockerenv")
+        # AWS: standard AWS credential env vars
+        targets["aws"] = bool(os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION"))
+        # GCP: GOOGLE_CLOUD_PROJECT or GCLOUD_PROJECT
+        targets["gcp"] = bool(
+            os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCLOUD_PROJECT")
+        )
+        # Azure: AZURE_SUBSCRIPTION_ID or WEBSITE_SITE_NAME (App Service)
+        targets["azure"] = bool(
+            os.getenv("AZURE_SUBSCRIPTION_ID") or os.getenv("WEBSITE_SITE_NAME")
+        )
+        # Generic production flag
+        targets["production"] = os.getenv("ENVIRONMENT", "").lower() in (
+            "production", "prod"
+        ) or os.getenv("NODE_ENV", "").lower() == "production"
+        return targets
+
+    def _collect_rl_snapshot(self, core: Any) -> Dict[str, Any]:
+        """Collect RL policy status from the trading study engine if available."""
+        try:
+            study = getattr(core, "trading_study", None)
+            if study is not None:
+                rl = getattr(study, "_rl_policy", None)
+                if rl is not None and hasattr(rl, "status"):
+                    return rl.status()
+        except Exception:
+            pass
+        return {}
 
     def load(self, core: Any) -> str:
         """Restore a previous deployment snapshot into ``core``."""
@@ -173,6 +223,9 @@ class DeploymentBridge:
         snap = self._read_snapshot()
         if snap is None:
             return "⚫ DeploymentBridge: no snapshot on disk"
+        targets = snap.get("deployment_targets", {})
+        active_targets = [t for t, v in targets.items() if v]
+        rl_snap = snap.get("rl_policy_snapshot", {})
         lines = [
             f"🔗 **DeploymentBridge** ({self.path}):",
             f"  Saved at   : {snap.get('saved_at', '?')}",
@@ -180,7 +233,14 @@ class DeploymentBridge:
             f"  Facts      : {snap.get('facts_count', 0)}",
             f"  Topics     : {len(snap.get('topics', []))}",
             f"  Schema     : v{snap.get('schema', '?')}",
+            f"  Cloud targets active: {active_targets or 'none detected'}",
         ]
+        if rl_snap:
+            lines.append(
+                f"  RL policy  : {rl_snap.get('algorithm', '?')} "
+                f"(decisions={rl_snap.get('total_decisions', 0)}, "
+                f"reward={rl_snap.get('cumulative_reward', 0.0):.4f})"
+            )
         if self._last_save:
             lines.append(f"  Last save  : {self._last_save.isoformat()}")
         return "\n".join(lines)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-modules/trading_brain.py — Niblit Trading Brain (V1).
+modules/trading_brain.py — Niblit Trading Brain (V2).
 
 Connects Niblit's fused memory system (SQLite + Qdrant) to live crypto
 market data so the agent can observe the market, build state vectors,
@@ -15,7 +15,7 @@ Architecture::
     MarketIngestor          ← fetch_market_data()
          │
          ▼
-    FeatureEngineer         ← compute_indicators()  [RSI, MACD, EMA, vol]
+    FeatureEngineer         ← compute_indicators()  [RSI, MACD, EMA, ATR, vol]
          │
          ▼
     StateVectorBuilder      ← build_state_vector()  [normalised numpy → list]
@@ -28,6 +28,9 @@ Architecture::
          │
          ▼
     DecisionEngine          ← decide_action()  → BUY / SELL / HOLD
+         │
+         ▼  (optional RL override)
+    RLTradingPolicy         ← PPO / DQN / Transformer  [rl_trading_policy.py]
 
 Autonomous cycle control::
 
@@ -43,6 +46,8 @@ Configuration (environment variables)::
     TRADING_SYMBOL      — Trading pair, default BTCUSDT
     TRADING_INTERVAL    — Kline interval, default 1m
     TRADING_KLINE_LIMIT — Number of candles to fetch per cycle, default 200
+    NIBLIT_RL_ALGORITHM — RL policy algorithm: ppo | dqn | transformer (default ppo)
+    NIBLIT_RL_ENABLED   — Set to "1" to activate RL override in decide_action()
 
 Usage::
 
@@ -102,11 +107,22 @@ except ImportError:  # pragma: no cover
     NiblitMemory = None  # type: ignore[assignment,misc]
     _MEMORY_AVAILABLE = False
 
+# ── RL trading policy (optional enhancement) ──────────────────────────────────
+try:
+    from modules.rl_trading_policy import get_rl_policy as _get_rl_policy
+    _RL_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _get_rl_policy = None  # type: ignore[assignment]
+    _RL_AVAILABLE = False
+
 # ── defaults ──────────────────────────────────────────────────────────────────
 _DEFAULT_SYMBOL = os.getenv("TRADING_SYMBOL", "BTCUSDT")
 _DEFAULT_INTERVAL = os.getenv("TRADING_INTERVAL", "1m")
 _DEFAULT_KLINE_LIMIT = int(os.getenv("TRADING_KLINE_LIMIT", "200"))
 _DEFAULT_CYCLE_SECS = int(os.getenv("TRADING_CYCLE_SECS", "60"))
+
+# Set NIBLIT_RL_ENABLED=1 to activate the RL policy override in decide_action()
+_RL_ENABLED: bool = os.getenv("NIBLIT_RL_ENABLED", "0").strip() == "1"
 
 # Seconds to wait after signalling stop before restarting with a new pair
 _SWITCH_PAIR_STOP_GRACE_SECS = 0.2
@@ -246,14 +262,15 @@ class TradingBrain:
     # ─────────────────────────────────────────────────────────────────────────
 
     def compute_indicators(self, df: Any) -> Any:
-        """Compute RSI, MACD, EMA-20, and intra-bar volatility.
+        """Compute RSI, MACD, EMA-20, ATR-14, and intra-bar volatility.
 
         Args:
             df: DataFrame produced by :meth:`fetch_market_data`.
 
         Returns:
-            The same DataFrame with four new columns — ``rsi``, ``macd``,
-            ``ema``, ``volatility`` — with rows containing NaN values dropped.
+            The same DataFrame with five new columns — ``rsi``, ``macd``,
+            ``ema``, ``atr``, ``volatility`` — with rows containing NaN
+            values dropped.
 
         Raises:
             RuntimeError: If *ta* or *pandas* is not installed, or if the
@@ -276,6 +293,13 @@ class TradingBrain:
         df["macd"] = macd_indicator.macd()
 
         df["ema"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
+
+        # ATR-14: Average True Range — volatility indicator used in dynamic
+        # stop-loss sizing and by Transformer/PPO policies for risk context.
+        df["atr"] = ta.volatility.AverageTrueRange(
+            df["high"], df["low"], df["close"], window=14
+        ).average_true_range()
+
         df["volatility"] = df["high"] - df["low"]
 
         return df.dropna().reset_index(drop=True)
@@ -287,9 +311,11 @@ class TradingBrain:
     def build_state_vector(self, row: Any) -> List[float]:
         """Convert a single OHLCV + indicator row into a normalised float vector.
 
-        The six-dimensional vector ``[close, volume, rsi, macd, ema,
+        The seven-dimensional vector ``[close, volume, rsi, macd, ema, atr,
         volatility]`` is z-score normalised so all features live on a
-        comparable scale before being stored in Qdrant.
+        comparable scale before being stored in Qdrant.  ATR was added as the
+        seventh feature to give RL policies (PPO / DQN / Transformer) an
+        explicit volatility-adjusted risk signal.
 
         Args:
             row: A pandas Series (or dict-like) representing one candle.
@@ -312,6 +338,7 @@ class TradingBrain:
             float(row["rsi"]),
             float(row["macd"]),
             float(row["ema"]),
+            float(row.get("atr", 0.0)),
             float(row["volatility"]),
         ], dtype=float)
 
@@ -385,13 +412,23 @@ class TradingBrain:
     def decide_action(self, current_vector: List[float]) -> str:
         """Produce a trade signal based on similarity scores of past states.
 
-        This is a placeholder heuristic that will be replaced by a proper
-        reinforcement-learning policy in V2/V3.  The current logic:
+        When ``NIBLIT_RL_ENABLED=1`` (and the RL policy module is available),
+        the decision is delegated to the configured RL policy (PPO / DQN /
+        Transformer) which learns from market state vectors over time.
+        Otherwise falls back to the heuristic similarity-score approach.
+
+        Heuristic logic (default):
 
         * If fewer than 5 similar past states exist → **HOLD**.
         * If the mean similarity score ≥ ``_BUY_THRESHOLD`` (0.85) → **BUY**.
         * If the mean similarity score < ``_SELL_THRESHOLD`` (0.60) → **SELL**.
         * Otherwise → **HOLD**.
+
+        RL override (``NIBLIT_RL_ENABLED=1``):
+
+        * Calls ``rl_policy.select_action(current_vector)`` and returns its
+          choice.  The heuristic score is still computed and logged for
+          comparison but does not affect the returned action.
 
         Args:
             current_vector: Normalised float vector for the current candle.
@@ -401,23 +438,36 @@ class TradingBrain:
         """
         similar = self.retrieve_similar_states(current_vector)
 
-        if len(similar) < 5:
-            log.debug("[TradingBrain] Insufficient history — defaulting to HOLD.")
-            return "HOLD"
-
-        scores = [s.get("score", 0.0) for s in similar]
-        if not _NP_AVAILABLE:
-            avg_score = sum(scores) / len(scores)
+        # Compute heuristic score (always, for logging / study purposes)
+        heuristic_action = "HOLD"
+        if len(similar) >= 5:
+            scores = [s.get("score", 0.0) for s in similar]
+            if not _NP_AVAILABLE:
+                avg_score = sum(scores) / len(scores)
+            else:
+                avg_score = float(np.mean(scores))
+            log.debug("[TradingBrain] avg_score=%.4f (n=%d)", avg_score, len(scores))
+            if avg_score >= _BUY_THRESHOLD:
+                heuristic_action = "BUY"
+            elif avg_score < _SELL_THRESHOLD:
+                heuristic_action = "SELL"
         else:
-            avg_score = float(np.mean(scores))
+            log.debug("[TradingBrain] Insufficient history — heuristic defaulting to HOLD.")
 
-        log.debug("[TradingBrain] avg_score=%.4f (n=%d)", avg_score, len(scores))
+        # RL policy override: when enabled, delegate to the learned policy
+        if _RL_ENABLED and _RL_AVAILABLE and _get_rl_policy is not None:
+            try:
+                rl_policy = _get_rl_policy()
+                rl_action = rl_policy.select_action(current_vector)
+                log.debug(
+                    "[TradingBrain] RL(%s) → %s  |  heuristic → %s",
+                    rl_policy.algorithm, rl_action, heuristic_action,
+                )
+                return rl_action
+            except Exception as exc:  # pragma: no cover
+                log.warning("[TradingBrain] RL policy error — falling back to heuristic: %s", exc)
 
-        if avg_score >= _BUY_THRESHOLD:
-            return "BUY"
-        if avg_score < _SELL_THRESHOLD:
-            return "SELL"
-        return "HOLD"
+        return heuristic_action
 
     # ─────────────────────────────────────────────────────────────────────────
     # MAIN CYCLE
@@ -460,6 +510,7 @@ class TradingBrain:
                 "rsi": float(latest["rsi"]),
                 "macd": float(latest["macd"]),
                 "ema": float(latest["ema"]),
+                "atr": float(latest.get("atr", 0.0)),
                 "volatility": float(latest["volatility"]),
             }
 
@@ -490,6 +541,15 @@ class TradingBrain:
                     )
                 except Exception as _exc:  # pragma: no cover
                     log.debug("[TradingBrain] reflect_on_trading failed: %s", _exc)
+
+            # 9. Feed a neutral RL reward so the policy continues learning.
+            # A proper reward (±1) is applied externally by TradingStudy when
+            # a trade closes with a known PnL via rl_policy.record_outcome().
+            if _RL_ENABLED and _RL_AVAILABLE and _get_rl_policy is not None:
+                try:
+                    _get_rl_policy().record_outcome(0.0)
+                except Exception as _exc:  # pragma: no cover
+                    log.debug("[TradingBrain] RL record_outcome failed: %s", _exc)
 
             return decision
 
@@ -557,9 +617,10 @@ class TradingBrain:
 
         Returns:
             Dict with keys: ``running``, ``symbol``, ``cycle_secs``,
-            ``cycle_count``, ``last_decision``, ``last_cycle_ts``.
+            ``cycle_count``, ``last_decision``, ``last_cycle_ts``,
+            ``rl_enabled``, ``rl_algorithm``.
         """
-        return {
+        result: Dict[str, Any] = {
             "running": self.running,
             "symbol": self.symbol,
             "interval": self.interval,
@@ -569,7 +630,16 @@ class TradingBrain:
             "last_cycle_ts": self._last_cycle_ts or "—",
             "binance_available": self._client is not None,
             "memory_available": self.memory is not None,
+            "rl_enabled": _RL_ENABLED,
+            "rl_available": _RL_AVAILABLE,
         }
+        # Include RL policy status when active
+        if _RL_ENABLED and _RL_AVAILABLE and _get_rl_policy is not None:
+            try:
+                result["rl_policy"] = _get_rl_policy().status()
+            except Exception:  # pragma: no cover
+                pass
+        return result
 
     def switch_pair(self, symbol: str, interval: Optional[str] = None) -> Dict[str, Any]:
         """Switch the trading pair (and optionally the kline interval) at runtime.
