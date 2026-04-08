@@ -713,6 +713,95 @@ def create_or_update_issue(title: str, body: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Phase 6 — Niblit Integration: feed discoveries back into Niblit subsystems
+# ---------------------------------------------------------------------------
+
+def build_niblit_findings(
+    analyses: List[Dict[str, Any]],
+    synthesis: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Build a structured findings dict consumable by Niblit's
+    ``SelfImprovementOrchestrator.ingest_research_findings()``.
+
+    This is the bridge between the external research loop (nibblebot) and
+    Niblit's internal self-improvement subsystems.
+    """
+    # Aggregate patterns across all analyses
+    all_patterns: Dict[str, List[str]] = {}
+    for a in analyses:
+        for cat, kws in a.get("patterns", {}).items():
+            if cat not in all_patterns:
+                all_patterns[cat] = []
+            for kw in kws:
+                if kw not in all_patterns[cat]:
+                    all_patterns[cat].append(kw)
+
+    # Top repos as lightweight dicts for RAG indexing
+    top_repos = [
+        {
+            "full_name": a["full_name"],
+            "description": a.get("description", ""),
+            "stars": a.get("stars", 0),
+            "patterns": [kw for kws in a.get("patterns", {}).values() for kw in kws],
+        }
+        for a in sorted(analyses, key=lambda x: x.get("stars", 0), reverse=True)[:8]
+    ]
+
+    # Top-frequency recommendations
+    all_freq: Dict[str, int] = {}
+    for cat, top_patterns in synthesis.get("pattern_freq", {}).items():
+        for kw, cnt in top_patterns:
+            all_freq[kw] = all_freq.get(kw, 0) + cnt
+    recommendations = [
+        f"{kw} appeared in {cnt} studied repos"
+        for kw, cnt in sorted(all_freq.items(), key=lambda x: x[1], reverse=True)[:5]
+    ]
+
+    return {
+        "patterns": all_patterns,
+        "new_insights": synthesis.get("new_insights", []),
+        "top_repos": top_repos,
+        "recommendations": recommendations,
+    }
+
+
+def niblit_integrate(findings: Dict[str, Any]) -> None:
+    """
+    Feed research findings into Niblit's SelfImprovementOrchestrator.
+
+    This runs inside the nibblebot Action environment where Niblit's Python
+    modules are available (they are in the repository root).  If the import
+    fails (e.g. missing heavy dependencies) the function logs a warning and
+    returns gracefully — the research report is always published regardless.
+    """
+    import sys as _sys
+    import os as _os
+
+    # Add repository root to sys.path so Niblit modules are importable
+    _repo_root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    if _repo_root not in _sys.path:
+        _sys.path.insert(0, _repo_root)
+
+    try:
+        from modules.self_improvement_orchestrator import SelfImprovementOrchestrator
+        orchestrator = SelfImprovementOrchestrator()
+        result = orchestrator.ingest_research_findings(
+            findings, source="nibblebot-research"
+        )
+        print(
+            f"  🔗 Niblit integration: "
+            f"topics={result['ale_topics_queued']} "
+            f"facts={result['facts_stored']} "
+            f"docs={result['docs_indexed']}"
+        )
+    except ImportError as exc:
+        print(f"  ℹ Niblit integration skipped (SelfImprovementOrchestrator not importable): {exc}")
+    except Exception as exc:
+        print(f"  ⚠ Niblit integration error: {exc}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -771,6 +860,11 @@ def main() -> None:
     else:
         print(f"📝 Phase 5: Publishing issue: {title}")
         create_or_update_issue(title, body)
+
+    # Phase 6 — Feed discoveries into Niblit's self-improvement subsystems
+    print("\n🔗 Phase 6: Feeding discoveries into Niblit…")
+    findings = build_niblit_findings(analyses, synthesis)
+    niblit_integrate(findings)
 
     print("\n✅ Nibblebot Research Bot finished.")
 

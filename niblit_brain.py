@@ -1130,6 +1130,18 @@ class NiblitBrain:
                 log.debug("[BRAIN] SECA graph retrieval skipped: %s", _seca_err)
             # ─────────────────────────────────────────────────────────────────
 
+            # ── RAG Pipeline: dense vector retrieval augmentation ─────────────
+            try:
+                from modules.rag_pipeline import get_rag_pipeline
+                _rag = get_rag_pipeline()
+                _rag_result = _rag.query(user_input, top_k=3, graph_depth=1)
+                _rag_ctx = _rag_result.get("context", "")
+                if _rag_ctx and _rag_ctx not in context:
+                    context = _rag_ctx + context
+            except Exception as _rag_err:
+                log.debug("[BRAIN] RAG pipeline augmentation skipped: %s", _rag_err)
+            # ─────────────────────────────────────────────────────────────────
+
             prompt = context + user_input
 
             if not self.llm_enabled:
