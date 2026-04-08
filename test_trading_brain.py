@@ -27,6 +27,7 @@ def _random_kline_row():
         "rsi": random.uniform(20, 80),
         "macd": random.uniform(-500, 500),
         "ema": close * random.uniform(0.99, 1.01),
+        "atr": random.uniform(50, 600),
         "volatility": random.uniform(50, 800),
         "high": close + random.uniform(0, 400),
         "low": close - random.uniform(0, 400),
@@ -107,7 +108,7 @@ class TestBuildStateVector(unittest.TestCase):
         row = _random_kline_row()
         vector = brain.build_state_vector(row)
         self.assertIsInstance(vector, list)
-        self.assertEqual(len(vector), 6)
+        self.assertEqual(len(vector), 7)  # close, volume, rsi, macd, ema, atr, volatility
         for v in vector:
             self.assertIsInstance(v, float)
 
@@ -227,11 +228,12 @@ class TestCycle(unittest.TestCase):
         import pandas as pd
         df_raw = pd.DataFrame([row])
         df_with_indicators = pd.DataFrame([{**row, "rsi": 50.0, "macd": 10.0,
-                                             "ema": row["close"], "volatility": 200.0}])
+                                             "ema": row["close"], "atr": 300.0,
+                                             "volatility": 200.0}])
 
         brain.fetch_market_data = MagicMock(return_value=df_raw)
         brain.compute_indicators = MagicMock(return_value=df_with_indicators)
-        brain.build_state_vector = MagicMock(return_value=[0.1] * 6)
+        brain.build_state_vector = MagicMock(return_value=[0.1] * 7)
         brain.store_market_state = MagicMock()
         brain.decide_action = MagicMock(return_value=decision)
         return brain
@@ -324,7 +326,8 @@ class TestAutonomousCycle(unittest.TestCase):
         st = brain.status()
         for key in ("running", "symbol", "interval", "cycle_secs",
                     "cycle_count", "last_decision", "last_cycle_ts",
-                    "binance_available", "memory_available"):
+                    "binance_available", "memory_available",
+                    "rl_enabled", "rl_available"):
             self.assertIn(key, st)
         self.assertIsInstance(st["running"], bool)
         self.assertIsInstance(st["symbol"], str)
@@ -334,6 +337,8 @@ class TestAutonomousCycle(unittest.TestCase):
         self.assertIsInstance(st["last_decision"], str)
         self.assertIsInstance(st["binance_available"], bool)
         self.assertIsInstance(st["memory_available"], bool)
+        self.assertIsInstance(st["rl_enabled"], bool)
+        self.assertIsInstance(st["rl_available"], bool)
 
     def test_status_reflects_state(self):
         brain = self._brain(symbol="ETHUSDT", cycle_secs=30)

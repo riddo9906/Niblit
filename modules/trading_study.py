@@ -77,6 +77,7 @@ class TradingStudy:
         brain_trainer: Optional[Any] = None,
         reflect_module: Optional[Any] = None,
         llm: Optional[Any] = None,
+        rl_policy: Optional[Any] = None,
     ) -> None:
         self._kb = knowledge_db
         self._brain = trading_brain
@@ -86,6 +87,7 @@ class TradingStudy:
         self._trainer = brain_trainer
         self._reflect = reflect_module
         self._llm = llm
+        self._rl_policy = rl_policy
 
         # In-memory trade journal
         self._trade_journal: List[Dict[str, Any]] = []
@@ -100,6 +102,8 @@ class TradingStudy:
             "blind_spots": [],
             "confidence": 0.5,
             "last_study_ts": 0.0,
+            "rl_algorithms_active": [],
+            "rl_cumulative_reward": 0.0,
         }
         self._meta_lock = threading.Lock()
 
@@ -126,6 +130,8 @@ class TradingStudy:
             f"  Auto-study:         {'running' if self._auto_study_running else 'stopped'}",
             f"  Known patterns:     {len(m['known_patterns'])}",
             f"  Blind spots noted:  {len(m['blind_spots'])}",
+            f"  RL algorithms:      {m.get('rl_algorithms_active') or 'none'}",
+            f"  RL cumul. reward:   {m.get('rl_cumulative_reward', 0.0):.4f}",
         ]
         if m["last_study_ts"]:
             last = datetime.fromtimestamp(m["last_study_ts"], tz=timezone.utc).isoformat()
@@ -146,7 +152,9 @@ class TradingStudy:
     ) -> str:
         """Record a trade in the in-memory journal and KB.
 
-        *pnl* > 0 = profitable, < 0 = loss.
+        *pnl* > 0 = profitable, < 0 = loss.  When an RL policy is wired in,
+        a reward signal (``+1`` / ``-1`` / ``0``) is forwarded so the policy
+        learns from each closed trade.
         """
         entry: Dict[str, Any] = {
             "symbol": symbol,
@@ -167,6 +175,22 @@ class TradingStudy:
                 else:
                     self._meta["loss_trades_observed"] += 1
                 self._update_confidence()
+
+            # Propagate reward to the RL policy so it can learn from outcomes
+            if self._rl_policy is not None:
+                try:
+                    reward = 1.0 if pnl > 0 else (-1.0 if pnl < 0 else 0.0)
+                    self._rl_policy.record_outcome(reward)
+                    with self._meta_lock:
+                        self._meta["rl_cumulative_reward"] = (
+                            self._meta.get("rl_cumulative_reward", 0.0) + reward
+                        )
+                        algorithm = getattr(self._rl_policy, "algorithm", "unknown")
+                        if algorithm not in self._meta["rl_algorithms_active"]:
+                            self._meta["rl_algorithms_active"].append(algorithm)
+                except Exception as exc:
+                    log.debug("[TradingStudy] RL record_outcome: %s", exc)
+
         key = f"trading_study:trade:{symbol}:{int(entry['ts'])}"
         self._store_in_kb(
             key,
@@ -296,6 +320,56 @@ class TradingStudy:
         self._increment_sessions()
         return f"✅ Market snapshot studied\n{overview}"
 
+    def study_rl_policy(self) -> str:
+        """Study the current RL trading policy status and log insights.
+
+        Reads the status of the wired RL policy (PPO / DQN / Transformer),
+        generates a study narrative, updates metacognition, and stores the
+        result in the KB.  Calls :meth:`metacognition_check` afterwards to
+        keep the blind-spot detector current.
+
+        Returns:
+            A human-readable summary string.
+        """
+        if self._rl_policy is None:
+            return "[TradingStudy] No RL policy wired — set rl_policy= in constructor"
+
+        try:
+            policy_status = self._rl_policy.status()
+        except Exception as exc:
+            return f"[TradingStudy] RL policy status error: {exc}"
+
+        algo = policy_status.get("algorithm", "unknown")
+        decisions = policy_status.get("total_decisions", 0)
+        cumulative_reward = policy_status.get("cumulative_reward", 0.0)
+        action_counts = policy_status.get("action_counts", {})
+
+        text = (
+            f"RL policy study ({algo}): "
+            f"decisions={decisions} "
+            f"cumulative_reward={cumulative_reward:.4f} "
+            f"action_counts={action_counts}"
+        )
+        narrative = self._enrich_with_llm(
+            f"Analyse this reinforcement learning trading policy ({algo}) status and "
+            f"suggest improvements: " + text
+        )
+
+        # Update metacognition with RL algorithm info
+        with self._meta_lock:
+            if algo not in self._meta["rl_algorithms_active"]:
+                self._meta["rl_algorithms_active"].append(algo)
+            self._meta["rl_cumulative_reward"] = cumulative_reward
+
+        key = f"trading_study:rl_policy:{algo}:{int(time.time())}"
+        self._store_in_kb(
+            key, narrative or text,
+            tags=["trading_study", "rl_policy", algo, "reinforcement_learning"],
+        )
+        self._train_on_insight(narrative or text)
+        self._increment_sessions()
+        return f"✅ RL policy studied ({algo}): decisions={decisions} reward={cumulative_reward:.4f}"
+
     def deep_study_session(self) -> str:
         """Run a full study session: brain cycle + market + lean backtests.
 
@@ -315,7 +389,10 @@ class TradingStudy:
                     results.append(
                         self.study_lean_backtest(p.get("name", "?"))
                     )
-        # 4. Metacognition check
+        # 4. RL policy study
+        if self._rl_policy is not None:
+            results.append(self.study_rl_policy())
+        # 5. Metacognition check
         results.append(self.metacognition_check())
         summary = f"Deep study session complete ({len(results)} studies)."
         _notif_queue.push(f"[TradingStudy] {summary}")
@@ -327,7 +404,8 @@ class TradingStudy:
         """Self-assessment of trading competence and reasoning quality.
 
         Compares win/loss rates, identifies potential blind spots, and
-        updates the metacognition state.
+        updates the metacognition state.  Also checks whether RL algorithms
+        (PPO, DQN, Transformer, ATR) are active and flags gaps.
         """
         with self._meta_lock:
             m = dict(self._meta)
@@ -345,18 +423,35 @@ class TradingStudy:
         if len(m["known_patterns"]) == 0:
             blind_spots.append("No recognized patterns yet — needs more data")
 
+        # RL algorithm coverage check
+        active_rl = m.get("rl_algorithms_active", [])
+        recommended_rl = ["ppo", "dqn", "transformer"]
+        missing_rl = [a for a in recommended_rl if a not in active_rl]
+        if missing_rl:
+            blind_spots.append(
+                f"RL algorithms not yet active: {missing_rl} "
+                f"— set NIBLIT_RL_ENABLED=1 to enable"
+            )
+        if not active_rl:
+            blind_spots.append(
+                "No reinforcement learning policy in use — heuristic decisions only"
+            )
+
         # Update blind spots
         with self._meta_lock:
             for bs in blind_spots:
                 if bs not in self._meta["blind_spots"]:
                     self._meta["blind_spots"].append(bs)
 
+        rl_reward = m.get("rl_cumulative_reward", 0.0)
         text = (
             f"Metacognition check:\n"
             f"  Confidence:      {confidence:.2f}\n"
             f"  Win rate:        {f'{win_rate*100:.1f}%' if win_rate is not None else 'n/a'} "
             f"({m['profitable_trades_observed']}W / {m['loss_trades_observed']}L)\n"
             f"  Known patterns:  {m['known_patterns'][:3]}\n"
+            f"  RL algorithms:   {active_rl or 'none'}\n"
+            f"  RL cumul. reward: {rl_reward:.4f}\n"
             f"  Blind spots:     {blind_spots or 'none detected'}"
         )
         key = f"trading_study:metacognition:{int(time.time())}"
