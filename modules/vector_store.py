@@ -390,7 +390,7 @@ class VectorStore:
             self._backend_name = "qdrant"
             log.info("[VectorStore] Qdrant backend initialised (%s)", self._qdrant_url)
         except Exception as exc:
-            log.warning("[VectorStore] Qdrant init failed (%s) — falling back", exc)
+            log.debug("[VectorStore] Qdrant init failed (%s) — falling back", exc)
             self._qdrant_client = None
             if _FAISS_AVAILABLE and _NP_AVAILABLE:
                 self._init_faiss()

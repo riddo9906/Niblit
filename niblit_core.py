@@ -336,6 +336,12 @@ except Exception as e:
     EvolveEngine = None
 
 try:
+    from civilization.civilization_core.civilization_controller import CivilizationController as _CivilizationController
+except Exception as _civ_err:
+    log.debug(f"CivilizationController import failed: {_civ_err}")
+    _CivilizationController = None  # type: ignore[assignment,misc]
+
+try:
     from modules.termux_wakelock import TermuxWakeLock
 except Exception as e:
     log.debug(f"TermuxWakeLock import failed: {e}")
@@ -1640,6 +1646,8 @@ class NiblitCore:
         self.game_engine: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Universal file manager ─────────────────────────────
         self.universal_file_manager: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: CivilizationController (STACA) ─────────────────────
+        self.civilization: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -6517,6 +6525,27 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as e:
                     log.debug(f"EvolveEngine init failed: {e}")
                     self.startup_report.add("evolve_engine", "degraded", str(e))
+
+            # ============================
+            # CIVILIZATION CONTROLLER (STACA)
+            # Self-Training AI Civilization Architecture
+            # ============================
+            if _CivilizationController:
+                try:
+                    self.civilization = _CivilizationController(
+                        knowledge_db=self.db,
+                        github_code_search=getattr(self, "github_code_search", None),
+                    )
+                    self.civilization.start()
+                    log.info("✅ CivilizationController (STACA) initialized and started")
+                    self.startup_report.add("civilization", "ready")
+                    # Wire civilization into SelfImprovementOrchestrator if it exists
+                    if getattr(self, "improvements", None) and hasattr(self.improvements, "civilization"):
+                        self.improvements.civilization = self.civilization
+                        log.debug("[INIT] civilization wired into SelfImprovementOrchestrator ✅")
+                except Exception as _civ_e:
+                    log.debug("CivilizationController init failed: %s", _civ_e)
+                    self.startup_report.add("civilization", "degraded", str(_civ_e))
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))

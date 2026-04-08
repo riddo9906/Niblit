@@ -52,6 +52,7 @@ class SelfImprovementOrchestrator:
         github=None,
         db=None,
         cycle_interval: int = 600,
+        civilization=None,
     ):
         self.ale = ale
         self.evolve = evolve
@@ -59,6 +60,7 @@ class SelfImprovementOrchestrator:
         self.agentic = agentic
         self.github = github
         self.db = db
+        self.civilization = civilization
         self.cycle_interval = cycle_interval
 
         self.running = False
@@ -138,6 +140,23 @@ class SelfImprovementOrchestrator:
             except Exception as exc:
                 record["errors"].append(f"github: {exc}")
                 log.warning("[Orchestrator] GitHub step failed: %s", exc)
+
+        # 6. Civilization — run one STACA cycle and feed findings into KB
+        if self.civilization:
+            try:
+                civ_result = self.civilization.run_cycle()
+                record["steps"]["civilization"] = (
+                    f"agents={civ_result.get('agents_active', 0)} "
+                    f"tasks={civ_result.get('tasks_completed', 0)} "
+                    f"insights={civ_result.get('new_insights', 0)}"
+                )
+                # Pipe civilization findings into the research integration layer
+                findings = self.civilization.to_findings_dict()
+                if findings.get("new_insights"):
+                    self.ingest_research_findings(findings, source="civilization")
+            except Exception as exc:
+                record["errors"].append(f"civilization: {exc}")
+                log.warning("[Orchestrator] Civilization step failed: %s", exc)
 
         # Persist to DB
         self._persist_cycle(record)
@@ -251,6 +270,7 @@ class SelfImprovementOrchestrator:
                 "reflect": bool(self.reflect),
                 "agentic": bool(self.agentic),
                 "github": bool(self.github),
+                "civilization": bool(self.civilization),
             },
             "last_cycle": self._history[-1] if self._history else None,
         }

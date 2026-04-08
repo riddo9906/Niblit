@@ -28,8 +28,8 @@ def safe_call(fn, *a, **kw):
     try:
         return fn(*a, **kw)
     except Exception:
-        log.exception(f"safe_call failed for {fn}")
-        name = getattr(fn, "__name__", "unknown")
+        name = getattr(fn, "__name__", repr(fn))
+        log.debug("safe_call suppressed exception for %s", name, exc_info=True)
         return f"[ERROR::{name}]"
 
 # ─────────────────────────────────
@@ -340,6 +340,8 @@ class NiblitRouter:
         "memory-reset",
         # Graded curriculum — education-system learning progression (additive)
         "curriculum",
+        # STACA civilization multi-agent framework (additive)
+        "civilization", "civ",
     )
 
     CHAT_RESPONSES = {
@@ -2469,7 +2471,123 @@ Ask me about:
             "[curriculum] Unknown sub-command. Try: status | topics | exam | advance"
         )
 
-    def _handle_ale(self, cmd: str) -> str:
+    def _handle_civilization(self, cmd: str) -> str:
+        """Handle 'civilization <sub-command>' for the STACA multi-agent framework.
+
+        Commands::
+
+            civilization            — status overview
+            civilization status     — same as above
+            civilization cycle      — run one manual civilization cycle
+            civilization agents     — list active agents and roles
+            civilization evolve     — trigger one population evolution step
+            civilization top        — show top agents by reputation score
+            civilization findings   — show accumulated research insights
+        """
+        civ = (
+            getattr(self.core, "civilization", None)
+            if self.core else None
+        )
+        if civ is None:
+            return "[civilization] CivilizationController not available (STACA not initialised)"
+
+        stripped = cmd.strip()
+        for prefix in ("civilization", "civ"):
+            if stripped.lower().startswith(prefix):
+                stripped = stripped[len(prefix):].lstrip()
+                break
+        sub = stripped.lower()
+
+        if sub in ("", "status"):
+            st = civ.get_status()
+            pm = civ._pop_manager
+            agent_count = st.get("agents_active", 0)
+            metrics = st.get("metrics", {})
+            lines = [
+                "🏛️ **Civilization (STACA) Status**",
+                f"   Running:         {st['running']}",
+                f"   Cycles complete: {st['cycle_count']}",
+                f"   Agents active:   {agent_count}",
+                f"   Insights stored: {st.get('insights_accumulated', 0)}",
+            ]
+            if metrics:
+                lines.append(
+                    f"   Avg tasks/cycle: {metrics.get('avg_tasks', 0):.1f}"
+                )
+            top = st.get("top_agents", [])
+            if top:
+                lines.append("   Top agents:")
+                for a in top[:3]:
+                    rep = a.get("reputation", 0.0)
+                    role = a.get("role", "?")
+                    lines.append(f"     • {a['agent_id'][:8]}… role={role} rep={rep:.3f}")
+            return "\n".join(lines)
+
+        if sub == "cycle":
+            result = safe_call(civ.run_cycle)
+            if not result:
+                return "[civilization] Cycle failed to run"
+            return (
+                f"✅ Civilization cycle {result['cycle']} complete — "
+                f"agents={result['agents_active']} "
+                f"tasks={result['tasks_completed']} "
+                f"insights={result['new_insights']} "
+                f"({result['elapsed_ms']:.1f} ms)"
+            )
+
+        if sub == "agents":
+            pm = civ._pop_manager
+            if pm is None:
+                return "[civilization] PopulationManager not available"
+            agents = pm.get_agents()
+            if not agents:
+                return "[civilization] No agents in population yet"
+            lines = [f"👥 **Active Agents ({len(agents)})**"]
+            for a in agents:
+                lines.append(
+                    f"  • {a['agent_id'][:8]}… role={a['role']} status={a['status']}"
+                )
+            return "\n".join(lines)
+
+        if sub == "evolve":
+            result = safe_call(civ._run_evolution_step)
+            return "✅ Population evolution step complete"
+
+        if sub == "top":
+            rep = civ._reputation
+            if rep is None:
+                return "[civilization] ReputationEngine not available"
+            try:
+                top = rep.top_agents(n=5)
+            except Exception as e:
+                return f"[civilization] Reputation query failed: {e}"
+            if not top:
+                return "[civilization] No reputation data yet — run a cycle first"
+            lines = ["🏆 **Top Agents by Reputation**"]
+            for a in top:
+                lines.append(
+                    f"  • {a['agent_id'][:8]}… role={a.get('role','?')} rep={a.get('reputation',0):.4f}"
+                )
+            return "\n".join(lines)
+
+        if sub == "findings":
+            findings = safe_call(civ.to_findings_dict)
+            if not findings:
+                return "[civilization] No findings available yet"
+            insights = findings.get("new_insights", [])
+            if not insights:
+                return "[civilization] No insights accumulated yet — run a cycle first"
+            lines = [f"🔬 **Civilization Findings ({len(insights)} insights)**"]
+            for ins in insights[:10]:
+                lines.append(f"  • {ins[:100]}")
+            return "\n".join(lines)
+
+        return (
+            "[civilization] Unknown sub-command. "
+            "Try: status | cycle | agents | evolve | top | findings"
+        )
+
+
         """Handle 'ale <sub-command>' for ALE checkpoint / resume / backtrack.
 
         Commands::
@@ -4199,6 +4317,10 @@ Ask me about:
         if lower == "curriculum" or lower.startswith("curriculum "):
             return self._handle_curriculum(cmd)
 
+        # CIVILIZATION (STACA) — multi-agent self-evolution framework (additive)
+        if lower in ("civilization", "civ") or lower.startswith("civilization ") or lower.startswith("civ "):
+            return self._handle_civilization(cmd)
+
         # SELF-MONITOR — experience tracking & trend analysis (additive)
         if lower == "self-monitor" or lower.startswith("self-monitor "):
             return self._handle_self_monitor(cmd)
@@ -4923,6 +5045,15 @@ Ask me about:
             "file edit <path> OLD==>NEW   — Replace text inside a file",
             "file execute <path> [args]   — Execute a script (.py/.js/.sh)",
             "  Supported read: txt, json, csv, yaml, pdf, docx, xlsx, png, wav, zip, iso, ...",
+            "",
+            "=== CIVILIZATION (STACA) ===",
+            "civilization                 — Status overview of the multi-agent civilization",
+            "civilization status          — Same as above",
+            "civilization cycle           — Run one manual civilization cycle",
+            "civilization agents          — List active agents and their roles",
+            "civilization evolve          — Trigger one population evolution step",
+            "civilization top             — Show top agents by reputation score",
+            "civilization findings        — Show accumulated research insights",
             "",
         ]
         return "\n".join(commands)
