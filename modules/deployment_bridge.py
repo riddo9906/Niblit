@@ -147,8 +147,22 @@ class DeploymentBridge:
         targets["fly.io"] = bool(os.getenv("FLY_APP_NAME"))
         # Render: RENDER is set by the Render runtime
         targets["render"] = bool(os.getenv("RENDER"))
-        # Docker: running inside a container if /.dockerenv exists
-        targets["docker"] = os.path.exists("/.dockerenv")
+        # Docker: /.dockerenv exists in most images; also accept DOCKER_CONTAINER
+        # env var or a cgroup entry mentioning docker/containerd for slim images.
+        _docker = (
+            os.path.exists("/.dockerenv")
+            or bool(os.getenv("DOCKER_CONTAINER"))
+        )
+        if not _docker:
+            try:
+                with open("/proc/1/cgroup", "r") as _cg:
+                    _docker = any(
+                        "docker" in line or "containerd" in line
+                        for line in _cg
+                    )
+            except OSError:
+                pass
+        targets["docker"] = _docker
         # AWS: standard AWS credential env vars
         targets["aws"] = bool(os.getenv("AWS_DEFAULT_REGION") or os.getenv("AWS_REGION"))
         # GCP: GOOGLE_CLOUD_PROJECT or GCLOUD_PROJECT

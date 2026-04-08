@@ -87,6 +87,8 @@ _REPLAY_CAPACITY = 2000
 _BATCH_SIZE = 32
 # Clip ratio for PPO surrogate objective
 _PPO_CLIP = 0.2
+# Pre-computed PPO lower clip bound (1 - clip_ratio)
+_PPO_CLIP_MIN = 1.0 - _PPO_CLIP
 # Number of "buckets" per state dimension for discretisation
 _N_BUCKETS = 4
 
@@ -431,9 +433,6 @@ class PPOPolicy(RLTradingPolicy):
                     logits[i] -= self.lr * grad * probs[i]
 
 
-_PPO_CLIP_MIN = 1.0 - _PPO_CLIP
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Transformer Policy
 # ─────────────────────────────────────────────────────────────────────────────
@@ -461,6 +460,7 @@ class TransformerPolicy(RLTradingPolicy):
         lr: float = _DEFAULT_LR,
         gamma: float = _DEFAULT_GAMMA,
         context_len: int = _DEFAULT_CONTEXT,
+        weight_seed: Optional[int] = None,
     ) -> None:
         super().__init__(lr=lr, gamma=gamma)
         self.context_len = context_len
@@ -471,16 +471,27 @@ class TransformerPolicy(RLTradingPolicy):
         self._weights: Optional[List[List[float]]] = None
         self._pending_action_idx: Optional[int] = None
         self._pending_attended: Optional[List[float]] = None
+        # Optional seed for reproducible weight initialisation (e.g. in tests)
+        self._weight_seed: Optional[int] = weight_seed
 
     def _init_weights(self, dim: int) -> None:
-        """Lazy-initialise decision weight matrix [n_actions × dim]."""
+        """Lazy-initialise decision weight matrix [dim × n_actions].
+
+        When ``weight_seed`` is provided, initialisation is deterministic
+        (useful for testing and comparison).  In production leave it as
+        ``None`` so each instance starts from a different random point,
+        which improves exploration diversity across policy restarts.
+        """
         if self._weights is not None:
             return
         if _NP:
-            rng = np.random.default_rng(42)
+            seed = self._weight_seed  # None → truly random
+            rng = np.random.default_rng(seed)
             w = rng.normal(0.0, 0.01, (dim, _N_ACTIONS)).tolist()
             self._weights = [[row[a] for a in range(_N_ACTIONS)] for row in w]
         else:
+            if self._weight_seed is not None:
+                random.seed(self._weight_seed)
             self._weights = [[random.gauss(0.0, 0.01) for _ in range(_N_ACTIONS)]
                              for _ in range(dim)]
 

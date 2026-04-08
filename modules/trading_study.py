@@ -185,9 +185,9 @@ class TradingStudy:
                         self._meta["rl_cumulative_reward"] = (
                             self._meta.get("rl_cumulative_reward", 0.0) + reward
                         )
-                        algo = getattr(self._rl_policy, "algorithm", "unknown")
-                        if algo not in self._meta["rl_algorithms_active"]:
-                            self._meta["rl_algorithms_active"].append(algo)
+                        algorithm = getattr(self._rl_policy, "algorithm", "unknown")
+                        if algorithm not in self._meta["rl_algorithms_active"]:
+                            self._meta["rl_algorithms_active"].append(algorithm)
                 except Exception as exc:
                     log.debug("[TradingStudy] RL record_outcome: %s", exc)
 
