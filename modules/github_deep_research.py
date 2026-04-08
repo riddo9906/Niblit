@@ -267,6 +267,104 @@ class GitHubDeepResearch:
             return "No improvement proposals yet (run 'github-deep scan')"
         return "\n".join(f"  • {p}" for p in items)
 
+    def generate_refactor_proposals(
+        self,
+        language: str = "python",
+        techniques: Optional[List[str]] = None,
+        target_snippets: Optional[List[Dict[str, str]]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Discover refactoring patterns on GitHub and enrich them with GitHub Models.
+
+        This method:
+        1. Calls ``GitHubCodeSearch.find_refactoring_patterns`` for each
+           *technique* to collect real-world refactoring snippets.
+        2. If ``USE_GH_MODEL_REPORTS=true``, sends the snippets (plus optional
+           *target_snippets* from Niblit's own codebase) to GitHub Models to
+           generate a **refactoring recipe** and Niblit-specific suggestions.
+        3. Stores each recipe as a fact in the knowledge DB (via ``_store_fact``)
+           and pushes it as an improvement proposal (via ``_push_proposal``).
+
+        Args:
+            language:        Programming language to search (default ``"python"``).
+            techniques:      List of technique names (default: ``async``, ``type_hints``,
+                             ``error_handling``).
+            target_snippets: Optional list of ``{"file": "…", "code": "…"}`` dicts
+                             from Niblit's own codebase to include in the model prompt.
+
+        Returns:
+            List of recipe dicts produced by
+            ``GitHubModelsClient.generate_refactor_recipes``, one per technique.
+        """
+        if techniques is None:
+            techniques = ["async", "type_hints", "error_handling"]
+
+        recipes: List[Dict[str, Any]] = []
+
+        try:
+            from modules.github_code_search import GitHubCodeSearch
+            gcs = GitHubCodeSearch()
+        except Exception as exc:
+            log.warning("[GHDeep] GitHubCodeSearch unavailable: %s", exc)
+            return recipes
+
+        try:
+            from modules.github_models_client import GitHubModelsClient, USE_GH_MODEL_REPORTS
+            client = GitHubModelsClient() if USE_GH_MODEL_REPORTS else None
+        except Exception as exc:
+            log.warning("[GHDeep] GitHubModelsClient unavailable: %s", exc)
+            client = None
+
+        for technique in techniques:
+            try:
+                examples = gcs.find_refactoring_patterns(
+                    language=language, technique=technique, max_results=5
+                )
+                if not examples:
+                    continue
+
+                recipe: Dict[str, Any] = {}
+                if client is not None:
+                    try:
+                        recipe = client.generate_refactor_recipes(
+                            language=language,
+                            technique=technique,
+                            examples=examples,
+                            target_snippets=target_snippets or [],
+                        )
+                    except Exception as exc:
+                        log.warning("[GHDeep] Model recipe error for %s: %s", technique, exc)
+
+                if recipe:
+                    recipe["language"] = language
+                    recipe["technique"] = technique
+                    recipes.append(recipe)
+
+                    # Persist to knowledge DB
+                    desc = (recipe.get("recipe") or {}).get("description", "")
+                    self._store_fact(
+                        f"refactor_recipe:{language}:{technique}",
+                        desc[:350] if desc else f"Recipe: {technique}",
+                    )
+
+                    # Surface as improvement proposal
+                    suggestions = recipe.get("suggestions", [])
+                    for sug in suggestions[:3]:
+                        file_hint = sug.get("file", "")
+                        summary = sug.get("summary", "")
+                        if summary:
+                            proposal = (
+                                f"[{technique}] {file_hint}: {summary}"
+                                if file_hint
+                                else f"[{technique}] {summary}"
+                            )
+                            self._push_proposal(proposal)
+                            with self._lock:
+                                self._proposals.append(proposal)
+            except Exception as exc:
+                log.warning("[GHDeep] refactor proposal error for %s: %s", technique, exc)
+
+        return recipes
+
     def status(self) -> str:
         age = time.time() - self._last_scan
         age_str = f"{age / 3600:.1f}h ago" if self._last_scan > 0 else "never"

@@ -38,4 +38,6 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           AIOS_TOPICS: ${{ inputs.topics || '' }}
           AIOS_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN || secrets.GITHUB_TOKEN }}
+          USE_GH_MODEL_REPORTS: ${{ vars.USE_GH_MODEL_REPORTS || 'false' }}
         run: python nibblebots/aios_research_bot.py
