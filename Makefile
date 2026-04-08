@@ -29,7 +29,7 @@ install:
 ## install-dev: Install all dependencies including dev/testing tools
 install-dev:
 	$(PIP) install -r requirements.txt
-	$(PIP) install -e ".[dev]" 2>/dev/null || true
+	$(PIP) install -e ".[dev]"
 	pre-commit install
 
 # ── Testing ────────────────────────────────────────────────────────────────────
