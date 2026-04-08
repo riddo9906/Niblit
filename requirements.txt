@@ -73,6 +73,10 @@ pytest-cov>=4.1.0
 pylint>=3.0.0
 mypy>=1.7.0
 black>=23.11.0
+# ruff: fast Python linter and formatter (replaces flake8 + isort for new code)
+ruff>=0.4.0
+# pre-commit: run lint/format hooks automatically before each commit
+pre-commit>=3.5.0
 
 # ── Game Engine (optional — headless by default, display requires NIBLIT_GAME_DISPLAY=1) ───
 pygame>=2.5.0
