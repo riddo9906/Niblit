@@ -86,7 +86,7 @@ class ResearchAgent(BaseAgent):
                 log.debug("ResearchAgent %s: GitHub search failed — %s", self._agent_id, exc)
 
         # Fallback: static mock
-        return [r for r in _MOCK_REPOS if topic.lower() in r["topic"] or True][:3]
+        return [r for r in _MOCK_REPOS if topic.lower() in r["topic"]][:3] or _MOCK_REPOS[:3]
 
     def analyze_findings(self, findings: List[Any]) -> Dict[str, Any]:
         """Analyse a list of findings and return summary dict."""

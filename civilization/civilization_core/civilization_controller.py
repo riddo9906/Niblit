@@ -360,7 +360,7 @@ class CivilizationController:
                 pass
 
         patterns: Dict[str, List[str]] = {
-            "Civilization Agents": list(dict.fromkeys(self._all_repos))[:10],
+            "Research Sources": list(dict.fromkeys(self._all_repos))[:10],
         }
         recommendations: List[str] = [
             f"{a['agent_id'][:8]}… (role={a.get('role','?')}) rep={a.get('reputation',0):.3f}"

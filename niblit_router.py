@@ -2551,6 +2551,8 @@ Ask me about:
 
         if sub == "evolve":
             result = safe_call(civ._run_evolution_step)
+            if isinstance(result, str) and result.startswith("[ERROR::"):
+                return f"[civilization] Evolution step failed: {result}"
             return "✅ Population evolution step complete"
 
         if sub == "top":
