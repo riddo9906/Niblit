@@ -265,3 +265,119 @@ class SelfImprovementOrchestrator:
             f"running={self.running} | "
             f"active_subsystems=[{', '.join(active)}]"
         )
+
+    # ------------------------------------------------------------------
+    # Research findings ingestion
+    # ------------------------------------------------------------------
+
+    def ingest_research_findings(
+        self,
+        findings: Dict[str, Any],
+        source: str = "nibblebot-research",
+    ) -> Dict[str, Any]:
+        """
+        Ingest structured research findings from a Nibblebot research report.
+
+        This wires the external knowledge discovery loop (nibblebots/research_bot.py)
+        back into Niblit's autonomous learning and self-improvement subsystems.
+
+        ``findings`` is expected to have this shape (all keys optional)::
+
+            {
+                "patterns": {"Architecture Patterns": ["pipeline", ...], ...},
+                "top_repos": [{"full_name": "...", "stars": 123, ...}, ...],
+                "new_insights": ["pattern (category) — found in repo", ...],
+                "recommendations": ["agent appeared in 12 repos — ...", ...],
+            }
+
+        The method:
+          1. Feeds each new insight as a learning topic to the ALE (if wired).
+          2. Stores each pattern/insight in the knowledge DB (if wired).
+          3. Indexes high-value repo summaries into the RAG pipeline VectorStore.
+          4. Returns a summary dict.
+        """
+        ingested: Dict[str, Any] = {
+            "source": source,
+            "ale_topics_queued": 0,
+            "facts_stored": 0,
+            "docs_indexed": 0,
+            "errors": [],
+        }
+
+        new_insights: List[str] = findings.get("new_insights", [])
+        patterns: Dict[str, List[str]] = findings.get("patterns", {})
+        top_repos: List[Dict[str, Any]] = findings.get("top_repos", [])
+
+        # 1. Feed patterns as ALE learning topics ─────────────────────
+        if self.ale:
+            try:
+                all_patterns = [kw for kws in patterns.values() for kw in kws]
+                unique_patterns = list(dict.fromkeys(all_patterns))[:10]
+                for pat in unique_patterns:
+                    try:
+                        if hasattr(self.ale, "add_research_topic"):
+                            self.ale.add_research_topic(pat)
+                        elif hasattr(self.ale, "research_topics") and isinstance(
+                            self.ale.research_topics, list
+                        ):
+                            if pat not in self.ale.research_topics:
+                                self.ale.research_topics.append(pat)
+                        ingested["ale_topics_queued"] += 1
+                    except Exception as exc:
+                        ingested["errors"].append(f"ale_topic({pat}): {exc}")
+            except Exception as exc:
+                ingested["errors"].append(f"ale_bulk: {exc}")
+                log.warning("[Orchestrator] ALE topic ingestion failed: %s", exc)
+
+        # 2. Store insights in knowledge DB ───────────────────────────
+        if self.db:
+            for insight in new_insights[:20]:
+                try:
+                    self.db.add_fact(
+                        f"{source}:insight:{insight[:60]}",
+                        insight,
+                        tags=[source, "research", "insight"],
+                    )
+                    ingested["facts_stored"] += 1
+                except Exception as exc:
+                    ingested["errors"].append(f"db_insight: {exc}")
+
+        # 3. Index top-repo summaries into RAG pipeline ───────────────
+        try:
+            from modules.rag_pipeline import get_rag_pipeline
+            rag = get_rag_pipeline()
+            for repo in top_repos[:8]:
+                name = repo.get("full_name", "")
+                desc = repo.get("description", "")
+                repo_patterns = repo.get("patterns", [])
+                if not name:
+                    continue
+                text = (
+                    f"Repository: {name}\n"
+                    f"Description: {desc}\n"
+                    f"Patterns: {', '.join(repo_patterns)}\n"
+                    f"Stars: {repo.get('stars', 0)}"
+                )
+                doc_id = f"{source}:repo:{name}"
+                if rag.add_document(doc_id, text):
+                    ingested["docs_indexed"] += 1
+        except Exception as exc:
+            ingested["errors"].append(f"rag_index: {exc}")
+            log.debug("[Orchestrator] RAG indexing skipped: %s", exc)
+
+        # 4. Record in history ────────────────────────────────────────
+        self._history.append({
+            "cycle": self._cycle_count,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "steps": {"research_ingestion": ingested},
+            "errors": ingested["errors"],
+        })
+
+        log.info(
+            "[Orchestrator] Research findings ingested — topics=%d facts=%d docs=%d errors=%d",
+            ingested["ale_topics_queued"],
+            ingested["facts_stored"],
+            ingested["docs_indexed"],
+            len(ingested["errors"]),
+        )
+        return ingested
