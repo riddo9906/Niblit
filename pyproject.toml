@@ -1,0 +1,183 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "niblit"
+version = "2.0.0"
+description = "NIBLIT-AIOS — Neural Integrated Baseline for Learning, Intelligence, and Tasking"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Niblit Contributors" },
+]
+keywords = [
+    "ai",
+    "agent",
+    "llm",
+    "autonomous",
+    "aios",
+    "self-learning",
+    "trading",
+    "multi-agent",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "python-multipart>=0.0.9",
+    "requests>=2.28.0",
+    "python-dotenv>=1.0.0",
+    "huggingface-hub>=0.20.0",
+    "qdrant-client>=1.7.0",
+    "sentence-transformers>=2.2.2",
+    "numpy>=1.24.0",
+    "faiss-cpu>=1.7.4",
+    "PyYAML>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.4.0",
+    "black>=23.11.0",
+    "mypy>=1.7.0",
+    "pylint>=3.0.0",
+    "pre-commit>=3.5.0",
+]
+trading = [
+    "python-binance>=1.0.17",
+    "pandas>=2.0.0",
+    "ta>=0.11.0",
+    "yfinance>=0.2.61",
+    "ccxt>=4.3.0",
+]
+scraping = [
+    "scrapy>=2.11.0",
+]
+mcp = [
+    "mcp>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/riddo9906/Niblit"
+Repository = "https://github.com/riddo9906/Niblit"
+Issues = "https://github.com/riddo9906/Niblit/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "niblit_memory*",
+    "modules*",
+    "core*",
+    "agents*",
+    "nibblebots*",
+]
+exclude = ["tests*", "chat_logs*", "build*"]
+
+# ── Ruff ──────────────────────────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = [
+    ".git",
+    "__pycache__",
+    "*.pyc",
+    ".env",
+    ".env.*",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",   # line too long — handled by formatter
+    "B904",   # raise from within except without chaining (intentional in safe_call)
+    "B007",   # loop variable not used in body (common in try/except loops)
+    "E402",   # module-level import not at top of file (optional lazy imports are intentional)
+    "F841",   # local variable assigned but never used
+    "UP006",  # use `list` instead of `List` (gradual migration)
+    "UP007",  # use `X | Y` instead of `Optional[X]` (gradual migration)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["niblit_memory", "modules", "core", "agents", "nibblebots"]
+
+# ── Black ─────────────────────────────────────────────────────────────────────
+[tool.black]
+line-length = 120
+target-version = ["py310", "py311", "py312"]
+extend-exclude = '''
+/(
+    \.git
+  | __pycache__
+  | build
+  | dist
+)/
+'''
+
+# ── Mypy ──────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+# Gradual adoption — only enforce on new/critical modules
+files = [
+    "niblit_memory",
+    "modules/knowledge_comprehension.py",
+    "modules/vector_store.py",
+    "modules/rag_pipeline.py",
+]
+
+# ── Pytest ────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-q --tb=short"
+
+# ── Coverage ──────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+source = [
+    "niblit_memory",
+    "niblit_brain",
+    "niblit_router",
+    "niblit_core",
+    "modules",
+    "core",
+    "agents",
+]
+omit = [
+    "test_*",
+    "conftest.py",
+    "*/_generated_*",
+    "*/evolved/*",
+    "chat_logs/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 10
