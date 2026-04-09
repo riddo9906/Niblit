@@ -227,6 +227,7 @@ class CivilizationController:
         """Activate the running flag and seed the initial population."""
         self._running = True
         self._started_at = time.time()
+        # Seed initial population if empty
         if self._pop_manager and self._pop_manager.agent_count() == 0:
             for role in self._initial_roles:
                 self._spawn_agent(role)
@@ -285,6 +286,7 @@ class CivilizationController:
                     task = self._scheduler.assign_task(agent_meta)
                 except Exception as exc:
                     log.debug("CivilizationController: scheduler.assign_task failed: %s", exc)
+            # Enrich task with a research goal from the ALE topics if available
             if not task.get("goal"):
                 task["goal"] = f"civilization cycle {self._cycle_count} — {role} research"
             task["system_state"] = system_state
@@ -388,19 +390,23 @@ class CivilizationController:
         if not agents:
             return
         try:
+            # Build fitness scores from ReputationEngine
             fitness: Dict[str, float] = {}
             for a in agents:
                 aid = a.get("agent_id", "")
                 fitness[aid] = self._reputation.get_reputation(aid) if self._reputation else 0.5
 
+            # Elite selection (keep top half)
             n_keep = max(1, len(agents) // 2)
             survivors = self._selector.elite_select(agents, fitness, n=n_keep)
             survivor_ids = {a["agent_id"] for a in survivors}
 
+            # Despawn the bottom half
             for a in agents:
                 if a["agent_id"] not in survivor_ids:
                     self._despawn_agent(a["agent_id"])
 
+            # Spawn replacement offspring from survivors' roles (mutated params)
             for a in survivors:
                 role = a.get("role", "researcher")
                 params = {"role": role, "fitness": fitness.get(a["agent_id"], 0.5)}
@@ -469,6 +475,9 @@ class CivilizationController:
             "cycle_count": self._cycle_count,
             "started_at": self._started_at,
             "agents_active": self._pop_manager.agent_count() if self._pop_manager else 0,
+            "knowledge_items": (
+                self._knowledge_api.vector_count() if self._knowledge_api else 0
+            ),
         }
 
     def get_cycle_count(self) -> int:

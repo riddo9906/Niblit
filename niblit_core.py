@@ -1648,6 +1648,7 @@ class NiblitCore:
         self.universal_file_manager: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: CivilizationController (STACA) ─────────────────────
         self.civilization: Optional[Any] = None  # initialised in _init_optional_services
+        self.self_improvement_orchestrator: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
