@@ -107,6 +107,10 @@ class CivilizationController:
         github_code_search: GitHubCodeSearch instance injected into every
                             ResearchAgent for live GitHub repository search
                             (optional; agents fall back to static list).
+        hf_brain:           HuggingFace inference provider (``HFBrain``) — injected
+                            into every typed agent so they can generate LLM-based
+                            insights via ``_ask_llm()`` (optional; agents degrade
+                            gracefully to rule-based output when absent).
     """
 
     def __init__(
@@ -114,6 +118,7 @@ class CivilizationController:
         initial_roles: Optional[List[str]] = None,
         knowledge_db: Optional[Any] = None,
         github_code_search: Optional[Any] = None,
+        hf_brain: Optional[Any] = None,
     ) -> None:
         self._running: bool = False
         self._cycle_count: int = 0
@@ -121,6 +126,9 @@ class CivilizationController:
         self._initial_roles: List[str] = initial_roles or list(_DEFAULT_ROLES)
         self._knowledge_db = knowledge_db
         self._github_code_search = github_code_search
+        # HuggingFace inference provider — injected by niblit_core when available.
+        # Forwarded to every typed agent so they can generate LLM-based insights.
+        self._hf_brain = hf_brain
 
         # ── subsystem instances ──
         self._pop_manager: Any = None
@@ -231,6 +239,13 @@ class CivilizationController:
                 if self._github_code_search is not None and role == "researcher":
                     try:
                         typed.github_code_search = self._github_code_search
+                    except Exception:
+                        pass
+                # Inject HuggingFace inference provider into every agent so they
+                # can call _ask_llm() for LLM-based output enrichment.
+                if self._hf_brain is not None and hasattr(typed, "hf_brain"):
+                    try:
+                        typed.hf_brain = self._hf_brain
                     except Exception:
                         pass
                 self._agent_instances[agent_id] = typed

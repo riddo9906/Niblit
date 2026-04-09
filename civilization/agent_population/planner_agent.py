@@ -26,6 +26,19 @@ class PlannerAgent(BaseAgent):
         """Execute planning task; return plan_steps/goal/complexity dict."""
         goal = task.get("goal", task.get("description", "unknown"))
         steps = self.decompose_goal(goal)
+
+        # Optionally augment the plan with LLM-proposed steps from the HF
+        # inference provider.  Each non-empty line becomes an additional step.
+        llm_plan = self._ask_llm(
+            f"List exactly 3 concise, actionable steps to achieve: '{goal}'. "
+            "One step per line, no numbering, no bullet points."
+        )
+        if llm_plan and not llm_plan.startswith("[HFBrain"):
+            for i, step_text in enumerate(llm_plan.strip().splitlines()[:3], start=len(steps) + 1):
+                step_text = step_text.strip()
+                if step_text:
+                    steps.append({"step": i, "action": "llm_proposed", "description": step_text[:200]})
+
         effort = self.estimate_effort({"steps": steps})
         result = {
             "plan_steps": steps,

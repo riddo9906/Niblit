@@ -57,6 +57,24 @@ class ResearchAgent(BaseAgent):
             name = repo.get("name") or repo.get("full_name", "")
             if name and desc:
                 findings.append(f"Repo {name}: {desc[:120]}")
+
+        # Synthesize a richer insight via the HuggingFace inference provider when
+        # available.  The LLM summary is prepended so it surfaces first in the
+        # ingest pipeline (SelfImprovementOrchestrator → ALE topics).
+        repo_names = ", ".join(
+            r.get("name") or r.get("full_name", "") for r in repos[:5] if r.get("name") or r.get("full_name")
+        )
+        llm_prompt = (
+            f"In 2 concise sentences, summarize the key technical insights about: '{goal}'. "
+            f"Relevant repositories: {repo_names or 'none found'}. "
+            "Focus on what an autonomous AI system would learn from this topic."
+        )
+        llm_summary = self._ask_llm(llm_prompt)
+        if llm_summary:
+            # Strip [HFBrain Error] prefix if the provider returned a soft error string
+            if not llm_summary.startswith("[HFBrain"):
+                findings.insert(0, f"LLM Synthesis: {llm_summary[:300]}")
+
         result = {
             "insights": findings,
             "sources": [r.get("name") or r.get("full_name", "") for r in repos],

@@ -6536,6 +6536,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     self.civilization = _CivilizationController(
                         knowledge_db=self.db,
                         github_code_search=getattr(self, "github_code_search", None),
+                        hf_brain=getattr(self, "hf", None) or getattr(self, "hf_brain", None),
                     )
                     self.civilization.start()
                     log.info("✅ CivilizationController (STACA) initialized and started")
