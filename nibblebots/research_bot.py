@@ -67,7 +67,8 @@ _DEFAULT_TOPICS = (
     "python-framework,software-architecture,design-patterns,"
     "devops-automation,ci-cd,deployment-automation,"
     "multi-agent-system,evolutionary-algorithm,competitive-self-play,"
-    "agent-based-modeling,genetic-programming"
+    "agent-based-modeling,genetic-programming,neuroevolution,"
+    "coevolution,multi-agent-rl,population-optimization"
 )
 TOPICS = [
     t.strip()
@@ -84,7 +85,8 @@ for _cat, _keys in [
     ("Software Architecture", ["python-framework", "software-architecture", "design-patterns"]),
     ("Deployment & DevOps", ["devops-automation", "ci-cd", "deployment-automation"]),
     ("Civilization & Evolution", ["multi-agent-system", "evolutionary-algorithm", "competitive-self-play",
-                                  "agent-based-modeling", "genetic-programming"]),
+                                   "agent-based-modeling", "genetic-programming", "neuroevolution",
+                                   "coevolution", "multi-agent-rl", "population-optimization"]),
 ]:
     for _k in _keys:
         _TOPIC_CATEGORIES[_k] = _cat

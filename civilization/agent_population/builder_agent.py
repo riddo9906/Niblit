@@ -37,6 +37,18 @@ class BuilderAgent(BaseAgent):
         arch = task.get("architecture", {"type": "service", "language": "python"})
         language = arch.get("language", "python")
         code = self.generate_code(arch)
+        arch_type = arch.get("type", "service")
+
+        # Optionally request an LLM-improved code stub from the HF inference
+        # provider.  The result replaces the template only when it looks like
+        # valid Python (non-empty and not an error marker).
+        llm_code = self._ask_llm(
+            f"Write a minimal, clean Python class stub for a {arch_type} service. "
+            f"Include a docstring and one example method. Return only valid Python code."
+        )
+        if llm_code and not llm_code.startswith("[HFBrain") and "class " in llm_code:
+            code = llm_code
+
         result = {
             "code": code,
             "language": language,

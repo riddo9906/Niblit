@@ -141,16 +141,16 @@ class SelfImprovementOrchestrator:
                 record["errors"].append(f"github: {exc}")
                 log.warning("[Orchestrator] GitHub step failed: %s", exc)
 
-        # 6. Civilization (STACA) — run one population cycle and re-ingest findings
+        # 6. Civilization — run one STACA cycle and feed findings into KB
         if self.civilization:
             try:
                 civ_result = self.civilization.run_cycle()
-                tasks_done = civ_result.get("tasks_completed", 0)
-                insights = civ_result.get("new_insights", 0)
                 record["steps"]["civilization"] = (
-                    f"tasks={tasks_done} insights={insights}"
+                    f"agents={civ_result.get('agents_active', 0)} "
+                    f"tasks={civ_result.get('tasks_completed', 0)} "
+                    f"insights={civ_result.get('new_insights', 0)}"
                 )
-                # Feed civilization discoveries back into ALE / KB / RAG
+                # Pipe civilization findings into the research integration layer
                 findings = self.civilization.to_findings_dict()
                 if findings.get("new_insights"):
                     self.ingest_research_findings(findings, source="civilization")

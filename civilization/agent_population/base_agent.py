@@ -16,6 +16,9 @@ from typing import Any, Dict, Optional
 
 log = logging.getLogger("BaseAgent")
 
+# Sentinel used to detect "no injected hf_brain" vs an explicitly-None value.
+_UNSET = object()
+
 
 class BaseAgent:
     """Abstract base for civilisation agents.
@@ -31,6 +34,9 @@ class BaseAgent:
         self._memory: Dict[str, Any] = {}
         self._tasks_completed: int = 0
         self._last_task_at: Optional[float] = None
+        # Optional HuggingFace inference provider — injected by CivilizationController
+        # when an HFBrain instance is available.  Agents use ``_ask_llm()`` to call it.
+        self.hf_brain: Optional[Any] = None
 
     @property
     def agent_id(self) -> str:
@@ -70,3 +76,22 @@ class BaseAgent:
     def _record_task(self) -> None:
         self._tasks_completed += 1
         self._last_task_at = time.time()
+
+    def _ask_llm(self, prompt: str, fallback: Optional[str] = None) -> Optional[str]:
+        """Call the injected HuggingFace inference provider with *prompt*.
+
+        Returns the LLM response string on success, or *fallback* (default
+        ``None``) when the provider is unavailable or raises.  Never raises.
+        """
+        if self.hf_brain is None:
+            return fallback
+        try:
+            response = self.hf_brain.ask_single(prompt)
+            if isinstance(response, str) and response:
+                return response
+        except Exception as exc:
+            log.debug(
+                "%s %s: _ask_llm failed — %s",
+                self.__class__.__name__, self._agent_id, exc,
+            )
+        return fallback
