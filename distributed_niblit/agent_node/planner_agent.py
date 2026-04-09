@@ -50,3 +50,7 @@ class PlannerAgent:
         if any(k in keywords for k in ("deploy", "release", "production")):
             steps.append({"step": 6, "action": "deploy", "description": "Deploy to target environment"})
         return steps
+
+
+if __name__ == "__main__":
+    print('Running planner_agent.py')

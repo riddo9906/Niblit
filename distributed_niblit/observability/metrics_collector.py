@@ -63,3 +63,7 @@ class MetricsCollector:
             log.info("MetricsCollector: reset all metrics")
         else:
             self._data.pop(metric_name, None)
+
+
+if __name__ == "__main__":
+    print('Running metrics_collector.py')

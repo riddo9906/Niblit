@@ -6,3 +6,5 @@ from .knowledge_api import KnowledgeAPI
 from .vector_memory import VectorMemory
 
 __all__ = ["VectorMemory", "GraphMemory", "EmbeddingService", "KnowledgeAPI"]
+if __name__ == "__main__":
+    print('Running __init__.py')

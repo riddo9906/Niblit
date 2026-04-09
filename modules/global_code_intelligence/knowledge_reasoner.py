@@ -160,3 +160,7 @@ Provide a concise, actionable answer in 3–5 sentences."""
         if result["examples"]:
             parts.append("Examples:\n" + "\n".join(result["examples"][:3]))
         return "\n".join(parts)
+
+
+if __name__ == "__main__":
+    print('Running knowledge_reasoner.py')

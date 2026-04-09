@@ -76,3 +76,7 @@ class ExperimentManager:
             for exp_id, e in self._experiments.items()
             if e["status"] in ("created", "running")
         ]
+
+
+if __name__ == "__main__":
+    print('Running experiment_manager.py')

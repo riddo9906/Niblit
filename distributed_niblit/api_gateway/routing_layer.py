@@ -44,3 +44,7 @@ class RoutingLayer:
     def list_routes(self) -> List[str]:
         """Return registered paths."""
         return list(self._routes.keys())
+
+
+if __name__ == "__main__":
+    print('Running routing_layer.py')

@@ -318,3 +318,7 @@ def get_platform_bootstrap() -> PlatformBootstrap:
             if _INSTANCE is None:
                 _INSTANCE = PlatformBootstrap()
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running platform_bootstrap.py')

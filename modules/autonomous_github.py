@@ -318,3 +318,7 @@ class AutonomousGitHubIntegration:
             tag = "[DRY-RUN] " if rec.get("dry_run") else ""
             lines.append(f"  {tag}{rec['file']} → {rec['branch']} | {rec['message'][:60]}")
         return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    print('Running autonomous_github.py')

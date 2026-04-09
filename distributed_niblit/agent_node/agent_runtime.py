@@ -68,3 +68,7 @@ class AgentRuntime:
         """Signal the runtime to stop."""
         self._running = False
         log.info("AgentRuntime: stopped")
+
+
+if __name__ == "__main__":
+    print('Running agent_runtime.py')

@@ -195,3 +195,7 @@ class EvolutionEngine:
             LiveUpdater().reload_all_changed()
         except Exception as exc:  # noqa: BLE001
             log.debug("EvolutionEngine: live reload failed: %s", exc)
+
+
+if __name__ == "__main__":
+    print('Running evolution_engine.py')

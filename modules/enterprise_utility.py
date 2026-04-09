@@ -227,3 +227,7 @@ class EnterpriseUtility:
     def _register_self_health(self) -> None:
         self.register_health("enterprise_utility", "healthy", "Initialised successfully")
         self.audit("system_start", resource="enterprise_utility", details="EnterpriseUtility online")
+
+
+if __name__ == "__main__":
+    print('Running enterprise_utility.py')

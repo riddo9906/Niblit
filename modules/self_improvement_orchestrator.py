@@ -403,3 +403,7 @@ class SelfImprovementOrchestrator:
             len(ingested["errors"]),
         )
         return ingested
+
+
+if __name__ == "__main__":
+    print('Running self_improvement_orchestrator.py')

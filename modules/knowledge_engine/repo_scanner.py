@@ -172,3 +172,7 @@ class RepoScanner:
             "pushed_at": item.get("pushed_at", ""),
             "archived": item.get("archived", False),
         }
+
+
+if __name__ == "__main__":
+    print('Running repo_scanner.py')

@@ -417,3 +417,7 @@ def get_graded_curriculum(
         )
         _instance.start()
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running graded_curriculum.py')

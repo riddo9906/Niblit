@@ -57,3 +57,7 @@ class GraphMemory:
     def concept_count(self) -> int:
         """Return total concept count."""
         return len(self._concepts)
+
+
+if __name__ == "__main__":
+    print('Running graph_memory.py')

@@ -201,3 +201,7 @@ class EcosystemScanner:
             "url": pkg.get("links", {}).get("npm", ""),
             "topics": pkg.get("keywords", []),
         }
+
+
+if __name__ == "__main__":
+    print('Running ecosystem_scanner.py')

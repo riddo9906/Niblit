@@ -164,3 +164,7 @@ elif _env == "testing":
     settings = TestingConfig()
 else:
     settings = DevelopmentConfig()
+
+
+if __name__ == "__main__":
+    print('Running config.py')

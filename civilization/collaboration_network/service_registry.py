@@ -48,3 +48,7 @@ class ServiceRegistry:
     def list_all(self) -> Dict[str, Any]:
         """Return full registry dict."""
         return dict(self._services)
+
+
+if __name__ == "__main__":
+    print('Running service_registry.py')

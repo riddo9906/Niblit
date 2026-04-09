@@ -25,3 +25,5 @@ __all__ = [
     "niblit_serpex_search",
     "NIBLIT_SERPEX_TOOL",
 ]
+if __name__ == "__main__":
+    print('Running __init__.py')

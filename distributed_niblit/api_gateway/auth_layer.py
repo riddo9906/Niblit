@@ -76,3 +76,7 @@ class AuthLayer:
             for v in self._keys.values()
             if v.get("active")
         ]
+
+
+if __name__ == "__main__":
+    print('Running auth_layer.py')

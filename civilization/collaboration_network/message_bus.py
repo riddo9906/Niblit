@@ -54,3 +54,7 @@ class MessageBus:
         """Send *payload* to all subscribers regardless of msg_type."""
         for msg_type in list(self._subscribers.keys()):
             self.publish(msg_type, "broadcast", payload)
+
+
+if __name__ == "__main__":
+    print('Running message_bus.py')

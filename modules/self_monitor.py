@@ -532,3 +532,7 @@ def get_self_monitor(max_events: int = _MAX_EVENTS) -> SelfMonitor:
             if _monitor_instance is None:
                 _monitor_instance = SelfMonitor(max_events=max_events)
     return _monitor_instance
+
+
+if __name__ == "__main__":
+    print('Running self_monitor.py')

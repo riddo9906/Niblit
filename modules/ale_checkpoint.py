@@ -688,3 +688,7 @@ class ALECheckpointManager:
             notif_queue.push(msg)
         except Exception:
             pass
+
+
+if __name__ == "__main__":
+    print('Running ale_checkpoint.py')

@@ -60,3 +60,7 @@ class JobDispatcher:
         """Return status string for *job_id* or 'not_found'."""
         entry = self._jobs.get(job_id)
         return entry["status"] if entry else "not_found"
+
+
+if __name__ == "__main__":
+    print('Running job_dispatcher.py')

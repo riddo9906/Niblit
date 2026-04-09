@@ -141,3 +141,7 @@ class SafetyGuard:
             "warnings": warnings,
             "warning_count": len(warnings),
         }
+
+
+if __name__ == "__main__":
+    print('Running safety_guard.py')

@@ -174,3 +174,7 @@ class ArchitectureDetector:
             "monolithic":    "Monolithic: all components in a single deployable unit.",
         }
         return descriptions.get(architecture, f"Architecture '{architecture}' — no description available.")
+
+
+if __name__ == "__main__":
+    print('Running architecture_detector.py')

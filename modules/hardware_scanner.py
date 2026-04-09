@@ -419,3 +419,7 @@ def get_hardware_scanner(
             if _INSTANCE is None:
                 _INSTANCE = HardwareScanner(knowledge_db=knowledge_db, autoscan=autoscan)
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running hardware_scanner.py')

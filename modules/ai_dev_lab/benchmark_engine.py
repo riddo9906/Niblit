@@ -204,3 +204,7 @@ class BenchmarkEngine:
         mem_score = max(0.0, 1.0 - mem / 10000)
         score += 0.1 * mem_score
         return round(min(score, 1.0), 3)
+
+
+if __name__ == "__main__":
+    print('Running benchmark_engine.py')

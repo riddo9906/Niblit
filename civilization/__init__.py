@@ -74,3 +74,5 @@ __all__ = [
     # api_gateway
     "Authentication", "TaskAPI", "APIServer",
 ]
+if __name__ == "__main__":
+    print('Running __init__.py')

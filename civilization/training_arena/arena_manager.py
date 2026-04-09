@@ -56,3 +56,7 @@ class ArenaManager:
     def get_leaderboard(self, arena_id: str) -> List[Dict[str, Any]]:
         """Return global leaderboard (shared across all arenas)."""
         return self._scoring.get_leaderboard()
+
+
+if __name__ == "__main__":
+    print('Running arena_manager.py')

@@ -515,3 +515,7 @@ def get_memory_graph(persist_path: str = "") -> MemoryGraph:
         if _graph_singleton is None:
             _graph_singleton = MemoryGraph(persist_path=persist_path)
     return _graph_singleton
+
+
+if __name__ == "__main__":
+    print('Running memory_graph.py')

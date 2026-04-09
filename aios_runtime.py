@@ -430,3 +430,7 @@ def get_aios_runtime() -> AIOSRuntime:
             if _aios_runtime is None:
                 _aios_runtime = AIOSRuntime()
     return _aios_runtime
+
+
+if __name__ == "__main__":
+    print('Running aios_runtime.py')

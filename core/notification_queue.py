@@ -318,3 +318,7 @@ def install_queue_log_handler(
 
     _handler_installed = True
     return handler
+
+
+if __name__ == "__main__":
+    print('Running notification_queue.py')

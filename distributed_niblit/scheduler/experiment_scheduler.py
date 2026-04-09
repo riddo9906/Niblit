@@ -51,3 +51,7 @@ class ExperimentScheduler:
                 log.info("ExperimentScheduler: dispatched %s", entry["schedule_id"])
                 return entry
         return None
+
+
+if __name__ == "__main__":
+    print('Running experiment_scheduler.py')

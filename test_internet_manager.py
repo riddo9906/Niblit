@@ -221,3 +221,7 @@ class TestResearcherEngineSerpex:
                 result = engine.run("test topic")
         # Should handle gracefully (error or empty)
         assert isinstance(result, dict)
+
+
+if __name__ == "__main__":
+    print('Running test_internet_manager.py')

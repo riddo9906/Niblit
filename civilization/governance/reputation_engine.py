@@ -57,3 +57,7 @@ class ReputationEngine:
         """Reduce *agent_id* reputation by *amount*."""
         self._reputation[agent_id] = max(0.0, self._reputation[agent_id] - amount)
         log.warning("ReputationEngine: penalised %s by %.2f", agent_id, amount)
+
+
+if __name__ == "__main__":
+    print('Running reputation_engine.py')

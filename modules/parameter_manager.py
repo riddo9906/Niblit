@@ -379,3 +379,7 @@ parameter_manager: ParameterManager = ParameterManager(
     # remote_url can be set later via parameter_manager._remote_url = "..."
     # or by passing a config at startup
 )
+
+
+if __name__ == "__main__":
+    print('Running parameter_manager.py')

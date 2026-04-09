@@ -95,3 +95,7 @@ class BaseAgent:
                 self.__class__.__name__, self._agent_id, exc,
             )
         return fallback
+
+
+if __name__ == "__main__":
+    print('Running base_agent.py')

@@ -9,3 +9,7 @@ This shim re-exports every public symbol so existing imports keep working.
 from niblit_memory import KnowledgeDB, GLOBAL_KNOWLEDGE  # noqa: F401
 
 __all__ = ["KnowledgeDB", "GLOBAL_KNOWLEDGE"]
+
+
+if __name__ == "__main__":
+    print('Running knowledge_db.py')

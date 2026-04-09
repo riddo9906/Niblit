@@ -6,3 +6,5 @@ from .result_analyzer import ResultAnalyzer
 from .sandbox_runner import SandboxRunner
 
 __all__ = ["ExperimentManager", "SandboxRunner", "BenchmarkEngine", "ResultAnalyzer"]
+if __name__ == "__main__":
+    print('Running __init__.py')

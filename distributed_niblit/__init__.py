@@ -48,3 +48,5 @@ __all__ = [
     # observability
     "MetricsCollector", "LogAggregator", "AnomalyDetector",
 ]
+if __name__ == "__main__":
+    print('Running __init__.py')

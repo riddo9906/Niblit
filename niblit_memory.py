@@ -53,3 +53,7 @@ __all__ = [
     "ingest",
 ]
 
+
+
+if __name__ == "__main__":
+    print('Running niblit_memory.py')

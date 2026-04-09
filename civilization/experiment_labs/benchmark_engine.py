@@ -49,3 +49,7 @@ class BenchmarkEngine:
         b_score = (1.0 if b["syntax_valid"] else 0.0) + (1.0 / (b["mean_ms"] + 0.001))
         winner = "a" if a_score >= b_score else "b"
         return {"winner": winner, "a_score": round(a_score, 4), "b_score": round(b_score, 4)}
+
+
+if __name__ == "__main__":
+    print('Running benchmark_engine.py')

@@ -6,3 +6,5 @@ from .research_scheduler import ResearchScheduler
 from .task_scheduler import TaskScheduler
 
 __all__ = ["TaskScheduler", "ResearchScheduler", "ExperimentScheduler", "EvolutionScheduler"]
+if __name__ == "__main__":
+    print('Running __init__.py')

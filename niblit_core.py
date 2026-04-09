@@ -1,3 +1,4 @@
+import modules.orphan_imports  # auto-added by self_heal_auto
 #!/usr/bin/env python3
 """
 niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime with Full Self-Improvement

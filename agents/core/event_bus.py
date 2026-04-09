@@ -205,3 +205,7 @@ class EventBus:
             f"EventBus(subscriptions={len(self._handlers)}, "
             f"history={len(self._history)})"
         )
+
+
+if __name__ == "__main__":
+    print('Running event_bus.py')

@@ -1374,3 +1374,7 @@ def api_components(request: Request):
     if sa and hasattr(sa, "component_report"):
         return {"report": sa.component_report(core), "ts": int(time.time())}
     return JSONResponse({"error": "StructuralAwareness not loaded"}, status_code=503)
+
+
+if __name__ == "__main__":
+    print('Running index.py')

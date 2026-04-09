@@ -156,3 +156,7 @@ def batch_populate_qdrant(
     log.info("[QdrantTools] Batch population complete: %d / %d facts added to vector store",
              added, len(facts))
     return added
+
+
+if __name__ == "__main__":
+    print('Running qdrant_tools.py')

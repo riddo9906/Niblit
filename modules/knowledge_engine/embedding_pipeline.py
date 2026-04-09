@@ -152,3 +152,7 @@ class _InMemoryFallback:
                   for item in self._store]
         scored.sort(key=lambda x: x[0], reverse=True)
         return [item for _, item in scored[:top_k]]
+
+
+if __name__ == "__main__":
+    print('Running embedding_pipeline.py')

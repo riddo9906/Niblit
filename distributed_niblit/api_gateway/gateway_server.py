@@ -69,3 +69,7 @@ class GatewayServer:
     def get_stats(self) -> Dict[str, Any]:
         """Return cumulative request statistics."""
         return dict(self._stats)
+
+
+if __name__ == "__main__":
+    print('Running gateway_server.py')

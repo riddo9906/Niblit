@@ -66,3 +66,7 @@ class GraphStore:
     def node_count(self) -> int:
         """Return total node count."""
         return len(self._nodes)
+
+
+if __name__ == "__main__":
+    print('Running graph_store.py')

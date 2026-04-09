@@ -55,3 +55,7 @@ class SafetyPolicies:
     def list_policies(self) -> List[str]:
         """Return names of all active policies."""
         return list(self._policies.keys())
+
+
+if __name__ == "__main__":
+    print('Running safety_policies.py')

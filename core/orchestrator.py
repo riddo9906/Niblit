@@ -168,3 +168,7 @@ class Orchestrator:
             "agent_types": self.registered_task_types,
             "queue": self._queue.get_stats(),
         }
+
+
+if __name__ == "__main__":
+    print('Running orchestrator.py')

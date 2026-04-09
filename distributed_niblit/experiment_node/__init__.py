@@ -6,3 +6,5 @@ from .results_collector import ResultsCollector
 from .sandbox_executor import SandboxExecutor
 
 __all__ = ["ExperimentRunner", "SandboxExecutor", "BenchmarkEngine", "ResultsCollector"]
+if __name__ == "__main__":
+    print('Running __init__.py')

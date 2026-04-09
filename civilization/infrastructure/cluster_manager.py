@@ -46,3 +46,7 @@ class ClusterManager:
     def cluster_count(self) -> int:
         """Return total cluster count."""
         return len(self._clusters)
+
+
+if __name__ == "__main__":
+    print('Running cluster_manager.py')

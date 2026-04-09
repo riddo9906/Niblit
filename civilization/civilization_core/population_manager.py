@@ -59,3 +59,7 @@ class PopulationManager:
     def agent_count(self) -> int:
         """Return total active agent count."""
         return len(self._agents)
+
+
+if __name__ == "__main__":
+    print('Running population_manager.py')

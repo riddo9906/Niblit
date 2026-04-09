@@ -377,3 +377,7 @@ class TestALEIntegration:
         gcs = GitHubCodeSearch(token="tok")
         engine = initialize_autonomous_engine(core=None, github_code_search=gcs)
         assert engine.github_code_search is gcs
+
+
+if __name__ == "__main__":
+    print('Running test_github_code_search.py')

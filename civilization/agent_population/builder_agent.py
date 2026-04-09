@@ -73,3 +73,7 @@ class BuilderAgent(BaseAgent):
             return True
         except SyntaxError:
             return False
+
+
+if __name__ == "__main__":
+    print('Running builder_agent.py')

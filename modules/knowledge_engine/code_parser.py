@@ -196,3 +196,7 @@ class CodeParser:
                 elif isinstance(dec, ast.Attribute):
                     decorators.append(dec.attr)
         return sorted(set(decorators))
+
+
+if __name__ == "__main__":
+    print('Running code_parser.py')

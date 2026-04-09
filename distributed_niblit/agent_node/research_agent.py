@@ -50,3 +50,7 @@ class ResearchAgent:
     def get_history(self) -> List[Dict[str, Any]]:
         """Return all past research results."""
         return list(self._history)
+
+
+if __name__ == "__main__":
+    print('Running research_agent.py')

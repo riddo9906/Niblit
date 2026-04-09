@@ -114,3 +114,7 @@ class RepoDownloader:
             d for d in os.listdir(self.work_dir)
             if os.path.isdir(os.path.join(self.work_dir, d))
         ]
+
+
+if __name__ == "__main__":
+    print('Running repo_downloader.py')

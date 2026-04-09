@@ -313,3 +313,7 @@ def get_bios_integration(knowledge_db: Optional[Any] = None) -> BIOSIntegration:
                 _INSTANCE = BIOSIntegration(knowledge_db=knowledge_db)
                 _INSTANCE.probe()
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running bios_integration.py')

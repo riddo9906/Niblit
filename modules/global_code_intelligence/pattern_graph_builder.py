@@ -229,3 +229,7 @@ class PatternGraphBuilder:
                     q.append((tgt, dist + 1))
         visited.discard(start)
         return list(visited)
+
+
+if __name__ == "__main__":
+    print('Running pattern_graph_builder.py')

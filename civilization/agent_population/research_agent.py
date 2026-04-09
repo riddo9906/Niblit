@@ -124,3 +124,7 @@ class ResearchAgent(BaseAgent):
             "summary": f"Analysed {len(findings)} findings.",
             "confidence": min(1.0, 0.5 + len(findings) * 0.05),
         }
+
+
+if __name__ == "__main__":
+    print('Running research_agent.py')

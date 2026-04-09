@@ -53,3 +53,7 @@ class ScoringSystem:
         """Return sorted leaderboard as list of dicts."""
         entries = sorted(self._leaderboard.items(), key=lambda x: x[1], reverse=True)
         return [{"agent_id": aid, "score": s, "rank": i + 1} for i, (aid, s) in enumerate(entries)]
+
+
+if __name__ == "__main__":
+    print('Running scoring_system.py')

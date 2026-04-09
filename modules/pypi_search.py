@@ -192,3 +192,7 @@ class PyPISearch:
                 seen.add(n)
                 unique.append(n)
         return unique
+
+
+if __name__ == "__main__":
+    print('Running pypi_search.py')

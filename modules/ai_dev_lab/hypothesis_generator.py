@@ -131,3 +131,7 @@ class HypothesisGenerator:
                 domain = d
                 break
         return self.generate(domain_hint=domain)
+
+
+if __name__ == "__main__":
+    print('Running hypothesis_generator.py')

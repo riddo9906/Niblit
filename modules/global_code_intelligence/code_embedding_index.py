@@ -131,3 +131,7 @@ class _MemFallback:
                   for it in self._items]
         scored.sort(key=lambda x: x[0], reverse=True)
         return [it for _, it in scored[:top_k]]
+
+
+if __name__ == "__main__":
+    print('Running code_embedding_index.py')

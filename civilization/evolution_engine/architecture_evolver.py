@@ -69,3 +69,7 @@ class ArchitectureEvolver:
         elif improvement == "reduce_dropout":
             updated["dropout"] = max(0.0, arch.get("dropout", 0.3) - 0.1)
         return updated
+
+
+if __name__ == "__main__":
+    print('Running architecture_evolver.py')

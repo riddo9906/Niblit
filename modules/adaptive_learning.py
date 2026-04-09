@@ -81,3 +81,7 @@ class AdaptiveLearning:
         
         log.info(f"✅ [ADAPTIVE] Pace adjusted: {pace}")
         return pace
+
+
+if __name__ == "__main__":
+    print('Running adaptive_learning.py')

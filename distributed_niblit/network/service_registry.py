@@ -65,3 +65,7 @@ class ServiceRegistry:
         if entry is None:
             return False
         return bool(entry.get("healthy", False))
+
+
+if __name__ == "__main__":
+    print('Running service_registry.py')

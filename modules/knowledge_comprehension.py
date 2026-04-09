@@ -715,3 +715,7 @@ def get_knowledge_comprehension(
         if concept_synthesizer is not None and _comprehension_singleton.concept_synthesizer is None:
             _comprehension_singleton.concept_synthesizer = concept_synthesizer
     return _comprehension_singleton
+
+
+if __name__ == "__main__":
+    print('Running knowledge_comprehension.py')

@@ -633,3 +633,7 @@ def get_trading_study(**kwargs: Any) -> TradingStudy:
     if _trading_study is None:
         _trading_study = TradingStudy(**kwargs)
     return _trading_study
+
+
+if __name__ == "__main__":
+    print('Running trading_study.py')

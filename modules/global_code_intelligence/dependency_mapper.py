@@ -183,3 +183,7 @@ class DependencyMapper:
                 for dep in sorted(self._deps.get(package, set()))
             ],
         }
+
+
+if __name__ == "__main__":
+    print('Running dependency_mapper.py')

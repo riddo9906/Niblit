@@ -51,3 +51,7 @@ class ResearchScheduler:
             "status": "triggered",
             "findings": f"Simulated findings for topic: {topic}",
         }
+
+
+if __name__ == "__main__":
+    print('Running research_scheduler.py')

@@ -103,3 +103,7 @@ class TestingAgent(BaseAgent):
 
         self._log.info("testing(%s) → %s", language, "PASS" if passed else "FAIL")
         return result
+
+
+if __name__ == "__main__":
+    print('Running testing_agent.py')

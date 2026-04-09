@@ -194,3 +194,7 @@ class KnowledgeGraphBuilder:
                     parents[tgt] = node
                     queue.append(tgt)
         return []
+
+
+if __name__ == "__main__":
+    print('Running knowledge_graph_builder.py')

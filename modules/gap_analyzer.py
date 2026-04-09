@@ -112,3 +112,7 @@ class GapAnalyzer:
             f"{topic} - best practices",
             f"{topic} - case studies"
         ]
+
+
+if __name__ == "__main__":
+    print('Running gap_analyzer.py')

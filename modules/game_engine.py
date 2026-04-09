@@ -313,3 +313,7 @@ def get_game_engine() -> GameEngine:
     if _engine_instance is None:
         _engine_instance = GameEngine()
     return _engine_instance
+
+
+if __name__ == "__main__":
+    print('Running game_engine.py')

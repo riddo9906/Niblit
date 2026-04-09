@@ -92,3 +92,7 @@ class SandboxRunner:
             "error": error,
             "elapsed_s": round(time.time() - start, 4),
         }
+
+
+if __name__ == "__main__":
+    print('Running sandbox_runner.py')

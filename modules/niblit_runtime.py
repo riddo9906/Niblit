@@ -545,3 +545,7 @@ def get_niblit_runtime(
                     env_state_manager=env_state_manager,
                 )
     return _runtime
+
+
+if __name__ == "__main__":
+    print('Running niblit_runtime.py')

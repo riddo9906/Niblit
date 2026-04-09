@@ -60,3 +60,7 @@ class NodeRegistry:
             log.debug("NodeRegistry: %s status → %s", node_id, status)
         else:
             log.warning("NodeRegistry: update_status — unknown node %s", node_id)
+
+
+if __name__ == "__main__":
+    print('Running node_registry.py')

@@ -13,3 +13,7 @@ from niblit_memory import (  # noqa: F401
 )
 
 __all__ = ["FusedMemoryPrimary", "get_primary", "FusedMemory"]
+
+
+if __name__ == "__main__":
+    print('Running fused_memory_primary.py')

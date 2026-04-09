@@ -110,3 +110,7 @@ class MemoryOptimizer:
         
         sents = text.split(".")
         return ". ".join(sents[:sentences]) + "."
+
+
+if __name__ == "__main__":
+    print('Running memory_optimizer.py')

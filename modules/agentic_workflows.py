@@ -155,3 +155,7 @@ class AgenticWorkflow:
             lines.append(f"{icon} Step {i} [{step['step']}]: {str(step['result'])[:120]}")
 
         return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    print('Running agentic_workflows.py')

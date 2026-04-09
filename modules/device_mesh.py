@@ -334,3 +334,7 @@ def get_device_mesh(knowledge_db: Optional[Any] = None) -> DeviceMesh:
             if _INSTANCE is None:
                 _INSTANCE = DeviceMesh(knowledge_db=knowledge_db, autoscan=False)
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running device_mesh.py')

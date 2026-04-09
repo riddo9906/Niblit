@@ -641,3 +641,7 @@ def get_lean_engine(knowledge_db: Optional[Any] = None) -> LeanEngine:
     elif knowledge_db is not None and lean_engine._kb is None:
         lean_engine._kb = knowledge_db
     return lean_engine
+
+
+if __name__ == "__main__":
+    print('Running lean_engine.py')

@@ -58,3 +58,7 @@ class TaskExecutor:
     def get_result(self, task_id: str) -> Optional[Dict[str, Any]]:
         """Return stored result for *task_id* or None."""
         return self._results.get(task_id)
+
+
+if __name__ == "__main__":
+    print('Running task_executor.py')

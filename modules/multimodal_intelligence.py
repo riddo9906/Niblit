@@ -285,3 +285,7 @@ class MultimodalIntelligence:
             "capability": "Text, code, JSON, and numeric intelligence",
             "status": "Ready",
         }
+
+
+if __name__ == "__main__":
+    print('Running multimodal_intelligence.py')

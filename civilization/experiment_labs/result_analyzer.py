@@ -55,3 +55,7 @@ class ResultAnalyzer:
         """Return a named summary for *exp_id*."""
         stats = self.analyze(results)
         return {"exp_id": exp_id, "result_count": len(results), **stats}
+
+
+if __name__ == "__main__":
+    print('Running result_analyzer.py')

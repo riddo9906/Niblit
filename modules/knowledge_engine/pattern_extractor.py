@@ -175,3 +175,7 @@ class PatternExtractor:
         if len(matches) >= 3:
             return [{"pattern": "repository_pattern", "confidence": "high", "location": str(matches)}]
         return []
+
+
+if __name__ == "__main__":
+    print('Running pattern_extractor.py')

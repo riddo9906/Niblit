@@ -699,3 +699,7 @@ class TradingBrain:
                     break
                 _time.sleep(1)
         log.info("[TradingBrain] Background loop stopped.")
+
+
+if __name__ == "__main__":
+    print('Running trading_brain.py')

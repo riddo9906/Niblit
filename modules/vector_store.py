@@ -665,3 +665,7 @@ class FusedStorage:
             return self._vs_fallback.search(query_text, top_k=top_k) or []
         except Exception:
             return []
+
+
+if __name__ == "__main__":
+    print('Running vector_store.py')

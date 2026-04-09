@@ -182,3 +182,7 @@ class NiblitPersonality:
         except Exception as exc:
             log.debug("[NiblitPersonality] researcher snippet failed: %s", exc)
         return ""
+
+
+if __name__ == "__main__":
+    print('Running niblit_personality.py')

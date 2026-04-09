@@ -299,3 +299,7 @@ class TestBrainTrainer:
         trainer, _ = self._make_trainer()
         result = trainer.run_training_cycle()
         assert isinstance(result, str)
+
+
+if __name__ == "__main__":
+    print('Running test_niblit_brain.py')

@@ -9,3 +9,7 @@ This shim re-exports every public symbol so existing imports keep working.
 from niblit_memory import event, canonicalize, ingest  # noqa: F401
 
 __all__ = ["event", "canonicalize", "ingest"]
+
+
+if __name__ == "__main__":
+    print('Running ingestion.py')

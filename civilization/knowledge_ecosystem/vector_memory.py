@@ -61,3 +61,7 @@ class VectorMemory:
     def size(self) -> int:
         """Return number of stored vectors."""
         return len(self._store)
+
+
+if __name__ == "__main__":
+    print('Running vector_memory.py')

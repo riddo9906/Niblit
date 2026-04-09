@@ -190,3 +190,7 @@ class ArchitectureAnalyzer:
             for n in names
             if rx.search(n)
         )
+
+
+if __name__ == "__main__":
+    print('Running architecture_analyzer.py')

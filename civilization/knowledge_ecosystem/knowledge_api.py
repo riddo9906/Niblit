@@ -84,3 +84,7 @@ class KnowledgeAPI:
     def vector_count(self) -> int:
         """Return number of vectors currently stored in VectorMemory."""
         return self._vectors.size()
+
+
+if __name__ == "__main__":
+    print('Running knowledge_api.py')

@@ -282,3 +282,7 @@ class TestResearchBotHelpers:
                 niblit_integrate({"patterns": {}, "new_insights": [], "top_repos": []})
             except Exception:
                 pass  # import error handling may vary; just ensure no crash propagates
+
+
+if __name__ == "__main__":
+    print('Running test_rag_pipeline.py')

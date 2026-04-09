@@ -304,3 +304,7 @@ def get_kernel_integration(knowledge_db: Optional[Any] = None) -> KernelIntegrat
                 _INSTANCE = KernelIntegration(knowledge_db=knowledge_db)
                 _INSTANCE.probe()
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running kernel_integration.py')

@@ -441,3 +441,7 @@ class TestAIOSRuntimeNewFields:
         # security_hardening was registered under SEC
         sh = rt.layer_registry.get(LAYER_SEC, "security_hardening")
         assert sh is not None
+
+
+if __name__ == "__main__":
+    print('Running test_aios_architecture.py')

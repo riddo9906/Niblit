@@ -148,3 +148,7 @@ class ExperimentManager:
             return ExperimentDatabase(db_path=path)
         except Exception:  # noqa: BLE001
             return None
+
+
+if __name__ == "__main__":
+    print('Running experiment_manager.py')

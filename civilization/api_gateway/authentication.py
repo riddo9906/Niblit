@@ -50,3 +50,7 @@ class Authentication:
     def list_active_tokens(self) -> List[str]:
         """Return raw tokens that are currently active."""
         return [str(v["raw"]) for v in self._tokens.values() if v.get("active")]
+
+
+if __name__ == "__main__":
+    print('Running authentication.py')

@@ -320,3 +320,7 @@ def get_aios_scheduler() -> AIOSScheduler:
             if _scheduler is None:
                 _scheduler = AIOSScheduler()
     return _scheduler
+
+
+if __name__ == "__main__":
+    print('Running aios_scheduler.py')

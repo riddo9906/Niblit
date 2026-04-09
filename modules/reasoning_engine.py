@@ -893,3 +893,7 @@ def get_reasoning_engine(knowledge_db: Any = None) -> ReasoningEngine:
     elif knowledge_db is not None and _INSTANCE.db is None:
         _INSTANCE.db = knowledge_db
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running reasoning_engine.py')

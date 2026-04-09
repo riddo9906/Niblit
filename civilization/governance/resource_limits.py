@@ -45,3 +45,7 @@ class ResourceLimits:
         """Record actual resource usage."""
         self._usage[resource_type].append(used)
         log.debug("ResourceLimits: %s used=%.2f", resource_type, used)
+
+
+if __name__ == "__main__":
+    print('Running resource_limits.py')

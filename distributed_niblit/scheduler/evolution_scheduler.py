@@ -67,3 +67,7 @@ class EvolutionScheduler:
                 cycle["result"] = result
                 return result
         return {"status": "no_pending_cycles"}
+
+
+if __name__ == "__main__":
+    print('Running evolution_scheduler.py')

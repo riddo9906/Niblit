@@ -167,3 +167,7 @@ class BackgroundJobManager:
 
 #: Global BackgroundJobManager singleton.  Import and use this everywhere.
 bg_jobs: BackgroundJobManager = BackgroundJobManager()
+
+
+if __name__ == "__main__":
+    print('Running background_jobs.py')

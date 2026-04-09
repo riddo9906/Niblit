@@ -302,3 +302,7 @@ class TestMemoryHelpers:
         result = ingest(mem, "user: ping pong")
         assert isinstance(result, dict)
         assert result["speaker"] == "user"
+
+
+if __name__ == "__main__":
+    print('Running test_niblit_memory.py')

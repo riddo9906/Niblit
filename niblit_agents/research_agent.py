@@ -258,3 +258,7 @@ class ResearchAgent:
                         logger.debug("[ResearchAgent] VectorStore add failed: %s", exc)
 
         return extracted
+
+
+if __name__ == "__main__":
+    print('Running research_agent.py')

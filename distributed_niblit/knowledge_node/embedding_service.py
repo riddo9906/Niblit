@@ -52,3 +52,7 @@ class EmbeddingService:
         na = math.sqrt(sum(a * a for a in vec_a)) or 1.0
         nb = math.sqrt(sum(b * b for b in vec_b)) or 1.0
         return dot / (na * nb)
+
+
+if __name__ == "__main__":
+    print('Running embedding_service.py')

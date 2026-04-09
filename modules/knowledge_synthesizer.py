@@ -116,3 +116,7 @@ Cross-Domain Insights:
                 related.append(other)
         
         return related
+
+
+if __name__ == "__main__":
+    print('Running knowledge_synthesizer.py')

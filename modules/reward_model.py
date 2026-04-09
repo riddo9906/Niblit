@@ -364,3 +364,7 @@ def get_reward_model(model_name: str = "distilbert-base-uncased") -> RewardModel
         if _reward_singleton is None:
             _reward_singleton = RewardModel(model_name=model_name)
     return _reward_singleton
+
+
+if __name__ == "__main__":
+    print('Running reward_model.py')

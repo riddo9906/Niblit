@@ -195,3 +195,7 @@ class DiscoveryEngine:
             "snapshots": len(self._snapshots),
             "discoveries": len(self._discoveries),
         }
+
+
+if __name__ == "__main__":
+    print('Running discovery_engine.py')
