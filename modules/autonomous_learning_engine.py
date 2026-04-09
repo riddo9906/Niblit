@@ -3222,16 +3222,25 @@ class AutonomousLearningEngine:
 
         If the step does not complete within *self.step_timeout* seconds the
         main cycle continues without waiting further. The worker thread is a
-        daemon thread (inherits from the ALE background thread) and will be
-        collected by the OS when the process exits. This prevents any single
-        stalled network call or slow module from blocking the entire ALE cycle
-        while still allowing all other steps to run on schedule.
+        daemon thread and will be collected by the OS when the process exits.
+        This prevents any single stalled network call or slow module from
+        blocking the entire ALE cycle.
+
+        IMPORTANT: We intentionally do NOT use the ``with ThreadPoolExecutor``
+        context manager here.  The context manager calls
+        ``executor.shutdown(wait=True)`` on exit, which blocks until the
+        running worker finishes — adding a full extra *step_timeout* delay for
+        every timed-out step.  Instead we call
+        ``executor.shutdown(wait=False, cancel_futures=True)`` in a ``finally``
+        block so the caller returns immediately and the orphaned worker is
+        collected by the OS.
         """
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        try:
             future = executor.submit(step_fn)
             try:
                 result = future.result(timeout=self.step_timeout)
-                # ── Kernel health reporting (additive) ───────────────────────────────────
+                # ── Kernel health reporting (additive) ───────────────────────
                 if self.kernel:
                     try:
                         self.kernel.report_success("ALE", f"Step: {step_name}")
@@ -3242,6 +3251,7 @@ class AutonomousLearningEngine:
                 log.warning(
                     f"⏱️ [ALE] Step '{step_name}' timed out after {self.step_timeout}s — skipping"
                 )
+                future.cancel()
                 return f"[{step_name} timed out after {self.step_timeout}s]"
             except Exception as exc:
                 log.error(f"❌ [ALE] Step '{step_name}' raised: {exc}")
@@ -3251,6 +3261,10 @@ class AutonomousLearningEngine:
                     except Exception:
                         pass
                 return f"[{step_name} error: {exc}]"
+        finally:
+            # Non-blocking shutdown: returns immediately; orphaned worker runs
+            # as a daemon thread and is collected when the process exits.
+            executor.shutdown(wait=False, cancel_futures=True)
 
     # ─────────────────────────────────────────────
     # INTERRUPTIBLE SLEEP HELPER
@@ -4920,19 +4934,43 @@ class AutonomousLearningEngine:
         cycle_count = 0
 
         # ── Startup delay ──────────────────────────────────────────────────────
-        # Wait before the first cycle so niblit_core has time to finish
-        # initialising all optional services (internet, researcher, LLM, etc.)
-        # before ALE begins issuing network-heavy requests.
+        # Wait until niblit_core has fully initialised all optional services
+        # (internet, researcher, LLM, etc.) before ALE begins issuing
+        # network-heavy requests.
+        #
+        # Preferred path: if the core exposes wait_for_ready() (phased init)
+        # we block on that event — ALE wakes up the moment Phase 1 is done
+        # regardless of how long it actually takes.  We still honour
+        # startup_delay as a *minimum* floor so the first ALE cycle can never
+        # fire sooner than the configured value.
+        #
+        # Fallback path: core does not expose wait_for_ready() → sleep for the
+        # configured startup_delay seconds as before.
         if self.startup_delay > 0:
-            log.info(
-                "⏳ [BACKGROUND LOOP] Waiting %ds before first cycle "
-                "(startup delay — set NIBLIT_ALE_STARTUP_DELAY=0 to disable)...",
-                self.startup_delay,
-            )
-            self._interruptible_sleep(self.startup_delay)
-            if not self.running:
-                log.info("[BACKGROUND LOOP] Stopped during startup delay")
-                return
+            _wait_fn = getattr(self.core, "wait_for_ready", None)
+            if callable(_wait_fn):
+                log.info(
+                    "⏳ [BACKGROUND LOOP] Waiting for core to be fully ready "
+                    "before first cycle (phased init)..."
+                )
+                # Block until Phase 1 is complete (no hard timeout — we trust
+                # the deferred-init thread to finish eventually).  The event
+                # will be set even if Phase 1 fails, so we never deadlock.
+                _wait_fn(timeout=None)
+                if not self.running:
+                    log.info("[BACKGROUND LOOP] Stopped while waiting for core ready")
+                    return
+                log.info("✅ [BACKGROUND LOOP] Core ready — starting first ALE cycle")
+            else:
+                log.info(
+                    "⏳ [BACKGROUND LOOP] Waiting %ds before first cycle "
+                    "(startup delay — set NIBLIT_ALE_STARTUP_DELAY=0 to disable)...",
+                    self.startup_delay,
+                )
+                self._interruptible_sleep(self.startup_delay)
+                if not self.running:
+                    log.info("[BACKGROUND LOOP] Stopped during startup delay")
+                    return
 
         while self.running:
             try:

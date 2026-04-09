@@ -7788,6 +7788,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         while self.running:
             try:
+                # Skip if ALE is already running — it covers all research steps
+                # and calling researcher.search() concurrently would saturate
+                # the network stack and serialise on internal locks.
+                _ale = getattr(self, "autonomous_engine", None)
+                if _ale is not None and getattr(_ale, "running", False):
+                    time.sleep(150)
+                    continue
+
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
                     queued = self.db.get_learning_queue()
                     pending = [
@@ -7814,7 +7822,24 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             if self.internet:
                                 self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
                             if hasattr(self.researcher, "search"):
-                                result = safe_call(self.researcher.search, topic)
+                                # Run search in a daemon thread with a hard 60s
+                                # timeout so a stalled network call never freezes
+                                # the entire ResearchLoop thread indefinitely.
+                                _result_box: list = [None]
+
+                                def _do_search(_t=topic):
+                                    _result_box[0] = safe_call(self.researcher.search, _t)
+
+                                _st = threading.Thread(target=_do_search, daemon=True)
+                                _st.start()
+                                _st.join(timeout=60)
+                                if not _st.is_alive():
+                                    result = _result_box[0]
+                                else:
+                                    log.debug(
+                                        "[AUTO RESEARCH] Search timed out for '%s' — skipping",
+                                        topic,
+                                    )
                                 if result:
                                     self.research_cache.set(cache_key, result)
 

@@ -498,6 +498,42 @@ if __name__ == "__main__":
 
     core, io = boot()
 
+    # ── Block until Phase-1 deferred init is complete ─────────────────────────
+    # With phased init, NiblitCore.__init__ returns in < 2s (Phase 0), but
+    # all heavy modules (VectorStore, HFBrain, ALE, CivilizationController,
+    # trading systems, 60+ optional services) load in a background thread
+    # (Phase 1).  We wait here — blocking the CLI prompt — until Phase 1
+    # finishes so that the "READY" prompt only appears when Niblit is truly
+    # fully booted.
+    #
+    # The user can cancel at any time with Ctrl+C; the SIGINT handler saves
+    # state and exits cleanly.  Once init is complete the CLI opens normally.
+    #
+    # To skip the wait and get an immediate prompt (with degraded capabilities
+    # until Phase 1 finishes in the background), set:
+    #   NIBLIT_SKIP_INIT_WAIT=1
+    _skip_wait = os.getenv("NIBLIT_SKIP_INIT_WAIT", "0").strip() in ("1", "true", "yes")
+    if not _skip_wait and hasattr(core, "wait_for_ready"):
+        io.out(
+            f"{timestamp()} ⏳ Loading modules — Niblit will be ready shortly "
+            "(Ctrl+C to skip and open CLI now)..."
+        )
+        try:
+            core.wait_for_ready(timeout=None)
+        except KeyboardInterrupt:
+            io.out(
+                f"\n{timestamp()} ⚡ Init wait skipped — CLI opening now "
+                "(some modules may still be loading in the background)"
+            )
+        _phase = getattr(core, "_deferred_init_phase", "complete")
+        if _phase == "complete":
+            io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
+        else:
+            io.out(
+                f"{timestamp()} ⚠️  Background init did not complete cleanly "
+                f"(phase={_phase}) — some features may be unavailable"
+            )
+
     # ── One-shot mode: run a single command then exit ─────────────────────────
     if _args.one_shot is not None:
         cmd = _args.one_shot.strip()
