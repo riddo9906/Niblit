@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .base_agent import BaseAgent
 
@@ -30,7 +30,16 @@ class ResearchAgent(BaseAgent):
     Uses ``modules.github_code_search.GitHubCodeSearch`` for live repository
     discovery when available; falls back to a static list when the module or
     network is unreachable.
+
+    An optional ``github_code_search`` attribute (``GitHubCodeSearch`` instance)
+    can be set after construction by ``CivilizationController`` to reuse the
+    shared client rather than instantiating a new one per call.
     """
+
+    def __init__(self, agent_id: str, role: str) -> None:
+        super().__init__(agent_id, role)
+        # Injected by CivilizationController when a shared instance is available.
+        self.github_code_search: Optional[Any] = None
 
     # ── public API ──
 
@@ -60,12 +69,15 @@ class ResearchAgent(BaseAgent):
     def search_repositories(self, topic: str) -> List[Dict[str, Any]]:
         """Return repository results for *topic*.
 
-        Tries ``GitHubCodeSearch._search_repos()`` first; falls back to
-        the static fallback list if that is unavailable or raises.
+        Prefers the injected ``self.github_code_search`` instance when set;
+        otherwise instantiates a fresh ``GitHubCodeSearch``.  Falls back to
+        the static fallback list if neither is available or raises.
         """
         try:
-            from modules.github_code_search import GitHubCodeSearch
-            gcs = GitHubCodeSearch()
+            gcs = self.github_code_search
+            if gcs is None:
+                from modules.github_code_search import GitHubCodeSearch
+                gcs = GitHubCodeSearch()
             raw = gcs.search_repos(topic, max_results=5)
             if raw:
                 # Normalise to a consistent {"name", "description", "stars"} shape
