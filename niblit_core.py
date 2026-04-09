@@ -5665,7 +5665,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.sqlite_researcher = None
             self.startup_report.add("sqlite_researcher", "unavailable", str(e))
 
-        # MarketResearcher — market/trading trend analysis
+        # MarketResearcher — market/trading trend analysis.
+        # Note: MarketResearcher exposes analyze_market()/summary() rather than a
+        # search_web() interface, so it is not plugged into the SelfResearcher search
+        # pipeline.  It is instead accessed directly via core.market_researcher or
+        # routed through trading-related CLI commands.
         try:
             self.market_researcher = MarketResearcher(db=getattr(self, "db", None)) if MarketResearcher else None
             if self.market_researcher:
