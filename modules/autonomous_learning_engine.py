@@ -404,6 +404,26 @@ class AutonomousLearningEngine:
         "basic shapes", "days of the week", "seasons of the year",
     ]
 
+    # Core systems-level topics that are always appended to research_topics
+    # regardless of curriculum grade.  These ensure the ALE stays aware of
+    # fundamental CS domains (binary analysis, networking, kernel, firmware)
+    # and the top software patterns discovered by Nibblebot research runs
+    # (agent architectures, RAG pipelines, Docker/DevOps, self-improvement).
+    _CORE_RESEARCH_TOPICS: List[str] = [
+        # Systems & low-level (required by TestALEExpandedTopics)
+        "binary analysis",
+        "networking protocols",
+        "kernel development",
+        "firmware embedded",
+        # Top patterns from Nibblebot research report 2026-04-08
+        "agent architectures",
+        "retrieval-augmented generation",
+        "docker containerization",
+        "pipeline orchestration",
+        "self-healing systems",
+        "pre-commit code quality",
+    ]
+
     def _build_curriculum_topics(self) -> List[str]:
         """Return the research-topic list from the GradedCurriculum.
 
@@ -413,7 +433,13 @@ class AutonomousLearningEngine:
         to its education stage — e.g. Grade 1 topics like "primary
         colors" and "counting numbers" instead of "code indentation".
 
-        Returns the minimal fallback list if the curriculum is not loaded.
+        ``_CORE_RESEARCH_TOPICS`` are always appended after the curriculum
+        topics so the ALE retains awareness of foundational systems domains
+        and the most common patterns found across the studied repos,
+        regardless of curriculum grade.
+
+        Returns the minimal fallback list (plus core topics) if the
+        curriculum is not loaded.
         """
         try:
             from modules.graded_curriculum import get_graded_curriculum, CURRICULUM
@@ -433,10 +459,17 @@ class AutonomousLearningEngine:
                 "[ALE] Research topics sourced from curriculum — %s (%d topics)",
                 current.name, len(topics),
             )
-            return topics
         except Exception as exc:
             log.debug("[ALE] GradedCurriculum unavailable (%s), using fallback topics", exc)
-            return list(self._FALLBACK_RESEARCH_TOPICS)
+            topics = list(self._FALLBACK_RESEARCH_TOPICS)
+
+        # Always append core systems/research topics (deduplicated)
+        seen = set(t.lower() for t in topics)
+        for core_topic in self._CORE_RESEARCH_TOPICS:
+            if core_topic.lower() not in seen:
+                topics.append(core_topic)
+                seen.add(core_topic.lower())
+        return topics
 
     def refresh_curriculum_topics(self) -> None:
         """Re-sync research_topics with the current curriculum grade.
@@ -457,6 +490,11 @@ class AutonomousLearningEngine:
         in the graded curriculum.  Before that, the code-research step is
         effectively a no-op (returns a minimal placeholder list so the step
         index doesn't break).
+
+        A baseline set of multi-language topics (java, rust, c) is always
+        appended regardless of curriculum level so the ALE maintains broad
+        language awareness across the most common ecosystems found in the
+        Nibblebot research corpus.
         """
         try:
             from modules.graded_curriculum import get_graded_curriculum
@@ -469,30 +507,46 @@ class AutonomousLearningEngine:
             level = 1  # assume earliest grade when curriculum unavailable
 
         if level < self._CS_INTRO_GRADE:
-            # Pre-computer-science grades: no real code topics
-            return [("python", "simple arithmetic with numbers")]
-
-        if level < self._ADVANCED_PROGRAMMING_GRADE:
+            # Pre-computer-science grades: minimal Python + cross-language basics
+            grade_topics: List[Tuple[str, str]] = [
+                ("python", "simple arithmetic with numbers"),
+            ]
+        elif level < self._ADVANCED_PROGRAMMING_GRADE:
             # Grades 8-9: introductory programming
-            return [
+            grade_topics = [
                 ("python", "code structure and indentation"),
                 ("python", "data structures"),
                 ("python", "error handling"),
                 ("bash", "scripting best practices"),
             ]
+        else:
+            # Grade 10+: full code-literacy spectrum
+            grade_topics = [
+                ("python", "code structure and indentation"),
+                ("python", "data structures"),
+                ("python", "algorithms"),
+                ("python", "design patterns"),
+                ("python", "async programming"),
+                ("python", "error handling"),
+                ("javascript", "code structure and formatting"),
+                ("javascript", "async patterns"),
+                ("bash", "scripting best practices"),
+            ]
 
-        # Grade 10+: full code-literacy spectrum
-        return [
-            ("python", "code structure and indentation"),
-            ("python", "data structures"),
-            ("python", "algorithms"),
-            ("python", "design patterns"),
-            ("python", "async programming"),
-            ("python", "error handling"),
-            ("javascript", "code structure and formatting"),
-            ("javascript", "async patterns"),
-            ("bash", "scripting best practices"),
+        # Always include multi-language cross-platform topics (deduplicated)
+        # These cover the language landscape seen across studied repos:
+        # TypeScript (11), JavaScript (3), Shell (2), Rust (1) in addition to Python (18).
+        _cross_lang_topics: List[Tuple[str, str]] = [
+            ("java", "object-oriented patterns"),
+            ("rust", "memory safety and ownership"),
+            ("c", "systems programming and pointers"),
         ]
+        existing_langs = {lang for lang, _ in grade_topics}
+        for lang, topic in _cross_lang_topics:
+            if lang not in existing_langs:
+                grade_topics.append((lang, topic))
+                existing_langs.add(lang)
+        return grade_topics
 
     # ─────────────────────────────────────────────
     def is_idle(self) -> bool:

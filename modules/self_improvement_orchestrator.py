@@ -316,7 +316,8 @@ class SelfImprovementOrchestrator:
           1. Feeds each new insight as a learning topic to the ALE (if wired).
           2. Stores each pattern/insight in the knowledge DB (if wired).
           3. Indexes high-value repo summaries into the RAG pipeline VectorStore.
-          4. Returns a summary dict.
+          4. Feeds top recommendation keywords back into the ALE as priority topics.
+          5. Returns a summary dict.
         """
         ingested: Dict[str, Any] = {
             "source": source,
@@ -329,6 +330,7 @@ class SelfImprovementOrchestrator:
         new_insights: List[str] = findings.get("new_insights", [])
         patterns: Dict[str, List[str]] = findings.get("patterns", {})
         top_repos: List[Dict[str, Any]] = findings.get("top_repos", [])
+        recommendations: List[str] = findings.get("recommendations", [])
 
         # 1. Feed patterns as ALE learning topics ─────────────────────
         if self.ale:
@@ -364,6 +366,18 @@ class SelfImprovementOrchestrator:
                 except Exception as exc:
                     ingested["errors"].append(f"db_insight: {exc}")
 
+            # Also persist recommendations so future cycles can act on them
+            for rec in recommendations[:10]:
+                try:
+                    self.db.add_fact(
+                        f"{source}:recommendation:{rec[:self._MAX_FACT_KEY_LENGTH]}",
+                        rec,
+                        tags=[source, "research", "recommendation"],
+                    )
+                    ingested["facts_stored"] += 1
+                except Exception as exc:
+                    ingested["errors"].append(f"db_rec: {exc}")
+
         # 3. Index top-repo summaries into RAG pipeline ───────────────
         try:
             from modules.rag_pipeline import get_rag_pipeline
@@ -387,7 +401,31 @@ class SelfImprovementOrchestrator:
             ingested["errors"].append(f"rag_index: {exc}")
             log.debug("[Orchestrator] RAG indexing skipped: %s", exc)
 
-        # 4. Record in history ────────────────────────────────────────
+        # 4. Feed top recommendation keywords into ALE as priority topics
+        # Extract the keyword from each recommendation string and prioritise it
+        # so the ALE focuses next on patterns that appear most across repos.
+        if self.ale and recommendations:
+            import re as _re
+            for rec in recommendations[:5]:
+                # Recommendation format: "keyword appeared in N studied repos — ..."
+                m = _re.match(r"^([a-zA-Z0-9_/\- ]+?)\s+appeared", rec)
+                if m:
+                    kw = m.group(1).strip()
+                    try:
+                        if hasattr(self.ale, "add_research_topic"):
+                            self.ale.add_research_topic(kw)
+                        elif hasattr(self.ale, "research_topics") and isinstance(
+                            self.ale.research_topics, list
+                        ):
+                            # Move to front for priority (or append if new)
+                            if kw in self.ale.research_topics:
+                                self.ale.research_topics.remove(kw)
+                            self.ale.research_topics.insert(0, kw)
+                        ingested["ale_topics_queued"] += 1
+                    except Exception as exc:
+                        ingested["errors"].append(f"ale_rec_topic({kw}): {exc}")
+
+        # 5. Record in history ────────────────────────────────────────
         self._history.append({
             "cycle": self._cycle_count,
             "ts": datetime.now(timezone.utc).isoformat(),
