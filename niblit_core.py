@@ -1735,12 +1735,12 @@ class NiblitCore:
                 log.warning(f"⚠️ Degraded Phase-0 startup: {self.startup_report.summary()}")
 
             # Phase 1: all heavy modules load in a daemon thread.
-            _deferred_thread = threading.Thread(
+            self._deferred_thread: Optional[threading.Thread] = threading.Thread(
                 target=self._deferred_init,
                 name="DeferredInitThread",
                 daemon=True,
             )
-            _deferred_thread.start()
+            self._deferred_thread.start()
 
         except Exception as e:
             log.error(f"Fatal initialization error: {e}", exc_info=True)
@@ -5400,7 +5400,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 "complete": "✅ ready",
                 "failed": "❌ failed",
             }
-            phase = getattr(self, "_deferred_init_phase", "complete")
+            phase = getattr(self, "_deferred_init_phase", "pending")
             init_label = _phase_icons.get(phase, phase)
             return (
                 f"Status: OK | Memory: {mem_count} | "
