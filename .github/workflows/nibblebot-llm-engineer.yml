@@ -1,0 +1,63 @@
+name: "🤖 Nibblebot: LLM Engineer Research Bot"
+
+# Studies how production LLMs are built, trained, fine-tuned, and evaluated
+# by scanning the top GitHub repositories covering every stage of the LLM
+# engineering pipeline (data curation, tokenisation, SFT, RLHF/DPO,
+# evaluation, inference optimisation) and applies the same methodology to
+# live trading AI.  Generates a gap analysis against Niblit's current
+# architecture and actionable upgrade proposals as a GitHub Issue.
+#
+# Schedule: Every Thursday at 10:00 UTC (before Friday research run)
+
+on:
+  schedule:
+    - cron: "0 10 * * 4"   # Every Thursday at 10:00 UTC
+  workflow_dispatch:
+    inputs:
+      topics:
+        description: "Comma-separated topics (leave blank for defaults)"
+        required: false
+        default: ""
+      max_repos:
+        description: "Max repos per topic"
+        required: false
+        default: "5"
+      deep_dive:
+        description: "Enable deep dive (slower — fetches repo file tree)"
+        required: false
+        default: "false"
+        type: boolean
+      dry_run:
+        description: "Dry run (print report instead of creating issue)"
+        required: false
+        default: "false"
+        type: boolean
+
+permissions:
+  issues: write      # create/update issues
+  contents: read     # checkout
+
+jobs:
+  llm-engineer-research:
+    name: Run Nibblebot LLM Engineer Bot
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Nibblebot LLM Engineer Bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          LLM_ENG_TOPICS: ${{ inputs.topics || '' }}
+          LLM_ENG_MAX_REPOS: ${{ inputs.max_repos || '5' }}
+          LLM_ENG_DEEP_DIVE: ${{ inputs.deep_dive || 'false' }}
+          LLM_ENG_DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          python nibblebots/llm_engineer_bot.py

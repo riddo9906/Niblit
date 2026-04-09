@@ -61,6 +61,7 @@ ISSUE_LABEL = "nibblebot-research"
 ISSUE_TITLE_PREFIX = "🔬 Nibblebot Research Report"
 
 _DEFAULT_TOPICS = (
+    # ── Autonomous agents & LLM frameworks ──────────────────────────────────
     "ai-agent,llm-framework,autonomous-agent,"
     "knowledge-graph,vector-database,retrieval-augmented-generation,"
     "self-improving,continual-learning,online-learning,"
@@ -69,10 +70,43 @@ _DEFAULT_TOPICS = (
     "multi-agent-system,evolutionary-algorithm,competitive-self-play,"
     "agent-based-modeling,genetic-programming,neuroevolution,"
     "coevolution,multi-agent-rl,population-optimization,"
-    # Topics from 2026-04-08 research report issue (new discoveries)
+    # ── How LLMs are built from scratch ─────────────────────────────────────
+    # Pre-training: data pipelines, tokenization, corpus curation
+    "llm-pretraining,tokenizer-training,bpe-tokenizer,sentencepiece,"
+    "text-corpus-curation,data-deduplication,training-data-pipeline,"
+    # Architecture: transformer internals, attention mechanisms
+    "transformer-architecture,attention-mechanism,flash-attention,"
+    "rotary-positional-embedding,grouped-query-attention,mixture-of-experts,"
+    # Training: optimisers, distributed training, FSDP, DeepSpeed
+    "llm-training,distributed-training,deepspeed,fsdp,megatron-lm,"
+    "gradient-checkpointing,mixed-precision-training,zero-optimization,"
+    # Fine-tuning & alignment: SFT, RLHF, DPO, PPO, Constitutional AI
+    "supervised-fine-tuning,rlhf,dpo-training,ppo-finetuning,"
+    "constitutional-ai,instruction-tuning,lora-fine-tuning,qlora,"
+    "peft,trl,huggingface-trainer,axolotl,unsloth,"
+    # Evaluation: benchmarks, lm-eval-harness, perplexity
+    "llm-evaluation,lm-eval-harness,hellaswag,mmlu,gsm8k,"
+    "perplexity-evaluation,llm-benchmark,ai-alignment-testing,"
+    # Serving & inference optimisation
+    "llm-inference,vllm,text-generation-inference,llama-cpp,"
+    "quantization,gptq,awq,model-compression,"
+    # ── Live trading AI — how the best systems are built ────────────────────
+    # Reinforcement learning for trading (PPO, A3C, DQN)
+    "rl-trading,deep-rl-trading,ppo-trading,dqn-stock-trading,"
+    "multi-agent-trading,trading-environment,gym-trading,"
+    # Transformer-based market models (temporal fusion, informer)
+    "temporal-fusion-transformer,informer-trading,patchtst,"
+    "time-series-foundation-model,lag-llama,chronos,"
+    # Signal engineering: technical indicators, alternative data
+    "trading-feature-engineering,alternative-data,sentiment-trading,"
+    "options-flow,order-flow-imbalance,limit-order-book,"
+    # Live execution: low-latency, risk management
+    "live-trading-execution,algorithmic-trading,backtesting,"
+    "risk-management-trading,portfolio-optimization,mean-variance,"
+    # ── Topics from 2026-04-08 research report issue (new discoveries) ──────
     "ai-live-trading-execution,ai-live-trading-builds,"
     "android-apk-creation,ai-operating-system,chat-completions,"
-    "self-healing,plugin-architecture,lora-fine-tuning"
+    "self-healing,plugin-architecture"
 )
 TOPICS = [
     t.strip()

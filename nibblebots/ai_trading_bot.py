@@ -65,14 +65,45 @@ ISSUE_TITLE_PREFIX = "📈 Nibblebot AI Trading Study"
 
 # ---------------------------------------------------------------------------
 # Research topics — AI trading platforms, algorithms, deployment, bootcamps
+# Structured around the methodology used by the most successful live trading AI
+# systems: RL-based execution, transformer market models, signal engineering,
+# and rigorous backtesting / risk management pipelines.
 # ---------------------------------------------------------------------------
 _DEFAULT_TOPICS = (
+    # ── Classic algo / quant foundations ─────────────────────────────────
     "algorithmic-trading,quantitative-finance,backtesting,"
     "trading-bot,cryptocurrency-trading,stock-trading,"
-    "reinforcement-learning-trading,deep-learning-trading,"
     "high-frequency-trading,trading-strategy,market-making,"
+    "lean-engine,freqtrade,zipline,backtrader,nautilus-trader,"
+    # ── Reinforcement learning for live trading ───────────────────────────
+    # PPO, DQN, A3C are the dominant RL algorithms in live trading systems.
+    # Trade execution as a sequential decision problem (Gym/Gymnasium env).
+    "reinforcement-learning-trading,deep-rl-trading,ppo-trading,"
+    "dqn-stock-trading,gym-trading,trading-environment,finrl,"
+    "multi-agent-trading,marl-trading,competitive-trading,"
+    # ── Transformer / foundation models for markets ───────────────────────
+    # Temporal Fusion Transformer, Informer, PatchTST, lag-llama, Chronos
+    # dominate time-series forecasting in professional quant shops.
+    "temporal-fusion-transformer,informer-trading,patchtst,"
+    "time-series-foundation-model,lag-llama,chronos-forecasting,"
+    "tsmixer,timesnet,moment-research,"
+    # ── Signal engineering & alternative data ────────────────────────────
+    "trading-feature-engineering,technical-indicators,ta-lib,"
+    "alternative-data,sentiment-trading,options-flow-trading,"
+    "order-flow-imbalance,limit-order-book,market-microstructure,"
+    # ── Portfolio optimisation & risk management ──────────────────────────
+    "portfolio-optimization,risk-management-trading,mean-variance,"
+    "kelly-criterion,sharpe-ratio,drawdown-control,position-sizing,"
+    # ── Live execution & infrastructure ──────────────────────────────────
+    "live-trading-execution,paper-trading,crypto-trading-bot,"
+    "alpaca-trading,binance-api,oanda-api,ibkr-api,"
+    "trading-infrastructure,event-driven-trading,order-management,"
+    # ── LLM + AI methodologies applied to trading ─────────────────────────
+    # The same SFT → RLHF → evaluation pipeline used for LLMs is now used
+    # to train and align trading agents.
     "ai-trading,trading-algorithm,trading-signals,"
-    "lean-engine,freqtrade,zipline,backtrader"
+    "llm-trading,gpt-trading,nlp-market-analysis,"
+    "deep-learning-trading,lstm-trading,transformer-stock-prediction"
 )
 
 TOPICS = [

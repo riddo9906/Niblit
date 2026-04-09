@@ -352,6 +352,7 @@ class AutonomousLearningEngine:
             "cognitive_enhancement_cycles": 0,
             "serpex_research_cycles": 0,
             "scrapy_research_cycles": 0,
+            "llm_architect_cycles": 0,
             "last_research_topic": None,
             "last_serpex_query": None,
             "last_idea": None,
@@ -4587,8 +4588,74 @@ class AutonomousLearningEngine:
         log.info("✅ [SELF MAINTENANCE] %s", result)
         return f"SelfMaintenance: {result}"
 
+    # Throttle: run LLM architect pipeline every N cycles
+    _LLM_ARCHITECT_CYCLE_EVERY: int = 10
+
+    def _get_llm_architect(self):
+        """Lazy-load the LLMArchitectEngine singleton."""
+        if not hasattr(self, "_llm_architect"):
+            self._llm_architect = None
+        if self._llm_architect is None:
+            try:
+                from modules.llm_architect_engine import get_llm_architect_engine
+                core = self.core
+                self._llm_architect = get_llm_architect_engine(
+                    knowledge_db=self.knowledge_db,
+                    brain_trainer=getattr(core, "brain_trainer", None) if core else None,
+                    hf_brain=getattr(core, "brain", None) if core else None,
+                    reward_model=getattr(core, "reward_model", None) if core else None,
+                    llm_training_agent=getattr(core, "llm_training_agent", None) if core else None,
+                )
+            except Exception as exc:
+                log.debug("[ALE] LLMArchitectEngine not available: %s", exc)
+        return self._llm_architect
+
+    def _autonomous_llm_architect(self) -> str:
+        """Step 32: LLM Architect Cycle — data curation → SFT → DPO → eval.
+
+        Applies the same four-stage pipeline used by ML engineers to build
+        production LLMs to Niblit's own knowledge base:
+
+          Stage 1 — Data Curation : extract (prompt, completion) SFT pairs
+                                    and (prompt, chosen, rejected) DPO pairs
+                                    from the KB.
+          Stage 2 — SFT           : feed curated data into BrainTrainer, or
+                                    run a LoRA fine-tune if LOCAL_MODEL_PATH
+                                    and trl/peft are available.
+          Stage 3 — DPO           : reinforce high-quality KB facts using
+                                    reward_model scores as preference signals.
+          Stage 4 — Evaluation    : measure hit-rate and reward-score on
+                                    held-out QA pairs; persist results to KB.
+
+        Throttled to every _LLM_ARCHITECT_CYCLE_EVERY cycles (default: 10).
+        """
+        arch = self._get_llm_architect()
+        if arch is None:
+            return "[LLMArchitect] LLMArchitectEngine not available — ensure modules/llm_architect_engine.py is present"
+
+        try:
+            result = arch.run_full_pipeline()
+            self.learning_history["llm_architect_cycles"] = (
+                self.learning_history.get("llm_architect_cycles", 0) + 1
+            )
+            # Persist summary to KB
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_llm_architect:{int(time.time())}",
+                        result,
+                        tags=["llm_architect", "sft", "dpo", "eval", "autonomous"],
+                    )
+                except Exception:
+                    pass
+            log.info("✅ [LLM ARCHITECT] %s", result[:120])
+            return f"LLMArchitect: {result}"
+        except Exception as exc:
+            log.debug("[ALE] LLMArchitect cycle error: %s", exc)
+            return f"[LLMArchitect error] {exc}"
+
     def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle (31 steps).
+        """Execute one complete autonomous learning cycle (32 steps).
 
         Design principles
         -----------------
@@ -4642,6 +4709,11 @@ class AutonomousLearningEngine:
         Step 25: CognitiveEnhancement — research language/reasoning/chat quality
         Step 26: GitHubCodeDiscovery  — pattern discovery, datasets, refactoring
         Step 27: SearchcodeDiscovery  — searchcode.com code-pattern index
+        Step 28: ScrapyResearch       — DuckDuckGo direct scraping
+        Step 29: BuildsIntegration    — run builds scripts + NLP topic enrichment
+        Step 30: SelfImproveAgents    — dispatch self-improvement to Phase-2 agents
+        Step 31: SelfMaintenance      — SelfHealer + SelfMaintenance memory pruning
+        Step 32: LLMArchitectCycle    — Curate → SFT → DPO → Eval (throttled: every 10)
         """
         self._cycle_count += 1
         cycle = self._cycle_count
@@ -4769,6 +4841,15 @@ class AutonomousLearningEngine:
         if cycle % self._MAINTENANCE_CYCLE_EVERY == 0:
             _step("SelfMaintenance", self._autonomous_self_maintenance)
 
+        # ── Step 32: LLM Architect Cycle — Curate → SFT → DPO → Eval ────
+        # Applies real LLM engineering methodology to Niblit's KB:
+        # extract training data, supervised fine-tune via BrainTrainer or
+        # LoRA (if LOCAL_MODEL_PATH set), preference-optimise via DPO,
+        # and evaluate on held-out QA pairs.
+        # Throttled to every _LLM_ARCHITECT_CYCLE_EVERY cycles (default 10).
+        if cycle % self._LLM_ARCHITECT_CYCLE_EVERY == 0:
+            _step("LLMArchitectCycle", self._autonomous_llm_architect)
+
         # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -4788,7 +4869,7 @@ class AutonomousLearningEngine:
             "brain_training_cycles", "cognitive_enhancement_cycles",
             "github_code_discovery_cycles", "searchcode_discovery_cycles",
             "serpex_research_cycles", "builds_integration_cycles",
-            "scrapy_research_cycles",
+            "scrapy_research_cycles", "llm_architect_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 
