@@ -949,6 +949,18 @@ except Exception as _e:
     SearchcodeSearch = None
 
 try:
+    from modules.sqlite_researcher import SQLiteResearcher
+except Exception as _e:
+    log.debug(f"SQLiteResearcher not available: {_e}")
+    SQLiteResearcher = None
+
+try:
+    from modules.market_researcher import MarketResearcher
+except Exception as _e:
+    log.debug(f"MarketResearcher not available: {_e}")
+    MarketResearcher = None
+
+try:
     from modules.github_sync import GitHubSync
 except Exception as _e:
     log.debug(f"GitHubSync not available: {_e}")
@@ -1576,6 +1588,8 @@ class NiblitCore:
         self.stackoverflow_search = None
         self.pypi_search = None
         self.searchcode_search = None
+        self.sqlite_researcher = None
+        self.market_researcher = None
         self.fused_memory = None
         self.vector_store = None
         self.semantic_agent = None
@@ -5640,6 +5654,32 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.searchcode_search = None
             self.startup_report.add("searchcode_search", "unavailable", str(e))
 
+        # SQLiteResearcher — local-first, zero-latency KB lookup (no network required)
+        try:
+            self.sqlite_researcher = SQLiteResearcher(knowledge_db=getattr(self, "db", None)) if SQLiteResearcher else None
+            if self.sqlite_researcher:
+                log.info("✅ SQLiteResearcher loaded (local KB backend)")
+            self.startup_report.add("sqlite_researcher", "ready")
+        except Exception as e:
+            log.debug(f"SQLiteResearcher failed: {e}")
+            self.sqlite_researcher = None
+            self.startup_report.add("sqlite_researcher", "unavailable", str(e))
+
+        # MarketResearcher — market/trading trend analysis.
+        # Note: MarketResearcher exposes analyze_market()/summary() rather than a
+        # search_web() interface, so it is not plugged into the SelfResearcher search
+        # pipeline.  It is instead accessed directly via core.market_researcher or
+        # routed through trading-related CLI commands.
+        try:
+            self.market_researcher = MarketResearcher(db=getattr(self, "db", None)) if MarketResearcher else None
+            if self.market_researcher:
+                log.info("✅ MarketResearcher loaded")
+            self.startup_report.add("market_researcher", "ready")
+        except Exception as e:
+            log.debug(f"MarketResearcher failed: {e}")
+            self.market_researcher = None
+            self.startup_report.add("market_researcher", "unavailable", str(e))
+
     def _initialize_modules(self):
         """Initialize all modules with dependency management."""
         with self.logger.context("initialize_modules"):
@@ -5848,6 +5888,21 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         self.researcher.searchcode_search = self.searchcode_search  # pylint: disable=attribute-defined-outside-init
                     except Exception as _e:
                         log.debug("[INIT] researcher.searchcode_search injection failed: %s", _e)
+                if getattr(self, "stackoverflow_search", None):
+                    try:
+                        self.researcher.stackoverflow_search = self.stackoverflow_search  # pylint: disable=attribute-defined-outside-init
+                    except Exception as _e:
+                        log.debug("[INIT] researcher.stackoverflow_search injection failed: %s", _e)
+                if getattr(self, "pypi_search", None):
+                    try:
+                        self.researcher.pypi_search = self.pypi_search  # pylint: disable=attribute-defined-outside-init
+                    except Exception as _e:
+                        log.debug("[INIT] researcher.pypi_search injection failed: %s", _e)
+                if getattr(self, "sqlite_researcher", None):
+                    try:
+                        self.researcher.sqlite_researcher = self.sqlite_researcher  # pylint: disable=attribute-defined-outside-init
+                    except Exception as _e:
+                        log.debug("[INIT] researcher.sqlite_researcher injection failed: %s", _e)
 
             # Inject shared VectorStore into the researcher so semantic caching
             # and Qdrant-backed retrieval are available during autonomous research.
@@ -6116,6 +6171,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             log.info("✅ Serpex agent wired into SelfResearcher")
                         except Exception as _e:
                             log.debug("[INIT] Late researcher.serpex_agent injection failed: %s", _e)
+
+                    # Wire ScrapyResearchAgent into SelfResearcher as secondary web backend.
+                    if _scrapy_agent and getattr(self, "researcher", None):
+                        try:
+                            self.researcher.scrapy_agent = _scrapy_agent  # pylint: disable=attribute-defined-outside-init
+                            log.info("✅ Scrapy agent wired into SelfResearcher")
+                        except Exception as _e:
+                            log.debug("[INIT] Late researcher.scrapy_agent injection failed: %s", _e)
 
                     self.autonomous_engine = AutonomousLearningEngine(
                         core=self,
@@ -6835,6 +6898,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.info("✅ GitHubDeepResearch initialised (%d tracked repos)",
                          len(self.github_deep_research.tracked_repos))
                 self.startup_report.add("github_deep_research", "ready")
+                # Late-wire into SelfResearcher and ALE now that the instance exists.
+                if getattr(self, "researcher", None):
+                    try:
+                        self.researcher.github_deep_research = self.github_deep_research  # pylint: disable=attribute-defined-outside-init
+                        log.info("✅ GitHubDeepResearch wired into SelfResearcher")
+                    except Exception as _gdr_e:
+                        log.debug("[INIT] researcher.github_deep_research injection failed: %s", _gdr_e)
+                if getattr(self, "autonomous_engine", None):
+                    try:
+                        self.autonomous_engine.github_deep_research = self.github_deep_research  # pylint: disable=attribute-defined-outside-init
+                        log.info("✅ GitHubDeepResearch wired into ALE")
+                    except Exception as _gda_e:
+                        log.debug("[INIT] ALE.github_deep_research injection failed: %s", _gda_e)
             except Exception as _ghde2:
                 log.debug("[INIT] GitHubDeepResearch init failed: %s", _ghde2)
                 self.startup_report.add("github_deep_research", "degraded", str(_ghde2))

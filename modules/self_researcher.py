@@ -234,6 +234,12 @@ class SelfResearcher:
         self._searchcode_search = self.registry.get("searchcode_search")
         # SemanticAgent for vector-store backed knowledge storage/retrieval
         self._semantic_agent = self.registry.get("semantic_agent")
+        # Additional specialised backends — injected post-init by niblit_core
+        self._stackoverflow_search = self.registry.get("stackoverflow_search")
+        self._pypi_search = self.registry.get("pypi_search")
+        self._scrapy_agent = self.registry.get("scrapy_agent")
+        self._sqlite_researcher = self.registry.get("sqlite_researcher")
+        self._github_deep_research = self.registry.get("github_deep_research")
 
         # Optional modules
         self.engine = research_engine
@@ -303,6 +309,46 @@ class SelfResearcher:
     def semantic_agent(self, value):
         self._semantic_agent = value
 
+    @property
+    def stackoverflow_search(self):
+        return self._stackoverflow_search
+
+    @stackoverflow_search.setter
+    def stackoverflow_search(self, value):
+        self._stackoverflow_search = value
+
+    @property
+    def pypi_search(self):
+        return self._pypi_search
+
+    @pypi_search.setter
+    def pypi_search(self, value):
+        self._pypi_search = value
+
+    @property
+    def scrapy_agent(self):
+        return self._scrapy_agent
+
+    @scrapy_agent.setter
+    def scrapy_agent(self, value):
+        self._scrapy_agent = value
+
+    @property
+    def sqlite_researcher(self):
+        return self._sqlite_researcher
+
+    @sqlite_researcher.setter
+    def sqlite_researcher(self, value):
+        self._sqlite_researcher = value
+
+    @property
+    def github_deep_research(self):
+        return self._github_deep_research
+
+    @github_deep_research.setter
+    def github_deep_research(self, value):
+        self._github_deep_research = value
+
     def _ensure_serpex_agent(self) -> None:
         """Lazy-construct a ResearchAgent if one was not injected at init time."""
         if self._serpex_agent is not None:
@@ -339,8 +385,18 @@ class SelfResearcher:
         backends = []
         if self._serpex_agent:
             backends.append("Serpex")
+        if self._scrapy_agent:
+            backends.append("Scrapy")
         if self._searchcode_search:
             backends.append("Searchcode")
+        if self._stackoverflow_search:
+            backends.append("StackOverflow")
+        if self._pypi_search:
+            backends.append("PyPI")
+        if self._github_deep_research:
+            backends.append("GitHubDeep")
+        if self._sqlite_researcher:
+            backends.append("SQLite")
         if self._internet:
             backends.append("Internet")
         if self._semantic_agent and self._semantic_agent.is_available():
@@ -652,6 +708,21 @@ class SelfResearcher:
             except Exception as exc:
                 log.debug("Serpex search failed: %s", exc)
 
+        # 2b️⃣ SCRAPY — secondary web search (DuckDuckGo HTML, no API key needed)
+        if self._scrapy_agent and hasattr(self._scrapy_agent, "search_web"):
+            try:
+                scrapy_results = self._scrapy_agent.search_web(query)
+                valid_s = [r for r in (scrapy_results or [])
+                           if isinstance(r, dict) and "error" not in r]
+                for r in valid_s:
+                    snippet = r.get("snippet", "") or r.get("text", "")
+                    if snippet and is_relevant(query, snippet):
+                        collected_results.append(snippet)
+                if valid_s:
+                    log.debug("[SEARCH] Scrapy: %d relevant result(s) for %r", len(valid_s), query)
+            except Exception as exc:
+                log.debug("Scrapy search failed: %s", exc)
+
         # 3️⃣ SEARCHCODE — code-specific open-source index
         # Run for all queries so code patterns enrich general research too.
         if self._searchcode_search and hasattr(self._searchcode_search, "search_code"):
@@ -667,6 +738,44 @@ class SelfResearcher:
             except Exception as exc:
                 log.debug("Searchcode search failed: %s", exc)
 
+        # 3b️⃣ STACKOVERFLOW — Q&A + code-pattern search
+        if self._stackoverflow_search and hasattr(self._stackoverflow_search, "search"):
+            try:
+                so_results = self._stackoverflow_search.search(query, max_results=max_results)
+                for r in (so_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("snippet", "") or r.get("body", "")
+                        if text and len(text) > 20 and is_relevant(query, text):
+                            collected_results.append(text[:500])
+                if so_results:
+                    log.debug("[SEARCH] StackOverflow: %d result(s) for %r", len(so_results), query)
+            except Exception as exc:
+                log.debug("StackOverflow search failed: %s", exc)
+
+        # 3c️⃣ PYPI — Python package intelligence
+        if self._pypi_search and hasattr(self._pypi_search, "search_packages"):
+            try:
+                pypi_results = self._pypi_search.search_packages(query, max_results=max_results)
+                for r in (pypi_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("summary", "") or r.get("description", "")
+                        if text and is_relevant(query, text):
+                            collected_results.append(text[:400])
+                if pypi_results:
+                    log.debug("[SEARCH] PyPI: %d result(s) for %r", len(pypi_results), query)
+            except Exception as exc:
+                log.debug("PyPI search failed: %s", exc)
+
+        # 3d️⃣ GITHUB DEEP RESEARCH — trending repos, PRs, issues
+        if self._github_deep_research and hasattr(self._github_deep_research, "trending_summary"):
+            try:
+                gdr_text = self._github_deep_research.trending_summary(topic=query[:60])
+                if gdr_text and is_relevant(query, gdr_text):
+                    collected_results.append(gdr_text[:600])
+                    log.debug("[SEARCH] GitHubDeepResearch: got trending summary for %r", query)
+            except Exception as exc:
+                log.debug("GitHubDeepResearch search failed: %s", exc)
+
         # 4️⃣ ENGINE (ResearcherEngine — semantic KB cache)
         if self.engine and hasattr(self.engine, "run"):
             try:
@@ -677,6 +786,20 @@ class SelfResearcher:
                     collected_results.append(r)
             except Exception as e:
                 log.debug(f"Engine search failed: {e}")
+
+        # 4b️⃣ SQLITE RESEARCHER — local KB lookup (zero-latency, always offline)
+        if self._sqlite_researcher and hasattr(self._sqlite_researcher, "search_web"):
+            try:
+                sqlite_results = self._sqlite_researcher.search_web(query, max_results=max_results)
+                for r in (sqlite_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("snippet", "") or r.get("text", "")
+                        if text and is_relevant(query, text):
+                            collected_results.append(text[:500])
+                if sqlite_results:
+                    log.debug("[SEARCH] SQLiteResearcher: %d result(s) for %r", len(sqlite_results), query)
+            except Exception as exc:
+                log.debug("SQLiteResearcher search failed: %s", exc)
 
         # 5️⃣ INTERNET — fallback only when modern backends returned nothing
         if not collected_results and self._internet and hasattr(self._internet, "search"):
