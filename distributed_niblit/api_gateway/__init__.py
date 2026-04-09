@@ -6,3 +6,5 @@ from .rate_limiter import RateLimiter
 from .routing_layer import RoutingLayer
 
 __all__ = ["GatewayServer", "AuthLayer", "RoutingLayer", "RateLimiter"]
+if __name__ == "__main__":
+    print('Running __init__.py')

@@ -480,3 +480,7 @@ class ImprovementIntegrator:
         except Exception as e:
             log.debug(f"Failed to get facts from DB: {e}")
             return []
+
+
+if __name__ == "__main__":
+    print('Running improvement_integrator.py')

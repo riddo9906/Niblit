@@ -141,3 +141,7 @@ class GitHubSync:
                 )
             except Exception:
                 pass
+
+
+if __name__ == "__main__":
+    print('Running github_sync.py')

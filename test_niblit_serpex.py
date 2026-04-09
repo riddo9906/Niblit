@@ -488,3 +488,7 @@ class TestNiblitBrainToolWiring:
         if brain.serpex_tool_def is not None:
             assert "name" in brain.serpex_tool_def
             assert "parameters" in brain.serpex_tool_def
+
+
+if __name__ == "__main__":
+    print('Running test_niblit_serpex.py')

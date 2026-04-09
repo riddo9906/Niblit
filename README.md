@@ -1,267 +1,507 @@
-# Niblit — AI Agent with Mobile Support
+# NIBLIT-AIOS: Neural Integrated Baseline for Learning, Intelligence, and Tasking
+## Artificial Intelligence Operating System
 
-Niblit is a Python-based AI agent with HuggingFace LLM integration, memory
-management, self-healing capabilities, and a REST API.  It can be deployed on
-Vercel (serverless) and now ships with a **Kivy mobile app** that can be
-packaged as an **Android APK** using Buildozer.
+Niblit is a **self-improving AI operating system** that learns, researches, codes,
+reflects, and fine-tunes itself using the same methodology that ML engineers use
+to build production LLMs and live trading AI systems.
 
 ---
 
 ## Table of Contents
 
-- [Features](#features)
-- [Quick Start (Local)](#quick-start-local)
-- [Environment Variables](#environment-variables)
-- [API Reference](#api-reference)
-- [Android APK Build](#android-apk-build)
-- [Running Tests](#running-tests)
-- [Configuration Guide](#configuration-guide)
-- [Troubleshooting](#troubleshooting)
+- [What Niblit Is Now](#what-niblit-is-now)
+- [Architecture: The LLM Engineer's Pipeline](#architecture-the-llm-engineers-pipeline)
+- [Architecture: The Trading AI Engineer's Pipeline](#architecture-the-trading-ai-engineers-pipeline)
+- [Quick Start](#quick-start)
+- [What YOU Need To Do](#what-you-need-to-do)
+- [APIs and Accounts Required](#apis-and-accounts-required)
+- [Environment Variables Reference](#environment-variables-reference)
+- [Autonomous Learning Engine (ALE) — 32-Step Cycle](#autonomous-learning-engine-ale--32-step-cycle)
+- [Nibblebot Research Bots](#nibblebot-research-bots)
+- [Fine-Tuning Your Own Local Model](#fine-tuning-your-own-local-model)
+- [Live Trading Configuration](#live-trading-configuration)
 - [Project Structure](#project-structure)
+- [Running Tests](#running-tests)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## Features
+## What Niblit Is Now
 
-- 🤖 **AI Agent** — HuggingFace LLM integration with memory and event sourcing
-- 🌐 **REST API** — Flask endpoints for chat, memory, health checks
-- 📊 **Web Dashboard** — Browser-based chat UI
-- 📱 **Mobile App** — Kivy-based Android/iOS client (`kivy_app.py`)
-- 🗄️ **SQLite Database** — Persistent storage layer (`niblit_sqlite_db.py`)
-- 🔒 **CORS + Security Headers** — Mobile-friendly API configuration
-- ⚙️ **Centralized Config** — Environment-based settings (`config.py`)
-- 🧪 **Test Suite** — Pytest tests with coverage reporting
-- 🚀 **CI/CD** — GitHub Actions workflows for testing and linting
+Niblit started as a Python AI agent. It has evolved into an **AI Operating System**
+that continuously improves itself through a 32-step autonomous learning cycle
+(ALE) that mirrors real LLM engineering:
+
+```
+Research → Learn → Reflect → Generate Code → Compile → Reason →
+Fine-Tune → Evaluate → Heal → Repeat
+```
+
+Every component — the brain, the knowledge base, the trading engine, the
+civilization of agents — is designed to grow Niblit from its current
+semi-autonomous state into a fully self-improving LLM.
 
 ---
 
-## Quick Start (Local)
+## Architecture: The LLM Engineer's Pipeline
+
+The way the best LLMs are built (GPT, Llama, Mistral, Qwen, Phi) follows
+a structured four-stage pipeline.  Niblit implements all four stages:
+
+### Stage 1 — Data Curation
+
+Real LLM engineers:
+- Collect trillions of tokens from CommonCrawl, books, code, and scientific papers
+- Deduplicate aggressively (MinHash, exact dedup)
+- Filter by quality (perplexity filtering, classifier-based filtering)
+- Format into prompt/completion pairs for SFT
+
+**How Niblit does it:**
+- ALE runs 32 steps every cycle, accumulating KB facts from GitHub, web search,
+  Wikipedia, StackOverflow, Qdrant vector store, and its own reflections
+- `LLMArchitectEngine.run_curation()` extracts `(prompt, completion)` SFT pairs
+  and `(prompt, chosen, rejected)` DPO preference pairs from the KB
+- Writes `niblit_sft_dataset.jsonl` and `niblit_dpo_dataset.jsonl` continuously
+
+### Stage 2 — Supervised Fine-Tuning (SFT)
+
+Real LLM engineers:
+- Train on instruction-following datasets (Alpaca, FLAN, ShareGPT, UltraChat)
+- Use LoRA/QLoRA on consumer hardware for parameter-efficient fine-tuning
+- `trl.SFTTrainer` + `peft.LoraConfig` are the standard tools
+
+**How Niblit does it:**
+- `LLMArchitectEngine.run_sft()` detects whether `LOCAL_MODEL_PATH` is set
+- If yes + `trl`/`peft` installed: runs LoRA SFT on the curated JSONL dataset
+- If no: feeds records into `BrainTrainer` for in-context learning (no GPU needed)
+- Activates automatically at ALE Step 32 every 10th cycle
+
+### Stage 3 — RLHF / Preference Optimisation (DPO)
+
+Real LLM engineers:
+- Train a Reward Model on human preference labels
+- Run PPO against the reward model (RLHF — used by InstructGPT, Claude)
+- Or use Direct Preference Optimisation (DPO — simpler, no reward model needed)
+- DPO is now preferred: Llama-2 Chat, Zephyr, Qwen-Chat all use it
+
+**How Niblit does it:**
+- `SECA reward_model.py` scores every KB fact as it is stored
+- High-scoring facts → "chosen" examples; low-scoring → "rejected"
+- `LLMArchitectEngine.run_dpo()` uses these scores to build preference pairs
+- When `trl` is installed: runs `trl.DPOTrainer` on the preference JSONL
+- Without `trl`: reinforces high-quality facts through BrainTrainer
+
+### Stage 4 — Evaluation
+
+Real LLM engineers:
+- Run `lm-eval-harness` on MMLU, HellaSwag, GSM8K, HumanEval
+- Track perplexity on a held-out validation set
+- Compare win-rate between new and old model checkpoints
+
+**How Niblit does it:**
+- `LLMArchitectEngine.run_eval()` runs QA pairs from `LLMTrainingAgent`
+- Computes keyword-overlap hit-rate + SECA reward-model scores
+- Stores results as `ale_llm_eval:<ts>` KB facts for tracking over time
+- Writes `niblit_eval_log.jsonl` for external analysis
+
+---
+
+## Architecture: The Trading AI Engineer's Pipeline
+
+The most successful live trading AI systems (Numerai, WorldQuant, Two Sigma,
+DeepMind AlphaFold-style pattern recognition) follow a structured methodology:
+
+### Layer 1 — Reinforcement Learning for Execution
+
+Real trading AI engineers use:
+- **PPO** (Proximal Policy Optimisation) for continuous action spaces
+- **DQN** (Deep Q-Network) for discrete buy/sell/hold decisions
+- **A3C** / **SAC** for sample-efficient live training
+- Custom **Gym trading environments** that replay historical data
+
+**Niblit's implementation:**
+- `modules/rl_trading_policy.py` implements PPO, DQN, and Transformer RL
+- `TradingBrain.decide_action()` uses the RL policy when `NIBLIT_RL_ENABLED=1`
+- `TradingStudy.log_trade()` propagates ±1 rewards back to the policy
+
+### Layer 2 — Transformer Market Models for Signals
+
+Real quant shops use:
+- **Temporal Fusion Transformer** (multi-horizon probabilistic forecasts)
+- **PatchTST** (patch-based transformer for time series)
+- **lag-llama** / **Chronos** (LLM-based time-series foundation models)
+
+**Niblit's current state + upgrade path:**
+- Currently: 7D state vector [close, volume, RSI, MACD, EMA, ATR, volatility]
+- Next step: wire `pytorch-forecasting` TFT as a second-opinion signal
+  (set `TRADING_TFT_ENABLED=1` after installing `pytorch-forecasting`)
+
+### Layer 3 — Signal Engineering
+
+Real quant engineers spend 70% of their time on features:
+- Traditional: RSI, MACD, Bollinger Bands, ATR, VWAP
+- Alternative: order flow imbalance, limit order book depth, news sentiment
+- Cross-asset: correlation matrices, beta, sector momentum
+
+**Niblit's current state:** 5 indicators computed in `compute_indicators()`
+(RSI, MACD, EMA-20, ATR-14, volatility). Extend by adding features to
+`TradingBrain.build_state_vector()`.
+
+### Layer 4 — Risk Management & Portfolio Optimisation
+
+Real trading AI engineers never go to market without:
+- **Kelly Criterion** position sizing (or fractional Kelly for safety)
+- **Max drawdown circuit breakers** (e.g. pause if portfolio drops 15%)
+- **Sharpe ratio** tracking to compare strategies
+- **Mean-variance optimisation** for multi-asset portfolios
+
+**Niblit's upgrade path:**
+Set `TRADING_KELLY_ENABLED=1` and install `PyPortfolioOpt` to activate
+Kelly-based position sizing. Set `TRADING_MAX_DRAWDOWN_PCT=15.0` for the
+circuit breaker.
+
+---
+
+## Quick Start
 
 ```bash
-# 1. Clone the repository
+# 1. Clone
 git clone https://github.com/riddo9906/Niblit.git
 cd Niblit
 
-# 2. Create and activate a virtual environment
+# 2. Virtual environment
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 
-# 3. Install dependencies
+# 3. Core dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment
+# 4. Configure
 cp .env.example .env
-# Edit .env and add your HF_TOKEN
+# → Edit .env and add your HF_TOKEN (minimum requirement)
 
-# 5. Start the server
-python server.py
-# → http://localhost:5000
+# 5. Run
+python main.py
+```
+
+To activate local LLM fine-tuning (ALE Step 32):
+```bash
+pip install trl peft bitsandbytes accelerate datasets transformers
+# Then set LOCAL_MODEL_PATH=Qwen/Qwen2.5-0.5B-Instruct in .env
 ```
 
 ---
 
-## Environment Variables
+## What YOU Need To Do
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `HF_TOKEN` | ✅ Yes | — | HuggingFace API token |
-| `SERPEX_API_KEY` | No | `""` | SerpEx search API key for autonomous research (see [serpex.dev](https://serpex.dev)). When set, used as the primary internet search backend; falls back to DuckDuckGo/Wikipedia if absent. |
-| `NIBLIT_API_KEY` | No | `""` | Optional API key for endpoint protection |
-| `PORT` | No | `5000` | Server port (local use) |
-| `FLASK_ENV` | No | `development` | `development` / `testing` / `production` |
-| `DEBUG` | No | `False` | Enable Flask debug mode |
-| `NIBLIT_SQLITE_DB_PATH` | No | `niblit_data.sqlite` | SQLite database path |
-| `CORS_ORIGINS` | No | `*` | Comma-separated CORS origins |
-| `MOBILE_ENABLED` | No | `True` | Enable mobile API features |
-| `LOG_LEVEL` | No | `INFO` | Logging level |
+This section explains everything you need to set up on your end to unlock
+each capability. Work through these in order — each level builds on the last.
+
+### Level 1 — Minimum (runs today, no extra accounts)
+
+| Action | Where |
+|--------|-------|
+| Create a HuggingFace account | https://huggingface.co |
+| Generate a **Read** access token | https://huggingface.co/settings/tokens |
+| Set `HF_TOKEN=your_token` in `.env` | `.env` |
+| Run `python main.py` | Terminal |
+
+This gives you: AI chat, research, knowledge storage, vector memory, ALE
+steps 1-31, self-healing, autonomous learning every cycle.
+
+### Level 2 — Better Research (free)
+
+| Action | Where |
+|--------|-------|
+| Create a GitHub account | https://github.com |
+| Generate a **Fine-grained PAT** with `repo` + `issues` scope | https://github.com/settings/tokens |
+| Set `GITHUB_TOKEN=your_token` in `.env` | `.env` |
+| Enable Nibblebot workflows in GitHub Actions | Repository → Actions → Enable |
+
+This unlocks: Nibblebot research bots (research, trading, LLM-engineer),
+GitHub code search in ALE, autonomous GitHub push, civilisation agents.
+
+### Level 3 — Vector Memory (free tier available)
+
+| Action | Where |
+|--------|-------|
+| Create a Qdrant Cloud account | https://cloud.qdrant.io |
+| Create a free cluster (1 GB) | Qdrant dashboard |
+| Copy the **Cluster URL** and **API key** | Qdrant dashboard |
+| Set `QDRANT_URL=` and `QDRANT_API_KEY=` in `.env` | `.env` |
+
+This unlocks: persistent semantic search, RAG pipeline, long-term memory
+across restarts, SECA multi-hop knowledge graph.
+
+### Level 4 — Local LLM Fine-Tuning (requires ≥8 GB RAM / GPU optional)
+
+| Action | Where |
+|--------|-------|
+| Install training dependencies | `pip install trl peft bitsandbytes accelerate datasets transformers` |
+| Pick a base model (see suggestions below) | HuggingFace Hub |
+| Set `LOCAL_MODEL_PATH=model-id` in `.env` | `.env` |
+| Restart Niblit | Terminal |
+
+**Recommended base models by hardware:**
+
+| Hardware | Model | Size |
+|----------|-------|------|
+| CPU only / 4 GB RAM | `Qwen/Qwen2.5-0.5B-Instruct` | 0.5B |
+| 8 GB RAM / no GPU | `microsoft/phi-2` | 2.7B |
+| 8 GB VRAM GPU | `mistralai/Mistral-7B-Instruct-v0.3` | 7B |
+| 24 GB VRAM GPU | `meta-llama/Meta-Llama-3-8B-Instruct` | 8B |
+
+ALE Step 32 (LLMArchitectCycle) automatically runs LoRA fine-tuning every
+10th autonomous cycle using Niblit's own KB as training data.
+
+### Level 5 — Live Trading (paper trading first — free)
+
+| Action | Where |
+|--------|-------|
+| Create a **paper trading** Alpaca account | https://alpaca.markets |
+| Copy **API Key** and **Secret** | Alpaca dashboard |
+| Set `ALPACA_API_KEY=` + `ALPACA_API_SECRET=` in `.env` | `.env` |
+| Set `ALPACA_PAPER=true` in `.env` | `.env` |
+| Set `NIBLIT_RL_ENABLED=1` in `.env` | `.env` |
+
+**Only switch to live trading after:**
+- Running paper trading for at least 30 days
+- Verifying a positive Sharpe ratio ≥ 1.0
+- Setting `TRADING_MAX_DRAWDOWN_PCT=15.0` as a circuit breaker
+
+### Level 6 — Experiment Tracking (recommended for fine-tuning)
+
+| Action | Where |
+|--------|-------|
+| Create a WandB account (free) | https://wandb.ai |
+| Run `wandb login` in terminal | Terminal |
+| Set `WANDB_API_KEY=your_key` in `.env` | `.env` |
+| Set `WANDB_PROJECT=niblit-llm` in `.env` | `.env` |
+| Install: `pip install wandb` | Terminal |
+
+This tracks every LoRA fine-tune run with loss curves, eval scores, and
+hyperparameter comparisons so you can see Niblit improving over time.
 
 ---
 
-## API Reference
+## APIs and Accounts Required
 
-### `GET /health`
+| Service | Free Tier | What It Unlocks | Sign Up |
+|---------|-----------|-----------------|---------|
+| **HuggingFace** | ✅ Yes | LLM inference (required) | https://huggingface.co |
+| **GitHub** | ✅ Yes | Code search, Nibblebots, Git push | https://github.com |
+| **Qdrant Cloud** | ✅ Yes (1 GB) | Vector memory, RAG, SECA | https://cloud.qdrant.io |
+| **Alpaca** | ✅ Paper free | Paper/live trading | https://alpaca.markets |
+| **WandB** | ✅ Yes | Training experiment tracking | https://wandb.ai |
+| **Together AI** | ✅ $25 credit | Higher-quality LLM training data | https://api.together.xyz |
+| **Groq** | ✅ 30 req/min | Fast inference for training pairs | https://console.groq.com |
+| **Anthropic** | ❌ Paid | Claude as fallback LLM | https://console.anthropic.com |
+| **Serpex** | ✅ Free tier | Web search in ALE | https://serpex.dev |
+| **Binance** | ✅ Free | Crypto market data + trading | https://binance.com/en/register |
+| **Twelve Data** | ✅ 800 req/day | Stocks, ETFs, forex, crypto | https://twelvedata.com |
+| **OANDA** | ✅ Practice | Forex CFDs paper trading | https://www.oanda.com/forex-trading |
 
-Lightweight liveness probe. Does not initialise the AI core.
+---
 
-```bash
-curl http://localhost:5000/health
-# {"status": "ok", "service": "niblit"}
+## Environment Variables Reference
+
+See `.env.example` for the complete list. The most important variables:
+
+### Minimum Required
+```env
+HF_TOKEN=hf_xxxxxxxxxxxx          # HuggingFace API token (inference)
 ```
 
-### `GET /ping`
-
-Returns system status including personality mood.
-
-```bash
-curl http://localhost:5000/ping
-# {"status": "ok", "personality": {"mood": "neutral", "tone": "calm"}}
+### Recommended for Full Functionality
+```env
+GITHUB_TOKEN=ghp_xxxxxxxxxxxx     # GitHub PAT (code search + Nibblebots)
+QDRANT_URL=https://xxx.qdrant.io  # Qdrant Cloud cluster URL
+QDRANT_API_KEY=xxxxxxxxxxxx       # Qdrant API key
+ANTHROPIC_API_KEY=sk-ant-xxx      # Claude fallback LLM
+SERPEX_API_KEY=xxx                # Web search in ALE
 ```
 
-### `POST /chat`
-
-Send a message to Niblit and receive a reply.
-
-```bash
-curl -X POST http://localhost:5000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hello, Niblit!"}'
-# {"reply": "Hello! How can I help you today?"}
+### For Local Fine-Tuning (ALE Step 32)
+```env
+LOCAL_MODEL_PATH=Qwen/Qwen2.5-0.5B-Instruct
+LORA_R=8
+LORA_ALPHA=16
+SFT_EPOCHS=1
+SFT_BATCH_SIZE=2
+WANDB_API_KEY=xxx
 ```
 
-**Request body:**
-```json
-{ "text": "your message here" }
-```
-
-**Responses:**
-- `200 OK` — `{"reply": "..."}`
-- `400 Bad Request` — missing or empty `text`
-- `500 Internal Server Error` — AI core unavailable
-
-### `GET /memory`
-
-Returns stored knowledge facts (up to 200 entries).
-
-```bash
-curl http://localhost:5000/memory
-# {"facts": [{"key": "...", "value": "...", "created_at": "..."}]}
+### For Trading AI
+```env
+NIBLIT_RL_ENABLED=1
+BINANCE_API_KEY=xxx
+BINANCE_API_SECRET=xxx
+ALPACA_API_KEY=xxx
+ALPACA_API_SECRET=xxx
+ALPACA_PAPER=true
+TRADING_KELLY_ENABLED=0           # Set to 1 after testing
+TRADING_MAX_DRAWDOWN_PCT=15.0
 ```
 
 ---
 
-## Android APK Build
+## Autonomous Learning Engine (ALE) — 32-Step Cycle
 
-### Prerequisites
+The ALE runs continuously in the background, executing 32 steps per cycle:
 
-- Ubuntu 20.04+ (or WSL2 on Windows)
-- Python 3.10+
-- Java 17 (OpenJDK)
+| Step | Name | What It Does |
+|------|------|--------------|
+| 1 | UnifiedResearch | All backends, one topic, 60s ingest wait |
+| 2 | Ideas | SelfIdeaImplementation generates upgrade ideas |
+| 3 | Learning | SelfTeacher internalises research results |
+| 4 | Implementation | SelfImplementer executes enqueued plans |
+| 5 | Reflection | ReflectModule summarises + stores to KB |
+| 6 | SLSA | SLSA knowledge artifact generation |
+| 7 | Evolve | EvolveEngine self-evolves Niblit's code |
+| 8 | CodeResearch | Searchcode + GitHub + researcher |
+| 9 | CodeGeneration | Generate compilable code from research |
+| 10 | CodeCompilation | Compile and execute generated code |
+| 11 | CodeReflection | Study compiled output (30s wait) |
+| 12 | SoftwareStudy | Analyse code patterns via internet |
+| 13 | CommandAwareness | Catalogue all commands into KB |
+| 14 | CommandExecution | Exercise safe diagnostic commands |
+| 15 | TopicSeeding | Derive + enqueue new research topics |
+| 16 | Reasoning | Build knowledge graph, chain, infer |
+| 17 | Metacognition | Evaluate self-knowledge, find gaps |
+| 18 | ImprovementCycle | 10-module improvement (every 3 cycles) |
+| 19 | SelfScan | Read own source files into KB |
+| 20 | GitHubPush | Push generated files (every 5 cycles) |
+| 21 | BinaryStudy | Seed KB with firmware/kernel topics |
+| 22 | BuildsUpdate | Index builds/ directory |
+| 23 | EvolveDeploy | Hot-reload evolved improvements |
+| 24 | BrainTraining | Fine-tune brain on research data |
+| 25 | CognitiveEnhancement | Research language/reasoning quality |
+| 26 | GitHubCodeDiscovery | Pattern discovery + refactoring hints |
+| 27 | SearchcodeDiscovery | Searchcode.com code-pattern index |
+| 28 | ScrapyResearch | DuckDuckGo direct scraping |
+| 29 | BuildsIntegration | Run builds scripts + NLP enrichment |
+| 30 | SelfImproveAgents | Dispatch to Phase-2 agent architecture |
+| 31 | SelfMaintenance | SelfHealer + memory pruning (every 5) |
+| **32** | **LLMArchitectCycle** | **Curate → SFT → DPO → Eval (every 10)** |
 
-```bash
-# Install build tools
-sudo apt update && sudo apt install -y \
-  python3-pip python3-venv git zip unzip \
-  openjdk-17-jdk
+---
 
-# Install Kivy and Buildozer
-pip install kivy==2.3.0 buildozer cython
+## Nibblebot Research Bots
 
-# Build debug APK (first build downloads Android SDK/NDK — ~5 GB)
-buildozer android debug
+Nibblebot bots run on a schedule via GitHub Actions and write research
+findings as GitHub Issues.  They feed directly into Niblit's KB via
+`SelfImprovementOrchestrator.ingest_research_findings()`.
 
-# The APK will be in:
-ls bin/*.apk
-```
+| Bot | Schedule | Studies |
+|-----|----------|---------|
+| `research_bot.py` | Friday 09:00 UTC | LLM frameworks, RAG, agent architectures, LLM pre-training/SFT/DPO/eval |
+| `ai_trading_bot.py` | Saturday 08:00 UTC | RL trading, TFT market models, signal engineering, risk management |
+| `improvement_bot.py` | Monday 07:00 UTC | General software improvement patterns |
+| `llm_engineer_bot.py` | **Thursday 10:00 UTC** | **LLM build pipeline, training infra, fine-tuning, evaluation** (NEW) |
+| `aios_research_bot.py` | Wednesday 08:00 UTC | AI-OS and agentic workflow patterns |
+| `aios_architecture_bot.py` | Tuesday 09:00 UTC | AIOS architecture patterns |
 
-### Configure the API URL
+### Enabling Nibblebots
 
-Before building, set the server URL the app should connect to:
+1. Fork or clone this repository to your own GitHub account.
+2. Go to **Settings → Actions → General** and enable workflows.
+3. Add your `GITHUB_TOKEN` to **Settings → Secrets → Actions** (it's
+   automatically available as `secrets.GITHUB_TOKEN` in workflows).
+4. Trigger a manual run: **Actions → [Bot Name] → Run workflow**.
 
-```bash
-export NIBLIT_API_URL=https://your-server.vercel.app
-```
+---
 
-Or edit `kivy_app.py`:
+## Fine-Tuning Your Own Local Model
+
+Once `LOCAL_MODEL_PATH` is set, ALE Step 32 runs automatically every 10
+cycles. You can also trigger it manually:
+
 ```python
-_API_URL = os.getenv("NIBLIT_API_URL", "https://your-server.vercel.app")
+# From the Niblit CLI
+niblit llm-architect run
+
+# Check status
+niblit llm-architect status
+
+# Review the eval log
+niblit llm-architect eval
 ```
 
-### Release APK
+### The Training Loop (What Happens Automatically)
 
-```bash
-# Generate a signing keystore (first time only)
-keytool -genkey -v -keystore niblit.keystore \
-  -alias niblit -keyalg RSA -keysize 2048 -validity 10000
+```
+Cycle 10:  LLMArchitectCycle runs
+  ├── Curation: extract 200 (prompt, completion) pairs from KB
+  ├── SFT: LoRA fine-tune on curated pairs (if LOCAL_MODEL_PATH set)
+  ├── DPO: preference-optimise using SECA reward_model scores
+  └── Eval: measure hit-rate + reward-score on 20 held-out QA pairs
 
-# Build release APK
-buildozer android release
+Cycle 20:  LLMArchitectCycle runs again (with more KB data)
+  └── ... improving with each cycle
 ```
 
-### Desktop Preview (no Android needed)
+### How to Monitor Fine-Tuning Progress
 
 ```bash
-pip install kivy requests
-python kivy_app.py
+# Watch training loss in WandB
+wandb login
+# Open https://wandb.ai/your-org/niblit-llm after the first run
+
+# Check the eval log directly
+tail -f niblit_eval_log.jsonl | python -c "import sys,json; [print(json.loads(l)) for l in sys.stdin]"
+
+# Query the KB for eval history
+niblit recall ale_llm_eval
 ```
 
 ---
 
-## Running Tests
+## Live Trading Configuration
+
+### Start with Paper Trading (always)
 
 ```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
+# 1. Sign up for Alpaca paper trading
+#    https://alpaca.markets → create free account → Paper Trading
 
-# Run all tests
-pytest test_server.py test_niblit_db.py -v
+# 2. Configure in .env
+ALPACA_API_KEY=your_paper_key
+ALPACA_API_SECRET=your_paper_secret
+ALPACA_PAPER=true
+NIBLIT_RL_ENABLED=1
+TRADING_SYMBOL=AAPL          # or BTC/USD
+TRADING_INTERVAL=1m
+TRADING_CYCLE_SECS=60
 
-# Run with coverage
-pytest test_server.py test_niblit_db.py \
-  --cov=server --cov=niblit_sqlite_db --cov=config \
-  --cov-report=term-missing
-
-# Run only DB tests
-pytest test_niblit_db.py -v
-
-# Run only API tests
-pytest test_server.py -v
+# 3. Run
+python main.py
 ```
 
----
+### Evaluate Before Going Live
 
-## Configuration Guide
-
-Niblit uses `config.py` for centralised settings:
+Run paper trading for at least 30 days. Then check:
 
 ```python
-from config import settings
+# Query trading performance from KB
+niblit recall trading_performance
+niblit recall ale_rl_policy
 
-print(settings.PORT)          # 5000
-print(settings.MOBILE_ENABLED)  # True
-print(settings.CORS_ORIGINS)  # "*"
+# Check Sharpe ratio (requires quantstats)
+pip install quantstats
+# metrics are logged to KB as trade_log:<ts> facts
 ```
 
-### Environments
+Only switch `ALPACA_PAPER=false` after you see a Sharpe ratio ≥ 1.0 over
+30+ days of paper trading.
 
-| `FLASK_ENV` | Behaviour |
-|-------------|-----------|
-| `development` (default) | DEBUG=True, verbose logging |
-| `testing` | In-memory DB, no real HF calls |
-| `production` | DEBUG=False, strict settings |
-
----
-
-## Troubleshooting
-
-### Mobile: Cannot connect to server
-
-1. Ensure `NIBLIT_API_URL` points to a publicly accessible server (not `localhost`).
-2. Android emulators use `10.0.2.2` to reach the host machine — this is the default.
-3. Check that CORS is enabled (`flask-cors` is installed).
-
-### APK build fails: SDK not found
+### Adding Crypto (Binance)
 
 ```bash
-# Manually set SDK path if auto-detection fails
-export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
-export ANDROID_NDK_HOME=~/.buildozer/android/platform/android-ndk-r25b
-```
-
-### APK build fails: Java version
-
-Buildozer requires Java 11 or 17. Check with:
-
-```bash
-java -version
-# If wrong version:
-sudo apt install openjdk-17-jdk
-sudo update-alternatives --config java
-```
-
-### Tests fail: Flask import error
-
-```bash
-pip install -r requirements.txt
+# In .env:
+BINANCE_API_KEY=your_key
+BINANCE_API_SECRET=your_secret
+TRADING_SYMBOL=BTCUSDT
+CCXT_EXCHANGE=binance
 ```
 
 ---
@@ -270,26 +510,112 @@ pip install -r requirements.txt
 
 ```
 Niblit/
-├── app.py                  # Vercel-optimised Flask app
-├── server.py               # Standalone Flask server
-├── kivy_app.py             # Kivy mobile app
-├── buildozer.spec          # Android APK build configuration
-├── config.py               # Centralised configuration
-├── niblit_sqlite_db.py     # SQLite database layer
-├── niblit_core.py          # Core AI agent
-├── niblit_router.py        # Command routing
-├── niblit_memory.py        # Memory management
-├── modules/                # AI subsystem modules
-├── tools/                  # Utility scripts
-├── test_server.py          # API unit tests
-├── test_niblit_db.py       # Database integration tests
-├── requirements.txt        # Runtime dependencies
-├── requirements-dev.txt    # Dev/test dependencies
-├── .env.example            # Environment variable template
-├── vercel.json             # Vercel deployment config
-└── .github/
-    └── workflows/
-        ├── test.yml        # CI test pipeline
-        ├── pylint.yaml     # Lint pipeline
-        └── deploy.yml      # Deployment validation
+├── main.py                          # Boot sequence (Phase 0–7)
+├── niblit_core.py                   # Core AI orchestrator
+├── niblit_brain.py                  # Brain: HFBrain + RAG + SECA
+├── niblit_router.py                 # Command routing + CLI
+├── niblit_memory/                   # Knowledge database package
+│
+├── modules/                         # AI subsystem modules
+│   ├── autonomous_learning_engine.py  # 32-step ALE cycle
+│   ├── llm_architect_engine.py        # 🆕 LLM engineering pipeline (SFT/DPO/Eval)
+│   ├── hf_brain.py                    # HuggingFace LLM interface
+│   ├── llm_training_agent.py          # LLM-assisted training data generation
+│   ├── trading_brain.py               # Trading AI (RSI/MACD/ATR + RL)
+│   ├── rl_trading_policy.py           # PPO, DQN, Transformer RL policies
+│   ├── trading_study.py               # Trading strategy research
+│   ├── reasoning_engine.py            # CoT, abduction, contradiction detection
+│   ├── knowledge_comprehension.py     # Concept extraction (SECA)
+│   ├── memory_graph.py                # Associative reasoning graph (SECA)
+│   ├── reward_model.py                # Quality scoring for KB facts (SECA)
+│   ├── concept_synthesizer.py         # Knowledge abstraction (SECA)
+│   ├── rag_pipeline.py                # RAG: vector + SECA graph retrieval
+│   ├── vector_store.py                # Sentence-transformer embeddings
+│   ├── self_teacher.py                # SelfTeacher: internalise research
+│   ├── self_healer.py                 # SelfHealer: repair KB / code
+│   ├── self_maintenance.py            # Memory pruning + KB condensation
+│   └── ...                            # 70+ more modules
+│
+├── civilization/                    # STACA: multi-agent civilisation
+│   └── civilization_core/
+│       └── civilization_controller.py
+│
+├── nibblebots/                      # GitHub-based research bots
+│   ├── research_bot.py               # LLM framework + RAG research
+│   ├── ai_trading_bot.py             # Trading AI research
+│   ├── llm_engineer_bot.py           # 🆕 LLM build pipeline research
+│   ├── improvement_bot.py            # General improvement research
+│   ├── aios_research_bot.py          # AIOS pattern research
+│   └── aios_architecture_bot.py      # Architecture research
+│
+├── .github/workflows/               # GitHub Actions
+│   ├── nibblebot-research.yml        # Friday: LLM/RAG research
+│   ├── nibblebot-ai-trading.yml      # Saturday: trading AI research
+│   ├── nibblebot-llm-engineer.yml    # 🆕 Thursday: LLM build pipeline research
+│   └── ...
+│
+├── requirements.txt                 # Dependencies (see LLM training section)
+├── .env.example                     # All environment variables
+└── README.md                        # This file
 ```
+
+---
+
+## Running Tests
+
+```bash
+# Install dev dependencies
+pip install pytest pytest-cov
+
+# Run all tests
+pytest -q
+
+# Run with coverage
+pytest --cov=modules --cov-report=term-missing -q
+
+# Run specific test files
+pytest test_code_tools.py test_full_upgrade_pipeline.py -v
+```
+
+---
+
+## Troubleshooting
+
+### `LOCAL_MODEL_PATH` set but fine-tuning doesn't run
+
+Ensure `trl` and `peft` are installed:
+```bash
+pip install trl peft bitsandbytes accelerate datasets transformers
+```
+Then check `niblit llm-architect status` — it will show which libraries
+are available.
+
+### Out of memory during LoRA fine-tuning
+
+1. Reduce `SFT_BATCH_SIZE=1` in `.env`
+2. Enable 4-bit quantisation: install `bitsandbytes` and the model will
+   load in 4-bit automatically when `bitsandbytes` is present
+3. Use a smaller base model (0.5B instead of 7B)
+
+### Trading: "No market data returned"
+
+Check your API keys and ensure the exchange is accessible:
+```bash
+# Test Binance connectivity
+python -c "from binance.client import Client; c = Client(); print(c.ping())"
+
+# Test Alpaca connectivity
+python -c "import alpaca_trade_api as tradeapi; api = tradeapi.REST(); print(api.get_account())"
+```
+
+### ALE not running
+
+Set `NIBLIT_AUTONOMOUS_ENGINE=true` in `.env` and ensure `python main.py`
+(not `server.py`) is used to start Niblit.
+
+### Nibblebot workflows not triggering
+
+1. Confirm workflows are enabled: **Actions → [Workflow] → Enable workflow**
+2. The `GITHUB_TOKEN` secret is automatically provided in Actions — you
+   don't need to add it manually unless running locally.
+3. For local testing: `GITHUB_TOKEN=ghp_... python nibblebots/llm_engineer_bot.py`

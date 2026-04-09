@@ -414,3 +414,7 @@ def get_knowledge_filter(llm: Optional[Any] = None) -> KnowledgeFilter:
     elif llm is not None and _knowledge_filter._llm is None:
         _knowledge_filter._llm = llm
     return _knowledge_filter
+
+
+if __name__ == "__main__":
+    print('Running knowledge_filter.py')

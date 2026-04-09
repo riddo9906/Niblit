@@ -418,3 +418,7 @@ def get_env_adapter_registry(
                 _registry = EnvAdapterRegistry(knowledge_db=knowledge_db)
                 _registry.learn(force=True)
     return _registry
+
+
+if __name__ == "__main__":
+    print('Running env_adapter.py')

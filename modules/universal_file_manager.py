@@ -662,3 +662,7 @@ def get_file_manager() -> UniversalFileManager:
     if _manager_instance is None:
         _manager_instance = UniversalFileManager()
     return _manager_instance
+
+
+if __name__ == "__main__":
+    print('Running universal_file_manager.py')

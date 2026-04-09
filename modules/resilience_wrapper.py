@@ -298,3 +298,7 @@ def wrap_module(
         The crash-isolated proxy.
     """
     return IsolatedModule(name=name, instance=instance, kernel=kernel)
+
+
+if __name__ == "__main__":
+    print('Running resilience_wrapper.py')

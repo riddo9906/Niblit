@@ -249,3 +249,7 @@ class ArchitectureAgent(BaseAgent):
                     self._kb.store(key, text, tags=["architecture", "issue"])
                 except Exception:
                     pass
+
+
+if __name__ == "__main__":
+    print('Running architecture_agent.py')

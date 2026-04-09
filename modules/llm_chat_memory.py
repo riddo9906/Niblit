@@ -271,3 +271,7 @@ def get_llm_chat_memory(db_path: str = "") -> LLMChatMemory:
     if _instance is None:
         _instance = LLMChatMemory(db_path=db_path)
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running llm_chat_memory.py')

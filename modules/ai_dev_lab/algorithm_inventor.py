@@ -179,3 +179,7 @@ class AlgorithmInventor:
             if kw in lower:
                 return kw
         return "computation"
+
+
+if __name__ == "__main__":
+    print('Running algorithm_inventor.py')

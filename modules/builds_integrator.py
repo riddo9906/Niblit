@@ -464,3 +464,7 @@ class BuildsIntegrator:
                 "files": files,
             }
         return result
+
+
+if __name__ == "__main__":
+    print('Running builds_integrator.py')

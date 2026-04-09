@@ -1,3 +1,4 @@
+import modules.orphan_imports  # auto-added by self_heal_auto
 #!/usr/bin/env python3
 """
 niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime with Full Self-Improvement
@@ -900,10 +901,17 @@ except Exception as _e:
         SLSAGenerator = None
 
 try:
-    from self_maintenance_full import SelfMaintenance
+    # Prefer the full modular implementation (modules/self_maintenance.py)
+    # which has run(), run_with_learning(), and get_history().
+    # Fall back to the standalone stub only if the module is absent.
+    from modules.self_maintenance import SelfMaintenance
 except Exception as _e:
-    log.debug(f"SelfMaintenance not available: {_e}")
-    SelfMaintenance = None
+    log.debug(f"modules.self_maintenance not available ({_e}), trying self_maintenance_full")
+    try:
+        from self_maintenance_full import SelfMaintenance
+    except Exception as _e2:
+        log.debug(f"SelfMaintenance not available: {_e2}")
+        SelfMaintenance = None
 
 try:
     from module_loader import load_modules
@@ -4194,22 +4202,42 @@ SW Categories: {stats.get('software_study_categories', 0)}
         findings.  The work runs synchronously because the user explicitly
         requested it; however heavy sub-tasks inside SelfHealer may spawn
         their own daemon threads.
+
+        Also calls SelfMaintenance.run() to prune old interactions and
+        condense memory — the pattern prescribed by Fix_Guide.txt.
         """
+        parts = []
+
+        # ── SelfHealer: repair broken/empty KB facts ──────────────────────
         healer = getattr(self, "self_healer", None)
         if healer is None:
-            msg = "[run_selfheal] SelfHealer not available — ensure modules/self_healer.py is present"
-            self._loop_notify(msg)
-            return msg
-        result = None
-        for method_name in ("run_cycle", "repair", "full_heal", "run"):
-            fn = getattr(healer, method_name, None)
-            if fn is not None:
-                try:
-                    result = fn(self) if method_name == "full_heal" else fn()
-                except Exception as exc:
-                    result = f"[SelfHealer.{method_name} error] {exc}"
-                break
-        summary = result or "✅ Self-heal cycle completed (no output returned)"
+            parts.append("[run_selfheal] SelfHealer not available — ensure modules/self_healer.py is present")
+        else:
+            result = None
+            for method_name in ("run_cycle", "repair", "full_heal", "run"):
+                fn = getattr(healer, method_name, None)
+                if fn is not None:
+                    try:
+                        result = fn(self) if method_name == "full_heal" else fn()
+                    except Exception as exc:
+                        result = f"[SelfHealer.{method_name} error] {exc}"
+                    break
+            parts.append(result or "✅ SelfHealer cycle completed")
+
+        # ── SelfMaintenance: prune old interactions + condense memory ─────
+        maintenance = getattr(self, "self_maintenance", None)
+        if maintenance is not None:
+            for method_name in ("run_with_learning", "run", "diagnose"):
+                fn = getattr(maintenance, method_name, None)
+                if fn is not None:
+                    try:
+                        mresult = fn()
+                        parts.append(str(mresult) if mresult else "✅ SelfMaintenance run completed")
+                    except Exception as mexc:
+                        parts.append(f"[SelfMaintenance.{method_name} error] {mexc}")
+                    break
+
+        summary = "\n".join(parts) or "✅ Self-heal cycle completed (no output returned)"
         self._loop_notify(str(summary))
         return str(summary)
 
@@ -6065,7 +6093,25 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.membrane = safe_call(Membrane) if Membrane else None
             self.healer_obj = safe_call(Healer) if Healer else None
             self.generator = safe_call(Generator) if Generator else None
-            self.self_maintenance = safe_call(SelfMaintenance) if SelfMaintenance else None
+            # Wire SelfMaintenance with db, hybrid_manager, and self_monitor so
+            # the real run() / run_with_learning() logic can fire.
+            if SelfMaintenance is not None:
+                try:
+                    import inspect as _inspect
+                    _sm_params = set(_inspect.signature(SelfMaintenance.__init__).parameters)
+                    if "db" in _sm_params:
+                        self.self_maintenance = SelfMaintenance(
+                            self.db,
+                            hybrid_manager=getattr(self, "hybrid_manager", None),
+                            self_monitor=getattr(self, "self_monitor", None),
+                        )
+                    else:
+                        self.self_maintenance = SelfMaintenance()
+                except Exception as _sme:
+                    log.debug("[niblit_core] SelfMaintenance init error: %s", _sme)
+                    self.self_maintenance = None
+            else:
+                self.self_maintenance = None
 
             self.slsa_manager = slsa_manager
 
@@ -7559,6 +7605,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         safe_call(self.self_healer.full_heal, self)
             except Exception:
                 pass
+            # Also run memory maintenance (prune old interactions, condense KB)
+            try:
+                maintenance = getattr(self, "self_maintenance", None)
+                if maintenance is not None:
+                    fn = getattr(maintenance, "run_with_learning",
+                                 getattr(maintenance, "run", None))
+                    if fn is not None:
+                        safe_call(fn)
+            except Exception:
+                pass
             await asyncio.sleep(300)
 
     # ============================
@@ -7736,6 +7792,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         safe_call(self.self_healer.full_heal, self)
             except Exception as e:
                 loop_tracer.record("HealLoop", e)
+            # Also run memory maintenance (prune old interactions, condense KB)
+            try:
+                maintenance = getattr(self, "self_maintenance", None)
+                if maintenance is not None:
+                    fn = getattr(maintenance, "run_with_learning",
+                                 getattr(maintenance, "run", None))
+                    if fn is not None:
+                        safe_call(fn)
+            except Exception as _me:
+                log.debug("[HealLoop] SelfMaintenance error: %s", _me)
             time.sleep(300)
 
     # ============================

@@ -314,3 +314,7 @@ class TestEnvVarPassthrough:
 
         assert captured.get("url") == "http://env-qdrant:6333"
         assert captured.get("api_key") == "env-key"
+
+
+if __name__ == "__main__":
+    print('Running test_qdrant_integration.py')

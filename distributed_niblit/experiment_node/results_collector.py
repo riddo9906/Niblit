@@ -67,3 +67,7 @@ class ResultsCollector:
         writer.writeheader()
         writer.writerows(records)
         return buf.getvalue()
+
+
+if __name__ == "__main__":
+    print('Running results_collector.py')

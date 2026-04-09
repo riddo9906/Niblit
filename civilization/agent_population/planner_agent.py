@@ -64,3 +64,7 @@ class PlannerAgent(BaseAgent):
         """Return estimated effort score (1–10) for *plan*."""
         steps = plan.get("steps", [])
         return min(10, max(1, len(steps) * 2))
+
+
+if __name__ == "__main__":
+    print('Running planner_agent.py')

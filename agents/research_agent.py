@@ -277,3 +277,7 @@ class ResearchAgent(BaseAgent):
                 kept.append(r)
         return kept
 
+
+
+if __name__ == "__main__":
+    print('Running research_agent.py')

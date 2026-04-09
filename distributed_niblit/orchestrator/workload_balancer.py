@@ -60,3 +60,7 @@ class WorkloadBalancer:
     def _least_loaded_from(self, node_ids: List[str]) -> str:
         known = {n: self._loads.get(n, 0.0) for n in node_ids}
         return min(known, key=lambda k: known[k])
+
+
+if __name__ == "__main__":
+    print('Running workload_balancer.py')

@@ -49,3 +49,7 @@ class AgentProtocol:
     def validate(self, message: Dict[str, Any]) -> bool:
         """Return True if *message* has all required fields."""
         return _REQUIRED.issubset(message.keys())
+
+
+if __name__ == "__main__":
+    print('Running agent_protocol.py')

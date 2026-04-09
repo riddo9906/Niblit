@@ -11,3 +11,7 @@ def slice_guard(value, context="UNKNOWN"):
         raise RuntimeError(f"Unexpected slice object returned in {context}: {value}")
     return value
 
+
+
+if __name__ == "__main__":
+    print('Running slice_guard.py')

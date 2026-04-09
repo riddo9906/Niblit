@@ -56,3 +56,7 @@ class AuditSystem:
         """Clear audit log (use with caution)."""
         self._log.clear()
         log.warning("AuditSystem: log cleared")
+
+
+if __name__ == "__main__":
+    print('Running audit_system.py')

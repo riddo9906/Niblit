@@ -6,3 +6,5 @@ from .task_router import TaskRouter
 from .workload_balancer import WorkloadBalancer
 
 __all__ = ["NodeRegistry", "TaskRouter", "JobDispatcher", "WorkloadBalancer"]
+if __name__ == "__main__":
+    print('Running __init__.py')

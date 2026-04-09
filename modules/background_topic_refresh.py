@@ -182,3 +182,7 @@ def start_background_refresh(
     t.start()
     log.info("[BackgroundTopicRefresh] Background thread started (tid=%s)", t.ident)
     return t
+
+
+if __name__ == "__main__":
+    print('Running background_topic_refresh.py')

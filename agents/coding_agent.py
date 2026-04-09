@@ -137,3 +137,7 @@ class CodingAgent(BaseAgent):
             return " | ".join(snippets)
         except Exception:
             return ""
+
+
+if __name__ == "__main__":
+    print('Running coding_agent.py')

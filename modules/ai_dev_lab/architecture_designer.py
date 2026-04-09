@@ -150,3 +150,7 @@ class ArchitectureDesigner:
                 return arch_name
 
         return "pipeline"  # safe default
+
+
+if __name__ == "__main__":
+    print('Running architecture_designer.py')

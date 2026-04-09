@@ -184,3 +184,7 @@ class RuntimeManager:
     def subscribe(self, event_type: EventType, handler: Callable) -> None:
         """Shortcut to subscribe an event handler via the runtime."""
         self.event_bus.subscribe(event_type, handler)
+
+
+if __name__ == "__main__":
+    print('Running runtime_manager.py')

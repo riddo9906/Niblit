@@ -184,3 +184,7 @@ class AIDevLab:
             "experiments": self.experiments.stats(),
             "db_count": self.db.count(),
         }
+
+
+if __name__ == "__main__":
+    print('Running lab_controller.py')

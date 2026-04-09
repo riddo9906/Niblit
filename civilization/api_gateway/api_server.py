@@ -93,3 +93,7 @@ class APIServer:
             return {"status_code": 200, "body": result}
         self._stats["not_found"] += 1
         return {"status_code": 404, "body": {"error": "not_found", "path": path}}
+
+
+if __name__ == "__main__":
+    print('Running api_server.py')

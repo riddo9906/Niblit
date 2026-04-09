@@ -57,3 +57,7 @@ class SelectionEngine:
             reverse=True,
         )
         return sorted_pop[:n]
+
+
+if __name__ == "__main__":
+    print('Running selection_engine.py')

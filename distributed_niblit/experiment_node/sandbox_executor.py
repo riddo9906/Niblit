@@ -128,3 +128,7 @@ class SandboxExecutor:
             "error": error_msg,
             "elapsed_s": round(elapsed, 4),
         }
+
+
+if __name__ == "__main__":
+    print('Running sandbox_executor.py')

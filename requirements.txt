@@ -1,4 +1,4 @@
-# ═══════════��══════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
 # Niblit — Unified Requirements
 # ══════════════════════════════════════════════════════════════════════════════
 # This single file replaces the three separate requirements files:
@@ -67,6 +67,65 @@ lean>=1.0.0
 docker>=6.0.0
 prometheus-client>=0.19.0
 
+# ── LLM Training Pipeline (ALE Step 32 — LLMArchitectEngine) ─────────────────
+# These libraries implement the same four-stage pipeline used by ML engineers
+# to build production LLMs: data curation → SFT → RLHF/DPO → evaluation.
+#
+# INSTALL ON GPU MACHINES ONLY (heavy; skip on CPU-only Render/Vercel):
+#   pip install trl peft bitsandbytes accelerate datasets transformers evaluate
+#
+# • transformers  : HuggingFace model loading (AutoModelForCausalLM, tokenizers)
+# • trl           : TRL trainer — SFTTrainer, DPOTrainer, PPOTrainer
+# • peft          : LoRA / QLoRA adapters — LoraConfig, get_peft_model
+# • bitsandbytes  : 4-bit / 8-bit quantisation for QLoRA on consumer GPUs
+# • accelerate    : multi-GPU / mixed-precision training harness
+# • datasets      : HuggingFace Dataset / DatasetDict for training data
+# • evaluate      : LLM evaluation metrics (perplexity, BLEU, ROUGE)
+#
+# All are optional — LLMArchitectEngine degrades to BrainTrainer-based
+# in-context learning when these packages are absent.
+#
+# Uncomment the block below to enable full local fine-tuning:
+# transformers>=4.40.0
+# trl>=0.8.6
+# peft>=0.10.0
+# bitsandbytes>=0.43.0
+# accelerate>=0.29.0
+# datasets>=2.18.0
+# evaluate>=0.4.1
+# einops>=0.7.0
+# safetensors>=0.4.3
+
+# ── LLM Tokenizer Training (domain-specific BPE tokenizer for Niblit) ────────
+# sentencepiece: Google's BPE/unigram tokenizer — train on Niblit's own KB text
+# tiktoken: OpenAI's fast BPE tokenizer — used for token-count estimation
+# Uncomment to enable:
+# sentencepiece>=0.2.0
+# tiktoken>=0.6.0
+
+# ── Trading AI — Transformer Market Models ───────────────────────────────────
+# Temporal Fusion Transformer and PyTorch time-series libraries used by
+# professional quant shops to forecast multi-horizon price quantiles.
+# Wire into TradingBrain.decide_action() alongside the existing RL policy.
+# Uncomment to enable:
+# pytorch-forecasting>=1.0.0
+# pytorch-lightning>=2.2.0
+# scipy>=1.12.0
+
+# ── Trading AI — Portfolio Optimisation & Risk Management ────────────────────
+# PyPortfolioOpt: mean-variance / Kelly Criterion / CVaR optimisation
+# QuantStats: portfolio analytics, Sharpe, drawdown, rolling stats
+# Uncomment to enable:
+# PyPortfolioOpt>=1.5.5
+# quantstats>=0.0.62
+
+# ── Experiment Tracking (WandB / MLflow) ─────────────────────────────────────
+# WandB and MLflow track LLM training runs, eval scores, and hyperparameters.
+# Requires WANDB_API_KEY env var for WandB.
+# Uncomment to enable:
+# wandb>=0.17.0
+# mlflow>=2.12.0
+
 # ── Development & Testing ─────────────────────────────────────────────────────
 pytest>=7.4.0
 pytest-cov>=4.1.0
@@ -91,3 +150,4 @@ soundfile>=0.12.0
 pycdlib>=1.14.0
 pygments>=2.17.0
 PyYAML>=6.0.0
+

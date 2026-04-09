@@ -56,3 +56,7 @@ class NodeRegistry:
     def node_count(self) -> int:
         """Return total registered node count."""
         return len(self._nodes)
+
+
+if __name__ == "__main__":
+    print('Running node_registry.py')

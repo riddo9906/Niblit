@@ -6,3 +6,5 @@ from .knowledge_api import KnowledgeAPI
 from .vector_store import VectorStore
 
 __all__ = ["VectorStore", "GraphStore", "EmbeddingService", "KnowledgeAPI"]
+if __name__ == "__main__":
+    print('Running __init__.py')

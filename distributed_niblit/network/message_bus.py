@@ -63,3 +63,7 @@ class MessageBus:
         self._messages.clear()
         self._subscribers.clear()
         log.info("MessageBus: cleared all messages and subscribers")
+
+
+if __name__ == "__main__":
+    print('Running message_bus.py')

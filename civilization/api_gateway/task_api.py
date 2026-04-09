@@ -68,3 +68,7 @@ class TaskAPI:
         if status is not None:
             tasks = [t for t in tasks if t["status"] == status]
         return tasks
+
+
+if __name__ == "__main__":
+    print('Running task_api.py')

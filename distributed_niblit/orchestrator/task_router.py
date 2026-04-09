@@ -49,3 +49,7 @@ class TaskRouter:
     def get_route(self, task_type: str) -> str:
         """Return the node_type mapped to *task_type* or empty string."""
         return self._rules.get(task_type, "")
+
+
+if __name__ == "__main__":
+    print('Running task_router.py')

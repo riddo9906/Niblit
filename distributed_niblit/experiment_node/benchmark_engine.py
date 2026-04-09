@@ -72,3 +72,7 @@ class BenchmarkEngine:
             "worst": results[worst_idx],
             "average": round(sum(scores) / len(scores), 4),
         }
+
+
+if __name__ == "__main__":
+    print('Running benchmark_engine.py')

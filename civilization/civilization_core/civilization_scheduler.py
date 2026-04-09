@@ -72,3 +72,7 @@ class CivilizationScheduler:
         tasks = list(self._queue)
         self._queue.clear()
         return tasks
+
+
+if __name__ == "__main__":
+    print('Running civilization_scheduler.py')

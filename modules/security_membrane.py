@@ -319,3 +319,7 @@ def get_security_membrane(knowledge_db: Optional[Any] = None) -> SecurityMembran
             if _instance is None:
                 _instance = SecurityMembrane(knowledge_db=knowledge_db)
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running security_membrane.py')

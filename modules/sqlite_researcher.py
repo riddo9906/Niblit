@@ -325,3 +325,7 @@ class SQLiteResearcher:
             query, len(results),
         )
         return results
+
+
+if __name__ == "__main__":
+    print('Running sqlite_researcher.py')

@@ -6,3 +6,5 @@ from .knowledge_api import KnowledgeAPI
 from .task_api import TaskAPI
 
 __all__ = ["Authentication", "TaskAPI", "KnowledgeAPI", "APIServer"]
+if __name__ == "__main__":
+    print('Running __init__.py')

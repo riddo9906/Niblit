@@ -59,3 +59,7 @@ class NodeProtocol:
     def validate_message(self, raw: Dict[str, Any]) -> bool:
         """Return True when *raw* contains all required protocol fields."""
         return _REQUIRED_FIELDS.issubset(raw.keys())
+
+
+if __name__ == "__main__":
+    print('Running node_protocol.py')

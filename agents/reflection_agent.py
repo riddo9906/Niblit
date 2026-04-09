@@ -361,3 +361,7 @@ class ReflectionAgent(BaseAgent):
             self._brain.ingest_research(topic, combined)
         except Exception as exc:
             self._log.debug("brain update failed: %s", exc)
+
+
+if __name__ == "__main__":
+    print('Running reflection_agent.py')

@@ -55,3 +55,7 @@ class AnomalyDetector:
     def get_anomalies(self) -> List[Dict[str, Any]]:
         """Return all detected anomaly records."""
         return list(self._anomalies)
+
+
+if __name__ == "__main__":
+    print('Running anomaly_detector.py')

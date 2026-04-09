@@ -144,3 +144,7 @@ class BaseAgent:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name!r}, state={self.state.value})"
+
+
+if __name__ == "__main__":
+    print('Running base_agent.py')

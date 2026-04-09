@@ -13,3 +13,5 @@ ClaudeEngine  — Anthropic Claude via :class:`~modules.anthropic_adapter.Anthro
 from niblit_models.claude_engine import ClaudeEngine
 
 __all__ = ["ClaudeEngine"]
+if __name__ == "__main__":
+    print('Running __init__.py')

@@ -175,3 +175,7 @@ class ExperimentDatabase:
             except Exception:  # noqa: BLE001
                 pass
         return d
+
+
+if __name__ == "__main__":
+    print('Running experiment_database.py')

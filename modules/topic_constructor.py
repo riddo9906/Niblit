@@ -333,3 +333,7 @@ class TopicConstructor:
             return _FALLBACK_QUERY
         raw = topics[index % len(topics)]
         return self.build(raw)
+
+
+if __name__ == "__main__":
+    print('Running topic_constructor.py')

@@ -346,3 +346,7 @@ def get_device_control(knowledge_db: Optional[Any] = None) -> DeviceControl:
             if _INSTANCE is None:
                 _INSTANCE = DeviceControl(knowledge_db=knowledge_db)
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running device_control.py')

@@ -53,3 +53,7 @@ class CodeGenerator:
     def get_supported_languages(self) -> List[str]:
         """Return list of supported language identifiers."""
         return list(_SUPPORTED_LANGUAGES)
+
+
+if __name__ == "__main__":
+    print('Running code_generator.py')

@@ -263,3 +263,7 @@ class ScrapyResearchAgent:
                         logger.debug("[ScrapyResearchAgent] VectorStore add failed: %s", exc)
 
         return extracted
+
+
+if __name__ == "__main__":
+    print('Running scrapy_research_agent.py')

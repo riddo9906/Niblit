@@ -58,3 +58,7 @@ class CompetitionEngine:
     def get_results(self) -> List[Dict[str, Any]]:
         """Return all past competition results."""
         return list(self._results)
+
+
+if __name__ == "__main__":
+    print('Running competition_engine.py')

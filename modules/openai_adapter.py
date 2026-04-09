@@ -150,3 +150,7 @@ class OpenAIAdapter:
             max_tokens=max_tokens,
         )
         return result or ""
+
+
+if __name__ == "__main__":
+    print('Running openai_adapter.py')

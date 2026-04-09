@@ -605,3 +605,7 @@ def get_rl_policy(
                 _policy_singleton = PPOPolicy(**kwargs)
             log.info("[RLPolicy] Initialised %s policy", _policy_singleton.algorithm)
     return _policy_singleton
+
+
+if __name__ == "__main__":
+    print('Running rl_trading_policy.py')

@@ -69,3 +69,7 @@ class EvolutionAgent(BaseAgent):
             "improvement_delta": 0.05,
             "ran_at": time.time(),
         }
+
+
+if __name__ == "__main__":
+    print('Running evolution_agent.py')

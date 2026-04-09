@@ -668,3 +668,7 @@ class TestALENewParams:
         ale = AutonomousLearningEngine(core=core)
         resolved = ale._get_pypi_search()
         assert resolved is core.pypi_search
+
+
+if __name__ == "__main__":
+    print('Running test_nextgen_architecture.py')

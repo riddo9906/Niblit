@@ -237,3 +237,7 @@ def get_aios_hal() -> HAL:
             if _hal is None:
                 _hal = HAL()
     return _hal
+
+
+if __name__ == "__main__":
+    print('Running aios_hal.py')

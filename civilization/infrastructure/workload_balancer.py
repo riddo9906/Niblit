@@ -50,3 +50,7 @@ class WorkloadBalancer:
             nid: {"active_tasks": self._load[nid], "completed": self._completed[nid]}
             for nid in set(list(self._load.keys()) + list(self._completed.keys()))
         }
+
+
+if __name__ == "__main__":
+    print('Running workload_balancer.py')

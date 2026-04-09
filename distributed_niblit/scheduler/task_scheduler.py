@@ -61,3 +61,7 @@ class TaskScheduler:
                 executed.append(entry)
                 log.debug("TaskScheduler: executed %s", entry["task_id"])
         return executed
+
+
+if __name__ == "__main__":
+    print('Running task_scheduler.py')

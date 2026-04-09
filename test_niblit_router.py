@@ -270,3 +270,7 @@ class TestModuleHelpers:
         result = safe_call(bad_fn)
         assert isinstance(result, str)
         assert "ERROR" in result.upper() or "error" in result.lower()
+
+
+if __name__ == "__main__":
+    print('Running test_niblit_router.py')

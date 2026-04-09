@@ -50,3 +50,7 @@ def pytest_unconfigure(config):
     except Exception:
         pass
     os._exit(_exit_status)
+
+
+if __name__ == "__main__":
+    print('Running conftest.py')

@@ -280,3 +280,7 @@ def get_rag_pipeline(
                 )
                 log.debug("[RAGPipeline] Singleton created")
     return _rag_pipeline_instance
+
+
+if __name__ == "__main__":
+    print('Running rag_pipeline.py')

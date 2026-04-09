@@ -745,3 +745,7 @@ def get_market_data_providers(knowledge_db: Optional[Any] = None) -> MarketDataP
     elif knowledge_db is not None and _market_data_providers._kb is None:
         _market_data_providers._kb = knowledge_db
     return _market_data_providers
+
+
+if __name__ == "__main__":
+    print('Running market_data_providers.py')

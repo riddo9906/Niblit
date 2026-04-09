@@ -207,3 +207,7 @@ class StackOverflowSearch:
         """
         pattern_results = self.search_for_code_pattern(language, topic, max_results=max_results)
         return pattern_results
+
+
+if __name__ == "__main__":
+    print('Running stackoverflow_search.py')

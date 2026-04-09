@@ -50,3 +50,7 @@ class KnowledgeAPI:
     def count(self) -> int:
         """Return total stored entries."""
         return len(self._store)
+
+
+if __name__ == "__main__":
+    print('Running knowledge_api.py')

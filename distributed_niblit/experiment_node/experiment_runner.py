@@ -79,3 +79,7 @@ class ExperimentRunner:
     def list_experiments(self) -> List[str]:
         """Return list of all exp_ids."""
         return list(self._experiments.keys())
+
+
+if __name__ == "__main__":
+    print('Running experiment_runner.py')

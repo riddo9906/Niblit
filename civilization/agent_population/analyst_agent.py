@@ -58,3 +58,7 @@ class AnalystAgent(BaseAgent):
         scores = [r.get("mean_score", r.get("score", 0.0)) for r in results]
         best_idx = scores.index(max(scores))
         return {"winner": results[best_idx], "all_scores": scores}
+
+
+if __name__ == "__main__":
+    print('Running analyst_agent.py')

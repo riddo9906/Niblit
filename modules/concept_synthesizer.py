@@ -451,3 +451,7 @@ def get_concept_synthesizer() -> ConceptSynthesizer:
         if _synthesizer_singleton is None:
             _synthesizer_singleton = ConceptSynthesizer()
     return _synthesizer_singleton
+
+
+if __name__ == "__main__":
+    print('Running concept_synthesizer.py')

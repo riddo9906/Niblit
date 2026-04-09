@@ -244,3 +244,7 @@ class TaskQueue:
             f"TaskQueue(pending={s['pending']}, running={s['running']}, "
             f"completed={s['completed']})"
         )
+
+
+if __name__ == "__main__":
+    print('Running task_queue.py')

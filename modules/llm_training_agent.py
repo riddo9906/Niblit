@@ -440,3 +440,7 @@ def get_llm_training_agent(
         if graded_curriculum is not None:
             _instance.graded_curriculum = graded_curriculum
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running llm_training_agent.py')

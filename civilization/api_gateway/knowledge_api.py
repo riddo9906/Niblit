@@ -54,3 +54,7 @@ class KnowledgeAPI:
     def get_knowledge(self, key: str) -> Optional[Dict[str, Any]]:
         """Return stored item for *key* or None."""
         return self._store.get(key)
+
+
+if __name__ == "__main__":
+    print('Running knowledge_api.py')

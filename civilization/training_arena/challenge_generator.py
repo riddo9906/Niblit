@@ -71,3 +71,7 @@ class ChallengeGenerator:
     def get_challenge(self, challenge_id: str) -> Optional[Dict[str, Any]]:
         """Return challenge by *challenge_id* or None."""
         return self._challenges.get(challenge_id)
+
+
+if __name__ == "__main__":
+    print('Running challenge_generator.py')

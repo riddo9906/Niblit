@@ -51,3 +51,7 @@ class MutationEngine:
     def get_mutation_history(self) -> List[Dict[str, Any]]:
         """Return all past mutation records."""
         return list(self._history)
+
+
+if __name__ == "__main__":
+    print('Running mutation_engine.py')

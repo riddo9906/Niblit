@@ -201,3 +201,7 @@ class LLMProviderManager:
         except Exception as exc:
             log.debug("[LLMProviderManager] ClaudeEngine lazy-init failed: %s", exc)
             return None
+
+
+if __name__ == "__main__":
+    print('Running llm_provider_manager.py')

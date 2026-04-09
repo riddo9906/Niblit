@@ -67,3 +67,7 @@ class LogAggregator:
         """Remove all stored entries."""
         self._entries.clear()
         log.info("LogAggregator: cleared all entries")
+
+
+if __name__ == "__main__":
+    print('Running log_aggregator.py')

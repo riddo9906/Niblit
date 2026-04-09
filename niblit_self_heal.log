@@ -1621,3 +1621,589 @@
 [2026-03-09T22:25:40.693893] Installed/updated pip package: flask
 [2026-03-09T22:25:42.064415] Ran modules.orphan_imports (import attempts logged separately)
 [2026-03-09T22:25:42.065019] === Self-heal (Mode A) completed ===
+[2026-04-09T13:11:01.425928] === Self-heal (Mode A) started ===
+[2026-04-09T13:11:01.429374] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1775740256
+[2026-04-09T13:11:01.429525] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-04-09T13:11:01.435629] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1775740256
+[2026-04-09T13:11:01.435791] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-04-09T13:11:01.437621] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1775740256
+[2026-04-09T13:11:01.437734] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-04-09T13:11:01.441862] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:11:01.441990] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:11:01.443339] HF endpoint replacements: 4
+[2026-04-09T13:11:01.444299] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1775740256
+[2026-04-09T13:11:01.444432] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-04-09T13:11:01.460675] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:11:01.460822] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:11:01.461112] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1775740256
+[2026-04-09T13:11:01.461291] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-04-09T13:11:01.463139] Smart import fixes applied to 3 files
+[2026-04-09T13:11:01.478154] Backed up /home/runner/work/Niblit/Niblit/aios_runtime.py -> /home/runner/work/Niblit/Niblit/aios_runtime.py.bak.1775740256
+[2026-04-09T13:11:01.478251] Appended __main__ block to /home/runner/work/Niblit/Niblit/aios_runtime.py
+[2026-04-09T13:11:01.482976] Backed up /home/runner/work/Niblit/Niblit/aios_scheduler.py -> /home/runner/work/Niblit/Niblit/aios_scheduler.py.bak.1775740256
+[2026-04-09T13:11:01.483044] Appended __main__ block to /home/runner/work/Niblit/Niblit/aios_scheduler.py
+[2026-04-09T13:11:01.496327] Backed up /home/runner/work/Niblit/Niblit/test_niblit_serpex.py -> /home/runner/work/Niblit/Niblit/test_niblit_serpex.py.bak.1775740256
+[2026-04-09T13:11:01.497235] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_niblit_serpex.py
+[2026-04-09T13:11:01.498801] Backed up /home/runner/work/Niblit/Niblit/conftest.py -> /home/runner/work/Niblit/Niblit/conftest.py.bak.1775740256
+[2026-04-09T13:11:01.498878] Appended __main__ block to /home/runner/work/Niblit/Niblit/conftest.py
+[2026-04-09T13:11:01.508908] Backed up /home/runner/work/Niblit/Niblit/test_rag_pipeline.py -> /home/runner/work/Niblit/Niblit/test_rag_pipeline.py.bak.1775740256
+[2026-04-09T13:11:01.508974] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_rag_pipeline.py
+[2026-04-09T13:11:01.561125] Backed up /home/runner/work/Niblit/Niblit/niblit_memory.py -> /home/runner/work/Niblit/Niblit/niblit_memory.py.bak.1775740256
+[2026-04-09T13:11:01.561232] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_memory.py
+[2026-04-09T13:11:01.563569] Backed up /home/runner/work/Niblit/Niblit/test_internet_manager.py -> /home/runner/work/Niblit/Niblit/test_internet_manager.py.bak.1775740256
+[2026-04-09T13:11:01.563634] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_internet_manager.py
+[2026-04-09T13:11:01.578839] Backed up /home/runner/work/Niblit/Niblit/test_niblit_brain.py -> /home/runner/work/Niblit/Niblit/test_niblit_brain.py.bak.1775740256
+[2026-04-09T13:11:01.578907] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_niblit_brain.py
+[2026-04-09T13:11:01.582365] Backed up /home/runner/work/Niblit/Niblit/test_niblit_memory.py -> /home/runner/work/Niblit/Niblit/test_niblit_memory.py.bak.1775740256
+[2026-04-09T13:11:01.582427] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_niblit_memory.py
+[2026-04-09T13:11:01.586324] Backed up /home/runner/work/Niblit/Niblit/test_qdrant_integration.py -> /home/runner/work/Niblit/Niblit/test_qdrant_integration.py.bak.1775740256
+[2026-04-09T13:11:01.586386] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_qdrant_integration.py
+[2026-04-09T13:11:01.592683] Backed up /home/runner/work/Niblit/Niblit/niblit_sqlite_db.py -> /home/runner/work/Niblit/Niblit/niblit_sqlite_db.py.bak.1775740256
+[2026-04-09T13:11:01.592746] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_sqlite_db.py
+[2026-04-09T13:11:01.626493] Backed up /home/runner/work/Niblit/Niblit/test_github_code_search.py -> /home/runner/work/Niblit/Niblit/test_github_code_search.py.bak.1775740256
+[2026-04-09T13:11:01.626572] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_github_code_search.py
+[2026-04-09T13:11:01.713911] Backed up /home/runner/work/Niblit/Niblit/config.py -> /home/runner/work/Niblit/Niblit/config.py.bak.1775740256
+[2026-04-09T13:11:01.713993] Appended __main__ block to /home/runner/work/Niblit/Niblit/config.py
+[2026-04-09T13:11:01.726837] Backed up /home/runner/work/Niblit/Niblit/aios_hal.py -> /home/runner/work/Niblit/Niblit/aios_hal.py.bak.1775740256
+[2026-04-09T13:11:01.726904] Appended __main__ block to /home/runner/work/Niblit/Niblit/aios_hal.py
+[2026-04-09T13:11:01.729086] Backed up /home/runner/work/Niblit/Niblit/test_niblit_router.py -> /home/runner/work/Niblit/Niblit/test_niblit_router.py.bak.1775740256
+[2026-04-09T13:11:01.729150] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_niblit_router.py
+[2026-04-09T13:11:01.735557] Backed up /home/runner/work/Niblit/Niblit/test_aios_architecture.py -> /home/runner/work/Niblit/Niblit/test_aios_architecture.py.bak.1775740256
+[2026-04-09T13:11:01.735624] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_aios_architecture.py
+[2026-04-09T13:11:01.741619] Backed up /home/runner/work/Niblit/Niblit/test_nextgen_architecture.py -> /home/runner/work/Niblit/Niblit/test_nextgen_architecture.py.bak.1775740256
+[2026-04-09T13:11:01.741684] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_nextgen_architecture.py
+[2026-04-09T13:11:01.744317] Backed up /home/runner/work/Niblit/Niblit/niblit_agents/research_agent.py -> /home/runner/work/Niblit/Niblit/niblit_agents/research_agent.py.bak.1775740256
+[2026-04-09T13:11:01.744380] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_agents/research_agent.py
+[2026-04-09T13:11:01.746124] Backed up /home/runner/work/Niblit/Niblit/niblit_agents/scrapy_research_agent.py -> /home/runner/work/Niblit/Niblit/niblit_agents/scrapy_research_agent.py.bak.1775740256
+[2026-04-09T13:11:01.746210] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_agents/scrapy_research_agent.py
+[2026-04-09T13:11:01.750488] Backed up /home/runner/work/Niblit/Niblit/modules/metacognition.py -> /home/runner/work/Niblit/Niblit/modules/metacognition.py.bak.1775740256
+[2026-04-09T13:11:01.750562] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/metacognition.py
+[2026-04-09T13:11:01.754197] Backed up /home/runner/work/Niblit/Niblit/modules/device_control.py -> /home/runner/work/Niblit/Niblit/modules/device_control.py.bak.1775740256
+[2026-04-09T13:11:01.754267] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/device_control.py
+[2026-04-09T13:11:01.757484] Backed up /home/runner/work/Niblit/Niblit/modules/security_membrane.py -> /home/runner/work/Niblit/Niblit/modules/security_membrane.py.bak.1775740256
+[2026-04-09T13:11:01.757559] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/security_membrane.py
+[2026-04-09T13:11:01.764076] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_comprehension.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_comprehension.py.bak.1775740256
+[2026-04-09T13:11:01.764143] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_comprehension.py
+[2026-04-09T13:11:01.787433] Backed up /home/runner/work/Niblit/Niblit/modules/reward_model.py -> /home/runner/work/Niblit/Niblit/modules/reward_model.py.bak.1775740256
+[2026-04-09T13:11:01.787509] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/reward_model.py
+[2026-04-09T13:11:01.790981] Backed up /home/runner/work/Niblit/Niblit/modules/kernel_integration.py -> /home/runner/work/Niblit/Niblit/modules/kernel_integration.py.bak.1775740256
+[2026-04-09T13:11:01.791044] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/kernel_integration.py
+[2026-04-09T13:11:01.792861] Backed up /home/runner/work/Niblit/Niblit/modules/anthropic_adapter.py -> /home/runner/work/Niblit/Niblit/modules/anthropic_adapter.py.bak.1775740256
+[2026-04-09T13:11:01.792926] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/anthropic_adapter.py
+[2026-04-09T13:11:01.794093] Backed up /home/runner/work/Niblit/Niblit/modules/collaborative_learner.py -> /home/runner/work/Niblit/Niblit/modules/collaborative_learner.py.bak.1775740256
+[2026-04-09T13:11:01.794166] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/collaborative_learner.py
+[2026-04-09T13:11:01.798617] Backed up /home/runner/work/Niblit/Niblit/modules/hardware_scanner.py -> /home/runner/work/Niblit/Niblit/modules/hardware_scanner.py.bak.1775740256
+[2026-04-09T13:11:01.798681] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/hardware_scanner.py
+[2026-04-09T13:11:01.800873] Backed up /home/runner/work/Niblit/Niblit/modules/fused_memory.py -> /home/runner/work/Niblit/Niblit/modules/fused_memory.py.bak.1775740256
+[2026-04-09T13:11:01.800938] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/fused_memory.py
+[2026-04-09T13:11:01.805953] Backed up /home/runner/work/Niblit/Niblit/modules/rl_trading_policy.py -> /home/runner/work/Niblit/Niblit/modules/rl_trading_policy.py.bak.1775740256
+[2026-04-09T13:11:01.806017] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/rl_trading_policy.py
+[2026-04-09T13:11:01.812722] Backed up /home/runner/work/Niblit/Niblit/modules/vector_store.py -> /home/runner/work/Niblit/Niblit/modules/vector_store.py.bak.1775740256
+[2026-04-09T13:11:01.812793] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/vector_store.py
+[2026-04-09T13:11:01.818798] Backed up /home/runner/work/Niblit/Niblit/modules/trading_study.py -> /home/runner/work/Niblit/Niblit/modules/trading_study.py.bak.1775740256
+[2026-04-09T13:11:01.818865] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/trading_study.py
+[2026-04-09T13:11:01.826385] Backed up /home/runner/work/Niblit/Niblit/modules/multimodal_intelligence.py -> /home/runner/work/Niblit/Niblit/modules/multimodal_intelligence.py.bak.1775740256
+[2026-04-09T13:11:01.826452] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/multimodal_intelligence.py
+[2026-04-09T13:11:01.827924] Backed up /home/runner/work/Niblit/Niblit/modules/niblit_personality.py -> /home/runner/work/Niblit/Niblit/modules/niblit_personality.py.bak.1775740256
+[2026-04-09T13:11:01.827988] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/niblit_personality.py
+[2026-04-09T13:11:01.828562] Backed up /home/runner/work/Niblit/Niblit/modules/ingestion.py -> /home/runner/work/Niblit/Niblit/modules/ingestion.py.bak.1775740256
+[2026-04-09T13:11:01.828623] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ingestion.py
+[2026-04-09T13:11:01.831706] Backed up /home/runner/work/Niblit/Niblit/modules/env_state.py -> /home/runner/work/Niblit/Niblit/modules/env_state.py.bak.1775740256
+[2026-04-09T13:11:01.831774] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/env_state.py
+[2026-04-09T13:11:01.834973] Backed up /home/runner/work/Niblit/Niblit/modules/graded_curriculum.py -> /home/runner/work/Niblit/Niblit/modules/graded_curriculum.py.bak.1775740256
+[2026-04-09T13:11:01.835037] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/graded_curriculum.py
+[2026-04-09T13:11:01.838992] Backed up /home/runner/work/Niblit/Niblit/modules/builds_integrator.py -> /home/runner/work/Niblit/Niblit/modules/builds_integrator.py.bak.1775740256
+[2026-04-09T13:11:01.839057] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/builds_integrator.py
+[2026-04-09T13:11:01.840268] Backed up /home/runner/work/Niblit/Niblit/modules/parallel_learner.py -> /home/runner/work/Niblit/Niblit/modules/parallel_learner.py.bak.1775740256
+[2026-04-09T13:11:01.840338] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/parallel_learner.py
+[2026-04-09T13:11:01.847076] Backed up /home/runner/work/Niblit/Niblit/modules/self_improvement_orchestrator.py -> /home/runner/work/Niblit/Niblit/modules/self_improvement_orchestrator.py.bak.1775740256
+[2026-04-09T13:11:01.847146] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/self_improvement_orchestrator.py
+[2026-04-09T13:11:01.848320] Backed up /home/runner/work/Niblit/Niblit/modules/background_topic_refresh.py -> /home/runner/work/Niblit/Niblit/modules/background_topic_refresh.py.bak.1775740256
+[2026-04-09T13:11:01.848383] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/background_topic_refresh.py
+[2026-04-09T13:11:01.848605] Backed up /home/runner/work/Niblit/Niblit/modules/db.py -> /home/runner/work/Niblit/Niblit/modules/db.py.bak.1775740256
+[2026-04-09T13:11:01.848663] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/db.py
+[2026-04-09T13:11:01.853189] Backed up /home/runner/work/Niblit/Niblit/modules/memory_graph.py -> /home/runner/work/Niblit/Niblit/modules/memory_graph.py.bak.1775740256
+[2026-04-09T13:11:01.853257] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/memory_graph.py
+[2026-04-09T13:11:01.855624] Backed up /home/runner/work/Niblit/Niblit/modules/sqlite_researcher.py -> /home/runner/work/Niblit/Niblit/modules/sqlite_researcher.py.bak.1775740256
+[2026-04-09T13:11:01.855687] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/sqlite_researcher.py
+[2026-04-09T13:11:01.861548] Backed up /home/runner/work/Niblit/Niblit/modules/ale_checkpoint.py -> /home/runner/work/Niblit/Niblit/modules/ale_checkpoint.py.bak.1775740256
+[2026-04-09T13:11:01.861613] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ale_checkpoint.py
+[2026-04-09T13:11:01.893456] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_db.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_db.py.bak.1775740256
+[2026-04-09T13:11:01.893535] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_db.py
+[2026-04-09T13:11:01.894923] Backed up /home/runner/work/Niblit/Niblit/modules/resilience_wrapper.py -> /home/runner/work/Niblit/Niblit/modules/resilience_wrapper.py.bak.1775740256
+[2026-04-09T13:11:01.894986] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/resilience_wrapper.py
+[2026-04-09T13:11:01.900833] Backed up /home/runner/work/Niblit/Niblit/modules/github_deep_research.py -> /home/runner/work/Niblit/Niblit/modules/github_deep_research.py.bak.1775740256
+[2026-04-09T13:11:01.900898] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/github_deep_research.py
+[2026-04-09T13:11:01.901137] Backed up /home/runner/work/Niblit/Niblit/modules/fused_memory_primary.py -> /home/runner/work/Niblit/Niblit/modules/fused_memory_primary.py.bak.1775740256
+[2026-04-09T13:11:01.901223] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/fused_memory_primary.py
+[2026-04-09T13:11:01.908603] Backed up /home/runner/work/Niblit/Niblit/modules/llm_provider_manager.py -> /home/runner/work/Niblit/Niblit/modules/llm_provider_manager.py.bak.1775740256
+[2026-04-09T13:11:01.908682] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/llm_provider_manager.py
+[2026-04-09T13:11:01.909738] Backed up /home/runner/work/Niblit/Niblit/modules/openai_adapter.py -> /home/runner/work/Niblit/Niblit/modules/openai_adapter.py.bak.1775740256
+[2026-04-09T13:11:01.909800] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/openai_adapter.py
+[2026-04-09T13:11:01.915315] Backed up /home/runner/work/Niblit/Niblit/modules/improvement_integrator.py -> /home/runner/work/Niblit/Niblit/modules/improvement_integrator.py.bak.1775740256
+[2026-04-09T13:11:01.915379] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/improvement_integrator.py
+[2026-04-09T13:11:01.920200] Backed up /home/runner/work/Niblit/Niblit/modules/os_integration.py -> /home/runner/work/Niblit/Niblit/modules/os_integration.py.bak.1775740256
+[2026-04-09T13:11:01.920267] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/os_integration.py
+[2026-04-09T13:11:01.921715] Backed up /home/runner/work/Niblit/Niblit/modules/qdrant_tools.py -> /home/runner/work/Niblit/Niblit/modules/qdrant_tools.py.bak.1775740256
+[2026-04-09T13:11:01.921777] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/qdrant_tools.py
+[2026-04-09T13:11:01.925317] Backed up /home/runner/work/Niblit/Niblit/modules/device_mesh.py -> /home/runner/work/Niblit/Niblit/modules/device_mesh.py.bak.1775740256
+[2026-04-09T13:11:01.925380] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/device_mesh.py
+[2026-04-09T13:11:01.926988] Backed up /home/runner/work/Niblit/Niblit/modules/stackoverflow_search.py -> /home/runner/work/Niblit/Niblit/modules/stackoverflow_search.py.bak.1775740256
+[2026-04-09T13:11:01.927050] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/stackoverflow_search.py
+[2026-04-09T13:11:01.935693] Backed up /home/runner/work/Niblit/Niblit/modules/env_adapter.py -> /home/runner/work/Niblit/Niblit/modules/env_adapter.py.bak.1775740256
+[2026-04-09T13:11:01.935765] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/env_adapter.py
+[2026-04-09T13:11:01.937036] Backed up /home/runner/work/Niblit/Niblit/modules/memory_optimizer.py -> /home/runner/work/Niblit/Niblit/modules/memory_optimizer.py.bak.1775740256
+[2026-04-09T13:11:01.937098] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/memory_optimizer.py
+[2026-04-09T13:11:01.945541] Backed up /home/runner/work/Niblit/Niblit/modules/parameter_manager.py -> /home/runner/work/Niblit/Niblit/modules/parameter_manager.py.bak.1775740256
+[2026-04-09T13:11:01.945608] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/parameter_manager.py
+[2026-04-09T13:11:01.947792] Backed up /home/runner/work/Niblit/Niblit/modules/build_scanner.py -> /home/runner/work/Niblit/Niblit/modules/build_scanner.py.bak.1775740256
+[2026-04-09T13:11:01.947857] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/build_scanner.py
+[2026-04-09T13:11:01.949601] Backed up /home/runner/work/Niblit/Niblit/modules/security_hardening.py -> /home/runner/work/Niblit/Niblit/modules/security_hardening.py.bak.1775740256
+[2026-04-09T13:11:01.949665] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/security_hardening.py
+[2026-04-09T13:11:01.954263] Backed up /home/runner/work/Niblit/Niblit/modules/game_engine.py -> /home/runner/work/Niblit/Niblit/modules/game_engine.py.bak.1775740256
+[2026-04-09T13:11:01.954329] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/game_engine.py
+[2026-04-09T13:11:01.957599] Backed up /home/runner/work/Niblit/Niblit/modules/bios_integration.py -> /home/runner/work/Niblit/Niblit/modules/bios_integration.py.bak.1775740256
+[2026-04-09T13:11:01.957662] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/bios_integration.py
+[2026-04-09T13:11:01.966993] Backed up /home/runner/work/Niblit/Niblit/modules/universal_file_manager.py -> /home/runner/work/Niblit/Niblit/modules/universal_file_manager.py.bak.1775740256
+[2026-04-09T13:11:01.967065] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/universal_file_manager.py
+[2026-04-09T13:11:01.968508] Backed up /home/runner/work/Niblit/Niblit/modules/github_sync.py -> /home/runner/work/Niblit/Niblit/modules/github_sync.py.bak.1775740256
+[2026-04-09T13:11:01.968572] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/github_sync.py
+[2026-04-09T13:11:01.974587] Backed up /home/runner/work/Niblit/Niblit/modules/niblit_kernel.py -> /home/runner/work/Niblit/Niblit/modules/niblit_kernel.py.bak.1775740256
+[2026-04-09T13:11:01.974654] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/niblit_kernel.py
+[2026-04-09T13:11:01.982412] Backed up /home/runner/work/Niblit/Niblit/modules/enterprise_utility.py -> /home/runner/work/Niblit/Niblit/modules/enterprise_utility.py.bak.1775740256
+[2026-04-09T13:11:01.982481] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/enterprise_utility.py
+[2026-04-09T13:11:01.984596] Backed up /home/runner/work/Niblit/Niblit/modules/prediction_engine.py -> /home/runner/work/Niblit/Niblit/modules/prediction_engine.py.bak.1775740256
+[2026-04-09T13:11:01.984659] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/prediction_engine.py
+[2026-04-09T13:11:01.985843] Backed up /home/runner/work/Niblit/Niblit/modules/gap_analyzer.py -> /home/runner/work/Niblit/Niblit/modules/gap_analyzer.py.bak.1775740256
+[2026-04-09T13:11:01.985905] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/gap_analyzer.py
+[2026-04-09T13:11:01.991023] Backed up /home/runner/work/Niblit/Niblit/modules/platform_bootstrap.py -> /home/runner/work/Niblit/Niblit/modules/platform_bootstrap.py.bak.1775740256
+[2026-04-09T13:11:01.991088] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/platform_bootstrap.py
+[2026-04-09T13:11:01.998284] Backed up /home/runner/work/Niblit/Niblit/modules/market_data_providers.py -> /home/runner/work/Niblit/Niblit/modules/market_data_providers.py.bak.1775740256
+[2026-04-09T13:11:01.998356] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/market_data_providers.py
+[2026-04-09T13:11:02.006518] Backed up /home/runner/work/Niblit/Niblit/modules/realtime_stream.py -> /home/runner/work/Niblit/Niblit/modules/realtime_stream.py.bak.1775740256
+[2026-04-09T13:11:02.006583] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/realtime_stream.py
+[2026-04-09T13:11:02.010809] Backed up /home/runner/work/Niblit/Niblit/modules/trading_brain.py -> /home/runner/work/Niblit/Niblit/modules/trading_brain.py.bak.1775740256
+[2026-04-09T13:11:02.010874] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/trading_brain.py
+[2026-04-09T13:11:02.013001] Backed up /home/runner/work/Niblit/Niblit/modules/agentic_workflows.py -> /home/runner/work/Niblit/Niblit/modules/agentic_workflows.py.bak.1775740256
+[2026-04-09T13:11:02.013063] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/agentic_workflows.py
+[2026-04-09T13:11:02.021766] Backed up /home/runner/work/Niblit/Niblit/modules/reasoning_engine.py -> /home/runner/work/Niblit/Niblit/modules/reasoning_engine.py.bak.1775740256
+[2026-04-09T13:11:02.021920] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/reasoning_engine.py
+[2026-04-09T13:11:02.033401] Backed up /home/runner/work/Niblit/Niblit/modules/lean_deploy_engine.py -> /home/runner/work/Niblit/Niblit/modules/lean_deploy_engine.py.bak.1775740256
+[2026-04-09T13:11:02.034214] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/lean_deploy_engine.py
+[2026-04-09T13:11:02.036157] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_digest.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_digest.py.bak.1775740256
+[2026-04-09T13:11:02.036747] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_digest.py
+[2026-04-09T13:11:02.040793] Backed up /home/runner/work/Niblit/Niblit/modules/rag_pipeline.py -> /home/runner/work/Niblit/Niblit/modules/rag_pipeline.py.bak.1775740256
+[2026-04-09T13:11:02.041052] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/rag_pipeline.py
+[2026-04-09T13:11:02.046578] Backed up /home/runner/work/Niblit/Niblit/modules/self_monitor.py -> /home/runner/work/Niblit/Niblit/modules/self_monitor.py.bak.1775740256
+[2026-04-09T13:11:02.046868] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/self_monitor.py
+[2026-04-09T13:11:02.049821] Backed up /home/runner/work/Niblit/Niblit/modules/pypi_search.py -> /home/runner/work/Niblit/Niblit/modules/pypi_search.py.bak.1775740256
+[2026-04-09T13:11:02.050094] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/pypi_search.py
+[2026-04-09T13:11:02.053460] Backed up /home/runner/work/Niblit/Niblit/modules/aios_layer_registry.py -> /home/runner/work/Niblit/Niblit/modules/aios_layer_registry.py.bak.1775740256
+[2026-04-09T13:11:02.053733] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/aios_layer_registry.py
+[2026-04-09T13:11:02.067763] Backed up /home/runner/work/Niblit/Niblit/modules/concept_synthesizer.py -> /home/runner/work/Niblit/Niblit/modules/concept_synthesizer.py.bak.1775740256
+[2026-04-09T13:11:02.068088] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/concept_synthesizer.py
+[2026-04-09T13:11:02.073355] Backed up /home/runner/work/Niblit/Niblit/modules/autonomous_github.py -> /home/runner/work/Niblit/Niblit/modules/autonomous_github.py.bak.1775740256
+[2026-04-09T13:11:02.073477] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/autonomous_github.py
+[2026-04-09T13:11:02.077310] Backed up /home/runner/work/Niblit/Niblit/modules/dynamic_topic_manager.py -> /home/runner/work/Niblit/Niblit/modules/dynamic_topic_manager.py.bak.1775740256
+[2026-04-09T13:11:02.077979] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/dynamic_topic_manager.py
+[2026-04-09T13:11:02.081874] Backed up /home/runner/work/Niblit/Niblit/modules/adaptive_learning.py -> /home/runner/work/Niblit/Niblit/modules/adaptive_learning.py.bak.1775740256
+[2026-04-09T13:11:02.082173] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/adaptive_learning.py
+[2026-04-09T13:11:02.094995] Backed up /home/runner/work/Niblit/Niblit/modules/hybrid_qdrant_manager.py -> /home/runner/work/Niblit/Niblit/modules/hybrid_qdrant_manager.py.bak.1775740256
+[2026-04-09T13:11:02.095304] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/hybrid_qdrant_manager.py
+[2026-04-09T13:11:02.096551] Backed up /home/runner/work/Niblit/Niblit/modules/slice_guard.py -> /home/runner/work/Niblit/Niblit/modules/slice_guard.py.bak.1775740256
+[2026-04-09T13:11:02.096985] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/slice_guard.py
+[2026-04-09T13:11:02.101104] Backed up /home/runner/work/Niblit/Niblit/modules/background_jobs.py -> /home/runner/work/Niblit/Niblit/modules/background_jobs.py.bak.1775740256
+[2026-04-09T13:11:02.101205] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/background_jobs.py
+[2026-04-09T13:11:02.104108] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_synthesizer.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_synthesizer.py.bak.1775740256
+[2026-04-09T13:11:02.104426] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_synthesizer.py
+[2026-04-09T13:11:02.114342] Backed up /home/runner/work/Niblit/Niblit/modules/topic_constructor.py -> /home/runner/work/Niblit/Niblit/modules/topic_constructor.py.bak.1775740256
+[2026-04-09T13:11:02.114600] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/topic_constructor.py
+[2026-04-09T13:11:02.125534] Backed up /home/runner/work/Niblit/Niblit/modules/niblit_runtime.py -> /home/runner/work/Niblit/Niblit/modules/niblit_runtime.py.bak.1775740256
+[2026-04-09T13:11:02.125828] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/niblit_runtime.py
+[2026-04-09T13:11:02.129972] Backed up /home/runner/work/Niblit/Niblit/modules/github_models_client.py -> /home/runner/work/Niblit/Niblit/modules/github_models_client.py.bak.1775740256
+[2026-04-09T13:11:02.130284] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/github_models_client.py
+[2026-04-09T13:11:02.136687] Backed up /home/runner/work/Niblit/Niblit/modules/lean_engine.py -> /home/runner/work/Niblit/Niblit/modules/lean_engine.py.bak.1775740256
+[2026-04-09T13:11:02.137174] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/lean_engine.py
+[2026-04-09T13:11:02.142691] Backed up /home/runner/work/Niblit/Niblit/modules/llm_training_agent.py -> /home/runner/work/Niblit/Niblit/modules/llm_training_agent.py.bak.1775740256
+[2026-04-09T13:11:02.142971] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/llm_training_agent.py
+[2026-04-09T13:11:02.158864] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_filter.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_filter.py.bak.1775740256
+[2026-04-09T13:11:02.159361] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_filter.py
+[2026-04-09T13:11:02.164522] Backed up /home/runner/work/Niblit/Niblit/modules/llm_chat_memory.py -> /home/runner/work/Niblit/Niblit/modules/llm_chat_memory.py.bak.1775740256
+[2026-04-09T13:11:02.164598] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/llm_chat_memory.py
+[2026-04-09T13:11:02.168973] Backed up /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/dependency_mapper.py -> /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/dependency_mapper.py.bak.1775740256
+[2026-04-09T13:11:02.169288] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/dependency_mapper.py
+[2026-04-09T13:11:02.172010] Backed up /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/discovery_engine.py -> /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/discovery_engine.py.bak.1775740256
+[2026-04-09T13:11:02.172134] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/discovery_engine.py
+[2026-04-09T13:11:02.175064] Backed up /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/architecture_detector.py -> /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/architecture_detector.py.bak.1775740256
+[2026-04-09T13:11:02.175181] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/architecture_detector.py
+[2026-04-09T13:11:02.178471] Backed up /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/ecosystem_scanner.py -> /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/ecosystem_scanner.py.bak.1775740256
+[2026-04-09T13:11:02.178547] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/ecosystem_scanner.py
+[2026-04-09T13:11:02.182471] Backed up /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/pattern_graph_builder.py -> /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/pattern_graph_builder.py.bak.1775740256
+[2026-04-09T13:11:02.182982] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/pattern_graph_builder.py
+[2026-04-09T13:11:02.185944] Backed up /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/code_embedding_index.py -> /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/code_embedding_index.py.bak.1775740256
+[2026-04-09T13:11:02.186394] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/code_embedding_index.py
+[2026-04-09T13:11:02.188851] Backed up /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/knowledge_reasoner.py -> /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/knowledge_reasoner.py.bak.1775740256
+[2026-04-09T13:11:02.189164] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/global_code_intelligence/knowledge_reasoner.py
+[2026-04-09T13:11:02.191853] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_engine/embedding_pipeline.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_engine/embedding_pipeline.py.bak.1775740256
+[2026-04-09T13:11:02.192146] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_engine/embedding_pipeline.py
+[2026-04-09T13:11:02.194685] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_engine/architecture_analyzer.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_engine/architecture_analyzer.py.bak.1775740256
+[2026-04-09T13:11:02.195074] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_engine/architecture_analyzer.py
+[2026-04-09T13:11:02.197717] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_engine/repo_scanner.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_engine/repo_scanner.py.bak.1775740256
+[2026-04-09T13:11:02.198320] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_engine/repo_scanner.py
+[2026-04-09T13:11:02.201218] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_engine/pattern_extractor.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_engine/pattern_extractor.py.bak.1775740256
+[2026-04-09T13:11:02.201308] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_engine/pattern_extractor.py
+[2026-04-09T13:11:02.203325] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_engine/repo_downloader.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_engine/repo_downloader.py.bak.1775740256
+[2026-04-09T13:11:02.203400] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_engine/repo_downloader.py
+[2026-04-09T13:11:02.205780] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_engine/knowledge_graph_builder.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_engine/knowledge_graph_builder.py.bak.1775740256
+[2026-04-09T13:11:02.206178] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_engine/knowledge_graph_builder.py
+[2026-04-09T13:11:02.208409] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_engine/learning_scheduler.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_engine/learning_scheduler.py.bak.1775740256
+[2026-04-09T13:11:02.208482] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_engine/learning_scheduler.py
+[2026-04-09T13:11:02.210561] Backed up /home/runner/work/Niblit/Niblit/modules/knowledge_engine/code_parser.py -> /home/runner/work/Niblit/Niblit/modules/knowledge_engine/code_parser.py.bak.1775740256
+[2026-04-09T13:11:02.210702] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/knowledge_engine/code_parser.py
+[2026-04-09T13:11:02.211726] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/safety_guard.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/safety_guard.py.bak.1775740256
+[2026-04-09T13:11:02.211868] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/safety_guard.py
+[2026-04-09T13:11:02.214180] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/discovery_engine.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/discovery_engine.py.bak.1775740256
+[2026-04-09T13:11:02.214295] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/discovery_engine.py
+[2026-04-09T13:11:02.216138] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/hypothesis_generator.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/hypothesis_generator.py.bak.1775740256
+[2026-04-09T13:11:02.216240] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/hypothesis_generator.py
+[2026-04-09T13:11:02.218603] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/architecture_designer.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/architecture_designer.py.bak.1775740256
+[2026-04-09T13:11:02.218684] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/architecture_designer.py
+[2026-04-09T13:11:02.221233] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/lab_controller.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/lab_controller.py.bak.1775740256
+[2026-04-09T13:11:02.221822] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/lab_controller.py
+[2026-04-09T13:11:02.224188] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/experiment_manager.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/experiment_manager.py.bak.1775740256
+[2026-04-09T13:11:02.224770] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/experiment_manager.py
+[2026-04-09T13:11:02.227008] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/experiment_database.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/experiment_database.py.bak.1775740256
+[2026-04-09T13:11:02.227305] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/experiment_database.py
+[2026-04-09T13:11:02.229519] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/research_agent.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/research_agent.py.bak.1775740256
+[2026-04-09T13:11:02.229951] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/research_agent.py
+[2026-04-09T13:11:02.233085] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/benchmark_engine.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/benchmark_engine.py.bak.1775740256
+[2026-04-09T13:11:02.233372] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/benchmark_engine.py
+[2026-04-09T13:11:02.235531] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/algorithm_inventor.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/algorithm_inventor.py.bak.1775740256
+[2026-04-09T13:11:02.235976] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/algorithm_inventor.py
+[2026-04-09T13:11:02.238354] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/evolution_engine.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/evolution_engine.py.bak.1775740256
+[2026-04-09T13:11:02.238784] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/evolution_engine.py
+[2026-04-09T13:11:02.241183] Backed up /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/code_synthesizer.py -> /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/code_synthesizer.py.bak.1775740256
+[2026-04-09T13:11:02.241744] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/ai_dev_lab/code_synthesizer.py
+[2026-04-09T13:11:02.268916] Backed up /home/runner/work/Niblit/Niblit/core/runtime_manager.py -> /home/runner/work/Niblit/Niblit/core/runtime_manager.py.bak.1775740256
+[2026-04-09T13:11:02.269251] Appended __main__ block to /home/runner/work/Niblit/Niblit/core/runtime_manager.py
+[2026-04-09T13:11:02.271865] Backed up /home/runner/work/Niblit/Niblit/core/notification_queue.py -> /home/runner/work/Niblit/Niblit/core/notification_queue.py.bak.1775740256
+[2026-04-09T13:11:02.271965] Appended __main__ block to /home/runner/work/Niblit/Niblit/core/notification_queue.py
+[2026-04-09T13:11:02.273973] Backed up /home/runner/work/Niblit/Niblit/core/orchestrator.py -> /home/runner/work/Niblit/Niblit/core/orchestrator.py.bak.1775740256
+[2026-04-09T13:11:02.274405] Appended __main__ block to /home/runner/work/Niblit/Niblit/core/orchestrator.py
+[2026-04-09T13:11:02.277326] Backed up /home/runner/work/Niblit/Niblit/core/task_queue.py -> /home/runner/work/Niblit/Niblit/core/task_queue.py.bak.1775740256
+[2026-04-09T13:11:02.277406] Appended __main__ block to /home/runner/work/Niblit/Niblit/core/task_queue.py
+[2026-04-09T13:11:02.279868] Backed up /home/runner/work/Niblit/Niblit/core/event_bus.py -> /home/runner/work/Niblit/Niblit/core/event_bus.py.bak.1775740256
+[2026-04-09T13:11:02.280116] Appended __main__ block to /home/runner/work/Niblit/Niblit/core/event_bus.py
+[2026-04-09T13:11:02.283005] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/job_dispatcher.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/job_dispatcher.py.bak.1775740256
+[2026-04-09T13:11:02.283271] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/job_dispatcher.py
+[2026-04-09T13:11:02.285125] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/workload_balancer.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/workload_balancer.py.bak.1775740256
+[2026-04-09T13:11:02.285419] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/workload_balancer.py
+[2026-04-09T13:11:02.286874] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/node_registry.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/node_registry.py.bak.1775740256
+[2026-04-09T13:11:02.287150] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/node_registry.py
+[2026-04-09T13:11:02.289028] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/task_router.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/task_router.py.bak.1775740256
+[2026-04-09T13:11:02.289133] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/orchestrator/task_router.py
+[2026-04-09T13:11:02.290637] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/research_scheduler.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/research_scheduler.py.bak.1775740256
+[2026-04-09T13:11:02.291219] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/research_scheduler.py
+[2026-04-09T13:11:02.292420] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/task_scheduler.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/task_scheduler.py.bak.1775740256
+[2026-04-09T13:11:02.292506] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/task_scheduler.py
+[2026-04-09T13:11:02.293986] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/evolution_scheduler.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/evolution_scheduler.py.bak.1775740256
+[2026-04-09T13:11:02.294465] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/evolution_scheduler.py
+[2026-04-09T13:11:02.295548] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/experiment_scheduler.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/experiment_scheduler.py.bak.1775740256
+[2026-04-09T13:11:02.295943] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/scheduler/experiment_scheduler.py
+[2026-04-09T13:11:02.297052] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/agent_runtime.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/agent_runtime.py.bak.1775740256
+[2026-04-09T13:11:02.297708] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/agent_runtime.py
+[2026-04-09T13:11:02.299190] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/task_executor.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/task_executor.py.bak.1775740256
+[2026-04-09T13:11:02.299812] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/task_executor.py
+[2026-04-09T13:11:02.301267] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/planner_agent.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/planner_agent.py.bak.1775740256
+[2026-04-09T13:11:02.301738] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/planner_agent.py
+[2026-04-09T13:11:02.303031] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/research_agent.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/research_agent.py.bak.1775740256
+[2026-04-09T13:11:02.303457] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/research_agent.py
+[2026-04-09T13:11:02.304823] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/code_generator.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/code_generator.py.bak.1775740256
+[2026-04-09T13:11:02.305094] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/agent_node/code_generator.py
+[2026-04-09T13:11:02.306701] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/auth_layer.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/auth_layer.py.bak.1775740256
+[2026-04-09T13:11:02.306967] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/auth_layer.py
+[2026-04-09T13:11:02.307958] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/routing_layer.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/routing_layer.py.bak.1775740256
+[2026-04-09T13:11:02.308413] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/routing_layer.py
+[2026-04-09T13:11:02.310026] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/gateway_server.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/gateway_server.py.bak.1775740256
+[2026-04-09T13:11:02.310417] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/gateway_server.py
+[2026-04-09T13:11:02.311556] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/rate_limiter.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/rate_limiter.py.bak.1775740256
+[2026-04-09T13:11:02.311807] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/api_gateway/rate_limiter.py
+[2026-04-09T13:11:02.313827] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/observability/log_aggregator.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/observability/log_aggregator.py.bak.1775740256
+[2026-04-09T13:11:02.313917] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/observability/log_aggregator.py
+[2026-04-09T13:11:02.315577] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/observability/anomaly_detector.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/observability/anomaly_detector.py.bak.1775740256
+[2026-04-09T13:11:02.315993] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/observability/anomaly_detector.py
+[2026-04-09T13:11:02.317949] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/observability/metrics_collector.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/observability/metrics_collector.py.bak.1775740256
+[2026-04-09T13:11:02.318929] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/observability/metrics_collector.py
+[2026-04-09T13:11:02.320626] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/graph_store.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/graph_store.py.bak.1775740256
+[2026-04-09T13:11:02.321336] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/graph_store.py
+[2026-04-09T13:11:02.322354] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/vector_store.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/vector_store.py.bak.1775740256
+[2026-04-09T13:11:02.322420] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/vector_store.py
+[2026-04-09T13:11:02.323210] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/embedding_service.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/embedding_service.py.bak.1775740256
+[2026-04-09T13:11:02.323289] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/embedding_service.py
+[2026-04-09T13:11:02.324550] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/knowledge_api.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/knowledge_api.py.bak.1775740256
+[2026-04-09T13:11:02.325747] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/knowledge_node/knowledge_api.py
+[2026-04-09T13:11:02.327780] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/network/node_protocol.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/network/node_protocol.py.bak.1775740256
+[2026-04-09T13:11:02.328012] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/network/node_protocol.py
+[2026-04-09T13:11:02.329505] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/network/service_registry.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/network/service_registry.py.bak.1775740256
+[2026-04-09T13:11:02.329631] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/network/service_registry.py
+[2026-04-09T13:11:02.330624] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/network/message_bus.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/network/message_bus.py.bak.1775740256
+[2026-04-09T13:11:02.330698] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/network/message_bus.py
+[2026-04-09T13:11:02.333791] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/sandbox_executor.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/sandbox_executor.py.bak.1775740256
+[2026-04-09T13:11:02.334504] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/sandbox_executor.py
+[2026-04-09T13:11:02.336361] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/experiment_runner.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/experiment_runner.py.bak.1775740256
+[2026-04-09T13:11:02.336787] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/experiment_runner.py
+[2026-04-09T13:11:02.338783] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/results_collector.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/results_collector.py.bak.1775740256
+[2026-04-09T13:11:02.339509] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/results_collector.py
+[2026-04-09T13:11:02.340915] Backed up /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/benchmark_engine.py -> /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/benchmark_engine.py.bak.1775740256
+[2026-04-09T13:11:02.341590] Appended __main__ block to /home/runner/work/Niblit/Niblit/distributed_niblit/experiment_node/benchmark_engine.py
+[2026-04-09T13:11:02.342413] Backed up /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_metrics.py -> /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_metrics.py.bak.1775740256
+[2026-04-09T13:11:02.342481] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_metrics.py
+[2026-04-09T13:11:02.348737] Backed up /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_controller.py -> /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_controller.py.bak.1775740256
+[2026-04-09T13:11:02.348895] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_controller.py
+[2026-04-09T13:11:02.351132] Backed up /home/runner/work/Niblit/Niblit/civilization/civilization_core/population_manager.py -> /home/runner/work/Niblit/Niblit/civilization/civilization_core/population_manager.py.bak.1775740256
+[2026-04-09T13:11:02.351628] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/civilization_core/population_manager.py
+[2026-04-09T13:11:02.353065] Backed up /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_scheduler.py -> /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_scheduler.py.bak.1775740256
+[2026-04-09T13:11:02.353273] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/civilization_core/civilization_scheduler.py
+[2026-04-09T13:11:02.354590] Backed up /home/runner/work/Niblit/Niblit/civilization/infrastructure/cluster_manager.py -> /home/runner/work/Niblit/Niblit/civilization/infrastructure/cluster_manager.py.bak.1775740256
+[2026-04-09T13:11:02.354700] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/infrastructure/cluster_manager.py
+[2026-04-09T13:11:02.356484] Backed up /home/runner/work/Niblit/Niblit/civilization/infrastructure/workload_balancer.py -> /home/runner/work/Niblit/Niblit/civilization/infrastructure/workload_balancer.py.bak.1775740256
+[2026-04-09T13:11:02.357383] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/infrastructure/workload_balancer.py
+[2026-04-09T13:11:02.359157] Backed up /home/runner/work/Niblit/Niblit/civilization/infrastructure/node_registry.py -> /home/runner/work/Niblit/Niblit/civilization/infrastructure/node_registry.py.bak.1775740256
+[2026-04-09T13:11:02.359323] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/infrastructure/node_registry.py
+[2026-04-09T13:11:02.360765] Backed up /home/runner/work/Niblit/Niblit/civilization/infrastructure/container_manager.py -> /home/runner/work/Niblit/Niblit/civilization/infrastructure/container_manager.py.bak.1775740256
+[2026-04-09T13:11:02.360829] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/infrastructure/container_manager.py
+[2026-04-09T13:11:02.364893] Backed up /home/runner/work/Niblit/Niblit/civilization/governance/reputation_engine.py -> /home/runner/work/Niblit/Niblit/civilization/governance/reputation_engine.py.bak.1775740256
+[2026-04-09T13:11:02.366591] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/governance/reputation_engine.py
+[2026-04-09T13:11:02.368186] Backed up /home/runner/work/Niblit/Niblit/civilization/governance/safety_policies.py -> /home/runner/work/Niblit/Niblit/civilization/governance/safety_policies.py.bak.1775740256
+[2026-04-09T13:11:02.368881] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/governance/safety_policies.py
+[2026-04-09T13:11:02.369729] Backed up /home/runner/work/Niblit/Niblit/civilization/governance/audit_system.py -> /home/runner/work/Niblit/Niblit/civilization/governance/audit_system.py.bak.1775740256
+[2026-04-09T13:11:02.369793] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/governance/audit_system.py
+[2026-04-09T13:11:02.370492] Backed up /home/runner/work/Niblit/Niblit/civilization/governance/resource_limits.py -> /home/runner/work/Niblit/Niblit/civilization/governance/resource_limits.py.bak.1775740256
+[2026-04-09T13:11:02.370656] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/governance/resource_limits.py
+[2026-04-09T13:11:02.373296] Backed up /home/runner/work/Niblit/Niblit/civilization/training_arena/scoring_system.py -> /home/runner/work/Niblit/Niblit/civilization/training_arena/scoring_system.py.bak.1775740256
+[2026-04-09T13:11:02.373999] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/training_arena/scoring_system.py
+[2026-04-09T13:11:02.375649] Backed up /home/runner/work/Niblit/Niblit/civilization/training_arena/challenge_generator.py -> /home/runner/work/Niblit/Niblit/civilization/training_arena/challenge_generator.py.bak.1775740256
+[2026-04-09T13:11:02.376025] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/training_arena/challenge_generator.py
+[2026-04-09T13:11:02.376928] Backed up /home/runner/work/Niblit/Niblit/civilization/training_arena/competition_engine.py -> /home/runner/work/Niblit/Niblit/civilization/training_arena/competition_engine.py.bak.1775740256
+[2026-04-09T13:11:02.376992] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/training_arena/competition_engine.py
+[2026-04-09T13:11:02.377767] Backed up /home/runner/work/Niblit/Niblit/civilization/training_arena/arena_manager.py -> /home/runner/work/Niblit/Niblit/civilization/training_arena/arena_manager.py.bak.1775740256
+[2026-04-09T13:11:02.377837] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/training_arena/arena_manager.py
+[2026-04-09T13:11:02.378947] Backed up /home/runner/work/Niblit/Niblit/civilization/agent_population/planner_agent.py -> /home/runner/work/Niblit/Niblit/civilization/agent_population/planner_agent.py.bak.1775740256
+[2026-04-09T13:11:02.379505] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/agent_population/planner_agent.py
+[2026-04-09T13:11:02.381797] Backed up /home/runner/work/Niblit/Niblit/civilization/agent_population/evolution_agent.py -> /home/runner/work/Niblit/Niblit/civilization/agent_population/evolution_agent.py.bak.1775740256
+[2026-04-09T13:11:02.382304] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/agent_population/evolution_agent.py
+[2026-04-09T13:11:02.383915] Backed up /home/runner/work/Niblit/Niblit/civilization/agent_population/base_agent.py -> /home/runner/work/Niblit/Niblit/civilization/agent_population/base_agent.py.bak.1775740256
+[2026-04-09T13:11:02.384047] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/agent_population/base_agent.py
+[2026-04-09T13:11:02.385123] Backed up /home/runner/work/Niblit/Niblit/civilization/agent_population/builder_agent.py -> /home/runner/work/Niblit/Niblit/civilization/agent_population/builder_agent.py.bak.1775740256
+[2026-04-09T13:11:02.385233] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/agent_population/builder_agent.py
+[2026-04-09T13:11:02.387430] Backed up /home/runner/work/Niblit/Niblit/civilization/agent_population/research_agent.py -> /home/runner/work/Niblit/Niblit/civilization/agent_population/research_agent.py.bak.1775740256
+[2026-04-09T13:11:02.387801] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/agent_population/research_agent.py
+[2026-04-09T13:11:02.390049] Backed up /home/runner/work/Niblit/Niblit/civilization/agent_population/analyst_agent.py -> /home/runner/work/Niblit/Niblit/civilization/agent_population/analyst_agent.py.bak.1775740256
+[2026-04-09T13:11:02.390236] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/agent_population/analyst_agent.py
+[2026-04-09T13:11:02.391573] Backed up /home/runner/work/Niblit/Niblit/civilization/api_gateway/authentication.py -> /home/runner/work/Niblit/Niblit/civilization/api_gateway/authentication.py.bak.1775740256
+[2026-04-09T13:11:02.391672] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/api_gateway/authentication.py
+[2026-04-09T13:11:02.393940] Backed up /home/runner/work/Niblit/Niblit/civilization/api_gateway/api_server.py -> /home/runner/work/Niblit/Niblit/civilization/api_gateway/api_server.py.bak.1775740256
+[2026-04-09T13:11:02.394568] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/api_gateway/api_server.py
+[2026-04-09T13:11:02.395660] Backed up /home/runner/work/Niblit/Niblit/civilization/api_gateway/task_api.py -> /home/runner/work/Niblit/Niblit/civilization/api_gateway/task_api.py.bak.1775740256
+[2026-04-09T13:11:02.396355] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/api_gateway/task_api.py
+[2026-04-09T13:11:02.397119] Backed up /home/runner/work/Niblit/Niblit/civilization/api_gateway/knowledge_api.py -> /home/runner/work/Niblit/Niblit/civilization/api_gateway/knowledge_api.py.bak.1775740256
+[2026-04-09T13:11:02.397231] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/api_gateway/knowledge_api.py
+[2026-04-09T13:11:02.398107] Backed up /home/runner/work/Niblit/Niblit/civilization/collaboration_network/agent_protocol.py -> /home/runner/work/Niblit/Niblit/civilization/collaboration_network/agent_protocol.py.bak.1775740256
+[2026-04-09T13:11:02.398617] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/collaboration_network/agent_protocol.py
+[2026-04-09T13:11:02.400567] Backed up /home/runner/work/Niblit/Niblit/civilization/collaboration_network/service_registry.py -> /home/runner/work/Niblit/Niblit/civilization/collaboration_network/service_registry.py.bak.1775740256
+[2026-04-09T13:11:02.401204] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/collaboration_network/service_registry.py
+[2026-04-09T13:11:02.402066] Backed up /home/runner/work/Niblit/Niblit/civilization/collaboration_network/message_bus.py -> /home/runner/work/Niblit/Niblit/civilization/collaboration_network/message_bus.py.bak.1775740256
+[2026-04-09T13:11:02.402354] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/collaboration_network/message_bus.py
+[2026-04-09T13:11:02.404461] Backed up /home/runner/work/Niblit/Niblit/civilization/evolution_engine/architecture_evolver.py -> /home/runner/work/Niblit/Niblit/civilization/evolution_engine/architecture_evolver.py.bak.1775740256
+[2026-04-09T13:11:02.404990] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/evolution_engine/architecture_evolver.py
+[2026-04-09T13:11:02.406200] Backed up /home/runner/work/Niblit/Niblit/civilization/evolution_engine/selection_engine.py -> /home/runner/work/Niblit/Niblit/civilization/evolution_engine/selection_engine.py.bak.1775740256
+[2026-04-09T13:11:02.406652] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/evolution_engine/selection_engine.py
+[2026-04-09T13:11:02.408887] Backed up /home/runner/work/Niblit/Niblit/civilization/evolution_engine/population_optimizer.py -> /home/runner/work/Niblit/Niblit/civilization/evolution_engine/population_optimizer.py.bak.1775740256
+[2026-04-09T13:11:02.409463] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/evolution_engine/population_optimizer.py
+[2026-04-09T13:11:02.410781] Backed up /home/runner/work/Niblit/Niblit/civilization/evolution_engine/mutation_engine.py -> /home/runner/work/Niblit/Niblit/civilization/evolution_engine/mutation_engine.py.bak.1775740256
+[2026-04-09T13:11:02.411025] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/evolution_engine/mutation_engine.py
+[2026-04-09T13:11:02.411927] Backed up /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/vector_memory.py -> /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/vector_memory.py.bak.1775740256
+[2026-04-09T13:11:02.411990] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/vector_memory.py
+[2026-04-09T13:11:02.412845] Backed up /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/graph_memory.py -> /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/graph_memory.py.bak.1775740256
+[2026-04-09T13:11:02.412918] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/graph_memory.py
+[2026-04-09T13:11:02.414641] Backed up /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/embedding_service.py -> /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/embedding_service.py.bak.1775740256
+[2026-04-09T13:11:02.415696] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/embedding_service.py
+[2026-04-09T13:11:02.418045] Backed up /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/knowledge_api.py -> /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/knowledge_api.py.bak.1775740256
+[2026-04-09T13:11:02.418459] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/knowledge_ecosystem/knowledge_api.py
+[2026-04-09T13:11:02.420871] Backed up /home/runner/work/Niblit/Niblit/civilization/experiment_labs/sandbox_runner.py -> /home/runner/work/Niblit/Niblit/civilization/experiment_labs/sandbox_runner.py.bak.1775740256
+[2026-04-09T13:11:02.421287] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/experiment_labs/sandbox_runner.py
+[2026-04-09T13:11:02.425423] Backed up /home/runner/work/Niblit/Niblit/civilization/experiment_labs/experiment_manager.py -> /home/runner/work/Niblit/Niblit/civilization/experiment_labs/experiment_manager.py.bak.1775740256
+[2026-04-09T13:11:02.425994] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/experiment_labs/experiment_manager.py
+[2026-04-09T13:11:02.429013] Backed up /home/runner/work/Niblit/Niblit/civilization/experiment_labs/benchmark_engine.py -> /home/runner/work/Niblit/Niblit/civilization/experiment_labs/benchmark_engine.py.bak.1775740256
+[2026-04-09T13:11:02.430336] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/experiment_labs/benchmark_engine.py
+[2026-04-09T13:11:02.434726] Backed up /home/runner/work/Niblit/Niblit/civilization/experiment_labs/result_analyzer.py -> /home/runner/work/Niblit/Niblit/civilization/experiment_labs/result_analyzer.py.bak.1775740256
+[2026-04-09T13:11:02.435395] Appended __main__ block to /home/runner/work/Niblit/Niblit/civilization/experiment_labs/result_analyzer.py
+[2026-04-09T13:11:02.492490] Backed up /home/runner/work/Niblit/Niblit/agents/planner_agent.py -> /home/runner/work/Niblit/Niblit/agents/planner_agent.py.bak.1775740256
+[2026-04-09T13:11:02.493627] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/planner_agent.py
+[2026-04-09T13:11:02.497502] Backed up /home/runner/work/Niblit/Niblit/agents/architecture_agent.py -> /home/runner/work/Niblit/Niblit/agents/architecture_agent.py.bak.1775740256
+[2026-04-09T13:11:02.497599] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/architecture_agent.py
+[2026-04-09T13:11:02.500594] Backed up /home/runner/work/Niblit/Niblit/agents/base_agent.py -> /home/runner/work/Niblit/Niblit/agents/base_agent.py.bak.1775740256
+[2026-04-09T13:11:02.500822] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/base_agent.py
+[2026-04-09T13:11:02.502980] Backed up /home/runner/work/Niblit/Niblit/agents/coding_agent.py -> /home/runner/work/Niblit/Niblit/agents/coding_agent.py.bak.1775740256
+[2026-04-09T13:11:02.503133] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/coding_agent.py
+[2026-04-09T13:11:02.504767] Backed up /home/runner/work/Niblit/Niblit/agents/testing_agent.py -> /home/runner/work/Niblit/Niblit/agents/testing_agent.py.bak.1775740256
+[2026-04-09T13:11:02.505424] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/testing_agent.py
+[2026-04-09T13:11:02.509408] Backed up /home/runner/work/Niblit/Niblit/agents/reflection_agent.py -> /home/runner/work/Niblit/Niblit/agents/reflection_agent.py.bak.1775740256
+[2026-04-09T13:11:02.510064] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/reflection_agent.py
+[2026-04-09T13:11:02.513019] Backed up /home/runner/work/Niblit/Niblit/agents/research_agent.py -> /home/runner/work/Niblit/Niblit/agents/research_agent.py.bak.1775740256
+[2026-04-09T13:11:02.513106] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/research_agent.py
+[2026-04-09T13:11:02.516030] Backed up /home/runner/work/Niblit/Niblit/agents/core/task_queue.py -> /home/runner/work/Niblit/Niblit/agents/core/task_queue.py.bak.1775740256
+[2026-04-09T13:11:02.516679] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/core/task_queue.py
+[2026-04-09T13:11:02.519784] Backed up /home/runner/work/Niblit/Niblit/agents/core/event_bus.py -> /home/runner/work/Niblit/Niblit/agents/core/event_bus.py.bak.1775740256
+[2026-04-09T13:11:02.520162] Appended __main__ block to /home/runner/work/Niblit/Niblit/agents/core/event_bus.py
+[2026-04-09T13:11:02.521978] Backed up /home/runner/work/Niblit/Niblit/niblit_tools/scrapy_search.py -> /home/runner/work/Niblit/Niblit/niblit_tools/scrapy_search.py.bak.1775740256
+[2026-04-09T13:11:02.522099] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_tools/scrapy_search.py
+[2026-04-09T13:11:02.557683] Backed up /home/runner/work/Niblit/Niblit/api/index.py -> /home/runner/work/Niblit/Niblit/api/index.py.bak.1775740256
+[2026-04-09T13:11:02.557791] Appended __main__ block to /home/runner/work/Niblit/Niblit/api/index.py
+[2026-04-09T13:11:02.560820] Backed up /home/runner/work/Niblit/Niblit/niblit_memory/knowledge_item.py -> /home/runner/work/Niblit/Niblit/niblit_memory/knowledge_item.py.bak.1775740256
+[2026-04-09T13:11:02.562109] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_memory/knowledge_item.py
+[2026-04-09T13:11:02.562836] Added __main__ blocks to 212 files
+[2026-04-09T13:11:02.563143] modules/orphan_imports.py already exists
+[2026-04-09T13:11:02.565852] Backed up /home/runner/work/Niblit/Niblit/niblit_core.py -> /home/runner/work/Niblit/Niblit/niblit_core.py.bak.1775740256
+[2026-04-09T13:11:02.567207] Inserted import modules.orphan_imports into niblit_core.py
+[2026-04-09T13:11:03.726411] Installed/updated pip package: flask
+[2026-04-09T13:11:04.179730] Ran modules.orphan_imports (import attempts logged separately)
+[2026-04-09T13:11:04.179846] === Self-heal (Mode A) completed ===
+[2026-04-09T13:11:17.443895] === Self-heal (Mode A) started ===
+[2026-04-09T13:11:17.447723] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1775740256
+[2026-04-09T13:11:17.447847] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-04-09T13:11:17.454669] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1775740256
+[2026-04-09T13:11:17.454827] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-04-09T13:11:17.456705] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1775740256
+[2026-04-09T13:11:17.456819] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-04-09T13:11:17.463929] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:11:17.464120] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:11:17.465673] HF endpoint replacements: 4
+[2026-04-09T13:11:17.466660] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1775740256
+[2026-04-09T13:11:17.466787] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-04-09T13:11:17.485506] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:11:17.485660] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:11:17.485958] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1775740256
+[2026-04-09T13:11:17.486133] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-04-09T13:11:17.488040] Smart import fixes applied to 3 files
+[2026-04-09T13:11:18.388156] Added __main__ blocks to 0 files
+[2026-04-09T13:11:18.388606] modules/orphan_imports.py already exists
+[2026-04-09T13:11:18.389356] niblit_core.py already imports modules.orphan_imports
+[2026-04-09T13:11:19.329788] Installed/updated pip package: flask
+[2026-04-09T13:11:19.749158] Ran modules.orphan_imports (import attempts logged separately)
+[2026-04-09T13:11:19.749292] === Self-heal (Mode A) completed ===
+[2026-04-09T13:11:32.092581] === Self-heal (Mode A) started ===
+[2026-04-09T13:11:32.096397] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1775740256
+[2026-04-09T13:11:32.096512] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-04-09T13:11:32.102683] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1775740256
+[2026-04-09T13:11:32.102818] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-04-09T13:11:32.104649] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1775740256
+[2026-04-09T13:11:32.104759] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-04-09T13:11:32.108945] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:11:32.109066] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:11:32.110399] HF endpoint replacements: 4
+[2026-04-09T13:11:32.111369] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1775740256
+[2026-04-09T13:11:32.111496] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-04-09T13:11:32.127746] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:11:32.127879] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:11:32.128148] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1775740256
+[2026-04-09T13:11:32.128345] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-04-09T13:11:32.130162] Smart import fixes applied to 3 files
+[2026-04-09T13:11:32.838024] Added __main__ blocks to 0 files
+[2026-04-09T13:11:32.838110] modules/orphan_imports.py already exists
+[2026-04-09T13:11:32.838868] niblit_core.py already imports modules.orphan_imports
+[2026-04-09T13:11:33.581776] Installed/updated pip package: flask
+[2026-04-09T13:11:33.913816] Ran modules.orphan_imports (import attempts logged separately)
+[2026-04-09T13:11:33.913932] === Self-heal (Mode A) completed ===
+[2026-04-09T13:11:46.957912] === Self-heal (Mode A) started ===
+[2026-04-09T13:11:46.961630] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1775740256
+[2026-04-09T13:11:46.961743] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-04-09T13:11:46.967925] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1775740256
+[2026-04-09T13:11:46.968081] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-04-09T13:11:46.969945] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1775740256
+[2026-04-09T13:11:46.970087] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-04-09T13:11:46.974558] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:11:46.974715] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:11:46.976123] HF endpoint replacements: 4
+[2026-04-09T13:11:46.977094] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1775740256
+[2026-04-09T13:11:46.977276] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-04-09T13:11:46.997297] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:11:46.997471] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:11:46.997778] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1775740256
+[2026-04-09T13:11:46.997965] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-04-09T13:11:46.999864] Smart import fixes applied to 3 files
+[2026-04-09T13:11:47.690593] Added __main__ blocks to 0 files
+[2026-04-09T13:11:47.690677] modules/orphan_imports.py already exists
+[2026-04-09T13:11:47.691429] niblit_core.py already imports modules.orphan_imports
+[2026-04-09T13:11:48.430942] Installed/updated pip package: flask
+[2026-04-09T13:11:48.760369] Ran modules.orphan_imports (import attempts logged separately)
+[2026-04-09T13:11:48.760494] === Self-heal (Mode A) completed ===
+[2026-04-09T13:12:01.601510] === Self-heal (Mode A) started ===
+[2026-04-09T13:12:01.605563] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1775740256
+[2026-04-09T13:12:01.605683] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-04-09T13:12:01.612031] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1775740256
+[2026-04-09T13:12:01.612211] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-04-09T13:12:01.614071] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1775740256
+[2026-04-09T13:12:01.614204] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-04-09T13:12:01.618455] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:12:01.618580] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:12:01.619905] HF endpoint replacements: 4
+[2026-04-09T13:12:01.620868] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1775740256
+[2026-04-09T13:12:01.620996] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-04-09T13:12:01.637790] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:12:01.637928] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:12:01.638250] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1775740256
+[2026-04-09T13:12:01.638403] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-04-09T13:12:01.640256] Smart import fixes applied to 3 files
+[2026-04-09T13:12:02.398969] Added __main__ blocks to 0 files
+[2026-04-09T13:12:02.399059] modules/orphan_imports.py already exists
+[2026-04-09T13:12:02.399825] niblit_core.py already imports modules.orphan_imports
+[2026-04-09T13:12:03.153863] Installed/updated pip package: flask
+[2026-04-09T13:12:03.489887] Ran modules.orphan_imports (import attempts logged separately)
+[2026-04-09T13:12:03.490000] === Self-heal (Mode A) completed ===
+[2026-04-09T13:12:17.782609] === Self-heal (Mode A) started ===
+[2026-04-09T13:12:17.786585] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1775740256
+[2026-04-09T13:12:17.786698] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-04-09T13:12:17.792897] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1775740256
+[2026-04-09T13:12:17.793038] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-04-09T13:12:17.794914] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1775740256
+[2026-04-09T13:12:17.795031] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-04-09T13:12:17.799308] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:12:17.799429] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:12:17.800819] HF endpoint replacements: 4
+[2026-04-09T13:12:17.801786] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1775740256
+[2026-04-09T13:12:17.801914] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-04-09T13:12:17.818038] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:12:17.818161] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:12:17.818512] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1775740256
+[2026-04-09T13:12:17.818656] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-04-09T13:12:17.820545] Smart import fixes applied to 3 files
+[2026-04-09T13:12:18.528892] Added __main__ blocks to 0 files
+[2026-04-09T13:12:18.528972] modules/orphan_imports.py already exists
+[2026-04-09T13:12:18.529756] niblit_core.py already imports modules.orphan_imports
+[2026-04-09T13:12:19.255716] Installed/updated pip package: flask
+[2026-04-09T13:12:19.593752] Ran modules.orphan_imports (import attempts logged separately)
+[2026-04-09T13:12:19.593866] === Self-heal (Mode A) completed ===
+[2026-04-09T13:12:32.220839] === Self-heal (Mode A) started ===
+[2026-04-09T13:12:32.224729] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1775740256
+[2026-04-09T13:12:32.224842] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-04-09T13:12:32.231050] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1775740256
+[2026-04-09T13:12:32.231235] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-04-09T13:12:32.233107] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1775740256
+[2026-04-09T13:12:32.233270] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-04-09T13:12:32.237605] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:12:32.237767] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:12:32.239197] HF endpoint replacements: 4
+[2026-04-09T13:12:32.240155] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1775740256
+[2026-04-09T13:12:32.240342] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-04-09T13:12:32.256849] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1775740256
+[2026-04-09T13:12:32.256997] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-04-09T13:12:32.257344] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1775740256
+[2026-04-09T13:12:32.257489] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-04-09T13:12:32.259454] Smart import fixes applied to 3 files
+[2026-04-09T13:12:32.957137] Added __main__ blocks to 0 files
+[2026-04-09T13:12:32.957241] modules/orphan_imports.py already exists
+[2026-04-09T13:12:32.957971] niblit_core.py already imports modules.orphan_imports
+[2026-04-09T13:12:33.688996] Installed/updated pip package: flask
+[2026-04-09T13:12:34.008101] Ran modules.orphan_imports (import attempts logged separately)
+[2026-04-09T13:12:34.008252] === Self-heal (Mode A) completed ===

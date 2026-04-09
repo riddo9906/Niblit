@@ -234,3 +234,7 @@ class LearningScheduler:
             )
         except Exception as exc:  # noqa: BLE001
             log.debug("LearningScheduler: KB save failed: %s", exc)
+
+
+if __name__ == "__main__":
+    print('Running learning_scheduler.py')

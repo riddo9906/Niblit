@@ -553,3 +553,7 @@ def get_github_deep_research(
                     autoscan=bool(os.environ.get("NIBLIT_GH_DEEP_AUTOSCAN")),
                 )
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running github_deep_research.py')

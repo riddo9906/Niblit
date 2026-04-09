@@ -269,3 +269,7 @@ class NiblitSQLiteDB:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+
+if __name__ == "__main__":
+    print('Running niblit_sqlite_db.py')

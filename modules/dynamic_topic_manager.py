@@ -309,3 +309,7 @@ class DynamicTopicManager:
     def add_enrichment_source(self, fn: Callable[[], Any]) -> None:
         """Register a callable that provides additional topic candidates."""
         self.enrichment_sources.append(fn)
+
+
+if __name__ == "__main__":
+    print('Running dynamic_topic_manager.py')

@@ -48,3 +48,7 @@ class CivilizationMetrics:
     def export(self) -> Dict[str, Any]:
         """Return full metrics payload."""
         return {"history": self._history, "summary": self.get_summary()}
+
+
+if __name__ == "__main__":
+    print('Running civilization_metrics.py')

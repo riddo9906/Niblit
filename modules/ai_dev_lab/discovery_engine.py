@@ -122,3 +122,7 @@ class DiscoveryEngine:
             "baseline": self._baseline,
             "threshold": self.threshold,
         }
+
+
+if __name__ == "__main__":
+    print('Running discovery_engine.py')

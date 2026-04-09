@@ -984,3 +984,7 @@ def get_lean_deploy_engine(
         if reflect_module is not None and _lean_deploy_engine._reflect is None:
             _lean_deploy_engine._reflect = reflect_module
     return _lean_deploy_engine
+
+
+if __name__ == "__main__":
+    print('Running lean_deploy_engine.py')

@@ -723,3 +723,7 @@ def get_hybrid_manager(
                     collection_prefix=collection_prefix,
                 )
     return _manager_instance
+
+
+if __name__ == "__main__":
+    print('Running hybrid_qdrant_manager.py')

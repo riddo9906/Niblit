@@ -60,3 +60,7 @@ class VectorStore:
     def clear(self) -> None:
         """Remove all vectors."""
         self._vectors.clear()
+
+
+if __name__ == "__main__":
+    print('Running vector_store.py')

@@ -59,3 +59,7 @@ class PopulationOptimizer:
         elite = self._selector.elite_select(population, scores, n=max(1, len(population) // 2))
         offspring = self._mutator.batch_mutate(elite, rate=0.15)
         return elite + offspring
+
+
+if __name__ == "__main__":
+    print('Running population_optimizer.py')

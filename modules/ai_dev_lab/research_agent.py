@@ -153,3 +153,7 @@ class ResearchAgent:
             return InternetManager()
         except Exception:  # noqa: BLE001
             return None
+
+
+if __name__ == "__main__":
+    print('Running research_agent.py')

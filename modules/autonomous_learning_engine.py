@@ -352,6 +352,7 @@ class AutonomousLearningEngine:
             "cognitive_enhancement_cycles": 0,
             "serpex_research_cycles": 0,
             "scrapy_research_cycles": 0,
+            "llm_architect_cycles": 0,
             "last_research_topic": None,
             "last_serpex_query": None,
             "last_idea": None,
@@ -404,6 +405,26 @@ class AutonomousLearningEngine:
         "basic shapes", "days of the week", "seasons of the year",
     ]
 
+    # Core systems-level topics that are always appended to research_topics
+    # regardless of curriculum grade.  These ensure the ALE stays aware of
+    # fundamental CS domains (binary analysis, networking, kernel, firmware)
+    # and the top software patterns discovered by Nibblebot research runs
+    # (agent architectures, RAG pipelines, Docker/DevOps, self-improvement).
+    _CORE_RESEARCH_TOPICS: List[str] = [
+        # Systems & low-level (required by TestALEExpandedTopics)
+        "binary analysis",
+        "networking protocols",
+        "kernel development",
+        "firmware embedded",
+        # Top patterns from Nibblebot research report 2026-04-08
+        "agent architectures",
+        "retrieval-augmented generation",
+        "docker containerization",
+        "pipeline orchestration",
+        "self-healing systems",
+        "pre-commit code quality",
+    ]
+
     def _build_curriculum_topics(self) -> List[str]:
         """Return the research-topic list from the GradedCurriculum.
 
@@ -413,7 +434,13 @@ class AutonomousLearningEngine:
         to its education stage — e.g. Grade 1 topics like "primary
         colors" and "counting numbers" instead of "code indentation".
 
-        Returns the minimal fallback list if the curriculum is not loaded.
+        ``_CORE_RESEARCH_TOPICS`` are always appended after the curriculum
+        topics so the ALE retains awareness of foundational systems domains
+        and the most common patterns found across the studied repos,
+        regardless of curriculum grade.
+
+        Returns the minimal fallback list (plus core topics) if the
+        curriculum is not loaded.
         """
         try:
             from modules.graded_curriculum import get_graded_curriculum, CURRICULUM
@@ -433,10 +460,17 @@ class AutonomousLearningEngine:
                 "[ALE] Research topics sourced from curriculum — %s (%d topics)",
                 current.name, len(topics),
             )
-            return topics
         except Exception as exc:
             log.debug("[ALE] GradedCurriculum unavailable (%s), using fallback topics", exc)
-            return list(self._FALLBACK_RESEARCH_TOPICS)
+            topics = list(self._FALLBACK_RESEARCH_TOPICS)
+
+        # Always append core systems/research topics (deduplicated)
+        seen = set(t.lower() for t in topics)
+        for core_topic in self._CORE_RESEARCH_TOPICS:
+            if core_topic.lower() not in seen:
+                topics.append(core_topic)
+                seen.add(core_topic.lower())
+        return topics
 
     def refresh_curriculum_topics(self) -> None:
         """Re-sync research_topics with the current curriculum grade.
@@ -457,6 +491,11 @@ class AutonomousLearningEngine:
         in the graded curriculum.  Before that, the code-research step is
         effectively a no-op (returns a minimal placeholder list so the step
         index doesn't break).
+
+        A baseline set of multi-language topics (java, rust, c) is always
+        appended regardless of curriculum level so the ALE maintains broad
+        language awareness across the most common ecosystems found in the
+        Nibblebot research corpus.
         """
         try:
             from modules.graded_curriculum import get_graded_curriculum
@@ -469,30 +508,46 @@ class AutonomousLearningEngine:
             level = 1  # assume earliest grade when curriculum unavailable
 
         if level < self._CS_INTRO_GRADE:
-            # Pre-computer-science grades: no real code topics
-            return [("python", "simple arithmetic with numbers")]
-
-        if level < self._ADVANCED_PROGRAMMING_GRADE:
+            # Pre-computer-science grades: minimal Python + cross-language basics
+            grade_topics: List[Tuple[str, str]] = [
+                ("python", "simple arithmetic with numbers"),
+            ]
+        elif level < self._ADVANCED_PROGRAMMING_GRADE:
             # Grades 8-9: introductory programming
-            return [
+            grade_topics = [
                 ("python", "code structure and indentation"),
                 ("python", "data structures"),
                 ("python", "error handling"),
                 ("bash", "scripting best practices"),
             ]
+        else:
+            # Grade 10+: full code-literacy spectrum
+            grade_topics = [
+                ("python", "code structure and indentation"),
+                ("python", "data structures"),
+                ("python", "algorithms"),
+                ("python", "design patterns"),
+                ("python", "async programming"),
+                ("python", "error handling"),
+                ("javascript", "code structure and formatting"),
+                ("javascript", "async patterns"),
+                ("bash", "scripting best practices"),
+            ]
 
-        # Grade 10+: full code-literacy spectrum
-        return [
-            ("python", "code structure and indentation"),
-            ("python", "data structures"),
-            ("python", "algorithms"),
-            ("python", "design patterns"),
-            ("python", "async programming"),
-            ("python", "error handling"),
-            ("javascript", "code structure and formatting"),
-            ("javascript", "async patterns"),
-            ("bash", "scripting best practices"),
+        # Always include multi-language cross-platform topics (deduplicated)
+        # These cover the language landscape seen across studied repos:
+        # TypeScript (11), JavaScript (3), Shell (2), Rust (1) in addition to Python (18).
+        _cross_lang_topics: List[Tuple[str, str]] = [
+            ("java", "object-oriented patterns"),
+            ("rust", "memory safety and ownership"),
+            ("c", "systems programming and pointers"),
         ]
+        existing_langs = {lang for lang, _ in grade_topics}
+        for lang, topic in _cross_lang_topics:
+            if lang not in existing_langs:
+                grade_topics.append((lang, topic))
+                existing_langs.add(lang)
+        return grade_topics
 
     # ─────────────────────────────────────────────
     def is_idle(self) -> bool:
@@ -4467,8 +4522,140 @@ class AutonomousLearningEngine:
         log.info("✅ [BUILDS INTEGRATION] %s", summary)
         return f"BuildsIntegration: {summary}"
 
+    # Throttle: run maintenance every N cycles (not every cycle)
+    _MAINTENANCE_CYCLE_EVERY: int = 5
+
+    def _autonomous_self_maintenance(self) -> str:
+        """Step 31: Run SelfHealer + SelfMaintenance to keep the knowledge base healthy.
+
+        Salvaged from Fix_Guide.txt which prescribed::
+
+            SelfMaintenance(db).run()
+            SelfHealer(db).repair()
+
+        as periodic maintenance tasks.  This step runs both via the core's
+        already-wired instances (modules.self_healer + modules.self_maintenance)
+        so no duplicate imports are needed.
+
+        Throttled to every ``_MAINTENANCE_CYCLE_EVERY`` cycles so it doesn't
+        add noticeable overhead on every cycle.
+        """
+        core = self.core
+        if core is None:
+            return "[SelfMaintenance step skipped — no core reference]"
+
+        parts: List[str] = []
+
+        # ── SelfHealer: fix broken/empty KB facts ─────────────────────────
+        healer = getattr(core, "self_healer", None)
+        if healer is not None:
+            for method in ("repair", "run_cycle", "full_heal"):
+                fn = getattr(healer, method, None)
+                if fn is not None:
+                    try:
+                        res = fn(core) if method == "full_heal" else fn()
+                        parts.append(f"healer: {str(res)[:80]}")
+                    except Exception as exc:
+                        parts.append(f"healer error: {exc}")
+                    break
+
+        # ── SelfMaintenance: prune old interactions + condense memory ─────
+        maintenance = getattr(core, "self_maintenance", None)
+        if maintenance is not None:
+            for method in ("run_with_learning", "run", "diagnose"):
+                fn = getattr(maintenance, method, None)
+                if fn is not None:
+                    try:
+                        res = fn()
+                        parts.append(f"maintenance: {str(res)[:80]}")
+                    except Exception as exc:
+                        parts.append(f"maintenance error: {exc}")
+                    break
+        else:
+            parts.append("[SelfMaintenance not wired in core]")
+
+        result = "; ".join(parts) if parts else "no maintenance performed"
+        if self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_maintenance:{int(time.time())}",
+                    result,
+                    tags=["maintenance", "self-heal", "autonomous"],
+                )
+            except Exception:
+                pass
+
+        log.info("✅ [SELF MAINTENANCE] %s", result)
+        return f"SelfMaintenance: {result}"
+
+    # Throttle: run LLM architect pipeline every N cycles
+    _LLM_ARCHITECT_CYCLE_EVERY: int = 10
+
+    def _get_llm_architect(self):
+        """Lazy-load the LLMArchitectEngine singleton."""
+        if not hasattr(self, "_llm_architect"):
+            self._llm_architect = None
+        if self._llm_architect is None:
+            try:
+                from modules.llm_architect_engine import get_llm_architect_engine
+                core = self.core
+                self._llm_architect = get_llm_architect_engine(
+                    knowledge_db=self.knowledge_db,
+                    brain_trainer=getattr(core, "brain_trainer", None) if core else None,
+                    hf_brain=getattr(core, "brain", None) if core else None,
+                    reward_model=getattr(core, "reward_model", None) if core else None,
+                    llm_training_agent=getattr(core, "llm_training_agent", None) if core else None,
+                )
+            except Exception as exc:
+                log.debug("[ALE] LLMArchitectEngine not available: %s", exc)
+        return self._llm_architect
+
+    def _autonomous_llm_architect(self) -> str:
+        """Step 32: LLM Architect Cycle — data curation → SFT → DPO → eval.
+
+        Applies the same four-stage pipeline used by ML engineers to build
+        production LLMs to Niblit's own knowledge base:
+
+          Stage 1 — Data Curation : extract (prompt, completion) SFT pairs
+                                    and (prompt, chosen, rejected) DPO pairs
+                                    from the KB.
+          Stage 2 — SFT           : feed curated data into BrainTrainer, or
+                                    run a LoRA fine-tune if LOCAL_MODEL_PATH
+                                    and trl/peft are available.
+          Stage 3 — DPO           : reinforce high-quality KB facts using
+                                    reward_model scores as preference signals.
+          Stage 4 — Evaluation    : measure hit-rate and reward-score on
+                                    held-out QA pairs; persist results to KB.
+
+        Throttled to every _LLM_ARCHITECT_CYCLE_EVERY cycles (default: 10).
+        """
+        arch = self._get_llm_architect()
+        if arch is None:
+            return "[LLMArchitect] LLMArchitectEngine not available — ensure modules/llm_architect_engine.py is present"
+
+        try:
+            result = arch.run_full_pipeline()
+            self.learning_history["llm_architect_cycles"] = (
+                self.learning_history.get("llm_architect_cycles", 0) + 1
+            )
+            # Persist summary to KB
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_llm_architect:{int(time.time())}",
+                        result,
+                        tags=["llm_architect", "sft", "dpo", "eval", "autonomous"],
+                    )
+                except Exception:
+                    pass
+            log.info("✅ [LLM ARCHITECT] %s", result[:120])
+            return f"LLMArchitect: {result}"
+        except Exception as exc:
+            log.debug("[ALE] LLMArchitect cycle error: %s", exc)
+            return f"[LLMArchitect error] {exc}"
+
     def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle (29 steps).
+        """Execute one complete autonomous learning cycle (32 steps).
 
         Design principles
         -----------------
@@ -4522,6 +4709,11 @@ class AutonomousLearningEngine:
         Step 25: CognitiveEnhancement — research language/reasoning/chat quality
         Step 26: GitHubCodeDiscovery  — pattern discovery, datasets, refactoring
         Step 27: SearchcodeDiscovery  — searchcode.com code-pattern index
+        Step 28: ScrapyResearch       — DuckDuckGo direct scraping
+        Step 29: BuildsIntegration    — run builds scripts + NLP topic enrichment
+        Step 30: SelfImproveAgents    — dispatch self-improvement to Phase-2 agents
+        Step 31: SelfMaintenance      — SelfHealer + SelfMaintenance memory pruning
+        Step 32: LLMArchitectCycle    — Curate → SFT → DPO → Eval (throttled: every 10)
         """
         self._cycle_count += 1
         cycle = self._cycle_count
@@ -4642,6 +4834,22 @@ class AutonomousLearningEngine:
             except Exception as _sie:
                 log.debug("[ALE] self_improve_via_agents error: %s", _sie)
 
+        # ── Step 31: Self-maintenance — healer + memory pruning ───────────
+        # Salvaged from Fix_Guide.txt: run SelfHealer.repair() and
+        # SelfMaintenance.run() periodically to keep the KB healthy.
+        # Throttled to every _MAINTENANCE_CYCLE_EVERY cycles.
+        if cycle % self._MAINTENANCE_CYCLE_EVERY == 0:
+            _step("SelfMaintenance", self._autonomous_self_maintenance)
+
+        # ── Step 32: LLM Architect Cycle — Curate → SFT → DPO → Eval ────
+        # Applies real LLM engineering methodology to Niblit's KB:
+        # extract training data, supervised fine-tune via BrainTrainer or
+        # LoRA (if LOCAL_MODEL_PATH set), preference-optimise via DPO,
+        # and evaluate on held-out QA pairs.
+        # Throttled to every _LLM_ARCHITECT_CYCLE_EVERY cycles (default 10).
+        if cycle % self._LLM_ARCHITECT_CYCLE_EVERY == 0:
+            _step("LLMArchitectCycle", self._autonomous_llm_architect)
+
         # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
@@ -4661,7 +4869,7 @@ class AutonomousLearningEngine:
             "brain_training_cycles", "cognitive_enhancement_cycles",
             "github_code_discovery_cycles", "searchcode_discovery_cycles",
             "serpex_research_cycles", "builds_integration_cycles",
-            "scrapy_research_cycles",
+            "scrapy_research_cycles", "llm_architect_cycles",
         ))
         self.learning_history["learning_rate"] = total_actions / max(1, elapsed)
 

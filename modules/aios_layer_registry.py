@@ -334,3 +334,7 @@ def get_aios_layer_registry() -> AIOSLayerRegistry:
             if _registry is None:
                 _registry = AIOSLayerRegistry()
     return _registry
+
+
+if __name__ == "__main__":
+    print('Running aios_layer_registry.py')

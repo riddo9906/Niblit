@@ -454,3 +454,7 @@ def get_github_models_client() -> GitHubModelsClient:
     if _client is None:
         _client = GitHubModelsClient()
     return _client
+
+
+if __name__ == "__main__":
+    print('Running github_models_client.py')

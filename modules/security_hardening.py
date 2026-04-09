@@ -330,3 +330,7 @@ def get_security_hardening(
             if _hardening is None:
                 _hardening = SecurityHardening(kdf_iterations=kdf_iterations)
     return _hardening
+
+
+if __name__ == "__main__":
+    print('Running security_hardening.py')

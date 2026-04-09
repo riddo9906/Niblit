@@ -121,3 +121,7 @@ class KnowledgeDigest:
 
         # Fallback: cleaned text, trimmed to a readable length
         return cleaned[:_MAX_FALLBACK_LENGTH]
+
+
+if __name__ == "__main__":
+    print('Running knowledge_digest.py')

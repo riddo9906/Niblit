@@ -743,3 +743,7 @@ def get_kernel() -> NiblitKernel:
     if _kernel_instance is None:
         _kernel_instance = NiblitKernel()
     return _kernel_instance
+
+
+if __name__ == "__main__":
+    print('Running niblit_kernel.py')

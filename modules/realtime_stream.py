@@ -331,3 +331,7 @@ class RealtimeStream:
             "✅ [RealtimeStream] Stopped  ticks=%d  closes=%d",
             self._tick_count, self._close_count,
         )
+
+
+if __name__ == "__main__":
+    print('Running realtime_stream.py')

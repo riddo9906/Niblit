@@ -178,3 +178,7 @@ class PlannerAgent(BaseAgent):
                 "payload": {"goal": goal},
             },
         ]
+
+
+if __name__ == "__main__":
+    print('Running planner_agent.py')

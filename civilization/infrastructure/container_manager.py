@@ -69,3 +69,7 @@ class ContainerManager:
             log.info("ContainerManager: removed %s", container_id)
             return True
         return False
+
+
+if __name__ == "__main__":
+    print('Running container_manager.py')

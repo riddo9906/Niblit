@@ -61,3 +61,7 @@ class RateLimiter:
             "rpm_limit": self._limits.get(client_id, self._default_rpm),
             "tokens_available": round(self._tokens.get(client_id, float(self._default_rpm)), 3),
         }
+
+
+if __name__ == "__main__":
+    print('Running rate_limiter.py')

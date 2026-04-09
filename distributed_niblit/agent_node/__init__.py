@@ -7,3 +7,5 @@ from .research_agent import ResearchAgent
 from .task_executor import TaskExecutor
 
 __all__ = ["AgentRuntime", "TaskExecutor", "ResearchAgent", "PlannerAgent", "CodeGenerator"]
+if __name__ == "__main__":
+    print('Running __init__.py')

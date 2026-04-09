@@ -436,3 +436,7 @@ def get_os_integration(hardware_scanner: Optional[Any] = None) -> OSIntegration:
             if _INSTANCE is None:
                 _INSTANCE = OSIntegration(hardware_scanner=hardware_scanner)
     return _INSTANCE
+
+
+if __name__ == "__main__":
+    print('Running os_integration.py')

@@ -224,3 +224,7 @@ class ScrapySearchEngine:
                 os.unlink(spider_path)
             except OSError:
                 pass
+
+
+if __name__ == "__main__":
+    print('Running scrapy_search.py')

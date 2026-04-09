@@ -644,3 +644,7 @@ class CivilizationController:
     def get_cycle_count(self) -> int:
         """Return total completed cycles."""
         return self._cycle_count
+
+
+if __name__ == "__main__":
+    print('Running civilization_controller.py')

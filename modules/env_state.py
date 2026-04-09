@@ -370,3 +370,7 @@ NIBLIT_STATE_SCHEMA: Dict[str, Any] = {
         "checksum": "string (SHA-256[:16] of all other fields)",
     },
 }
+
+
+if __name__ == "__main__":
+    print('Running env_state.py')

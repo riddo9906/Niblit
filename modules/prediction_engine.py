@@ -91,3 +91,7 @@ class PredictionEngine:
         
         log.info(f"✅ [PREDICT] Generated {len(insights)} insights")
         return insights
+
+
+if __name__ == "__main__":
+    print('Running prediction_engine.py')

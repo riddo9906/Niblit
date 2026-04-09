@@ -61,6 +61,7 @@ ISSUE_LABEL = "nibblebot-research"
 ISSUE_TITLE_PREFIX = "🔬 Nibblebot Research Report"
 
 _DEFAULT_TOPICS = (
+    # ── Autonomous agents & LLM frameworks ──────────────────────────────────
     "ai-agent,llm-framework,autonomous-agent,"
     "knowledge-graph,vector-database,retrieval-augmented-generation,"
     "self-improving,continual-learning,online-learning,"
@@ -68,7 +69,44 @@ _DEFAULT_TOPICS = (
     "devops-automation,ci-cd,deployment-automation,"
     "multi-agent-system,evolutionary-algorithm,competitive-self-play,"
     "agent-based-modeling,genetic-programming,neuroevolution,"
-    "coevolution,multi-agent-rl,population-optimization"
+    "coevolution,multi-agent-rl,population-optimization,"
+    # ── How LLMs are built from scratch ─────────────────────────────────────
+    # Pre-training: data pipelines, tokenization, corpus curation
+    "llm-pretraining,tokenizer-training,bpe-tokenizer,sentencepiece,"
+    "text-corpus-curation,data-deduplication,training-data-pipeline,"
+    # Architecture: transformer internals, attention mechanisms
+    "transformer-architecture,attention-mechanism,flash-attention,"
+    "rotary-positional-embedding,grouped-query-attention,mixture-of-experts,"
+    # Training: optimisers, distributed training, FSDP, DeepSpeed
+    "llm-training,distributed-training,deepspeed,fsdp,megatron-lm,"
+    "gradient-checkpointing,mixed-precision-training,zero-optimization,"
+    # Fine-tuning & alignment: SFT, RLHF, DPO, PPO, Constitutional AI
+    "supervised-fine-tuning,rlhf,dpo-training,ppo-finetuning,"
+    "constitutional-ai,instruction-tuning,lora-fine-tuning,qlora,"
+    "peft,trl,huggingface-trainer,axolotl,unsloth,"
+    # Evaluation: benchmarks, lm-eval-harness, perplexity
+    "llm-evaluation,lm-eval-harness,hellaswag,mmlu,gsm8k,"
+    "perplexity-evaluation,llm-benchmark,ai-alignment-testing,"
+    # Serving & inference optimisation
+    "llm-inference,vllm,text-generation-inference,llama-cpp,"
+    "quantization,gptq,awq,model-compression,"
+    # ── Live trading AI — how the best systems are built ────────────────────
+    # Reinforcement learning for trading (PPO, A3C, DQN)
+    "rl-trading,deep-rl-trading,ppo-trading,dqn-stock-trading,"
+    "multi-agent-trading,trading-environment,gym-trading,"
+    # Transformer-based market models (temporal fusion, informer)
+    "temporal-fusion-transformer,informer-trading,patchtst,"
+    "time-series-foundation-model,lag-llama,chronos,"
+    # Signal engineering: technical indicators, alternative data
+    "trading-feature-engineering,alternative-data,sentiment-trading,"
+    "options-flow,order-flow-imbalance,limit-order-book,"
+    # Live execution: low-latency, risk management
+    "live-trading-execution,algorithmic-trading,backtesting,"
+    "risk-management-trading,portfolio-optimization,mean-variance,"
+    # ── Topics from 2026-04-08 research report issue (new discoveries) ──────
+    "ai-live-trading-execution,ai-live-trading-builds,"
+    "android-apk-creation,ai-operating-system,chat-completions,"
+    "self-healing,plugin-architecture"
 )
 TOPICS = [
     t.strip()
@@ -81,12 +119,17 @@ _TOPIC_CATEGORIES: Dict[str, str] = {}
 for _cat, _keys in [
     ("AI Agents & LLMs", ["ai-agent", "llm-framework", "autonomous-agent"]),
     ("Knowledge & Memory", ["knowledge-graph", "vector-database", "retrieval-augmented-generation"]),
-    ("Self-Improving Systems", ["self-improving", "continual-learning", "online-learning"]),
-    ("Software Architecture", ["python-framework", "software-architecture", "design-patterns"]),
+    ("Self-Improving Systems", ["self-improving", "continual-learning", "online-learning",
+                                 "self-healing"]),
+    ("Software Architecture", ["python-framework", "software-architecture", "design-patterns",
+                                "plugin-architecture"]),
     ("Deployment & DevOps", ["devops-automation", "ci-cd", "deployment-automation"]),
     ("Civilization & Evolution", ["multi-agent-system", "evolutionary-algorithm", "competitive-self-play",
                                    "agent-based-modeling", "genetic-programming", "neuroevolution",
                                    "coevolution", "multi-agent-rl", "population-optimization"]),
+    ("AI Live Trading", ["ai-live-trading-execution", "ai-live-trading-builds"]),
+    ("Mobile & OS", ["android-apk-creation", "ai-operating-system"]),
+    ("LLM APIs", ["chat-completions", "lora-fine-tuning"]),
 ]:
     for _k in _keys:
         _TOPIC_CATEGORIES[_k] = _cat
@@ -361,30 +404,44 @@ _PATTERN_KEYWORDS: Dict[str, List[str]] = {
         "microkernel", "event-driven", "message bus", "pub/sub",
         "pipeline", "orchestrat", "plugin", "modular", "layered",
         "hexagonal", "clean architecture", "domain-driven",
+        "mcp server", "tool calling", "function calling",
     ],
     "AI/ML Techniques": [
         "reinforcement learning", "transformer", "attention", "embedding",
         "vector store", "rag", "retrieval", "fine-tun", "lora", "qlora",
         "chain-of-thought", "few-shot", "zero-shot", "agent",
+        "multi-agent", "tool use", "mcp", "llm compiler",
     ],
     "Memory & Knowledge": [
         "knowledge graph", "memory", "long-term", "episodic",
         "semantic memory", "vector database", "chromadb", "faiss",
         "qdrant", "pinecone", "weaviate", "neo4j", "graph neural",
+        "kv cache", "context window",
     ],
     "Self-Improvement": [
         "self-improv", "self-heal", "auto-tune", "meta-learn", "evolv",
         "continual learning", "lifelong", "online learning", "feedback loop",
         "self-optimiz", "curriculum learning",
+        "auto-repair", "self-repair", "adaptive",
     ],
     "Deployment & DevOps": [
         "docker", "kubernetes", "ci/cd", "github actions", "terraform",
         "monitoring", "observability", "tracing", "logging", "alerting",
         "canary", "blue-green", "rollback", "health check",
+        "sandbox", "container", "wasm",
     ],
     "Code Quality": [
         "type hint", "mypy", "pylint", "ruff", "black", "pytest",
         "test coverage", "pre-commit", "linting", "static analysis",
+        "opentelemetry", "structured logging",
+    ],
+    "Trading & Finance": [
+        "trading", "live trading", "execution", "order book", "backtesting",
+        "portfolio", "risk management", "market data",
+    ],
+    "Mobile & OS": [
+        "android", "apk", "kotlin", "flutter", "react native",
+        "operating system", "aios", "kernel", "syscall",
     ],
 }
 

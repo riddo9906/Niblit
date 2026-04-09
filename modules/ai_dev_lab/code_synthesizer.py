@@ -222,3 +222,7 @@ class CodeSynthesizer:
             return SafetyGuard()
         except Exception:  # noqa: BLE001
             return None
+
+
+if __name__ == "__main__":
+    print('Running code_synthesizer.py')

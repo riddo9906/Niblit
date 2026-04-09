@@ -48,3 +48,7 @@ class EmbeddingService:
         na = math.sqrt(sum(x * x for x in a)) or 1.0
         nb = math.sqrt(sum(x * x for x in b)) or 1.0
         return dot / (na * nb)
+
+
+if __name__ == "__main__":
+    print('Running embedding_service.py')

@@ -112,3 +112,7 @@ class CollaborativeLearner:
         except Exception as exc:
             log.debug("[CollaborativeLearner] memory store failed: %s", exc)
 
+
+
+if __name__ == "__main__":
+    print('Running collaborative_learner.py')
