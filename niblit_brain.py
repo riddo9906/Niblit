@@ -812,8 +812,8 @@ class NiblitBrain:
         try:
             from niblit_tools.tool_registry import get_registry as _get_registry
             return _get_registry().list_tools()
-        except Exception:
-            pass
+        except Exception as _exc:
+            log.debug("[BRAIN] Failed to get tools from registry: %s", _exc)
         # Fallback: legacy single-tool path
         tools = []
         if self.serpex_tool_def is not None:
@@ -837,8 +837,9 @@ class NiblitBrain:
                        ``"arguments"`` key.
 
         Returns:
-            The tool's return value converted to a string, or an error
-            message starting with ``"[ToolError]"`` if dispatch fails.
+            The tool's return value converted to a string.  A tool that
+            returns ``None`` yields an empty string ``""``.  Dispatch
+            failures return an error message starting with ``"[ToolError]"``.
         """
         try:
             from niblit_tools.tool_registry import get_registry as _get_registry

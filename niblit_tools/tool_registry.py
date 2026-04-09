@@ -182,6 +182,8 @@ class ToolRegistry:
         import json as _json
 
         name = tool_call.get("name") or tool_call.get("function", {}).get("name", "")
+        if not name:
+            raise ValueError("Tool name is required but was not found in tool_call dict")
         raw_args = tool_call.get("arguments") or tool_call.get("function", {}).get("arguments")
 
         if isinstance(raw_args, str):
