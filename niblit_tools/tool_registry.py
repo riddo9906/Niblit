@@ -154,6 +154,49 @@ class ToolRegistry:
         logger.debug("Running tool %r with args %s", name, kwargs)
         return fn(**kwargs)
 
+    def dispatch_tool_call(self, tool_call: Dict[str, Any]) -> Any:
+        """Dispatch an LLM tool-call response dict to the matching registered tool.
+
+        Accepts the OpenAI / LangChain tool-call format::
+
+            {
+                "name": "niblit_serpex_search",
+                "arguments": {"query": "AI news"}
+            }
+
+        The ``"arguments"`` value may be a JSON string (as returned by the
+        OpenAI API) or a plain dict — both are handled transparently.
+
+        Args:
+            tool_call: Dict with at least a ``"name"`` key and an optional
+                       ``"arguments"`` key.
+
+        Returns:
+            Whatever the registered tool function returns.
+
+        Raises:
+            KeyError:  If the tool name is not registered.
+            TypeError: If the arguments do not match the function signature.
+            ValueError: If ``"arguments"`` is a malformed JSON string.
+        """
+        import json as _json
+
+        name = tool_call.get("name") or tool_call.get("function", {}).get("name", "")
+        raw_args = tool_call.get("arguments") or tool_call.get("function", {}).get("arguments")
+
+        if isinstance(raw_args, str):
+            try:
+                arguments: Dict[str, Any] = _json.loads(raw_args)
+            except _json.JSONDecodeError as exc:
+                raise ValueError(f"Malformed JSON in tool arguments for {name!r}: {exc}") from exc
+        elif isinstance(raw_args, dict):
+            arguments = raw_args
+        else:
+            arguments = {}
+
+        logger.debug("dispatch_tool_call: name=%r, arguments=%s", name, arguments)
+        return self.run(name, arguments)
+
 
 # ── Module-level singleton ───────────────────────────────────────────────────
 

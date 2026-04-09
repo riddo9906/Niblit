@@ -388,6 +388,9 @@ def run_shell(core, io):
 
     while True:
         try:
+            # Show any background notifications accumulated since last prompt
+            print_notifications(core, io)
+
             user_input = input("Niblit > ").strip()
 
             if not user_input:
