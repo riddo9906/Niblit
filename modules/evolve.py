@@ -284,7 +284,7 @@ class EvolveEngine:
             record["actions"].append(f"internet: {internet_result[:60]}")
 
         # Step 3: Research code patterns from internet → feed CodeGenerator
-        code_research_result = self._run_sub_step("code_research", lambda: self._research_code_direction(direction), timeout=30)
+        code_research_result = self._run_sub_step("code_research", lambda: self._research_code_direction(direction), timeout=60)
         if code_research_result:
             record["actions"].append(f"code_research: {code_research_result[:60]}")
 
@@ -300,12 +300,12 @@ class EvolveEngine:
             record["mutations"].append(code_result)
 
         # Step 6: Teach myself what I learned
-        teach_result = self._run_sub_step("teach", lambda: self._teach_improvement(direction, research_result), timeout=30)
+        teach_result = self._run_sub_step("teach", lambda: self._teach_improvement(direction, research_result), timeout=60)
         if teach_result:
             record["actions"].append(f"taught: {teach_result[:60]}")
 
         # Step 7: Reflect on the improvement
-        reflect_result = self._run_sub_step("reflect", lambda: self._reflect_on_step(direction, record), timeout=30)
+        reflect_result = self._run_sub_step("reflect", lambda: self._reflect_on_step(direction, record), timeout=60)
         if reflect_result:
             record["actions"].append(f"reflected: {str(reflect_result or '')[:60]}")
 

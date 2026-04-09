@@ -800,17 +800,57 @@ class NiblitBrain:
         """
         Return a list of GPT tool definition dicts for all registered tool functions.
 
-        Currently registered tools:
-          - ``niblit_serpex_search`` — web / news search via Serpex API
+        Returns all tools registered in the module-level :class:`ToolRegistry`
+        singleton (``niblit_tools.get_registry()``), which always includes at
+        minimum the built-in ``niblit_serpex_search`` tool.  Additional tools
+        registered via the ``@tool`` decorator are included automatically.
 
         Returns:
             List of tool definition dicts suitable for passing to an OpenAI
             chat completion ``tools`` parameter.
         """
+        try:
+            from niblit_tools.tool_registry import get_registry as _get_registry
+            return _get_registry().list_tools()
+        except Exception as _exc:
+            log.debug("[BRAIN] Failed to get tools from registry: %s", _exc)
+        # Fallback: legacy single-tool path
         tools = []
         if self.serpex_tool_def is not None:
             tools.append(self.serpex_tool_def)
         return tools
+
+    def call_tool(self, tool_call: dict) -> str:
+        """Dispatch an LLM tool-call response to the matching registered tool.
+
+        Accepts the OpenAI / LangChain tool-call format::
+
+            {
+                "name": "niblit_serpex_search",
+                "arguments": {"query": "AI news"}
+            }
+
+        The ``"arguments"`` value may be a JSON string or a plain dict.
+
+        Args:
+            tool_call: Dict with at least a ``"name"`` key and an optional
+                       ``"arguments"`` key.
+
+        Returns:
+            The tool's return value converted to a string.  A tool that
+            returns ``None`` yields an empty string ``""``.  Dispatch
+            failures return an error message starting with ``"[ToolError]"``.
+        """
+        try:
+            from niblit_tools.tool_registry import get_registry as _get_registry
+            result = _get_registry().dispatch_tool_call(tool_call)
+            return str(result) if result is not None else ""
+        except KeyError as exc:
+            log.warning("[BRAIN] call_tool: unknown tool %s", exc)
+            return f"[ToolError] Unknown tool: {exc}"
+        except Exception as exc:
+            log.warning("[BRAIN] call_tool failed: %s", exc)
+            return f"[ToolError] {exc}"
 
     def process_query(self, query: str) -> dict:
         """

@@ -159,6 +159,12 @@ class AutonomousLearningEngine:
     _CS_INTRO_GRADE: int = 8
     _ADVANCED_PROGRAMMING_GRADE: int = 10
 
+    # Seconds to wait after start() before running the first autonomous cycle.
+    # This gives niblit_core time to finish initializing all optional services
+    # (e.g. internet module, researcher, LLM) before ALE begins network-heavy
+    # operations.  Set NIBLIT_ALE_STARTUP_DELAY=0 to disable.
+    _DEFAULT_STARTUP_DELAY: int = 30
+
     def __init__(self, core, researcher=None, idea_generator=None,
                  reflect_module=None, self_teacher=None, slsa_manager=None,
                  knowledge_db=None, idle_threshold=300, poll_interval=60,
@@ -178,7 +184,8 @@ class AutonomousLearningEngine:
                  step_timeout=120,
                  hybrid_manager=None,
                  self_monitor=None,
-                 kernel=None):
+                 kernel=None,
+                 startup_delay=None):
         """
         Args:
             core: NiblitCore instance
@@ -227,6 +234,11 @@ class AutonomousLearningEngine:
                                handling, and chat-session management.  Used by steps 21, 22, 23
                                and the new step 29 (BuildsIntegration).
             step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
+            startup_delay: Seconds to wait after start() before running the first cycle (default
+                           ``_DEFAULT_STARTUP_DELAY`` = 30).  Override via NIBLIT_ALE_STARTUP_DELAY
+                           env var (set to 0 to disable).  This prevents ALE from issuing
+                           network-heavy requests before niblit_core has finished initializing all
+                           optional services.
         """
         self.core = core
         self.researcher = researcher
@@ -263,6 +275,15 @@ class AutonomousLearningEngine:
         self.hybrid_manager = hybrid_manager
         self.self_monitor = self_monitor
         self.kernel = kernel
+
+        # Resolve startup delay: explicit arg → env var → class default
+        if startup_delay is not None:
+            self.startup_delay: int = int(startup_delay)
+        else:
+            try:
+                self.startup_delay = int(os.environ.get("NIBLIT_ALE_STARTUP_DELAY", self._DEFAULT_STARTUP_DELAY))
+            except (ValueError, TypeError):
+                self.startup_delay = self._DEFAULT_STARTUP_DELAY
 
         self.idle_threshold = idle_threshold
         self.poll_interval = poll_interval
@@ -4897,6 +4918,21 @@ class AutonomousLearningEngine:
         """
         log.info("🚀 [BACKGROUND LOOP] Started — continuous autonomous learning active")
         cycle_count = 0
+
+        # ── Startup delay ──────────────────────────────────────────────────────
+        # Wait before the first cycle so niblit_core has time to finish
+        # initialising all optional services (internet, researcher, LLM, etc.)
+        # before ALE begins issuing network-heavy requests.
+        if self.startup_delay > 0:
+            log.info(
+                "⏳ [BACKGROUND LOOP] Waiting %ds before first cycle "
+                "(startup delay — set NIBLIT_ALE_STARTUP_DELAY=0 to disable)...",
+                self.startup_delay,
+            )
+            self._interruptible_sleep(self.startup_delay)
+            if not self.running:
+                log.info("[BACKGROUND LOOP] Stopped during startup delay")
+                return
 
         while self.running:
             try:
