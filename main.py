@@ -506,28 +506,82 @@ if __name__ == "__main__":
     # finishes so that the "READY" prompt only appears when Niblit is truly
     # fully booted.
     #
-    # The user can cancel at any time with Ctrl+C; the SIGINT handler saves
-    # state and exits cleanly.  Once init is complete the CLI opens normally.
+    # The init thread pushes sub-phase progress messages into
+    # core._init_progress_queue.  We poll that queue every 2 s and print
+    # each message as it arrives, giving real-time feedback on Termux/proot
+    # where module loading can take several minutes.
     #
-    # To skip the wait and get an immediate prompt (with degraded capabilities
-    # until Phase 1 finishes in the background), set:
-    #   NIBLIT_SKIP_INIT_WAIT=1
+    # Ctrl+C at any time skips the wait and opens the CLI immediately.
+    # NIBLIT_SKIP_INIT_WAIT=1 bypasses the wait entirely (background init
+    # continues; some features degrade gracefully until it finishes).
     _skip_wait = os.getenv("NIBLIT_SKIP_INIT_WAIT", "0").strip() in ("1", "true", "yes")
     if not _skip_wait and hasattr(core, "wait_for_ready"):
         io.out(
-            f"{timestamp()} ⏳ Loading modules — Niblit will be ready shortly "
-            "(Ctrl+C to skip and open CLI now)..."
+            f"{timestamp()} ⏳ Niblit initialising — please wait until fully booted\n"
+            f"          (Ctrl+C to skip to CLI now, or set NIBLIT_SKIP_INIT_WAIT=1)"
         )
+        _init_pq = getattr(core, "_init_progress_queue", None)
+        _heartbeat_ticks = 0
         try:
-            core.wait_for_ready(timeout=None)
+            while True:
+                # Block up to 2 s then wake up to drain progress messages.
+                core.wait_for_ready(timeout=2.0)
+                _phase = getattr(core, "_deferred_init_phase", "complete")
+
+                # Drain and print any progress messages pushed by the init thread.
+                _printed = 0
+                if _init_pq is not None:
+                    while True:
+                        try:
+                            _msg = _init_pq.get_nowait()
+                            io.out(f"{timestamp()} {_msg}")
+                            _printed += 1
+                        except Exception:
+                            break
+
+                if _phase in ("complete", "failed"):
+                    break
+
+                # Show a periodic heartbeat if nothing arrived this tick so
+                # the user can see we are still alive on slow hardware.
+                if _printed == 0:
+                    _heartbeat_ticks += 1
+                    if _heartbeat_ticks % 15 == 0:  # every ~30 s
+                        _cur = getattr(core, "_current_init_phase", "loading…")
+                        io.out(f"{timestamp()} ⏳ Still loading… ({_cur})")
+
         except KeyboardInterrupt:
             io.out(
                 f"\n{timestamp()} ⚡ Init wait skipped — CLI opening now "
                 "(some modules may still be loading in the background)"
             )
+
+        # Drain any messages that arrived just before/after we broke out.
+        if _init_pq is not None:
+            while True:
+                try:
+                    _msg = _init_pq.get_nowait()
+                    io.out(f"{timestamp()} {_msg}")
+                except Exception:
+                    break
+
         _phase = getattr(core, "_deferred_init_phase", "complete")
         if _phase == "complete":
-            io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
+            _sr = getattr(core, "startup_report", None)
+            try:
+                _rc = sum(
+                    1 for r in _sr.results.values() if r.get("status") == "ready"
+                ) if (_sr and hasattr(_sr, "results")) else None
+                _tc = len(_sr.results) if (_sr and hasattr(_sr, "results")) else None
+                if _rc is not None:
+                    io.out(
+                        f"{timestamp()} ✅ Niblit fully initialised — "
+                        f"{_rc}/{_tc} components ready"
+                    )
+                else:
+                    io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
+            except Exception:
+                io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
         else:
             io.out(
                 f"{timestamp()} ⚠️  Background init did not complete cleanly "

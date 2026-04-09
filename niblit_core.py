@@ -56,6 +56,7 @@ from typing import Any, Dict, List, Tuple, Optional, Callable
 from dataclasses import dataclass, field
 import collections
 from collections import defaultdict
+import queue as _queue_mod
 from contextlib import contextmanager
 from pathlib import Path
 from functools import lru_cache
@@ -1518,6 +1519,12 @@ class NiblitCore:
         self._deferred_init_phase: str = "pending"
         self._deferred_init_event: threading.Event = threading.Event()
 
+        # Live init-progress queue — main.py drains this while blocking on
+        # wait_for_ready() so the user sees real-time sub-phase progress
+        # messages instead of a silent wait.
+        self._init_progress_queue: _queue_mod.Queue = _queue_mod.Queue()
+        self._current_init_phase: str = ""
+
         # Wake-lock: keeps CPU alive when screen is off / Termux is in background
         self.wakelock: Optional["TermuxWakeLock"] = (
             TermuxWakeLock() if TermuxWakeLock is not None else None
@@ -1938,6 +1945,32 @@ class NiblitCore:
             return self._deferred_init_phase == "complete"
         self._deferred_init_event.wait(timeout=timeout)
         return self._deferred_init_phase == "complete"
+
+    def _push_init_progress(self, msg: str) -> None:
+        """Push a sub-phase progress message to the live init-progress queue.
+
+        Called by :meth:`_initialize_modules` at the start and end of each
+        sub-phase so that the caller of :meth:`wait_for_ready` (e.g. main.py)
+        can drain the queue and display real-time loading messages instead of
+        silently blocking.
+
+        The message is also written at INFO level and forwarded to the
+        notification queue so it can appear in the CLI after the user presses
+        Enter once the interactive shell opens.
+        """
+        self._current_init_phase = msg
+        try:
+            self._init_progress_queue.put_nowait(msg)
+        except Exception:
+            pass
+        # Also forward to the background notification queue so it appears
+        # when the CLI is already open (e.g. NIBLIT_SKIP_INIT_WAIT=1).
+        try:
+            from core.notification_queue import notif_queue as _nq
+            _nq.push(msg)
+        except Exception:
+            pass
+        log.info("[INIT-PROGRESS] %s", msg)
 
     def _register_commands(self):
         """Register commands with CommandRegistry."""
@@ -5837,21 +5870,41 @@ SW Categories: {stats.get('software_study_categories', 0)}
     def _initialize_modules(self):
         """Initialize all modules with dependency management."""
         with self.logger.context("initialize_modules"):
-            # Phase 0: Shared infrastructure (VectorStore / Qdrant)
+            # Phase 1/5: Shared infrastructure (VectorStore / Qdrant)
+            self._push_init_progress(
+                "🔄 [1/5] Loading shared infrastructure (VectorStore, FusedMemory, SemanticAgent)..."
+            )
             self._init_vector_store()
+            self._push_init_progress("✅ [1/5] Shared infrastructure ready")
 
-            # Phase 1: Foundation modules
+            # Phase 2/5: Foundation modules (LLM, HFBrain, SelfTeacher, etc.)
+            self._push_init_progress(
+                "🔄 [2/5] Loading AI adapters (LLM adapter, HFBrain, SelfTeacher, SelfImplementer)..."
+            )
             self._init_ai_adapters()
+            self._push_init_progress("✅ [2/5] AI adapters ready")
 
-            # Phase 2: Intelligent systems
+            # Phase 3/5: Intelligent systems (Brain, Router, Learning)
+            self._push_init_progress(
+                "🔄 [3/5] Loading Brain, Router, and Learning systems (NiblitBrain, NiblitRouter, ALE learning)..."
+            )
             self._init_brain_and_router()
             self._init_learning_systems()
+            self._push_init_progress("✅ [3/5] Brain, Router, and Learning systems ready")
 
-            # Phase 3: System services
+            # Phase 4/5: System services (Network, Sensors, Voice, Actions)
+            self._push_init_progress(
+                "🔄 [4/5] Loading system services (Network, Sensors, Voice, Actions)..."
+            )
             self._init_system_services()
+            self._push_init_progress("✅ [4/5] System services ready")
 
-            # Phase 4: Optional heavy modules
+            # Phase 5/5: Optional heavy modules (ALE, Trading, Civilization, 60+)
+            self._push_init_progress(
+                "🔄 [5/5] Loading optional services (ALE, TradingBrain, CivilizationController, 60+ modules)..."
+            )
             self._init_optional_services()
+            self._push_init_progress("✅ [5/5] All optional services loaded — Niblit is fully booted")
 
     def _init_vector_store(self) -> None:
         """
