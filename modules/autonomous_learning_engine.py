@@ -4521,8 +4521,74 @@ class AutonomousLearningEngine:
         log.info("✅ [BUILDS INTEGRATION] %s", summary)
         return f"BuildsIntegration: {summary}"
 
+    # Throttle: run maintenance every N cycles (not every cycle)
+    _MAINTENANCE_CYCLE_EVERY: int = 5
+
+    def _autonomous_self_maintenance(self) -> str:
+        """Step 31: Run SelfHealer + SelfMaintenance to keep the knowledge base healthy.
+
+        Salvaged from Fix_Guide.txt which prescribed::
+
+            SelfMaintenance(db).run()
+            SelfHealer(db).repair()
+
+        as periodic maintenance tasks.  This step runs both via the core's
+        already-wired instances (modules.self_healer + modules.self_maintenance)
+        so no duplicate imports are needed.
+
+        Throttled to every ``_MAINTENANCE_CYCLE_EVERY`` cycles so it doesn't
+        add noticeable overhead on every cycle.
+        """
+        core = self.core
+        if core is None:
+            return "[SelfMaintenance step skipped — no core reference]"
+
+        parts: List[str] = []
+
+        # ── SelfHealer: fix broken/empty KB facts ─────────────────────────
+        healer = getattr(core, "self_healer", None)
+        if healer is not None:
+            for method in ("repair", "run_cycle", "full_heal"):
+                fn = getattr(healer, method, None)
+                if fn is not None:
+                    try:
+                        res = fn(core) if method == "full_heal" else fn()
+                        parts.append(f"healer: {str(res)[:80]}")
+                    except Exception as exc:
+                        parts.append(f"healer error: {exc}")
+                    break
+
+        # ── SelfMaintenance: prune old interactions + condense memory ─────
+        maintenance = getattr(core, "self_maintenance", None)
+        if maintenance is not None:
+            for method in ("run_with_learning", "run", "diagnose"):
+                fn = getattr(maintenance, method, None)
+                if fn is not None:
+                    try:
+                        res = fn()
+                        parts.append(f"maintenance: {str(res)[:80]}")
+                    except Exception as exc:
+                        parts.append(f"maintenance error: {exc}")
+                    break
+        else:
+            parts.append("[SelfMaintenance not wired in core]")
+
+        result = "; ".join(parts) if parts else "no maintenance performed"
+        if self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_maintenance:{int(time.time())}",
+                    result,
+                    tags=["maintenance", "self-heal", "autonomous"],
+                )
+            except Exception:
+                pass
+
+        log.info("✅ [SELF MAINTENANCE] %s", result)
+        return f"SelfMaintenance: {result}"
+
     def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle (29 steps).
+        """Execute one complete autonomous learning cycle (31 steps).
 
         Design principles
         -----------------
@@ -4695,6 +4761,13 @@ class AutonomousLearningEngine:
                 self.self_improve_via_agents()
             except Exception as _sie:
                 log.debug("[ALE] self_improve_via_agents error: %s", _sie)
+
+        # ── Step 31: Self-maintenance — healer + memory pruning ───────────
+        # Salvaged from Fix_Guide.txt: run SelfHealer.repair() and
+        # SelfMaintenance.run() periodically to keep the KB healthy.
+        # Throttled to every _MAINTENANCE_CYCLE_EVERY cycles.
+        if cycle % self._MAINTENANCE_CYCLE_EVERY == 0:
+            _step("SelfMaintenance", self._autonomous_self_maintenance)
 
         # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
