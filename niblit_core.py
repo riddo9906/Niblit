@@ -7575,7 +7575,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             ]
 
             for task in tasks:
-                self._async_tasks.add(asyncio.create_task(task))
+                self._async_tasks.add(self._event_loop.create_task(task))
 
             self._start_background_loop(
                 lambda: self._event_loop.run_forever(),
