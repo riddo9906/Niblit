@@ -202,6 +202,20 @@ class TieredKnowledgeSystem:
         self._load_state()
 
     # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_topic_key(topic: str) -> str:
+        """Return a canonical lower-case key for *topic* used in all internal dicts."""
+        return topic.strip().lower()
+
+    @staticmethod
+    def _make_topic_slug(topic: str) -> str:
+        """Return a compact slug (first 40 chars, spaces → underscores) for KB keys and tags."""
+        return topic.replace(" ", "_")[:40]
+
+    # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
 
@@ -279,7 +293,7 @@ class TieredKnowledgeSystem:
             return 1.0
         covered = sum(
             1 for t in topics
-            if self._topic_fact_counts.get(t.strip().lower(), 0) >= _MIN_FACTS_PER_TOPIC
+            if self._topic_fact_counts.get(self._normalize_topic_key(t), 0) >= _MIN_FACTS_PER_TOPIC
         )
         return covered / len(topics)
 
@@ -289,7 +303,7 @@ class TieredKnowledgeSystem:
         Call this every time new facts are stored for a topic so the system
         can track progress toward 100% tier confidence.
         """
-        key = topic.strip().lower()
+        key = self._normalize_topic_key(topic)
         self._topic_fact_counts[key] = self._topic_fact_counts.get(key, 0) + facts_added
         self._save_state()
         # Advance to the next tier when 100% confidence is achieved
@@ -351,7 +365,7 @@ class TieredKnowledgeSystem:
         if not self.knowledge_db:
             return
         try:
-            topic_slug = topic.replace(" ", "_")[:40]
+            topic_slug = self._make_topic_slug(topic)
             key = f"tier:{tier_name.lower()}:{topic_slug}:{int(time.time())}"
             self.knowledge_db.add_fact(
                 key,
@@ -383,7 +397,7 @@ class TieredKnowledgeSystem:
         if not self.knowledge_db:
             return None
         try:
-            topic_slug = topic.replace(" ", "_")[:40]
+            topic_slug = self._make_topic_slug(topic)
             tag        = f"topic_{topic_slug}"
             facts: List[Any] = []
 
@@ -427,7 +441,7 @@ class TieredKnowledgeSystem:
         (i.e. the tier confidence is 1.0).
         """
         for topic in TIER_TOPICS.get(self._current_tier, []):
-            if self._topic_fact_counts.get(topic.strip().lower(), 0) < _MIN_FACTS_PER_TOPIC:
+            if self._topic_fact_counts.get(self._normalize_topic_key(topic), 0) < _MIN_FACTS_PER_TOPIC:
                 return topic
         return None
 
@@ -448,7 +462,7 @@ class TieredKnowledgeSystem:
         topics = TIER_TOPICS.get(self._current_tier, [])
         covered = sum(
             1 for t in topics
-            if self._topic_fact_counts.get(t.strip().lower(), 0) >= _MIN_FACTS_PER_TOPIC
+            if self._topic_fact_counts.get(self._normalize_topic_key(t), 0) >= _MIN_FACTS_PER_TOPIC
         )
         return (
             f"KnowledgeTier={self.current_tier_name} | "
@@ -466,7 +480,7 @@ class TieredKnowledgeSystem:
                     "topics_total":   len(TIER_TOPICS[t]),
                     "topics_covered": sum(
                         1 for top in TIER_TOPICS[t]
-                        if self._topic_fact_counts.get(top.strip().lower(), 0)
+                        if self._topic_fact_counts.get(self._normalize_topic_key(top), 0)
                         >= _MIN_FACTS_PER_TOPIC
                     ),
                 }

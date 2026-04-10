@@ -1343,6 +1343,7 @@ class AutonomousLearningEngine:
 
         snippets_stored = 0
         errors: List[str] = []
+        _topic_slug = tks._make_topic_slug(topic)
 
         # ── Helper: store one snippet via TKS + standard KB ───────────────
         def _store(content: str, source: str) -> None:
@@ -1353,7 +1354,7 @@ class AutonomousLearningEngine:
             if self.knowledge_db:
                 try:
                     self.knowledge_db.add_fact(
-                        f"tiered:{tier_name.lower()}:{topic.replace(' ', '_')[:40]}:{int(time.time())}",
+                        f"tiered:{tier_name.lower()}:{_topic_slug}:{int(time.time())}",
                         {
                             "topic":   topic,
                             "content": content[:600],
@@ -5258,10 +5259,11 @@ class AutonomousLearningEngine:
         # BEFORE running Step 1 so the research queue is already enriched.
         _apply_cross_cycle_context()
 
-        # ── Step 0: Tiered knowledge research ─────────────────────────────
+        # ── Step 0 — Tiered knowledge research ────────────────────────────
         # Always runs first so Niblit progresses through Foundation → Basic →
         # Intermediate → Advanced before the general research cycle takes over.
         # Uses tier-appropriate sources (Wikipedia, DuckDuckGo, Serpex, GitHub).
+        # Numbered 0 to indicate it precedes the original 32-step sequence.
         _step("TieredResearch", self._autonomous_tiered_research)
 
         # ── Step 1: Unified research — ONE call, ALL backends, ONE topic ───
