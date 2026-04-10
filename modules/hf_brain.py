@@ -59,6 +59,18 @@ class HFBrain:
         if not self.token:
             log.warning("[HFBrain] No HF token found (HF_TOKEN / HUGGINGFACE_TOKEN / HF_API_KEY), HFBrain disabled")
             self.enabled = False
+            # Emit a visible banner so users understand why AI responses are absent.
+            _warn = (
+                "\n"
+                "┌─────────────────────────────────────────────────────┐\n"
+                "│  ⚠️  NO LLM TOKEN — AI responses are disabled        │\n"
+                "│  Set HF_TOKEN in your .env file and restart Niblit.  │\n"
+                "│  Example:  HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxx  │\n"
+                "│  Alternatively set OPENAI_API_KEY or ANTHROPIC_API_KEY│\n"
+                "└─────────────────────────────────────────────────────┘"
+            )
+            print(_warn)
+            log.warning(_warn)
 
         # HuggingFace router endpoint
         self.url = "https://router.huggingface.co/v1/chat/completions"

@@ -317,6 +317,10 @@ class AutonomousLearningEngine:
         self.learning_thread = None
         # Event used to wake up the inter-cycle sleep early (e.g. on stop())
         self._stop_event = threading.Event()
+        # Event that is *clear* while the ALE is paused and *set* while it may run.
+        # ALE yields inside _interruptible_sleep whenever this event is clear.
+        self._paused_event = threading.Event()
+        self._paused_event.set()  # start in un-paused state
 
         # Topics to autonomously research.
         # When the GradedCurriculum module is available the ALE pulls topics
@@ -3620,8 +3624,43 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
 
     def _interruptible_sleep(self, seconds: float) -> None:
-        """Sleep for *seconds* but wake up immediately if stop() is called."""
-        self._stop_event.wait(timeout=seconds)
+        """Sleep for *seconds* but wake up immediately if stop() is called.
+
+        Also blocks (holds at zero progress) while the ALE is paused via
+        pause() so that user-facing requests are never starved by background
+        research competing for the LLM / DB.
+        """
+        # Block here as long as the engine is paused (event is clear).
+        # We check in 0.25 s ticks so that stop() can still wake us promptly.
+        deadline = time.monotonic() + seconds
+        while True:
+            if self._stop_event.is_set():
+                return
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            tick = min(0.25, remaining)
+            if not self._paused_event.is_set():
+                # ALE is paused — yield in short ticks until resumed or stopped
+                self._paused_event.wait(timeout=tick)
+            else:
+                self._stop_event.wait(timeout=tick)
+
+    def pause(self) -> None:
+        """Pause all ALE background work (e.g. while the user is chatting).
+
+        The running flag is preserved so the background thread keeps looping,
+        but every _interruptible_sleep call will block until resume() is called.
+        This prevents ALE from competing with the LLM for the HF API or SQLite
+        while Niblit is actively generating a response.
+        """
+        self._paused_event.clear()
+        log.debug("[ALE] paused — yielding to user activity")
+
+    def resume(self) -> None:
+        """Resume normal ALE background work after the user response is sent."""
+        self._paused_event.set()
+        log.debug("[ALE] resumed — background learning active")
 
     # ─────────────────────────────────────────────
     # PUBLIC SEQUENCES (callable on-demand or from cycle)

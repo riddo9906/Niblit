@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -36,6 +36,34 @@ jobs:
 
       - name: Install dev/test dependencies
         run: pip install -r requirements-dev.txt
+
+      - name: Syntax check — every .py file must parse cleanly
+        run: |
+          python - <<'EOF'
+          import ast, os, sys
+          errors = []
+          for root, dirs, files in os.walk('.'):
+              dirs[:] = [d for d in dirs if d not in ['.git', '__pycache__', 'node_modules', '.venv', 'venv']]
+              for f in files:
+                  if f.endswith('.py'):
+                      path = os.path.join(root, f)
+                      try:
+                          with open(path) as fh:
+                              ast.parse(fh.read())
+                      except SyntaxError as e:
+                          errors.append(f'{path}: {e}')
+          if errors:
+              for e in errors:
+                  print(e)
+              sys.exit(1)
+          print(f'All Python files parse cleanly')
+          EOF
+
+      - name: Smoke import — NiblitCore must be importable
+        env:
+          FLASK_ENV: testing
+          HF_TOKEN: test-token
+        run: python -c "from niblit_core import NiblitCore; print('NiblitCore import: OK')"
 
       - name: Run unit tests with coverage
         env:
@@ -51,6 +79,8 @@ jobs:
             test_reflect.py \
             test_evolve.py \
             test_autonomous_engine.py \
+            test_niblit_brain.py \
+            test_niblit_router.py \
             --cov=server \
             --cov=niblit_sqlite_db \
             --cov=config \
@@ -66,7 +96,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.python-version }}
           path: coverage.xml

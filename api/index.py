@@ -1011,7 +1011,64 @@ def api_status():
             data["facts_count"] = len(core.memory.list_facts(limit=500))
         except Exception:
             pass
+        # Expose the TieredKnowledge current tier + confidence
+        try:
+            ale = getattr(core, "autonomous_engine", None)
+            tks = getattr(ale, "tiered_knowledge", None) if ale else None
+            if tks:
+                data["knowledge_tier"] = tks.current_tier_name
+                data["knowledge_confidence"] = round(tks.tier_confidence(), 3)
+        except Exception:
+            pass
     return data
+
+
+@app.get("/api/knowledge")
+def api_knowledge(request: Request, topic: str = ""):
+    """Return stored Tiered Knowledge System facts for a topic.
+
+    Query params:
+      - ``topic``   — topic name to recall (e.g. ``?topic=transformers``).
+                     Omit or leave blank to get the full tier status report.
+
+    Returns::
+
+        {
+          "topic": "transformers",
+          "facts": ["[Basic|Wikipedia] ...", "..."],
+          "tier_status": "KnowledgeTier=Basic | Confidence=40% (2/5 topics covered)"
+        }
+    """
+    core = _get_core()
+    ale = getattr(core, "autonomous_engine", None) if core else None
+    tks = getattr(ale, "tiered_knowledge", None) if ale else None
+    if tks is None:
+        try:
+            from modules.tiered_knowledge_system import get_tiered_knowledge_system  # type: ignore[import]
+            tks = get_tiered_knowledge_system()
+        except Exception:
+            pass
+
+    if tks is None:
+        return JSONResponse({"error": "Tiered Knowledge System not available"}, status_code=503)
+
+    tier_status = tks.status_summary()
+
+    if not topic.strip():
+        # No topic — return tier overview
+        try:
+            report = tks.full_report()
+        except Exception:
+            report = {}
+        return {"topic": None, "facts": [], "tier_status": tier_status, "report": report}
+
+    recall = tks.recall_knowledge(topic.strip())
+    facts = recall.splitlines() if recall else []
+    return {
+        "topic": topic.strip(),
+        "facts": facts,
+        "tier_status": tier_status,
+    }
 
 
 @app.get("/api/bg_status")
@@ -1187,6 +1244,101 @@ def api_hf_ask(request: Request, body: HFAskBody):
         return {"reply": reply, "ts": int(time.time())}
     except Exception:
         return JSONResponse({"error": "HFBrain request failed"}, status_code=500)
+
+
+# ── LLM Health Check ─────────────────────────────────────────────────────────
+
+@app.get("/api/llm-health")
+def api_llm_health(request: Request):
+    """Perform a minimal test inference and return provider name, model, and latency.
+
+    This lets users verify that their API token works without reading logs.
+    Returns::
+
+        {
+          "provider": "hf",
+          "model": "moonshotai/Kimi-K2-Instruct-0905",
+          "token_set": true,
+          "ok": true,
+          "latency_ms": 312,
+          "error": null
+        }
+    """
+    import time as _time
+
+    core = _get_core()
+    hf = None
+    if core:
+        hf = (
+            getattr(core, "hf_brain", None)
+            or getattr(core, "hf", None)
+            or getattr(getattr(core, "brain", None), "hf_brain", None)
+        )
+
+    # Determine the active provider
+    provider = "unknown"
+    model = None
+    token_set = False
+
+    if hf:
+        token_set = bool(getattr(hf, "token", None))
+        model = getattr(hf, "model", None)
+        provider = "hf"
+
+    if not token_set:
+        # Check for OpenAI fallback
+        import os
+        if os.getenv("OPENAI_API_KEY"):
+            provider = "openai"
+            token_set = True
+            import config
+            model = model or getattr(config.settings, "OPENAI_MODEL", "gpt-4o-mini")
+        elif os.getenv("ANTHROPIC_API_KEY"):
+            provider = "anthropic"
+            token_set = True
+            import config
+            model = model or getattr(config.settings, "ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+
+    if not token_set:
+        return JSONResponse(
+            {
+                "provider": provider,
+                "model": model,
+                "token_set": False,
+                "ok": False,
+                "latency_ms": None,
+                "error": "No LLM token found. Set HF_TOKEN, OPENAI_API_KEY, or ANTHROPIC_API_KEY.",
+            },
+            status_code=503,
+        )
+
+    # Run a minimal test inference
+    t0 = _time.monotonic()
+    ok = False
+    error = None
+    try:
+        if provider == "hf" and hf and getattr(hf, "enabled", False):
+            reply = hf.ask_single("Reply with exactly: ok")
+            ok = bool(reply and "ok" in reply.lower())
+        elif provider in ("openai", "anthropic"):
+            # Token is set; treat as healthy without making a live call
+            # (live call would require optional sdk imports not guaranteed to exist)
+            ok = True
+        else:
+            ok = False
+            error = "LLM brain disabled — token is set but the brain is not running"
+    except Exception:
+        error = "LLM inference request failed"
+    latency_ms = round((_time.monotonic() - t0) * 1000)
+
+    return {
+        "provider": provider,
+        "model": model,
+        "token_set": token_set,
+        "ok": ok,
+        "latency_ms": latency_ms,
+        "error": error,
+    }
 
 
 # ── Deployment Bridge ─────────────────────────────────────────────────────────

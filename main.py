@@ -272,6 +272,13 @@ def boot():
     io = NiblitIO()
     io.out(f"{timestamp()} TRUE AUTONOMOUS NIBLIT BOOT")
 
+    # Print service status table so the user immediately knows which keys are set.
+    try:
+        from config import Config as _Config
+        _Config.validate()
+    except Exception:
+        pass
+
     core = NiblitCore()
     io.out(f"{timestamp()} CORE READY")
 
