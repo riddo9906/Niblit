@@ -79,6 +79,106 @@
         "live": false,
         "ts": 1775740355.7584877
       }
+    },
+    {
+      "ts": 1775848855.6041052,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1775848855.6041014
+      }
+    },
+    {
+      "ts": 1775848857.5938096,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1775848857.5938046
+      }
+    },
+    {
+      "ts": 1775848859.432724,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1775848859.4327197
+      }
+    },
+    {
+      "ts": 1775848892.249163,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": false,
+        "ts": 1775848892.2491589
+      }
+    },
+    {
+      "ts": 1775848899.5690777,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": false,
+        "ts": 1775848899.5690734
+      }
+    },
+    {
+      "ts": 1775848906.7727618,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": false,
+        "ts": 1775848906.772758
+      }
+    },
+    {
+      "ts": 1775848918.574086,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1775848918.5740824
+      }
+    },
+    {
+      "ts": 1775848926.1856403,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": false,
+        "ts": 1775848926.185636
+      }
+    },
+    {
+      "ts": 1775848969.8279266,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1775848969.8279214
+      }
+    },
+    {
+      "ts": 1775849001.837932,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1775849001.837927
+      }
     }
   ],
   "facts": [],

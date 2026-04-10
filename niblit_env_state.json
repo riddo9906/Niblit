@@ -12,21 +12,24 @@
   "knowledge_summary": "",
   "last_command": "",
   "last_response_snippet": "",
-  "last_active_ts": 1775740330.6040878,
+  "last_active_ts": 1775848980.149674,
   "env_capabilities": {
     "python.python_version": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
-    "python.python_executable": "/usr/bin/python",
+    "python.python_executable": "/usr/bin/python3",
     "python.platform": "Linux/x86_64",
     "python.arch": "x86_64",
     "python.python_packages": [
-      "requests"
+      "fastapi",
+      "pydantic",
+      "requests",
+      "httpx"
     ],
     "python.python_path_dirs": [
-      "/home/runner/work/Niblit/Niblit",
       "/home/runner/work/Niblit/Niblit/tools",
       "/home/runner/work/Niblit",
       "/home/runner/work/Niblit/Niblit",
-      "/home/runner/work/Niblit"
+      "/usr/lib/python312.zip",
+      "/usr/lib/python3.12"
     ],
     "node.node_available": true,
     "node.node_version": "v24.14.1",
@@ -40,12 +43,12 @@
     "rust.cargo_version": "cargo 1.94.1 (29ea6fb6a 2026-03-24)",
     "rust.rustup_version": "rustup 1.29.0 (28d1352db 2026-03-05)",
     "rust.niblit_rust_installed": false,
-    "linux_sys.linux_kernel": "6.17.0-1008-azure",
+    "linux_sys.linux_kernel": "6.17.0-1010-azure",
     "linux_sys.cpu_count": 4,
-    "linux_sys.memory_mb": 15993,
+    "linux_sys.memory_mb": 15989,
     "linux_sys.has_docker": true,
     "linux_sys.has_systemd": true
   },
   "extras": {},
-  "checksum": "6114b55d80348538"
+  "checksum": "dd4df135db295cd0"
 }
