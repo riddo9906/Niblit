@@ -432,6 +432,21 @@ class AutonomousLearningEngine:
         # subtopics and moves the stale topic to the back of the queue.
         self._topic_stale_count: Dict[str, int] = {}
 
+        # ── Cross-cycle inter-phase wiring ────────────────────────────────────
+        # Phase C (Metacognition + Reasoning) writes gap topics and inferences
+        # here after it completes.  Phase E (CognitiveEnhancement) writes newly
+        # studied cognitive domains here.  At the start of Phase A in the *next*
+        # cycle, _apply_cross_cycle_context() consumes these entries and promotes
+        # them into the research queue so Phase A immediately works on the most
+        # valuable knowledge-gap topics discovered by later phases.
+        # This achieves the "inter-wiring" behaviour without violating the
+        # sequential phase order (A→B→C→D→E runs once before A restarts).
+        self._cross_cycle_context: Dict[str, Any] = {}
+
+        # Tracks which phase (A/B/C/D/E or empty) is currently executing.
+        # Used for logging and external status queries.
+        self._current_phase: str = ""
+
         log.info("✅ AutonomousLearningEngine initialized")
 
     # ─────────────────────────────────────────────
@@ -3112,6 +3127,21 @@ class AutonomousLearningEngine:
             self.learning_history["last_reasoning_inferences"] = inference_count
             self.learning_history["last_cot_confidence"] = round(cot_confidence, 3)
 
+            # ── Cross-cycle inter-wiring: store inferences for Phase A next cycle ─
+            # Phase A's _apply_cross_cycle_context() seeds these inference statements
+            # as research topics so the next cycle's unified research builds on the
+            # reasoning engine's conclusions rather than starting cold.
+            if plain_inferences:
+                self._cross_cycle_context["reasoning_inferences"] = [
+                    str(s) for s in plain_inferences[:5]
+                ]
+            if getattr(cot, "conclusion", None):
+                self._cross_cycle_context["reasoning_cot"] = cot.conclusion[:300]
+                log.info(
+                    "🔗 [REASONING→Phase A] Stored %d inference(s) + CoT for next cycle",
+                    len(plain_inferences[:5]),
+                )
+
             log.info(
                 "✅ [REASONING] Graph:%d concepts | Path:%s | "
                 "Inferences:%d | CoT:%s(%.2f) | Contradictions:%d",
@@ -3198,6 +3228,17 @@ class AutonomousLearningEngine:
                         self.knowledge_db.queue_learning(gap_topic)
                     except Exception:
                         pass
+
+            # ── Cross-cycle inter-wiring: store gaps for Phase A next cycle ──
+            # Phase A's _apply_cross_cycle_context() will promote these to the
+            # front of the research queue (priority=True) so the next cycle
+            # opens by researching exactly what metacognition said was weakest.
+            if poorly_understood[:5]:
+                self._cross_cycle_context["metacognition_gaps"] = poorly_understood[:5]
+                log.info(
+                    "🔗 [METACOGNITION→Phase A] Stored %d gap topic(s) for next cycle: %s",
+                    len(poorly_understood[:5]), poorly_understood[:5],
+                )
 
             # Persist self-assessment to KB
             if self.knowledge_db:
@@ -4217,6 +4258,19 @@ class AutonomousLearningEngine:
             self.learning_history.get("cognitive_enhancement_cycles", 0) + 1
         )
 
+        # ── Cross-cycle inter-wiring: store studied domains for Phase A next cycle ─
+        # Phase A's _apply_cross_cycle_context() adds these as background research
+        # topics so the next cycle's unified research can deepen Niblit's knowledge
+        # in each cognitive domain that Phase E just enhanced.
+        if updated_domains:
+            self._cross_cycle_context["cognitive_domains"] = [
+                d.replace("_", " ") for d in updated_domains[:5]
+            ]
+            log.info(
+                "🔗 [COGNITIVE→Phase A] Stored %d cognitive domain(s) for next cycle: %s",
+                len(updated_domains[:5]), updated_domains[:5],
+            )
+
         summary = (
             f"CognitiveEnhancement: updated {len(updated_domains)}/{len(self._COGNITIVE_DOMAINS)} domains"
             + (f" (errors: {len(errors)})" if errors else "")
@@ -4854,10 +4908,86 @@ class AutonomousLearningEngine:
                 )
                 self._interruptible_sleep(self._inter_phase_sleep)
 
+        def _apply_cross_cycle_context() -> None:
+            """Consume cross-cycle inter-phase wiring entries at the start of Phase A.
+
+            Modules in later phases (C and E) write their most valuable outputs
+            into ``self._cross_cycle_context`` during the *previous* cycle.
+            This function reads those entries and applies them to Phase A so
+            the current cycle's research opens with the strongest available
+            learning signal:
+
+            Phase C → A:
+              * metacognition_gaps   — promoted to the *front* of the research
+                                       queue (priority=True) so Step 1 targets
+                                       the weakest knowledge areas first.
+              * reasoning_inferences — seeded as background research topics.
+              * reasoning_cot        — logged as contextual frame for this cycle.
+
+            Phase E → A:
+              * cognitive_domains    — added as regular (non-priority) research
+                                       topics so Step 1 can deepen Niblit's
+                                       knowledge in domains Phase E just enhanced.
+
+            Each entry is consumed (popped) so it is applied exactly once.
+            """
+            ctx = self._cross_cycle_context
+            if not ctx:
+                return
+
+            gap_topics   = ctx.pop("metacognition_gaps", [])
+            inferences   = ctx.pop("reasoning_inferences", [])
+            cot_text     = ctx.pop("reasoning_cot", None)
+            cog_domains  = ctx.pop("cognitive_domains", [])
+
+            # Phase C → A: metacognition gap topics → highest-priority research
+            if gap_topics:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase C→A: %d metacognition gap(s) → "
+                    "priority research topics: %s",
+                    cycle, len(gap_topics), gap_topics,
+                )
+                for gap in gap_topics:
+                    self.add_research_topic(gap, priority=True)
+
+            # Phase C → A: reasoning CoT conclusion → contextual frame
+            if cot_text:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase C→A reasoning frame: %s",
+                    cycle, cot_text[:120],
+                )
+
+            # Phase C → A: reasoning inferences → background research seeds
+            if inferences:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase C→A: %d inference(s) → topic seeds",
+                    cycle, len(inferences),
+                )
+                for inf in inferences:
+                    # Extract a compact topic fragment from the inference statement
+                    seed = str(inf)[:80].split(".")[0].strip()
+                    if len(seed) >= 4:
+                        self.add_research_topic(seed)
+
+            # Phase E → A: cognitive domains → background research topics
+            if cog_domains:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase E→A: %d cognitive domain(s) → "
+                    "background topics: %s",
+                    cycle, len(cog_domains), cog_domains[:3],
+                )
+                for domain in cog_domains:
+                    self.add_research_topic(domain)  # non-priority; back of queue
+
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # Phase A — Research & Core Learning (steps 1–7)
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "A"
         log.info("▶ [CYCLE #%d] Phase A — Research & Core Learning", cycle)
+
+        # Apply cross-cycle outputs from Phase C + E of the previous cycle
+        # BEFORE running Step 1 so the research queue is already enriched.
+        _apply_cross_cycle_context()
 
         # ── Step 1: Unified research — ONE call, ALL backends, ONE topic ───
         # Replaces former Step 27 (SerpexResearch) + Step 1 (Research).
@@ -4875,9 +5005,15 @@ class AutonomousLearningEngine:
         # legitimately needs more than the default 120 s step budget.
         _step("Evolve",         self._autonomous_evolve_step, timeout=420)
 
+        log.info(
+            "✅ [CYCLE #%d] Phase A done — phases B→C→D→E still pending before cycle restarts",
+            cycle,
+        )
+
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # Phase B — Code Loop (steps 8–12)
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "B"
         _phase_break("Phase A → Phase B")
         log.info("▶ [CYCLE #%d] Phase B — Code Loop", cycle)
 
@@ -4890,9 +5026,15 @@ class AutonomousLearningEngine:
         _research_step("CodeReflection",  self._autonomous_code_reflection)
         _step("SoftwareStudy",   self._autonomous_software_study)
 
+        log.info(
+            "✅ [CYCLE #%d] Phase B done — phases C→D→E still pending",
+            cycle,
+        )
+
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # Phase C — Structural Awareness & Reasoning (steps 13–17)
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "C"
         _phase_break("Phase B → Phase C")
         log.info("▶ [CYCLE #%d] Phase C — Structural Awareness & Reasoning", cycle)
 
@@ -4904,14 +5046,25 @@ class AutonomousLearningEngine:
         _step("TopicSeeding", self._autonomous_topic_seeding)
 
         # ── Step 16: Intelligent reasoning ────────────────────────────────
+        # Outputs (inferences, CoT) are stored in _cross_cycle_context by
+        # _autonomous_reasoning() for use by Phase A next cycle.
         _step("Reasoning", self._autonomous_reasoning)
 
         # ── Step 17: Metacognition ─────────────────────────────────────────
+        # Gap topics are stored in _cross_cycle_context by
+        # _autonomous_metacognition() for use by Phase A next cycle.
         _step("Metacognition", self._autonomous_metacognition)
+
+        log.info(
+            "✅ [CYCLE #%d] Phase C done — phases D→E still pending "
+            "(metacognition/reasoning outputs queued for Phase A next cycle)",
+            cycle,
+        )
 
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # Phase D — Improvement & Self-Management (steps 18–23)
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "D"
         _phase_break("Phase C → Phase D")
         log.info("▶ [CYCLE #%d] Phase D — Improvement & Self-Management", cycle)
 
@@ -4940,9 +5093,15 @@ class AutonomousLearningEngine:
         # ── Step 23: Evolve deploy ────────────────────────────────────────
         _step("EvolveDeploy", self._autonomous_evolve_deploy)
 
+        log.info(
+            "✅ [CYCLE #%d] Phase D done — Phase E still pending",
+            cycle,
+        )
+
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # Phase E — Training, Discovery & Maintenance (steps 24–32)
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "E"
         _phase_break("Phase D → Phase E")
         log.info("▶ [CYCLE #%d] Phase E — Training, Discovery & Maintenance", cycle)
 
@@ -4952,6 +5111,8 @@ class AutonomousLearningEngine:
         _step("BrainTraining", self._autonomous_brain_training, timeout=240)
 
         # ── Step 25: Cognitive enhancement ───────────────────────────────
+        # Studied domains are stored in _cross_cycle_context by
+        # _autonomous_cognitive_enhancement() for use by Phase A next cycle.
         _step("CognitiveEnhancement", self._autonomous_cognitive_enhancement)
 
         # ── Step 26: GitHub Code Discovery ───────────────────────────────
@@ -4991,6 +5152,13 @@ class AutonomousLearningEngine:
         # Throttled to every _LLM_ARCHITECT_CYCLE_EVERY cycles (default 10).
         if cycle % self._LLM_ARCHITECT_CYCLE_EVERY == 0:
             _step("LLMArchitectCycle", self._autonomous_llm_architect)
+
+        self._current_phase = ""
+        log.info(
+            "✅ [CYCLE #%d] Phase E done — all phases complete, "
+            "full cycle finished (Phase A restarts next cycle)",
+            cycle,
+        )
 
         # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
