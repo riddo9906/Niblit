@@ -3305,17 +3305,33 @@ Ask me about:
             if not unique_facts:
                 return None
 
-            # Score by keyword overlap
+            # Score by keyword overlap, weighting matches in the key/topic
+            # higher than matches buried in the body of a long value.
+            # key match (+4) >> value head/summary (+2) >> body (+1)
+            # This prevents generic keywords like "data" from matching
+            # unrelated entries that merely contain the word in passing.
+            _VAL_HEAD_LEN = 150
+
             def _score(fact):
-                text = (
-                    str(fact.get("value", fact))
-                    + " "
-                    + str(fact.get("key", ""))
-                ).lower()
-                return sum(1 for kw in keywords if kw in text)
+                key_text = str(fact.get("key", "")).lower()
+                val_str = str(fact.get("value", fact)).lower()
+                val_head = val_str[:_VAL_HEAD_LEN]
+                score = 0
+                for kw in keywords:
+                    if kw in key_text:
+                        score += 4
+                    elif kw in val_head:
+                        score += 2
+                    elif kw in val_str:
+                        score += 1
+                return score
 
             scored = sorted(unique_facts, key=_score, reverse=True)
-            top = [f for f in scored if _score(f) > 0][:4]
+            # Require score >= 2: the keyword must appear in the key or near
+            # the start of the value to count as a relevant result.  Incidental
+            # mentions buried in a long code snippet or GitHub PR description
+            # score only 1 and are excluded.
+            top = [f for f in scored if _score(f) >= 2][:4]
 
             if not top:
                 return None
