@@ -189,6 +189,66 @@
         "live": true,
         "ts": 1775849300.7076786
       }
+    },
+    {
+      "ts": 1775850945.1316469,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1775850945.131644
+      }
+    },
+    {
+      "ts": 1775850947.1992524,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1775850947.1992493
+      }
+    },
+    {
+      "ts": 1775850949.2417605,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1775850949.241758
+      }
+    },
+    {
+      "ts": 1775851155.158383,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1775851155.1583793
+      }
+    },
+    {
+      "ts": 1775851157.016208,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "computer",
+        "wiki": true,
+        "live": true,
+        "ts": 1775851157.016204
+      }
+    },
+    {
+      "ts": 1775851158.8434668,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "phone",
+        "wiki": true,
+        "live": true,
+        "ts": 1775851158.8434646
+      }
     }
   ],
   "facts": [],
