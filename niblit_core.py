@@ -56,6 +56,7 @@ from typing import Any, Dict, List, Tuple, Optional, Callable
 from dataclasses import dataclass, field
 import collections
 from collections import defaultdict
+import queue as _queue_mod
 from contextlib import contextmanager
 from pathlib import Path
 from functools import lru_cache
@@ -1510,6 +1511,20 @@ class NiblitCore:
         self.slsa_engine = None
         self.slsa_thread = None
 
+        # Phased-initialization state
+        # "pending"  — deferred thread not yet started
+        # "running"  — Phase-1 (heavy modules) loading in background
+        # "complete" — Phase-1 finished successfully
+        # "failed"   — Phase-1 raised an unhandled exception
+        self._deferred_init_phase: str = "pending"
+        self._deferred_init_event: threading.Event = threading.Event()
+
+        # Live init-progress queue — main.py drains this while blocking on
+        # wait_for_ready() so the user sees real-time sub-phase progress
+        # messages instead of a silent wait.
+        self._init_progress_queue: _queue_mod.Queue = _queue_mod.Queue()
+        self._current_init_phase: str = ""
+
         # Wake-lock: keeps CPU alive when screen is off / Termux is in background
         self.wakelock: Optional["TermuxWakeLock"] = (
             TermuxWakeLock() if TermuxWakeLock is not None else None
@@ -1695,31 +1710,45 @@ class NiblitCore:
         self.serpex_research_agent = None
         self.scrapy_research_agent = None
 
-        log.info("✨ Booting Niblit (Production Enhanced + Self-Improving + Autonomous Learning)...")
+        log.info("✨ Booting Niblit (Phase 0 — fast start)...")
 
         try:
             if self.config.enable_improvements:
                 self._init_improvements()
 
+            # Phase 0: critical-path synchronous init (< 1 second)
+            # DB, identity, internet — no model loads.
             self._initialize_core()
-            self._initialize_modules()
+
+            # Minimal router: NiblitRouter accepts core itself as brain.
+            # All router code-paths guard with ``if self.brain:`` so it
+            # degrades gracefully until Phase 1 finishes.
+            if NiblitRouter and self.db is not None:
+                try:
+                    self.router = NiblitRouter(self, self.db, self)
+                    self.router.start()
+                    log.info("✅ NiblitRouter (Phase 0) ready")
+                except Exception as _re:
+                    log.debug("Minimal router init failed: %s", _re)
+
+            # Background health/trainer/research loops start now; they
+            # guard all component access with getattr(..., None) so
+            # they tolerate None components during Phase 1.
             self._start_background_services()
 
             if self.startup_report.is_healthy():
-                log.info("✅ NIBLIT READY (All Systems Go)")
+                log.info("✅ NIBLIT PHASE 0 READY — heavy modules loading in background")
             else:
-                log.warning(f"⚠️ Degraded startup: {self.startup_report.summary()}")
-            # ── Register core with NiblitKernel (additive) ───────────────────
-            if hasattr(self, 'kernel') and self.kernel:
-                try:
-                    self.kernel.register_module("NiblitCore", self)
-                    self.kernel.update_self_identity("core_initialized", True)
-                    self.kernel.log_improvement(
-                        "NiblitCore fully initialized with kernel, hybrid-qdrant, and self-monitor",
-                        category="init"
-                    )
-                except Exception:
-                    pass
+                log.warning(f"⚠️ Degraded Phase-0 startup: {self.startup_report.summary()}")
+
+            # Phase 1: all heavy modules load in a daemon thread.
+            self._deferred_thread: Optional[threading.Thread] = threading.Thread(
+                target=self._deferred_init,
+                name="DeferredInitThread",
+                daemon=True,
+            )
+            self._deferred_thread.start()
+
         except Exception as e:
             log.error(f"Fatal initialization error: {e}", exc_info=True)
             raise
@@ -1824,6 +1853,124 @@ class NiblitCore:
             log.warning(f"[IMPROVEMENTS] AlertManager failed: {e}")
 
         log.info("[IMPROVEMENTS] ✅ 17 production enhancements initialized")
+
+    # ============================
+    # PHASED INIT: DEFERRED THREAD
+    # ============================
+
+    def _deferred_init(self) -> None:
+        """Phase-1 background initialization.
+
+        Runs :meth:`_initialize_modules` (VectorStore / HFBrain / ALE /
+        CivilizationController / trading systems / 60+ optional services)
+        inside a daemon thread so the CLI is available immediately after
+        Phase 0 completes.
+
+        Status is tracked via ``self._deferred_init_phase``:
+        ``"pending"`` → ``"running"`` → ``"complete"`` / ``"failed"``
+        """
+        self._deferred_init_phase = "running"
+        log.info("[DEFERRED-INIT] Phase 1 starting — heavy modules loading in background...")
+        try:
+            self._initialize_modules()
+
+            self._deferred_init_phase = "complete"
+            self._deferred_init_event.set()
+
+            ready_count = sum(
+                1 for r in self.startup_report.results.values()
+                if r.get("status") == "ready"
+            )
+            total_count = len(self.startup_report.results)
+            msg = (
+                f"✅ Background init complete — {ready_count}/{total_count} components ready"
+            )
+            log.info("[DEFERRED-INIT] %s", msg)
+
+            # Register core with NiblitKernel now that kernel is available.
+            if getattr(self, "kernel", None):
+                try:
+                    self.kernel.register_module("NiblitCore", self)
+                    self.kernel.update_self_identity("core_initialized", True)
+                    self.kernel.log_improvement(
+                        "NiblitCore fully initialized with kernel, hybrid-qdrant, and self-monitor",
+                        category="init",
+                    )
+                except Exception:
+                    pass
+
+            # Push completion notification — user sees it after pressing Enter.
+            try:
+                from core.notification_queue import notif_queue as _nq
+                _nq.push(msg)
+            except Exception:
+                pass
+            try:
+                if self._notifications is not None:
+                    self._notifications.append(msg)
+            except Exception:
+                pass
+
+        except Exception as exc:
+            self._deferred_init_phase = "failed"
+            self._deferred_init_event.set()
+            log.error("[DEFERRED-INIT] Phase 1 failed: %s", exc, exc_info=True)
+            _fail_msg = f"⚠️ Background init failed: {exc}"
+            try:
+                from core.notification_queue import notif_queue as _nq
+                _nq.push(_fail_msg)
+            except Exception:
+                pass
+            try:
+                if self._notifications is not None:
+                    self._notifications.append(_fail_msg)
+            except Exception:
+                pass
+
+    def wait_for_ready(self, timeout: Optional[float] = None) -> bool:
+        """Block until Phase-1 deferred init completes (or *timeout* seconds).
+
+        Returns ``True`` if Phase-1 finished successfully, ``False`` on
+        timeout or failure.  Callers that need LLM / ALE / vector-store
+        before acting (e.g. one-shot scripts, integration tests) should
+        call this first.
+
+        Args:
+            timeout: Maximum seconds to wait.  ``None`` waits indefinitely.
+
+        Returns:
+            ``True`` if Phase-1 init completed successfully, ``False`` otherwise.
+        """
+        if self._deferred_init_phase in ("complete", "failed"):
+            return self._deferred_init_phase == "complete"
+        self._deferred_init_event.wait(timeout=timeout)
+        return self._deferred_init_phase == "complete"
+
+    def _push_init_progress(self, msg: str) -> None:
+        """Push a sub-phase progress message to the live init-progress queue.
+
+        Called by :meth:`_initialize_modules` at the start and end of each
+        sub-phase so that the caller of :meth:`wait_for_ready` (e.g. main.py)
+        can drain the queue and display real-time loading messages instead of
+        silently blocking.
+
+        The message is also written at INFO level and forwarded to the
+        notification queue so it can appear in the CLI after the user presses
+        Enter once the interactive shell opens.
+        """
+        self._current_init_phase = msg
+        try:
+            self._init_progress_queue.put_nowait(msg)
+        except Exception:
+            pass
+        # Also forward to the background notification queue so it appears
+        # when the CLI is already open (e.g. NIBLIT_SKIP_INIT_WAIT=1).
+        try:
+            from core.notification_queue import notif_queue as _nq
+            _nq.push(msg)
+        except Exception:
+            pass
+        log.info("[INIT-PROGRESS] %s", msg)
 
     def _register_commands(self):
         """Register commands with CommandRegistry."""
@@ -5280,7 +5427,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
             mem_count = self._get_memory_count()
             improvements = "✅ Active" if self.improvements else "❌ Inactive"
             autonomous = "✅ Running" if (self.autonomous_engine and self.autonomous_engine.running) else "❌ Stopped"
-            return f"Status: OK | Memory: {mem_count} | Improvements: {improvements} | Autonomous: {autonomous}"
+            _phase_icons = {
+                "pending": "⏳ pending",
+                "running": "⏳ loading modules...",
+                "complete": "✅ ready",
+                "failed": "❌ failed",
+            }
+            phase = getattr(self, "_deferred_init_phase", "pending")
+            init_label = _phase_icons.get(phase, phase)
+            return (
+                f"Status: OK | Memory: {mem_count} | "
+                f"Improvements: {improvements} | Autonomous: {autonomous} | "
+                f"Init: {init_label}"
+            )
         except Exception as e:
             log.error(f"Status command failed: {e}")
             return f"Status: Error - {e}"
@@ -5711,21 +5870,41 @@ SW Categories: {stats.get('software_study_categories', 0)}
     def _initialize_modules(self):
         """Initialize all modules with dependency management."""
         with self.logger.context("initialize_modules"):
-            # Phase 0: Shared infrastructure (VectorStore / Qdrant)
+            # Phase 1/5: Shared infrastructure (VectorStore / Qdrant)
+            self._push_init_progress(
+                "🔄 [1/5] Loading shared infrastructure (VectorStore, FusedMemory, SemanticAgent)..."
+            )
             self._init_vector_store()
+            self._push_init_progress("✅ [1/5] Shared infrastructure ready")
 
-            # Phase 1: Foundation modules
+            # Phase 2/5: Foundation modules (LLM, HFBrain, SelfTeacher, etc.)
+            self._push_init_progress(
+                "🔄 [2/5] Loading AI adapters (LLM adapter, HFBrain, SelfTeacher, SelfImplementer)..."
+            )
             self._init_ai_adapters()
+            self._push_init_progress("✅ [2/5] AI adapters ready")
 
-            # Phase 2: Intelligent systems
+            # Phase 3/5: Intelligent systems (Brain, Router, Learning)
+            self._push_init_progress(
+                "🔄 [3/5] Loading Brain, Router, and Learning systems (NiblitBrain, NiblitRouter, ALE learning)..."
+            )
             self._init_brain_and_router()
             self._init_learning_systems()
+            self._push_init_progress("✅ [3/5] Brain, Router, and Learning systems ready")
 
-            # Phase 3: System services
+            # Phase 4/5: System services (Network, Sensors, Voice, Actions)
+            self._push_init_progress(
+                "🔄 [4/5] Loading system services (Network, Sensors, Voice, Actions)..."
+            )
             self._init_system_services()
+            self._push_init_progress("✅ [4/5] System services ready")
 
-            # Phase 4: Optional heavy modules
+            # Phase 5/5: Optional heavy modules (ALE, Trading, Civilization, 60+)
+            self._push_init_progress(
+                "🔄 [5/5] Loading optional services (ALE, TradingBrain, CivilizationController, 60+ modules)..."
+            )
             self._init_optional_services()
+            self._push_init_progress("✅ [5/5] All optional services loaded — Niblit is fully booted")
 
     def _init_vector_store(self) -> None:
         """
@@ -7662,6 +7841,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         while self.running:
             try:
+                # Skip if ALE is already running — it covers all research steps
+                # and calling researcher.search() concurrently would saturate
+                # the network stack and serialise on internal locks.
+                _ale = getattr(self, "autonomous_engine", None)
+                if _ale is not None and getattr(_ale, "running", False):
+                    time.sleep(150)
+                    continue
+
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
                     queued = self.db.get_learning_queue()
                     pending = [
@@ -7688,7 +7875,24 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             if self.internet:
                                 self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
                             if hasattr(self.researcher, "search"):
-                                result = safe_call(self.researcher.search, topic)
+                                # Run search in a daemon thread with a hard 60s
+                                # timeout so a stalled network call never freezes
+                                # the entire ResearchLoop thread indefinitely.
+                                _result_box: list = [None]
+
+                                def _do_search(_t=topic):
+                                    _result_box[0] = safe_call(self.researcher.search, _t)
+
+                                _st = threading.Thread(target=_do_search, daemon=True)
+                                _st.start()
+                                _st.join(timeout=60)
+                                if not _st.is_alive():
+                                    result = _result_box[0]
+                                else:
+                                    log.debug(
+                                        "[AUTO RESEARCH] Search timed out for '%s' — skipping",
+                                        topic,
+                                    )
                                 if result:
                                     self.research_cache.set(cache_key, result)
 
