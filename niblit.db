@@ -179,6 +179,16 @@
         "live": true,
         "ts": 1775849001.837927
       }
+    },
+    {
+      "ts": 1775849300.707682,
+      "key": "slsa_exposure",
+      "value": {
+        "topic": "car",
+        "wiki": true,
+        "live": true,
+        "ts": 1775849300.7076786
+      }
     }
   ],
   "facts": [],

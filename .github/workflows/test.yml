@@ -69,6 +69,12 @@ jobs:
         env:
           FLASK_ENV: testing
           HF_TOKEN: test-token
+          # Disable inter-phase sleeps so phase-gated modules (EvolveEngine,
+          # ALE, SelfImprovementOrchestrator) complete quickly in unit tests.
+          # Production deployments keep the defaults (5 s / 5 s / 3 s).
+          NIBLIT_EVOLVE_INTER_PHASE_SLEEP: "0"
+          NIBLIT_ALE_INTER_PHASE_SLEEP: "0"
+          NIBLIT_SIO_INTER_PHASE_SLEEP: "0"
         run: |
           pytest \
             test_server.py \
