@@ -3316,22 +3316,29 @@ Ask me about:
                 key_text = str(fact.get("key", "")).lower()
                 val_str = str(fact.get("value", fact)).lower()
                 val_head = val_str[:_VAL_HEAD_LEN]
+                val_tail = val_str[_VAL_HEAD_LEN:]
                 score = 0
                 for kw in keywords:
                     if kw in key_text:
                         score += 4
                     elif kw in val_head:
                         score += 2
-                    elif kw in val_str:
+                    elif kw in val_tail:
                         score += 1
                 return score
 
-            scored = sorted(unique_facts, key=_score, reverse=True)
+            # Compute scores once to avoid redundant recalculation during
+            # both sort and filter.
+            scored_pairs = sorted(
+                ((f, _score(f)) for f in unique_facts),
+                key=lambda p: p[1],
+                reverse=True,
+            )
             # Require score >= 2: the keyword must appear in the key or near
             # the start of the value to count as a relevant result.  Incidental
             # mentions buried in a long code snippet or GitHub PR description
             # score only 1 and are excluded.
-            top = [f for f in scored if _score(f) >= 2][:4]
+            top = [f for f, s in scored_pairs if s >= 2][:4]
 
             if not top:
                 return None
