@@ -342,6 +342,8 @@ class NiblitRouter:
         "curriculum",
         # STACA civilization multi-agent framework (additive)
         "civilization", "civ",
+        # Tiered knowledge recall — structured KB lookup by topic (additive)
+        "knowledge",
     )
 
     CHAT_RESPONSES = {
@@ -2650,6 +2652,64 @@ Ask me about:
             return json.dumps(sm.get_experience_summary(), indent=2)
         return f"Unknown self-monitor command: {sub}\nUsage: self-monitor [status|trends|recommendations|summary]"
 
+    def _handle_knowledge(self, cmd: str) -> str:
+        """Handle 'knowledge <topic>' — query the Tiered Knowledge System.
+
+        Usage::
+
+            knowledge transformers          # recall stored facts for a topic
+            knowledge status                # show current tier and confidence
+            knowledge report                # full tier-by-tier report
+        """
+        sub = cmd[len("knowledge"):].strip()
+
+        ale = getattr(self.core, "autonomous_engine", None)
+        tks = getattr(ale, "tiered_knowledge", None) if ale else None
+
+        if tks is None:
+            # Try to import the singleton directly as fallback
+            try:
+                from modules.tiered_knowledge_system import get_tiered_knowledge_system
+                tks = get_tiered_knowledge_system()
+            except Exception:
+                pass
+
+        if not sub or sub == "status":
+            if tks is None:
+                return "Tiered Knowledge System is not available."
+            return f"📚 {tks.status_summary()}"
+
+        if sub == "report":
+            if tks is None:
+                return "Tiered Knowledge System is not available."
+            report = tks.full_report()
+            lines = [f"📊 Knowledge tier report — current tier: {report.get('current_tier', '?')}"]
+            for tier_name, info in report.get("tiers", {}).items():
+                conf = info.get("confidence", 0)
+                total = info.get("topics_total", 0)
+                covered = info.get("topics_covered", 0)
+                bar_filled = int(conf * 20)
+                bar = "█" * bar_filled + "░" * (20 - bar_filled)
+                lines.append(f"  {tier_name:<16} [{bar}] {conf:.0%} ({covered}/{total} topics)")
+            return "\n".join(lines)
+
+        # Treat remaining text as a topic name — recall stored KB facts
+        if tks is None:
+            return "Tiered Knowledge System is not available — cannot recall topic facts."
+        result = tks.recall_knowledge(sub)
+        if result:
+            lines = [f"📖 What Niblit knows about '{sub}':"]
+            for i, part in enumerate(result.splitlines(), 1):
+                lines.append(f"  {i}. {part}")
+            return "\n".join(lines)
+        return (
+            f"No stored facts for '{sub}' yet.\n"
+            f"Run 'self-teach {sub}' or wait for the autonomous learning engine "
+            f"to research this topic."
+        )
+
+
+
     def _handle_kernel(self, text: str) -> str:
         """Handle 'kernel <sub>' commands — NiblitKernel cognitive dashboard."""
         sub = text[len("kernel"):].strip()
@@ -3661,6 +3721,26 @@ Ask me about:
 
         self.log_event(f"Incoming: {cleaned}")
 
+        # ── Pause ALE background research while we serve this request ──────────
+        # This prevents the autonomous learning engine from competing with the
+        # LLM call or SQLite writes during the (typically 1–5 s) response window.
+        # Only pause if BOTH pause() and resume() exist — ensuring we can always
+        # resume even if an exception occurs before resume is verified.
+        _ale = getattr(self.core, "autonomous_engine", None) if self.core else None
+        _ale_pause   = getattr(_ale, "pause",  None) if _ale else None
+        _ale_resume  = getattr(_ale, "resume", None) if _ale else None
+        _ale_active  = callable(_ale_pause) and callable(_ale_resume)
+        if _ale_active:
+            _ale_pause()
+
+        try:
+            return self._process_inner(cleaned, lower)
+        finally:
+            if _ale_active:
+                _ale_resume()
+
+    def _process_inner(self, cleaned, lower):
+        """Internal routing logic — called by process() with ALE already paused."""
         cmd_word = lower.split(" ", 1)[0]
 
         if cmd_word in self.COMMAND_PREFIXES or any(lower.startswith(prefix) for prefix in ["show improvements", "run improvement", "improvement-status"]):
@@ -4366,6 +4446,10 @@ Ask me about:
         # KERNEL — NiblitKernel cognitive dashboard (additive)
         if lower == "kernel" or lower.startswith("kernel "):
             return self._handle_kernel(cmd)
+
+        # KNOWLEDGE — tiered KB recall (additive)
+        if lower == "knowledge" or lower.startswith("knowledge "):
+            return self._handle_knowledge(cmd)
 
         # MEMORY RESET — flush all memory, caches and state files
         if lower == "memory-reset" or lower.startswith("memory-reset "):

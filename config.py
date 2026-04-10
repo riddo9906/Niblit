@@ -128,6 +128,61 @@ class Config:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
     LOG_FORMAT: str = os.getenv("LOG_FORMAT", "json")  # "json" or "text"
 
+    @classmethod
+    def validate(cls) -> None:
+        """Print a structured table of which services are enabled/disabled.
+
+        Call this once at boot (e.g. from main.py after creating NiblitCore)
+        so operators can immediately see what keys are present without reading
+        logs or digging through the .env file.
+
+        Example output::
+
+            ┌─── Niblit service status ─────────────────────────────────────────┐
+            │  ✅  HuggingFace LLM         HF_TOKEN              set            │
+            │  ❌  OpenAI LLM              OPENAI_API_KEY         not set       │
+            └───────────────────────────────────────────────────────────────────┘
+        """
+        import logging
+        _log = logging.getLogger("NiblitConfig")
+
+        checks = [
+            ("HuggingFace LLM",      "HF_TOKEN",           bool(cls.HF_TOKEN)),
+            ("OpenAI LLM",           "OPENAI_API_KEY",      bool(cls.OPENAI_API_KEY)),
+            ("Anthropic LLM",        "ANTHROPIC_API_KEY",   bool(cls.ANTHROPIC_API_KEY)),
+            ("Qdrant vector store",  "QDRANT_URL",          bool(cls.QDRANT_URL)),
+            ("SerpEx search",        "SERPEX_API_KEY",      bool(cls.SERPEX_API_KEY)),
+            ("GitHub code search",   "GITHUB_TOKEN",        bool(cls.GITHUB_TOKEN)),
+            ("API key auth",         "NIBLIT_API_KEY",      bool(cls.NIBLIT_API_KEY)),
+        ]
+
+        any_llm = bool(cls.HF_TOKEN or cls.OPENAI_API_KEY or cls.ANTHROPIC_API_KEY)
+
+        lines = ["", "┌─── Niblit service status ───────────────────────────────────────┐"]
+        for label, env_var, enabled in checks:
+            icon  = "✅" if enabled else "❌"
+            state = "set" if enabled else "not set"
+            lines.append(f"│  {icon}  {label:<24} {env_var:<22} {state:<10}│")
+        lines.append("└─────────────────────────────────────────────────────────────────┘")
+
+        for line in lines:
+            _log.warning(line)
+            print(line)
+
+        if not any_llm:
+            msg = (
+                "\n"
+                "┌──────────────────────────────────────────────────────────────────┐\n"
+                "│  ⚠️  NO LLM PROVIDER configured — Niblit will echo inputs only.   │\n"
+                "│  Set at least ONE of:                                             │\n"
+                "│    HF_TOKEN          (HuggingFace router — free tier available)  │\n"
+                "│    OPENAI_API_KEY    (OpenAI — pay-as-you-go)                    │\n"
+                "│    ANTHROPIC_API_KEY (Anthropic — pay-as-you-go)                 │\n"
+                "└──────────────────────────────────────────────────────────────────┘"
+            )
+            print(msg)
+            _log.warning(msg)
+
 
 class DevelopmentConfig(Config):
     """Development overrides."""

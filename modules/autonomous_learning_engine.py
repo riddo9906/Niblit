@@ -68,6 +68,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 
+from modules.tiered_knowledge_system import (
+    get_tiered_knowledge_system,
+    KnowledgeTier,
+    TIER_SOURCES,
+    TIER_TOPICS,
+)
+
 log = logging.getLogger("AutonomousLearning")
 
 # Maximum characters stored from a failed code snippet in the KB / reflection queue.
@@ -139,6 +146,12 @@ class AutonomousLearningEngine:
     # write and index the results before the next research call begins.
     _RESEARCH_INGEST_WAIT: float = 60.0
     _CODE_TOPIC_INGEST_WAIT: float = 30.0
+    # Seconds to pause between cycle phases to yield CPU and I/O resources.
+    # The 32-step cycle is split into 5 named phases; this break fires between
+    # each phase so the process never saturates the CPU for a long continuous
+    # stretch and individual steps are less likely to hit timeouts.
+    # Set NIBLIT_ALE_INTER_PHASE_SLEEP=0 to disable.
+    _INTER_PHASE_SLEEP: float = 5.0
 
     # Cross-cycle snippet dedup cache size.  When the cache exceeds this many
     # entries it is cleared so memory stays bounded and content from much
@@ -289,6 +302,13 @@ class AutonomousLearningEngine:
             except (ValueError, TypeError):
                 self.startup_delay = self._DEFAULT_STARTUP_DELAY
 
+        # Resolve inter-phase sleep: env var → class default
+        try:
+            _ips = float(os.environ.get("NIBLIT_ALE_INTER_PHASE_SLEEP", self._INTER_PHASE_SLEEP))
+            self._inter_phase_sleep: float = max(0.0, _ips)
+        except (ValueError, TypeError):
+            self._inter_phase_sleep = self._INTER_PHASE_SLEEP
+
         self.idle_threshold = idle_threshold
         self.poll_interval = poll_interval
 
@@ -297,6 +317,10 @@ class AutonomousLearningEngine:
         self.learning_thread = None
         # Event used to wake up the inter-cycle sleep early (e.g. on stop())
         self._stop_event = threading.Event()
+        # Event that is *clear* while the ALE is paused and *set* while it may run.
+        # ALE yields inside _interruptible_sleep whenever this event is clear.
+        self._paused_event = threading.Event()
+        self._paused_event.set()  # start in un-paused state
 
         # Topics to autonomously research.
         # When the GradedCurriculum module is available the ALE pulls topics
@@ -418,6 +442,27 @@ class AutonomousLearningEngine:
         # _TOPIC_STALE_LIMIT, _unified_research auto-generates more specific
         # subtopics and moves the stale topic to the back of the queue.
         self._topic_stale_count: Dict[str, int] = {}
+
+        # ── Cross-cycle inter-phase wiring ────────────────────────────────────
+        # Phase C (Metacognition + Reasoning) writes gap topics and inferences
+        # here after it completes.  Phase E (CognitiveEnhancement) writes newly
+        # studied cognitive domains here.  At the start of Phase A in the *next*
+        # cycle, _apply_cross_cycle_context() consumes these entries and promotes
+        # them into the research queue so Phase A immediately works on the most
+        # valuable knowledge-gap topics discovered by later phases.
+        # This achieves the "inter-wiring" behaviour without violating the
+        # sequential phase order (A→B→C→D→E runs once before A restarts).
+        self._cross_cycle_context: Dict[str, Any] = {}
+
+        # Tracks which phase (A/B/C/D/E or empty) is currently executing.
+        # Used for logging and external status queries.
+        self._current_phase: str = ""
+
+        # ── Tiered knowledge system ───────────────────────────────────────────
+        # Foundation → Basic → Intermediate → Advanced progressive acquisition.
+        # Resolved eagerly here (using knowledge_db which may be None) and
+        # re-bound after the core finishes initialising via _lazy_bind_tks().
+        self.tiered_knowledge = get_tiered_knowledge_system(knowledge_db=self.knowledge_db)
 
         log.info("✅ AutonomousLearningEngine initialized")
 
@@ -595,36 +640,49 @@ class AutonomousLearningEngine:
         """Select the next research topic for this cycle.
 
         Priority order:
-        1. Topics with detected knowledge gaps (fewer than _MIN_COVERAGE_THRESHOLD
-           facts in the KB) — these are studied first so Niblit fills holes in its
-           own knowledge before cycling through well-covered topics again.
-        2. Sequential round-robin across all research_topics (original behaviour).
+        1. TieredKnowledgeSystem uncovered topic — the next topic in the
+           current knowledge tier that hasn't reached full coverage yet.
+           This ensures Niblit progresses through Foundation → Basic →
+           Intermediate → Advanced before freely cycling.
+        2. Topics with detected knowledge gaps (fewer than
+           _MIN_COVERAGE_THRESHOLD facts in the KB).
+        3. Sequential round-robin across all research_topics (original behaviour).
 
-        Using gap-first selection ensures the autonomous loop converges on a
-        complete KB rather than endlessly re-researching well-known subjects.
+        Tier-first selection ensures Niblit builds a solid structured
+        knowledge base before exploring freely discovered topics.
         """
+        tc = _get_topic_constructor()
+
+        # ── Priority 1: TieredKnowledgeSystem uncovered topic ─────────────
+        try:
+            tks_topic = self.tiered_knowledge.next_uncovered_topic()
+            if tks_topic:
+                log.info(
+                    "[ALE] Tier-driven topic selected (tier=%s): %r",
+                    self.tiered_knowledge.current_tier_name, tks_topic,
+                )
+                return tc.build(tks_topic) if tc else tks_topic
+        except Exception:
+            pass
+
         if not self.research_topics:
             return "autonomous learning"
 
-        # Check for gap topics (quick scan, non-blocking)
+        # ── Priority 2: KB knowledge-gap topics ──────────────────────────
         try:
             gaps = self.detect_knowledge_gaps(max_gaps=3)
             if gaps:
-                # Pick the first gap that is actually in our topic list; fall
-                # through to round-robin if none match.
                 for gap in gaps:
                     if gap in self.research_topics:
                         log.info("[ALE] Gap-driven topic selected: %r", gap)
-                        tc = _get_topic_constructor()
                         return tc.build(gap) if tc else gap
         except Exception:
             pass
 
-        # Fallback: sequential rotation
+        # ── Fallback: sequential rotation ─────────────────────────────────
         idx = self._topic_index % len(self.research_topics)
         raw = self.research_topics[idx]
         self._topic_index = (idx + 1) % len(self.research_topics)
-        tc = _get_topic_constructor()
         return tc.build(raw) if tc else raw
 
     def _select_next_code_topic(self) -> Tuple[str, str]:
@@ -1208,6 +1266,249 @@ class AutonomousLearningEngine:
         except Exception as e:
             log.error(f"❌ Autonomous learning failed: {e}")
             return f"[Learning error: {e}]"
+
+    # ─────────────────────────────────────────────
+    # TIERED KNOWLEDGE SYSTEM STEP
+    # ─────────────────────────────────────────────
+
+    def _lazy_bind_tks(self) -> None:
+        """Ensure the TieredKnowledgeSystem has a live knowledge_db reference.
+
+        Called at the start of ``_autonomous_tiered_research`` so that even if
+        ``knowledge_db`` was None at construction time the TKS gets wired up
+        the moment the DB becomes available.
+        """
+        if self.tiered_knowledge.knowledge_db is None and self.knowledge_db:
+            self.tiered_knowledge.knowledge_db = self.knowledge_db
+            self.tiered_knowledge._load_state()
+
+    def _autonomous_tiered_research(self) -> str:
+        """Tiered research step: research the next uncovered topic for the
+        current knowledge tier using tier-appropriate sources.
+
+        Tier → sources
+        --------------
+        Foundation   : internal knowledge seed + Wikipedia (via internet)
+        Basic        : DuckDuckGo (Scrapy) + Google/internet + Wikipedia
+        Intermediate : internet + Searchcode + StackOverflow
+        Advanced     : Serpex + GitHub code search + Qdrant upsert + internet
+
+        The step:
+        1. Asks the TieredKnowledgeSystem for the next uncovered topic.
+        2. Queries the tier-appropriate sources.
+        3. Stores each result snippet via ``tiered_knowledge.store_knowledge()``
+           (tagged for structured recall) AND in the standard KB so all other
+           ALE steps can use the data immediately.
+        4. Records the topic as researched — when all topics in the tier are
+           covered, the TKS automatically advances to the next tier.
+        5. Uses ``tiered_knowledge.recall_knowledge()`` as context before
+           querying external sources so previously stored facts are not
+           re-downloaded unnecessarily.
+
+        Returns a one-line summary string.
+        """
+        self._lazy_bind_tks()
+        tks = self.tiered_knowledge
+
+        # ── 1. Get next uncovered topic ───────────────────────────────────
+        topic = tks.next_uncovered_topic()
+        if topic is None:
+            if tks.all_tiers_complete():
+                return (
+                    f"[TieredResearch] All tiers complete — {tks.status_summary()}"
+                )
+            # All topics covered but tier hasn't advanced yet (shouldn't happen,
+            # but advance manually to be safe).
+            tks.record_topic_researched("__check__", facts_added=0)
+            topic = tks.next_uncovered_topic()
+            if topic is None:
+                return f"[TieredResearch] {tks.status_summary()}"
+
+        tier      = tks.current_tier
+        tier_name = tks.current_tier_name
+        sources   = tks.get_sources()
+        log.info(
+            "📚 [TieredResearch] Tier=%s | Topic=%r | Sources=%s",
+            tier_name, topic, sources,
+        )
+
+        # ── 2. Check existing recall to avoid redundant fetches ───────────
+        existing = tks.recall_knowledge(topic)
+        if existing:
+            log.info(
+                "[TieredResearch] Existing knowledge found for %r — recording + skip fetch",
+                topic,
+            )
+            tks.record_topic_researched(topic)
+            return (
+                f"TieredResearch [{tier_name}]: recalled existing knowledge for '{topic}'. "
+                f"{tks.status_summary()}"
+            )
+
+        snippets_stored = 0
+        errors: List[str] = []
+        _topic_slug = tks._make_topic_slug(topic)
+
+        # ── Helper: store one snippet via TKS + standard KB ───────────────
+        def _store(content: str, source: str) -> None:
+            nonlocal snippets_stored
+            if not content or len(content.strip()) < 20:
+                return
+            tks.store_knowledge(topic, content, source=source)
+            if self.knowledge_db:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"tiered:{tier_name.lower()}:{_topic_slug}:{int(time.time())}",
+                        {
+                            "topic":   topic,
+                            "content": content[:600],
+                            "tier":    tier_name,
+                            "source":  source,
+                        },
+                        tags=[
+                            "tiered_knowledge",
+                            f"tier_{tier_name.lower()}",
+                            "ale_learned",
+                        ],
+                    )
+                except Exception as _ke:
+                    log.debug("[TieredResearch] KB store failed: %s", _ke)
+            snippets_stored += 1
+
+        # ── 3. Query tier-appropriate sources ─────────────────────────────
+
+        # Foundation & Basic: Wikipedia via internet search
+        if tier in (KnowledgeTier.FOUNDATION, KnowledgeTier.BASIC):
+            internet = self._get_internet()
+            if internet:
+                try:
+                    wiki_query = f"site:wikipedia.org {topic}"
+                    result = internet.search(wiki_query)
+                    text = (
+                        " ".join(str(r) for r in result[:3])[:600]
+                        if isinstance(result, list)
+                        else str(result)[:600]
+                    )
+                    if text.strip():
+                        _store(text, "wikipedia")
+                except Exception as _e:
+                    errors.append(f"wikipedia:{_e}")
+
+        # Basic, Intermediate, Advanced: DuckDuckGo (Scrapy) fallback
+        if tier in (KnowledgeTier.BASIC, KnowledgeTier.INTERMEDIATE, KnowledgeTier.ADVANCED):
+            scrapy = self._get_scrapy_agent()
+            if scrapy and snippets_stored == 0:
+                try:
+                    result = scrapy.search_web(topic)
+                    if isinstance(result, list):
+                        for item in result[:3]:
+                            text = str(item)[:500]
+                            if text.strip():
+                                _store(text, "duckduckgo")
+                    elif result:
+                        _store(str(result)[:500], "duckduckgo")
+                except Exception as _e:
+                    errors.append(f"duckduckgo:{_e}")
+
+        # Intermediate: Searchcode + StackOverflow
+        if tier == KnowledgeTier.INTERMEDIATE:
+            sc = self._get_searchcode_search()
+            if sc:
+                try:
+                    result = sc.search(topic, max_results=3)
+                    if isinstance(result, list):
+                        for item in result[:2]:
+                            _store(str(item)[:500], "searchcode")
+                except Exception as _e:
+                    errors.append(f"searchcode:{_e}")
+
+            so = self._get_stackoverflow_search()
+            if so:
+                try:
+                    result = so.search(topic, max_results=3)
+                    if isinstance(result, list):
+                        for item in result[:2]:
+                            _store(str(item)[:500], "stackoverflow")
+                except Exception as _e:
+                    errors.append(f"stackoverflow:{_e}")
+
+        # Advanced: Serpex + GitHub + Qdrant upsert
+        if tier == KnowledgeTier.ADVANCED:
+            serpex = self._get_serpex_agent()
+            if serpex:
+                try:
+                    result = serpex.search_web(topic)
+                    if isinstance(result, list):
+                        for item in result[:3]:
+                            _store(str(item)[:500], "serpex")
+                    elif result:
+                        _store(str(result)[:500], "serpex")
+                except Exception as _e:
+                    errors.append(f"serpex:{_e}")
+
+            gcs = self._get_github_code_search()
+            if gcs:
+                try:
+                    result = gcs.search_repos(topic, max_results=3)
+                    if isinstance(result, list):
+                        for item in result[:2]:
+                            _store(str(item)[:500], "github_api")
+                except Exception as _e:
+                    errors.append(f"github_api:{_e}")
+
+            if self.hybrid_manager and snippets_stored > 0:
+                try:
+                    self.hybrid_manager.upsert(
+                        text=f"[Tier:{tier_name}] {topic}",
+                        metadata={"tier": tier_name, "topic": topic},
+                    )
+                except Exception as _e:
+                    log.debug("[TieredResearch] Qdrant upsert failed: %s", _e)
+
+        # General internet fallback (all tiers) if still no snippets
+        if snippets_stored == 0:
+            internet = self._get_internet()
+            if internet:
+                try:
+                    result = internet.search(topic)
+                    text = (
+                        " ".join(str(r) for r in result[:3])[:600]
+                        if isinstance(result, list)
+                        else str(result)[:600]
+                    )
+                    if text.strip():
+                        _store(text, "internet_fallback")
+                except Exception as _e:
+                    errors.append(f"internet_fallback:{_e}")
+
+        # Minimum-viable seed so the topic is never "researched zero times"
+        if snippets_stored == 0:
+            seed = (
+                f"Tier:{tier_name} | Topic: {topic}. "
+                f"This is a {tier_name.lower()}-level knowledge area for a cognitive AI system."
+            )
+            _store(seed, "internal_seed")
+
+        # ── 4. Feed into BrainTrainer for immediate quality improvement ────
+        if self.brain_trainer and snippets_stored > 0:
+            try:
+                self.brain_trainer.ingest_research(topic, f"[Tier:{tier_name}] {topic}")
+            except Exception:
+                pass
+
+        # ── 5. Log status ──────────────────────────────────────────────────
+        status = tks.status_summary()
+        log.info(
+            "✅ [TieredResearch] Tier=%s | Topic=%r | snippets=%d | %s",
+            tier_name, topic, snippets_stored, status,
+        )
+        if errors:
+            log.debug("[TieredResearch] Source errors: %s", errors)
+
+        return (
+            f"TieredResearch [{tier_name}]: '{topic}' — "
+            f"{snippets_stored} snippet(s). {status}"
+        )
 
     # ─────────────────────────────────────────────
     # PROGRAMMING LITERACY LOOP (steps 8-12)
@@ -3099,6 +3400,21 @@ class AutonomousLearningEngine:
             self.learning_history["last_reasoning_inferences"] = inference_count
             self.learning_history["last_cot_confidence"] = round(cot_confidence, 3)
 
+            # ── Cross-cycle inter-wiring: store inferences for Phase A next cycle ─
+            # Phase A's _apply_cross_cycle_context() seeds these inference statements
+            # as research topics so the next cycle's unified research builds on the
+            # reasoning engine's conclusions rather than starting cold.
+            if plain_inferences:
+                self._cross_cycle_context["reasoning_inferences"] = [
+                    str(s) for s in plain_inferences[:5]
+                ]
+            if getattr(cot, "conclusion", None):
+                self._cross_cycle_context["reasoning_cot"] = cot.conclusion[:300]
+                log.info(
+                    "🔗 [REASONING→Phase A] Stored %d inference(s) + CoT for next cycle",
+                    len(plain_inferences[:5]),
+                )
+
             log.info(
                 "✅ [REASONING] Graph:%d concepts | Path:%s | "
                 "Inferences:%d | CoT:%s(%.2f) | Contradictions:%d",
@@ -3185,6 +3501,17 @@ class AutonomousLearningEngine:
                         self.knowledge_db.queue_learning(gap_topic)
                     except Exception:
                         pass
+
+            # ── Cross-cycle inter-wiring: store gaps for Phase A next cycle ──
+            # Phase A's _apply_cross_cycle_context() will promote these to the
+            # front of the research queue (priority=True) so the next cycle
+            # opens by researching exactly what metacognition said was weakest.
+            if poorly_understood[:5]:
+                self._cross_cycle_context["metacognition_gaps"] = poorly_understood[:5]
+                log.info(
+                    "🔗 [METACOGNITION→Phase A] Stored %d gap topic(s) for next cycle: %s",
+                    len(poorly_understood[:5]), poorly_understood[:5],
+                )
 
             # Persist self-assessment to KB
             if self.knowledge_db:
@@ -3297,8 +3624,43 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
 
     def _interruptible_sleep(self, seconds: float) -> None:
-        """Sleep for *seconds* but wake up immediately if stop() is called."""
-        self._stop_event.wait(timeout=seconds)
+        """Sleep for *seconds* but wake up immediately if stop() is called.
+
+        Also blocks (holds at zero progress) while the ALE is paused via
+        pause() so that user-facing requests are never starved by background
+        research competing for the LLM / DB.
+        """
+        # Block here as long as the engine is paused (event is clear).
+        # We check in 0.25 s ticks so that stop() can still wake us promptly.
+        deadline = time.monotonic() + seconds
+        while True:
+            if self._stop_event.is_set():
+                return
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return
+            tick = min(0.25, remaining)
+            if not self._paused_event.is_set():
+                # ALE is paused — yield in short ticks until resumed or stopped
+                self._paused_event.wait(timeout=tick)
+            else:
+                self._stop_event.wait(timeout=tick)
+
+    def pause(self) -> None:
+        """Pause all ALE background work (e.g. while the user is chatting).
+
+        The running flag is preserved so the background thread keeps looping,
+        but every _interruptible_sleep call will block until resume() is called.
+        This prevents ALE from competing with the LLM for the HF API or SQLite
+        while Niblit is actively generating a response.
+        """
+        self._paused_event.clear()
+        log.debug("[ALE] paused — yielding to user activity")
+
+    def resume(self) -> None:
+        """Resume normal ALE background work after the user response is sent."""
+        self._paused_event.set()
+        log.debug("[ALE] resumed — background learning active")
 
     # ─────────────────────────────────────────────
     # PUBLIC SEQUENCES (callable on-demand or from cycle)
@@ -4204,6 +4566,19 @@ class AutonomousLearningEngine:
             self.learning_history.get("cognitive_enhancement_cycles", 0) + 1
         )
 
+        # ── Cross-cycle inter-wiring: store studied domains for Phase A next cycle ─
+        # Phase A's _apply_cross_cycle_context() adds these as background research
+        # topics so the next cycle's unified research can deepen Niblit's knowledge
+        # in each cognitive domain that Phase E just enhanced.
+        if updated_domains:
+            self._cross_cycle_context["cognitive_domains"] = [
+                d.replace("_", " ") for d in updated_domains[:5]
+            ]
+            log.info(
+                "🔗 [COGNITIVE→Phase A] Stored %d cognitive domain(s) for next cycle: %s",
+                len(updated_domains[:5]), updated_domains[:5],
+            )
+
         summary = (
             f"CognitiveEnhancement: updated {len(updated_domains)}/{len(self._COGNITIVE_DOMAINS)} domains"
             + (f" (errors: {len(errors)})" if errors else "")
@@ -4736,36 +5111,45 @@ class AutonomousLearningEngine:
           stalled network call can never freeze the whole cycle.
         * A 3-second interruptible sleep between all other steps gives the OS
           time to process network I/O between calls, reducing contention.
-        * Steps proceed sequentially: 1 → 2 → 3 → … → 27, just like counting.
+        * Steps proceed sequentially: 1 → 2 → 3 → … → 32, just like counting.
         * Step 18 (ImprovementCycle) is throttled to every 3 cycles.
         * Step 20 (GitHubPush) is throttled to every 5 cycles.
-        * stop() wakes the engine from any inter-step sleep immediately.
+        * stop() wakes the engine from any inter-step or inter-phase sleep immediately.
+        * The 32 steps are grouped into 5 **phases**.  Between each phase the
+          engine takes a short phase-break (_inter_phase_sleep, default 5 s) to
+          yield CPU and I/O resources, preventing sustained saturation and
+          reducing the chance of per-step timeouts.
 
         Cycle sequence
         --------------
+        ── Phase A — Research & Core Learning ──
         Step  1: UnifiedResearch      — all backends, ONE topic, 60 s ingest wait
         Step  2: Ideas                — SelfIdeaImplementation / IdeaGenerator
         Step  3: Learning             — SelfTeacher internalises results
         Step  4: Implementation       — SelfImplementer executes enqueued plans
         Step  5: Reflection           — ReflectModule summarises + stores
         Step  6: SLSA                 — SLSA knowledge artifact generation
-        Step  7: Evolve               — EvolveEngine self-evolves
+        Step  7: Evolve               — EvolveEngine self-evolves (3 phases)
+        ── Phase B — Code Loop ──
         Step  8: CodeResearch         — Searchcode + GitHub + researcher → CodeGenerator
         Step  9: CodeGeneration       — idea + implementer produce compilable code
         Step 10: CodeCompilation      — CodeCompiler runs the generated code
         Step 11: CodeReflection       — ReflectModule studies compiled output (30 s wait)
         Step 12: SoftwareStudy        — SoftwareStudier learns patterns
+        ── Phase C — Structural Awareness & Reasoning ──
         Step 13: CommandAwareness     — catalogue all commands into KB
         Step 14: CommandExecution     — exercise safe diagnostic commands
         Step 15: TopicSeeding         — derive + enqueue new research topics
         Step 16: Reasoning            — ReasoningEngine builds knowledge graph
         Step 17: Metacognition        — evaluate self-knowledge, identify gaps
+        ── Phase D — Improvement & Self-Management ──
         Step 18: ImprovementCycle     — 10-module improvement (throttled: every 3)
         Step 19: SelfScan             — BuildScanner reads own source files
         Step 20: GitHubPush           — push generated files (throttled: every 5)
         Step 21: BinaryStudy          — seed KB with binary/hex/firmware topics
         Step 22: BuildsUpdate         — index builds/ directory
         Step 23: EvolveDeploy         — hot-reload evolved improvements
+        ── Phase E — Training, Discovery & Maintenance ──
         Step 24: BrainTraining        — fine-tune on research data
         Step 25: CognitiveEnhancement — research language/reasoning/chat quality
         Step 26: GitHubCodeDiscovery  — pattern discovery, datasets, refactoring
@@ -4775,6 +5159,18 @@ class AutonomousLearningEngine:
         Step 30: SelfImproveAgents    — dispatch self-improvement to Phase-2 agents
         Step 31: SelfMaintenance      — SelfHealer + SelfMaintenance memory pruning
         Step 32: LLMArchitectCycle    — Curate → SFT → DPO → Eval (throttled: every 10)
+
+        The cycle is divided into five **phases** separated by an
+        interruptible phase-break sleep (_inter_phase_sleep, default 5 s).
+        The break yields CPU and I/O resources between bursts of work so
+        the process never saturates the system for a long continuous stretch
+        and individual steps are less likely to hit their timeouts.
+
+        Phase A (steps  1– 7): Research & Core Learning
+        Phase B (steps  8–12): Code Loop
+        Phase C (steps 13–17): Structural Awareness & Reasoning
+        Phase D (steps 18–23): Improvement & Self-Management
+        Phase E (steps 24–32): Training, Discovery & Maintenance
         """
         self._cycle_count += 1
         cycle = self._cycle_count
@@ -4783,6 +5179,7 @@ class AutonomousLearningEngine:
         self._current_cycle_topic = self._select_next_topic()
         log.info("=" * 70)
         log.info("🔄 [AUTONOMOUS CYCLE #%d] Topic: %r", cycle, self._current_cycle_topic)
+        log.info("   %s", self.tiered_knowledge.status_summary())
         log.info("=" * 70)
 
         results = []
@@ -4809,6 +5206,105 @@ class AutonomousLearningEngine:
                 )
                 self._interruptible_sleep(self._RESEARCH_INGEST_WAIT)
 
+        def _phase_break(label: str) -> None:
+            """Log a phase boundary and sleep briefly to yield CPU/I/O resources."""
+            if not self.running:
+                return
+            if self._inter_phase_sleep > 0:
+                log.info(
+                    "⏸️  [CYCLE #%d] %s — phase break (%.0fs)...",
+                    cycle, label, self._inter_phase_sleep,
+                )
+                self._interruptible_sleep(self._inter_phase_sleep)
+
+        def _apply_cross_cycle_context() -> None:
+            """Consume cross-cycle inter-phase wiring entries at the start of Phase A.
+
+            Modules in later phases (C and E) write their most valuable outputs
+            into ``self._cross_cycle_context`` during the *previous* cycle.
+            This function reads those entries and applies them to Phase A so
+            the current cycle's research opens with the strongest available
+            learning signal:
+
+            Phase C → A:
+              * metacognition_gaps   — promoted to the *front* of the research
+                                       queue (priority=True) so Step 1 targets
+                                       the weakest knowledge areas first.
+              * reasoning_inferences — seeded as background research topics.
+              * reasoning_cot        — logged as contextual frame for this cycle.
+
+            Phase E → A:
+              * cognitive_domains    — added as regular (non-priority) research
+                                       topics so Step 1 can deepen Niblit's
+                                       knowledge in domains Phase E just enhanced.
+
+            Each entry is consumed (popped) so it is applied exactly once.
+            """
+            ctx = self._cross_cycle_context
+            if not ctx:
+                return
+
+            gap_topics   = ctx.pop("metacognition_gaps", [])
+            inferences   = ctx.pop("reasoning_inferences", [])
+            cot_text     = ctx.pop("reasoning_cot", None)
+            cog_domains  = ctx.pop("cognitive_domains", [])
+
+            # Phase C → A: metacognition gap topics → highest-priority research
+            if gap_topics:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase C→A: %d metacognition gap(s) → "
+                    "priority research topics: %s",
+                    cycle, len(gap_topics), gap_topics,
+                )
+                for gap in gap_topics:
+                    self.add_research_topic(gap, priority=True)
+
+            # Phase C → A: reasoning CoT conclusion → contextual frame
+            if cot_text:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase C→A reasoning frame: %s",
+                    cycle, cot_text[:120],
+                )
+
+            # Phase C → A: reasoning inferences → background research seeds
+            if inferences:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase C→A: %d inference(s) → topic seeds",
+                    cycle, len(inferences),
+                )
+                for inf in inferences:
+                    # Extract a compact topic fragment from the inference statement
+                    seed = str(inf)[:80].split(".")[0].strip()
+                    if len(seed) >= 4:
+                        self.add_research_topic(seed)
+
+            # Phase E → A: cognitive domains → background research topics
+            if cog_domains:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase E→A: %d cognitive domain(s) → "
+                    "background topics: %s",
+                    cycle, len(cog_domains), cog_domains[:3],
+                )
+                for domain in cog_domains:
+                    self.add_research_topic(domain)  # non-priority; back of queue
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase A — Research & Core Learning (steps 1–7)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "A"
+        log.info("▶ [CYCLE #%d] Phase A — Research & Core Learning", cycle)
+
+        # Apply cross-cycle outputs from Phase C + E of the previous cycle
+        # BEFORE running Step 1 so the research queue is already enriched.
+        _apply_cross_cycle_context()
+
+        # ── Step 0 — Tiered knowledge research ────────────────────────────
+        # Always runs first so Niblit progresses through Foundation → Basic →
+        # Intermediate → Advanced before the general research cycle takes over.
+        # Uses tier-appropriate sources (Wikipedia, DuckDuckGo, Serpex, GitHub).
+        # Numbered 0 to indicate it precedes the original 32-step sequence.
+        _step("TieredResearch", self._autonomous_tiered_research)
+
         # ── Step 1: Unified research — ONE call, ALL backends, ONE topic ───
         # Replaces former Step 27 (SerpexResearch) + Step 1 (Research).
         # A 60-second ingest wait ensures data is fully written before cycle
@@ -4825,6 +5321,18 @@ class AutonomousLearningEngine:
         # legitimately needs more than the default 120 s step budget.
         _step("Evolve",         self._autonomous_evolve_step, timeout=420)
 
+        log.info(
+            "✅ [CYCLE #%d] Phase A done — phases B→C→D→E still pending before cycle restarts",
+            cycle,
+        )
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase B — Code Loop (steps 8–12)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "B"
+        _phase_break("Phase A → Phase B")
+        log.info("▶ [CYCLE #%d] Phase B — Code Loop", cycle)
+
         # ── Steps 8-12: Programming-literacy loop ──────────────────────────
         # CodeResearch fans out to Serpex, internet, GitHub, and researcher in
         # series — needs more headroom than the default 120 s.
@@ -4834,6 +5342,18 @@ class AutonomousLearningEngine:
         _research_step("CodeReflection",  self._autonomous_code_reflection)
         _step("SoftwareStudy",   self._autonomous_software_study)
 
+        log.info(
+            "✅ [CYCLE #%d] Phase B done — phases C→D→E still pending",
+            cycle,
+        )
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase C — Structural Awareness & Reasoning (steps 13–17)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "C"
+        _phase_break("Phase B → Phase C")
+        log.info("▶ [CYCLE #%d] Phase C — Structural Awareness & Reasoning", cycle)
+
         # ── Steps 13-14: Structural self-awareness ─────────────────────────
         _step("CommandAwareness", self._autonomous_command_awareness)
         _step("CommandExecution", self._autonomous_command_execution)
@@ -4842,10 +5362,27 @@ class AutonomousLearningEngine:
         _step("TopicSeeding", self._autonomous_topic_seeding)
 
         # ── Step 16: Intelligent reasoning ────────────────────────────────
+        # Outputs (inferences, CoT) are stored in _cross_cycle_context by
+        # _autonomous_reasoning() for use by Phase A next cycle.
         _step("Reasoning", self._autonomous_reasoning)
 
         # ── Step 17: Metacognition ─────────────────────────────────────────
+        # Gap topics are stored in _cross_cycle_context by
+        # _autonomous_metacognition() for use by Phase A next cycle.
         _step("Metacognition", self._autonomous_metacognition)
+
+        log.info(
+            "✅ [CYCLE #%d] Phase C done — phases D→E still pending "
+            "(metacognition/reasoning outputs queued for Phase A next cycle)",
+            cycle,
+        )
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase D — Improvement & Self-Management (steps 18–23)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "D"
+        _phase_break("Phase C → Phase D")
+        log.info("▶ [CYCLE #%d] Phase D — Improvement & Self-Management", cycle)
 
         # ── Step 18: ImprovementCycle — throttled every 3 cycles ──────────
         # Runs 10 sub-modules in series; allow extra time to avoid false timeouts.
@@ -4872,12 +5409,26 @@ class AutonomousLearningEngine:
         # ── Step 23: Evolve deploy ────────────────────────────────────────
         _step("EvolveDeploy", self._autonomous_evolve_deploy)
 
+        log.info(
+            "✅ [CYCLE #%d] Phase D done — Phase E still pending",
+            cycle,
+        )
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase E — Training, Discovery & Maintenance (steps 24–32)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        self._current_phase = "E"
+        _phase_break("Phase D → Phase E")
+        log.info("▶ [CYCLE #%d] Phase E — Training, Discovery & Maintenance", cycle)
+
         # ── Step 24: Brain training ───────────────────────────────────────
         # Training cycle + LLM training agent can both involve network calls;
         # give it extra headroom to avoid premature cancellation.
         _step("BrainTraining", self._autonomous_brain_training, timeout=240)
 
         # ── Step 25: Cognitive enhancement ───────────────────────────────
+        # Studied domains are stored in _cross_cycle_context by
+        # _autonomous_cognitive_enhancement() for use by Phase A next cycle.
         _step("CognitiveEnhancement", self._autonomous_cognitive_enhancement)
 
         # ── Step 26: GitHub Code Discovery ───────────────────────────────
@@ -4918,10 +5469,18 @@ class AutonomousLearningEngine:
         if cycle % self._LLM_ARCHITECT_CYCLE_EVERY == 0:
             _step("LLMArchitectCycle", self._autonomous_llm_architect)
 
+        self._current_phase = ""
+        log.info(
+            "✅ [CYCLE #%d] Phase E done — all phases complete, "
+            "full cycle finished (Phase A restarts next cycle)",
+            cycle,
+        )
+
         # ── Log cycle summary ─────────────────────────────────────────────
         summary = "\n".join([f"  {step}: {str(result or '')[:60]}" for step, result in results])
         log.info("=" * 70)
         log.info(f"✅ [AUTONOMOUS CYCLE #{cycle}] Summary:\n{summary}")
+        log.info("   %s", self.tiered_knowledge.status_summary())
         log.info("=" * 70)
 
         # Update learning rate — count every discrete learning action

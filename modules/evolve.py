@@ -172,7 +172,17 @@ class EvolveEngine:
         self._current_evolve_topic: Optional[str] = None
         self.running = False
         self._thread: Optional[threading.Thread] = None
+        self._stop_event: threading.Event = threading.Event()
         self._history: List[Dict[str, Any]] = []
+
+        # Seconds to pause between the three evolution phases so the process
+        # yields CPU and I/O resources between bursts of sub-step work.
+        # Set NIBLIT_EVOLVE_INTER_PHASE_SLEEP=0 to disable.
+        try:
+            _ips = float(os.environ.get("NIBLIT_EVOLVE_INTER_PHASE_SLEEP", "5"))
+            self._inter_phase_sleep: float = max(0.0, _ips)
+        except (ValueError, TypeError):
+            self._inter_phase_sleep = 5.0
 
         self._stats: Dict[str, int] = {
             "steps": 0,
@@ -211,6 +221,10 @@ class EvolveEngine:
         direction = directions[self._evolve_topic_index % len(directions)]
         self._evolve_topic_index += 1
         return direction
+
+    def _interruptible_sleep(self, seconds: float) -> None:
+        """Sleep for *seconds* but wake immediately if stop_background_evolution() is called."""
+        self._stop_event.wait(timeout=seconds)
 
     def _run_sub_step(self, name: str, func, timeout: Optional[int] = None) -> Optional[str]:
         """Run *func()* in a daemon thread with a per-sub-step timeout.
@@ -259,7 +273,19 @@ class EvolveEngine:
     # ──────────────────────────────────────────────
 
     def step(self) -> Dict[str, Any]:
-        """Execute one evolution step using ALL available modules."""
+        """Execute one evolution step using ALL available modules.
+
+        The 12 sub-steps are split into three **phases** to prevent sustained
+        CPU saturation and reduce the risk of per-step timeouts:
+
+        Phase A (sub-steps 1–4): Research
+        Phase B (sub-steps 5–8): Generation & Teaching
+        Phase C (sub-steps 9–12): Ideation & Deployment
+
+        Between phases the engine takes a short interruptible phase-break
+        sleep (_inter_phase_sleep, default 5 s) so the OS can process I/O
+        and other threads can make progress.
+        """
         self.iteration += 1
         ts = datetime.now(timezone.utc).isoformat()
         self._current_evolve_topic = self._select_next_evolve_direction()
@@ -272,6 +298,18 @@ class EvolveEngine:
             "actions": [],
             "mutations": [],
         }
+
+        def _phase_break(label: str) -> None:
+            """Pause between phases to yield CPU and I/O resources."""
+            if self._inter_phase_sleep > 0:
+                log.info(
+                    "⏸️  [EvolveEngine #%d] %s — phase break (%.0fs)...",
+                    self.iteration, label, self._inter_phase_sleep,
+                )
+                self._interruptible_sleep(self._inter_phase_sleep)
+
+        # ── Phase A — Research (sub-steps 1–4) ────────────────────────────
+        log.info("▶ [EvolveEngine #%d] Phase A — Research: %s", self.iteration, direction)
 
         # Step 1: Research the improvement direction via self_researcher
         research_result = self._run_sub_step("research", lambda: self._research_direction(direction), timeout=60)
@@ -293,6 +331,10 @@ class EvolveEngine:
         if study_result:
             record["actions"].append(f"studied: {study_result[:60]}")
 
+        # ── Phase B — Generation & Teaching (sub-steps 5–8) ───────────────
+        _phase_break("Phase A → Phase B")
+        log.info("▶ [EvolveEngine #%d] Phase B — Generation & Teaching", self.iteration)
+
         # Step 5: Generate code for the improvement
         code_result = self._run_sub_step("code_gen", lambda: self._generate_improvement_code(direction))
         if code_result:
@@ -313,6 +355,10 @@ class EvolveEngine:
         impl_result = self._run_sub_step("implement_idea", lambda: self._implement_evolution_idea(direction, research_result))
         if impl_result:
             record["actions"].append(f"implemented: {impl_result[:60]}")
+
+        # ── Phase C — Ideation & Deployment (sub-steps 9–12) ──────────────
+        _phase_break("Phase B → Phase C")
+        log.info("▶ [EvolveEngine #%d] Phase C — Ideation & Deployment", self.iteration)
 
         # Step 9: Generate an implementation plan via idea_generator
         idea_result = self._run_sub_step("idea_gen", lambda: self._generate_idea(direction))
@@ -685,6 +731,7 @@ class EvolveEngine:
         """Start the background evolution thread."""
         if self.running:
             return False
+        self._stop_event.clear()
         self.running = True
         self._thread = threading.Thread(
             target=self._background_loop, daemon=True, name="EvolveLoop"
@@ -697,6 +744,7 @@ class EvolveEngine:
     def stop_background_evolution(self) -> bool:
         """Stop the background evolution thread."""
         self.running = False
+        self._stop_event.set()  # Wake any sleeping phase break immediately
         log.info("[EvolveEngine] Background evolution stopped after %d iterations",
                  self.iteration)
         return True
@@ -708,7 +756,7 @@ class EvolveEngine:
                 self.step()
             except Exception as exc:
                 log.error("[EvolveEngine] Background step error: %s", exc)
-            time.sleep(self.evolution_interval)
+            self._interruptible_sleep(self.evolution_interval)
 
     # ──────────────────────────────────────────────
     # REFRESH REFERENCES
