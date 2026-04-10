@@ -81,6 +81,10 @@ _TOPIC_NOISE_MARKERS: tuple = (
     "insights:", "findings:", "research finding:", "no data found",
     "implementation plan", "auto-research topic:", "research query:",
 )
+# KB key prefixes that should never be used directly as web-search topics.
+_KB_KEY_PREFIXES: tuple = (
+    "ale_", "niblit_", "step_", "kb_", "slsa_",
+)
 # Maximum characters for code excerpt stored in learning facts.
 _MAX_LEARNING_CODE_EXCERPT: int = 150
 
@@ -2820,8 +2824,13 @@ class AutonomousLearningEngine:
                                     candidates.append(raw)
                         if isinstance(val, dict):
                             t = val.get("topic", "")
-                            if t and t not in candidates:
-                                candidates.append(str(t))
+                            if t:
+                                # Normalise underscore-delimited KB key strings
+                                # (e.g. "LLM_API_integration") to human-readable
+                                # words before adding to the research queue.
+                                t_clean = str(t).replace("_", " ").strip()
+                                if t_clean and t_clean not in candidates:
+                                    candidates.append(t_clean)
                             # Programming-literacy lang/topic combos
                             lang = val.get("language", "")
                             if lang and f"advanced {lang}" not in candidates:
@@ -2850,9 +2859,15 @@ class AutonomousLearningEngine:
             if human not in candidates:
                 candidates.append(human)
 
-        # Deduplicate and skip topics already in the research list
+        # Deduplicate and skip topics already in the research list.
+        # Also drop any candidate that still looks like a raw KB key.
         existing = set(self.research_topics)
-        fresh = [t for t in candidates if t and t not in existing]
+        fresh = [
+            t for t in candidates
+            if t
+            and t not in existing
+            and not any(t.lower().startswith(p) for p in _KB_KEY_PREFIXES)
+        ]
 
         # Trim to max_topics
         return fresh[:max_topics]
@@ -3217,14 +3232,24 @@ class AutonomousLearningEngine:
     # STEP TIMEOUT HELPER
     # ─────────────────────────────────────────────
 
-    def _run_step_with_timeout(self, step_name: str, step_fn) -> str:
+    def _run_step_with_timeout(self, step_name: str, step_fn,
+                               timeout: Optional[float] = None) -> str:
         """Run a single ALE step in a thread pool with a timeout.
 
-        If the step does not complete within *self.step_timeout* seconds the
-        main cycle continues without waiting further. The worker thread is a
-        daemon thread and will be collected by the OS when the process exits.
-        This prevents any single stalled network call or slow module from
-        blocking the entire ALE cycle.
+        If the step does not complete within the effective timeout the main
+        cycle continues without waiting further. The worker thread is a daemon
+        thread and will be collected by the OS when the process exits.  This
+        prevents any single stalled network call or slow module from blocking
+        the entire ALE cycle.
+
+        Args:
+            step_name: Human-readable name used in log / return messages.
+            step_fn:   Zero-argument callable to execute in the worker thread.
+            timeout:   Override timeout in seconds for this step.  When
+                       ``None`` (default) ``self.step_timeout`` is used.
+                       Pass an explicit value for steps that are known to
+                       orchestrate many sub-operations (e.g. Evolve,
+                       ImprovementCycle) and legitimately need more time.
 
         IMPORTANT: We intentionally do NOT use the ``with ThreadPoolExecutor``
         context manager here.  The context manager calls
@@ -3235,11 +3260,12 @@ class AutonomousLearningEngine:
         block so the caller returns immediately and the orphaned worker is
         collected by the OS.
         """
+        effective_timeout = timeout if timeout is not None else self.step_timeout
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         try:
             future = executor.submit(step_fn)
             try:
-                result = future.result(timeout=self.step_timeout)
+                result = future.result(timeout=effective_timeout)
                 # ── Kernel health reporting (additive) ───────────────────────
                 if self.kernel:
                     try:
@@ -3249,10 +3275,10 @@ class AutonomousLearningEngine:
                 return result
             except concurrent.futures.TimeoutError:
                 log.warning(
-                    f"⏱️ [ALE] Step '{step_name}' timed out after {self.step_timeout}s — skipping"
+                    f"⏱️ [ALE] Step '{step_name}' timed out after {effective_timeout}s — skipping"
                 )
                 future.cancel()
-                return f"[{step_name} timed out after {self.step_timeout}s]"
+                return f"[{step_name} timed out after {effective_timeout}s]"
             except Exception as exc:
                 log.error(f"❌ [ALE] Step '{step_name}' raised: {exc}")
                 if self.kernel:
@@ -4761,18 +4787,18 @@ class AutonomousLearningEngine:
 
         results = []
 
-        def _step(name: str, fn) -> None:
+        def _step(name: str, fn, timeout: Optional[float] = None) -> None:
             if not self.running:
                 return
-            result = self._run_step_with_timeout(name, fn)
+            result = self._run_step_with_timeout(name, fn, timeout=timeout)
             results.append((name, result))
             self._interruptible_sleep(self._INTER_STEP_SLEEP)
 
-        def _research_step(name: str, fn) -> None:
+        def _research_step(name: str, fn, timeout: Optional[float] = None) -> None:
             """Like _step but adds the ingestion-wait after the research completes."""
             if not self.running:
                 return
-            result = self._run_step_with_timeout(name, fn)
+            result = self._run_step_with_timeout(name, fn, timeout=timeout)
             results.append((name, result))
             self._interruptible_sleep(self._INTER_STEP_SLEEP)
             if self._RESEARCH_INGEST_WAIT > 0 and self.running:
@@ -4795,10 +4821,14 @@ class AutonomousLearningEngine:
         _step("Implementation", self._autonomous_implementation)
         _step("Reflection",     self._autonomous_reflection)
         _step("SLSA",           self._autonomous_slsa_run)
-        _step("Evolve",         self._autonomous_evolve_step)
+        # Evolve orchestrates 12 sequential sub-steps (each up to 60 s) so it
+        # legitimately needs more than the default 120 s step budget.
+        _step("Evolve",         self._autonomous_evolve_step, timeout=420)
 
         # ── Steps 8-12: Programming-literacy loop ──────────────────────────
-        _step("CodeResearch",    self._autonomous_code_research)
+        # CodeResearch fans out to Serpex, internet, GitHub, and researcher in
+        # series — needs more headroom than the default 120 s.
+        _step("CodeResearch",    self._autonomous_code_research, timeout=240)
         _step("CodeGeneration",  self._autonomous_code_generation)
         _step("CodeCompilation", self._autonomous_code_compilation)
         _research_step("CodeReflection",  self._autonomous_code_reflection)
@@ -4818,8 +4848,9 @@ class AutonomousLearningEngine:
         _step("Metacognition", self._autonomous_metacognition)
 
         # ── Step 18: ImprovementCycle — throttled every 3 cycles ──────────
+        # Runs 10 sub-modules in series; allow extra time to avoid false timeouts.
         if cycle % self._IMPROVEMENT_CYCLE_EVERY == 0:
-            _step("ImprovementCycle", self._autonomous_improvement_cycle)
+            _step("ImprovementCycle", self._autonomous_improvement_cycle, timeout=360)
         else:
             log.debug("[AUTONOMOUS CYCLE] ImprovementCycle skipped (cycle %d/%d)", cycle, self._IMPROVEMENT_CYCLE_EVERY)
 
@@ -4842,7 +4873,9 @@ class AutonomousLearningEngine:
         _step("EvolveDeploy", self._autonomous_evolve_deploy)
 
         # ── Step 24: Brain training ───────────────────────────────────────
-        _step("BrainTraining", self._autonomous_brain_training)
+        # Training cycle + LLM training agent can both involve network calls;
+        # give it extra headroom to avoid premature cancellation.
+        _step("BrainTraining", self._autonomous_brain_training, timeout=240)
 
         # ── Step 25: Cognitive enhancement ───────────────────────────────
         _step("CognitiveEnhancement", self._autonomous_cognitive_enhancement)
@@ -5113,6 +5146,10 @@ class AutonomousLearningEngine:
             return False
         # Reject very short fragments (single words < 4 chars)
         if len(topic.strip()) < 4:
+            return False
+        # Reject strings that look like raw KB keys (e.g. "ale_swift_module")
+        topic_stripped = topic.strip()
+        if any(topic_stripped.lower().startswith(p) for p in _KB_KEY_PREFIXES):
             return False
         if priority:
             # Use prioritize_research_topic for front-of-queue insertion.
