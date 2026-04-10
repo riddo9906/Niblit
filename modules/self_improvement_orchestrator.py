@@ -21,7 +21,9 @@ configured.
 
 import logging
 import json
+import os
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -69,6 +71,15 @@ class SelfImprovementOrchestrator:
         self._cycle_count = 0
         self._history: List[Dict[str, Any]] = []
 
+        # Seconds to pause between the two improvement phases so the process
+        # yields CPU and I/O resources between bursts of work.
+        # Set NIBLIT_SIO_INTER_PHASE_SLEEP=0 to disable.
+        try:
+            _ips = float(os.environ.get("NIBLIT_SIO_INTER_PHASE_SLEEP", "3"))
+            self._inter_phase_sleep: float = max(0.0, _ips)
+        except (ValueError, TypeError):
+            self._inter_phase_sleep = 3.0
+
         log.info("[SelfImprovementOrchestrator] Initialized")
 
     # ------------------------------------------------------------------
@@ -78,6 +89,13 @@ class SelfImprovementOrchestrator:
     def run_improvement_cycle(self) -> Dict[str, Any]:
         """
         Execute one full improvement cycle across all available subsystems.
+
+        The six steps are split into two **phases** separated by a short
+        interruptible phase-break sleep (_inter_phase_sleep, default 3 s)
+        to yield CPU and I/O resources between bursts of work:
+
+        Phase A (steps 1–3): ALE, EvolveEngine, Reflect
+        Phase B (steps 4–6): AgenticWorkflow, GitHub, Civilization
 
         Returns a dict summarising what happened.
         """
@@ -89,6 +107,18 @@ class SelfImprovementOrchestrator:
             "steps": {},
             "errors": [],
         }
+
+        def _phase_break(label: str) -> None:
+            """Pause between phases to yield CPU and I/O resources."""
+            if self._inter_phase_sleep > 0:
+                log.info(
+                    "⏸️  [Orchestrator cycle %d] %s — phase break (%.0fs)...",
+                    self._cycle_count, label, self._inter_phase_sleep,
+                )
+                self._stop_event.wait(timeout=self._inter_phase_sleep)
+
+        # ── Phase A — Learning & Evolution (steps 1–3) ────────────────────
+        log.info("▶ [Orchestrator cycle %d] Phase A — Learning & Evolution", self._cycle_count)
 
         # 1. Autonomous Learning Engine — run one learn sequence
         if self.ale:
@@ -117,6 +147,10 @@ class SelfImprovementOrchestrator:
             except Exception as exc:
                 record["errors"].append(f"reflect: {exc}")
                 log.warning("[Orchestrator] Reflect step failed: %s", exc)
+
+        # ── Phase B — Integration & Knowledge (steps 4–6) ─────────────────
+        _phase_break("Phase A → Phase B")
+        log.info("▶ [Orchestrator cycle %d] Phase B — Integration & Knowledge", self._cycle_count)
 
         # 4. AgenticWorkflow — run the built-in self-improvement pipeline
         if self.agentic:

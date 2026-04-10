@@ -139,6 +139,12 @@ class AutonomousLearningEngine:
     # write and index the results before the next research call begins.
     _RESEARCH_INGEST_WAIT: float = 60.0
     _CODE_TOPIC_INGEST_WAIT: float = 30.0
+    # Seconds to pause between cycle phases to yield CPU and I/O resources.
+    # The 32-step cycle is split into 5 named phases; this break fires between
+    # each phase so the process never saturates the CPU for a long continuous
+    # stretch and individual steps are less likely to hit timeouts.
+    # Set NIBLIT_ALE_INTER_PHASE_SLEEP=0 to disable.
+    _INTER_PHASE_SLEEP: float = 5.0
 
     # Cross-cycle snippet dedup cache size.  When the cache exceeds this many
     # entries it is cleared so memory stays bounded and content from much
@@ -288,6 +294,13 @@ class AutonomousLearningEngine:
                 self.startup_delay = int(os.environ.get("NIBLIT_ALE_STARTUP_DELAY", self._DEFAULT_STARTUP_DELAY))
             except (ValueError, TypeError):
                 self.startup_delay = self._DEFAULT_STARTUP_DELAY
+
+        # Resolve inter-phase sleep: env var → class default
+        try:
+            _ips = float(os.environ.get("NIBLIT_ALE_INTER_PHASE_SLEEP", self._INTER_PHASE_SLEEP))
+            self._inter_phase_sleep: float = max(0.0, _ips)
+        except (ValueError, TypeError):
+            self._inter_phase_sleep = self._INTER_PHASE_SLEEP
 
         self.idle_threshold = idle_threshold
         self.poll_interval = poll_interval
@@ -4736,36 +4749,45 @@ class AutonomousLearningEngine:
           stalled network call can never freeze the whole cycle.
         * A 3-second interruptible sleep between all other steps gives the OS
           time to process network I/O between calls, reducing contention.
-        * Steps proceed sequentially: 1 → 2 → 3 → … → 27, just like counting.
+        * Steps proceed sequentially: 1 → 2 → 3 → … → 32, just like counting.
         * Step 18 (ImprovementCycle) is throttled to every 3 cycles.
         * Step 20 (GitHubPush) is throttled to every 5 cycles.
-        * stop() wakes the engine from any inter-step sleep immediately.
+        * stop() wakes the engine from any inter-step or inter-phase sleep immediately.
+        * The 32 steps are grouped into 5 **phases**.  Between each phase the
+          engine takes a short phase-break (_inter_phase_sleep, default 5 s) to
+          yield CPU and I/O resources, preventing sustained saturation and
+          reducing the chance of per-step timeouts.
 
         Cycle sequence
         --------------
+        ── Phase A — Research & Core Learning ──
         Step  1: UnifiedResearch      — all backends, ONE topic, 60 s ingest wait
         Step  2: Ideas                — SelfIdeaImplementation / IdeaGenerator
         Step  3: Learning             — SelfTeacher internalises results
         Step  4: Implementation       — SelfImplementer executes enqueued plans
         Step  5: Reflection           — ReflectModule summarises + stores
         Step  6: SLSA                 — SLSA knowledge artifact generation
-        Step  7: Evolve               — EvolveEngine self-evolves
+        Step  7: Evolve               — EvolveEngine self-evolves (3 phases)
+        ── Phase B — Code Loop ──
         Step  8: CodeResearch         — Searchcode + GitHub + researcher → CodeGenerator
         Step  9: CodeGeneration       — idea + implementer produce compilable code
         Step 10: CodeCompilation      — CodeCompiler runs the generated code
         Step 11: CodeReflection       — ReflectModule studies compiled output (30 s wait)
         Step 12: SoftwareStudy        — SoftwareStudier learns patterns
+        ── Phase C — Structural Awareness & Reasoning ──
         Step 13: CommandAwareness     — catalogue all commands into KB
         Step 14: CommandExecution     — exercise safe diagnostic commands
         Step 15: TopicSeeding         — derive + enqueue new research topics
         Step 16: Reasoning            — ReasoningEngine builds knowledge graph
         Step 17: Metacognition        — evaluate self-knowledge, identify gaps
+        ── Phase D — Improvement & Self-Management ──
         Step 18: ImprovementCycle     — 10-module improvement (throttled: every 3)
         Step 19: SelfScan             — BuildScanner reads own source files
         Step 20: GitHubPush           — push generated files (throttled: every 5)
         Step 21: BinaryStudy          — seed KB with binary/hex/firmware topics
         Step 22: BuildsUpdate         — index builds/ directory
         Step 23: EvolveDeploy         — hot-reload evolved improvements
+        ── Phase E — Training, Discovery & Maintenance ──
         Step 24: BrainTraining        — fine-tune on research data
         Step 25: CognitiveEnhancement — research language/reasoning/chat quality
         Step 26: GitHubCodeDiscovery  — pattern discovery, datasets, refactoring
@@ -4775,6 +4797,18 @@ class AutonomousLearningEngine:
         Step 30: SelfImproveAgents    — dispatch self-improvement to Phase-2 agents
         Step 31: SelfMaintenance      — SelfHealer + SelfMaintenance memory pruning
         Step 32: LLMArchitectCycle    — Curate → SFT → DPO → Eval (throttled: every 10)
+
+        The cycle is divided into five **phases** separated by an
+        interruptible phase-break sleep (_inter_phase_sleep, default 5 s).
+        The break yields CPU and I/O resources between bursts of work so
+        the process never saturates the system for a long continuous stretch
+        and individual steps are less likely to hit their timeouts.
+
+        Phase A (steps  1– 7): Research & Core Learning
+        Phase B (steps  8–12): Code Loop
+        Phase C (steps 13–17): Structural Awareness & Reasoning
+        Phase D (steps 18–23): Improvement & Self-Management
+        Phase E (steps 24–32): Training, Discovery & Maintenance
         """
         self._cycle_count += 1
         cycle = self._cycle_count
@@ -4809,6 +4843,22 @@ class AutonomousLearningEngine:
                 )
                 self._interruptible_sleep(self._RESEARCH_INGEST_WAIT)
 
+        def _phase_break(label: str) -> None:
+            """Log a phase boundary and sleep briefly to yield CPU/I/O resources."""
+            if not self.running:
+                return
+            if self._inter_phase_sleep > 0:
+                log.info(
+                    "⏸️  [CYCLE #%d] %s — phase break (%.0fs)...",
+                    cycle, label, self._inter_phase_sleep,
+                )
+                self._interruptible_sleep(self._inter_phase_sleep)
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase A — Research & Core Learning (steps 1–7)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        log.info("▶ [CYCLE #%d] Phase A — Research & Core Learning", cycle)
+
         # ── Step 1: Unified research — ONE call, ALL backends, ONE topic ───
         # Replaces former Step 27 (SerpexResearch) + Step 1 (Research).
         # A 60-second ingest wait ensures data is fully written before cycle
@@ -4825,6 +4875,12 @@ class AutonomousLearningEngine:
         # legitimately needs more than the default 120 s step budget.
         _step("Evolve",         self._autonomous_evolve_step, timeout=420)
 
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase B — Code Loop (steps 8–12)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        _phase_break("Phase A → Phase B")
+        log.info("▶ [CYCLE #%d] Phase B — Code Loop", cycle)
+
         # ── Steps 8-12: Programming-literacy loop ──────────────────────────
         # CodeResearch fans out to Serpex, internet, GitHub, and researcher in
         # series — needs more headroom than the default 120 s.
@@ -4833,6 +4889,12 @@ class AutonomousLearningEngine:
         _step("CodeCompilation", self._autonomous_code_compilation)
         _research_step("CodeReflection",  self._autonomous_code_reflection)
         _step("SoftwareStudy",   self._autonomous_software_study)
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase C — Structural Awareness & Reasoning (steps 13–17)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        _phase_break("Phase B → Phase C")
+        log.info("▶ [CYCLE #%d] Phase C — Structural Awareness & Reasoning", cycle)
 
         # ── Steps 13-14: Structural self-awareness ─────────────────────────
         _step("CommandAwareness", self._autonomous_command_awareness)
@@ -4846,6 +4908,12 @@ class AutonomousLearningEngine:
 
         # ── Step 17: Metacognition ─────────────────────────────────────────
         _step("Metacognition", self._autonomous_metacognition)
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase D — Improvement & Self-Management (steps 18–23)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        _phase_break("Phase C → Phase D")
+        log.info("▶ [CYCLE #%d] Phase D — Improvement & Self-Management", cycle)
 
         # ── Step 18: ImprovementCycle — throttled every 3 cycles ──────────
         # Runs 10 sub-modules in series; allow extra time to avoid false timeouts.
@@ -4871,6 +4939,12 @@ class AutonomousLearningEngine:
 
         # ── Step 23: Evolve deploy ────────────────────────────────────────
         _step("EvolveDeploy", self._autonomous_evolve_deploy)
+
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # Phase E — Training, Discovery & Maintenance (steps 24–32)
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        _phase_break("Phase D → Phase E")
+        log.info("▶ [CYCLE #%d] Phase E — Training, Discovery & Maintenance", cycle)
 
         # ── Step 24: Brain training ───────────────────────────────────────
         # Training cycle + LLM training agent can both involve network calls;
