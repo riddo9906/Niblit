@@ -190,18 +190,27 @@ class KernelMemory:
     Tier 2 (task-scoped):    :class:`WorkingMemory`    — active reasoning context.
     Tier 3 (persistent):     :class:`~modules.memory_graph.MemoryGraph`
                              + KnowledgeDB              — durable long-term memory.
+    MWDS layer:              :class:`~modules.memory_weighting.MemoryStore` —
+                             dynamic survival scoring (weight/decay/reinforce/tier).
+
+    The MWDS layer is layered *on top of* the existing 3-tier stack.  It does
+    not replace any existing functionality; it adds adaptive weight-based
+    re-ranking to the ``retrieve()`` result set.
 
     Args:
-        memory_graph:  Optional MemoryGraph (lazy-acquired if None).
-        knowledge_db:  Optional KnowledgeDB for durable fact persistence.
-        stm_size:      Short-term memory capacity.
-        wm_size:       Working memory capacity.
+        memory_graph:   Optional MemoryGraph (lazy-acquired if None).
+        knowledge_db:   Optional KnowledgeDB for durable fact persistence.
+        memory_store:   Optional :class:`~modules.memory_weighting.MemoryStore`
+                        (lazy-acquired from ``get_memory_store()`` if None).
+        stm_size:       Short-term memory capacity.
+        wm_size:        Working memory capacity.
     """
 
     def __init__(
         self,
         memory_graph: Optional[Any] = None,
         knowledge_db: Optional[Any] = None,
+        memory_store: Optional[Any] = None,
         stm_size: int = _STM_SIZE,
         wm_size: int = _WM_SIZE,
     ) -> None:
@@ -209,12 +218,22 @@ class KernelMemory:
         self.working = WorkingMemory(maxkeys=wm_size)
         self._memory_graph = memory_graph
         self._knowledge_db = knowledge_db
+        self._memory_store = memory_store
 
     @property
     def memory_graph(self) -> Optional[Any]:
         if self._memory_graph is None:
             self._memory_graph = _lazy("modules.memory_graph", "get_memory_graph")
         return self._memory_graph
+
+    @property
+    def memory_store(self) -> Optional[Any]:
+        """Lazy accessor for the MWDS :class:`~modules.memory_weighting.MemoryStore`."""
+        if self._memory_store is None:
+            self._memory_store = _lazy(
+                "modules.memory_weighting", "get_memory_store"
+            )
+        return self._memory_store
 
     def store(self, data: Any, importance: float = 0.5, source: str = "kernel") -> None:
         """Write *data* across all relevant tiers based on *importance*.
@@ -226,12 +245,15 @@ class KernelMemory:
           concept node.
         * If ``importance >= 0.8`` and KnowledgeDB available: persisted as a
           durable fact.
+        * **MWDS**: always registered in :class:`~modules.memory_weighting.MemoryStore`
+          for adaptive weight tracking (regardless of importance tier).
 
         Args:
             data:       The item to store (any serialisable type).
             importance: Priority weight in ``[0, 1]``.
             source:     Tag for provenance tracking.
         """
+        import hashlib
         text = str(data)[:500]
 
         # Tier 1 — always
@@ -244,7 +266,6 @@ class KernelMemory:
         # Tier 3a — MemoryGraph for high-importance items
         if importance >= 0.7 and self.memory_graph is not None:
             try:
-                import hashlib
                 node_id = "ck_" + hashlib.md5(text.encode()).hexdigest()[:12]
                 self.memory_graph.add(node_id, text)
             except Exception as exc:
@@ -261,18 +282,28 @@ class KernelMemory:
             except Exception as exc:
                 log.debug("[KernelMemory] knowledge_db.add_fact failed: %s", exc)
 
+        # MWDS — register in MemoryStore for adaptive weight tracking
+        ms = self.memory_store
+        if ms is not None:
+            try:
+                record_id = "km_" + hashlib.md5(text.encode()).hexdigest()[:16]
+                ms.store(record_id, text, source=source, confidence=importance)
+            except Exception as exc:
+                log.debug("[KernelMemory] memory_store.store failed: %s", exc)
+
     def retrieve(self, query: str, top_k: int = 5) -> List[str]:
         """Retrieve relevant memories for *query*.
 
         Checks short-term and working memory first, then MemoryGraph for
-        semantic matches.
+        semantic matches.  Results are re-ranked by the MWDS survival score
+        when the :class:`~modules.memory_weighting.MemoryStore` is available.
 
         Args:
             query: Natural language query string.
             top_k: Maximum number of items to return.
 
         Returns:
-            List of relevant text snippets, most recent/relevant first.
+            List of relevant text snippets, highest-weight first.
         """
         results: List[str] = []
 
@@ -303,26 +334,98 @@ class KernelMemory:
             if key not in seen:
                 seen.add(key)
                 deduped.append(r)
-        return deduped[:top_k]
+        deduped = deduped[:top_k * 2]  # gather extra candidates for re-ranking
+
+        # MWDS re-ranking — sort by adaptive survival score + centrality
+        ms = self.memory_store
+        if ms is not None:
+            try:
+                deduped = ms.retrieve_weighted(deduped, top_k=top_k)
+            except Exception as exc:
+                log.debug("[KernelMemory] MWDS re-rank failed: %s", exc)
+                deduped = deduped[:top_k]
+        else:
+            deduped = deduped[:top_k]
+
+        return deduped
 
     def decay(self) -> None:
-        """Apply temporal decay to the MemoryGraph (delegates to MemoryGraph.apply_decay)."""
+        """Apply temporal decay.
+
+        Delegates to MemoryGraph.apply_decay() *and* runs a MWDS maintenance
+        pass (weight refresh + prune + compress).
+        """
         if self.memory_graph is not None:
             try:
                 self.memory_graph.apply_decay()
             except Exception as exc:
-                log.debug("[KernelMemory] decay failed: %s", exc)
+                log.debug("[KernelMemory] MemoryGraph.decay failed: %s", exc)
+
+        ms = self.memory_store
+        if ms is not None:
+            try:
+                graph_size = None
+                if self.memory_graph is not None:
+                    try:
+                        graph_size = self.memory_graph.count()
+                    except Exception:
+                        pass
+                ms.run_maintenance(total_nodes=graph_size)
+            except Exception as exc:
+                log.debug("[KernelMemory] MWDS maintenance failed: %s", exc)
 
     def reinforce(self, node_id: str, delta: float = 0.05) -> None:
-        """Positively reinforce a MemoryGraph node (high-value pattern)."""
+        """Positively reinforce a memory node.
+
+        Reinforces the MemoryGraph node *and* the matching MWDS record (if any).
+
+        Args:
+            node_id: Target node identifier (used for MemoryGraph and MWDS lookup).
+            delta:   Positive score increment.
+        """
         if self.memory_graph is not None:
             try:
                 self.memory_graph.reinforce(node_id, delta=delta)
             except Exception as exc:
-                log.debug("[KernelMemory] reinforce failed: %s", exc)
+                log.debug("[KernelMemory] MemoryGraph.reinforce failed: %s", exc)
+
+        ms = self.memory_store
+        if ms is not None:
+            try:
+                ms.reinforce_by_id(node_id, success=True)
+            except Exception as exc:
+                log.debug("[KernelMemory] MWDS reinforce failed: %s", exc)
+
+    def reinforce_content(self, text: str, success: bool = True) -> None:
+        """Reinforce records matching *text* in the MWDS store.
+
+        This is the preferred method when the node ID is not known but the
+        content string is available.
+
+        Args:
+            text:    Content to match (first 60 chars used as key).
+            success: Whether this retrieval was useful.
+        """
+        ms = self.memory_store
+        if ms is not None:
+            try:
+                ms.reinforce_by_content(text, success=success)
+            except Exception as exc:
+                log.debug("[KernelMemory] MWDS reinforce_content failed: %s", exc)
+
+    def weighted_stats(self) -> Dict[str, Any]:
+        """Return MWDS tier breakdown and overall memory statistics."""
+        ms = self.memory_store
+        mwds_stats: Dict[str, Any] = {}
+        if ms is not None:
+            try:
+                mwds_stats = ms.stats()
+            except Exception:
+                pass
+        return mwds_stats
 
     def stats(self) -> Dict[str, Any]:
-        """Return statistics across all memory tiers."""
+        """Return statistics across all memory tiers including MWDS."""
         graph_stats = {}
         if self.memory_graph is not None:
             try:
@@ -333,6 +436,7 @@ class KernelMemory:
             "short_term_count": len(self.short_term),
             "working_memory_count": len(self.working),
             "memory_graph": graph_stats,
+            "mwds": self.weighted_stats(),
         }
 
 
