@@ -3711,6 +3711,9 @@ Ask me about:
                 # Skip quiz entries — they contain raw JSON Q&A, not prose
                 if key.startswith("quiz:"):
                     return False
+                # Skip generated code artifacts — internal KB entries, not human knowledge
+                if key.startswith("generated_code:"):
+                    return False
                 # Skip "No data found" placeholder values — not real knowledge
                 val_str = str(val) if val is not None else ""
                 if val_str.startswith("No data found"):
@@ -3807,11 +3810,32 @@ Ask me about:
                             or val.get("direction")
                             or val.get("content")
                             or val.get("text")
+                            or val.get("code")
                             or json.dumps(val, ensure_ascii=False)
                         )
                     val_str = str(val).strip()
+                    # Try to unpack stringified Python dicts (e.g. from code_generator)
+                    if val_str.startswith("{") or val_str.startswith("["):
+                        try:
+                            import ast as _ast
+                            _parsed = _ast.literal_eval(val_str)
+                            if isinstance(_parsed, dict):
+                                val_str = str(
+                                    _parsed.get("code")
+                                    or _parsed.get("answer")
+                                    or _parsed.get("summary")
+                                    or _parsed.get("description")
+                                    or ""
+                                ).strip()
+                            else:
+                                val_str = ""
+                        except (ValueError, SyntaxError):
+                            val_str = ""
                     # Skip placeholder / empty entries at display time too
                     if not val_str or val_str.startswith("No data found"):
+                        continue
+                    # Skip ISO timestamp-only values — not useful prose
+                    if re.match(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}', val_str):
                         continue
                     # Skip known-junk metadata strings
                     if any(junk in val_str for junk in ('"freq":', '"concepts":', '"question":', '"concept":')):
@@ -3820,6 +3844,9 @@ Ask me about:
                 else:
                     val_str = str(fact).strip()
                     if val_str and not val_str.startswith("No data found"):
+                        # Skip raw ISO timestamps
+                        if re.match(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}', val_str):
+                            continue
                         lines.append(f"• {val_str[:200]}")
 
             # Only return a response when at least one content bullet was added.
@@ -4038,6 +4065,15 @@ Ask me about:
                         pass
 
             # Format a direct response
+            # Only include snippets that share at least one content keyword
+            # with the original query to prevent off-topic results (e.g.
+            # "fun shapes" appearing when the user asks "what is having fun").
+            _gap_stop = {"what", "is", "are", "how", "the", "a", "an", "do",
+                         "does", "you", "tell", "me", "about", "explain"}
+            _gap_kws = [
+                w for w in re.sub(r"[^\w\s]", "", original_query.lower()).split()
+                if len(w) > 2 and w not in _gap_stop
+            ]
             parts = [f"🧠 **I just learned about: {original_query}**\n"]
             seen: set = set()
             for r in quick_results[:3]:
@@ -4046,9 +4082,15 @@ Ask me about:
                     if isinstance(r, dict) else str(r)
                 )
                 snippet = snippet.strip()[:250]
-                if snippet and snippet not in seen and len(snippet) > 10:
-                    seen.add(snippet)
-                    parts.append(f"• {snippet}")
+                if not snippet or snippet in seen or len(snippet) <= 10:
+                    continue
+                # Relevance guard: skip results with no keyword overlap
+                if _gap_kws:
+                    snippet_lower = snippet.lower()
+                    if not any(kw in snippet_lower for kw in _gap_kws):
+                        continue
+                seen.add(snippet)
+                parts.append(f"• {snippet}")
             if len(parts) > 1:
                 parts.append(
                     "\n_I've stored this and queued a deeper study in the background._"
