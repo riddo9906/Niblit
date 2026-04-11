@@ -346,7 +346,7 @@ class ALECheckpointManager:
             # The approach: wrap _run_step_with_timeout instead.
             original_run_step = mgr.ale._run_step_with_timeout
 
-            def _instrumented_step(name: str, fn) -> Any:
+            def _instrumented_step(name: str, fn, timeout=None, **kwargs) -> Any:
                 # Check for pause request before each step
                 if mgr._pause_event and mgr._pause_event.is_set():
                     with mgr._lock:
@@ -368,8 +368,8 @@ class ALECheckpointManager:
                     if name not in mgr._state["incomplete_steps"]:
                         mgr._state["incomplete_steps"].append(name)
 
-                # Run the step
-                result = original_run_step(name, fn)
+                # Run the step, forwarding timeout and any other kwargs
+                result = original_run_step(name, fn, timeout=timeout, **kwargs)
 
                 # Mark step as completed
                 ts = time.strftime("%Y-%m-%dT%H:%M:%S")
