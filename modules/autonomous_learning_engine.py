@@ -2295,6 +2295,15 @@ class AutonomousLearningEngine:
             self.metacognition = getattr(self.core, "metacognition", None)
         return self.metacognition
 
+    def _get_cognition_core(self):
+        """Lazily resolve CognitionCore singleton."""
+        try:
+            from modules.cognition_core import get_cognition_core  # pylint: disable=import-outside-toplevel
+            return get_cognition_core()
+        except Exception as exc:
+            log.debug("[ALE] CognitionCore unavailable: %s", exc)
+            return None
+
     def _get_improvement_integrator(self):
         """Lazily resolve ImprovementIntegrator from core."""
         if not self.improvement_integrator and self.core:
@@ -3640,8 +3649,50 @@ class AutonomousLearningEngine:
             return f"[Metacognition error: {exc}]"
 
     # ─────────────────────────────────────────────
-    # STEP TIMEOUT HELPER
+    # COGNITION CORE STEP (step 17b — after Metacognition)
     # ─────────────────────────────────────────────
+
+    def _autonomous_cognition_cycle(self) -> str:
+        """Step 17b: Run one CognitionCore cycle after Metacognition.
+
+        Ties together local reasoning (chain-of-thought → KB belief update),
+        goal-driven cognition (GoalEngine → prioritised next-topic objectives),
+        and memory maintenance (temporal decay + pruning).
+
+        Generated goals are stored in ``_cross_cycle_context["goal_objectives"]``
+        so Phase A of the *next* cycle can inject them as priority research topics.
+        """
+        cognition = self._get_cognition_core()
+        if cognition is None:
+            return "[CognitionCycle skipped — CognitionCore not available]"
+
+        try:
+            summary = cognition.cycle(
+                knowledge_db=self.knowledge_db,
+                ale_context=self._cross_cycle_context,
+            )
+            goals_count = summary.get("goals_count", 0)
+            conclusion = summary.get("conclusion", "")[:120]
+            maintenance = summary.get("maintenance_ran", False)
+
+            if summary.get("goals_count", 0) > 0:
+                goal_topics = [
+                    g["topic"] if isinstance(g, dict) else str(g)
+                    for g in self._cross_cycle_context.get("goal_objectives", [])[:3]
+                ]
+                log.info(
+                    "🎯 [COGNITION] %d goals queued for next cycle: %s",
+                    goals_count, goal_topics,
+                )
+
+            return (
+                f"CognitionCycle: {goals_count} goals generated"
+                + (f"; conclusion='{conclusion[:80]}'" if conclusion else "")
+                + ("; maintenance ran" if maintenance else "")
+            )
+        except Exception as exc:
+            log.warning("[ALE] CognitionCycle error: %s", exc)
+            return f"[CognitionCycle error: {exc}]"
 
     def _run_step_with_timeout(self, step_name: str, step_fn,
                                timeout: Optional[float] = None) -> str:
@@ -5316,6 +5367,9 @@ class AutonomousLearningEngine:
               * metacognition_gaps   — promoted to the *front* of the research
                                        queue (priority=True) so Step 1 targets
                                        the weakest knowledge areas first.
+              * goal_objectives      — top CognitionCore goals added as
+                                       priority research topics.
+              * cognition_conclusion — logged as contextual frame.
               * reasoning_inferences — seeded as background research topics.
               * reasoning_cot        — logged as contextual frame for this cycle.
 
@@ -5334,6 +5388,8 @@ class AutonomousLearningEngine:
             inferences   = ctx.pop("reasoning_inferences", [])
             cot_text     = ctx.pop("reasoning_cot", None)
             cog_domains  = ctx.pop("cognitive_domains", [])
+            goal_objects = ctx.pop("goal_objectives", [])
+            cognition_conclusion = ctx.pop("cognition_conclusion", None)
 
             # Phase C → A: metacognition gap topics → highest-priority research
             if gap_topics:
@@ -5344,6 +5400,28 @@ class AutonomousLearningEngine:
                 )
                 for gap in gap_topics:
                     self.add_research_topic(gap, priority=True)
+
+            # Phase C → A: CognitionCore goal objectives → priority topics
+            if goal_objects:
+                top_goals = [
+                    g["topic"] if isinstance(g, dict) else str(g)
+                    for g in goal_objects[:3]
+                ]
+                log.info(
+                    "🎯 [CYCLE #%d] Cross-cycle Phase C→A: %d goal objective(s) → "
+                    "priority research topics: %s",
+                    cycle, len(top_goals), top_goals,
+                )
+                for topic in top_goals:
+                    if topic:
+                        self.add_research_topic(topic, priority=True)
+
+            # Phase C → A: CognitionCore CoT conclusion → contextual frame
+            if cognition_conclusion:
+                log.info(
+                    "🔗 [CYCLE #%d] Cross-cycle Phase C→A cognition frame: %s",
+                    cycle, cognition_conclusion[:120],
+                )
 
             # Phase C → A: reasoning CoT conclusion → contextual frame
             if cot_text:
@@ -5457,6 +5535,11 @@ class AutonomousLearningEngine:
         # Gap topics are stored in _cross_cycle_context by
         # _autonomous_metacognition() for use by Phase A next cycle.
         _step("Metacognition", self._autonomous_metacognition)
+
+        # ── Step 17b: CognitionCore — reasoning → beliefs, goals, decay ───
+        # Runs immediately after Metacognition so it can consume the freshly
+        # written metacognition_gaps and produce goal_objectives for Phase A.
+        _step("CognitionCycle", self._autonomous_cognition_cycle)
 
         log.info(
             "✅ [CYCLE #%d] Phase C done — phases D→E still pending "

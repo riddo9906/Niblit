@@ -277,6 +277,99 @@ class MemoryGraph:
             if node_id in self._nodes:
                 self._nodes[node_id].adjust_score(delta)
 
+    def reinforce(self, node_id: str, delta: float = 0.05) -> None:
+        """Positively reinforce a node by increasing its correctness score.
+
+        Convenience wrapper around :meth:`update_score` with explicit positive
+        semantics for high-value pattern reinforcement.
+
+        Args:
+            node_id: Target node identifier.
+            delta:   Score increase (default 0.05, clamped to keep score ≤ 1).
+        """
+        self.update_score(node_id, abs(delta))
+
+    def apply_decay(
+        self,
+        days_inactive: float = 7.0,
+        decay_factor: float = 0.95,
+        min_score_floor: float = 0.05,
+    ) -> int:
+        """Apply temporal decay to nodes that have not been accessed recently.
+
+        Nodes whose ``last_used`` timestamp is older than *days_inactive* days
+        (and which have never been used, i.e. ``usage == 0`` and
+        ``last_used == 0``) receive a score penalty of
+        ``score × decay_factor`` — their importance diminishes over time when
+        they are never retrieved.  The score is clamped to
+        *min_score_floor* to avoid hitting exactly zero (which would prevent
+        recovery via reinforcement).
+
+        Args:
+            days_inactive:   Minimum age (days since ``last_used``) before
+                             decay is applied (default 7 days).
+            decay_factor:    Multiplicative decay factor applied per call
+                             (default 0.95 = 5 % reduction).
+            min_score_floor: Lower bound for decayed scores (default 0.05).
+
+        Returns:
+            Number of nodes that had decay applied.
+        """
+        now = int(time.time())
+        cutoff = now - int(days_inactive * 86_400)
+        decayed = 0
+
+        with self._lock:
+            for nd in self._nodes.values():
+                # Decay only if the node has never been used OR was last used
+                # before the cutoff window
+                if nd.last_used == 0 or nd.last_used < cutoff:
+                    old_score = nd.score
+                    nd.score = max(min_score_floor, old_score * decay_factor)
+                    if nd.score < old_score - 1e-6:
+                        decayed += 1
+
+        if decayed:
+            log.debug(
+                "[MemoryGraph] apply_decay: decayed %d nodes "
+                "(inactive > %.1f days, factor=%.2f)",
+                decayed, days_inactive, decay_factor,
+            )
+        return decayed
+
+    def prune_low_score(self, min_score: float = 0.10) -> int:
+        """Remove nodes whose correctness score has fallen below *min_score*.
+
+        This is the "forgetting" mechanism — after repeated decay passes,
+        nodes that are never reinforced will eventually drop below the
+        threshold and be removed.  Edges pointing to removed nodes are also
+        cleaned up.
+
+        Args:
+            min_score: Score threshold below which a node is removed
+                       (default 0.10).
+
+        Returns:
+            Number of nodes removed.
+        """
+        with self._lock:
+            to_remove = [
+                nid for nid, nd in self._nodes.items()
+                if nd.score < min_score and nd.usage == 0
+            ]
+            for nid in to_remove:
+                for neighbour_id in list(self._nodes[nid].links):
+                    if neighbour_id in self._nodes:
+                        self._nodes[neighbour_id].links.pop(nid, None)
+                del self._nodes[nid]
+
+        if to_remove:
+            log.debug(
+                "[MemoryGraph] prune_low_score: removed %d nodes (score < %.2f)",
+                len(to_remove), min_score,
+            )
+        return len(to_remove)
+
     # ── Retrieval ─────────────────────────────────────────────────────────────
 
     def search(
@@ -327,12 +420,18 @@ class MemoryGraph:
             avg_score = (
                 sum(nd.score for nd in self._nodes.values()) / n if n else 0
             )
+            now = int(time.time())
+            inactive_7d = sum(
+                1 for nd in self._nodes.values()
+                if nd.last_used == 0 or nd.last_used < now - 7 * 86_400
+            )
         return {
             "nodes": n,
             "edges": total_edges,
             "total_adds": self._total_adds,
             "avg_usage": round(avg_usage, 2),
             "avg_score": round(avg_score, 3),
+            "inactive_7d": inactive_7d,
         }
 
     # ── Internal helpers ──────────────────────────────────────────────────────
