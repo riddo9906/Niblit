@@ -78,7 +78,7 @@ _PRINT_RE = re.compile(r'^\s*print\s*\(', re.MULTILINE)
 _SHEBANG_RE = re.compile(r'^#!')
 _SETE_RE = re.compile(r'set\s+-[a-z]*e[a-z]*')
 _UNQUOTED_VAR_RE = re.compile(r'(?<!["\'\$])\$([A-Za-z_][A-Za-z0-9_]*)(?!["\'\}])')
-_DESTRUCTIVE_RM_RE = re.compile(r'\brm\s+(-\w*\s+)*-\w*r\w*\s+(-\w+\s+)*/\s*\*?$', re.MULTILINE)
+_DESTRUCTIVE_RM_RE = re.compile(r'\brm\s+(-\w*\s+)*-\w*r\w*\s+(-\w+\s+)*/\s*\*?(?:\s|;|&&|\|\||$)', re.MULTILINE)
 _CHMOD777_RE = re.compile(r'\bchmod\s+777\b')
 
 _USE_STRICT_RE = re.compile(r'["\']use strict["\']')
@@ -151,7 +151,7 @@ class CodeQualityChecker:
         issues.extend(self._python_regex_checks(code, lines))
         return issues
 
-    def _python_ast_checks(self, tree: "ast.AST", lines: List[str]) -> List[CodeIssue]:
+    def _python_ast_checks(self, tree: ast.AST, lines: List[str]) -> List[CodeIssue]:
         issues: List[CodeIssue] = []
         has_def_or_class = False
 
