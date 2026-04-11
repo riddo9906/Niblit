@@ -443,8 +443,14 @@ class GraphRAGPipeline:
             f"T3 (vectors): {tier3}"
         )
 
-    # ------------------------------------------------------------------
-    # Internal helpers
+    def get_facts(self) -> List[Quad]:
+        """Return all Priority-1 (absolute facts) quads."""
+        return self._tier1.all_quads()
+
+    def get_stats(self) -> List[Quad]:
+        """Return all Priority-2 (background statistics) quads."""
+        return self._tier2.all_quads()
+
     # ------------------------------------------------------------------
 
     def _build_plain_context(

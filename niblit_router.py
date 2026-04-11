@@ -2793,7 +2793,7 @@ Ask me about:
             )
 
         if sub == "list-facts":
-            quads = grp._tier1.all_quads()
+            quads = grp.get_facts()
             if not quads:
                 return "No Priority-1 facts stored yet."
             lines = ["📋 Priority-1 (absolute facts):"]
@@ -2805,7 +2805,7 @@ Ask me about:
             return "\n".join(lines)
 
         if sub == "list-stats":
-            quads = grp._tier2.all_quads()
+            quads = grp.get_stats()
             if not quads:
                 return "No Priority-2 stats stored yet."
             lines = ["📋 Priority-2 (background stats):"]

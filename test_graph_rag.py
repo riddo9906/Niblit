@@ -346,6 +346,22 @@ class TestGraphRAGPipelineStatus:
         assert s["tier1_count"] == 1
         assert s["tier2_count"] == 1
 
+    def test_get_facts_returns_tier1_quads(self):
+        from modules.graph_rag import GraphRAGPipeline
+        p = GraphRAGPipeline()
+        p.add_fact("Alice", "knows", "Bob", "ctx")
+        facts = p.get_facts()
+        assert len(facts) == 1
+        assert facts[0][0] == "Alice"
+
+    def test_get_stats_returns_tier2_quads(self):
+        from modules.graph_rag import GraphRAGPipeline
+        p = GraphRAGPipeline()
+        p.add_stat("Alice", "score", "42", "ctx")
+        stats = p.get_stats()
+        assert len(stats) == 1
+        assert stats[0][0] == "Alice"
+
     def test_status_summary_string(self):
         from modules.graph_rag import GraphRAGPipeline
         p = GraphRAGPipeline()
