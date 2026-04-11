@@ -19,7 +19,7 @@ Usage::
                           max_drawdown_pct=0.15)
 
     # Compute a position-size fraction (0–max_fraction)
-    fraction = sizer.kelly_fraction(
+    fraction = sizer.position_fraction(
         win_rate=0.55,
         avg_win_pct=0.02,
         avg_loss_pct=0.01,

@@ -246,7 +246,11 @@ class TokenizerTrainer:
 
     def _train_word_freq(self, corpus: str) -> str:
         """Build a word-frequency vocabulary and save it as JSON."""
-        # Tokenise with a simple regex that handles contractions and numbers
+        # Tokenise with a simple regex. The pattern keeps apostrophes and
+        # hyphens as part of tokens (e.g. "don't", "Kelly-criterion") to
+        # preserve contractions and common hyphenated domain terms.
+        # Note: standalone hyphens or trailing apostrophes may produce
+        # minor artefacts; this is acceptable for a lightweight fallback.
         tokens = re.findall(r"[a-zA-Z0-9_'\-]+", corpus.lower())
         counts = Counter(tokens)
 

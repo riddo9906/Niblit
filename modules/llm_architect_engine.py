@@ -702,12 +702,14 @@ class LLMArchitectEngine:
 
             task_scores: Dict[str, Any] = {}
             if isinstance(results, dict) and "results" in results:
+                # Metric key priority: prefer normalised accuracy, fall back to raw
+                _SCORE_KEYS = ("acc_norm,none", "acc,none", "acc_norm", "acc")
                 for task, metrics in results["results"].items():
-                    # Prefer acc_norm, fall back to acc
-                    score = metrics.get("acc_norm,none",
-                            metrics.get("acc,none",
-                            metrics.get("acc_norm",
-                            metrics.get("acc"))))
+                    score = None
+                    for key in _SCORE_KEYS:
+                        score = metrics.get(key)
+                        if score is not None:
+                            break
                     if score is not None:
                         task_scores[task] = round(float(score), 4)
 

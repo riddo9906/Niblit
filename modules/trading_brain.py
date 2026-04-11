@@ -578,7 +578,8 @@ class TradingBrain:
                         avg_win_pct = avg_loss_pct * 2.0    # 2:1 reward/risk
                         rsi = metadata["rsi"]
                         # Rough win-rate proxy from RSI distance from neutral
-                        win_rate = 0.50 + (rsi - 50.0) / 200.0  # 0.25–0.75
+                        # (clamped to [0.3, 0.7] to stay within a realistic range)
+                        win_rate = 0.50 + (rsi - 50.0) / 200.0  # unclamped: 0.25–0.75
                         win_rate = max(0.3, min(0.7, win_rate))
                         position_fraction = self.position_sizer.position_fraction(
                             win_rate=win_rate,
