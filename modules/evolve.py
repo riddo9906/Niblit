@@ -22,7 +22,7 @@ import logging
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 try:
     from niblit_memory import NiblitMemory as _NiblitMemory
@@ -834,12 +834,46 @@ class EvolveEngine:
 # ──────────────────────────────────────────────
 # MODULE-LEVEL SINGLETON (backward compatible)
 # ──────────────────────────────────────────────
-engine = EvolveEngine()
+# Lazily-initialised to avoid creating a NiblitMemory SQLite connection
+# at module import time. On Android/Termux, eagerly opening a second
+# connection to niblit.db (already held by NiblitCore) can block
+# indefinitely when load_modules() re-executes this file.
+_engine: Optional[EvolveEngine] = None
+
+
+def _get_module_engine() -> EvolveEngine:
+    """Return (or create) the module-level EvolveEngine singleton."""
+    global _engine
+    if _engine is None:
+        _engine = EvolveEngine()
+    return _engine
 
 
 def step():
     """Backward-compatible module-level step function."""
-    return engine.step()
+    return _get_module_engine().step()
+
+
+# Lazy proxy so that `from modules.evolve import engine` still works.
+# The real EvolveEngine() (and its NiblitMemory SQLite connection) is only
+# created on first attribute access, not at module import time.
+#
+# __getattr__ is intentionally a catch-all that delegates to the underlying
+# EvolveEngine instance — it does not need to match object.__getattr__'s
+# signature because it acts as a transparent proxy, not a subclass override.
+class _LazyEngine:
+    """Proxy that forwards all attribute access to the lazy singleton."""
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(_get_module_engine(), name)
+
+    def __repr__(self) -> str:
+        return repr(_get_module_engine())
+
+
+# Typed as Union so callers that hold a reference to `engine` see EvolveEngine
+# methods through static analysis, while still using the lazy proxy at runtime.
+engine: Union[EvolveEngine, "_LazyEngine"] = _LazyEngine()
 
 
 if __name__ == "__main__":

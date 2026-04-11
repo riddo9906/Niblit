@@ -42,3 +42,5 @@ root/
 .build/
 .swiftpm/
 Package.resolved
+niblit_env_state.json
+niblit.db
