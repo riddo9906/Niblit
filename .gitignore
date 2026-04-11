@@ -26,6 +26,7 @@ niblit_memory.json
 niblit_memory.json.backup
 niblit_diagnostics.json
 niblit_live_test_report.json
+
 # ALE checkpoint state (runtime-generated, not version controlled)
 ale_state.json
 ale_state.json.tmp
@@ -44,3 +45,18 @@ root/
 Package.resolved
 niblit_env_state.json
 niblit.db
+
+# ─────────────────────────────────────────
+# Niblit Autonomous Runtime Outputs
+# ─────────────────────────────────────────
+builds/
+evolved/
+
+# Generated scripts
+ale_*.py
+
+# Runtime state
+events.jsonl
+*_state.json
+niblit_deployment_bridge.json
+niblit_net_state.json
