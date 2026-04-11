@@ -21,10 +21,18 @@ def load_modules():
             continue
         path = os.path.join(modules_dir, file)
         spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            print(f"Failed to load module: {file} (could not create module spec)")
+            continue
         module = importlib.util.module_from_spec(spec)
+        # Register in sys.modules *before* exec_module so that typing.get_type_hints()
+        # (called by @dataclass when 'from __future__ import annotations' is active)
+        # can resolve the module's __dict__ instead of receiving None.
+        sys.modules[name] = module
         try:
             spec.loader.exec_module(module)
         except Exception as e:
+            del sys.modules[name]
             print(f"Failed to load module: {file} ({e})")
             continue
         print(f"Loaded module: {file}")
