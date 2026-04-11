@@ -1500,6 +1500,23 @@ class AutonomousLearningEngine:
             except Exception:
                 pass
 
+        # ── 5a. Push research snippets into GraphRAGPipeline (Tier 3) ────
+        # The KB hook in graph_rag_bridge already intercepts add_fact() calls
+        # made in _store() above.  This additional call ensures the full text
+        # (not just the truncated quad) is also available for semantic search.
+        try:
+            from modules.graph_rag import get_graph_rag_pipeline
+            _grp = get_graph_rag_pipeline()
+            if _grp and snippets_stored > 0:
+                existing_recall = tks.recall_knowledge(topic) or ""
+                if existing_recall:
+                    _grp.add_document(
+                        f"ale_tiered:{tier_name.lower()}:{_topic_slug}",
+                        existing_recall[:800],
+                    )
+        except Exception as _grp_e:
+            log.debug("[TieredResearch] GraphRAG doc push failed: %s", _grp_e)
+
         # ── 5. Log status ──────────────────────────────────────────────────
         status = tks.status_summary()
         log.info(

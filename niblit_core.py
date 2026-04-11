@@ -6855,6 +6855,54 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.startup_report.add("optional_services", "degraded", str(e))
 
         # ============================
+        # GRAPH-RAG BRIDGE — KnowledgeDB ↔ GraphRAGPipeline sync
+        # Runs after the main optional-services block so KnowledgeDB and
+        # optional VectorStore are both available.  The boot ingest is
+        # dispatched to a daemon thread so init never blocks.
+        # ============================
+        try:
+            from modules.graph_rag_bridge import get_graph_rag_bridge, install_kb_hook
+            from modules.graph_rag import get_graph_rag_pipeline
+            _grp = get_graph_rag_pipeline(
+                vector_store=getattr(self, "vector_store", None)
+            )
+            self.graph_rag_bridge = get_graph_rag_bridge(
+                knowledge_db=self.db,
+                graph_rag_pipeline=_grp,
+            )
+            # Install real-time hook so every future add_fact() feeds the graph
+            install_kb_hook(self.db, self.graph_rag_bridge)
+            # Kick off background boot ingest (non-blocking)
+            self.graph_rag_bridge.ingest_from_kb(background=True)
+            # Start periodic background watch thread
+            self.graph_rag_bridge.start_watch()
+            log.info("✅ GraphRAGBridge initialized (KB→Graph sync active)")
+            self.startup_report.add("graph_rag_bridge", "ready")
+        except Exception as _grb_err:
+            self.graph_rag_bridge = None  # type: ignore[assignment]
+            log.debug("GraphRAGBridge init failed: %s", _grb_err)
+            self.startup_report.add("graph_rag_bridge", "degraded", str(_grb_err))
+
+        # ============================
+        # CHAT COMPLETIONS — conversational response engine
+        # ============================
+        try:
+            from modules.chat_completions import get_chat_completions
+            self.chat_completions = get_chat_completions(
+                llm_provider_manager=getattr(
+                    getattr(self, "brain", None), "llm_provider_manager", None
+                ),
+                graph_rag_pipeline=getattr(self, "graph_rag_bridge", None)
+                    and getattr(getattr(self, "graph_rag_bridge", None), "_grp", None),
+            )
+            log.info("✅ ChatCompletions engine initialized")
+            self.startup_report.add("chat_completions", "ready")
+        except Exception as _cc_err:
+            self.chat_completions = None  # type: ignore[assignment]
+            log.debug("ChatCompletions init failed: %s", _cc_err)
+            self.startup_report.add("chat_completions", "degraded", str(_cc_err))
+
+        # ============================
         # DYNAMIC TOPIC MANAGER (LLM/hybrid Qdrant-based topic enrichment)
         # These run after the main optional-services try/except so that a
         # failure here never masks earlier service initialisation errors.

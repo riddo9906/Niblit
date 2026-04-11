@@ -346,6 +346,8 @@ class NiblitRouter:
         "knowledge",
         # 3-Tiered deterministic Graph-RAG (additive)
         "graph-rag", "graph_rag",
+        # Conversational chat completions (Graph-RAG + LLMChatMemory + LLM)
+        "chat",
     )
 
     CHAT_RESPONSES = {
@@ -2826,6 +2828,91 @@ Ask me about:
             "  graph-rag list-stats                     — list Priority-2 quads"
         )
 
+    def _handle_chat(self, cmd: str) -> str:
+        """Handle 'chat <sub>' commands — conversational chat completions engine.
+
+        The engine combines:
+          - 3-Tiered Graph-RAG (deterministic knowledge retrieval)
+          - LLMChatMemory (persistent multi-turn conversation history)
+          - LLMProviderManager (HF → Anthropic LLM routing)
+
+        Usage::
+
+            chat status
+                Show engine status (LLM availability, history count, tier counts).
+
+            chat <question>
+                Answer *question* using all knowledge tiers + conversation history.
+                Example: chat What is retrieval-augmented generation?
+
+            chat history [N]
+                Show the last N conversation turns (default 10).
+
+            chat clear
+                Clear all stored conversation history.
+
+            chat bridge-status
+                Show GraphRAGBridge synchronisation status.
+        """
+        sub = cmd[len("chat"):].strip()
+
+        try:
+            from modules.chat_completions import get_chat_completions
+            cc = get_chat_completions()
+        except Exception as _e:
+            return f"ChatCompletions module unavailable: {_e}"
+
+        if not sub or sub == "status":
+            return f"💬 {cc.status_summary()}"
+
+        if sub == "clear":
+            cc.clear_history()
+            return "💬 Conversation history cleared."
+
+        if sub.startswith("history"):
+            parts = sub.split()
+            try:
+                n = int(parts[1]) if len(parts) > 1 else 10
+            except ValueError:
+                n = 10
+            messages = cc.chat_history(limit=n)
+            if not messages:
+                return "💬 No conversation history yet."
+            lines = ["💬 Conversation history:"]
+            for m in messages:
+                role_icon = "👤" if m.get("role") == "user" else "🤖"
+                content = m.get("content", "")[:120]
+                lines.append(f"  {role_icon} {content}")
+            return "\n".join(lines)
+
+        if sub == "bridge-status":
+            try:
+                from modules.graph_rag_bridge import get_graph_rag_bridge
+                bridge = get_graph_rag_bridge()
+                return f"🔗 {bridge.status_summary()}"
+            except Exception as _e:
+                return f"GraphRAGBridge unavailable: {_e}"
+
+        # Free-text chat question
+        if not sub:
+            return (
+                "Chat commands:\n"
+                "  chat <question>       — ask anything (uses all knowledge tiers)\n"
+                "  chat status           — engine status\n"
+                "  chat history [N]      — show last N turns\n"
+                "  chat clear            — clear history\n"
+                "  chat bridge-status    — KB→Graph sync status"
+            )
+
+        result = cc.complete(sub, persist=True)
+        lines = [
+            f"💬 {result.response}",
+        ]
+        if result.sources:
+            lines.append(f"\n   Sources: {' | '.join(result.sources)}")
+        lines.append(f"   [{result.tier_used} | {result.latency_ms:.0f}ms]")
+        return "\n".join(lines)
+
     def _handle_kernel(self, text: str) -> str:
         """Handle 'kernel <sub>' commands — NiblitKernel cognitive dashboard."""
         sub = text[len("kernel"):].strip()
@@ -4570,6 +4657,10 @@ Ask me about:
         # GRAPH-RAG — 3-tiered deterministic Graph-RAG (additive)
         if lower in ("graph-rag", "graph_rag") or lower.startswith("graph-rag ") or lower.startswith("graph_rag "):
             return self._handle_graph_rag(cmd)
+
+        # CHAT COMPLETIONS — conversational engine backed by Graph-RAG
+        if lower == "chat" or lower.startswith("chat "):
+            return self._handle_chat(cmd)
 
         # MEMORY RESET — flush all memory, caches and state files
         if lower == "memory-reset" or lower.startswith("memory-reset "):

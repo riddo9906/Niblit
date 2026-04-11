@@ -1217,8 +1217,37 @@ class NiblitBrain:
 
             response = None
 
+            # ── ChatCompletions engine: preferred response path ───────────────
+            # Uses GraphRAGPipeline + LLMChatMemory + LLMProviderManager in one
+            # unified call so conversation history and tiered knowledge are
+            # always injected together.  The extra context already assembled
+            # above (SECA, RAG) is prepended to the question so it is still
+            # available to the LLM.
+            _extra_context = context  # may be empty string
+            try:
+                from modules.chat_completions import get_chat_completions
+                _cc = get_chat_completions(
+                    llm_provider_manager=self.llm_provider_manager,
+                )
+                # Prepend any accumulated context (SECA/RAG/Graph-RAG) to the
+                # question so the completions engine sees everything.
+                _question_with_ctx = (
+                    _extra_context.strip() + "\n\n" + user_input
+                    if _extra_context.strip()
+                    else user_input
+                )
+                _cc_result = _cc.complete(_question_with_ctx, persist=True)
+                if _cc_result.response and not _cc_result.response.startswith("("):
+                    response = _cc_result.response
+                    log.debug(
+                        "[BRAIN] ChatCompletions response via tier=%s sources=%s",
+                        _cc_result.tier_used, _cc_result.sources,
+                    )
+            except Exception as _cc_err:
+                log.debug("[BRAIN] ChatCompletions skipped: %s", _cc_err)
+
             # Route through LLMProviderManager (HF primary → Anthropic fallback)
-            if self.llm_provider_manager:
+            if not response and self.llm_provider_manager:
                 try:
                     response = self.llm_provider_manager.ask(prompt)
                 except Exception as _pm_err:
