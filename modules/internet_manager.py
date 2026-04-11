@@ -249,6 +249,8 @@ class InternetManager:
                     with DDGS() as ddgs:
                         ddg_hits = ddgs.text(query, max_results=max_results)
                     for hit in (ddg_hits or []):
+                        # duckduckgo-search ≥6 returns 'body'; older versions
+                        # used 'snippet'. Check both for forward/backward compat.
                         text = hit.get("body") or hit.get("snippet") or ""
                         if text:
                             results.append({
