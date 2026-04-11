@@ -1219,18 +1219,10 @@ def api_code(request: Request, body: CodeRequest):
 
     language = (body.language or "python").strip().lower()
 
-    # Reject project_path values that point outside the working directory.
-    # The actual enforcement happens inside load_project_context, but we
-    # add an early check here so the caller gets a clear error message.
-    if body.project_path is not None:
-        import os as _os  # pylint: disable=import-outside-toplevel,reimported
-        _safe_base = _os.path.realpath(_os.getcwd())
-        _resolved = _os.path.realpath(_os.path.abspath(body.project_path))
-        if not _resolved.startswith(_safe_base + _os.sep) and _resolved != _safe_base:
-            return JSONResponse(
-                {"error": "project_path must be within the application directory"},
-                status_code=400,
-            )
+    # project_path is a server-side concept (loading local source files for LLM
+    # context).  It is intentionally NOT forwarded from the request body to
+    # prevent path-injection: remote callers have no knowledge of the server's
+    # filesystem layout and cannot usefully specify this value.
 
     # ── Build generator ──────────────────────────────────────────────────────
     core = _get_core()
@@ -1252,7 +1244,7 @@ def api_code(request: Request, body: CodeRequest):
             prompt=prompt,
             language=language,
             llm=llm,
-            project_path=body.project_path,
+            project_path=None,  # never forward user-supplied path to the filesystem walk
         )
     except Exception as exc:
         log.error("generate_copilot_code error: %s", exc)
