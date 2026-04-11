@@ -1570,6 +1570,12 @@ class NiblitCore:
         self.ale_checkpoint: Optional[Any] = None
         # NEW: GradedCurriculum — education-system learning progression (additive)
         self.graded_curriculum: Optional[Any] = None
+        # NEW: LanguageModule — vocabulary, grammar, subject seeds, response formatter
+        self.language_module: Optional[Any] = None
+        # NEW: AcademicStudyModule — subject-structured study sessions
+        self.academic_study: Optional[Any] = None
+        # NEW: PhasedResearchEngine — 3-phase sequential research
+        self.phased_research_engine: Optional[Any] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -6805,6 +6811,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         slsa=getattr(self, "slsa_engine", None),
                         autonomous_engine=getattr(self, "autonomous_engine", None),
                         semantic_agent=getattr(self, "semantic_agent", None),
+                        sub_step_timeout=30,  # increased from 10 s — avoids premature skips
                     )
                     # Back-wire autonomous_engine → evolve_engine once both are available
                     if self.autonomous_engine and not self.autonomous_engine.evolve_engine:
@@ -6853,6 +6860,120 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as e:
             log.error(f"Optional services init failed: {e}")
             self.startup_report.add("optional_services", "degraded", str(e))
+
+        # ============================
+        # GRAPH-RAG BRIDGE — KnowledgeDB ↔ GraphRAGPipeline sync
+        # Runs after the main optional-services block so KnowledgeDB and
+        # optional VectorStore are both available.  The boot ingest is
+        # dispatched to a daemon thread so init never blocks.
+        # ============================
+        try:
+            from modules.graph_rag_bridge import get_graph_rag_bridge, install_kb_hook
+            from modules.graph_rag import get_graph_rag_pipeline
+            _grp = get_graph_rag_pipeline(
+                vector_store=getattr(self, "vector_store", None)
+            )
+            self.graph_rag_bridge = get_graph_rag_bridge(
+                knowledge_db=self.db,
+                graph_rag_pipeline=_grp,
+            )
+            # Install real-time hook so every future add_fact() feeds the graph
+            install_kb_hook(self.db, self.graph_rag_bridge)
+            # Kick off background boot ingest (non-blocking)
+            self.graph_rag_bridge.ingest_from_kb(background=True)
+            # Start periodic background watch thread
+            self.graph_rag_bridge.start_watch()
+            log.info("✅ GraphRAGBridge initialized (KB→Graph sync active)")
+            self.startup_report.add("graph_rag_bridge", "ready")
+        except Exception as _grb_err:
+            self.graph_rag_bridge = None  # type: ignore[assignment]
+            log.debug("GraphRAGBridge init failed: %s", _grb_err)
+            self.startup_report.add("graph_rag_bridge", "degraded", str(_grb_err))
+
+        # ============================
+        # CHAT COMPLETIONS — conversational response engine
+        # ============================
+        try:
+            from modules.chat_completions import get_chat_completions
+            _grp_for_cc = getattr(self, "graph_rag_bridge", None)
+            _grp_for_cc = getattr(_grp_for_cc, "_grp", None) if _grp_for_cc else None
+            self.chat_completions = get_chat_completions(
+                llm_provider_manager=getattr(
+                    getattr(self, "brain", None), "llm_provider_manager", None
+                ),
+                graph_rag_pipeline=_grp_for_cc,
+            )
+            log.info("✅ ChatCompletions engine initialized")
+            self.startup_report.add("chat_completions", "ready")
+        except Exception as _cc_err:
+            self.chat_completions = None  # type: ignore[assignment]
+            log.debug("ChatCompletions init failed: %s", _cc_err)
+            self.startup_report.add("chat_completions", "degraded", str(_cc_err))
+
+        # ── LanguageModule ─────────────────────────────────────────────────
+        try:
+            from modules.language_module import get_language_module as _get_lm
+            self.language_module = _get_lm()
+            log.info("✅ LanguageModule initialized (%d vocabulary words)", len(self.language_module.vocabulary))
+            self.startup_report.add("language_module", "ready")
+        except Exception as _lm_err:
+            self.language_module = None  # type: ignore[assignment]
+            log.debug("LanguageModule init failed: %s", _lm_err)
+            self.startup_report.add("language_module", "degraded", str(_lm_err))
+
+        # ── AcademicStudyModule ────────────────────────────────────────────
+        try:
+            from modules.academic_study_module import get_academic_study_module as _get_asm
+            _grp_for_asm = getattr(getattr(self, "graph_rag_bridge", None), "_grp", None)
+            self.academic_study = _get_asm(
+                knowledge_db=getattr(self, "db", None) or getattr(self, "memory", None),
+                graph_rag_pipeline=_grp_for_asm,
+                language_module=self.language_module,
+            )
+            # Seed subject facts into the knowledge pipeline in the background
+            self.academic_study.seed_knowledge_pipeline(background=True)
+            log.info(
+                "✅ AcademicStudyModule initialized (%d subjects, %d topics)",
+                len(self.academic_study.subjects),
+                sum(len(s.topics) for s in self.academic_study.subjects.values()),
+            )
+            self.startup_report.add("academic_study", "ready")
+        except Exception as _asm_err:
+            self.academic_study = None  # type: ignore[assignment]
+            log.debug("AcademicStudyModule init failed: %s", _asm_err)
+            self.startup_report.add("academic_study", "degraded", str(_asm_err))
+
+        # ── PhasedResearchEngine ───────────────────────────────────────────
+        try:
+            from modules.phased_research_engine import get_phased_research_engine as _get_pre
+            self.phased_research_engine = _get_pre(
+                knowledge_db=getattr(self, "db", None) or getattr(self, "memory", None),
+                graph_rag_bridge=getattr(self, "graph_rag_bridge", None),
+                language_module=self.language_module,
+                internet=getattr(self, "internet", None),
+                scrapy_agent=getattr(
+                    getattr(self, "autonomous_engine", None), "scrapy_research_agent", None
+                ),
+                serpex_agent=getattr(
+                    getattr(self, "autonomous_engine", None), "serpex_research_agent", None
+                ),
+                github_code_search=getattr(self, "github_code_search", None),
+            )
+            # Back-wire into ALE so _phased_research() uses the singleton
+            if self.autonomous_engine:
+                try:
+                    self.autonomous_engine.language_module = self.language_module
+                    self.autonomous_engine.graph_rag_bridge = getattr(
+                        self, "graph_rag_bridge", None
+                    )
+                except Exception:
+                    pass
+            log.info("✅ PhasedResearchEngine initialized")
+            self.startup_report.add("phased_research_engine", "ready")
+        except Exception as _pre_err:
+            self.phased_research_engine = None  # type: ignore[assignment]
+            log.debug("PhasedResearchEngine init failed: %s", _pre_err)
+            self.startup_report.add("phased_research_engine", "degraded", str(_pre_err))
 
         # ============================
         # DYNAMIC TOPIC MANAGER (LLM/hybrid Qdrant-based topic enrichment)

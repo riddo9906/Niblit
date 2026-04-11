@@ -435,6 +435,29 @@ class SelfImprovementOrchestrator:
             ingested["errors"].append(f"rag_index: {exc}")
             log.debug("[Orchestrator] RAG indexing skipped: %s", exc)
 
+        # 3b. Also push insights/repos into GraphRAGPipeline (Tier 1 + Tier 3)
+        try:
+            from modules.graph_rag import get_graph_rag_pipeline
+            _grp = get_graph_rag_pipeline()
+            for insight in new_insights[:20]:
+                if " — " in insight:
+                    pattern_part, repo_part = insight.split(" — ", 1)
+                    _grp.add_fact(
+                        pattern_part.strip(), "found_in", repo_part.strip(), source
+                    )
+            for repo in top_repos[:8]:
+                name = repo.get("full_name", "")
+                desc = (repo.get("description", "") or "")[:150]
+                if name and desc:
+                    _grp.add_fact(name, "describes", desc, source)
+                    _grp.add_document(
+                        f"{source}:repo:{name}",
+                        f"{name}: {desc} stars={repo.get('stars', 0)}",
+                    )
+        except Exception as exc:
+            ingested["errors"].append(f"graph_rag_index: {exc}")
+            log.debug("[Orchestrator] GraphRAG indexing skipped: %s", exc)
+
         # 4. Feed top recommendation keywords into ALE as priority topics
         # Extract the keyword from each recommendation string and prioritise it
         # so the ALE focuses next on patterns that appear most across repos.
