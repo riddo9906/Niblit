@@ -1,5 +1,8 @@
 import os, tempfile, threading, time
-from .db import LocalDB
+try:
+    from modules.db import LocalDB  # absolute import (package context)
+except ImportError:
+    from niblit_memory import LocalDB  # fallback for standalone / test use
 
 _default_db_path = os.environ.get("LOCAL_LLM_DB_PATH") or os.path.join(
     os.getcwd() if os.access(os.getcwd(), os.W_OK) else tempfile.gettempdir(),

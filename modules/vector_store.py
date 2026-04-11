@@ -156,6 +156,17 @@ def _load_sentence_transformer(model_name: str) -> Any:
     _prev_st_log = os.environ.get("SAFETENSORS_LOG_LEVEL")
     os.environ["SAFETENSORS_LOG_LEVEL"] = "error"
 
+    # Bound the per-request HTTP timeout for the HuggingFace Hub download.
+    # huggingface_hub honours HF_HUB_DOWNLOAD_TIMEOUT (seconds, float).
+    # We only set it when no caller has already configured it, so that an
+    # explicit environment override (e.g. NIBLIT_HF_HUB_DOWNLOAD_TIMEOUT=120)
+    # is still respected.
+    _timeout_env = "HF_HUB_DOWNLOAD_TIMEOUT"
+    _prev_hf_timeout = os.environ.get(_timeout_env)
+    if _prev_hf_timeout is None:
+        _default_hf_timeout = os.environ.get("NIBLIT_HF_HUB_DOWNLOAD_TIMEOUT", "60")
+        os.environ[_timeout_env] = _default_hf_timeout
+
     captured_stdout = io.StringIO()
     captured_stderr = io.StringIO()
     old_stdout, old_stderr = sys.stdout, sys.stderr
@@ -182,6 +193,11 @@ def _load_sentence_transformer(model_name: str) -> Any:
             os.environ.pop("SAFETENSORS_LOG_LEVEL", None)
         else:
             os.environ["SAFETENSORS_LOG_LEVEL"] = _prev_st_log
+        # Restore HF_HUB_DOWNLOAD_TIMEOUT
+        if _prev_hf_timeout is None:
+            os.environ.pop(_timeout_env, None)
+        else:
+            os.environ[_timeout_env] = _prev_hf_timeout
 
     # Gather any captured output — route to DEBUG logger and notification
     # queue so it is only visible on demand (``notifications`` command).

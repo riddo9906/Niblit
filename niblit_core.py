@@ -6880,16 +6880,44 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self.startup_report.add("dynamic_topic_manager", "degraded", str(_dtme))
 
         # ── One-time Qdrant batch population from KnowledgeDB ─────────────────
+        # Run in a daemon thread so it never blocks _init_optional_services()
+        # (and therefore never blocks _deferred_init_event from being set).
+        # The model download + 2,000 HTTP upserts can take minutes; keeping
+        # them off the DeferredInitThread lets the CLI open on time.
         if _batch_populate_qdrant is not None and self.db is not None:
-            try:
-                _vs = getattr(self, "vector_store", None)
-                _added = _batch_populate_qdrant(self.db, vector_store=_vs)
-                log.info("✅ Qdrant batch population complete: %d facts upserted", _added)
-                self.startup_report.add("qdrant_batch_populate", "ready",
-                                        f"{_added} facts upserted")
-            except Exception as _bpe:
-                log.debug("Qdrant batch population failed (non-critical): %s", _bpe)
-                self.startup_report.add("qdrant_batch_populate", "degraded", str(_bpe))
+            import threading as _threading
+
+            _bpq_db = self.db
+            _bpq_vs = getattr(self, "vector_store", None)
+            _bpq_report = self.startup_report
+
+            def _run_batch_populate() -> None:
+                try:
+                    _added = _batch_populate_qdrant(_bpq_db, vector_store=_bpq_vs)
+                    log.info(
+                        "✅ Qdrant batch population complete: %d facts upserted", _added
+                    )
+                    _bpq_report.add(
+                        "qdrant_batch_populate", "ready", f"{_added} facts upserted"
+                    )
+                except Exception as _bpe:
+                    log.debug(
+                        "Qdrant batch population failed (non-critical): %s", _bpe
+                    )
+                    _bpq_report.add(
+                        "qdrant_batch_populate", "degraded", str(_bpe)
+                    )
+
+            _bpq_thread = _threading.Thread(
+                target=_run_batch_populate,
+                daemon=True,
+                name="QdrantBatchPopulate",
+            )
+            _bpq_thread.start()
+            log.info(
+                "⏳ Qdrant batch population started in background thread"
+                " (will not block init)"
+            )
 
         # ── Background topic refresh thread ───────────────────────────────────
         if (_start_background_refresh is not None

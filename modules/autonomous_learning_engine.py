@@ -152,6 +152,10 @@ class AutonomousLearningEngine:
     # stretch and individual steps are less likely to hit timeouts.
     # Set NIBLIT_ALE_INTER_PHASE_SLEEP=0 to disable.
     _INTER_PHASE_SLEEP: float = 5.0
+    # Maximum seconds to wait for NiblitCore Phase-1 deferred init to complete
+    # before the ALE background loop proceeds regardless.  Set to a large value
+    # rather than None so a permanently-stuck init thread never stalls ALE.
+    _DEFERRED_INIT_WAIT_TIMEOUT: float = 300.0
 
     # Cross-cycle snippet dedup cache size.  When the cache exceeds this many
     # entries it is cleared so memory stays bounded and content from much
@@ -5545,10 +5549,13 @@ class AutonomousLearningEngine:
                     "⏳ [BACKGROUND LOOP] Waiting for core to be fully ready "
                     "before first cycle (phased init)..."
                 )
-                # Block until Phase 1 is complete (no hard timeout — we trust
-                # the deferred-init thread to finish eventually).  The event
-                # will be set even if Phase 1 fails, so we never deadlock.
-                _wait_fn(timeout=None)
+                # Block until Phase 1 is complete (hard timeout of
+                # _DEFERRED_INIT_WAIT_TIMEOUT seconds so that a
+                # permanently-stuck init thread never stalls ALE
+                # indefinitely).  The event is set even on Phase-1 failure,
+                # so we will never deadlock; the timeout cap is a safety net
+                # for edge-cases where the event is never set at all.
+                _wait_fn(timeout=self._DEFERRED_INIT_WAIT_TIMEOUT)
                 if not self.running:
                     log.info("[BACKGROUND LOOP] Stopped while waiting for core ready")
                     return
