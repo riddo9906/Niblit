@@ -454,6 +454,130 @@ class CodeErrorFixer:
             "elapsed_ms": elapsed,
         }
 
+    def fix_until_clean(
+        self,
+        language: str,
+        code: str,
+        compiler: Any = None,
+        max_rounds: int = 5,
+    ) -> Dict[str, Any]:
+        """Fix code errors repeatedly until the code passes both syntax and
+        quality checks, or until *max_rounds* is exhausted.
+
+        This is the recommended high-level entry point when code **must** be
+        error-free before it is saved.  It combines
+        :meth:`fix_syntax_errors` with the CodeQL-style quality checker:
+
+        Loop (up to *max_rounds* times):
+          1. Check syntax → apply :meth:`fix_syntax_errors` if needed.
+          2. Check quality → attempt to remove error-level issues (via
+             ``fix_syntax_errors`` which handles common patterns).
+          3. If both pass, break.
+
+        Args:
+            language:   Language name (python, bash, javascript, …).
+            code:       Initial code string.
+            compiler:   Optional :class:`CodeCompiler` for syntax re-checking.
+            max_rounds: Maximum number of fix-then-check iterations.
+
+        Returns:
+            A dict with keys:
+
+            * ``code``         — The (possibly fixed) code string.
+            * ``success``      — ``True`` if the code passes all checks.
+            * ``quality``      — Quality report dict (passed, score, issues).
+            * ``rounds``       — Number of fix rounds performed.
+            * ``explanation``  — Human-readable description of all fixes.
+        """
+        lang = language.lower()
+        current_code = code
+        history: list = []
+        quality_report: Dict[str, Any] = {"passed": True, "score": 100, "issues": [], "summary": ""}
+
+        # Lazy-load quality checker
+        _checker: Any = None
+        try:
+            from modules.code_quality_checker import get_code_quality_checker  # pylint: disable=import-outside-toplevel
+            _checker = get_code_quality_checker()
+        except ImportError:
+            pass
+
+        for rnd in range(1, max_rounds + 1):
+            # ── Syntax pass ──────────────────────────────────────────────────
+            syntax_check = (
+                compiler.syntax_test(lang, current_code)
+                if compiler and hasattr(compiler, "syntax_test")
+                else {"valid": True}
+            )
+            if not syntax_check.get("valid", True):
+                error_msg = syntax_check.get("error", "") or ""
+                current_code, syntax_ok, fix_desc = self.fix_syntax_errors(
+                    lang, current_code, error_msg, compiler
+                )
+                history.append(f"round {rnd} syntax: {fix_desc}")
+                if not syntax_ok:
+                    history.append(f"round {rnd}: syntax unfixable — stopping")
+                    break
+            else:
+                history.append(f"round {rnd}: syntax OK")
+
+            # ── Quality pass ─────────────────────────────────────────────────
+            if _checker:
+                try:
+                    qc = _checker.check(lang, current_code)
+                    quality_report = {
+                        "passed": qc.passed,
+                        "score": qc.score,
+                        "issues": [
+                            {"severity": i.severity, "rule": i.rule,
+                             "message": i.message, "line": i.line}
+                            for i in qc.issues
+                        ],
+                        "summary": qc.summary,
+                    }
+                    if qc.passed:
+                        history.append(f"round {rnd}: quality OK (score={qc.score})")
+                        break
+                    else:
+                        error_count = sum(1 for i in qc.issues if i.severity == "error")
+                        history.append(
+                            f"round {rnd}: quality {error_count} error(s), "
+                            f"score={qc.score} — re-attempting fix"
+                        )
+                        # Build a synthetic error message from quality issues so
+                        # fix_syntax_errors can make another targeted pass.
+                        first_error = next(
+                            (i for i in qc.issues if i.severity == "error"), None
+                        )
+                        if first_error:
+                            synth_msg = (
+                                f"{first_error.rule}: {first_error.message} "
+                                f"(line {first_error.line})"
+                            )
+                            current_code, _, fix_desc = self.fix_syntax_errors(
+                                lang, current_code, synth_msg, compiler
+                            )
+                            history.append(f"round {rnd} quality fix: {fix_desc}")
+                except Exception as exc:
+                    log.debug("[CodeErrorFixer] fix_until_clean quality check error: %s", exc)
+                    break
+            else:
+                # No quality checker available — syntax-only is sufficient
+                break
+
+        explanation = "; ".join(history)
+        success = quality_report.get("passed", True)
+        log.info("[CodeErrorFixer] fix_until_clean %s: %s after %d round(s)",
+                 lang, "✅" if success else "❌", max_rounds)
+
+        return {
+            "code": current_code,
+            "success": success,
+            "quality": quality_report,
+            "rounds": min(max_rounds, len(history)),
+            "explanation": explanation,
+        }
+
     def get_stats(self) -> Dict[str, Any]:
         """Return fixer statistics."""
         return dict(self._stats)

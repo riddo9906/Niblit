@@ -9,6 +9,7 @@ Retains all original command handling and logic 100%.
 import logging
 import threading
 import json
+import ast as _ast
 import re
 import time
 from datetime import datetime
@@ -19,6 +20,10 @@ log = logging.getLogger("NiblitRouter")
 
 # Maximum character length for a single gap-learned KB fact value
 _GAP_FACT_MAX_LEN = 500
+
+# Regex matching ISO 8601 timestamp strings stored as KB values
+# (e.g. "2026-04-11T19:04:51.210807") — these are not human-readable facts.
+_ISO_TIMESTAMP_RE = re.compile(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}')
 
 # ─────────────────────────────────
 def timestamp():
@@ -224,7 +229,7 @@ class NiblitRouter:
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
-        "status", "health", "time", "help", "commands",
+        "status", "health", "time", "help", "commands", "version",
         "evolve", "exit", "quit", "shutdown",
         "start_slsa", "stop_slsa", "restart_slsa", "slsa-status", "status_slsa",
         "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status",
@@ -3711,6 +3716,9 @@ Ask me about:
                 # Skip quiz entries — they contain raw JSON Q&A, not prose
                 if key.startswith("quiz:"):
                     return False
+                # Skip generated code artifacts — internal KB entries, not human knowledge
+                if key.startswith("generated_code:"):
+                    return False
                 # Skip "No data found" placeholder values — not real knowledge
                 val_str = str(val) if val is not None else ""
                 if val_str.startswith("No data found"):
@@ -3807,11 +3815,32 @@ Ask me about:
                             or val.get("direction")
                             or val.get("content")
                             or val.get("text")
+                            or val.get("code")
                             or json.dumps(val, ensure_ascii=False)
                         )
                     val_str = str(val).strip()
+                    # Try to unpack stringified Python dicts (e.g. from code_generator)
+                    if val_str.startswith("{") or val_str.startswith("["):
+                        try:
+                            _parsed = _ast.literal_eval(val_str)
+                            if isinstance(_parsed, dict):
+                                val_str = str(
+                                    _parsed.get("code")
+                                    or _parsed.get("answer")
+                                    or _parsed.get("summary")
+                                    or _parsed.get("description")
+                                    or ""
+                                ).strip()
+                            else:
+                                # Lists are system queues, not displayable knowledge
+                                val_str = ""
+                        except (ValueError, SyntaxError):
+                            val_str = ""
                     # Skip placeholder / empty entries at display time too
                     if not val_str or val_str.startswith("No data found"):
+                        continue
+                    # Skip ISO timestamp-only values — not useful prose
+                    if _ISO_TIMESTAMP_RE.match(val_str):
                         continue
                     # Skip known-junk metadata strings
                     if any(junk in val_str for junk in ('"freq":', '"concepts":', '"question":', '"concept":')):
@@ -3820,6 +3849,9 @@ Ask me about:
                 else:
                     val_str = str(fact).strip()
                     if val_str and not val_str.startswith("No data found"):
+                        # Skip raw ISO timestamps
+                        if _ISO_TIMESTAMP_RE.match(val_str):
+                            continue
                         lines.append(f"• {val_str[:200]}")
 
             # Only return a response when at least one content bullet was added.
@@ -4038,6 +4070,15 @@ Ask me about:
                         pass
 
             # Format a direct response
+            # Only include snippets that share at least one content keyword
+            # with the original query to prevent off-topic results (e.g.
+            # "fun shapes" appearing when the user asks "what is having fun").
+            _gap_stop = {"what", "is", "are", "how", "the", "a", "an", "do",
+                         "does", "you", "tell", "me", "about", "explain"}
+            _gap_kws = [
+                w for w in re.sub(r"[^\w\s]", "", original_query.lower()).split()
+                if len(w) > 2 and w not in _gap_stop
+            ]
             parts = [f"🧠 **I just learned about: {original_query}**\n"]
             seen: set = set()
             for r in quick_results[:3]:
@@ -4046,9 +4087,15 @@ Ask me about:
                     if isinstance(r, dict) else str(r)
                 )
                 snippet = snippet.strip()[:250]
-                if snippet and snippet not in seen and len(snippet) > 10:
-                    seen.add(snippet)
-                    parts.append(f"• {snippet}")
+                if not snippet or snippet in seen or len(snippet) <= 10:
+                    continue
+                # Relevance guard: skip results with no keyword overlap
+                if _gap_kws:
+                    snippet_lower = snippet.lower()
+                    if not any(kw in snippet_lower for kw in _gap_kws):
+                        continue
+                seen.add(snippet)
+                parts.append(f"• {snippet}")
             if len(parts) > 1:
                 parts.append(
                     "\n_I've stored this and queued a deeper study in the background._"
@@ -4901,6 +4948,9 @@ Ask me about:
             return slsa_manager.status()
 
         # STATUS COMMANDS
+        if lower == "version":
+            return "Niblit v1.0.0 — autonomous AI system"
+
         if lower in ("status", "health"):
             mem = 0
             try:

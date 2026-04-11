@@ -658,6 +658,14 @@ class SearchBody(BaseModel):
     text: str = ""
 
 
+class CodeRequest(BaseModel):
+    """Request body for the /api/code Copilot-style code generation endpoint."""
+    prompt: str
+    language: str = "python"
+    project_path: Optional[str] = None
+    skip_quality_check: bool = False
+
+
 # ── Dashboard HTML ──────────────────────────────────────────────────────────
 _DASHBOARD_HTML = """<!doctype html>
 <html lang="en">
@@ -1164,6 +1172,87 @@ def chat(request: Request, body: ChatRequest):
         log.error("core.handle error: %s", exc)
         reply = "[error] request failed — see server logs"
     return {"reply": reply, "ts": int(time.time())}
+
+
+@app.post("/api/code")
+def api_code(request: Request, body: CodeRequest):
+    """Copilot-style code generation endpoint.
+
+    Accepts a natural-language prompt and returns production-ready code that
+    has been validated through:
+
+    1. Structural checks (indentation, shebang, use-strict, etc.)
+    2. CodeQL-style quality checks (security, bare-except, eval, etc.)
+
+    The code is only returned as ``success=true`` when it passes all checks.
+
+    Request body (JSON)::
+
+        {
+          "prompt": "Create a function that fetches JSON from a URL",
+          "language": "python",
+          "project_path": null,
+          "skip_quality_check": false
+        }
+
+    Response::
+
+        {
+          "code": "...",
+          "language": "python",
+          "success": true,
+          "source": "template",
+          "quality": {"passed": true, "score": 95, "issues": [], "summary": "..."},
+          "structure_issues": [],
+          "error": null,
+          "ts": 1234567890
+        }
+    """
+    if not _require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if _rate_limited(request):
+        return JSONResponse({"error": "rate limit reached"}, status_code=429)
+
+    prompt = (body.prompt or "").strip()
+    if not prompt:
+        return JSONResponse({"error": "prompt is required"}, status_code=400)
+
+    language = (body.language or "python").strip().lower()
+
+    # project_path is a server-side concept (loading local source files for LLM
+    # context).  It is intentionally NOT forwarded from the request body to
+    # prevent path-injection: remote callers have no knowledge of the server's
+    # filesystem layout and cannot usefully specify this value.
+
+    # ── Build generator ──────────────────────────────────────────────────────
+    core = _get_core()
+    llm = getattr(core, "llm", None) if core else None
+    db = getattr(core, "knowledge_db", None) or getattr(core, "memory", None) if core else None
+
+    try:
+        _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _root not in sys.path:
+            sys.path.insert(0, _root)
+        from modules.code_generator import CodeGenerator  # pylint: disable=import-outside-toplevel
+        gen = CodeGenerator(db=db)
+    except Exception as exc:
+        log.error("CodeGenerator unavailable: %s", exc)
+        return JSONResponse({"error": "CodeGenerator unavailable"}, status_code=503)
+
+    try:
+        result = gen.generate_copilot_code(
+            prompt=prompt,
+            language=language,
+            llm=llm,
+            project_path=None,  # never forward user-supplied path to the filesystem walk
+        )
+    except Exception as exc:
+        log.error("generate_copilot_code error: %s", exc)
+        return JSONResponse({"error": "code generation failed"}, status_code=500)
+
+    result["ts"] = int(time.time())
+    status_code = 200 if result.get("success") else 422
+    return JSONResponse(result, status_code=status_code)
 
 
 @app.get("/memory")

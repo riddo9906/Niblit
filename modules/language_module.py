@@ -26,6 +26,7 @@ Singleton::
 
 from __future__ import annotations
 
+import ast
 import logging
 import re
 import threading
@@ -1937,6 +1938,7 @@ class LanguageModule:
         re.compile(r'import\s+\w+'),
         re.compile(r'^\s*#'),                           # comment lines
         re.compile(r'<[a-z]+[^>]*>'),                  # HTML tags
+        re.compile(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}'),  # ISO timestamps
     ]
 
     def _is_junk(self, text: str) -> bool:
@@ -1958,14 +1960,26 @@ class LanguageModule:
             "question", "concept", "concepts", "freq", "docs",
             "step", "ts", "tier", "source", "topic",
             "key", "tags", "results_count",
+            "name",       # internal artifact identifiers (e.g. "python_best_practices_2")
+            "language",   # language tag on code-generator entries
+            "template",   # internal template name
         })
 
         if isinstance(fact, str):
+            # Try to parse stringified Python dicts/lists stored by code_generator
+            # (values like "{'language': 'python', 'code': '...'}" need unpacking)
+            stripped = fact.strip()
+            if stripped and stripped[0] in ('{', '['):
+                try:
+                    parsed = ast.literal_eval(stripped)
+                    return self._extract_text_from_fact(parsed)
+                except (ValueError, SyntaxError):
+                    pass
             return None if self._is_junk(fact) else fact.strip()
 
         if isinstance(fact, dict):
             # Prefer known prose keys in priority order
-            for key in ("answer", "summary", "description", "text", "content", "full_text", "value"):
+            for key in ("answer", "summary", "description", "text", "content", "full_text", "value", "code"):
                 if key in _SKIP_KEYS:
                     continue
                 raw = fact.get(key)
