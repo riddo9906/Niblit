@@ -1820,14 +1820,16 @@ class LanguageModule:
                     break
             if defn_lower.startswith(topic_lower):
                 return defn if defn.endswith(".") else defn + "."
-            # Use "An" if topic begins with a vowel sound
+            # Use "An" if topic begins with a vowel sound (topic_title is
+            # non-empty at this point; guard above ensures that).
             article = "An" if topic_title[0].lower() in "aeiou" else "A"
             # Avoid double "is" if definition already starts with "is"
             if defn_lower.startswith("is ") or defn_lower.startswith("is a "):
                 return f"{article} {topic_title} {defn}."
             return f"{article} {topic_title} is {defn}."
 
-        # Fallback: capitalised topic with no definition
+        # Fallback: capitalised topic with no definition.
+        # topic_title is non-empty (checked above).
         tc = topic_title[0].upper() + topic_title[1:]
         return f"{tc} is a concept that Niblit has not yet fully learned about."
 
