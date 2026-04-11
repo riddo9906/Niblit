@@ -32,7 +32,7 @@ from typing import List, Optional
 log = logging.getLogger("Niblit.CodeQualityChecker")
 
 try:
-    import ast as _ast
+    import ast
     _AST_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _AST_AVAILABLE = False
@@ -86,6 +86,8 @@ _JS_EVAL_RE = re.compile(r'\beval\s*\(')
 _VAR_DECL_RE = re.compile(r'\bvar\s+[a-zA-Z_$]')
 _CONSOLE_LOG_RE = re.compile(r'\bconsole\.log\s*\(')
 
+_MAX_LINE_LENGTH = 120
+
 
 # ---------------------------------------------------------------------------
 # Main checker
@@ -135,7 +137,7 @@ class CodeQualityChecker:
         # Syntax check
         if _AST_AVAILABLE:
             try:
-                tree = _ast.parse(code)
+                tree = ast.parse(code)
                 issues.extend(self._python_ast_checks(tree, lines))
             except SyntaxError as exc:
                 issues.append(CodeIssue("error", "syntax-error",
@@ -149,24 +151,24 @@ class CodeQualityChecker:
         issues.extend(self._python_regex_checks(code, lines))
         return issues
 
-    def _python_ast_checks(self, tree: "_ast.AST", lines: List[str]) -> List[CodeIssue]:
+    def _python_ast_checks(self, tree: "ast.AST", lines: List[str]) -> List[CodeIssue]:
         issues: List[CodeIssue] = []
         has_def_or_class = False
 
-        for node in _ast.walk(tree):
+        for node in ast.walk(tree):
             # Bare except
-            if isinstance(node, _ast.ExceptHandler) and node.type is None:
+            if isinstance(node, ast.ExceptHandler) and node.type is None:
                 issues.append(CodeIssue("warning", "bare-except",
                                         "Bare 'except:' catches all exceptions including SystemExit/KeyboardInterrupt.",
                                         getattr(node, "lineno", 0)))
 
             # eval / exec usage
-            if isinstance(node, _ast.Call):
+            if isinstance(node, ast.Call):
                 func = node.func
                 name = ""
-                if isinstance(func, _ast.Name):
+                if isinstance(func, ast.Name):
                     name = func.id
-                elif isinstance(func, _ast.Attribute):
+                elif isinstance(func, ast.Attribute):
                     name = func.attr
                 if name == "eval":
                     issues.append(CodeIssue("warning", "eval-usage",
@@ -178,34 +180,32 @@ class CodeQualityChecker:
                                             getattr(node, "lineno", 0)))
 
             # os.system
-            if isinstance(node, _ast.Call):
+            if isinstance(node, ast.Call):
                 func = node.func
-                if (isinstance(func, _ast.Attribute) and func.attr == "system"
-                        and isinstance(func.value, _ast.Name) and func.value.id == "os"):
+                if (isinstance(func, ast.Attribute) and func.attr == "system"
+                        and isinstance(func.value, ast.Name) and func.value.id == "os"):
                     issues.append(CodeIssue("warning", "os-system",
                                             "Prefer subprocess over os.system() for shell commands.",
                                             getattr(node, "lineno", 0)))
 
             # Missing docstrings
-            if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 if not node.name.startswith("_"):
                     has_def_or_class = True
-                    if not (_ast.get_docstring(node)):
+                    if not (ast.get_docstring(node)):
                         issues.append(CodeIssue("info", "missing-docstring",
                                                 f"Public function '{node.name}' has no docstring.",
                                                 getattr(node, "lineno", 0)))
-            if isinstance(node, _ast.ClassDef):
+            if isinstance(node, ast.ClassDef):
                 if not node.name.startswith("_"):
                     has_def_or_class = True
-                    if not (_ast.get_docstring(node)):
+                    if not (ast.get_docstring(node)):
                         issues.append(CodeIssue("info", "missing-docstring",
                                                 f"Public class '{node.name}' has no docstring.",
                                                 getattr(node, "lineno", 0)))
 
         # Excessive prints in non-script code
-        print_matches = _PRINT_RE.findall("\n".join(
-            l for l in (getattr(tree, "body", []) and lines) or lines
-        ))
+        print_matches = _PRINT_RE.findall("\n".join(lines))
         if has_def_or_class and len(print_matches) > 5:
             issues.append(CodeIssue("info", "excessive-prints",
                                     f"Found {len(print_matches)} print() calls in non-script code; "
@@ -231,9 +231,9 @@ class CodeQualityChecker:
 
         # Long lines
         for idx, line in enumerate(lines, start=1):
-            if len(line) > 120:
+            if len(line) > _MAX_LINE_LENGTH:
                 issues.append(CodeIssue("info", "long-line",
-                                        f"Line {idx} is {len(line)} characters (limit 120).", idx))
+                                        f"Line {idx} is {len(line)} characters (limit {_MAX_LINE_LENGTH}).", idx))
         return issues
 
     # ------------------------------------------------------------------
