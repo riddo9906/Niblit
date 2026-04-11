@@ -9,6 +9,7 @@ Retains all original command handling and logic 100%.
 import logging
 import threading
 import json
+import ast as _ast
 import re
 import time
 from datetime import datetime
@@ -19,6 +20,10 @@ log = logging.getLogger("NiblitRouter")
 
 # Maximum character length for a single gap-learned KB fact value
 _GAP_FACT_MAX_LEN = 500
+
+# Regex matching ISO 8601 timestamp strings stored as KB values
+# (e.g. "2026-04-11T19:04:51.210807") — these are not human-readable facts.
+_ISO_TIMESTAMP_RE = re.compile(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}')
 
 # ─────────────────────────────────
 def timestamp():
@@ -3817,7 +3822,6 @@ Ask me about:
                     # Try to unpack stringified Python dicts (e.g. from code_generator)
                     if val_str.startswith("{") or val_str.startswith("["):
                         try:
-                            import ast as _ast
                             _parsed = _ast.literal_eval(val_str)
                             if isinstance(_parsed, dict):
                                 val_str = str(
@@ -3828,6 +3832,7 @@ Ask me about:
                                     or ""
                                 ).strip()
                             else:
+                                # Lists are system queues, not displayable knowledge
                                 val_str = ""
                         except (ValueError, SyntaxError):
                             val_str = ""
@@ -3835,7 +3840,7 @@ Ask me about:
                     if not val_str or val_str.startswith("No data found"):
                         continue
                     # Skip ISO timestamp-only values — not useful prose
-                    if re.match(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}', val_str):
+                    if _ISO_TIMESTAMP_RE.match(val_str):
                         continue
                     # Skip known-junk metadata strings
                     if any(junk in val_str for junk in ('"freq":', '"concepts":', '"question":', '"concept":')):
@@ -3845,7 +3850,7 @@ Ask me about:
                     val_str = str(fact).strip()
                     if val_str and not val_str.startswith("No data found"):
                         # Skip raw ISO timestamps
-                        if re.match(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}', val_str):
+                        if _ISO_TIMESTAMP_RE.match(val_str):
                             continue
                         lines.append(f"• {val_str[:200]}")
 

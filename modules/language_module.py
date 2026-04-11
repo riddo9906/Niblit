@@ -1960,7 +1960,7 @@ class LanguageModule:
             "question", "concept", "concepts", "freq", "docs",
             "step", "ts", "tier", "source", "topic",
             "key", "tags", "results_count",
-            "name",       # internal artifact identifiers (e.g. "python_best practices_2")
+            "name",       # internal artifact identifiers (e.g. "python_best_practices_2")
             "language",   # language tag on code-generator entries
             "template",   # internal template name
         })
