@@ -1245,7 +1245,7 @@ def api_code(request: Request, body: CodeRequest):
         gen = CodeGenerator(db=db)
     except Exception as exc:
         log.error("CodeGenerator unavailable: %s", exc)
-        return JSONResponse({"error": f"CodeGenerator unavailable: {exc}"}, status_code=503)
+        return JSONResponse({"error": "CodeGenerator unavailable"}, status_code=503)
 
     try:
         result = gen.generate_copilot_code(
@@ -1256,7 +1256,7 @@ def api_code(request: Request, body: CodeRequest):
         )
     except Exception as exc:
         log.error("generate_copilot_code error: %s", exc)
-        return JSONResponse({"error": str(exc)}, status_code=500)
+        return JSONResponse({"error": "code generation failed"}, status_code=500)
 
     result["ts"] = int(time.time())
     status_code = 200 if result.get("success") else 422
