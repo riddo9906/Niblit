@@ -27,6 +27,14 @@ except ImportError:
     DDGS = None  # type: ignore[assignment,misc]
     DDGS_ENABLED = False
 
+# Optional: pip install google-search-results
+try:
+    from serpapi import GoogleSearch as SerpApiGoogleSearch
+    SERPAPI_ENABLED = True
+except ImportError:
+    SerpApiGoogleSearch = None  # type: ignore[assignment,misc]
+    SERPAPI_ENABLED = False
+
 DDG_API = "https://api.duckduckgo.com/"
 WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary/{}"
 WIKI_SEARCH = "https://en.wikipedia.org/w/api.php"
@@ -38,12 +46,14 @@ HEADERS = {
 
 class InternetManager:
     def __init__(self, db=None, llm_adapter=None, timeout=10, serpex_api_key=None,
-                 semantic_agent=None, searchcode_search=None):
+                 semantic_agent=None, searchcode_search=None, serpapi_api_key=None):
         self.db = db
         self.llm = llm_adapter
         self.timeout = timeout
         # SerpEx key: explicit param > env var (loaded from .env by orchestrator)
         self.serpex_api_key: str = serpex_api_key or os.getenv("SERPEX_API_KEY", "")
+        # SerpAPI key: explicit param > env var
+        self.serpapi_api_key: str = serpapi_api_key or os.getenv("SERPAPI_API_KEY", "")
         # Optional semantic storage backend (injected by niblit_core)
         self.semantic_agent = semantic_agent
         # Optional Searchcode backend (injected by niblit_core)
@@ -145,12 +155,63 @@ class InternetManager:
         return results
 
     # ─────────────────────────────
+    # SERPAPI SEARCH
+    # Uses the google-search-results package + SERPAPI_API_KEY.
+    def _serpapi_search(self, query: str, max_results: int = 5):
+        """Search via SerpAPI (https://serpapi.com) and return result dicts.
+
+        Requires ``google-search-results`` package and ``SERPAPI_API_KEY`` env var
+        (or ``serpapi_api_key`` constructor parameter).
+
+        Returns:
+            List of ``{"source": str, "text": str, "url": str|None}`` dicts,
+            or an empty list on failure / missing key / package not installed.
+        """
+        if not SERPAPI_ENABLED or not self.serpapi_api_key:
+            return []
+
+        try:
+            params = {
+                "q": query,
+                "api_key": self.serpapi_api_key,
+                "num": max_results,
+                "hl": "en",
+            }
+            search_obj = SerpApiGoogleSearch(params)
+            data = search_obj.get_dict()
+        except Exception:
+            return []
+
+        results = []
+        # Featured / answer box
+        answer = (
+            data.get("answer_box", {}).get("answer")
+            or data.get("answer_box", {}).get("snippet")
+            or data.get("knowledge_graph", {}).get("description")
+        )
+        if answer:
+            results.append({"source": "serpapi_featured", "text": str(answer), "url": None})
+
+        for item in data.get("organic_results", [])[:max_results]:
+            if not isinstance(item, dict):
+                continue
+            text = item.get("snippet") or item.get("title") or ""
+            if text:
+                results.append({
+                    "source": "serpapi",
+                    "text": str(text),
+                    "url": item.get("link"),
+                })
+
+        return results
+
+    # ─────────────────────────────
     # SMART SEARCH
     # Returns structured results with source, text, and optional url
     def search(self, query, max_results=5, use_llm=True):
         results = []
 
-        # ───────── SERPEX (primary — used when API key is available) ─────────
+        # ───────── SERPEX (primary — used when SERPEX_API_KEY is set) ─────────
         if self.serpex_api_key:
             try:
                 serpex_results = self._serpex_search(
@@ -171,7 +232,16 @@ class InternetManager:
             except Exception:
                 pass
 
-        # ───────── DUCKDUCKGO (fallback when no SerpEx key) ─────────
+        # ───────── SERPAPI (secondary — used when SERPAPI_API_KEY is set) ─────────
+        if not results and self.serpapi_api_key:
+            try:
+                serpapi_results = self._serpapi_search(query, max_results=max_results)
+                if serpapi_results:
+                    results.extend(serpapi_results)
+            except Exception:
+                pass
+
+        # ───────── DUCKDUCKGO (fallback when no paid API key) ─────────
         if not results:
             # Prefer duckduckgo-search package (returns real multi-result search)
             if DDGS_ENABLED:

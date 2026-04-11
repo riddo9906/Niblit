@@ -29,6 +29,10 @@ class Config:
     # SerpEx search API (https://serpex.dev)
     SERPEX_API_KEY: str = os.getenv("SERPEX_API_KEY", "")
 
+    # SerpAPI — Google/Bing/Yahoo results (https://serpapi.com)
+    # Free tier: 100 searches/month. Set SERPAPI_API_KEY to activate.
+    SERPAPI_API_KEY: str = os.getenv("SERPAPI_API_KEY", "")
+
     # GitHub Code Search API token (PAT with public_repo scope)
     GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
 
@@ -152,6 +156,7 @@ class Config:
             ("Anthropic LLM",        "ANTHROPIC_API_KEY",   bool(cls.ANTHROPIC_API_KEY)),
             ("Qdrant vector store",  "QDRANT_URL",          bool(cls.QDRANT_URL)),
             ("SerpEx search",        "SERPEX_API_KEY",      bool(cls.SERPEX_API_KEY)),
+            ("SerpAPI search",       "SERPAPI_API_KEY",     bool(cls.SERPAPI_API_KEY)),
             ("GitHub code search",   "GITHUB_TOKEN",        bool(cls.GITHUB_TOKEN)),
             ("API key auth",         "NIBLIT_API_KEY",      bool(cls.NIBLIT_API_KEY)),
         ]
