@@ -19,6 +19,14 @@ try:
 except ImportError:
     GOOGLE_ENABLED = False
 
+# Optional: pip install duckduckgo-search
+try:
+    from duckduckgo_search import DDGS
+    DDGS_ENABLED = True
+except ImportError:
+    DDGS = None  # type: ignore[assignment,misc]
+    DDGS_ENABLED = False
+
 DDG_API = "https://api.duckduckgo.com/"
 WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary/{}"
 WIKI_SEARCH = "https://en.wikipedia.org/w/api.php"
@@ -165,20 +173,38 @@ class InternetManager:
 
         # ───────── DUCKDUCKGO (fallback when no SerpEx key) ─────────
         if not results:
-            try:
-                r = requests.get(
-                    DDG_API,
-                    params={"q": query, "format": "json", "no_html": 1},
-                    timeout=self.timeout
-                )
-                js = r.json()
-                if js.get("AbstractText"):
-                    results.append({"source": "duckduckgo", "text": js["AbstractText"], "url": None})
-                for t in js.get("RelatedTopics", []):
-                    if isinstance(t, dict) and t.get("Text"):
-                        results.append({"source": "duckduckgo", "text": t["Text"], "url": None})
-            except Exception:
-                pass
+            # Prefer duckduckgo-search package (returns real multi-result search)
+            if DDGS_ENABLED:
+                try:
+                    with DDGS() as ddgs:
+                        ddg_hits = ddgs.text(query, max_results=max_results)
+                    for hit in (ddg_hits or []):
+                        text = hit.get("body") or hit.get("snippet") or ""
+                        if text:
+                            results.append({
+                                "source": "duckduckgo",
+                                "text": text,
+                                "url": hit.get("href"),
+                            })
+                except Exception:
+                    pass
+
+            # Fallback: DDG instant-answer JSON API (no package required)
+            if not results:
+                try:
+                    r = requests.get(
+                        DDG_API,
+                        params={"q": query, "format": "json", "no_html": 1},
+                        timeout=self.timeout
+                    )
+                    js = r.json()
+                    if js.get("AbstractText"):
+                        results.append({"source": "duckduckgo", "text": js["AbstractText"], "url": None})
+                    for t in js.get("RelatedTopics", []):
+                        if isinstance(t, dict) and t.get("Text"):
+                            results.append({"source": "duckduckgo", "text": t["Text"], "url": None})
+                except Exception:
+                    pass
 
             # ───────── WIKIPEDIA (fallback) ─────────
             try:
