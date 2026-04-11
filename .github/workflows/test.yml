@@ -63,7 +63,8 @@ jobs:
         env:
           FLASK_ENV: testing
           HF_TOKEN: test-token
-        run: python -c "from niblit_core import NiblitCore; print('NiblitCore import: OK')"
+        run: |
+          python -c "from niblit_core import NiblitCore; print('NiblitCore import: OK')"
 
       - name: Run unit tests with coverage
         env:
