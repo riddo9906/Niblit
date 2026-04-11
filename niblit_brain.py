@@ -1182,6 +1182,32 @@ class NiblitBrain:
                 log.debug("[BRAIN] RAG pipeline augmentation skipped: %s", _rag_err)
             # ─────────────────────────────────────────────────────────────────
 
+            # ── Graph-RAG: 3-Tiered deterministic retrieval ───────────────────
+            # Tier 1 (absolute facts) > Tier 2 (stats) > Tier 3 (vector docs).
+            # When any graph tier has relevant hits the structured system prompt
+            # replaces the plain context prefix so the LLM follows explicit
+            # conflict-resolution rules instead of guessing.
+            _graph_rag_prefix = ""
+            try:
+                from modules.graph_rag import get_graph_rag_pipeline
+                _grp = get_graph_rag_pipeline()
+                _gr_result = _grp.query(user_input, top_k=3)
+                _gr_stats = _gr_result.get("retrieval_stats", {})
+                _has_graph_hits = (
+                    _gr_stats.get("tier1", 0) > 0 or _gr_stats.get("tier2", 0) > 0
+                )
+                if _has_graph_hits:
+                    # Use the structured tiered system prompt as the leading context
+                    _graph_rag_prefix = _gr_result.get("system_prompt", "")
+                elif _gr_stats.get("tier3", 0) > 0:
+                    # Only vector hits — use the plain context fallback
+                    _graph_rag_prefix = _gr_result.get("context", "")
+                if _graph_rag_prefix:
+                    context = _graph_rag_prefix + context
+            except Exception as _gr_err:
+                log.debug("[BRAIN] Graph-RAG augmentation skipped: %s", _gr_err)
+            # ─────────────────────────────────────────────────────────────────
+
             prompt = context + user_input
 
             if not self.llm_enabled:

@@ -344,6 +344,8 @@ class NiblitRouter:
         "civilization", "civ",
         # Tiered knowledge recall — structured KB lookup by topic (additive)
         "knowledge",
+        # 3-Tiered deterministic Graph-RAG (additive)
+        "graph-rag", "graph_rag",
     )
 
     CHAT_RESPONSES = {
@@ -2708,7 +2710,121 @@ Ask me about:
             f"to research this topic."
         )
 
+    def _handle_graph_rag(self, cmd: str) -> str:
+        """Handle 'graph-rag <sub>' commands — 3-Tiered Graph-RAG pipeline.
 
+        Usage::
+
+            graph-rag status
+                Show fact/stat counts for all three tiers.
+
+            graph-rag query <question>
+                Query all tiers and display the assembled tiered context.
+
+            graph-rag add-fact <subject> | <predicate> | <object> | <context>
+                Add a Priority-1 absolute fact quad (pipe-separated).
+                Example: graph-rag add-fact LeBron James | plays_for | Ottawa Beavers | NBA_2023
+
+            graph-rag add-stat <subject> | <predicate> | <object> | <context>
+                Add a Priority-2 background statistic quad (pipe-separated).
+                Example: graph-rag add-stat LeBron James | avg_points | 28.9 | NBA_2023_stats
+
+            graph-rag list-facts
+                List all stored Priority-1 quads.
+
+            graph-rag list-stats
+                List all stored Priority-2 quads.
+        """
+        # Normalise prefix — accept both "graph-rag" and "graph_rag"
+        _lower = cmd.lower()
+        if _lower.startswith("graph_rag"):
+            sub = cmd[len("graph_rag"):].strip()
+        else:
+            sub = cmd[len("graph-rag"):].strip()
+
+        try:
+            from modules.graph_rag import get_graph_rag_pipeline
+            grp = get_graph_rag_pipeline()
+        except Exception as _e:
+            return f"Graph-RAG module unavailable: {_e}"
+
+        if not sub or sub == "status":
+            return f"📊 {grp.status_summary()}"
+
+        if sub.startswith("query "):
+            question = sub[len("query "):].strip()
+            if not question:
+                return "Usage: graph-rag query <question>"
+            result = grp.query(question, top_k=5)
+            stats = result.get("retrieval_stats", {})
+            lines = [
+                f"🔍 Graph-RAG query: '{question}'",
+                f"   Entities found : {', '.join(result.get('entities', [])) or 'none'}",
+                f"   Tier-1 hits    : {stats.get('tier1', 0)}",
+                f"   Tier-2 hits    : {stats.get('tier2', 0)}",
+                f"   Tier-3 docs    : {stats.get('tier3', 0)}",
+                "",
+                result.get("context", "(no context)"),
+            ]
+            return "\n".join(lines)
+
+        if sub.startswith("add-fact ") or sub.startswith("add-stat "):
+            is_fact = sub.startswith("add-fact ")
+            parts_str = sub[len("add-fact "):].strip() if is_fact else sub[len("add-stat "):].strip()
+            parts = [p.strip() for p in parts_str.split("|")]
+            if len(parts) < 3:
+                kind = "add-fact" if is_fact else "add-stat"
+                return (
+                    f"Usage: graph-rag {kind} <subject> | <predicate> | <object> [| <context>]\n"
+                    f"Example: graph-rag {kind} LeBron James | plays_for | Ottawa Beavers | NBA_2023"
+                )
+            subject, predicate, obj = parts[0], parts[1], parts[2]
+            context_val = parts[3] if len(parts) >= 4 else ""
+            if is_fact:
+                grp.add_fact(subject, predicate, obj, context_val)
+                tier_label = "Priority-1 (absolute fact)"
+            else:
+                grp.add_stat(subject, predicate, obj, context_val)
+                tier_label = "Priority-2 (background stat)"
+            ctx_display = f" [{context_val}]" if context_val else ""
+            return (
+                f"✅ {tier_label} quad added:\n"
+                f"   {subject}  —[{predicate}]→  {obj}{ctx_display}"
+            )
+
+        if sub == "list-facts":
+            quads = grp._tier1.all_quads()
+            if not quads:
+                return "No Priority-1 facts stored yet."
+            lines = ["📋 Priority-1 (absolute facts):"]
+            for i, (s, p, o, c) in enumerate(quads[:50], 1):
+                ctx = f" [{c}]" if c else ""
+                lines.append(f"  {i:3}. {s}  —[{p}]→  {o}{ctx}")
+            if len(quads) > 50:
+                lines.append(f"  … and {len(quads) - 50} more")
+            return "\n".join(lines)
+
+        if sub == "list-stats":
+            quads = grp._tier2.all_quads()
+            if not quads:
+                return "No Priority-2 stats stored yet."
+            lines = ["📋 Priority-2 (background stats):"]
+            for i, (s, p, o, c) in enumerate(quads[:50], 1):
+                ctx = f" [{c}]" if c else ""
+                lines.append(f"  {i:3}. {s}  —[{p}]→  {o}{ctx}")
+            if len(quads) > 50:
+                lines.append(f"  … and {len(quads) - 50} more")
+            return "\n".join(lines)
+
+        return (
+            "Graph-RAG commands:\n"
+            "  graph-rag status                         — tier summary\n"
+            "  graph-rag query <question>               — query all tiers\n"
+            "  graph-rag add-fact <s> | <p> | <o> [|<c>] — add Priority-1 fact\n"
+            "  graph-rag add-stat <s> | <p> | <o> [|<c>] — add Priority-2 stat\n"
+            "  graph-rag list-facts                     — list Priority-1 quads\n"
+            "  graph-rag list-stats                     — list Priority-2 quads"
+        )
 
     def _handle_kernel(self, text: str) -> str:
         """Handle 'kernel <sub>' commands — NiblitKernel cognitive dashboard."""
@@ -4450,6 +4566,10 @@ Ask me about:
         # KNOWLEDGE — tiered KB recall (additive)
         if lower == "knowledge" or lower.startswith("knowledge "):
             return self._handle_knowledge(cmd)
+
+        # GRAPH-RAG — 3-tiered deterministic Graph-RAG (additive)
+        if lower in ("graph-rag", "graph_rag") or lower.startswith("graph-rag ") or lower.startswith("graph_rag "):
+            return self._handle_graph_rag(cmd)
 
         # MEMORY RESET — flush all memory, caches and state files
         if lower == "memory-reset" or lower.startswith("memory-reset "):
