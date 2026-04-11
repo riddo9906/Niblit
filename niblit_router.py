@@ -229,7 +229,7 @@ class NiblitRouter:
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
-        "status", "health", "time", "help", "commands",
+        "status", "health", "time", "help", "commands", "version",
         "evolve", "exit", "quit", "shutdown",
         "start_slsa", "stop_slsa", "restart_slsa", "slsa-status", "status_slsa",
         "autonomous-learn", "show improvements", "run improvement-cycle", "improvement-status",
@@ -4948,6 +4948,9 @@ Ask me about:
             return slsa_manager.status()
 
         # STATUS COMMANDS
+        if lower == "version":
+            return "Niblit v1.0.0 — autonomous AI system"
+
         if lower in ("status", "health"):
             mem = 0
             try:
