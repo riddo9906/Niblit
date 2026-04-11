@@ -98,6 +98,14 @@ try:
 except ImportError:
     pass
 
+# lm-eval-harness availability check (lazy — heavy import only inside method)
+_LM_EVAL_AVAILABLE = False
+try:
+    import lm_eval  # noqa: F401
+    _LM_EVAL_AVAILABLE = True
+except ImportError:
+    pass
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 def _writable_path(filename: str, env_var: str = "") -> Path:
     if env_var:
@@ -143,6 +151,10 @@ class LLMArchitectEngine:
     _SFT_BATCH_MAX: int = 500
     # Max eval Q/A pairs per evaluation pass
     _EVAL_MAX_QA: int = 20
+    # lm-eval tasks to run when lm-eval-harness is available
+    _LM_EVAL_TASKS: List[str] = ["hellaswag", "mmlu"]
+    # Max number of few-shot examples for lm-eval tasks
+    _LM_EVAL_NUM_FEWSHOT: int = 0
 
     def __init__(
         self,
@@ -164,13 +176,15 @@ class LLMArchitectEngine:
             "sft_records_written": 0,
             "dpo_pairs_written": 0,
             "eval_passes": 0,
+            "lm_eval_passes": 0,
             "last_run_ts": None,
         }
 
         log.info(
-            "[LLMArchitect] Initialised — torch=%s trl=%s peft=%s datasets=%s evaluate=%s",
+            "[LLMArchitect] Initialised — torch=%s trl=%s peft=%s datasets=%s "
+            "evaluate=%s lm_eval=%s",
             _TORCH_AVAILABLE, _TRL_AVAILABLE, _PEFT_AVAILABLE,
-            _DATASETS_AVAILABLE, _EVALUATE_AVAILABLE,
+            _DATASETS_AVAILABLE, _EVALUATE_AVAILABLE, _LM_EVAL_AVAILABLE,
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -635,11 +649,104 @@ class LLMArchitectEngine:
         return result
 
     # ─────────────────────────────────────────────────────────────────────────
+    # Stage 4b — lm-eval-harness Evaluation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def run_lm_eval_harness(self, model_path: str = "") -> str:
+        """Run lm-eval-harness benchmarks on a local model checkpoint.
+
+        When ``lm_eval`` is installed and a model path is provided (either via
+        *model_path* or the ``LOCAL_MODEL_PATH`` environment variable), this
+        method evaluates the model on :attr:`_LM_EVAL_TASKS` and persists the
+        results to the KB as ``ale_lm_eval:<ts>`` facts.
+
+        Falls back gracefully when:
+          * ``lm_eval`` is not installed
+          * No local model path is configured
+          * Evaluation fails for any reason
+
+        Args:
+            model_path: Path to a HuggingFace-compatible local checkpoint.
+                        Defaults to ``LOCAL_MODEL_PATH`` env var.
+
+        Returns:
+            Human-readable status string with per-task accuracy scores.
+        """
+        resolved_path = model_path or os.environ.get("LOCAL_MODEL_PATH", "")
+        if not resolved_path:
+            return "[lm-eval] No local model path set — skipping (set LOCAL_MODEL_PATH)"
+
+        if not _LM_EVAL_AVAILABLE:
+            return (
+                "[lm-eval] lm-eval-harness not installed — skipping. "
+                "Install with: pip install lm-eval"
+            )
+
+        log.info(
+            "[LLMArchitect] Running lm-eval-harness on %s — tasks=%s",
+            resolved_path, self._LM_EVAL_TASKS,
+        )
+
+        try:
+            import lm_eval as _lm_eval  # noqa: F401
+
+            # lm_eval ≥ 0.4 API
+            results = _lm_eval.simple_evaluate(
+                model="hf",
+                model_args=f"pretrained={resolved_path},trust_remote_code=True",
+                tasks=self._LM_EVAL_TASKS,
+                num_fewshot=self._LM_EVAL_NUM_FEWSHOT,
+                batch_size="auto",
+                log_samples=False,
+            )
+
+            task_scores: Dict[str, Any] = {}
+            if isinstance(results, dict) and "results" in results:
+                for task, metrics in results["results"].items():
+                    # Prefer acc_norm, fall back to acc
+                    score = metrics.get("acc_norm,none",
+                            metrics.get("acc,none",
+                            metrics.get("acc_norm",
+                            metrics.get("acc"))))
+                    if score is not None:
+                        task_scores[task] = round(float(score), 4)
+
+            eval_record: Dict[str, Any] = {
+                "ts": int(time.time()),
+                "model_path": resolved_path,
+                "tasks": task_scores,
+            }
+
+            # Persist to KB
+            if self.knowledge_db is not None:
+                try:
+                    self.knowledge_db.add_fact(
+                        f"ale_lm_eval:{eval_record['ts']}",
+                        eval_record,
+                        tags=["eval", "lm_eval", "llm_architect"],
+                    )
+                except Exception:
+                    pass
+
+            self._stats["lm_eval_passes"] = self._stats.get("lm_eval_passes", 0) + 1
+
+            score_str = "  ".join(
+                f"{t}={v:.3f}" for t, v in task_scores.items()
+            ) or "no scores extracted"
+            result_msg = f"lm-eval: {score_str}"
+            log.info("[LLMArchitect] %s", result_msg)
+            return result_msg
+
+        except Exception as exc:
+            log.warning("[LLMArchitect] lm-eval-harness failed: %s", exc)
+            return f"[lm-eval] Failed: {exc}"
+
+    # ─────────────────────────────────────────────────────────────────────────
     # Full pipeline
     # ─────────────────────────────────────────────────────────────────────────
 
     def run_full_pipeline(self) -> str:
-        """Run all four stages in sequence: Curate → SFT → DPO → Eval."""
+        """Run all pipeline stages in sequence: Curate → SFT → DPO → Eval → lm-eval."""
         self._stats["last_run_ts"] = int(time.time())
         parts = []
 
@@ -663,6 +770,14 @@ class LLMArchitectEngine:
         except Exception as exc:
             parts.append(f"Eval error: {exc}")
 
+        # Run lm-eval-harness after SFT when a local model is available
+        local_model = os.environ.get("LOCAL_MODEL_PATH", "")
+        if local_model and _LM_EVAL_AVAILABLE:
+            try:
+                parts.append(self.run_lm_eval_harness(local_model))
+            except Exception as exc:
+                parts.append(f"lm-eval error: {exc}")
+
         return " | ".join(parts)
 
     def status(self) -> Dict[str, Any]:
@@ -674,10 +789,12 @@ class LLMArchitectEngine:
             "peft_available": _PEFT_AVAILABLE,
             "datasets_available": _DATASETS_AVAILABLE,
             "evaluate_available": _EVALUATE_AVAILABLE,
+            "lm_eval_available": _LM_EVAL_AVAILABLE,
             "sft_dataset_path": str(_DATASET_PATH),
             "dpo_dataset_path": str(_PREF_DATASET_PATH),
             "finetune_output_dir": str(_FINETUNE_OUTPUT_DIR),
             "local_model_path": os.environ.get("LOCAL_MODEL_PATH", ""),
+            "lm_eval_tasks": self._LM_EVAL_TASKS,
         }
 
 
