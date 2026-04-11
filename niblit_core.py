@@ -1574,6 +1574,8 @@ class NiblitCore:
         self.language_module: Optional[Any] = None
         # NEW: AcademicStudyModule — subject-structured study sessions
         self.academic_study: Optional[Any] = None
+        # NEW: PhasedResearchEngine — 3-phase sequential research
+        self.phased_research_engine: Optional[Any] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -6809,6 +6811,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         slsa=getattr(self, "slsa_engine", None),
                         autonomous_engine=getattr(self, "autonomous_engine", None),
                         semantic_agent=getattr(self, "semantic_agent", None),
+                        sub_step_timeout=30,  # increased from 10 s — avoids premature skips
                     )
                     # Back-wire autonomous_engine → evolve_engine once both are available
                     if self.autonomous_engine and not self.autonomous_engine.evolve_engine:
@@ -6939,6 +6942,38 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.academic_study = None  # type: ignore[assignment]
             log.debug("AcademicStudyModule init failed: %s", _asm_err)
             self.startup_report.add("academic_study", "degraded", str(_asm_err))
+
+        # ── PhasedResearchEngine ───────────────────────────────────────────
+        try:
+            from modules.phased_research_engine import get_phased_research_engine as _get_pre
+            self.phased_research_engine = _get_pre(
+                knowledge_db=getattr(self, "db", None) or getattr(self, "memory", None),
+                graph_rag_bridge=getattr(self, "graph_rag_bridge", None),
+                language_module=self.language_module,
+                internet=getattr(self, "internet", None),
+                scrapy_agent=getattr(
+                    getattr(self, "autonomous_engine", None), "scrapy_research_agent", None
+                ),
+                serpex_agent=getattr(
+                    getattr(self, "autonomous_engine", None), "serpex_research_agent", None
+                ),
+                github_code_search=getattr(self, "github_code_search", None),
+            )
+            # Back-wire into ALE so _phased_research() uses the singleton
+            if self.autonomous_engine:
+                try:
+                    self.autonomous_engine.language_module = self.language_module
+                    self.autonomous_engine.graph_rag_bridge = getattr(
+                        self, "graph_rag_bridge", None
+                    )
+                except Exception:
+                    pass
+            log.info("✅ PhasedResearchEngine initialized")
+            self.startup_report.add("phased_research_engine", "ready")
+        except Exception as _pre_err:
+            self.phased_research_engine = None  # type: ignore[assignment]
+            log.debug("PhasedResearchEngine init failed: %s", _pre_err)
+            self.startup_report.add("phased_research_engine", "degraded", str(_pre_err))
 
         # ============================
         # DYNAMIC TOPIC MANAGER (LLM/hybrid Qdrant-based topic enrichment)

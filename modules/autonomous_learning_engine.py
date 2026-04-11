@@ -142,10 +142,13 @@ class AutonomousLearningEngine:
     _INTER_STEP_SLEEP: float = 3.0
     # Seconds to wait after the unified research step so the full ingestion →
     # reflection → KB-store pipeline has time to settle before the next query.
-    # 60 s gives every backend (Serpex, Searchcode, Qdrant, SQLite) time to
-    # write and index the results before the next research call begins.
-    _RESEARCH_INGEST_WAIT: float = 60.0
-    _CODE_TOPIC_INGEST_WAIT: float = 30.0
+    # Reduced to 15 s since PhasedResearchEngine writes results synchronously
+    # per-phase (no async queue to drain).  Override with
+    # NIBLIT_ALE_INGEST_WAIT env var.
+    _RESEARCH_INGEST_WAIT: float = float(
+        __import__("os").environ.get("NIBLIT_ALE_INGEST_WAIT", "15")
+    )
+    _CODE_TOPIC_INGEST_WAIT: float = 10.0
     # Seconds to pause between cycle phases to yield CPU and I/O resources.
     # The 32-step cycle is split into 5 named phases; this break fires between
     # each phase so the process never saturates the CPU for a long continuous
@@ -296,6 +299,9 @@ class AutonomousLearningEngine:
         self.hybrid_manager = hybrid_manager
         self.self_monitor = self_monitor
         self.kernel = kernel
+        # Late-bound by niblit_core after init
+        self.language_module: Any = None
+        self.graph_rag_bridge: Any = None
 
         # Resolve startup delay: explicit arg → env var → class default
         if startup_delay is not None:
@@ -1844,6 +1850,63 @@ class AutonomousLearningEngine:
                 log.debug("[SCRAPY RESEARCH] SemanticAgent store failed: %s", exc)
 
         return f"ScrapyResearch: {topic!r} — {stored}/{len(valid)} snippet(s) stored"
+
+    # ─────────────────────────────────────────────
+    # PHASED RESEARCH (3-phase sequential, replaces UnifiedResearch)
+    # ─────────────────────────────────────────────
+
+    def _phased_research(self) -> str:
+        """3-phase sequential research for the current cycle topic.
+
+        Phases
+        ------
+        Phase 1 — Basic Understanding (DuckDuckGo + Internet, 45 s)
+            Fast factual overview.  Results structured into KB immediately.
+        Phase 2 — Deep Knowledge (SerpAPI + Serpex + Qdrant, 45 s)
+            Builds on Phase 1.  Results pushed to GraphRAG Tier 1.
+        Phase 3 — Code Generation (GitHub REST API, 30 s)
+            Only for code/software topics.  Generates actual runnable code.
+
+        Each phase has its own budget and stores its results before the next
+        phase begins.  A stalled network call in one phase never blocks the
+        others.
+
+        Returns a one-line summary string for the ALE log.
+        """
+        topic = self._current_cycle_topic or self._select_next_topic()
+        if not topic:
+            return "[PhasedResearch] No topic available — skipping"
+
+        log.info("🔍 [PHASED RESEARCH] Topic: %r", topic)
+
+        try:
+            from modules.phased_research_engine import get_phased_research_engine
+            engine = get_phased_research_engine(
+                knowledge_db=self.knowledge_db,
+                graph_rag_bridge=getattr(self, "graph_rag_bridge", None),
+                language_module=getattr(self, "language_module", None),
+                internet=self._get_internet(),
+                scrapy_agent=self._get_scrapy_agent(),
+                serpex_agent=self._get_serpex_agent(),
+                github_code_search=self._get_github_code_search(),
+            )
+        except Exception as _e:
+            log.debug("[PhasedResearch] Engine unavailable: %s — falling back to UnifiedResearch", _e)
+            return self._unified_research()
+
+        try:
+            result = engine.research(topic)
+            # Record the topic as researched in TieredKnowledgeSystem
+            tks = getattr(self, "tiered_knowledge", None)
+            if tks:
+                try:
+                    tks.record_topic_researched(topic, facts_added=result.total_facts)
+                except Exception:
+                    pass
+            return result.summary()
+        except Exception as exc:
+            log.error("[PhasedResearch] research() failed: %s", exc)
+            return f"[PhasedResearch error: {exc}]"
 
     # ─────────────────────────────────────────────
     # UNIFIED RESEARCH (replaces separate SerpexResearch + Research steps)
@@ -5120,14 +5183,16 @@ class AutonomousLearningEngine:
           cycle via _select_next_topic() and pinned to self._current_cycle_topic.
           The topic is run through TopicConstructor so it is always safe for
           search APIs (no 403 errors or timeouts from overly long queries).
-        * Step 1 is now ONE unified research step (``UnifiedResearch``) that
-          fans out to ALL available research backends simultaneously:
-          Serpex, SelfResearcher, SearchcodeSearch, GitHubCodeSearch, and
-          SemanticAgent/Qdrant.  This replaces the former separate
-          SerpexResearch (step 27) + Research (step 1) pair.
-        * After the unified research a single 60-second ``_RESEARCH_INGEST_WAIT``
-          pause lets the full ingestion → vector-embedding → KB-store pipeline
-          settle before the next query begins — one new query per minute.
+        * Step 1 is now a sequential **PhasedResearch** step that runs through
+          up to 3 phases per topic: Phase 1 (Basic: DuckDuckGo + Internet),
+          Phase 2 (Advanced: SerpAPI + Serpex + Qdrant), and Phase 3 (Code:
+          GitHub REST API — code topics only).  Each phase completes and stores
+          its results before the next begins, preventing the timeout issues
+          caused by fanning out to all backends simultaneously.
+        * The total budget for PhasedResearch is 300 s; each phase has its own
+          internal budget (45/45/30 s).  ``_RESEARCH_INGEST_WAIT`` is reduced
+          to 15 s (overridable via ``NIBLIT_ALE_INGEST_WAIT``) since phases
+          write synchronously.
         * Every step is wrapped in _run_step_with_timeout (default 120 s) so a
           stalled network call can never freeze the whole cycle.
         * A 3-second interruptible sleep between all other steps gives the OS
@@ -5144,7 +5209,7 @@ class AutonomousLearningEngine:
         Cycle sequence
         --------------
         ── Phase A — Research & Core Learning ──
-        Step  1: UnifiedResearch      — all backends, ONE topic, 60 s ingest wait
+        Step  1: PhasedResearch       — 3-phase: Basic→Advanced→Code, 300 s budget
         Step  2: Ideas                — SelfIdeaImplementation / IdeaGenerator
         Step  3: Learning             — SelfTeacher internalises results
         Step  4: Implementation       — SelfImplementer executes enqueued plans
@@ -5326,11 +5391,12 @@ class AutonomousLearningEngine:
         # Numbered 0 to indicate it precedes the original 32-step sequence.
         _step("TieredResearch", self._autonomous_tiered_research)
 
-        # ── Step 1: Unified research — ONE call, ALL backends, ONE topic ───
-        # Replaces former Step 27 (SerpexResearch) + Step 1 (Research).
-        # A 60-second ingest wait ensures data is fully written before cycle
-        # continues — exactly one new research query per minute.
-        _research_step("UnifiedResearch", self._unified_research)
+        # ── Step 1: Phased research — 3-phase sequential, ONE topic ────────
+        # Phase 1 (Basic: DuckDuckGo + Internet, 45s) → Phase 2 (Advanced:
+        # SerpAPI + Serpex + Qdrant, 45s) → Phase 3 (Code: GitHub, 30s, only
+        # for code topics).  Each phase stores its results before the next
+        # begins.  Total budget: 300s (phases) + 30s (ingest settle).
+        _research_step("PhasedResearch", self._phased_research, timeout=300)
 
         # ── Steps 2-7: Core learning loop ─────────────────────────────────
         _step("Ideas",          self._autonomous_idea_generation)
