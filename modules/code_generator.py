@@ -1621,6 +1621,9 @@ class CodeGenerator:
         *max_chars_per_file* characters each.  Useful for giving the LLM
         context about the existing codebase.
 
+        Only paths within the application working directory are permitted to
+        prevent directory traversal when *path* originates from user input.
+
         Args:
             path:              Root directory to walk.
             max_chars_per_file: Maximum characters to include from each file.
@@ -1632,7 +1635,17 @@ class CodeGenerator:
         _EXTENSIONS_TO_READ = {".py", ".js", ".ts", ".sh", ".go"}
         context_parts: List[str] = []
         try:
-            for root, _dirs, files in os.walk(path):
+            # Resolve to an absolute, canonical path and ensure it stays within cwd
+            safe_base = os.path.realpath(os.getcwd())
+            resolved = os.path.realpath(os.path.abspath(path))
+            if not resolved.startswith(safe_base + os.sep) and resolved != safe_base:
+                log.warning(
+                    "[CodeGenerator] load_project_context: path %r is outside the "
+                    "working directory — skipping",
+                    path,
+                )
+                return ""
+            for root, _dirs, files in os.walk(resolved):
                 # Skip hidden directories and common non-source dirs
                 _dirs[:] = [
                     d for d in _dirs
@@ -1647,7 +1660,7 @@ class CodeGenerator:
                     try:
                         with open(fpath, encoding="utf-8", errors="replace") as fh:
                             content = fh.read(max_chars_per_file)
-                        rel = os.path.relpath(fpath, path)
+                        rel = os.path.relpath(fpath, resolved)
                         context_parts.append(f"# --- {rel} ---\n{content}")
                     except OSError:
                         pass

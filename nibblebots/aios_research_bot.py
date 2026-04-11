@@ -394,9 +394,9 @@ def format_issue_body(
             lines.append(f"#### [{r['full_name']}]({r['url']}) "
                      f"\u2b50 {r['stars']:,} \u00b7 relevance {score}\n")
             lines.append(f"> {desc}\n")
-            lines.append(f"- **Arch:** {', '.join(r['architecture_patterns'][:4]) or '\u2014'}")
-            lines.append(f"- **HW:** {', '.join(r['hardware_abstractions'][:4]) or '\u2014'}")
-            lines.append(f"- **Self-imp:** {', '.join(r['self_improvement'][:4]) or '\u2014'}\n")
+            lines.append(f"- **Arch:** {', '.join(r['architecture_patterns'][:4]) or '—'}")
+            lines.append(f"- **HW:** {', '.join(r['hardware_abstractions'][:4]) or '—'}")
+            lines.append(f"- **Self-imp:** {', '.join(r['self_improvement'][:4]) or '—'}\n")
 
     # Recommendations
     lines.append("---\n### ✅ Actionable Recommendations for Niblit AIOS Complete\n")
