@@ -1,15 +1,18 @@
 # NIBLIT-AIOS: Neural Integrated Baseline for Learning, Intelligence, and Tasking
 ## Artificial Intelligence Operating System
 
-Niblit is a **self-improving AI operating system** that learns, researches, codes,
-reflects, and fine-tunes itself using the same methodology that ML engineers use
-to build production LLMs and live trading AI systems.
+Niblit is a **self-improving, autonomous AI operating system** that learns,
+researches, codes, reflects, and fine-tunes itself — running 24/7 on any device,
+including your Android phone via Termux.
 
 ---
 
 ## Table of Contents
 
-- [What Niblit Is Now](#what-niblit-is-now)
+- [What is Niblit?](#what-is-niblit)
+- [What Can Niblit Do?](#what-can-niblit-do)
+- [Running Niblit in Termux (proot-Ubuntu)](#running-niblit-in-termux-proot-ubuntu)
+- [Running Niblit in a Simulated Environment in Termux](#running-niblit-in-a-simulated-environment-in-termux)
 - [Architecture: The LLM Engineer's Pipeline](#architecture-the-llm-engineers-pipeline)
 - [Architecture: The Trading AI Engineer's Pipeline](#architecture-the-trading-ai-engineers-pipeline)
 - [Quick Start](#quick-start)
@@ -17,6 +20,7 @@ to build production LLMs and live trading AI systems.
 - [APIs and Accounts Required](#apis-and-accounts-required)
 - [Environment Variables Reference](#environment-variables-reference)
 - [Autonomous Learning Engine (ALE) — 32-Step Cycle](#autonomous-learning-engine-ale--32-step-cycle)
+- [Copilot Code Engine](#copilot-code-engine)
 - [Nibblebot Research Bots](#nibblebot-research-bots)
 - [Fine-Tuning Your Own Local Model](#fine-tuning-your-own-local-model)
 - [Live Trading Configuration](#live-trading-configuration)
@@ -26,22 +30,353 @@ to build production LLMs and live trading AI systems.
 
 ---
 
-## What Niblit Is Now
+## What is Niblit?
 
-Niblit started as a Python AI agent. It has evolved into an **AI Operating System**
-that continuously improves itself through a 32-step autonomous learning cycle
-(ALE) that mirrors real LLM engineering:
+Niblit started as a Python AI assistant and has evolved into a full **AI
+Operating System (AIOS)** that runs a continuous 32-step autonomous learning
+cycle (ALE), builds its own knowledge graph, generates and compiles code, and
+improves itself — without needing a cloud GPU.
 
 ```
-Research → Learn → Reflect → Generate Code → Compile → Reason →
-Fine-Tune → Evaluate → Heal → Repeat
+Research → Learn → Reflect → Generate Code → Quality-Check →
+Compile → Reason → Fine-Tune → Evaluate → Heal → Repeat
 ```
 
-Every component — the brain, the knowledge base, the trading engine, the
-civilization of agents — is designed to grow Niblit from its current
-semi-autonomous state into a fully self-improving LLM.
+Key design choices:
+- **No cloud required.** Niblit runs entirely on your device.  External LLMs
+  (HuggingFace Inference, Anthropic Claude) are optional upgrades.
+- **Multi-source knowledge.** Every fact Niblit stores comes from Wikipedia,
+  DuckDuckGo, SerpAPI, GitHub code search, its own generated code, and
+  internal reflections.
+- **Self-correcting code.** Generated code is never saved unless it passes
+  CodeQL-style static analysis and syntax checks — automatically.
+- **Civilisation of agents.** 5 specialised AI agent roles (researcher,
+  coder, teacher, critic, explorer) collaborate inside Niblit's own
+  civilisation simulator (STACA).
 
 ---
+
+## What Can Niblit Do?
+
+### 🧠 Autonomous Learning
+- Runs a 32-step **Autonomous Learning Engine (ALE)** cycle in the background
+- Researches topics via DuckDuckGo, SerpAPI, Wikipedia, and GitHub
+- Builds a persistent **Knowledge Graph (Graph-RAG)** across 3 tiers
+- Reflects on what it has learned and generates new research directions
+- Fills knowledge gaps automatically when you ask questions it cannot answer
+
+### 💬 Conversational AI
+- Full **chat interface** with LLM history (HuggingFace / Anthropic)
+- KB-aware responses: answers from its own knowledge first, LLM second
+- Works offline with pre-trained local models via `LOCAL_MODEL_PATH`
+- Remembers facts between sessions via `niblit_memory`
+- Chat completions via `ChatCompletions` engine (GraphRAG + LLM)
+
+### 🔧 Copilot-Style Code Engine
+- `/api/code` endpoint: Copilot-style code generation from natural language
+- Generates Python, JavaScript, Bash, Rust, Go, C/C++, TypeScript, SQL, …
+- **CodeQL-style quality checks**: security rules, bare-except, eval/exec,
+  hardcoded secrets, SQL injection, unquoted shell variables, `chmod 777`
+- **Error fixer**: `fix_until_clean()` loops fix → validate → quality-check
+  until the code is error-free, blocking saves of broken code
+- **Project context awareness**: loads existing codebase files to guide LLM
+- Compiles and runs generated code via `CodeCompiler` with sandboxed execution
+
+### 📈 Live Trading AI
+- RSI, MACD, EMA-20, ATR-14, volatility indicators
+- PPO, DQN, and Transformer RL policies (`NIBLIT_RL_ENABLED=1`)
+- Binance and Alpaca exchange connectors
+- 7-dimensional state vector for continuous learning
+
+### 🌐 REST API (FastAPI)
+- `/api/code` — Copilot code generation with quality gate
+- `/chat` — Conversational interface
+- `/api/knowledge` — KB lookup
+- `/api/status` — System health
+- `/api/hf-ask` — Direct LLM query
+- `/api/slsa-status` — SLSA artifact status
+- Full command catalog via `/api/commands`
+
+### 🔬 Self-Improvement
+- `EvolveEngine`: generates new Python modules to extend Niblit itself
+- `SelfImprovementOrchestrator`: research → code → deploy cycle
+- `CivilizationController (STACA)`: 5-agent society that evolves strategies
+- `SLSAGenerator`: builds structured semantic artifacts from live data
+
+### 🗃️ SLSA (Structured Live Sense Artifacts)
+- Wikipedia REST API + PhasedResearchEngine + InternetManager pipeline
+- Extracts: definition, structure, function, origin, evolution, context
+- Stores complete semantic artifacts in KB with `slsa:` prefix
+- Partial artifacts stored and updated on subsequent cycles
+
+---
+
+## Running Niblit in Termux (proot-Ubuntu)
+
+The recommended way to run Niblit on Android is inside a **proot-distro
+Ubuntu** environment inside Termux.  This gives you a full Ubuntu 22.04
+userland with Python 3.11 and all system libraries — no root needed.
+
+### 1. Install Termux and proot-distro
+
+Install **Termux** from [F-Droid](https://f-droid.org/packages/com.termux/)
+(do **not** use the Play Store version — it is outdated).
+
+```bash
+# Update Termux packages
+pkg update && pkg upgrade -y
+
+# Install proot-distro
+pkg install proot-distro -y
+
+# Install Ubuntu 22.04
+proot-distro install ubuntu
+```
+
+### 2. Enter Ubuntu and install dependencies
+
+```bash
+# Log into Ubuntu as a normal user
+proot-distro login ubuntu --user user
+
+# Inside Ubuntu:
+apt update && apt upgrade -y
+apt install -y python3 python3-pip python3-venv git curl build-essential \
+               libssl-dev libffi-dev python3-dev
+
+# Optional: install Node.js for JavaScript compilation support
+apt install -y nodejs npm
+```
+
+### 3. Clone Niblit and install Python packages
+
+```bash
+# Clone the repository
+git clone https://github.com/riddo9906/Niblit.git ~/NiblitAIOS
+cd ~/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit
+
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install Niblit dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# Optional: sentence-transformers for vector search (requires ~400 MB)
+pip install sentence-transformers
+
+# Optional: HuggingFace inference for local LLM
+pip install transformers torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+### 4. Set up environment variables
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Minimum recommended settings for Termux:
+
+```dotenv
+# HuggingFace token (free tier — get at https://huggingface.co/settings/tokens)
+HF_TOKEN=hf_your_token_here
+
+# Disable features that require a GPU or heavy RAM (optional on low-RAM devices)
+NIBLIT_AUTONOMOUS_ENGINE=true
+NIBLIT_RL_ENABLED=0
+NIBLIT_SKIP_INIT_WAIT=0
+
+# Path to your Niblit installation (update if different)
+NIBLIT_DEPLOY_PATH=/root/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit
+```
+
+### 5. Start Niblit
+
+```bash
+# Activate the virtual environment if not already active
+source .venv/bin/activate
+
+# Start Niblit interactive CLI
+python main.py
+
+# Or start the REST API server (port 8000)
+uvicorn api.index:app --host 0.0.0.0 --port 8000
+```
+
+### 6. Keep Niblit running with a persistent login alias
+
+Add to `~/.bashrc` inside Ubuntu:
+
+```bash
+alias niblit='cd ~/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit && source .venv/bin/activate && python main.py'
+alias niblit-api='cd ~/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit && source .venv/bin/activate && uvicorn api.index:app --host 0.0.0.0 --port 8000'
+```
+
+Then open a new Termux session and run:
+
+```bash
+proot-distro login ubuntu --user user
+niblit
+```
+
+---
+
+## Running Niblit in a Simulated Environment in Termux
+
+If you want to test Niblit without modifying your main Ubuntu proot-distro
+environment — or run multiple isolated Niblit instances — you can use a
+**simulated sandbox environment** inside Termux.
+
+### Option A: Native Termux (no proot)
+
+For a lightweight setup with no Ubuntu layer:
+
+```bash
+# Install Python directly in Termux
+pkg install python git -y
+pip install --upgrade pip
+
+# Clone and run
+git clone https://github.com/riddo9906/Niblit.git ~/niblit-dev
+cd ~/niblit-dev/Niblit-Modules/Niblit-apk/Niblit
+pip install -r requirements.txt
+
+# Run with a test/dev config (uses SQLite in /tmp, no deploy writes)
+NIBLIT_ENV=testing NIBLIT_SKIP_INIT_WAIT=1 python main.py
+```
+
+### Option B: Isolated proot instance (recommended for simulation)
+
+This creates a second, isolated Ubuntu environment just for testing:
+
+```bash
+# Back in Termux (not inside proot)
+proot-distro install ubuntu --override-alias niblit-sim
+
+# Enter the simulation environment
+proot-distro login niblit-sim
+
+# Install Python + Niblit exactly as in the main setup
+apt update && apt install -y python3 python3-pip python3-venv git
+git clone https://github.com/riddo9906/Niblit.git ~/niblit-sim
+cd ~/niblit-sim/Niblit-Modules/Niblit-apk/Niblit
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Inside the simulation environment, set `NIBLIT_ENV=testing` to use in-memory
+databases and avoid touching production KB files:
+
+```bash
+# Run Niblit in testing mode (in-memory DB, no file writes)
+NIBLIT_ENV=testing python main.py
+```
+
+### Option C: Docker-style lightweight container via `proot`
+
+If you want an even more isolated simulation without installing proot-distro:
+
+```bash
+# In Termux — download and extract a minimal Alpine Linux rootfs
+mkdir -p ~/niblit-alpine/rootfs
+cd ~/niblit-alpine
+curl -L https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz | tar xz -C rootfs/
+
+# Enter the Alpine environment
+proot --rootfs=rootfs/ -0 -w /root /bin/sh
+
+# Inside Alpine:
+apk add python3 py3-pip git
+pip install --upgrade pip
+# ... clone and install Niblit as above
+```
+
+### Environment variables for simulated mode
+
+| Variable | Value | Effect |
+|---|---|---|
+| `NIBLIT_ENV` | `testing` | In-memory SQLite DB, no disk writes |
+| `NIBLIT_SKIP_INIT_WAIT` | `1` | Skip deferred init wait, start immediately |
+| `NIBLIT_AUTONOMOUS_ENGINE` | `false` | Disable background ALE cycle |
+| `NIBLIT_ALE_INTER_PHASE_SLEEP` | `1` | Speed up ALE phase gaps (default 5s) |
+| `NIBLIT_EVOLVE_INTER_PHASE_SLEEP` | `1` | Speed up EvolveEngine (default 5s) |
+| `HF_TOKEN` | _(optional)_ | Leave unset to run fully offline |
+
+---
+
+## Copilot Code Engine
+
+Niblit includes a Copilot-style code generation system accessible via both
+the CLI and the REST API.
+
+### REST API
+
+```bash
+# Generate a Python function from a natural-language prompt
+curl -X POST http://localhost:8000/api/code \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Create a function that fetches JSON from a URL with error handling",
+    "language": "python"
+  }'
+```
+
+Response:
+```json
+{
+  "code": "#!/usr/bin/env python3\n...",
+  "language": "python",
+  "success": true,
+  "source": "template",
+  "quality": {
+    "passed": true,
+    "score": 98,
+    "issues": [],
+    "summary": "python analysis: 0 errors, 0 warnings"
+  },
+  "structure_issues": [],
+  "error": null,
+  "ts": 1234567890
+}
+```
+
+The response returns HTTP 422 (not 200) when the quality gate blocks
+error-level issues, so callers can distinguish "generated but needs fixing"
+from "ready to use".
+
+### CLI
+
+```
+Niblit > generate python module name:my_module docstring:Handles HTTP requests
+Niblit > generate-copilot python fetch JSON from a URL
+Niblit > code-quality check python my_file.py
+Niblit > fix-until-clean python my_broken.py
+```
+
+### Quality Check Rules
+
+| Severity | Rule | What it catches |
+|---|---|---|
+| 🔴 error | `syntax-error` | Code that does not parse |
+| 🔴 error | `hardcoded-secret` | `password = "..."`, `api_key = "..."` |
+| 🔴 error | `sql-injection` | f-string / % formatting into SQL |
+| 🔴 error | `eval-usage` (JS) | `eval()` in JavaScript |
+| 🔴 error | `destructive-rm` | `rm -rf /` or `rm -rf /*` in Bash |
+| 🟡 warning | `bare-except` | `except:` without exception type |
+| 🟡 warning | `eval-usage` (Py) | `eval()` or `exec()` in Python |
+| 🟡 warning | `os-system` | `os.system()` — prefer `subprocess` |
+| 🟡 warning | `missing-shebang` | Bash script without `#!/usr/bin/env bash` |
+| 🟡 warning | `unquoted-variable` | `$VAR` instead of `"$VAR"` in Bash |
+| 🟡 warning | `chmod-777` | World-writable permissions |
+| 🟡 warning | `missing-use-strict` | JavaScript without `'use strict'` |
+| 🔵 info | `missing-docstring` | Public function/class without docstring |
+| 🔵 info | `long-line` | Lines over 120 characters |
+| 🔵 info | `var-declaration` | `var` instead of `const`/`let` in JS |
+
+---
+
 
 ## Architecture: The LLM Engineer's Pipeline
 

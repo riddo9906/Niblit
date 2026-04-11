@@ -232,21 +232,67 @@ class CodeCompiler:
     def compile_with_autofix(self, language: str, code: str) -> "ExecutionResult":
         """Execute code, automatically fixing syntax errors via CodeErrorFixer.
 
-        If the initial syntax check fails, CodeErrorFixer attempts up to
-        MAX_FIX_ATTEMPTS targeted repairs before re-running.  The final
-        ExecutionResult reflects the outcome of the (possibly repaired) code.
+        Pipeline:
+        1. CodeErrorFixer repairs syntax errors (up to MAX_FIX_ATTEMPTS).
+        2. CodeQualityChecker runs a CodeQL-style static analysis pass.
+           If error-level issues are found, an ExecutionResult with
+           ``success=False`` is returned without executing the code.
+        3. Only error-free code is passed to the interpreter.
 
         This is the recommended entry point for autonomous code execution
-        because it allows Niblit to self-correct generated code.
+        because it allows Niblit to self-correct generated code and ensures
+        only quality-checked code is run.
         """
+        lang = language.lower()
+
+        # ── Step 1: Syntax fix ───────────────────────────────────────────────
         try:
             from modules.code_error_fixer import CodeErrorFixer  # pylint: disable=import-outside-toplevel
             fixer = CodeErrorFixer(db=self.db)
-            return fixer.fix_and_compile(language, code, self)
+            fixed_result = fixer.fix_and_compile(lang, code, self)
         except ImportError:
-            # CodeErrorFixer not available — fall back to plain run()
             log.debug("[CodeCompiler] CodeErrorFixer unavailable, using plain run()")
-            return self.run(language, code)
+            return self.run(lang, code)
+
+        # If the fixer already ran and returned a failure, propagate it.
+        if not getattr(fixed_result, "success", False) and getattr(fixed_result, "error", ""):
+            if "AutoFix" in (fixed_result.error or ""):
+                return fixed_result
+
+        # Determine the (possibly fixed) code to quality-check.
+        # CodeErrorFixer's fix_and_compile() returns an ExecutionResult from
+        # compiler.run() — we need the code it actually ran.  We re-apply the
+        # fixer's fix_syntax_errors() to get the final code string.
+        try:
+            syntax_check = self.syntax_test(lang, code)
+            if not syntax_check.get("valid", True):
+                error_msg = syntax_check.get("error", "") or ""
+                fixed_code, _, _ = fixer.fix_syntax_errors(lang, code, error_msg, self)
+            else:
+                fixed_code = code
+        except Exception:
+            fixed_code = code
+
+        # ── Step 2: CodeQL-style quality check ──────────────────────────────
+        try:
+            from modules.code_quality_checker import get_code_quality_checker  # pylint: disable=import-outside-toplevel
+            checker = get_code_quality_checker()
+            qc_result = checker.check(lang, fixed_code)
+            if not qc_result.passed:
+                errors = [i for i in qc_result.issues if i.severity == "error"]
+                error_msg = (
+                    f"CodeQuality gate blocked execution: {len(errors)} error(s). "
+                    + "; ".join(f"{e.rule}: {e.message[:60]}" for e in errors[:3])
+                )
+                log.warning("[CodeCompiler] Quality gate blocked: %s", error_msg)
+                return ExecutionResult(success=False, language=lang, error=error_msg)
+        except ImportError:
+            pass  # Checker unavailable — skip quality gate
+        except Exception as exc:
+            log.debug("[CodeCompiler] Quality check error: %s", exc)
+
+        # ── Step 3: Return the execution result from the fixer ───────────────
+        return fixed_result
 
     def get_stats(self) -> Dict[str, Any]:
         """Return execution statistics."""

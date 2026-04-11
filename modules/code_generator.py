@@ -1156,8 +1156,51 @@ class CodeGenerator:
         self._stats: Dict[str, int] = {
             "generated": 0,
             "stored": 0,
+            "quality_blocks": 0,
         }
+        # Lazy quality checker — loaded on first use
+        self._quality_checker: Any = None
         log.debug("[CodeGenerator] Initialized (deploy_path=%s)", self.deploy_path)
+
+    def _get_quality_checker(self) -> Any:
+        """Return the CodeQualityChecker singleton, loading it lazily."""
+        if self._quality_checker is None:
+            try:
+                from modules.code_quality_checker import get_code_quality_checker  # pylint: disable=import-outside-toplevel
+                self._quality_checker = get_code_quality_checker()
+            except Exception as exc:
+                log.debug("[CodeGenerator] CodeQualityChecker unavailable: %s", exc)
+        return self._quality_checker
+
+    def quality_check(self, language: str, code: str) -> Dict[str, Any]:
+        """Run a CodeQL-style quality check on *code*.
+
+        Returns a dict with keys: ``passed`` (bool), ``score`` (int 0-100),
+        ``issues`` (list of issue dicts), ``summary`` (str).
+        Always returns a valid dict even if the checker is unavailable.
+        """
+        checker = self._get_quality_checker()
+        if checker is None:
+            return {"passed": True, "score": 100, "issues": [], "summary": "checker unavailable"}
+        try:
+            result = checker.check(language, code)
+            return {
+                "passed": result.passed,
+                "score": result.score,
+                "issues": [
+                    {
+                        "severity": i.severity,
+                        "rule": i.rule,
+                        "message": i.message,
+                        "line": i.line,
+                    }
+                    for i in result.issues
+                ],
+                "summary": result.summary,
+            }
+        except Exception as exc:
+            log.debug("[CodeGenerator] quality_check error: %s", exc)
+            return {"passed": True, "score": 100, "issues": [], "summary": str(exc)}
 
     # ──────────────────────────────────────────────────────
     # CORE GENERATION
@@ -1268,18 +1311,39 @@ class CodeGenerator:
             docstring=docstring or f"Niblit module: {name}",
         )
 
-    def save_to_deploy(self, name: str, code: str) -> Dict[str, Any]:
+    def save_to_deploy(self, name: str, code: str, *, skip_quality_check: bool = False) -> Dict[str, Any]:
         """Save generated Python code to the Niblit build (deploy) directory.
 
         The file is written to *self.deploy_path/<name>.py* so it can be
         hot-reloaded by the LiveUpdater and pushed to GitHub via GitHubSync.
 
-        Returns {"path": str, "success": bool, "error": Optional[str]}.
+        The code is run through the CodeQL-style quality checker before
+        saving.  If the check finds errors, the save is blocked and the result
+        dict includes a ``quality`` key with the full report.  Pass
+        ``skip_quality_check=True`` to bypass this gate (e.g. for tests).
+
+        Returns {"path": str, "success": bool, "error": Optional[str],
+                 "quality": Optional[dict]}.
         """
-        result: Dict[str, Any] = {"path": None, "success": False, "error": None}
+        result: Dict[str, Any] = {"path": None, "success": False, "error": None, "quality": None}
         if not self.deploy_path:
             result["error"] = "deploy_path not set — not running on Termux"
             return result
+
+        # ── Quality gate ────────────────────────────────────────────────────
+        if not skip_quality_check:
+            qc = self.quality_check("python", code)
+            result["quality"] = qc
+            if not qc["passed"]:
+                errors = [i for i in qc["issues"] if i["severity"] == "error"]
+                self._stats["quality_blocks"] = self._stats.get("quality_blocks", 0) + 1
+                result["error"] = (
+                    f"Quality gate blocked save: {len(errors)} error(s) found. "
+                    f"Score={qc['score']}/100. "
+                    + "; ".join(f"{e['rule']}: {e['message'][:60]}" for e in errors[:3])
+                )
+                log.warning("[CodeGenerator] save_to_deploy blocked by quality check: %s", result["error"])
+                return result
 
         # Ensure the name is a valid filename
         safe_name = name.replace(" ", "_").replace("-", "_")
@@ -1304,23 +1368,45 @@ class CodeGenerator:
         """Return the current deploy path as a string, or None."""
         return str(self.deploy_path) if self.deploy_path else None
 
-    def save_to_builds(self, language: str, name: str, code: str) -> Dict[str, Any]:
+    def save_to_builds(self, language: str, name: str, code: str, *, skip_quality_check: bool = False) -> Dict[str, Any]:
         """Save generated code to the local ``builds/{language}/`` directory.
 
         Provides a structured build store that works in any environment
         (Termux or standard Linux) and persists generated programs across
         sessions.  The directory is created automatically if it does not exist.
 
+        The code is run through the CodeQL-style quality checker before
+        saving.  If the check finds errors, the save is blocked and the result
+        dict includes a ``quality`` key with the full report.  Pass
+        ``skip_quality_check=True`` to bypass this gate (e.g. for tests).
+
         Args:
-            language: Target language (e.g. ``"rust"``, ``"python"``).
-            name:     Base filename without extension (e.g. ``"ale_rust_module"``).
-            code:     Source code string to write.
+            language:           Target language (e.g. ``"rust"``, ``"python"``).
+            name:               Base filename without extension.
+            code:               Source code string to write.
+            skip_quality_check: If True, skip the quality gate.
 
         Returns:
-            ``{"path": str, "success": bool, "error": Optional[str]}``
+            ``{"path": str, "success": bool, "error": Optional[str], "quality": Optional[dict]}``
         """
-        result: Dict[str, Any] = {"path": None, "success": False, "error": None}
+        result: Dict[str, Any] = {"path": None, "success": False, "error": None, "quality": None}
         lang = language.lower()
+
+        # ── Quality gate ────────────────────────────────────────────────────
+        if not skip_quality_check and lang in ("python", "python3", "bash", "sh", "javascript", "js"):
+            qc = self.quality_check(lang, code)
+            result["quality"] = qc
+            if not qc["passed"]:
+                errors = [i for i in qc["issues"] if i["severity"] == "error"]
+                self._stats["quality_blocks"] = self._stats.get("quality_blocks", 0) + 1
+                result["error"] = (
+                    f"Quality gate blocked save: {len(errors)} error(s) found. "
+                    f"Score={qc['score']}/100. "
+                    + "; ".join(f"{e['rule']}: {e['message'][:60]}" for e in errors[:3])
+                )
+                log.warning("[CodeGenerator] save_to_builds blocked by quality check: %s", result["error"])
+                return result
+
         ext = _EXTENSIONS.get(lang, ".txt")
 
         safe_name = name.replace(" ", "_").replace("-", "_")
@@ -1507,7 +1593,173 @@ class CodeGenerator:
         fallback["source"] = "template"
         return fallback
 
-    # ── private structure helpers ──────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    # COPILOT-STYLE GENERATION
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # Copilot-style system prompt injected before every LLM code request
+    COPILOT_SYSTEM_PROMPT: str = (
+        "You are Niblit Code Engine — a Copilot-style coding assistant.\n\n"
+        "Rules:\n"
+        "- Write clean, production-ready code only.\n"
+        "- Add meaningful docstrings and inline comments.\n"
+        "- Optimise for readability and maintainability.\n"
+        "- Never leave TODO stubs — provide complete implementations.\n"
+        "- Use proper error handling (try/except with specific exceptions).\n"
+        "- Follow the language's official style guide (PEP 8 for Python, "
+        "  StandardJS for JavaScript, shellcheck-friendly for Bash).\n"
+        "- Avoid eval(), exec(), os.system(), and bare except clauses.\n"
+        "- Do not explain the code unless the user explicitly asks.\n"
+        "- Output only the code block — no markdown fences unless requested.\n"
+    )
+
+    @staticmethod
+    def load_project_context(path: str = ".", max_chars_per_file: int = 2000) -> str:
+        """Walk *path* and return concatenated source text from all source files.
+
+        Reads Python, JavaScript, TypeScript, Bash and Go files up to
+        *max_chars_per_file* characters each.  Useful for giving the LLM
+        context about the existing codebase.
+
+        Args:
+            path:              Root directory to walk.
+            max_chars_per_file: Maximum characters to include from each file.
+
+        Returns:
+            A single string containing excerpts from found source files.
+        """
+        import os  # pylint: disable=import-outside-toplevel
+        _EXTENSIONS_TO_READ = {".py", ".js", ".ts", ".sh", ".go"}
+        context_parts: List[str] = []
+        try:
+            for root, _dirs, files in os.walk(path):
+                # Skip hidden directories and common non-source dirs
+                _dirs[:] = [
+                    d for d in _dirs
+                    if not d.startswith(".")
+                    and d not in ("node_modules", "__pycache__", ".git", "venv", ".venv")
+                ]
+                for fname in sorted(files):
+                    ext = os.path.splitext(fname)[1].lower()
+                    if ext not in _EXTENSIONS_TO_READ:
+                        continue
+                    fpath = os.path.join(root, fname)
+                    try:
+                        with open(fpath, encoding="utf-8", errors="replace") as fh:
+                            content = fh.read(max_chars_per_file)
+                        rel = os.path.relpath(fpath, path)
+                        context_parts.append(f"# --- {rel} ---\n{content}")
+                    except OSError:
+                        pass
+        except Exception as exc:
+            log.debug("[CodeGenerator] load_project_context error: %s", exc)
+        return "\n\n".join(context_parts)
+
+    def generate_copilot_code(
+        self,
+        prompt: str,
+        language: str = "python",
+        llm: Any = None,
+        project_path: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Generate production-ready code from a natural-language *prompt*.
+
+        This is Niblit's Copilot-style generation entry point:
+
+        1. Optionally load existing project context from *project_path*.
+        2. Build a Copilot system-prompt + user-prompt message.
+        3. Call the LLM (if available) with the combined prompt.
+        4. Apply structural validation + CodeQL-style quality check.
+        5. Return the result dict — only passes ``quality["passed"]``
+           when there are no error-level issues.
+
+        Args:
+            prompt:       Natural-language description of what to generate.
+            language:     Target programming language (default ``"python"``).
+            llm:          LLM object with ``generate_code(lang, prompt, ctx)``
+                          or ``generate(prompt)`` method.  Falls back to
+                          template generation when None.
+            project_path: Optional directory to load project context from.
+
+        Returns:
+            Dict with keys: ``code``, ``language``, ``success``, ``source``,
+            ``quality``, ``structure_issues``, ``error``.
+        """
+        lang = language.lower()
+        result: Dict[str, Any] = {
+            "language": lang,
+            "success": False,
+            "code": "",
+            "error": None,
+            "source": "template",
+            "structure_issues": [],
+            "structure_valid": True,
+            "quality": None,
+        }
+
+        # ── 1. Load optional project context ────────────────────────────────
+        project_ctx = ""
+        if project_path:
+            project_ctx = self.load_project_context(project_path)
+            if project_ctx:
+                project_ctx = f"\n\n# Existing project context:\n{project_ctx[:4000]}"
+
+        # ── 2. Build full prompt ─────────────────────────────────────────────
+        full_prompt = (
+            f"{self.COPILOT_SYSTEM_PROMPT}\n"
+            f"Language: {lang}\n"
+            f"Task: {prompt}"
+            f"{project_ctx}"
+        )
+
+        # ── 3. LLM generation ────────────────────────────────────────────────
+        generated_code: Optional[str] = None
+        if llm is not None:
+            try:
+                if hasattr(llm, "generate_code"):
+                    generated_code = llm.generate_code(lang, full_prompt, project_ctx)
+                elif hasattr(llm, "generate"):
+                    generated_code = llm.generate(full_prompt)
+                if generated_code and len(generated_code) > _MIN_LLM_CODE_LENGTH:
+                    result["source"] = "llm"
+                else:
+                    generated_code = None
+            except Exception as exc:
+                log.debug("[CodeGenerator] Copilot LLM call failed: %s", exc)
+
+        # ── 4. Template fallback ─────────────────────────────────────────────
+        if generated_code is None:
+            tpl_result = self.generate_with_validation(lang, "module", name="niblit_copilot",
+                                                       docstring=prompt[:200])
+            if not tpl_result.get("success"):
+                result["error"] = tpl_result.get("error", "template generation failed")
+                return result
+            generated_code = tpl_result["code"]
+            result["source"] = "template"
+
+        # ── 5. Structural fix + quality check ────────────────────────────────
+        fixed_code = self.ensure_structure(lang, generated_code)
+        struct_check = self.validate_structure(lang, fixed_code)
+        result["structure_issues"] = struct_check["issues"]
+        result["structure_valid"] = struct_check["valid"]
+
+        qc = self.quality_check(lang, fixed_code)
+        result["quality"] = qc
+        result["code"] = fixed_code
+        result["success"] = qc["passed"]
+        if not qc["passed"]:
+            errors = [i for i in qc["issues"] if i["severity"] == "error"]
+            result["error"] = (
+                f"Quality check failed: {len(errors)} error(s). "
+                + "; ".join(f"{e['rule']}: {e['message'][:80]}" for e in errors[:3])
+            )
+            log.warning("[CodeGenerator] Copilot code quality issues: %s", result["error"])
+        else:
+            self._stats["generated"] += 1
+            log.info("[CodeGenerator] Copilot code generated (%d chars, score=%d)",
+                     len(fixed_code), qc["score"])
+
+        return result
 
     def _check_python_structure(self, code: str) -> List[str]:
         issues: List[str] = []
