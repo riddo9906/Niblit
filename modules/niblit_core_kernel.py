@@ -424,6 +424,33 @@ class KernelMemory:
                 pass
         return mwds_stats
 
+    def semantic_search(
+        self,
+        embedding: Any,
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Search the MemoryGraph using a pre-computed embedding vector.
+
+        Returns a list of ``{"id", "text", "score", "hops"}`` dicts from the
+        underlying :class:`~modules.memory_graph.MemoryGraph`.  If the graph is
+        unavailable or the query embedding is ``None``, returns an empty list.
+
+        Args:
+            embedding: A float list (e.g. from :class:`Embedder.encode`) or
+                       ``None`` for a text-fallback search.
+            top_k:     Maximum number of results.
+
+        Returns:
+            List of hit dicts, highest-score first.
+        """
+        if self.memory_graph is None:
+            return []
+        try:
+            return self.memory_graph.search(embedding, top_k=top_k)
+        except Exception as exc:
+            log.debug("[KernelMemory] semantic_search failed: %s", exc)
+            return []
+
     def stats(self) -> Dict[str, Any]:
         """Return statistics across all memory tiers including MWDS."""
         graph_stats = {}
