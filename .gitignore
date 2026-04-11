@@ -60,3 +60,5 @@ events.jsonl
 *_state.json
 niblit_deployment_bridge.json
 niblit_net_state.json
+.db
+.jsonl
