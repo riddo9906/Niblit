@@ -1223,7 +1223,7 @@ class NiblitBrain:
             # always injected together.  The extra context already assembled
             # above (SECA, RAG) is prepended to the question so it is still
             # available to the LLM.
-            _extra_context = context  # may be empty string
+            _extra_context_stripped = context.strip()
             try:
                 from modules.chat_completions import get_chat_completions
                 _cc = get_chat_completions(
@@ -1232,8 +1232,8 @@ class NiblitBrain:
                 # Prepend any accumulated context (SECA/RAG/Graph-RAG) to the
                 # question so the completions engine sees everything.
                 _question_with_ctx = (
-                    _extra_context.strip() + "\n\n" + user_input
-                    if _extra_context.strip()
+                    _extra_context_stripped + "\n\n" + user_input
+                    if _extra_context_stripped
                     else user_input
                 )
                 _cc_result = _cc.complete(_question_with_ctx, persist=True)

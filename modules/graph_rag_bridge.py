@@ -15,7 +15,8 @@ The bridge provides three synchronisation channels:
    inserted into Tier 1 / Tier 2 of the GraphRAGPipeline.
 
 2. **Real-time hook** (``ingest_single_fact``)
-   Wired as an *after-store* callback via ``GraphRAGPipeline.set_kb_hook()``.
+   Wired as an *after-store* callback via the ``install_kb_hook()`` standalone
+   function, which monkey-patches ``knowledge_db.add_fact``.
    Every time any module writes to KnowledgeDB the fact is immediately
    reflected in the in-memory graph without waiting for the next scan.
 

@@ -6888,12 +6888,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # ============================
         try:
             from modules.chat_completions import get_chat_completions
+            _grp_for_cc = getattr(self, "graph_rag_bridge", None)
+            _grp_for_cc = getattr(_grp_for_cc, "_grp", None) if _grp_for_cc else None
             self.chat_completions = get_chat_completions(
                 llm_provider_manager=getattr(
                     getattr(self, "brain", None), "llm_provider_manager", None
                 ),
-                graph_rag_pipeline=getattr(self, "graph_rag_bridge", None)
-                    and getattr(getattr(self, "graph_rag_bridge", None), "_grp", None),
+                graph_rag_pipeline=_grp_for_cc,
             )
             log.info("✅ ChatCompletions engine initialized")
             self.startup_report.add("chat_completions", "ready")

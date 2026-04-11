@@ -8,7 +8,8 @@ grounded in Niblit's accumulated knowledge.  It integrates:
 * **3-Tiered Graph-RAG** (``GraphRAGPipeline``) — deterministic knowledge
   retrieval from QuadStores (Tier 1 / Tier 2) and VectorStore (Tier 3).
 * **Persistent conversation history** (``LLMChatMemory``) — full multi-turn
-  context injected into every request as OpenAI-style ``messages``.
+  context formatted as ``"User: …\\nNiblit: …"`` lines and prepended to each
+  request prompt for conversational continuity.
 * **LLM routing** (``LLMProviderManager``) — HuggingFace primary with
   Anthropic fallback.  Falls back further to plain ``HFBrain.ask_single()``
   when the manager is unavailable.
