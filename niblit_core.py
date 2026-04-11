@@ -1570,6 +1570,10 @@ class NiblitCore:
         self.ale_checkpoint: Optional[Any] = None
         # NEW: GradedCurriculum — education-system learning progression (additive)
         self.graded_curriculum: Optional[Any] = None
+        # NEW: LanguageModule — vocabulary, grammar, subject seeds, response formatter
+        self.language_module: Optional[Any] = None
+        # NEW: AcademicStudyModule — subject-structured study sessions
+        self.academic_study: Optional[Any] = None
 
         # NEW: Live Updater + Structural Awareness
         self.live_updater: Optional[LiveUpdater] = None
@@ -6902,6 +6906,39 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.chat_completions = None  # type: ignore[assignment]
             log.debug("ChatCompletions init failed: %s", _cc_err)
             self.startup_report.add("chat_completions", "degraded", str(_cc_err))
+
+        # ── LanguageModule ─────────────────────────────────────────────────
+        try:
+            from modules.language_module import get_language_module as _get_lm
+            self.language_module = _get_lm()
+            log.info("✅ LanguageModule initialized (%d vocabulary words)", len(self.language_module.vocabulary))
+            self.startup_report.add("language_module", "ready")
+        except Exception as _lm_err:
+            self.language_module = None  # type: ignore[assignment]
+            log.debug("LanguageModule init failed: %s", _lm_err)
+            self.startup_report.add("language_module", "degraded", str(_lm_err))
+
+        # ── AcademicStudyModule ────────────────────────────────────────────
+        try:
+            from modules.academic_study_module import get_academic_study_module as _get_asm
+            _grp_for_asm = getattr(getattr(self, "graph_rag_bridge", None), "_grp", None)
+            self.academic_study = _get_asm(
+                knowledge_db=getattr(self, "db", None) or getattr(self, "memory", None),
+                graph_rag_pipeline=_grp_for_asm,
+                language_module=self.language_module,
+            )
+            # Seed subject facts into the knowledge pipeline in the background
+            self.academic_study.seed_knowledge_pipeline(background=True)
+            log.info(
+                "✅ AcademicStudyModule initialized (%d subjects, %d topics)",
+                len(self.academic_study.subjects),
+                sum(len(s.topics) for s in self.academic_study.subjects.values()),
+            )
+            self.startup_report.add("academic_study", "ready")
+        except Exception as _asm_err:
+            self.academic_study = None  # type: ignore[assignment]
+            log.debug("AcademicStudyModule init failed: %s", _asm_err)
+            self.startup_report.add("academic_study", "degraded", str(_asm_err))
 
         # ============================
         # DYNAMIC TOPIC MANAGER (LLM/hybrid Qdrant-based topic enrichment)

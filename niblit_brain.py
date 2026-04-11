@@ -1211,7 +1211,29 @@ class NiblitBrain:
             prompt = context + user_input
 
             if not self.llm_enabled:
-                log.debug("LLM disabled, returning neutral response")
+                log.debug("LLM disabled, trying academic knowledge fallback")
+                # Try AcademicStudyModule / LanguageModule before giving up
+                try:
+                    from modules.academic_study_module import get_academic_study_module
+                    _asm_b = get_academic_study_module()
+                    _asm_answer = _asm_b.answer_question(user_input)
+                    if _asm_answer:
+                        _exit_stack.close()
+                        return _asm_answer
+                except Exception as _asm_err:
+                    log.debug("[BRAIN] AcademicStudy fallback failed: %s", _asm_err)
+                # If Graph-RAG context was assembled, distil it into a response
+                if context.strip():
+                    try:
+                        from modules.language_module import get_language_module
+                        _lm_b = get_language_module()
+                        _topic_b = _lm_b.extract_topic(user_input)
+                        _entry_b = _lm_b.lookup(_topic_b) if _topic_b else None
+                        if _entry_b:
+                            _exit_stack.close()
+                            return _lm_b.format_definition_answer(_topic_b, _entry_b["definition"])
+                    except Exception:
+                        pass
                 _exit_stack.close()
                 return f"[LLM disabled] '{user_input}'"
 
@@ -1313,9 +1335,32 @@ class NiblitBrain:
             self._trigger_gap_learning(user_input)
 
             # ── Local knowledge fallback when HFBrain is offline ──
-            # Provide a meaningful response using recalled context instead of a
-            # generic "neutral" placeholder.
+            # Priority: AcademicStudyModule → LanguageModule → context facts → generic
+            try:
+                from modules.academic_study_module import get_academic_study_module
+                _asm_offline = get_academic_study_module()
+                _asm_offline_answer = _asm_offline.answer_question(user_input)
+                if _asm_offline_answer:
+                    return _asm_offline_answer
+            except Exception:
+                pass
+
             if context:
+                # Try language module on context first
+                try:
+                    from modules.language_module import get_language_module
+                    _lm_off = get_language_module()
+                    _facts_from_ctx = [
+                        ln.lstrip("- ").strip()
+                        for ln in context.splitlines()
+                        if ln.strip() and not ln.strip().startswith("[")
+                    ]
+                    _formatted = _lm_off.format_factual_answer(user_input, _facts_from_ctx)
+                    if _formatted:
+                        return _formatted
+                except Exception:
+                    pass
+
                 facts = [
                     ln.lstrip("- ").strip()
                     for ln in context.splitlines()

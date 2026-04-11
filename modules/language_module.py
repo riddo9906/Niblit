@@ -179,6 +179,9 @@ class LanguageModule:
           ["The penguin waddled on the ice.", "Penguins live in Antarctica."], ["bird", "flightless", "Antarctica"])
 
         # ── Shapes ───────────────────────────────────────────────────────────
+        v("shape",     "A shape is a geometric figure defined by its outline or boundary. Examples of shapes include circles, squares, and triangles.",
+          "noun", "shape",
+          ["Every object has a shape.", "A shape can be flat (2D) or solid (3D)."], ["form", "figure", "geometry"])
         v("circle",    "A circle is a perfectly round flat shape where every point on its edge is the same distance from the centre.",
           "noun", "shape",
           ["Draw a circle on the paper.", "A coin is shaped like a circle."], ["oval", "round", "diameter"])
@@ -1776,12 +1779,17 @@ class LanguageModule:
         text = question.strip().rstrip("?!.").lower()
         for prefix in self._STRIP_PREFIXES:
             if text.startswith(prefix):
-                text = text[len(prefix):].strip()
-                break
-        # Remove leading articles
+                remainder = text[len(prefix):]
+                # Only accept the strip if followed by a space or end of string
+                # (prevents "what is a" eating the first letter of "addition")
+                if remainder == "" or remainder[0] == " ":
+                    text = remainder.strip()
+                    break
+        # Remove leading articles only when followed by a space (not mid-word)
         for art in ("a ", "an ", "the "):
             if text.startswith(art):
                 text = text[len(art):]
+                break
         words = text.split()
         return " ".join(words[:4]).strip() if words else question.strip()
 
@@ -1940,23 +1948,43 @@ class LanguageModule:
         return False
 
     def _extract_text_from_fact(self, fact: Any) -> Optional[str]:
-        """Recursively find the deepest readable string inside *fact*."""
+        """Recursively find the deepest readable string inside *fact*.
+
+        Skips well-known metadata keys that store question-generation or
+        concept-frequency data rather than human-readable knowledge prose.
+        """
+        # Keys whose values are internal metadata, never user-facing prose
+        _SKIP_KEYS = frozenset({
+            "question", "concept", "concepts", "freq", "docs",
+            "step", "ts", "tier", "source", "topic",
+            "key", "tags", "results_count",
+        })
+
         if isinstance(fact, str):
             return None if self._is_junk(fact) else fact.strip()
 
         if isinstance(fact, dict):
-            # Prefer 'value', then 'text', then 'content', then 'summary'
-            for key in ("value", "text", "content", "summary", "answer", "description"):
+            # Prefer known prose keys in priority order
+            for key in ("answer", "summary", "description", "text", "content", "full_text", "value"):
+                if key in _SKIP_KEYS:
+                    continue
                 raw = fact.get(key)
                 if isinstance(raw, str):
                     result = self._extract_text_from_fact(raw)
                     if result:
                         return result
-            # Recurse into any remaining string values
-            for val in fact.values():
-                result = self._extract_text_from_fact(val)
-                if result:
-                    return result
+                elif isinstance(raw, dict):
+                    result = self._extract_text_from_fact(raw)
+                    if result:
+                        return result
+            # Only recurse into string values for non-skip keys
+            for k, val in fact.items():
+                if k in _SKIP_KEYS:
+                    continue
+                if isinstance(val, str):
+                    result = self._extract_text_from_fact(val)
+                    if result:
+                        return result
 
         if isinstance(fact, (list, tuple)):
             for item in fact:

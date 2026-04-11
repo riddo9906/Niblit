@@ -348,6 +348,8 @@ class NiblitRouter:
         "graph-rag", "graph_rag",
         # Conversational chat completions (Graph-RAG + LLMChatMemory + LLM)
         "chat",
+        # Subject-structured academic study sessions
+        "study",
     )
 
     CHAT_RESPONSES = {
@@ -2913,6 +2915,109 @@ Ask me about:
         lines.append(f"   [{result.tier_used} | {result.latency_ms:.0f}ms]")
         return "\n".join(lines)
 
+    def _handle_study(self, cmd: str) -> str:
+        """Handle 'study <sub>' commands — academic study sessions.
+
+        Usage::
+
+            study status
+                Show progress across all subjects.
+
+            study subjects
+                List all available academic subjects.
+
+            study topics <subject>
+                List all topics within *subject* (e.g. 'study topics mathematics').
+
+            study <subject>
+                Study the next batch of unstudied topics in *subject*.
+                Example: study language
+                         study mathematics
+                         study science
+
+            study topic <topic name>
+                Study a specific named topic.
+                Example: study topic Nouns and Pronouns
+
+            study seed
+                Re-seed all subject facts into the knowledge pipeline.
+
+            study ask <question>
+                Ask a factual question using the academic knowledge base only.
+        """
+        sub = cmd[len("study"):].strip()
+
+        try:
+            from modules.academic_study_module import get_academic_study_module
+            asm = get_academic_study_module(
+                knowledge_db=(
+                    getattr(self.core, "knowledge_db", None)
+                    or getattr(self.core, "memory", None)
+                ) if self.core else None,
+            )
+        except Exception as _e:
+            return f"AcademicStudyModule unavailable: {_e}"
+
+        if not sub or sub == "status":
+            s = asm.status()
+            lines = [f"📚 {asm.status_summary()}\n"]
+            for slug, pct in s["subject_progress"].items():
+                subj = asm.subjects.get(slug)
+                name = subj.name if subj else slug
+                lines.append(f"  {pct:>4}  {name}")
+            return "\n".join(lines)
+
+        if sub == "subjects":
+            lines = ["📚 **Academic Subjects:**\n"]
+            for slug, subj in asm.subjects.items():
+                done = sum(1 for t in subj.topics if t.studied)
+                total = len(subj.topics)
+                lines.append(f"  • **{subj.name}** (`{slug}`) — {done}/{total} topics")
+            lines.append(
+                "\nUse 'study <slug>' to study a subject or 'study topics <slug>' to list topics."
+            )
+            return "\n".join(lines)
+
+        if sub.startswith("topics "):
+            slug = sub[len("topics "):].strip().lower()
+            return asm.topics_for_subject(slug)
+
+        if sub.startswith("topic "):
+            topic_name = sub[len("topic "):].strip()
+            researcher = getattr(self.core, "researcher", None) if self.core else None
+            return asm.study_topic(topic_name, researcher=researcher)
+
+        if sub == "seed":
+            n = asm.seed_knowledge_pipeline(background=False)
+            return f"📚 Knowledge pipeline seeded: {n} facts inserted."
+
+        if sub.startswith("ask "):
+            question = sub[len("ask "):].strip()
+            answer = asm.answer_question(question)
+            if answer:
+                return f"📚 {answer}"
+            return (
+                f"📚 I don't have a stored answer for '{question}' yet. "
+                "Try 'self-research <topic>' to learn about it first."
+            )
+
+        # Treat sub as a subject slug or name
+        slug = sub.strip().lower().replace(" ", "_").replace("&", "").replace("  ", "_")
+        # Try direct slug match
+        if slug not in asm.subjects:
+            # Try partial name match
+            slug = next(
+                (s for s in asm.subjects if s in slug or slug in s), None
+            )
+        if not slug:
+            return (
+                f"Subject '{sub}' not found. "
+                "Use 'study subjects' to see available subjects."
+            )
+
+        researcher = getattr(self.core, "researcher", None) if self.core else None
+        return asm.study_subject(slug, max_topics=5, researcher=researcher)
+
     def _handle_kernel(self, text: str) -> str:
         """Handle 'kernel <sub>' commands — NiblitKernel cognitive dashboard."""
         sub = text[len("kernel"):].strip()
@@ -3459,6 +3564,14 @@ Ask me about:
         """Search the knowledge base for facts relevant to *query* and compose
         a direct answer from what Niblit has already learned — no web request.
 
+        Pipeline (in priority order)
+        ────────────────────────────
+        0. AcademicStudyModule.answer_question() — vocabulary + Tier 1 quads
+        1. LanguageModule vocabulary direct lookup
+        2. GraphRAGPipeline query (Tier 1 → Tier 2 → Tier 3)
+        3. KnowledgeDB recall + LanguageModule post-processing
+        4. Raw KB bullets as fallback (only when text is already readable)
+
         Returns a formatted string when ≥1 relevant facts are found, or None
         when the KB has nothing useful to say on the topic.
         """
@@ -3470,6 +3583,54 @@ Ask me about:
         )
         if not kb:
             return None
+
+        # ── Priority 0: AcademicStudyModule (vocabulary + Tier 1 quads) ─────
+        _asm = getattr(self.core, "academic_study", None)
+        if _asm:
+            try:
+                _asm_answer = _asm.answer_question(query)
+                if _asm_answer and len(_asm_answer) > 20:
+                    return _asm_answer
+            except Exception:
+                pass
+
+        # ── Priority 1: LanguageModule direct vocab lookup ──────────────────
+        _lm = getattr(self.core, "language_module", None)
+        if _lm:
+            try:
+                _lm_topic = _lm.extract_topic(query)
+                if _lm_topic:
+                    _entry = _lm.lookup(_lm_topic)
+                    if _entry:
+                        return _lm.format_definition_answer(_lm_topic, _entry["definition"])
+            except Exception:
+                pass
+
+        # ── Priority 2: GraphRAGPipeline query ──────────────────────────────
+        _grp = getattr(getattr(self.core, "graph_rag_bridge", None), "_grp", None)
+        if _grp:
+            try:
+                _rag_result = _grp.query(query, top_k=3)
+                _rag_stats = _rag_result.get("retrieval_stats", {})
+                if _rag_stats.get("tier1", 0) + _rag_stats.get("tier2", 0) > 0:
+                    _hits = _rag_result.get("tier1_hits", []) + _rag_result.get("tier2_hits", [])
+                    _sentences = []
+                    for h in _hits[:3]:
+                        if hasattr(h, "subject"):
+                            _sentences.append(
+                                f"{h.subject} {str(h.predicate).replace('_', ' ')} {h.object}."
+                            )
+                        elif isinstance(h, (tuple, list)) and len(h) >= 3:
+                            _sentences.append(
+                                f"{h[0]} {str(h[1]).replace('_', ' ')} {h[2]}."
+                            )
+                    if _sentences:
+                        topic_word = _lm.extract_topic(query) if _lm else query
+                        if _lm:
+                            return _lm.format_paragraph(topic_word, _sentences)
+                        return " ".join(_sentences)
+            except Exception:
+                pass
 
         # Build a short keyword list from the query
         stop = {"what", "is", "are", "how", "the", "a", "an", "do", "does",
@@ -3614,6 +3775,24 @@ Ask me about:
 
             top = sorted(top, key=lambda f: (0 if _is_ledger(f) else 1))
 
+            # ── Priority 3: LanguageModule post-processing of raw KB data ──
+            # Before emitting raw JSON/metadata bullets, run the top facts
+            # through LanguageModule.format_factual_answer() for clean prose.
+            _lm_pp = getattr(self.core, "language_module", None)
+            if _lm_pp:
+                try:
+                    _clean_answer = _lm_pp.format_factual_answer(query, top)
+                    if _clean_answer:
+                        # Also try vocabulary lookup for extra enrichment
+                        _topic_pp = _lm_pp.extract_topic(query)
+                        _vocab_entry = _lm_pp.lookup(_topic_pp) if _topic_pp else None
+                        if _vocab_entry and _topic_pp.lower() not in _clean_answer.lower():
+                            _def = _lm_pp.format_definition_answer(_topic_pp, _vocab_entry["definition"])
+                            return _def
+                        return _clean_answer
+                except Exception:
+                    pass
+
             lines = [f"💡 **From my knowledge base on: {query}**\n"]
             for fact in top:
                 if isinstance(fact, dict):
@@ -3633,6 +3812,9 @@ Ask me about:
                     val_str = str(val).strip()
                     # Skip placeholder / empty entries at display time too
                     if not val_str or val_str.startswith("No data found"):
+                        continue
+                    # Skip known-junk metadata strings
+                    if any(junk in val_str for junk in ('"freq":', '"concepts":', '"question":', '"concept":')):
                         continue
                     lines.append(f"• {val_str[:200]}")
                 else:
@@ -4661,6 +4843,10 @@ Ask me about:
         # CHAT COMPLETIONS — conversational engine backed by Graph-RAG
         if lower == "chat" or lower.startswith("chat "):
             return self._handle_chat(cmd)
+
+        # ACADEMIC STUDY — subject-structured study sessions
+        if lower == "study" or lower.startswith("study "):
+            return self._handle_study(cmd)
 
         # MEMORY RESET — flush all memory, caches and state files
         if lower == "memory-reset" or lower.startswith("memory-reset "):
