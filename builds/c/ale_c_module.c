@@ -1,5 +1,5 @@
 /*
- * ale_c_system_calls_and_posix_api_1775333322 — system calls and POSIX API 1775333322: Unix time is a date and time representation widely used in computing. It measures time by the number of non-leap seconds
+ * ale_c_memory_safety_and_ownership — memory safety and ownership: 
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,5 +17,5 @@ int main(int argc, char *argv[]) {
 }
 
 void run(void) {
-    printf("ale_c_system_calls_and_posix_api_1775333322: system calls and POSIX API 1775333322: Unix time is a date and time representation widely used in computing. It measures time by the number of non-leap seconds\n");
+    printf("ale_c_memory_safety_and_ownership: memory safety and ownership: \n");
 }
