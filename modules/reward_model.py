@@ -327,25 +327,58 @@ class RewardModel:
         return None
 
     def _get_pipeline(self) -> Optional[Any]:
-        """Lazy-load the HF classifier pipeline (once per process)."""
+        """Lazy-load the HF classifier pipeline (once per process).
+
+        stdout/stderr are captured during model construction so that the
+        safetensors "LOAD REPORT" table (UNEXPECTED/MISSING keys) and tqdm
+        progress bars never appear on the console — they are benign artefacts
+        of loading a base checkpoint for a different task head.
+        ``ignore_mismatched_sizes=True`` is passed so that transformers does
+        not raise when the checkpoint has different head dimensions.
+        """
         if self._pipeline_tried:
             return self._pipeline
         with self._pipeline_lock:
             if self._pipeline_tried:
                 return self._pipeline
             self._pipeline_tried = True
+            import io
+            import os
+            import sys
+            import warnings
+            _prev_st_log = os.environ.get("SAFETENSORS_LOG_LEVEL")
+            os.environ["SAFETENSORS_LOG_LEVEL"] = "error"
+            captured_out = io.StringIO()
+            captured_err = io.StringIO()
+            old_out, old_err = sys.stdout, sys.stderr
+            _load_exc: Optional[Exception] = None
             try:
-                self._pipeline = _hf_pipeline(
-                    "text-classification",
-                    model=self._model_name,
-                    device=-1,  # CPU
-                )
-                log.debug("[RewardModel] DistilBERT pipeline loaded (%s)", self._model_name)
+                sys.stdout = captured_out
+                sys.stderr = captured_err
+                with warnings.catch_warnings():
+                    warnings.filterwarnings("ignore")
+                    self._pipeline = _hf_pipeline(
+                        "text-classification",
+                        model=self._model_name,
+                        device=-1,  # CPU
+                        model_kwargs={"ignore_mismatched_sizes": True},
+                    )
             except Exception as exc:
-                log.debug(
-                    "[RewardModel] Pipeline load failed (%s) — heuristic only", exc
-                )
+                _load_exc = exc
+            finally:
+                sys.stdout = old_out
+                sys.stderr = old_err
+                if _prev_st_log is None:
+                    os.environ.pop("SAFETENSORS_LOG_LEVEL", None)
+                else:
+                    os.environ["SAFETENSORS_LOG_LEVEL"] = _prev_st_log
+            if _load_exc is not None:
                 self._pipeline = None
+                log.debug(
+                    "[RewardModel] Pipeline load failed (%s) — heuristic only", _load_exc
+                )
+            elif self._pipeline is not None:
+                log.debug("[RewardModel] DistilBERT pipeline loaded (%s)", self._model_name)
         return self._pipeline
 
 

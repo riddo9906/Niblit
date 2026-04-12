@@ -571,7 +571,7 @@ class FilesystemManager:
         try:
             proc = subprocess.run(
                 ["patch", "--no-backup-if-mismatch", str(p)],
-                input=diff_text, capture_output=True, text=True, timeout=15,
+                input=diff_text, capture_output=True, text=True, timeout=300,
             )
             if proc.returncode == 0:
                 result["success"] = True

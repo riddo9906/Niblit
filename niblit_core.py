@@ -1191,6 +1191,24 @@ except Exception as _sme:
     _get_security_membrane = None  # type: ignore[assignment]
     _SECURITY_MEMBRANE_AVAILABLE = False
 
+# ── CyberMembrane (advanced adaptive security layer) ─────────────────────────
+try:
+    from modules.niblit_cyber_membrane import get_cyber_membrane as _get_cyber_membrane
+    _CYBER_MEMBRANE_AVAILABLE = True
+except Exception as _cme:
+    log.debug(f"niblit_cyber_membrane not available: {_cme}")
+    _get_cyber_membrane = None  # type: ignore[assignment]
+    _CYBER_MEMBRANE_AVAILABLE = False
+
+# ── DefensiveEvolutionLoop (self-evolving immunity layer) ─────────────────────
+try:
+    from modules.niblit_defensive_evolution_loop import get_evolution_loop as _get_evolution_loop
+    _EVOLUTION_LOOP_AVAILABLE = True
+except Exception as _elo:
+    log.debug(f"niblit_defensive_evolution_loop not available: {_elo}")
+    _get_evolution_loop = None  # type: ignore[assignment]
+    _EVOLUTION_LOOP_AVAILABLE = False
+
 # ── EnvStateManager (additive) ───────────────────────────────────────────────
 try:
     from modules.env_state import get_env_state_manager as _get_env_state_manager
@@ -1676,6 +1694,8 @@ class NiblitCore:
         self.github_deep_research: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Security membrane ──────────────────────────────────────
         self.security_membrane: Optional[Any] = None  # initialised in _init_optional_services
+        self.cyber_membrane: Optional[Any] = None    # advanced adaptive cyber membrane
+        self.evolution_loop: Optional[Any] = None    # defensive evolution / self-attack loop
         # ── Additive: Cross-environment state manager ─────────────────────────
         self.env_state_manager: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Environment adapter registry ────────────────────────────
@@ -1700,6 +1720,7 @@ class NiblitCore:
         self.sync_engine: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Cognitive Kernel v3 (fused v1+v2+KCB+agents+reward) ─
         self.kernel_v3: Optional[Any] = None  # initialised in _init_optional_services
+        self.cognitive_graph_kernel: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -5699,7 +5720,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("[DIAGNOSTICS] Running run_diagnostics.py ...")
             result = subprocess.run(
                 [sys.executable, script],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True, text=True, timeout=300,
                 cwd=BASE_DIR,
             )
             output = result.stdout or ""
@@ -5708,7 +5729,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info(f"[DIAGNOSTICS] Exited with code {result.returncode}")
             return output.strip() or "[Diagnostics produced no output]"
         except subprocess.TimeoutExpired:
-            return "[DIAGNOSTICS] Timed out after 120 s"
+            return "[DIAGNOSTICS] Timed out after 300 s"
         except Exception as e:
             log.error(f"[DIAGNOSTICS] Failed: {e}")
             return f"[DIAGNOSTICS] Failed: {e}"
@@ -5724,7 +5745,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("[LIVE-TEST] Running live_command_tester.py ...")
             result = subprocess.run(
                 [sys.executable, script],
-                capture_output=True, text=True, timeout=180,
+                capture_output=True, text=True, timeout=300,
                 cwd=BASE_DIR,
             )
             output = result.stdout or ""
@@ -6819,7 +6840,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         slsa=getattr(self, "slsa_engine", None),
                         autonomous_engine=getattr(self, "autonomous_engine", None),
                         semantic_agent=getattr(self, "semantic_agent", None),
-                        sub_step_timeout=30,  # increased from 10 s — avoids premature skips
+                        sub_step_timeout=300,  # increased from 30 s — avoids premature skips
                     )
                     # Back-wire autonomous_engine → evolve_engine once both are available
                     if self.autonomous_engine and not self.autonomous_engine.evolve_engine:
@@ -7309,6 +7330,38 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.debug("[INIT] SecurityMembrane init failed: %s", _sme2)
                 self.startup_report.add("security_membrane", "degraded", str(_sme2))
 
+        # ── CyberMembrane (advanced adaptive cyber layer) ─────────────────────
+        if _CYBER_MEMBRANE_AVAILABLE and _get_cyber_membrane is not None:
+            try:
+                self.cyber_membrane = _get_cyber_membrane(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ CyberMembrane (advanced) initialised")
+                self.startup_report.add("cyber_membrane", "ready")
+            except Exception as _cme2:
+                log.debug("[INIT] CyberMembrane init failed: %s", _cme2)
+                self.startup_report.add("cyber_membrane", "degraded", str(_cme2))
+
+        # ── DefensiveEvolutionLoop (self-evolving immunity) ────────────────────
+        if (_EVOLUTION_LOOP_AVAILABLE and _get_evolution_loop is not None
+                and self.cyber_membrane is not None):
+            try:
+                self.evolution_loop = _get_evolution_loop(membrane=self.cyber_membrane)
+                # Wire the loop back into the membrane so _store_threat() can trigger it
+                self.cyber_membrane.evolution_loop = self.evolution_loop
+                self.evolution_loop.start()
+                log.info("✅ DefensiveEvolutionLoop initialised and started")
+                self.startup_report.add("evolution_loop", "ready")
+            except Exception as _elo2:
+                log.debug("[INIT] DefensiveEvolutionLoop init failed: %s", _elo2)
+                self.startup_report.add("evolution_loop", "degraded", str(_elo2))
+        elif _EVOLUTION_LOOP_AVAILABLE and self.cyber_membrane is None:
+            log.debug(
+                "[INIT] DefensiveEvolutionLoop skipped: CyberMembrane not available "
+                "(evolution loop requires an active membrane to attach to)."
+            )
+            self.startup_report.add("evolution_loop", "skipped_no_membrane")
+
         # ── EnvStateManager (additive) ────────────────────────────────────────
         if _ENV_STATE_AVAILABLE and _get_env_state_manager is not None:
             try:
@@ -7508,6 +7561,20 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as _kv3_err:
             log.debug("[Core] NiblitCognitiveKernelV3 init failed: %s", _kv3_err)
             self.startup_report.add("kernel_v3", "degraded", str(_kv3_err))
+
+        # ── Cognitive Graph Kernel v1.0 (unified event-driven runtime) ────────
+        try:
+            from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
+            self.cognitive_graph_kernel = get_cognitive_graph_kernel(
+                membrane=self.cyber_membrane,
+                knowledge_db=getattr(self, "db", None),
+            )
+            self.cognitive_graph_kernel.start()
+            log.info("✅ CognitiveGraphKernel v1.0 initialised (event-driven unified runtime)")
+            self.startup_report.add("cognitive_graph_kernel", "ready")
+        except Exception as _cgk_err:
+            log.debug("[Core] CognitiveGraphKernel init failed: %s", _cgk_err)
+            self.startup_report.add("cognitive_graph_kernel", "degraded", str(_cgk_err))
 
         self._init_agents()
 
@@ -8098,7 +8165,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
                                 _st = threading.Thread(target=_do_search, daemon=True)
                                 _st.start()
-                                _st.join(timeout=60)
+                                _st.join(timeout=300)
                                 if not _st.is_alive():
                                     result = _result_box[0]
                                 else:
@@ -9257,6 +9324,29 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as exc:
                 log.debug("[NiblitCore] fused list_all_tasks failed: %s", exc)
         return []
+
+    def fortress_tick(self) -> Dict[str, Any]:
+        """
+        Execute one complete FortressCycle via the CognitiveGraphKernel.
+
+        Initialises the kernel on first call if not already done.
+        Returns the cycle summary dict.
+        """
+        if self.cognitive_graph_kernel is None:
+            try:
+                from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
+                self.cognitive_graph_kernel = get_cognitive_graph_kernel(
+                    membrane=getattr(self, "cyber_membrane", None),
+                    knowledge_db=getattr(self, "db", None),
+                )
+            except Exception as _exc:
+                return {"error": str(_exc), "success": False}
+        try:
+            return self.cognitive_graph_kernel.fortress_cycle()
+        except AttributeError:
+            # Older kernel build without fortress_cycle — fall back to plain tick
+            n = self.cognitive_graph_kernel.tick()
+            return {"success": True, "events_processed": n}
 
     def shutdown(self, timeout_seconds: Optional[float] = None):
         """Gracefully shutdown NiblitCore and all services."""

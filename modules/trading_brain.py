@@ -624,6 +624,26 @@ class TradingBrain:
                 except Exception as _exc:  # pragma: no cover
                     log.debug("[TradingBrain] RL record_outcome failed: %s", _exc)
 
+            # 10. Emit trading decision to SyncEngine for unified state
+            try:
+                from modules.sync_engine import get_sync_engine, SyncArtifact
+                get_sync_engine().queue_artifact(SyncArtifact(
+                    type="trading_decision",
+                    content={
+                        "symbol": self.symbol,
+                        "decision": decision,
+                        "price": metadata.get("price", 0.0),
+                        "rsi": metadata.get("rsi", 0.0),
+                        "position_fraction": position_fraction,
+                        "timestamp": metadata.get("timestamp", ""),
+                        "cycle": self._cycle_count,
+                    },
+                    priority=0.6,
+                    source="local",
+                ))
+            except Exception:
+                pass
+
             return decision
 
         except Exception as exc:

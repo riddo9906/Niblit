@@ -89,7 +89,7 @@ class AutonomousGitHubIntegration:
 
             url = f"{self._base_api}{path}"
             req = urllib.request.Request(url, headers=self._headers())
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=300) as resp:
                 return json.loads(resp.read().decode())
         except Exception as exc:
             log.warning("[AutonomousGitHub] GET %s failed: %s", path, exc)
@@ -110,7 +110,7 @@ class AutonomousGitHubIntegration:
                 url, data=data, headers={**self._headers(), "Content-Type": "application/json"},
                 method="PUT",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=300) as resp:
                 return json.loads(resp.read().decode())
         except Exception as exc:
             log.warning("[AutonomousGitHub] PUT %s failed: %s", path, exc)
@@ -131,7 +131,7 @@ class AutonomousGitHubIntegration:
                 url, data=data, headers={**self._headers(), "Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=300) as resp:
                 return json.loads(resp.read().decode())
         except Exception as exc:
             log.warning("[AutonomousGitHub] POST %s failed: %s", path, exc)

@@ -333,6 +333,18 @@ class GraphRAGPipeline:
         """Add a verified atomic fact to Tier 1 (absolute truth)."""
         self._tier1.add(subject, predicate, obj, context)
         log.debug("[GraphRAG] Tier1 fact added: %s %s %s [%s]", subject, predicate, obj, context)
+        # Emit to SyncEngine so Tier-1 facts are shared across devices
+        try:
+            from modules.sync_engine import get_sync_engine, SyncArtifact
+            get_sync_engine().queue_artifact(SyncArtifact(
+                type="graph_rag_tier1",
+                content={"subject": subject, "predicate": predicate,
+                         "object": obj, "context": context},
+                priority=0.7,
+                source="local",
+            ))
+        except Exception:
+            pass
 
     def add_stat(
         self,
@@ -344,6 +356,18 @@ class GraphRAGPipeline:
         """Add a background statistic to Tier 2."""
         self._tier2.add(subject, predicate, obj, context)
         log.debug("[GraphRAG] Tier2 stat added: %s %s %s [%s]", subject, predicate, obj, context)
+        # Emit to SyncEngine so Tier-2 stats are shared across devices
+        try:
+            from modules.sync_engine import get_sync_engine, SyncArtifact
+            get_sync_engine().queue_artifact(SyncArtifact(
+                type="graph_rag_tier2",
+                content={"subject": subject, "predicate": predicate,
+                         "object": obj, "context": context},
+                priority=0.55,
+                source="local",
+            ))
+        except Exception:
+            pass
 
     def add_document(self, doc_id: str, text: str) -> bool:
         """Index *text* into Tier 3 (VectorStore)."""

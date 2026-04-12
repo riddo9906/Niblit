@@ -27,7 +27,7 @@ class MarketResearcher:
             try:
                 q = topic.replace(" ", "+")
                 # free fallback search: DuckDuckGo instant answer for topic summary (not prices)
-                r = requests.get(f"https://api.duckduckgo.com/?q={q}&format=json", timeout=6)
+                r = requests.get(f"https://api.duckduckgo.com/?q={q}&format=json", timeout=300)
                 if r.ok:
                     data = r.json()
                     summary = data.get("AbstractText") or data.get("Heading") or ""

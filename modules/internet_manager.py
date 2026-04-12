@@ -19,13 +19,17 @@ try:
 except ImportError:
     GOOGLE_ENABLED = False
 
-# Optional: pip install duckduckgo-search
+# Optional: pip install ddgs  (formerly duckduckgo-search; package renamed)
 try:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS  # new package name (ddgs)
     DDGS_ENABLED = True
 except ImportError:
-    DDGS = None  # type: ignore[assignment,misc]
-    DDGS_ENABLED = False
+    try:
+        from duckduckgo_search import DDGS  # legacy fallback
+        DDGS_ENABLED = True
+    except ImportError:
+        DDGS = None  # type: ignore[assignment,misc]
+        DDGS_ENABLED = False
 
 # Optional: pip install google-search-results
 try:
@@ -45,7 +49,7 @@ HEADERS = {
 
 
 class InternetManager:
-    def __init__(self, db=None, llm_adapter=None, timeout=10, serpex_api_key=None,
+    def __init__(self, db=None, llm_adapter=None, timeout=300, serpex_api_key=None,
                  semantic_agent=None, searchcode_search=None, serpapi_api_key=None):
         self.db = db
         self.llm = llm_adapter

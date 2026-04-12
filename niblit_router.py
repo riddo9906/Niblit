@@ -204,6 +204,11 @@ class ChatDetector:
             match = re.search(pattern, lower)
             if match:
                 subject = lower[match.end():].strip().rstrip('?').strip()
+                # Strip leading articles so the subject is a clean noun phrase
+                for art in ("a ", "an ", "the "):
+                    if subject.startswith(art):
+                        subject = subject[len(art):]
+                        break
                 return 'info_query', subject
 
         # Default to general conversation
@@ -335,6 +340,10 @@ class NiblitRouter:
         "autonomy", "module-autonomy",
         # Defensive security membrane (additive)
         "security", "sec-membrane",
+        # Advanced adaptive cyber membrane (additive)
+        "cyber", "cyber-membrane", "cybermembrane", "membrane",
+        # Defensive evolution loop (additive)
+        "evolution", "evo",
         # Cross-environment state manager (additive)
         "env-state", "envstate",
         # Environment adapter registry (additive)
@@ -1814,6 +1823,331 @@ Ask me about:
             )
         except Exception as exc:
             return f"[security] SecurityMembrane not available: {exc}"
+
+    # ── CyberMembrane handler (advanced adaptive security) ───────────────────
+
+    def _handle_cyber_membrane(self, cmd: str) -> str:
+        """Route 'cyber ...' / 'membrane ...' commands to the advanced CyberMembrane."""
+        lower = cmd.strip().lower()
+        for prefix in ("cyber-membrane", "cybermembrane", "cyber", "membrane"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.niblit_cyber_membrane import get_cyber_membrane as _gcm
+            mem = _gcm(knowledge_db=getattr(self.core, "db", None) if self.core else None)
+            import json as _json
+            if sub in ("", "status"):
+                return _json.dumps(mem.status(), indent=2, default=str)
+            if sub.startswith("threats"):
+                return _json.dumps(mem.get_threat_log(50), indent=2, default=str)
+            if sub.startswith("firewall"):
+                return _json.dumps(mem.adaptive_firewall.global_stats(), indent=2, default=str)
+            if sub.startswith("tracker"):
+                findings = mem.tracker_sensor.scan()
+                return _json.dumps(findings or [{"status": "No active trackers detected"}],
+                                   indent=2, default=str)
+            if sub.startswith("integrity"):
+                violations = mem.integrity_monitor.check()
+                return _json.dumps(
+                    violations or [{"status": "All module files intact"}],
+                    indent=2, default=str,
+                )
+            return (
+                "Cyber membrane commands:\n"
+                "  cyber status     — overall membrane health\n"
+                "  cyber threats    — last 50 threat events\n"
+                "  cyber firewall   — adaptive firewall statistics\n"
+                "  cyber tracker    — run tracker / spy process scan now\n"
+                "  cyber integrity  — run file-integrity check now"
+            )
+        except Exception as exc:
+            return f"[cyber] CyberMembrane not available: {exc}"
+
+    # ── DefensiveEvolutionLoop handler (additive) ────────────────────────────
+
+    def _handle_evolution(self, cmd: str) -> str:
+        """Route 'evolution ...' / 'evo ...' commands to the DefensiveEvolutionLoop."""
+        lower = cmd.strip().lower()
+        for prefix in ("evolution", "evo"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.niblit_defensive_evolution_loop import get_evolution_loop as _gel
+            loop = _gel()
+            import json as _json
+            if loop is None:
+                return (
+                    "[evolution] Evolution loop not initialised yet. "
+                    "It starts automatically when CyberMembrane is active."
+                )
+            if sub in ("", "status"):
+                return _json.dumps(loop.stats(), indent=2, default=str)
+            if sub.startswith("bypasses"):
+                return _json.dumps(
+                    list(loop._bypass_discoveries)[-20:], indent=2, default=str
+                )
+            if sub.startswith("cycle"):
+                summary = loop.evolution_cycle()
+                return _json.dumps(summary, indent=2, default=str)
+            if sub.startswith("stop"):
+                loop.stop()
+                return "[evolution] Evolution loop stopped."
+            if sub.startswith("start"):
+                loop.start()
+                return "[evolution] Evolution loop started."
+            return (
+                "Evolution loop commands:\n"
+                "  evolution status   — stats: cycles, bypasses, queue, CPU load\n"
+                "  evolution bypasses — last 20 bypass discoveries\n"
+                "  evolution cycle    — trigger one evolution cycle now\n"
+                "  evolution start    — start background thread\n"
+                "  evolution stop     — stop background thread"
+            )
+        except Exception as exc:
+            return f"[evolution] DefensiveEvolutionLoop not available: {exc}"
+
+    # ── Cognitive Graph Kernel v1.0 handler (additive) ───────────────────────
+
+    def _handle_cognitive_graph_kernel(self, cmd: str) -> str:
+        """Route 'cgk ...' / 'cognitive-graph ...' commands to the CognitiveGraphKernel."""
+        lower = cmd.strip().lower()
+        for prefix in ("cognitive-graph", "cognitivegraph", "cgk"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
+            kernel = get_cognitive_graph_kernel(
+                knowledge_db=getattr(self.core, "db", None) if self.core else None,
+            )
+            import json as _json
+
+            if sub in ("", "status"):
+                return _json.dumps(kernel.status(), indent=2, default=str)
+
+            if sub.startswith("graph"):
+                return _json.dumps(kernel.graph.stats(), indent=2, default=str)
+
+            if sub.startswith("events"):
+                return _json.dumps(kernel.bus.stats(), indent=2, default=str)
+
+            if sub.startswith("memory"):
+                return _json.dumps(kernel.memory.stats(), indent=2, default=str)
+
+            if sub.startswith("membrane"):
+                return _json.dumps({
+                    "stats": kernel.membrane.stats(),
+                    "recent_threats": kernel.membrane.get_threat_log(20),
+                }, indent=2, default=str)
+
+            if sub.startswith("evolution"):
+                return _json.dumps(kernel.evolution.stats(), indent=2, default=str)
+
+            if sub.startswith("tick"):
+                n = 1
+                parts = sub.split()
+                if len(parts) > 1 and parts[1].isdigit():
+                    n = min(int(parts[1]), 100)
+                total = sum(kernel.tick() for _ in range(n))
+                return f"[cgk] Ran {n} tick(s) — {total} events processed."
+
+            if sub.startswith("start"):
+                kernel.start()
+                return "[cgk] CognitiveGraphKernel started."
+
+            if sub.startswith("stop"):
+                kernel.stop()
+                return "[cgk] CognitiveGraphKernel stopped."
+
+            return (
+                "Cognitive Graph Kernel commands:\n"
+                "  cgk status      — full kernel status\n"
+                "  cgk graph       — knowledge graph stats\n"
+                "  cgk events      — event bus stats\n"
+                "  cgk memory      — memory layer stats\n"
+                "  cgk membrane    — security membrane stats + threat log\n"
+                "  cgk evolution   — evolution graph runtime stats\n"
+                "  cgk tick [N]    — run N deterministic tick cycles (default 1)\n"
+                "  cgk start       — start background tick + evolution loops\n"
+                "  cgk stop        — stop background loops"
+            )
+        except Exception as exc:
+            return f"[cgk] CognitiveGraphKernel not available: {exc}"
+
+    # ── Fortress Cycle handler (additive) ────────────────────────────────────
+
+    def _handle_fortress(self, cmd: str) -> str:
+        """Route 'fortress ...' commands to the FortressCycle / CognitiveGraphKernel."""
+        import json as _json
+        lower = cmd.strip().lower()
+        sub = lower[len("fortress"):].strip() if lower.startswith("fortress") else lower
+
+        try:
+            from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
+            kernel = get_cognitive_graph_kernel(
+                knowledge_db=getattr(self.core, "db", None) if self.core else None,
+            )
+
+            if sub in ("", "status"):
+                from modules.universe_registry import get_universe_registry
+                from modules.evolution_queue import get_evolution_queue
+                data = {
+                    "kernel": kernel.status(),
+                    "universes": get_universe_registry().stats(),
+                    "evolution_queue": get_evolution_queue().stats(),
+                }
+                return _json.dumps(data, indent=2, default=str)
+
+            if sub == "tick":
+                if self.core is not None:
+                    summary = self.core.fortress_tick()
+                else:
+                    summary = kernel.fortress_cycle()
+                return _json.dumps(summary, indent=2, default=str)
+
+            if sub.startswith("run"):
+                parts = sub.split()
+                n = 3
+                if len(parts) > 1 and parts[1].isdigit():
+                    n = min(int(parts[1]), 20)
+                results = []
+                for _ in range(n):
+                    s = kernel.fortress_cycle()
+                    results.append({"cycle_id": s.get("cycle_id", "")[:8],
+                                    "universes": len(s.get("universes_touched", [])),
+                                    "incidents": len(s.get("incidents", []))})
+                return _json.dumps(results, indent=2, default=str)
+
+            if sub == "last-cycle":
+                import pathlib
+                p = pathlib.Path("fortress_cycles.jsonl")
+                if not p.exists():
+                    return "[fortress] No cycle records yet. Run 'fortress tick' first."
+                lines = p.read_text(encoding="utf-8").splitlines()
+                last = next((l for l in reversed(lines) if l.strip()), None)
+                return last or "[fortress] Empty cycle log."
+
+            if sub == "problems":
+                import pathlib
+                p = pathlib.Path("fortress_cycles.jsonl")
+                if not p.exists():
+                    return "[fortress] No cycle records yet."
+                incidents = []
+                lines = p.read_text(encoding="utf-8").splitlines()
+                for line in lines[-20:]:
+                    try:
+                        obj = _json.loads(line)
+                        incidents.extend(obj.get("incidents", []))
+                    except Exception:
+                        pass
+                return _json.dumps(incidents[-10:], indent=2, default=str) if incidents else "No recent incidents."
+
+            if sub == "metrics":
+                import pathlib
+                p = pathlib.Path("fortress_metrics.json")
+                if not p.exists():
+                    return "[fortress] No metrics yet. Run 'fortress tick' first."
+                return p.read_text(encoding="utf-8")
+
+            return (
+                "Fortress Cycle commands:\n"
+                "  fortress status         — kernel + universe + evolution queue status\n"
+                "  fortress tick           — run one FortressCycle\n"
+                "  fortress run [N]        — run N FortressCycles (default 3)\n"
+                "  fortress last-cycle     — show last recorded cycle summary\n"
+                "  fortress problems       — show recent incidents\n"
+                "  fortress metrics        — show rolling fortress_metrics.json"
+            )
+        except Exception as exc:
+            return f"[fortress] FortressCycle not available: {exc}"
+
+    # ── Universe Registry handler (additive) ──────────────────────────────────
+
+    def _handle_universe(self, cmd: str) -> str:
+        """Route 'universe ...' commands to the UniverseRegistry."""
+        import json as _json
+        lower = cmd.strip().lower()
+        sub = lower[len("universe"):].strip() if lower.startswith("universe") else lower
+
+        try:
+            from modules.universe_registry import get_universe_registry
+            registry = get_universe_registry()
+
+            if sub in ("", "list"):
+                return _json.dumps(registry.to_dict(), indent=2, default=str)
+
+            if sub.startswith("describe ") or sub.startswith("get "):
+                uid = sub.split(None, 1)[1].strip()
+                u = registry.get_universe(uid)
+                if u is None:
+                    return f"[universe] Unknown universe id: {uid}"
+                from dataclasses import asdict
+                return _json.dumps(asdict(u), indent=2, default=str)
+
+            if sub == "stats":
+                return _json.dumps(registry.stats(), indent=2, default=str)
+
+            return (
+                "Universe commands:\n"
+                "  universe list               — list all enabled universes\n"
+                "  universe describe <id>       — describe a specific universe\n"
+                "  universe stats               — registry summary"
+            )
+        except Exception as exc:
+            return f"[universe] UniverseRegistry not available: {exc}"
+
+    # ── Evolution Queue handler (additive) ────────────────────────────────────
+
+    def _handle_evolution_queue(self, cmd: str) -> str:
+        """Route 'evq ...' / 'evolution-queue ...' commands to the EvolutionQueue."""
+        import json as _json
+        lower = cmd.strip().lower()
+        for prefix in ("evolution-queue", "evo-queue", "evq"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.evolution_queue import get_evolution_queue
+            queue = get_evolution_queue()
+
+            if sub in ("", "status", "stats"):
+                return _json.dumps(queue.stats(), indent=2, default=str)
+
+            if sub in ("pending", "list-pending"):
+                items = queue.list_pending(limit=20)
+                return _json.dumps([i.to_dict() for i in items], indent=2, default=str)
+
+            if sub.startswith("list"):
+                parts = sub.split()
+                status_filter = parts[1] if len(parts) > 1 else None
+                items = queue.list_all(
+                    status=status_filter,  # type: ignore[arg-type]
+                    limit=30,
+                )
+                return _json.dumps([i.to_dict() for i in items], indent=2, default=str)
+
+            return (
+                "Evolution Queue commands:\n"
+                "  evq status              — queue stats\n"
+                "  evq pending             — list pending proposals\n"
+                "  evq list [STATUS]       — list all items (optional: PROPOSED|APPLIED|REJECTED)"
+            )
+        except Exception as exc:
+            return f"[evq] EvolutionQueue not available: {exc}"
 
     # ── EnvStateManager handler (additive) ───────────────────────────────────
 
@@ -3775,6 +4109,45 @@ Ask me about:
             if not top:
                 return None
 
+            # ── Topic-relevance guard ──────────────────────────────────────────
+            # For definition queries (e.g. "what is a human") the keyword list
+            # contains only short, common words (e.g. ["human"]).  A fact about
+            # AI that merely mentions "human intelligence" in its body scores 2
+            # and would be returned — producing a completely wrong answer.
+            #
+            # Guard: when all keywords are single short words (definition-style
+            # query) prefer facts where the extracted topic appears in the KEY.
+            # If none of the top facts have the topic in their key, discard
+            # the value-body-only matches (score == 2) and only keep key/
+            # value-head matches (score >= 4) to avoid false positives.
+            _lm_guard = getattr(self.core, "language_module", None)
+            if _lm_guard and all(len(kw) <= 12 for kw in keywords):
+                try:
+                    _q_type = _lm_guard.detect_question_type(query)
+                    if _q_type == "definition":
+                        _topic = _lm_guard.extract_topic(query)
+                        _topic_lc = (_topic or "").lower().strip()
+                        # Check if any top fact has the exact topic in its key
+                        _has_key_match = any(
+                            _topic_lc and _topic_lc in str(f.get("key", "")).lower()
+                            for f in top if isinstance(f, dict)
+                        )
+                        if not _has_key_match:
+                            # Require score >= 4 (topic in key) to avoid
+                            # returning off-topic facts that merely mention the
+                            # keyword word somewhere in their body.
+                            top_strict = [f for f, s in scored_pairs if s >= 4][:4]
+                            if top_strict:
+                                top = top_strict
+                            else:
+                                # No on-topic fact at all — let gap learning handle it
+                                return None
+                except Exception:
+                    pass
+
+            if not top:
+                return None
+
             # Surface topic_knowledge ledger entries first — they are the single
             # authoritative digest per topic and should appear before raw research
             # fragments or timestamped teach summaries.
@@ -4036,7 +4409,7 @@ Ask me about:
 
         t = threading.Thread(target=_do_quick_research, daemon=True)
         t.start()
-        t.join(timeout=20)
+        t.join(timeout=300)
 
         # ── 3. Store & respond if we got results ──────────────────────────────
         if quick_results:
@@ -4803,6 +5176,37 @@ Ask me about:
         if lower in ("security", "sec-membrane") or \
                 lower.startswith("security ") or lower.startswith("sec-membrane "):
             return self._handle_security(cmd)
+
+        # ADVANCED CYBER MEMBRANE — injection guard, output scrub, tracker, firewall (additive)
+        if (lower in ("cyber", "cyber-membrane", "cybermembrane", "membrane") or
+                lower.startswith("cyber ") or lower.startswith("cyber-membrane ") or
+                lower.startswith("cybermembrane ") or lower.startswith("membrane ")):
+            return self._handle_cyber_membrane(cmd)
+
+        # DEFENSIVE EVOLUTION LOOP — self-attacking immunity loop (additive)
+        if (lower in ("evolution", "evo") or
+                lower.startswith("evolution ") or lower.startswith("evo ")):
+            return self._handle_evolution(cmd)
+
+        # COGNITIVE GRAPH KERNEL v1.0 — unified event-driven runtime (additive)
+        if (lower in ("cgk", "cognitive-graph", "cognitivegraph") or
+                lower.startswith("cgk ") or lower.startswith("cognitive-graph ") or
+                lower.startswith("cognitivegraph ")):
+            return self._handle_cognitive_graph_kernel(cmd)
+
+        # FORTRESS CYCLE — unified FortressCycle via CognitiveGraphKernel (additive)
+        if (lower in ("fortress",) or lower.startswith("fortress ")):
+            return self._handle_fortress(cmd)
+
+        # UNIVERSE REGISTRY — manage universes (additive)
+        if lower in ("universe", "universes") or lower.startswith("universe "):
+            return self._handle_universe(cmd)
+
+        # EVOLUTION QUEUE — manage evolution proposals (additive)
+        if lower in ("evolution-queue", "evo-queue", "evq") or \
+                lower.startswith("evolution-queue ") or lower.startswith("evo-queue ") or \
+                lower.startswith("evq "):
+            return self._handle_evolution_queue(cmd)
 
         # CROSS-ENVIRONMENT STATE MANAGER (additive)
         if lower in ("env-state", "envstate") or \

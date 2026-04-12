@@ -101,7 +101,7 @@ class ResearcherEngine:
         }
         headers = {"Authorization": f"Bearer {api_key}"}
         try:
-            r = requests.get(SERPEX_API_URL, headers=headers, params=params, timeout=10)
+            r = requests.get(SERPEX_API_URL, headers=headers, params=params, timeout=300)
             r.raise_for_status()
             data = r.json()
             items = (
@@ -141,7 +141,7 @@ class ResearcherEngine:
         # Fallback: DuckDuckGo
         try:
             url = f"https://api.duckduckgo.com/?q={topic}&format=json"
-            r = requests.get(url, timeout=10)
+            r = requests.get(url, timeout=300)
             js = r.json()
             return js.get("AbstractText") or js.get("RelatedTopics", [])
         except Exception:

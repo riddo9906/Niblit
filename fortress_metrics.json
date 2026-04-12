@@ -1,0 +1,13 @@
+{
+  "last_cycle_id": "c3c74f9c-7d5a-4ded-9649-561f7bf6c920",
+  "last_cycle_timestamp": 1775995418.5963798,
+  "total_cycles": 1,
+  "total_incidents": 4,
+  "total_evolution_actions": 2,
+  "latest_metrics": {
+    "graph_nodes": 6,
+    "memory_entries": 9,
+    "threats_recorded": 0,
+    "events_dispatched": 19
+  }
+}

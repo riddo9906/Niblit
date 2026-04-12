@@ -24,6 +24,17 @@ including your Android phone via Termux.
 - [Nibblebot Research Bots](#nibblebot-research-bots)
 - [Fine-Tuning Your Own Local Model](#fine-tuning-your-own-local-model)
 - [Live Trading Configuration](#live-trading-configuration)
+- [🆕 Niblit Cyber Membrane](#-niblit-cyber-membrane)
+- [🆕 Defensive Evolution Loop](#-defensive-evolution-loop)
+- [🆕 Cognitive Kernel v3](#-cognitive-kernel-v3)
+- [🆕 Sync Engine (LCSP v1)](#-sync-engine-lcsp-v1)
+- [🆕 Memory Weighting & Decay System (MWDS v2)](#-memory-weighting--decay-system-mwds-v2)
+- [🆕 Cognition Core](#-cognition-core)
+- [🆕 Goal Engine](#-goal-engine)
+- [🆕 Position Sizer (Kelly Criterion)](#-position-sizer-kelly-criterion)
+- [🆕 Domain Tokenizer Trainer](#-domain-tokenizer-trainer)
+- [🆕 Phased Research Engine](#-phased-research-engine)
+- [🆕 Cognitive Graph Kernel v1.0](#-cognitive-graph-kernel-v10)
 - [Project Structure](#project-structure)
 - [Running Tests](#running-tests)
 - [Troubleshooting](#troubleshooting)
@@ -102,6 +113,13 @@ Key design choices:
 - `SelfImprovementOrchestrator`: research → code → deploy cycle
 - `CivilizationController (STACA)`: 5-agent society that evolves strategies
 - `SLSAGenerator`: builds structured semantic artifacts from live data
+- `CognitionCore`: unifies ReasoningEngine + GoalEngine + MemoryGraph
+- `GoalEngine`: goal-directed learning — fills the gaps Niblit identifies in itself
+
+### 🔐 Security & Self-Defence
+- **Cyber Membrane** (8 layers): InputGuard, OutputGuard, TrackerSensor, StealthDetector, AdaptiveFirewall, SessionWarden, IntegrityMonitor
+- **DefensiveEvolutionLoop**: self-attacking immunity loop — Niblit attacks itself in a sandbox to find weaknesses before real attackers do
+- **Dynamic rule injection**: bypass discoveries automatically add detection patterns at runtime
 
 ### 🗃️ SLSA (Structured Live Sense Artifacts)
 - Wikipedia REST API + PhasedResearchEngine + InternetManager pipeline
@@ -841,6 +859,526 @@ CCXT_EXCHANGE=binance
 
 ---
 
+## 🆕 Niblit Cyber Membrane
+
+**File:** `modules/niblit_cyber_membrane.py`
+
+The Cyber Membrane is a **multi-layer, real-time security architecture** that
+wraps every input and output flowing through Niblit.  It operates as a
+transparent defensive shell — all 8 layers run on every request with no
+configuration required.
+
+```
+Input → [InputGuard] → [StealthDetector] → [SessionWarden]
+      → [TrackerSensor] → [IntegrityMonitor] → [AdaptiveFirewall]
+      → [OutputGuard] → Response
+```
+
+### The 7 Membrane Layers
+
+| Layer | Class | What It Does |
+|-------|-------|--------------|
+| 1 | `InputGuard` | Deep injection scanning: SQLi, SSTI, LDAP, path-traversal, shell, prompt-injection. Homoglyph normalisation. Dynamic rule injection at runtime. |
+| 2 | `OutputGuard` | Scrubs outbound text: OpenAI/Anthropic/HF keys, AWS creds, GitHub PATs, PEM certificates, Termux paths, password/token literals. |
+| 3 | `TrackerSensor` | Scans environment for suspicious processes, network listeners, and environment variable leakage. |
+| 4 | `StealthDetector` | Detects low-and-slow scans, behavioural drift, slow-brute patterns, and timing-oracle attacks. |
+| 5 | `AdaptiveFirewall` | Self-tuning threat model with per-client block/escalation logic. Learns from every event. |
+| 6 | `SessionWarden` | Per-session entropy + command-divergence tracking. Flags session-hijacking and bot scripting. |
+| 7 | `IntegrityMonitor` | SHA-256 baseline of all `.py` modules. Flags tampered files on every 5-minute check. |
+
+### CLI Commands
+
+```
+cyber status          — live stats: active blocks, threat frequency, session health
+cyber scan <text>     — test a payload against the membrane
+cyber threats         — show recent high-severity threat log
+cyber integrity       — show file integrity check results
+```
+
+### Environment Variables
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `NIBLIT_BLOCK_SECS` | `300` | Initial block duration (seconds) |
+| `NIBLIT_THREAT_MEMORY` | `500` | Max threat events stored |
+| `NIBLIT_SLOW_WINDOW` | `600` | Slow-scan detection window (seconds) |
+| `NIBLIT_SLOW_MIN_REQ` | `20` | Min requests to flag slow-brute |
+| `NIBLIT_SESSION_DIVERGE` | `0.75` | Session-divergence threshold |
+
+---
+
+## 🆕 Defensive Evolution Loop
+
+**File:** `modules/niblit_defensive_evolution_loop.py`
+
+The Defensive Evolution Loop transforms Niblit from a **reactive** security
+system into a **preemptively evolving** one.  It sits above the Cyber Membrane
+as a purely optional, additive layer — nothing in the existing membrane is
+changed.
+
+```
+Detect (existing membrane)
+  ↓
+AttackGenome capture — structured metadata from every severity≥0.75 threat
+  ↓
+SandboxReplayer — fresh isolated membrane, production never touched
+  ↓
+AttackMutationEngine — 4 strategies: obfuscate_syntax, time_shift,
+                        layer_bypass, combine_vectors
+  ↓
+Self-attack loop — stress-test sandbox with all mutated variants
+  ↓  (bypass found)
+InputGuard.add_pattern() + AdaptiveFirewall.learn() + KnowledgeDB log
+  ↓
+Loop back after 60 s (background daemon thread)
+```
+
+This upgrades Niblit's security posture from:
+
+> **Before:** Detect → Block → Log
+
+to:
+
+> **After:** Detect → Block → Learn → Simulate → Self-Attack → Evolve → Reinforce
+
+### AttackGenome
+
+Every detected threat is captured as a structured genome object:
+
+```python
+AttackGenome = {
+    "type": "sqli | prompt_injection | shell | ssti | path_traversal | …",
+    "entry_vector": "...",          # reconstructed attack payload
+    "payload_signature": "...",     # SHA-256 fingerprint (16 hex chars)
+    "timing_pattern": "normal | slow | burst | timing_oracle",
+    "target_layer": "InputGuard | StealthDetector | …",
+    "success_probability": float,   # 0 = caught, 1 = likely bypass
+    "detected_by": ["InputGuard"],
+    "severity_score": float,
+    "generation": int,              # mutation depth (0 = real capture)
+}
+```
+
+### Mutation Strategies
+
+| Strategy | What It Does |
+|----------|-------------|
+| `obfuscate_syntax` | Type-specific encoding tricks: SQL comment injection, Unicode homoglyphs for prompt attacks, shell quoting bypasses, percent-encoded traversals |
+| `time_shift` | Rotates timing metadata: normal → slow → burst → timing_oracle |
+| `layer_bypass` | Re-routes payload to target a different detection layer |
+| `combine_vectors` | Merges two genomes into a multi-vector hybrid attack |
+
+### Safety Governor
+
+| Constant | Default | Env Variable |
+|----------|---------|--------------|
+| `MAX_MUTATION_DEPTH` | `5` | `NIBLIT_MAX_MUTATION_DEPTH` |
+| `MAX_SANDBOX_ITERATIONS` | `20` | `NIBLIT_MAX_SANDBOX_ITER` |
+| `MAX_CPU_EVO_LOAD` | `0.65` | `NIBLIT_MAX_CPU_EVO_LOAD` |
+| `CYCLE_INTERVAL_SECS` | `60` | `NIBLIT_EVO_CYCLE_INTERVAL` |
+
+Evolution is automatically paused when the 1-minute CPU load average exceeds
+`MAX_CPU_EVO_LOAD` — safe to run continuously on Termux/Pydroid.
+
+### CLI Commands
+
+```
+evolution status      — cycles, bypasses found, queue depth, CPU load
+evolution bypasses    — last 20 bypass discoveries with genome lineage
+evolution cycle       — trigger one full evolution cycle immediately
+evolution start       — (re)start the background daemon thread
+evolution stop        — gracefully stop the background thread
+```
+
+---
+
+## 🆕 Cognitive Kernel v3
+
+**File:** `modules/niblit_kernel_v3.py`
+
+Niblit Cognitive Kernel v3 is the **unified reasoning bus** that fuses all
+previous kernel versions (v1, v2) with a structured communication bus and
+a reward-shaped learning loop.
+
+### Components
+
+| Component | Role |
+|-----------|------|
+| `KernelCommunicationBus` | Pub/sub message routing between agents |
+| `RewardEngine` | Scores every kernel output; reinforces high-quality reasoning |
+| `KernelScheduler` | Priority-aware task queue with per-agent load-balancing |
+| **5 Stateless Agents** | Research · Coder · Critic · Teacher · Explorer |
+
+### 7-Step Processing Pipeline
+
+```
+1. Receive input message
+2. Route to relevant agents via KCB
+3. Parallel agent processing (Research + Coder + Critic + …)
+4. Critic synthesis: select best agent response
+5. RewardEngine scoring
+6. Memory storage (STM → WorkingMemory → MemoryGraph)
+7. Emit kernel output
+```
+
+Wired into `niblit_brain.think()` as a pre-think step every conversation cycle.
+Singleton via `get_niblit_kernel_v3()`.
+
+---
+
+## 🆕 Sync Engine (LCSP v1)
+
+**File:** `modules/sync_engine.py`
+
+The Sync Engine implements the **Local ↔ Cloud Sync Protocol (LCSP v1)**,
+enabling Niblit to run across multiple devices (phone + desktop + server)
+and keep all knowledge, training data, and evolution state in sync.
+
+### Architecture
+
+```
+SyncQueue (JSONL on disk)
+    ↓
+ChangeDetector (SHA-256 per artifact)
+    ↓
+ConflictResolver (timestamp → weight → merge)
+    ↓
+RESTTransport (urllib — no extra dependencies)
+    ↓
+Remote endpoint / second Niblit instance
+```
+
+### Synced Artifact Types
+
+All major Niblit subsystems emit sync artifacts:
+
+| Source | Artifact Key |
+|--------|-------------|
+| ALE phased research | `ale_research` |
+| ALE cognition cycle | `ale_cognition_cycle` |
+| GoalEngine.generate_goals | `goal_engine_cycle` |
+| TradingBrain decisions | `trading_decision` |
+| ChatCompletions turns | `chat_turn` |
+| GraphRAG facts (tier 1) | `graph_rag_tier1` |
+| GraphRAG stats (tier 2) | `graph_rag_tier2` |
+
+### Environment Variables
+
+```env
+NIBLIT_SYNC_MODE=push            # push | pull | bidirectional
+NIBLIT_SYNC_INTERVAL=30          # seconds between sync cycles
+NIBLIT_SYNC_ENDPOINT=https://…   # remote Niblit instance URL
+NIBLIT_SYNC_API_TOKEN=…          # bearer token for remote auth
+NIBLIT_SYNC_QUEUE_PATH=…         # JSONL queue file path
+NIBLIT_DEVICE_ID=my-phone        # unique identifier for this node
+```
+
+---
+
+## 🆕 Memory Weighting & Decay System (MWDS v2)
+
+**File:** `modules/memory_weighting.py`
+
+MWDS v2 replaces simple KB storage with a **biologically-inspired adaptive
+memory lifecycle** where facts decay, get reinforced, tier-promoted, and
+eventually pruned — just like human long-term memory.
+
+### Memory Tiers
+
+| Tier | Condition | Storage |
+|------|-----------|---------|
+| `hot` | weight ≥ 0.8 | In-memory working set |
+| `warm` | 0.5 ≤ weight < 0.8 | Normal KB access |
+| `cold` | 0.2 ≤ weight < 0.5 | Compressed (zlib), slower access |
+| `dead` | weight < 0.2 | Pruned on next maintenance cycle |
+
+### Weight Formula
+
+```
+weight = decay × usage × success_ratio × recency_boost × graph_factor
+```
+
+- **decay**: exponential time-based decay (configurable half-life)
+- **usage**: how often a fact has been retrieved
+- **success_ratio**: how often it contributed to correct answers
+- **recency_boost**: temporary +boost on recent access
+- **graph_factor**: MemoryGraph connectivity score
+
+`KernelMemory.store/retrieve/decay/reinforce` all delegate to `MemoryStore`.
+Singleton via `get_memory_store()`.
+
+---
+
+## 🆕 Cognition Core
+
+**File:** `modules/cognition_core.py`
+
+`CognitionCore` is the architectural glue that unifies three previously
+separate systems — `ReasoningEngine`, `GoalEngine`, and `MemoryGraph` — into
+a single, coherent cognition loop.
+
+### Pipeline
+
+```
+think(topic)
+  → Chain-of-Thought reasoning (ReasoningEngine)
+  → Belief synthesis (contradictions + confidence)
+  → MemoryGraph expansion (associated concepts)
+  → Response generation
+
+cycle() → ALE integration
+  → run_maintenance() → decay + prune + compress_cold
+  → feed fresh beliefs into cross-cycle context
+```
+
+`MemoryGraph` upgrades included: `apply_decay()`, `reinforce()`,
+`prune_low_score()`, `stats()`.  Singleton via `get_cognition_core()`.
+
+---
+
+## 🆕 Goal Engine
+
+**File:** `modules/goal_engine.py`
+
+The Goal Engine gives Niblit **goal-directed cognition** — instead of random
+topic selection, every ALE cycle begins with a prioritised list of goals
+derived from analysing Niblit's own knowledge gaps.
+
+### Goal Sources
+
+| Source | What It Detects |
+|--------|----------------|
+| Metacognition gaps | Topics where self-confidence is below threshold |
+| Reasoning contradictions | Mutually exclusive KB facts |
+| Low-confidence KB facts | Facts with reward-model score < 0.4 |
+| Sparse domain coverage | Knowledge domains with < 5 facts |
+| Capability gaps | Commands the router can handle but has never exercised |
+
+Generated `Goal` objects are fed into
+`ALE._cross_cycle_context["goal_objectives"]` so every research step pursues
+what Niblit most needs to learn.  Singleton via `get_goal_engine()`.
+
+---
+
+## 🆕 Position Sizer (Kelly Criterion)
+
+**File:** `modules/position_sizer.py`
+
+The `PositionSizer` adds professional-grade risk management to Niblit's
+trading AI using the **Kelly Criterion** with a max-drawdown circuit breaker.
+
+### Features
+
+- **Kelly Criterion** — mathematically optimal bet size given win-rate and odds
+- **Fractional Kelly** — configurable fraction (default 0.5×) for safety
+- **Max-drawdown circuit breaker** — pauses trading when portfolio drawdown
+  exceeds threshold
+
+### Configuration
+
+```env
+NIBLIT_KELLY_FRACTION=0.5         # Fractional Kelly multiplier (0.0–1.0)
+NIBLIT_MAX_POSITION_FRAC=0.25     # Max single-position size (% of portfolio)
+NIBLIT_MAX_DRAWDOWN_PCT=15.0      # Circuit breaker: pause at 15% drawdown
+```
+
+Wired into `TradingBrain` via the `position_sizer` parameter.
+Singleton via `get_position_sizer()`.
+
+---
+
+## 🆕 Domain Tokenizer Trainer
+
+**File:** `modules/tokenizer_trainer.py`
+
+The `TokenizerTrainer` trains a **domain-specific BPE tokenizer** on Niblit's
+own Knowledge Base corpus — dramatically improving token efficiency for
+AI, trading, and code-focused text compared to general-purpose tokenizers.
+
+### How It Works
+
+```
+KB corpus extraction
+    ↓
+SentencePiece BPE training (preferred)
+    ↓   (or word-frequency JSON fallback when SentencePiece unavailable)
+Domain vocabulary saved to NIBLIT_TOKENIZER_DIR
+    ↓
+Used by LLMArchitectEngine for all tokenisation
+```
+
+### Configuration
+
+```env
+NIBLIT_TOKENIZER_DIR=./tokenizer       # Where to save the trained vocab
+NIBLIT_TOKENIZER_VOCAB_SIZE=8000       # BPE vocabulary size
+NIBLIT_TOKENIZER_MODEL_TYPE=bpe        # bpe | unigram | char | word
+```
+
+Singleton via `get_tokenizer_trainer()`.
+
+---
+
+## 🆕 Phased Research Engine
+
+**File:** `modules/phased_research_engine.py`
+
+The `PhasedResearchEngine` replaces Niblit's single-shot research calls with a
+**3-phase structured pipeline** that progressively deepens understanding of any
+topic.
+
+### 3-Phase Pipeline
+
+| Phase | Timeout | What It Does |
+|-------|---------|--------------|
+| **Phase 1** | 300 s | Broad discovery: DuckDuckGo + Wikipedia surface scan. Extracts key entities, definitions, and sub-topics. |
+| **Phase 2** | 300 s | Deep dive: GitHub code search + SerpAPI. Extracts implementation patterns, code examples, and technical facts. |
+| **Phase 3** | 300 s | Synthesis: cross-reference facts, detect contradictions, build SLSA-compatible structured artifact. |
+
+Used by: `SLSAGenerator`, `ALE Step 1 (UnifiedResearch)`, `Cognitive Kernel v3`.
+
+---
+
+## 🆕 Cognitive Graph Kernel v1.0
+
+**File:** `modules/niblit_cognitive_graph_kernel.py`
+
+The Cognitive Graph Kernel v1.0 is a **unified runtime substrate** that
+collapses Niblit's four previously separate subsystems — Cyber Membrane, Graph
+Knowledge, Memory, and Defensive Evolution — into a single event-driven graph
+operating system.
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                  CognitiveGraphKernel                    │
+│              (Graph Event Runtime v1.0)                  │
+└────────────────────────┬─────────────────────────────────┘
+                         │
+     ┌───────────────────┼───────────────────┐
+     │                   │                   │
+Memory Graph        Membrane Graph      Evolution Graph
+(knowledge state)   (security state)    (self-mod system)
+     │                   │                   │
+     └──────────┬────────┴──────────┬────────┘
+                │                   │
+     EventBus (Causal DAG Runtime)
+                │
+    Everything = Event + Node + Edge
+```
+
+### Core Design Principle
+
+> **Everything is an event.**
+
+Instead of calling functions directly, running background polling threads, or
+procedural mutation loops, every interaction becomes a typed event:
+
+```
+Event(type, payload, source, timestamp, energy, priority)
+```
+
+All mutations are graph rewriting operations, triggered exclusively by event
+propagation — zero direct cross-module calls at runtime.
+
+### Five Components
+
+| Component | Class | Role |
+|-----------|-------|------|
+| **EventBus** | `EventBus` | Priority min-heap queue + typed subscriptions. Dispatches up to 200 events per `tick()`. Drops lowest-priority events when queue is full. |
+| **CognitiveGraph** | `CognitiveGraph` | In-process knowledge graph: typed nodes + weighted directed edges. Integrates with `KnowledgeDB` to persist high-weight nodes. Auto-prunes oldest nodes when limit exceeded. |
+| **MemoryLayer** | `MemoryLayer` | Unified weighted, decaying key-value store. Delegates hot/warm storage to MWDS v2 `MemoryStore` when available. Applies exponential decay on every 100th tick. |
+| **MembraneGraph** | `MembraneGraph` | Event-filtering security layer. Dynamic rule injection at runtime: patterns are injected on every bypass discovery. Bridges to `CyberMembrane` `InputGuard` + `AdaptiveFirewall`. |
+| **EvolutionGraphRuntime** | `EvolutionGraphRuntime` | Converts `DefensiveEvolutionLoop`'s procedural mutation engine into event-driven graph rewriting. Bridges to real DEL bypass discoveries. |
+
+### How DefensiveEvolutionLoop becomes Event Graph
+
+**Before (procedural):**
+```
+thread → drain queue → replay sandbox → mutate → inject firewall rules
+```
+
+**After (event-driven):**
+```
+Event: security.threat
+        ↓ (MembraneGraph blocks)
+Event: evolve.attack
+        ↓ (EvolutionGraphRuntime.handle_evolve_event)
+Event: graph.update  →  new mutation_node in CognitiveGraph
+        ↓
+MembraneGraph.reinforce()  →  CyberMembrane.InputGuard.add_pattern()
+        ↓
+Event: security.pattern_learned  (observability)
+```
+
+### Deterministic Tick Cycle
+
+```python
+kernel.tick()
+  1. bus.dispatch(limit=200)    # process queued events in priority order
+  2. memory.decay()             # every 100 ticks
+  3. system.prune event emitted # reclaim dead memory entries
+```
+
+No background polling threads required — the kernel can be driven
+synchronously, or started with `kernel.start()` for an auto-background tick.
+
+### Event Types
+
+| Event Type | Source | Handler |
+|------------|--------|---------|
+| `memory.write` | Any module | Write key/value into MemoryLayer |
+| `memory.read` | Any module | Read with optional callback |
+| `graph.update` | Evolution / API | Add/update a Node in CognitiveGraph |
+| `graph.edge` | API | Add a directed edge between nodes |
+| `security.threat` | API / Membrane | Filter → emit `evolve.attack` if blocked |
+| `evolve.attack` | MembraneGraph / Evolution | Mutate → graph node + pattern reinforce |
+| `evolve.result` | Evolution | Observability for bypass discoveries |
+| `security.pattern_learned` | Evolution | Notifies that a new pattern was injected |
+| `system.tick` | Kernel | Observability marker every N ticks |
+| `system.prune` | Kernel | Triggers memory decay and graph pruning |
+
+### CLI Commands
+
+```
+cgk status               — full kernel status: event bus, graph, memory, membrane, evolution
+cgk graph                — knowledge graph stats (nodes, edges, types, mutations)
+cgk events               — event bus stats (queue depth, dispatched, dropped)
+cgk memory               — memory layer stats
+cgk membrane             — security membrane stats + last 20 threat events
+cgk evolution            — evolution runtime stats (cycles, mutations, DEL bridge)
+cgk tick [N]             — run N deterministic tick cycles (default 1)
+cgk start                — start background tick + evolution loops
+cgk stop                 — stop background loops
+```
+
+### Environment Variables
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `NIBLIT_CGK_TICK_INTERVAL` | `0.5` | Seconds between background ticks (set 0 to disable) |
+| `NIBLIT_CGK_DECAY_FACTOR` | `0.995` | Memory weight decay factor per tick cycle |
+| `NIBLIT_CGK_MAX_QUEUE` | `2000` | Max events in priority queue before dropping |
+| `NIBLIT_CGK_EVO_INTERVAL` | `10` | Seconds between evolution sweep cycles |
+| `NIBLIT_CGK_MAX_GRAPH_NODES` | `5000` | Prune oldest nodes when exceeded |
+
+### Unified System Representation
+
+| System | Representation in CGK |
+|--------|----------------------|
+| Memory | Weighted + decaying graph nodes |
+| Knowledge | Graph traversal + edge weights |
+| Reasoning | Event propagation through node types |
+| Security | Filtering function on event stream |
+| Evolution | Self-rewriting graph mutations |
+| All interactions | Events through EventBus (zero direct calls) |
+
+Singleton via `get_cognitive_graph_kernel()`. Wired into `niblit_core._init_optional_services`
+as `self.cognitive_graph_kernel`; auto-started on init with `CyberMembrane` bridge.
+
+---
+
 ## Project Structure
 
 ```
@@ -859,6 +1397,7 @@ Niblit/
 │   ├── trading_brain.py               # Trading AI (RSI/MACD/ATR + RL)
 │   ├── rl_trading_policy.py           # PPO, DQN, Transformer RL policies
 │   ├── trading_study.py               # Trading strategy research
+│   ├── position_sizer.py              # 🆕 Kelly Criterion + drawdown circuit breaker
 │   ├── reasoning_engine.py            # CoT, abduction, contradiction detection
 │   ├── knowledge_comprehension.py     # Concept extraction (SECA)
 │   ├── memory_graph.py                # Associative reasoning graph (SECA)
@@ -869,6 +1408,19 @@ Niblit/
 │   ├── self_teacher.py                # SelfTeacher: internalise research
 │   ├── self_healer.py                 # SelfHealer: repair KB / code
 │   ├── self_maintenance.py            # Memory pruning + KB condensation
+│   ├── niblit_cognitive_graph_kernel.py  # 🆕 CGK v1.0: unified event-driven runtime
+│   ├── niblit_cyber_membrane.py       # 🆕 8-layer real-time security membrane
+│   ├── niblit_defensive_evolution_loop.py  # 🆕 Self-attacking immunity loop
+│   ├── niblit_kernel_v3.py            # 🆕 Cognitive Kernel v3 (fused + KCB)
+│   ├── niblit_core_kernel.py          # Cognitive bus (think/remember/decide/act)
+│   ├── niblit_core_kernel_v2.py       # 🆕 Local reasoning kernel (no LLM)
+│   ├── sync_engine.py                 # 🆕 LCSP v1 multi-device sync
+│   ├── memory_weighting.py            # 🆕 MWDS v2: adaptive memory decay/tiers
+│   ├── cognition_core.py              # 🆕 Unified reasoning + goal + memory core
+│   ├── goal_engine.py                 # 🆕 Goal-directed cognition (gap analysis)
+│   ├── tokenizer_trainer.py           # 🆕 Domain-specific BPE tokenizer training
+│   ├── phased_research_engine.py      # 🆕 3-phase structured research pipeline
+│   ├── slsa_generator.py              # SLSA structured knowledge artifacts
 │   └── ...                            # 70+ more modules
 │
 ├── civilization/                    # STACA: multi-agent civilisation

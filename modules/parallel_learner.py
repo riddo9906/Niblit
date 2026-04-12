@@ -47,7 +47,7 @@ class ParallelLearner:
             for future in as_completed(futures):
                 topic = futures[future]
                 try:
-                    topic_results = future.result(timeout=30)
+                    topic_results = future.result(timeout=300)
                     with self.lock:
                         results[topic] = topic_results
                         completed += 1

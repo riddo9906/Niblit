@@ -292,7 +292,7 @@ class RealtimeStream:
                 async with socket as stream:
                     while self.running:
                         try:
-                            msg = await asyncio.wait_for(stream.recv(), timeout=30.0)
+                            msg = await asyncio.wait_for(stream.recv(), timeout=300.0)
                         except asyncio.TimeoutError:
                             log.debug("[RealtimeStream] recv timeout — heartbeat")
                             continue

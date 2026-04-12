@@ -1909,10 +1909,36 @@ class LanguageModule:
                 seen.add(key)
                 unique.append(c)
 
-        # 4. Build answer from best 1–3 sentences.
+        # 4. For definition queries, filter out candidates that do not contain
+        #    the query topic — this prevents off-topic facts that merely
+        #    *mention* the topic keyword from being returned as a definition.
+        #    Example: "what is a human" must not return an AI article that
+        #    mentions "human intelligence" in passing.
+        if q_type == "definition" and topic:
+            topic_lc = topic.lower()
+            topic_words = topic_lc.split()
+            # A candidate is on-topic when ALL topic words appear in its first
+            # sentence (roughly the first 200 characters), ensuring the answer
+            # is specifically *about* the topic, not just mentioning it.
+            def _on_topic(text: str) -> bool:
+                first_sentence = text[:200].lower()
+                return all(w in first_sentence for w in topic_words)
+
+            on_topic = [c for c in unique if _on_topic(c)]
+            if on_topic:
+                unique = on_topic
+            else:
+                # No candidate is actually about the topic — refuse to answer
+                # so that gap-learning can fetch the correct definition.
+                entry = self.lookup(topic)
+                if entry:
+                    return self.format_definition_answer(topic, entry["definition"])
+                return None
+
+        # 5. Build answer from best 1–3 sentences.
         best = unique[:3]
 
-        # 5. If first sentence doesn't mention topic, prepend a definition.
+        # 6. If first sentence doesn't mention topic, prepend a definition.
         first = best[0] if best else ""
         if topic and topic.lower() not in first.lower():
             entry = self.lookup(topic)

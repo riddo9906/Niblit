@@ -54,7 +54,7 @@ def _run(cmd: list, check: bool = True, capture: bool = True) -> subprocess.Comp
         check=check,
         capture_output=capture,
         text=True,
-        timeout=30,
+        timeout=300,
     )
 
 # ─────────────────────────────────────────────────────────────────────────────

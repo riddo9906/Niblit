@@ -101,7 +101,7 @@ class EvolveEngine:
         slsa=None,
         autonomous_engine=None,
         evolution_interval: int = 300,
-        sub_step_timeout: int = 10,
+        sub_step_timeout: int = 300,
         live_updater=None,
         file_manager=None,
         deploy_path: Optional[str] = None,
@@ -312,22 +312,22 @@ class EvolveEngine:
         log.info("▶ [EvolveEngine #%d] Phase A — Research: %s", self.iteration, direction)
 
         # Step 1: Research the improvement direction via self_researcher
-        research_result = self._run_sub_step("research", lambda: self._research_direction(direction), timeout=90)
+        research_result = self._run_sub_step("research", lambda: self._research_direction(direction), timeout=450)
         if research_result:
             record["actions"].append(f"researched: {research_result[:60]}")
 
         # Step 2: Direct internet research (no LLM, raw web data)
-        internet_result = self._run_sub_step("internet_research", lambda: self._internet_direct_research(direction), timeout=45)
+        internet_result = self._run_sub_step("internet_research", lambda: self._internet_direct_research(direction), timeout=300)
         if internet_result:
             record["actions"].append(f"internet: {internet_result[:60]}")
 
         # Step 3: Research code patterns from internet → feed CodeGenerator
-        code_research_result = self._run_sub_step("code_research", lambda: self._research_code_direction(direction), timeout=90)
+        code_research_result = self._run_sub_step("code_research", lambda: self._research_code_direction(direction), timeout=450)
         if code_research_result:
             record["actions"].append(f"code_research: {code_research_result[:60]}")
 
         # Step 4: Study relevant software patterns
-        study_result = self._run_sub_step("study_patterns", lambda: self._study_patterns(direction), timeout=30)
+        study_result = self._run_sub_step("study_patterns", lambda: self._study_patterns(direction), timeout=300)
         if study_result:
             record["actions"].append(f"studied: {study_result[:60]}")
 
@@ -336,23 +336,23 @@ class EvolveEngine:
         log.info("▶ [EvolveEngine #%d] Phase B — Generation & Teaching", self.iteration)
 
         # Step 5: Generate code for the improvement
-        code_result = self._run_sub_step("code_gen", lambda: self._generate_improvement_code(direction), timeout=30)
+        code_result = self._run_sub_step("code_gen", lambda: self._generate_improvement_code(direction), timeout=300)
         if code_result:
             record["actions"].append(f"code_gen: {code_result[:60]}")
             record["mutations"].append(code_result)
 
         # Step 6: Teach myself what I learned
-        teach_result = self._run_sub_step("teach", lambda: self._teach_improvement(direction, research_result), timeout=90)
+        teach_result = self._run_sub_step("teach", lambda: self._teach_improvement(direction, research_result), timeout=450)
         if teach_result:
             record["actions"].append(f"taught: {teach_result[:60]}")
 
         # Step 7: Reflect on the improvement
-        reflect_result = self._run_sub_step("reflect", lambda: self._reflect_on_step(direction, record), timeout=90)
+        reflect_result = self._run_sub_step("reflect", lambda: self._reflect_on_step(direction, record), timeout=450)
         if reflect_result:
             record["actions"].append(f"reflected: {str(reflect_result or '')[:60]}")
 
         # Step 8: Generate and implement an idea via idea_implementation
-        impl_result = self._run_sub_step("implement_idea", lambda: self._implement_evolution_idea(direction, research_result), timeout=45)
+        impl_result = self._run_sub_step("implement_idea", lambda: self._implement_evolution_idea(direction, research_result), timeout=300)
         if impl_result:
             record["actions"].append(f"implemented: {impl_result[:60]}")
 
@@ -361,12 +361,12 @@ class EvolveEngine:
         log.info("▶ [EvolveEngine #%d] Phase C — Ideation & Deployment", self.iteration)
 
         # Step 9: Generate an implementation plan via idea_generator
-        idea_result = self._run_sub_step("idea_gen", lambda: self._generate_idea(direction), timeout=30)
+        idea_result = self._run_sub_step("idea_gen", lambda: self._generate_idea(direction), timeout=300)
         if idea_result:
             record["actions"].append(f"idea: {idea_result[:60]}")
 
         # Step 10: Run a SLSA semantic knowledge cycle
-        slsa_result = self._run_sub_step("slsa_cycle", lambda: self._run_slsa_cycle(direction), timeout=90)
+        slsa_result = self._run_sub_step("slsa_cycle", lambda: self._run_slsa_cycle(direction), timeout=450)
         if slsa_result:
             record["actions"].append(f"slsa: {slsa_result[:60]}")
 
@@ -374,7 +374,7 @@ class EvolveEngine:
         deploy_result = self._run_sub_step(
             "deploy_write",
             lambda: self._write_to_deploy_path(direction, record),
-            timeout=20,
+            timeout=300,
         )
         if deploy_result:
             record["actions"].append(f"deployed: {deploy_result[:60]}")

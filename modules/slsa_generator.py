@@ -135,7 +135,7 @@ class SLSAGenerator:
         try:
             import requests  # optional dep; harmless if unavailable  # pylint: disable=import-outside-toplevel
             url = _WIKI_SUMMARY.format(topic.replace(" ", "_"))
-            resp = requests.get(url, timeout=8)
+            resp = requests.get(url, timeout=300)
             if resp.status_code == 200:
                 js = resp.json()
                 self._stats["wiki_hits"] += 1

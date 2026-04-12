@@ -41,7 +41,7 @@ class LLMAdapter:
                 HF_ROUTER_URL,
                 headers=headers,
                 json=payload,
-                timeout=20
+                timeout=300
             )
 
             if res.status_code == 200:

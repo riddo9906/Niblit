@@ -215,6 +215,21 @@ class GoalEngine:
                 "[GoalEngine] Generated %d goals (%d unique topics from %d candidates)",
                 len(result), len(seen), len(goals),
             )
+            # Emit goals to SyncEngine so all devices share the same goal state
+            try:
+                from modules.sync_engine import get_sync_engine, SyncArtifact
+                se = get_sync_engine()
+                se.queue_artifact(SyncArtifact(
+                    type="goal_engine_cycle",
+                    content={
+                        "goals_count": len(result),
+                        "top_topics": [g.topic for g in result[:5]],
+                    },
+                    priority=0.45,
+                    source="local",
+                ))
+            except Exception:
+                pass
             return result
 
     # ─────────────────────────────────────────────────────────────────────────
