@@ -340,6 +340,8 @@ class NiblitRouter:
         "autonomy", "module-autonomy",
         # Defensive security membrane (additive)
         "security", "sec-membrane",
+        # Advanced adaptive cyber membrane (additive)
+        "cyber", "cyber-membrane", "cybermembrane", "membrane",
         # Cross-environment state manager (additive)
         "env-state", "envstate",
         # Environment adapter registry (additive)
@@ -1819,6 +1821,49 @@ Ask me about:
             )
         except Exception as exc:
             return f"[security] SecurityMembrane not available: {exc}"
+
+    # ── CyberMembrane handler (advanced adaptive security) ───────────────────
+
+    def _handle_cyber_membrane(self, cmd: str) -> str:
+        """Route 'cyber ...' / 'membrane ...' commands to the advanced CyberMembrane."""
+        lower = cmd.strip().lower()
+        for prefix in ("cyber-membrane", "cybermembrane", "cyber", "membrane"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.niblit_cyber_membrane import get_cyber_membrane as _gcm
+            mem = _gcm(knowledge_db=getattr(self.core, "db", None) if self.core else None)
+            import json as _json
+            if sub in ("", "status"):
+                return _json.dumps(mem.status(), indent=2, default=str)
+            if sub.startswith("threats"):
+                return _json.dumps(mem.get_threat_log(50), indent=2, default=str)
+            if sub.startswith("firewall"):
+                return _json.dumps(mem.adaptive_firewall.global_stats(), indent=2, default=str)
+            if sub.startswith("tracker"):
+                findings = mem.tracker_sensor.scan()
+                return _json.dumps(findings or [{"status": "No active trackers detected"}],
+                                   indent=2, default=str)
+            if sub.startswith("integrity"):
+                violations = mem.integrity_monitor.check()
+                return _json.dumps(
+                    violations or [{"status": "All module files intact"}],
+                    indent=2, default=str,
+                )
+            return (
+                "Cyber membrane commands:\n"
+                "  cyber status     — overall membrane health\n"
+                "  cyber threats    — last 50 threat events\n"
+                "  cyber firewall   — adaptive firewall statistics\n"
+                "  cyber tracker    — run tracker / spy process scan now\n"
+                "  cyber integrity  — run file-integrity check now"
+            )
+        except Exception as exc:
+            return f"[cyber] CyberMembrane not available: {exc}"
 
     # ── EnvStateManager handler (additive) ───────────────────────────────────
 
@@ -4847,6 +4892,12 @@ Ask me about:
         if lower in ("security", "sec-membrane") or \
                 lower.startswith("security ") or lower.startswith("sec-membrane "):
             return self._handle_security(cmd)
+
+        # ADVANCED CYBER MEMBRANE — injection guard, output scrub, tracker, firewall (additive)
+        if (lower in ("cyber", "cyber-membrane", "cybermembrane", "membrane") or
+                lower.startswith("cyber ") or lower.startswith("cyber-membrane ") or
+                lower.startswith("cybermembrane ") or lower.startswith("membrane ")):
+            return self._handle_cyber_membrane(cmd)
 
         # CROSS-ENVIRONMENT STATE MANAGER (additive)
         if lower in ("env-state", "envstate") or \

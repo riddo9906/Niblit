@@ -1191,6 +1191,15 @@ except Exception as _sme:
     _get_security_membrane = None  # type: ignore[assignment]
     _SECURITY_MEMBRANE_AVAILABLE = False
 
+# ── CyberMembrane (advanced adaptive security layer) ─────────────────────────
+try:
+    from modules.niblit_cyber_membrane import get_cyber_membrane as _get_cyber_membrane
+    _CYBER_MEMBRANE_AVAILABLE = True
+except Exception as _cme:
+    log.debug(f"niblit_cyber_membrane not available: {_cme}")
+    _get_cyber_membrane = None  # type: ignore[assignment]
+    _CYBER_MEMBRANE_AVAILABLE = False
+
 # ── EnvStateManager (additive) ───────────────────────────────────────────────
 try:
     from modules.env_state import get_env_state_manager as _get_env_state_manager
@@ -1676,6 +1685,7 @@ class NiblitCore:
         self.github_deep_research: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Security membrane ──────────────────────────────────────
         self.security_membrane: Optional[Any] = None  # initialised in _init_optional_services
+        self.cyber_membrane: Optional[Any] = None    # advanced adaptive cyber membrane
         # ── Additive: Cross-environment state manager ─────────────────────────
         self.env_state_manager: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Environment adapter registry ────────────────────────────
@@ -7308,6 +7318,18 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _sme2:
                 log.debug("[INIT] SecurityMembrane init failed: %s", _sme2)
                 self.startup_report.add("security_membrane", "degraded", str(_sme2))
+
+        # ── CyberMembrane (advanced adaptive cyber layer) ─────────────────────
+        if _CYBER_MEMBRANE_AVAILABLE and _get_cyber_membrane is not None:
+            try:
+                self.cyber_membrane = _get_cyber_membrane(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ CyberMembrane (advanced) initialised")
+                self.startup_report.add("cyber_membrane", "ready")
+            except Exception as _cme2:
+                log.debug("[INIT] CyberMembrane init failed: %s", _cme2)
+                self.startup_report.add("cyber_membrane", "degraded", str(_cme2))
 
         # ── EnvStateManager (additive) ────────────────────────────────────────
         if _ENV_STATE_AVAILABLE and _get_env_state_manager is not None:
