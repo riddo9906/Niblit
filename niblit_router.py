@@ -3827,7 +3827,6 @@ Ask me about:
 
             top = sorted(top, key=lambda f: (0 if _is_ledger(f) else 1))
 
-
             # ── Priority 3: LanguageModule post-processing of raw KB data ──
             # Before emitting raw JSON/metadata bullets, run the top facts
             # through LanguageModule.format_factual_answer() for clean prose.

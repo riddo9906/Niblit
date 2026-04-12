@@ -351,6 +351,7 @@ class RewardModel:
             captured_out = io.StringIO()
             captured_err = io.StringIO()
             old_out, old_err = sys.stdout, sys.stderr
+            _load_exc: Optional[Exception] = None
             try:
                 sys.stdout = captured_out
                 sys.stderr = captured_err
@@ -363,10 +364,7 @@ class RewardModel:
                         model_kwargs={"ignore_mismatched_sizes": True},
                     )
             except Exception as exc:
-                self._pipeline = None
-                log.debug(
-                    "[RewardModel] Pipeline load failed (%s) — heuristic only", exc
-                )
+                _load_exc = exc
             finally:
                 sys.stdout = old_out
                 sys.stderr = old_err
@@ -374,7 +372,12 @@ class RewardModel:
                     os.environ.pop("SAFETENSORS_LOG_LEVEL", None)
                 else:
                     os.environ["SAFETENSORS_LOG_LEVEL"] = _prev_st_log
-            if self._pipeline is not None:
+            if _load_exc is not None:
+                self._pipeline = None
+                log.debug(
+                    "[RewardModel] Pipeline load failed (%s) — heuristic only", _load_exc
+                )
+            elif self._pipeline is not None:
                 log.debug("[RewardModel] DistilBERT pipeline loaded (%s)", self._model_name)
         return self._pipeline
 
