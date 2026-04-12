@@ -7515,23 +7515,25 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self.startup_report.add("module_autonomy", "degraded", str(_e))
 
         # ── Cognitive Kernel v2 (local reasoning, no LLM) ────────────────────
+        # REQUIRED: core loop depends on v2 for embedding + local synthesis.
         try:
             from modules.niblit_core_kernel_v2 import get_niblit_core_kernel_v2
             self.kernel_v2 = get_niblit_core_kernel_v2()
             log.info("✅ NiblitCoreKernelV2 initialised (local reasoning enabled)")
             self.startup_report.add("kernel_v2", "ready")
         except Exception as _kv2_err:
-            log.debug("[Core] NiblitCoreKernelV2 init failed: %s", _kv2_err)
+            log.warning("[Core] NiblitCoreKernelV2 init failed (degraded): %s", _kv2_err)
             self.startup_report.add("kernel_v2", "degraded", str(_kv2_err))
 
         # ── MWDS MemoryStore (adaptive memory weighting) ──────────────────────
+        # REQUIRED: memory lifecycle management.
         try:
             from modules.memory_weighting import get_memory_store
             self.memory_store = get_memory_store()
             log.info("✅ MemoryStore (MWDS v2) initialised")
             self.startup_report.add("memory_store", "ready")
         except Exception as _ms_err:
-            log.debug("[Core] MemoryStore init failed: %s", _ms_err)
+            log.warning("[Core] MemoryStore init failed (degraded): %s", _ms_err)
             self.startup_report.add("memory_store", "degraded", str(_ms_err))
 
         # ── SyncEngine (LCSP v1 local↔cloud sync) ─────────────────────────────
@@ -7547,10 +7549,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("✅ SyncEngine (LCSP v1) initialised — mode=%s", self.sync_engine.mode)
             self.startup_report.add("sync_engine", "ready")
         except Exception as _se_err:
-            log.debug("[Core] SyncEngine init failed: %s", _se_err)
+            log.warning("[Core] SyncEngine init failed (degraded): %s", _se_err)
             self.startup_report.add("sync_engine", "degraded", str(_se_err))
 
         # ── Cognitive Kernel v3 (fused v1+v2+KCB+agents+reward) ──────────────
+        # REQUIRED: master cognitive controller — BrainRouter + agent dispatch.
         try:
             from modules.niblit_kernel_v3 import get_niblit_kernel_v3
             self.kernel_v3 = get_niblit_kernel_v3(
@@ -7560,10 +7563,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("✅ NiblitCognitiveKernelV3 initialised (fused v1+v2+KCB)")
             self.startup_report.add("kernel_v3", "ready")
         except Exception as _kv3_err:
-            log.debug("[Core] NiblitCognitiveKernelV3 init failed: %s", _kv3_err)
+            log.warning("[Core] NiblitCognitiveKernelV3 init failed (degraded): %s", _kv3_err)
             self.startup_report.add("kernel_v3", "degraded", str(_kv3_err))
 
         # ── Cognitive Graph Kernel v1.0 (unified event-driven runtime) ────────
+        # REQUIRED: event-driven graph substrate; all subsystem mutations flow here.
         try:
             from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
             self.cognitive_graph_kernel = get_cognitive_graph_kernel(
@@ -7574,17 +7578,65 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("✅ CognitiveGraphKernel v1.0 initialised (event-driven unified runtime)")
             self.startup_report.add("cognitive_graph_kernel", "ready")
         except Exception as _cgk_err:
-            log.debug("[Core] CognitiveGraphKernel init failed: %s", _cgk_err)
+            log.warning("[Core] CognitiveGraphKernel init failed (degraded): %s", _cgk_err)
             self.startup_report.add("cognitive_graph_kernel", "degraded", str(_cgk_err))
 
         # ── MSG Layer v1 (Meta-Cognitive Self-Governance) ─────────────────────
+        # REQUIRED: strategic intent, self-model, meta-evaluation, resource allocation.
         try:
             from modules.meta_cognition import get_msg_layer
             self.msg_layer = get_msg_layer()
+            log.info("✅ MSGLayer v1 initialised (SelfModel+IntentEngine+MetaEvaluator+…)")
             self.startup_report.add("msg_layer", "ready")
         except Exception as _msg_err:
-            log.debug("[Core] MSGLayer init failed: %s", _msg_err)
+            log.warning("[Core] MSGLayer init failed (degraded): %s", _msg_err)
             self.startup_report.add("msg_layer", "degraded", str(_msg_err))
+
+        # ── Local Brain (Qwen2.5-0.5B — primary brain, always on) ─────────────
+        # REQUIRED: local-first intelligence for offline / toggle-llm-off mode.
+        try:
+            from modules.local_brain import get_local_brain
+            self.local_brain = get_local_brain()
+            log.info("✅ QwenLocalBrain registered (lazy-loads Qwen2.5-0.5B on first generate)")
+            self.startup_report.add("local_brain", "ready")
+        except Exception as _lb_err:
+            log.warning("[Core] QwenLocalBrain init failed (degraded): %s", _lb_err)
+            self.startup_report.add("local_brain", "degraded", str(_lb_err))
+
+        # ── Brain Router (intelligent multi-brain routing) ────────────────────
+        # REQUIRED: routes prompts between local/cloud/memory brains.
+        try:
+            from modules.brain_router import get_brain_router, reset_brain_router
+            reset_brain_router()
+            _lb = getattr(self, "local_brain", None)
+            # Cloud callable — prefer brain.brain_router cloud_brain if brain exists,
+            # otherwise wire directly to hf_brain / llm_provider_manager
+            _brain_obj = getattr(self, "brain", None)
+            _pm   = getattr(_brain_obj, "llm_provider_manager", None)
+            _hfb  = getattr(_brain_obj, "hf_brain", None) or getattr(self, "hf_brain", None)
+
+            def _core_cloud_fn(p: str) -> str:
+                if _pm:
+                    try:
+                        return _pm.ask(p) or ""
+                    except Exception:
+                        pass
+                if _hfb:
+                    try:
+                        return _hfb.ask_single(p) or ""
+                    except Exception:
+                        pass
+                return ""
+
+            self.brain_router = get_brain_router(
+                local_brain=_lb,
+                cloud_brain=_core_cloud_fn,
+            )
+            log.info("✅ BrainRouter initialised (mode=%s)", self.brain_router.mode)
+            self.startup_report.add("brain_router", "ready")
+        except Exception as _br_err:
+            log.warning("[Core] BrainRouter init failed (degraded): %s", _br_err)
+            self.startup_report.add("brain_router", "degraded", str(_br_err))
 
         self._init_agents()
 
@@ -9013,7 +9065,52 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 else:
                     if hasattr(hf, "disable"):
                         hf.disable()
-            return f"LLM {'resumed' if self.llm_enabled else 'paused (chat history preserved)'}"
+            # Sync BrainRouter mode: off→local, on→balanced (respects NIBLIT_BRAIN_MODE env)
+            try:
+                from modules.brain_router import get_brain_router
+                import os as _os
+                _br = get_brain_router()
+                if turning_on:
+                    _env_mode = _os.environ.get("NIBLIT_BRAIN_MODE", "balanced").lower()
+                    _br.set_mode(_env_mode if _env_mode in {"balanced", "power"} else "balanced")
+                else:
+                    _br.set_mode("local")
+            except Exception as _tl_br_err:
+                log.debug("[Core] toggle-llm BrainRouter mode sync failed: %s", _tl_br_err)
+            return f"LLM {'resumed (BrainRouter→balanced)' if self.llm_enabled else 'paused — Qwen local brain active (BrainRouter→local)'}"
+
+        # ── Brain mode / status commands ──────────────────────────────────────
+        if ltext.startswith("brain mode ") or ltext.startswith("brain-mode "):
+            _mode_arg = text.split(None, 2)[-1].strip().lower()
+            try:
+                from modules.brain_router import get_brain_router
+                _br2 = get_brain_router()
+                _br2.set_mode(_mode_arg)
+                return f"🧠 BrainRouter mode set to: {_mode_arg}"
+            except ValueError as _bm_err:
+                return f"Invalid mode: {_bm_err}"
+            except Exception as _bm_err2:
+                return f"BrainRouter unavailable: {_bm_err2}"
+
+        if ltext in ("brain status", "brain-status"):
+            try:
+                from modules.brain_router import get_brain_router
+                import json
+                _br3 = get_brain_router()
+                _lb3 = getattr(self, "local_brain", None)
+                _lb_status = _lb3.status() if _lb3 else {"loaded": False}
+                lines = [
+                    "🧠 Hybrid Brain Architecture Status",
+                    f"  BrainRouter mode : {_br3.mode}",
+                    f"  Local Brain      : {'✅ loaded' if _lb_status.get('loaded') else '⏳ pending (lazy)'}",
+                    f"  Local model      : {_lb_status.get('model_name', '?')}",
+                    f"  Cloud brain      : {'✅ available' if _br3.cloud_brain else '❌ unavailable'}",
+                    f"  Routing stats    : {json.dumps(_br3.stats().get('routing_counts', {}))}",
+                ]
+                return "\n".join(lines)
+            except Exception as _bs_err:
+                return f"Brain status unavailable: {_bs_err}"
+
         if intent == "ideas":
             log.debug("[CORE-CMD] Intercepted: ideas")
             topic = meta.get("topic", "")
@@ -9213,8 +9310,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "upgrade                  — Detect and hot-reload all changed modules in one pass\n"
             "update-history           — Show history of hot-reloaded modules with timestamps\n"
             "\n--- SETTINGS ---\n"
-            "toggle-llm on            — Enable the HuggingFace LLM adapter for AI responses\n"
-            "toggle-llm off           — Disable the LLM adapter (research-only mode)\n"
+            "toggle-llm on            — Enable cloud brain (HF/Anthropic); BrainRouter→balanced\n"
+            "toggle-llm off           — Disable cloud brain; Qwen local brain becomes primary\n"
+            "brain status             — Show Hybrid Brain Architecture status (local/cloud/router)\n"
+            "brain mode <mode>        — Set BrainRouter mode: local | balanced | power | offline\n"
             "shutdown                 — Save state, stop all threads, and exit gracefully\n"
             "\n--- DIAGNOSTICS ---\n"
             "run-diagnostics          — Execute the full Niblit diagnostic suite across all subsystems\n"

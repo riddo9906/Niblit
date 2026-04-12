@@ -3105,6 +3105,59 @@ Ask me about:
             "observe <sub> <score> | propose <desc>"
         )
 
+    def _handle_brain(self, cmd: str) -> str:
+        """Handle 'brain [status|mode <m>]' commands — Hybrid Brain Architecture.
+
+        Usage::
+
+            brain                    # show status
+            brain status             # show status
+            brain mode local         # route all prompts to Qwen local brain
+            brain mode balanced      # smart routing (default)
+            brain mode power         # hybrid always (local draft + cloud refine)
+            brain mode offline       # no cloud calls at all
+        """
+        import json
+        lower = cmd.strip().lower()
+        # Strip prefix
+        for prefix in ("brain-mode", "brain mode", "brain-status", "brain status", "brain"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = ""
+
+        try:
+            from modules.brain_router import get_brain_router
+            br = get_brain_router()
+        except Exception as _br_err:
+            return f"BrainRouter unavailable: {_br_err}"
+
+        if sub.startswith("mode "):
+            _new_mode = sub[len("mode "):].strip()
+            try:
+                br.set_mode(_new_mode)
+                return f"🧠 BrainRouter mode → {_new_mode}"
+            except ValueError as _ve:
+                return f"❌ {_ve}"
+
+        # status (default)
+        lb = getattr(self.core, "local_brain", None)
+        lb_info = lb.status() if lb else {}
+        st = br.stats()
+        lines = [
+            "🧠 Hybrid Brain Architecture",
+            f"  Mode          : {st['mode']}",
+            f"  Local Brain   : {'✅ loaded' if lb_info.get('loaded') else '⏳ pending (lazy load)'}",
+            f"  Local model   : {lb_info.get('model_name', 'Qwen/Qwen2.5-0.5B-Instruct')}",
+            f"  Cloud brain   : {'✅ available' if st['cloud_available'] else '❌ unavailable'}",
+            f"  Routing stats : {json.dumps(st.get('routing_counts', {}))}",
+            f"  Routing %     : {json.dumps(st.get('routing_pct', {}))}",
+        ]
+        if lb_info.get("load_error"):
+            lines.append(f"  Load error    : {lb_info['load_error']}")
+        return "\n".join(lines)
+
     def _handle_self_monitor(self, text: str) -> str:
         """Handle 'self-monitor <sub>' commands."""
         sub = text[len("self-monitor"):].strip()
@@ -5418,6 +5471,11 @@ Ask me about:
                 lower.startswith("msg ") or lower.startswith("meta-cognition ") or \
                 lower.startswith("msg-layer "):
             return self._handle_msg_layer(cmd)
+
+        # BRAIN — Hybrid Brain Architecture status + mode control (additive)
+        if lower in ("brain", "brain status", "brain-status") or \
+                lower.startswith("brain mode ") or lower.startswith("brain-mode "):
+            return self._handle_brain(cmd)
 
         # KERNEL — NiblitKernel cognitive dashboard (additive)
         if lower == "kernel" or lower.startswith("kernel "):
