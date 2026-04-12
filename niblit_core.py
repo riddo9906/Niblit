@@ -1200,6 +1200,15 @@ except Exception as _cme:
     _get_cyber_membrane = None  # type: ignore[assignment]
     _CYBER_MEMBRANE_AVAILABLE = False
 
+# ── DefensiveEvolutionLoop (self-evolving immunity layer) ─────────────────────
+try:
+    from modules.niblit_defensive_evolution_loop import get_evolution_loop as _get_evolution_loop
+    _EVOLUTION_LOOP_AVAILABLE = True
+except Exception as _elo:
+    log.debug(f"niblit_defensive_evolution_loop not available: {_elo}")
+    _get_evolution_loop = None  # type: ignore[assignment]
+    _EVOLUTION_LOOP_AVAILABLE = False
+
 # ── EnvStateManager (additive) ───────────────────────────────────────────────
 try:
     from modules.env_state import get_env_state_manager as _get_env_state_manager
@@ -1686,6 +1695,7 @@ class NiblitCore:
         # ── Additive: Security membrane ──────────────────────────────────────
         self.security_membrane: Optional[Any] = None  # initialised in _init_optional_services
         self.cyber_membrane: Optional[Any] = None    # advanced adaptive cyber membrane
+        self.evolution_loop: Optional[Any] = None    # defensive evolution / self-attack loop
         # ── Additive: Cross-environment state manager ─────────────────────────
         self.env_state_manager: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Environment adapter registry ────────────────────────────
@@ -7330,6 +7340,20 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _cme2:
                 log.debug("[INIT] CyberMembrane init failed: %s", _cme2)
                 self.startup_report.add("cyber_membrane", "degraded", str(_cme2))
+
+        # ── DefensiveEvolutionLoop (self-evolving immunity) ────────────────────
+        if (_EVOLUTION_LOOP_AVAILABLE and _get_evolution_loop is not None
+                and self.cyber_membrane is not None):
+            try:
+                self.evolution_loop = _get_evolution_loop(membrane=self.cyber_membrane)
+                # Wire the loop back into the membrane so _store_threat() can trigger it
+                self.cyber_membrane.evolution_loop = self.evolution_loop
+                self.evolution_loop.start()
+                log.info("✅ DefensiveEvolutionLoop initialised and started")
+                self.startup_report.add("evolution_loop", "ready")
+            except Exception as _elo2:
+                log.debug("[INIT] DefensiveEvolutionLoop init failed: %s", _elo2)
+                self.startup_report.add("evolution_loop", "degraded", str(_elo2))
 
         # ── EnvStateManager (additive) ────────────────────────────────────────
         if _ENV_STATE_AVAILABLE and _get_env_state_manager is not None:

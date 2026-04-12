@@ -301,6 +301,24 @@ class InputGuard:
                 max_risk, hit_type, hit_detail = r, t, d
         return max_risk, hit_type, hit_detail
 
+    def add_pattern(self, pattern: str, weight: float, label: str) -> bool:
+        """
+        Dynamically inject a new detection rule at runtime.
+
+        Called by ``DefensiveEvolutionLoop`` when a bypass variant is discovered
+        in sandbox simulation.  Thread-safe.
+
+        Returns True if the pattern was compiled and added successfully.
+        """
+        try:
+            compiled = re.compile(pattern)
+            self._compiled.append((compiled, min(1.0, max(0.0, weight)), label))
+            log.info("[InputGuard] Dynamic rule added: %s (weight=%.2f)", label, weight)
+            return True
+        except re.error as exc:
+            log.debug("[InputGuard] Invalid dynamic pattern %r: %s", pattern[:60], exc)
+            return False
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. OutputGuard
@@ -635,6 +653,18 @@ class AdaptiveFirewall:
         with self._lock:
             return sorted(self._threat_freq.items(), key=lambda x: -x[1])[:n]
 
+    def learn(self, genome_dict: Dict[str, Any]) -> None:
+        """
+        Learn from a structured attack genome dict (from DefensiveEvolutionLoop).
+
+        Increments the threat frequency counter for the genome's type so that
+        the firewall accumulates knowledge about evolved attack variants.
+        """
+        threat_type = genome_dict.get("type", "evolved")
+        with self._lock:
+            self._threat_freq[f"evo:{threat_type}"] += 1
+        log.debug("[AdaptiveFirewall] Learned genome type: %s", threat_type)
+
     def global_stats(self) -> Dict[str, Any]:
         now = time.time()
         with self._lock:
@@ -893,6 +923,10 @@ class MembraneOrchestrator:
         self._last_integrity_check: float = 0.0
         self._last_session_purge: float   = 0.0
 
+        # DefensiveEvolutionLoop is wired in externally (niblit_core) after startup.
+        # This attribute is the hook point; the membrane itself never imports it.
+        self.evolution_loop: Optional[Any] = None
+
         # Baseline integrity on startup
         try:
             self.integrity_monitor.baseline()
@@ -1057,7 +1091,7 @@ class MembraneOrchestrator:
 
     def status(self) -> Dict[str, Any]:
         """Return a combined status dict from all layers."""
-        return {
+        base = {
             "firewall": self.adaptive_firewall.global_stats(),
             "sessions": self.session_warden.stats(),
             "tracker_last_scan": time.strftime(
@@ -1068,6 +1102,14 @@ class MembraneOrchestrator:
                 "%Y-%m-%dT%H:%M:%SZ", time.gmtime(self._last_integrity_check)
             ) if self._last_integrity_check else "never",
         }
+        if self.evolution_loop is not None:
+            try:
+                base["evolution_loop"] = self.evolution_loop.stats()
+            except Exception:
+                base["evolution_loop"] = "error"
+        else:
+            base["evolution_loop"] = "not_attached"
+        return base
 
     def get_threat_log(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Return recent threat events as dicts."""
@@ -1140,6 +1182,12 @@ class MembraneOrchestrator:
                     f"[{evt.layer}] {evt.threat_type} severity={evt.severity:.2f} "
                     f"— {evt.detail[:200]}",
                 )
+            except Exception:
+                pass
+        # Trigger evolutionary loop for high-severity threats (non-blocking)
+        if evt.severity >= 0.75 and self.evolution_loop is not None:
+            try:
+                self.evolution_loop.trigger(evt)
             except Exception:
                 pass
 

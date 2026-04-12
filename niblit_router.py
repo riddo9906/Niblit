@@ -342,6 +342,8 @@ class NiblitRouter:
         "security", "sec-membrane",
         # Advanced adaptive cyber membrane (additive)
         "cyber", "cyber-membrane", "cybermembrane", "membrane",
+        # Defensive evolution loop (additive)
+        "evolution", "evo",
         # Cross-environment state manager (additive)
         "env-state", "envstate",
         # Environment adapter registry (additive)
@@ -1864,6 +1866,53 @@ Ask me about:
             )
         except Exception as exc:
             return f"[cyber] CyberMembrane not available: {exc}"
+
+    # ── DefensiveEvolutionLoop handler (additive) ────────────────────────────
+
+    def _handle_evolution(self, cmd: str) -> str:
+        """Route 'evolution ...' / 'evo ...' commands to the DefensiveEvolutionLoop."""
+        lower = cmd.strip().lower()
+        for prefix in ("evolution", "evo"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.niblit_defensive_evolution_loop import get_evolution_loop as _gel
+            loop = _gel()
+            import json as _json
+            if loop is None:
+                return (
+                    "[evolution] Evolution loop not initialised yet. "
+                    "It starts automatically when CyberMembrane is active."
+                )
+            if sub in ("", "status"):
+                return _json.dumps(loop.stats(), indent=2, default=str)
+            if sub.startswith("bypasses"):
+                return _json.dumps(
+                    list(loop._bypass_discoveries)[-20:], indent=2, default=str
+                )
+            if sub.startswith("cycle"):
+                summary = loop.evolution_cycle()
+                return _json.dumps(summary, indent=2, default=str)
+            if sub.startswith("stop"):
+                loop.stop()
+                return "[evolution] Evolution loop stopped."
+            if sub.startswith("start"):
+                loop.start()
+                return "[evolution] Evolution loop started."
+            return (
+                "Evolution loop commands:\n"
+                "  evolution status   — stats: cycles, bypasses, queue, CPU load\n"
+                "  evolution bypasses — last 20 bypass discoveries\n"
+                "  evolution cycle    — trigger one evolution cycle now\n"
+                "  evolution start    — start background thread\n"
+                "  evolution stop     — stop background thread"
+            )
+        except Exception as exc:
+            return f"[evolution] DefensiveEvolutionLoop not available: {exc}"
 
     # ── EnvStateManager handler (additive) ───────────────────────────────────
 
@@ -4898,6 +4947,11 @@ Ask me about:
                 lower.startswith("cyber ") or lower.startswith("cyber-membrane ") or
                 lower.startswith("cybermembrane ") or lower.startswith("membrane ")):
             return self._handle_cyber_membrane(cmd)
+
+        # DEFENSIVE EVOLUTION LOOP — self-attacking immunity loop (additive)
+        if (lower in ("evolution", "evo") or
+                lower.startswith("evolution ") or lower.startswith("evo ")):
+            return self._handle_evolution(cmd)
 
         # CROSS-ENVIRONMENT STATE MANAGER (additive)
         if lower in ("env-state", "envstate") or \
