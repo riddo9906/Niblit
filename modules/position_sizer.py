@@ -292,3 +292,7 @@ def get_position_sizer(**kwargs) -> PositionSizer:
         if _sizer is None:
             _sizer = PositionSizer(**kwargs)
         return _sizer
+
+
+if __name__ == "__main__":
+    print('Running position_sizer.py')

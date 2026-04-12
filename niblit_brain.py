@@ -1210,6 +1210,24 @@ class NiblitBrain:
 
             prompt = context + user_input
 
+            # ── Kernel v3: memory-grounded pre-think (runs every cycle) ──────
+            # This ensures every `think()` call exercises the fused v1+v2+KCB
+            # pipeline, writes to kernel memory, scores agents via RewardEngine,
+            # and queues a sync artifact — regardless of LLM availability.
+            _kv3_response: str = ""
+            try:
+                from modules.niblit_kernel_v3 import get_niblit_kernel_v3
+                _kv3 = get_niblit_kernel_v3()
+                _kv3_result = _kv3.run_cognitive_loop(
+                    user_input,
+                    context={"context": context[:400]} if context else None,
+                    use_agents=False,  # agents run only on explicit orchestrate() call
+                )
+                _kv3_response = _kv3_result.response or ""
+            except Exception as _kv3_err:
+                log.debug("[BRAIN] KernelV3 pre-think skipped: %s", _kv3_err)
+            # ─────────────────────────────────────────────────────────────────
+
             if not self.llm_enabled:
                 log.debug("LLM disabled, trying academic knowledge fallback")
                 # Try AcademicStudyModule / LanguageModule before giving up
@@ -1222,6 +1240,10 @@ class NiblitBrain:
                         return _asm_answer
                 except Exception as _asm_err:
                     log.debug("[BRAIN] AcademicStudy fallback failed: %s", _asm_err)
+                # Kernel v3 local reasoning fallback (no LLM required)
+                if _kv3_response and not _kv3_response.startswith("No strong"):
+                    _exit_stack.close()
+                    return _kv3_response
                 # If Graph-RAG context was assembled, distil it into a response
                 if context.strip():
                     try:

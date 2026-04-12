@@ -836,3 +836,7 @@ def get_llm_architect_engine(
             if llm_training_agent is not None and _engine.llm_training_agent is None:
                 _engine.llm_training_agent = llm_training_agent
     return _engine
+
+
+if __name__ == "__main__":
+    print('Running llm_architect_engine.py')

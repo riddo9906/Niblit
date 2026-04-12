@@ -1165,3 +1165,7 @@ def get_niblit_core_kernel(**kwargs) -> NiblitCoreKernel:
         if _kernel is None:
             _kernel = NiblitCoreKernel(**kwargs)
         return _kernel
+
+
+if __name__ == "__main__":
+    print('Running niblit_core_kernel.py')

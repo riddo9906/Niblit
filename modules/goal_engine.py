@@ -409,3 +409,7 @@ def get_goal_engine(**kwargs) -> GoalEngine:
         if _engine is None:
             _engine = GoalEngine(**kwargs)
         return _engine
+
+
+if __name__ == "__main__":
+    print('Running goal_engine.py')

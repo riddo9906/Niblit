@@ -1698,6 +1698,8 @@ class NiblitCore:
         self.memory_store: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: SyncEngine (LCSP v1 local↔cloud sync) ──────────────
         self.sync_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: Cognitive Kernel v3 (fused v1+v2+KCB+agents+reward) ─
+        self.kernel_v3: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -7493,6 +7495,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as _se_err:
             log.debug("[Core] SyncEngine init failed: %s", _se_err)
             self.startup_report.add("sync_engine", "degraded", str(_se_err))
+
+        # ── Cognitive Kernel v3 (fused v1+v2+KCB+agents+reward) ──────────────
+        try:
+            from modules.niblit_kernel_v3 import get_niblit_kernel_v3
+            self.kernel_v3 = get_niblit_kernel_v3(
+                kernel_v1=self.cognitive_kernel if hasattr(self, "cognitive_kernel") else None,
+                kernel_v2=self.kernel_v2,
+            )
+            log.info("✅ NiblitCognitiveKernelV3 initialised (fused v1+v2+KCB)")
+            self.startup_report.add("kernel_v3", "ready")
+        except Exception as _kv3_err:
+            log.debug("[Core] NiblitCognitiveKernelV3 init failed: %s", _kv3_err)
+            self.startup_report.add("kernel_v3", "degraded", str(_kv3_err))
 
         self._init_agents()
 

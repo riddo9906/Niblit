@@ -617,3 +617,7 @@ def get_cognition_core(**kwargs) -> CognitionCore:
         if _core is None:
             _core = CognitionCore(**kwargs)
         return _core
+
+
+if __name__ == "__main__":
+    print('Running cognition_core.py')

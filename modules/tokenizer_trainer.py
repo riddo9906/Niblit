@@ -356,3 +356,7 @@ def get_tokenizer_trainer(**kwargs) -> TokenizerTrainer:
         if _trainer is None:
             _trainer = TokenizerTrainer(**kwargs)
         return _trainer
+
+
+if __name__ == "__main__":
+    print('Running tokenizer_trainer.py')

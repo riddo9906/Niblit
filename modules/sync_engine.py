@@ -981,3 +981,7 @@ def get_sync_engine(**kwargs) -> SyncEngine:
         if _sync_engine is None:
             _sync_engine = SyncEngine(**kwargs)
         return _sync_engine
+
+
+if __name__ == "__main__":
+    print('Running sync_engine.py')

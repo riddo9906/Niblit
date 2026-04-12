@@ -815,3 +815,7 @@ def get_memory_store(**kwargs) -> MemoryStore:
         if _store is None:
             _store = MemoryStore(**kwargs)
         return _store
+
+
+if __name__ == "__main__":
+    print('Running memory_weighting.py')
