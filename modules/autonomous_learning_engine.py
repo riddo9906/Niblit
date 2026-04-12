@@ -5496,7 +5496,6 @@ class AutonomousLearningEngine:
             try:
                 from modules.meta_cognition import get_msg_layer
                 msg = get_msg_layer()
-                msg.meta_evaluator.tick = getattr(msg.meta_evaluator, "tick", None)
                 meta_scores = msg.meta_evaluator.scores()
                 msg.intent_engine.tick(cycle, meta_scores=meta_scores)
                 msg.resource_allocator.rebalance(

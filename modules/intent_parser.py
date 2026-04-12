@@ -242,7 +242,7 @@ def _classify_question_type(intent: str, lower: str) -> str:
 
 
 if __name__ == "__main__":
-    _samples = [
+    test_samples = [
         "hi",
         "what is photosynthesis",
         "learn about quantum computing",
@@ -254,5 +254,5 @@ if __name__ == "__main__":
         "calculate 5 * 8",
         "just chatting here",
     ]
-    for s in _samples:
+    for s in test_samples:
         print(understand_prompt(s))
