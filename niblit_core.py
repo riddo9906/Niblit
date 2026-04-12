@@ -1721,6 +1721,7 @@ class NiblitCore:
         # ── Additive: Cognitive Kernel v3 (fused v1+v2+KCB+agents+reward) ─
         self.kernel_v3: Optional[Any] = None  # initialised in _init_optional_services
         self.cognitive_graph_kernel: Optional[Any] = None  # initialised in _init_optional_services
+        self.msg_layer: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -7575,6 +7576,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as _cgk_err:
             log.debug("[Core] CognitiveGraphKernel init failed: %s", _cgk_err)
             self.startup_report.add("cognitive_graph_kernel", "degraded", str(_cgk_err))
+
+        # ── MSG Layer v1 (Meta-Cognitive Self-Governance) ─────────────────────
+        try:
+            from modules.meta_cognition import get_msg_layer
+            self.msg_layer = get_msg_layer()
+            self.startup_report.add("msg_layer", "ready")
+        except Exception as _msg_err:
+            log.debug("[Core] MSGLayer init failed: %s", _msg_err)
+            self.startup_report.add("msg_layer", "degraded", str(_msg_err))
 
         self._init_agents()
 
