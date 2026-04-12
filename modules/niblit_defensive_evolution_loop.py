@@ -65,15 +65,29 @@ from typing import Any, Deque, Dict, List, Optional, Tuple
 
 log = logging.getLogger("niblit.evolution_loop")
 
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except (ValueError, TypeError):
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, str(default)))
+    except (ValueError, TypeError):
+        return default
+
+
 # ── Safety / tuning constants ──────────────────────────────────────────────────
-_MAX_MUTATION_DEPTH     = int(os.environ.get("NIBLIT_MAX_MUTATION_DEPTH",  "5"))
-_MAX_SANDBOX_ITERATIONS = int(os.environ.get("NIBLIT_MAX_SANDBOX_ITER",    "20"))
-_MAX_CPU_EVO_LOAD       = float(os.environ.get("NIBLIT_MAX_CPU_EVO_LOAD",  "0.65"))
-_CYCLE_INTERVAL_SECS    = int(os.environ.get("NIBLIT_EVO_CYCLE_INTERVAL",  "60"))
-_QUEUE_MAX              = int(os.environ.get("NIBLIT_EVO_QUEUE_MAX",        "200"))
-_GENOME_MEMORY_MAX      = int(os.environ.get("NIBLIT_EVO_GENOME_MEM",       "1000"))
-_SEVERITY_TRIGGER       = float(os.environ.get("NIBLIT_EVO_TRIGGER_SEV",   "0.75"))
-_BG_POLL_INTERVAL       = int(os.environ.get("NIBLIT_EVO_POLL_SECS",        "10"))
+_MAX_MUTATION_DEPTH     = _env_int("NIBLIT_MAX_MUTATION_DEPTH",  5)
+_MAX_SANDBOX_ITERATIONS = _env_int("NIBLIT_MAX_SANDBOX_ITER",    20)
+_MAX_CPU_EVO_LOAD       = _env_float("NIBLIT_MAX_CPU_EVO_LOAD",  0.65)
+_CYCLE_INTERVAL_SECS    = _env_int("NIBLIT_EVO_CYCLE_INTERVAL",  60)
+_QUEUE_MAX              = _env_int("NIBLIT_EVO_QUEUE_MAX",        200)
+_GENOME_MEMORY_MAX      = _env_int("NIBLIT_EVO_GENOME_MEM",       1000)
+_SEVERITY_TRIGGER       = _env_float("NIBLIT_EVO_TRIGGER_SEV",   0.75)
+_BG_POLL_INTERVAL       = _env_int("NIBLIT_EVO_POLL_SECS",        10)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -515,6 +529,10 @@ class DefensiveEvolutionLoop:
         is under high CPU load.
         """
         if _get_cpu_load() > _MAX_CPU_EVO_LOAD:
+            log.debug(
+                "[EvolutionLoop] trigger() dropped: CPU load %.2f > %.2f limit.",
+                _get_cpu_load(), _MAX_CPU_EVO_LOAD,
+            )
             return  # don't queue when system is already stressed
         try:
             genome = self._build_genome_from_event(event)
@@ -762,12 +780,19 @@ class DefensiveEvolutionLoop:
             log.debug("[EvolutionLoop] firewall learn error: %s", exc)
 
     def _pick_genome(self, exclude_id: str = "") -> Optional[AttackGenome]:
-        """Pick a genome from memory for combination (deterministic, not random)."""
+        """
+        Pick a genome from memory for combination (deterministic).
+
+        The middle element is chosen because it represents a "median" age —
+        neither so recent it was just added (potentially incomplete) nor so
+        old that it's stale.  This is intentionally deterministic to avoid
+        non-deterministic test behaviour and to be predictable on Termux where
+        random seeds are not always reliable.
+        """
         with self._lock:
             candidates = [g for g in self._genome_memory if g.id != exclude_id]
         if not candidates:
             return None
-        # Pick the middle element — deterministic, no randomness needed
         return candidates[len(candidates) // 2]
 
 

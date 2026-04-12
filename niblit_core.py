@@ -7354,6 +7354,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _elo2:
                 log.debug("[INIT] DefensiveEvolutionLoop init failed: %s", _elo2)
                 self.startup_report.add("evolution_loop", "degraded", str(_elo2))
+        elif _EVOLUTION_LOOP_AVAILABLE and self.cyber_membrane is None:
+            log.debug(
+                "[INIT] DefensiveEvolutionLoop skipped: CyberMembrane not available "
+                "(evolution loop requires an active membrane to attach to)."
+            )
+            self.startup_report.add("evolution_loop", "skipped_no_membrane")
 
         # ── EnvStateManager (additive) ────────────────────────────────────────
         if _ENV_STATE_AVAILABLE and _get_env_state_manager is not None:

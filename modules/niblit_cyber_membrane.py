@@ -347,7 +347,6 @@ class OutputGuard:
         (r"(gho_[A-Za-z0-9]{36,})",             "github_oauth"),
         (r"(sk-ant-[A-Za-z0-9\-]{40,})",        "anthropic_key"),
         (r"(AKIA[A-Z0-9]{16})",                 "aws_access_key"),
-        (r"([A-Za-z0-9/+]{40})",                "potential_secret"),   # generic 40-char b64
         (r"(-----BEGIN\s[\w ]+PRIVATE KEY-----)", "pem_private"),
         (r"(-----BEGIN CERTIFICATE-----)",       "pem_cert"),
         (r"(AIza[A-Za-z0-9_\-]{35})",           "google_api_key"),
@@ -569,7 +568,7 @@ class StealthDetector:
                 deltas = [times[i+1] - times[i] for i in range(len(times)-1)]
                 avg_delta = sum(deltas) / len(deltas)
                 variance = sum((d - avg_delta) ** 2 for d in deltas) / len(deltas)
-                if avg_delta > 0 and variance / (avg_delta ** 2) < 0.05:
+                if avg_delta > 1e-9 and variance / (avg_delta ** 2) < 0.05:
                     return 0.85, "timing_oracle"
 
             return 0.55, "slow_bruteforce"
