@@ -1914,6 +1914,77 @@ Ask me about:
         except Exception as exc:
             return f"[evolution] DefensiveEvolutionLoop not available: {exc}"
 
+    # ── Cognitive Graph Kernel v1.0 handler (additive) ───────────────────────
+
+    def _handle_cognitive_graph_kernel(self, cmd: str) -> str:
+        """Route 'cgk ...' / 'cognitive-graph ...' commands to the CognitiveGraphKernel."""
+        lower = cmd.strip().lower()
+        for prefix in ("cognitive-graph", "cognitivegraph", "cgk"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
+            kernel = get_cognitive_graph_kernel(
+                knowledge_db=getattr(self.core, "db", None) if self.core else None,
+            )
+            import json as _json
+
+            if sub in ("", "status"):
+                return _json.dumps(kernel.status(), indent=2, default=str)
+
+            if sub.startswith("graph"):
+                return _json.dumps(kernel.graph.stats(), indent=2, default=str)
+
+            if sub.startswith("events"):
+                return _json.dumps(kernel.bus.stats(), indent=2, default=str)
+
+            if sub.startswith("memory"):
+                return _json.dumps(kernel.memory.stats(), indent=2, default=str)
+
+            if sub.startswith("membrane"):
+                return _json.dumps({
+                    "stats": kernel.membrane.stats(),
+                    "recent_threats": kernel.membrane.get_threat_log(20),
+                }, indent=2, default=str)
+
+            if sub.startswith("evolution"):
+                return _json.dumps(kernel.evolution.stats(), indent=2, default=str)
+
+            if sub.startswith("tick"):
+                n = 1
+                parts = sub.split()
+                if len(parts) > 1 and parts[1].isdigit():
+                    n = min(int(parts[1]), 100)
+                total = sum(kernel.tick() for _ in range(n))
+                return f"[cgk] Ran {n} tick(s) — {total} events processed."
+
+            if sub.startswith("start"):
+                kernel.start()
+                return "[cgk] CognitiveGraphKernel started."
+
+            if sub.startswith("stop"):
+                kernel.stop()
+                return "[cgk] CognitiveGraphKernel stopped."
+
+            return (
+                "Cognitive Graph Kernel commands:\n"
+                "  cgk status      — full kernel status\n"
+                "  cgk graph       — knowledge graph stats\n"
+                "  cgk events      — event bus stats\n"
+                "  cgk memory      — memory layer stats\n"
+                "  cgk membrane    — security membrane stats + threat log\n"
+                "  cgk evolution   — evolution graph runtime stats\n"
+                "  cgk tick [N]    — run N deterministic tick cycles (default 1)\n"
+                "  cgk start       — start background tick + evolution loops\n"
+                "  cgk stop        — stop background loops"
+            )
+        except Exception as exc:
+            return f"[cgk] CognitiveGraphKernel not available: {exc}"
+
     # ── EnvStateManager handler (additive) ───────────────────────────────────
 
     def _handle_env_state(self, cmd: str) -> str:
@@ -4952,6 +5023,12 @@ Ask me about:
         if (lower in ("evolution", "evo") or
                 lower.startswith("evolution ") or lower.startswith("evo ")):
             return self._handle_evolution(cmd)
+
+        # COGNITIVE GRAPH KERNEL v1.0 — unified event-driven runtime (additive)
+        if (lower in ("cgk", "cognitive-graph", "cognitivegraph") or
+                lower.startswith("cgk ") or lower.startswith("cognitive-graph ") or
+                lower.startswith("cognitivegraph ")):
+            return self._handle_cognitive_graph_kernel(cmd)
 
         # CROSS-ENVIRONMENT STATE MANAGER (additive)
         if lower in ("env-state", "envstate") or \

@@ -34,6 +34,7 @@ including your Android phone via Termux.
 - [🆕 Position Sizer (Kelly Criterion)](#-position-sizer-kelly-criterion)
 - [🆕 Domain Tokenizer Trainer](#-domain-tokenizer-trainer)
 - [🆕 Phased Research Engine](#-phased-research-engine)
+- [🆕 Cognitive Graph Kernel v1.0](#-cognitive-graph-kernel-v10)
 - [Project Structure](#project-structure)
 - [Running Tests](#running-tests)
 - [Troubleshooting](#troubleshooting)
@@ -1238,6 +1239,146 @@ Used by: `SLSAGenerator`, `ALE Step 1 (UnifiedResearch)`, `Cognitive Kernel v3`.
 
 ---
 
+## 🆕 Cognitive Graph Kernel v1.0
+
+**File:** `modules/niblit_cognitive_graph_kernel.py`
+
+The Cognitive Graph Kernel v1.0 is a **unified runtime substrate** that
+collapses Niblit's four previously separate subsystems — Cyber Membrane, Graph
+Knowledge, Memory, and Defensive Evolution — into a single event-driven graph
+operating system.
+
+### Architecture
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                  CognitiveGraphKernel                    │
+│              (Graph Event Runtime v1.0)                  │
+└────────────────────────┬─────────────────────────────────┘
+                         │
+     ┌───────────────────┼───────────────────┐
+     │                   │                   │
+Memory Graph        Membrane Graph      Evolution Graph
+(knowledge state)   (security state)    (self-mod system)
+     │                   │                   │
+     └──────────┬────────┴──────────┬────────┘
+                │                   │
+     EventBus (Causal DAG Runtime)
+                │
+    Everything = Event + Node + Edge
+```
+
+### Core Design Principle
+
+> **Everything is an event.**
+
+Instead of calling functions directly, running background polling threads, or
+procedural mutation loops, every interaction becomes a typed event:
+
+```
+Event(type, payload, source, timestamp, energy, priority)
+```
+
+All mutations are graph rewriting operations, triggered exclusively by event
+propagation — zero direct cross-module calls at runtime.
+
+### Five Components
+
+| Component | Class | Role |
+|-----------|-------|------|
+| **EventBus** | `EventBus` | Priority min-heap queue + typed subscriptions. Dispatches up to 200 events per `tick()`. Drops lowest-priority events when queue is full. |
+| **CognitiveGraph** | `CognitiveGraph` | In-process knowledge graph: typed nodes + weighted directed edges. Integrates with `KnowledgeDB` to persist high-weight nodes. Auto-prunes oldest nodes when limit exceeded. |
+| **MemoryLayer** | `MemoryLayer` | Unified weighted, decaying key-value store. Delegates hot/warm storage to MWDS v2 `MemoryStore` when available. Applies exponential decay on every 100th tick. |
+| **MembraneGraph** | `MembraneGraph` | Event-filtering security layer. Dynamic rule injection at runtime: patterns are injected on every bypass discovery. Bridges to `CyberMembrane` `InputGuard` + `AdaptiveFirewall`. |
+| **EvolutionGraphRuntime** | `EvolutionGraphRuntime` | Converts `DefensiveEvolutionLoop`'s procedural mutation engine into event-driven graph rewriting. Bridges to real DEL bypass discoveries. |
+
+### How DefensiveEvolutionLoop becomes Event Graph
+
+**Before (procedural):**
+```
+thread → drain queue → replay sandbox → mutate → inject firewall rules
+```
+
+**After (event-driven):**
+```
+Event: security.threat
+        ↓ (MembraneGraph blocks)
+Event: evolve.attack
+        ↓ (EvolutionGraphRuntime.handle_evolve_event)
+Event: graph.update  →  new mutation_node in CognitiveGraph
+        ↓
+MembraneGraph.reinforce()  →  CyberMembrane.InputGuard.add_pattern()
+        ↓
+Event: security.pattern_learned  (observability)
+```
+
+### Deterministic Tick Cycle
+
+```python
+kernel.tick()
+  1. bus.dispatch(limit=200)    # process queued events in priority order
+  2. memory.decay()             # every 100 ticks
+  3. system.prune event emitted # reclaim dead memory entries
+```
+
+No background polling threads required — the kernel can be driven
+synchronously, or started with `kernel.start()` for an auto-background tick.
+
+### Event Types
+
+| Event Type | Source | Handler |
+|------------|--------|---------|
+| `memory.write` | Any module | Write key/value into MemoryLayer |
+| `memory.read` | Any module | Read with optional callback |
+| `graph.update` | Evolution / API | Add/update a Node in CognitiveGraph |
+| `graph.edge` | API | Add a directed edge between nodes |
+| `security.threat` | API / Membrane | Filter → emit `evolve.attack` if blocked |
+| `evolve.attack` | MembraneGraph / Evolution | Mutate → graph node + pattern reinforce |
+| `evolve.result` | Evolution | Observability for bypass discoveries |
+| `security.pattern_learned` | Evolution | Notifies that a new pattern was injected |
+| `system.tick` | Kernel | Observability marker every N ticks |
+| `system.prune` | Kernel | Triggers memory decay and graph pruning |
+
+### CLI Commands
+
+```
+cgk status               — full kernel status: event bus, graph, memory, membrane, evolution
+cgk graph                — knowledge graph stats (nodes, edges, types, mutations)
+cgk events               — event bus stats (queue depth, dispatched, dropped)
+cgk memory               — memory layer stats
+cgk membrane             — security membrane stats + last 20 threat events
+cgk evolution            — evolution runtime stats (cycles, mutations, DEL bridge)
+cgk tick [N]             — run N deterministic tick cycles (default 1)
+cgk start                — start background tick + evolution loops
+cgk stop                 — stop background loops
+```
+
+### Environment Variables
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `NIBLIT_CGK_TICK_INTERVAL` | `0.5` | Seconds between background ticks (set 0 to disable) |
+| `NIBLIT_CGK_DECAY_FACTOR` | `0.995` | Memory weight decay factor per tick cycle |
+| `NIBLIT_CGK_MAX_QUEUE` | `2000` | Max events in priority queue before dropping |
+| `NIBLIT_CGK_EVO_INTERVAL` | `10` | Seconds between evolution sweep cycles |
+| `NIBLIT_CGK_MAX_GRAPH_NODES` | `5000` | Prune oldest nodes when exceeded |
+
+### Unified System Representation
+
+| System | Representation in CGK |
+|--------|----------------------|
+| Memory | Weighted + decaying graph nodes |
+| Knowledge | Graph traversal + edge weights |
+| Reasoning | Event propagation through node types |
+| Security | Filtering function on event stream |
+| Evolution | Self-rewriting graph mutations |
+| All interactions | Events through EventBus (zero direct calls) |
+
+Singleton via `get_cognitive_graph_kernel()`. Wired into `niblit_core._init_optional_services`
+as `self.cognitive_graph_kernel`; auto-started on init with `CyberMembrane` bridge.
+
+---
+
 ## Project Structure
 
 ```
@@ -1267,6 +1408,7 @@ Niblit/
 │   ├── self_teacher.py                # SelfTeacher: internalise research
 │   ├── self_healer.py                 # SelfHealer: repair KB / code
 │   ├── self_maintenance.py            # Memory pruning + KB condensation
+│   ├── niblit_cognitive_graph_kernel.py  # 🆕 CGK v1.0: unified event-driven runtime
 │   ├── niblit_cyber_membrane.py       # 🆕 8-layer real-time security membrane
 │   ├── niblit_defensive_evolution_loop.py  # 🆕 Self-attacking immunity loop
 │   ├── niblit_kernel_v3.py            # 🆕 Cognitive Kernel v3 (fused + KCB)

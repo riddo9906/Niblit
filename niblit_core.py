@@ -1720,6 +1720,7 @@ class NiblitCore:
         self.sync_engine: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Cognitive Kernel v3 (fused v1+v2+KCB+agents+reward) ─
         self.kernel_v3: Optional[Any] = None  # initialised in _init_optional_services
+        self.cognitive_graph_kernel: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -7560,6 +7561,20 @@ SW Categories: {stats.get('software_study_categories', 0)}
         except Exception as _kv3_err:
             log.debug("[Core] NiblitCognitiveKernelV3 init failed: %s", _kv3_err)
             self.startup_report.add("kernel_v3", "degraded", str(_kv3_err))
+
+        # ── Cognitive Graph Kernel v1.0 (unified event-driven runtime) ────────
+        try:
+            from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
+            self.cognitive_graph_kernel = get_cognitive_graph_kernel(
+                membrane=self.cyber_membrane,
+                knowledge_db=getattr(self, "db", None),
+            )
+            self.cognitive_graph_kernel.start()
+            log.info("✅ CognitiveGraphKernel v1.0 initialised (event-driven unified runtime)")
+            self.startup_report.add("cognitive_graph_kernel", "ready")
+        except Exception as _cgk_err:
+            log.debug("[Core] CognitiveGraphKernel init failed: %s", _cgk_err)
+            self.startup_report.add("cognitive_graph_kernel", "degraded", str(_cgk_err))
 
         self._init_agents()
 
