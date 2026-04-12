@@ -4215,6 +4215,25 @@ Ask me about:
             # them whenever *any* topic word appears in their serialised JSON,
             # which would cause unrelated topics to bleed into KB answers.
             _CODE_ARTIFACT_TAGS = frozenset({"evolve", "deploy", "builds", "improvement"})
+            # KB key prefixes that store raw code snippets, not prose knowledge
+            _CODE_KEY_PREFIXES = (
+                "ale_builds:",
+                "ale_builds_nlp:",
+                "ale_code_research:",
+                "ale_github_code:",
+                "ale_serpex_code:",
+                "ale_internet_code:",
+                "ale_so_code:",
+                "ale_pypi_code:",
+            )
+            # Value prefixes that identify source-code file content
+            _CODE_VALUE_PREFIXES = (
+                "package ",           # Java / Kotlin package declaration
+                "import java.",       # bare Java import
+                "import kotlin.",
+                "#!/usr/bin/env python",  # Python shebang
+                "#!/usr/bin/python",
+            )
 
             def _is_knowledge_fact(f):
                 if not isinstance(f, dict):
@@ -4227,6 +4246,11 @@ Ask me about:
                 if tags >= {"evolve"} or tags & _CODE_ARTIFACT_TAGS == {"deploy", "improvement"}:
                     return False
                 if key.startswith(("ale_evolve_", "ale_evolve_directions:")):
+                    return False
+                # Skip raw code-snippet namespaces stored by builds indexer and
+                # code-research steps — these contain source files / search
+                # results, not prose factual knowledge.
+                if key.startswith(_CODE_KEY_PREFIXES):
                     return False
                 # Skip facts whose value is a list — system queues, not knowledge
                 if isinstance(val, list):
@@ -4250,6 +4274,11 @@ Ask me about:
                     return False
                 # Skip compound reflection headers with no prose content
                 if val_str.startswith("[Research reflection") or val_str.startswith("[Code reflection"):
+                    return False
+                # Skip raw source-code file content — values that begin with a
+                # language-level package/import/class declaration are code files,
+                # not human-readable factual knowledge.
+                if val_str.startswith(_CODE_VALUE_PREFIXES):
                     return False
                 return True
 
