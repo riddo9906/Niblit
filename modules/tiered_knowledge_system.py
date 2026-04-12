@@ -511,3 +511,7 @@ def get_tiered_knowledge_system(
         _instance.knowledge_db = knowledge_db
         _instance._load_state()
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running tiered_knowledge_system.py')

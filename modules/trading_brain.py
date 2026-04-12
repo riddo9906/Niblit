@@ -115,6 +115,14 @@ except ImportError:  # pragma: no cover
     _get_rl_policy = None  # type: ignore[assignment]
     _RL_AVAILABLE = False
 
+# ── Position sizer (Kelly Criterion + max-drawdown circuit breaker) ───────────
+try:
+    from modules.position_sizer import get_position_sizer as _get_position_sizer
+    _POSITION_SIZER_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _get_position_sizer = None  # type: ignore[assignment]
+    _POSITION_SIZER_AVAILABLE = False
+
 # ── defaults ──────────────────────────────────────────────────────────────────
 _DEFAULT_SYMBOL = os.getenv("TRADING_SYMBOL", "BTCUSDT")
 _DEFAULT_INTERVAL = os.getenv("TRADING_INTERVAL", "1m")
@@ -147,14 +155,18 @@ class TradingBrain:
     execution is left to a separate execution layer (V3+).
 
     Args:
-        api_key:    Binance API key.  *None* for public-data access only.
-        api_secret: Binance API secret.  *None* for public-data access only.
-        symbol:     Trading symbol, e.g. ``"BTCUSDT"``.
-        interval:   Kline interval string accepted by Binance, e.g. ``"1m"``.
-        kline_limit: Number of candles fetched per cycle (default 200).
-        cycle_secs: Seconds between autonomous cycles (default 60).
-        memory:     Optional pre-constructed :class:`NiblitMemory` instance.
-                    A new singleton will be created when *None*.
+        api_key:        Binance API key.  *None* for public-data access only.
+        api_secret:     Binance API secret.  *None* for public-data access only.
+        symbol:         Trading symbol, e.g. ``"BTCUSDT"``.
+        interval:       Kline interval string accepted by Binance, e.g. ``"1m"``.
+        kline_limit:    Number of candles fetched per cycle (default 200).
+        cycle_secs:     Seconds between autonomous cycles (default 60).
+        memory:         Optional pre-constructed :class:`NiblitMemory` instance.
+                        A new singleton will be created when *None*.
+        position_sizer: Optional pre-constructed :class:`~modules.position_sizer.PositionSizer`
+                        instance.  When *None* and :mod:`modules.position_sizer` is
+                        available, the module-level singleton is used automatically.
+                        Set to ``False`` to disable position sizing entirely.
     """
 
     def __init__(
@@ -166,6 +178,7 @@ class TradingBrain:
         kline_limit: int = _DEFAULT_KLINE_LIMIT,
         cycle_secs: int = _DEFAULT_CYCLE_SECS,
         memory: Optional[Any] = None,
+        position_sizer: Optional[Any] = None,
     ) -> None:
         self.symbol = symbol
         self.interval = interval
@@ -178,9 +191,23 @@ class TradingBrain:
         self._cycle_count: int = 0
         self._last_decision: str = "HOLD"
         self._last_cycle_ts: Optional[str] = None
+        self._last_position_fraction: float = 0.0
 
         # ── optional ReflectModule (wired by niblit_core after both objects exist) ──
         self.reflect_module: Optional[Any] = None
+
+        # ── position sizer (Kelly + circuit breaker) ─────────────────────────
+        if position_sizer is not None:
+            # Explicit instance (or False to disable)
+            self.position_sizer: Optional[Any] = position_sizer if position_sizer is not False else None
+        elif _POSITION_SIZER_AVAILABLE and _get_position_sizer is not None:
+            try:
+                self.position_sizer = _get_position_sizer()
+            except Exception as exc:  # pragma: no cover
+                log.warning("[TradingBrain] PositionSizer init failed: %s", exc)
+                self.position_sizer = None
+        else:
+            self.position_sizer = None
 
         # ── Binance client ──────────────────────────────────────────────────
         self._client: Optional[Any] = None
@@ -479,6 +506,12 @@ class TradingBrain:
         This method is designed to be called on a fixed schedule (e.g. every
         60 seconds by :mod:`run_trading_brain`).
 
+        When a :class:`~modules.position_sizer.PositionSizer` is wired in, the
+        cycle will:
+
+        * Compute a Kelly-criterion position fraction for every BUY/SELL signal.
+        * Force **HOLD** when the max-drawdown circuit breaker is open.
+
         Returns:
             Trade decision string — ``"BUY"``, ``"SELL"``, or ``"HOLD"``.
             Returns ``"HOLD"`` on any error to avoid unintended actions.
@@ -519,15 +552,55 @@ class TradingBrain:
 
             # 7. Decide
             decision = self.decide_action(vector)
+
+            # 7a. Max-drawdown circuit breaker guard
+            if self.position_sizer is not None:
+                if self.position_sizer.circuit_breaker_open:
+                    log.warning(
+                        "[TradingBrain] Max-drawdown circuit breaker OPEN — "
+                        "overriding %s → HOLD (drawdown=%.2f%%)",
+                        decision,
+                        self.position_sizer.current_drawdown * 100,
+                    )
+                    decision = "HOLD"
+
+            # 7b. Kelly position sizing — compute fraction for non-HOLD signals
+            position_fraction = 0.0
+            if decision != "HOLD" and self.position_sizer is not None:
+                try:
+                    # Use ATR-based win/loss estimates when historical stats are
+                    # not available: approximate via volatility as avg_loss and
+                    # a 2:1 reward/risk ratio as avg_win.
+                    atr = metadata["atr"]
+                    price = metadata["price"]
+                    if price > 0 and atr > 0:
+                        avg_loss_pct = atr / price          # 1× ATR as loss
+                        avg_win_pct = avg_loss_pct * 2.0    # 2:1 reward/risk
+                        rsi = metadata["rsi"]
+                        # Rough win-rate proxy from RSI distance from neutral
+                        # (clamped to [0.3, 0.7] to stay within a realistic range)
+                        win_rate = 0.50 + (rsi - 50.0) / 200.0  # unclamped: 0.25–0.75
+                        win_rate = max(0.3, min(0.7, win_rate))
+                        position_fraction = self.position_sizer.position_fraction(
+                            win_rate=win_rate,
+                            avg_win_pct=avg_win_pct,
+                            avg_loss_pct=avg_loss_pct,
+                        )
+                except Exception as _exc:  # pragma: no cover
+                    log.debug("[TradingBrain] Kelly sizing failed: %s", _exc)
+
             self._last_decision = decision
             self._last_cycle_ts = metadata["timestamp"]
+            self._last_position_fraction = position_fraction
             self._cycle_count += 1
+            metadata["position_fraction"] = position_fraction
             log.info(
-                "[TradingBrain] %s | price=%.2f rsi=%.2f decision=%s (cycle #%d)",
+                "[TradingBrain] %s | price=%.2f rsi=%.2f decision=%s pos_frac=%.4f (cycle #%d)",
                 self.symbol,
                 metadata["price"],
                 metadata["rsi"],
                 decision,
+                position_fraction,
                 self._cycle_count,
             )
 
@@ -618,7 +691,7 @@ class TradingBrain:
         Returns:
             Dict with keys: ``running``, ``symbol``, ``cycle_secs``,
             ``cycle_count``, ``last_decision``, ``last_cycle_ts``,
-            ``rl_enabled``, ``rl_algorithm``.
+            ``rl_enabled``, ``rl_algorithm``, ``position_sizer``.
         """
         result: Dict[str, Any] = {
             "running": self.running,
@@ -627,6 +700,7 @@ class TradingBrain:
             "cycle_secs": self.cycle_secs,
             "cycle_count": self._cycle_count,
             "last_decision": self._last_decision,
+            "last_position_fraction": self._last_position_fraction,
             "last_cycle_ts": self._last_cycle_ts or "—",
             "binance_available": self._client is not None,
             "memory_available": self.memory is not None,
@@ -637,6 +711,12 @@ class TradingBrain:
         if _RL_ENABLED and _RL_AVAILABLE and _get_rl_policy is not None:
             try:
                 result["rl_policy"] = _get_rl_policy().status()
+            except Exception:  # pragma: no cover
+                pass
+        # Include position sizer status
+        if self.position_sizer is not None:
+            try:
+                result["position_sizer"] = self.position_sizer.status()
             except Exception:  # pragma: no cover
                 pass
         return result
