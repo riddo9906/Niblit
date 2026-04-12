@@ -5699,7 +5699,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("[DIAGNOSTICS] Running run_diagnostics.py ...")
             result = subprocess.run(
                 [sys.executable, script],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True, text=True, timeout=300,
                 cwd=BASE_DIR,
             )
             output = result.stdout or ""
@@ -5708,7 +5708,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info(f"[DIAGNOSTICS] Exited with code {result.returncode}")
             return output.strip() or "[Diagnostics produced no output]"
         except subprocess.TimeoutExpired:
-            return "[DIAGNOSTICS] Timed out after 120 s"
+            return "[DIAGNOSTICS] Timed out after 300 s"
         except Exception as e:
             log.error(f"[DIAGNOSTICS] Failed: {e}")
             return f"[DIAGNOSTICS] Failed: {e}"
@@ -5724,7 +5724,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("[LIVE-TEST] Running live_command_tester.py ...")
             result = subprocess.run(
                 [sys.executable, script],
-                capture_output=True, text=True, timeout=180,
+                capture_output=True, text=True, timeout=300,
                 cwd=BASE_DIR,
             )
             output = result.stdout or ""
@@ -6819,7 +6819,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         slsa=getattr(self, "slsa_engine", None),
                         autonomous_engine=getattr(self, "autonomous_engine", None),
                         semantic_agent=getattr(self, "semantic_agent", None),
-                        sub_step_timeout=150,  # increased from 30 s — avoids premature skips
+                        sub_step_timeout=300,  # increased from 30 s — avoids premature skips
                     )
                     # Back-wire autonomous_engine → evolve_engine once both are available
                     if self.autonomous_engine and not self.autonomous_engine.evolve_engine:
@@ -8098,7 +8098,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
                                 _st = threading.Thread(target=_do_search, daemon=True)
                                 _st.start()
-                                _st.join(timeout=60)
+                                _st.join(timeout=300)
                                 if not _st.is_alive():
                                     result = _result_box[0]
                                 else:

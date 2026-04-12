@@ -607,7 +607,7 @@ class LeanEngine:
         try:
             result = subprocess.run(
                 ["lean", "login", "--user-id", uid, "--api-token", token],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True, text=True, timeout=300,
             )
             out = (result.stdout or "") + (result.stderr or "")
             if result.returncode == 0:

@@ -293,7 +293,7 @@ class HFBrain:
                 self.url,
                 headers=headers,
                 json=payload,
-                timeout=90
+                timeout=300
             )
 
             if r.status_code == 401:

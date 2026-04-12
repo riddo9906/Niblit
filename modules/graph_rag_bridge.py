@@ -399,7 +399,7 @@ class GraphRAGBridge:
     def _watch_worker(self) -> None:
         """Background thread: periodically re-runs _ingest_worker."""
         # Initial delay before first sync to allow the rest of init to settle
-        self._stop_event.wait(timeout=30.0)
+        self._stop_event.wait(timeout=300.0)
         while not self._stop_event.is_set():
             try:
                 added = self._ingest_worker()

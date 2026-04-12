@@ -154,9 +154,9 @@ class PhasedResearchEngine:
     """
 
     # Phase timeout budgets in seconds
-    PHASE1_TIMEOUT: float = 45.0
-    PHASE2_TIMEOUT: float = 45.0
-    PHASE3_TIMEOUT: float = 30.0
+    PHASE1_TIMEOUT: float = 300.0
+    PHASE2_TIMEOUT: float = 300.0
+    PHASE3_TIMEOUT: float = 300.0
 
     # Minimum snippet length to be worth storing
     MIN_SNIPPET_LEN: int = 30

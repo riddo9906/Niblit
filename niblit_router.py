@@ -4080,7 +4080,7 @@ Ask me about:
 
         t = threading.Thread(target=_do_quick_research, daemon=True)
         t.start()
-        t.join(timeout=20)
+        t.join(timeout=300)
 
         # ── 3. Store & respond if we got results ──────────────────────────────
         if quick_results:

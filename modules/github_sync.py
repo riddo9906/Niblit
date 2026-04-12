@@ -115,7 +115,7 @@ class GitHubSync:
                 cwd=str(self.repo_path),
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=300,
             )
             stdout = (result.stdout or "").strip()
             stderr = (result.stderr or "").strip()

@@ -27,7 +27,7 @@ from typing import Any, Dict, Optional
 log = logging.getLogger("CodeCompiler")
 
 # Default execution timeout (seconds)
-DEFAULT_TIMEOUT: int = 10
+DEFAULT_TIMEOUT: int = 300
 
 # Language → interpreter command
 _RUNNERS: Dict[str, str] = {
@@ -329,7 +329,7 @@ class CodeCompiler:
                 ["bash", "-n", tmp_path],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=300,
             )
             if result.returncode != 0:
                 return (result.stderr or "bash syntax error").strip()
@@ -361,7 +361,7 @@ class CodeCompiler:
                 ["node", "--check", tmp_path],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=300,
             )
             if result.returncode != 0:
                 return (result.stderr or "javascript syntax error").strip()
@@ -384,7 +384,7 @@ class CodeCompiler:
             result = subprocess.run(
                 ["which", runner],
                 capture_output=True,
-                timeout=5,
+                timeout=300,
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError):

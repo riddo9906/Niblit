@@ -826,7 +826,7 @@ def register_flask_routes(app: Any) -> None:
             try:
                 while True:
                     try:
-                        data = q.get(timeout=30)
+                        data = q.get(timeout=300)
                         yield f"data: {data}\n\n"
                     except Empty:
                         # Heartbeat keep-alive
@@ -920,7 +920,7 @@ def register_fastapi_routes(app: Any) -> None:
             try:
                 while True:
                     try:
-                        data = q.get(timeout=30)
+                        data = q.get(timeout=300)
                         yield f"data: {data}\n\n"
                     except Empty:
                         yield ": heartbeat\n\n"

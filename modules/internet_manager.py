@@ -45,7 +45,7 @@ HEADERS = {
 
 
 class InternetManager:
-    def __init__(self, db=None, llm_adapter=None, timeout=10, serpex_api_key=None,
+    def __init__(self, db=None, llm_adapter=None, timeout=300, serpex_api_key=None,
                  semantic_agent=None, searchcode_search=None, serpapi_api_key=None):
         self.db = db
         self.llm = llm_adapter
