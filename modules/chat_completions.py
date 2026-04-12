@@ -225,6 +225,25 @@ class ChatCompletions:
             self._persist(question, response)
 
         latency_ms = (time.monotonic() - t0) * 1000
+
+        # Emit the conversation turn to SyncEngine so all devices share history
+        try:
+            from modules.sync_engine import get_sync_engine, SyncArtifact
+            get_sync_engine().queue_artifact(SyncArtifact(
+                type="chat_turn",
+                content={
+                    "question": question[:300],
+                    "response": response[:300] if response else "",
+                    "tier_used": tier_used,
+                    "conversation_id": conversation_id,
+                    "latency_ms": round(latency_ms, 1),
+                },
+                priority=0.5,
+                source="local",
+            ))
+        except Exception:
+            pass
+
         return CompletionResult(
             response=response,
             sources=sources,

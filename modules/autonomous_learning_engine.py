@@ -205,7 +205,7 @@ class AutonomousLearningEngine:
                  semantic_agent=None,
                  claude_engine=None,
                  builds_integrator=None,
-                 step_timeout=120,
+                 step_timeout=600,
                  hybrid_manager=None,
                  self_monitor=None,
                  kernel=None,
@@ -257,7 +257,7 @@ class AutonomousLearningEngine:
                                Provides NLP processing, binary inspection, JSONL data-structure
                                handling, and chat-session management.  Used by steps 21, 22, 23
                                and the new step 29 (BuildsIntegration).
-            step_timeout: Maximum seconds a single ALE step may run before being skipped (default 120)
+            step_timeout: Maximum seconds a single ALE step may run before being skipped (default 600)
             startup_delay: Seconds to wait after start() before running the first cycle (default
                            ``_DEFAULT_STARTUP_DELAY`` = 30).  Override via NIBLIT_ALE_STARTUP_DELAY
                            env var (set to 0 to disable).  This prevents ALE from issuing
@@ -1903,10 +1903,29 @@ class AutonomousLearningEngine:
                     tks.record_topic_researched(topic, facts_added=result.total_facts)
                 except Exception:
                     pass
-            return result.summary()
+            summary = result.summary()
+            # Emit a sync artifact so the learning event is unified across devices
+            self._emit_sync_artifact("ale_research", {
+                "topic": topic,
+                "summary": summary[:200],
+                "facts_added": getattr(result, "total_facts", 0),
+                "cycle": self._current_cycle,
+            }, priority=0.55)
+            return summary
         except Exception as exc:
             log.error("[PhasedResearch] research() failed: %s", exc)
             return f"[PhasedResearch error: {exc}]"
+
+    def _emit_sync_artifact(self, artifact_type: str, content: dict, priority: float = 0.5) -> None:
+        """Best-effort emit of a SyncArtifact to the process-wide SyncEngine."""
+        try:
+            from modules.sync_engine import get_sync_engine, SyncArtifact
+            se = get_sync_engine()
+            artifact = SyncArtifact(type=artifact_type, content=content,
+                                    priority=priority, source="local")
+            se.queue_artifact(artifact)
+        except Exception:
+            pass
 
     # ─────────────────────────────────────────────
     # UNIFIED RESEARCH (replaces separate SerpexResearch + Research steps)
@@ -3684,6 +3703,14 @@ class AutonomousLearningEngine:
                     "🎯 [COGNITION] %d goals queued for next cycle: %s",
                     goals_count, goal_topics,
                 )
+
+            # Emit cognition cycle event to SyncEngine for unified state
+            self._emit_sync_artifact("ale_cognition_cycle", {
+                "goals_count": goals_count,
+                "conclusion": conclusion,
+                "maintenance_ran": maintenance,
+                "cycle": self._current_cycle,
+            }, priority=0.5)
 
             return (
                 f"CognitionCycle: {goals_count} goals generated"
@@ -5474,7 +5501,7 @@ class AutonomousLearningEngine:
         # SerpAPI + Serpex + Qdrant, 45s) → Phase 3 (Code: GitHub, 30s, only
         # for code topics).  Each phase stores its results before the next
         # begins.  Total budget: 300s (phases) + 30s (ingest settle).
-        _research_step("PhasedResearch", self._phased_research, timeout=300)
+        _research_step("PhasedResearch", self._phased_research, timeout=1500)
 
         # ── Steps 2-7: Core learning loop ─────────────────────────────────
         _step("Ideas",          self._autonomous_idea_generation)
@@ -5482,9 +5509,9 @@ class AutonomousLearningEngine:
         _step("Implementation", self._autonomous_implementation)
         _step("Reflection",     self._autonomous_reflection)
         _step("SLSA",           self._autonomous_slsa_run)
-        # Evolve orchestrates 12 sequential sub-steps (each up to 60 s) so it
-        # legitimately needs more than the default 120 s step budget.
-        _step("Evolve",         self._autonomous_evolve_step, timeout=420)
+        # Evolve orchestrates 12 sequential sub-steps (each up to 300 s) so it
+        # legitimately needs more than the default 600 s step budget.
+        _step("Evolve",         self._autonomous_evolve_step, timeout=2100)
 
         log.info(
             "✅ [CYCLE #%d] Phase A done — phases B→C→D→E still pending before cycle restarts",
@@ -5500,8 +5527,8 @@ class AutonomousLearningEngine:
 
         # ── Steps 8-12: Programming-literacy loop ──────────────────────────
         # CodeResearch fans out to Serpex, internet, GitHub, and researcher in
-        # series — needs more headroom than the default 120 s.
-        _step("CodeResearch",    self._autonomous_code_research, timeout=240)
+        # series — needs more headroom than the default 600 s.
+        _step("CodeResearch",    self._autonomous_code_research, timeout=1200)
         _step("CodeGeneration",  self._autonomous_code_generation)
         _step("CodeCompilation", self._autonomous_code_compilation)
         _research_step("CodeReflection",  self._autonomous_code_reflection)
@@ -5557,7 +5584,7 @@ class AutonomousLearningEngine:
         # ── Step 18: ImprovementCycle — throttled every 3 cycles ──────────
         # Runs 10 sub-modules in series; allow extra time to avoid false timeouts.
         if cycle % self._IMPROVEMENT_CYCLE_EVERY == 0:
-            _step("ImprovementCycle", self._autonomous_improvement_cycle, timeout=360)
+            _step("ImprovementCycle", self._autonomous_improvement_cycle, timeout=1800)
         else:
             log.debug("[AUTONOMOUS CYCLE] ImprovementCycle skipped (cycle %d/%d)", cycle, self._IMPROVEMENT_CYCLE_EVERY)
 
@@ -5594,7 +5621,7 @@ class AutonomousLearningEngine:
         # ── Step 24: Brain training ───────────────────────────────────────
         # Training cycle + LLM training agent can both involve network calls;
         # give it extra headroom to avoid premature cancellation.
-        _step("BrainTraining", self._autonomous_brain_training, timeout=240)
+        _step("BrainTraining", self._autonomous_brain_training, timeout=1200)
 
         # ── Step 25: Cognitive enhancement ───────────────────────────────
         # Studied domains are stored in _cross_cycle_context by

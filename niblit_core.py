@@ -6819,7 +6819,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         slsa=getattr(self, "slsa_engine", None),
                         autonomous_engine=getattr(self, "autonomous_engine", None),
                         semantic_agent=getattr(self, "semantic_agent", None),
-                        sub_step_timeout=30,  # increased from 10 s — avoids premature skips
+                        sub_step_timeout=150,  # increased from 30 s — avoids premature skips
                     )
                     # Back-wire autonomous_engine → evolve_engine once both are available
                     if self.autonomous_engine and not self.autonomous_engine.evolve_engine:

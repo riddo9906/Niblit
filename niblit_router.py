@@ -204,6 +204,11 @@ class ChatDetector:
             match = re.search(pattern, lower)
             if match:
                 subject = lower[match.end():].strip().rstrip('?').strip()
+                # Strip leading articles so the subject is a clean noun phrase
+                for art in ("a ", "an ", "the "):
+                    if subject.startswith(art):
+                        subject = subject[len(art):]
+                        break
                 return 'info_query', subject
 
         # Default to general conversation
@@ -3775,6 +3780,45 @@ Ask me about:
             if not top:
                 return None
 
+            # ── Topic-relevance guard ──────────────────────────────────────────
+            # For definition queries (e.g. "what is a human") the keyword list
+            # contains only short, common words (e.g. ["human"]).  A fact about
+            # AI that merely mentions "human intelligence" in its body scores 2
+            # and would be returned — producing a completely wrong answer.
+            #
+            # Guard: when all keywords are single short words (definition-style
+            # query) prefer facts where the extracted topic appears in the KEY.
+            # If none of the top facts have the topic in their key, discard
+            # the value-body-only matches (score == 2) and only keep key/
+            # value-head matches (score >= 4) to avoid false positives.
+            _lm_guard = getattr(self.core, "language_module", None)
+            if _lm_guard and all(len(kw) <= 12 for kw in keywords):
+                try:
+                    _q_type = _lm_guard.detect_question_type(query)
+                    if _q_type == "definition":
+                        _topic = _lm_guard.extract_topic(query)
+                        _topic_lc = (_topic or "").lower().strip()
+                        # Check if any top fact has the exact topic in its key
+                        _has_key_match = any(
+                            _topic_lc and _topic_lc in str(f.get("key", "")).lower()
+                            for f in top if isinstance(f, dict)
+                        )
+                        if not _has_key_match:
+                            # Require score >= 4 (topic in key) to avoid
+                            # returning off-topic facts that merely mention the
+                            # keyword word somewhere in their body.
+                            top_strict = [f for f, s in scored_pairs if s >= 4][:4]
+                            if top_strict:
+                                top = top_strict
+                            else:
+                                # No on-topic fact at all — let gap learning handle it
+                                return None
+                except Exception:
+                    pass
+
+            if not top:
+                return None
+
             # Surface topic_knowledge ledger entries first — they are the single
             # authoritative digest per topic and should appear before raw research
             # fragments or timestamped teach summaries.
@@ -3782,6 +3826,7 @@ Ask me about:
                 return isinstance(f, dict) and str(f.get("key", "")).startswith("topic_knowledge:")
 
             top = sorted(top, key=lambda f: (0 if _is_ledger(f) else 1))
+
 
             # ── Priority 3: LanguageModule post-processing of raw KB data ──
             # Before emitting raw JSON/metadata bullets, run the top facts
