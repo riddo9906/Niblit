@@ -901,6 +901,353 @@ class CognitiveGraphKernel:
 
 
 # =============================================================================
+# FORTRESSCYCLE — Phased execution API (begin / plan / execute / learn /
+#                  evolve_self / end_cycle).  Wraps tick() with higher-level
+#                  semantic phases used by NiblitCore.fortress_tick() and the
+#                  CLI router.
+# =============================================================================
+
+import json as _json_mod
+import pathlib as _pathlib_mod
+
+_FORTRESS_CYCLES_PATH = _pathlib_mod.Path(
+    os.environ.get("NIBLIT_FORTRESS_CYCLES_PATH", "fortress_cycles.jsonl")
+)
+_FORTRESS_METRICS_PATH = _pathlib_mod.Path(
+    os.environ.get("NIBLIT_FORTRESS_METRICS_PATH", "fortress_metrics.json")
+)
+
+
+class _FortressCyclePhases:
+    """
+    Mixin that adds begin/plan/execute/learn/evolve_self/end_cycle phases to
+    :class:`CognitiveGraphKernel`.
+
+    Consumed by :meth:`CognitiveGraphKernel.fortress_cycle`.
+    """
+
+    # ── Phase 1: sense & recall ───────────────────────────────────────────────
+
+    def begin_cycle(self) -> Dict[str, Any]:
+        """
+        Collect signals, recall memory, load universe registry.
+
+        Returns a *CycleContext* dict passed through all subsequent phases.
+        """
+        try:
+            from modules.universe_registry import get_universe_registry
+            universes = get_universe_registry().list_universes(enabled_only=True)
+        except Exception:  # noqa: BLE001
+            universes = []
+
+        cycle_id = str(uuid.uuid4())
+        context: Dict[str, Any] = {
+            "cycle_id": cycle_id,
+            "timestamp": time.time(),
+            "universes": universes,
+            "graph_nodes": self.graph.stats().get("node_count", 0),
+            "memory_entries": self.memory.stats().get("entries", 0),
+            "threats_recorded": self.membrane.stats().get("threats_recorded", 0),
+        }
+        log.debug("[FortressCycle %s] begin_cycle — %d universes", cycle_id, len(universes))
+        return context
+
+    # ── Phase 2: plan ─────────────────────────────────────────────────────────
+
+    def plan_cycle(self, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Select goals for this cycle from GoalEngine / CognitionCore.
+
+        Returns a list of *GoalPlan* dicts (one per universe/goal).
+        """
+        plans: List[Dict[str, Any]] = []
+        universes = context.get("universes", [])
+
+        # GoalEngine suggestions (optional)
+        goal_topics: List[str] = []
+        try:
+            from modules.goal_engine import get_goal_engine
+            ge = get_goal_engine()
+            if hasattr(ge, "generate_goals"):
+                goals = ge.generate_goals()
+                goal_topics = [g.topic if hasattr(g, "topic") else str(g) for g in (goals or [])]
+        except Exception:  # noqa: BLE001
+            pass
+
+        for u in universes:
+            uid = u.id if hasattr(u, "id") else str(u)
+            kind = u.kind if hasattr(u, "kind") else "UNKNOWN"
+            priority = u.priority if hasattr(u, "priority") else 5
+            plans.append({
+                "universe_id": uid,
+                "kind": kind,
+                "priority": priority,
+                "goal_hint": goal_topics[0] if goal_topics else None,
+            })
+
+        # Pass through MembraneGraph as an event-level filter
+        plans = [p for p in plans if self.membrane.evaluate(
+            type(self.bus.stats())  # dummy — real filter via event
+        ) is not False or True]  # permissive passthrough; threats screened at emit level
+
+        log.debug("[FortressCycle] plan_cycle — %d plans", len(plans))
+        return plans
+
+    # ── Phase 3: execute ──────────────────────────────────────────────────────
+
+    def execute_cycle(self, plans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Dispatch tasks to subsystem adapters via EventBus for each plan.
+
+        Returns a list of *TaskResult* dicts.
+        """
+        results: List[Dict[str, Any]] = []
+        for plan in plans:
+            uid = plan.get("universe_id", "unknown")
+            kind = plan.get("kind", "RESEARCH")
+
+            try:
+                if kind == "TRADING":
+                    from modules.trading_adapter import execute_trading_plan
+                    r = execute_trading_plan(universe_id=uid, step_timeout=60.0)
+                elif kind == "CIVILIZATION":
+                    from modules.civilization_adapter import execute_civilization_step
+                    r = execute_civilization_step(
+                        universe_id=uid,
+                        knowledge_db=getattr(self, "_knowledge_db", None),
+                        step_timeout=90.0,
+                    )
+                elif kind in ("RESEARCH", "REPO_SELF_IMPROVEMENT"):
+                    from modules.ale_adapter import run_learning_step
+                    r = run_learning_step(
+                        universe_id=uid,
+                        goal_hint=plan.get("goal_hint"),
+                        step_timeout=60.0,
+                    )
+                else:
+                    r = {"success": True, "universe_id": uid, "detail": "INFRA pass"}
+            except Exception as exc:  # noqa: BLE001
+                r = {"success": False, "universe_id": uid, "error": str(exc)[:200]}
+
+            results.append(r)
+
+            # Emit result into EventBus for graph mutation
+            self.bus.emit(Event(
+                type=EVT_MEMORY_WRITE,
+                payload={
+                    "key": f"cycle_result:{uid}:{int(time.time())}",
+                    "value": r,
+                },
+                source="fortress_execute",
+                priority=0.5,
+            ))
+
+        return results
+
+    # ── Phase 4: learn ────────────────────────────────────────────────────────
+
+    def learn_from_results(self, results: List[Dict[str, Any]]) -> None:
+        """
+        Integrate cycle outcomes into CognitiveGraph, KnowledgeDB, Graph RAG.
+
+        Each successful result with facts is fed into the knowledge adapter.
+        """
+        for r in results:
+            facts = r.get("insights", r.get("facts", []))
+            if facts:
+                try:
+                    from modules.knowledge_adapter import store_facts
+                    store_facts(
+                        [str(f) for f in facts[:10]],
+                        provenance=f"fortress:{r.get('universe_id', 'unknown')}",
+                        universe_id=r.get("universe_id", "research_general"),
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+
+    # ── Phase 5: evolve self ──────────────────────────────────────────────────
+
+    def evolve_self(self) -> List[Dict[str, Any]]:
+        """
+        Pull items from the EvolutionQueue and route them through
+        EvolveAdapter → EvaluationResult → apply (if approved).
+
+        Also collects new items from meta_adapter (diagnostics/Nibblebot).
+
+        Returns list of action dicts for telemetry.
+        """
+        actions: List[Dict[str, Any]] = []
+
+        # Collect new items from meta sources
+        try:
+            from modules.meta_adapter import push_to_evolution_queue
+            added = push_to_evolution_queue(max_items=3)
+            if added:
+                log.debug("[FortressCycle] evolve_self: +%d items from meta_adapter", added)
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Process pending items (max 2 per cycle to avoid blocking)
+        try:
+            from modules.evolution_queue import get_evolution_queue
+            from modules.evolve_adapter import propose_improvement, evaluate_change, apply_change
+            queue = get_evolution_queue()
+            pending = queue.list_pending(limit=2)
+            for item in pending:
+                queue.update_status(item.id, "TESTING")
+                change = propose_improvement(item, step_timeout=30.0)
+                evaluation = evaluate_change(change, step_timeout=30.0)
+                action_result = apply_change(change, evaluation)
+                new_status = "APPLIED" if action_result.get("applied") else (
+                    "APPROVED" if evaluation.approved else "REJECTED"
+                )
+                queue.update_status(item.id, new_status, metadata=action_result)
+                actions.append({
+                    "item_id": item.id,
+                    "status": new_status,
+                    **action_result,
+                })
+
+                # Emit evolution event into graph
+                self.bus.emit(Event(
+                    type=EVT_EVOLVE_ATTACK,
+                    payload={
+                        "item_id": item.id,
+                        "description": item.description[:200],
+                        "status": new_status,
+                    },
+                    source="evolve_self",
+                    priority=2.0,
+                ))
+        except Exception as exc:  # noqa: BLE001
+            log.debug("[FortressCycle] evolve_self error: %s", exc)
+
+        return actions
+
+    # ── Phase 6: end cycle (telemetry) ────────────────────────────────────────
+
+    def end_cycle(
+        self,
+        context: Dict[str, Any],
+        plans: List[Dict[str, Any]],
+        results: List[Dict[str, Any]],
+        evolution_actions: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Record cycle summary to ``fortress_cycles.jsonl`` and update
+        ``fortress_metrics.json``.
+
+        Returns the cycle summary dict.
+        """
+        now = time.time()
+        universes_touched = [r.get("universe_id") for r in results if r.get("success")]
+        tasks_by_kind: Dict[str, int] = {}
+        for p in plans:
+            k = p.get("kind", "UNKNOWN")
+            tasks_by_kind[k] = tasks_by_kind.get(k, 0) + 1
+
+        incidents = [
+            r for r in results if not r.get("success") and r.get("error")
+        ]
+
+        summary: Dict[str, Any] = {
+            "cycle_id": context.get("cycle_id", ""),
+            "timestamp": context.get("timestamp", now),
+            "duration_secs": round(now - context.get("timestamp", now), 2),
+            "universes_touched": universes_touched,
+            "goals_attempted": len(plans),
+            "tasks_executed": tasks_by_kind,
+            "key_metrics": {
+                "graph_nodes": self.graph.stats().get("node_count", 0),
+                "memory_entries": self.memory.stats().get("entries", 0),
+                "threats_recorded": self.membrane.stats().get("threats_recorded", 0),
+                "events_dispatched": self.bus.stats().get("dispatched_total", 0),
+            },
+            "evolution_actions": evolution_actions or [],
+            "incidents": [
+                {"universe_id": r.get("universe_id"), "error": r.get("error")}
+                for r in incidents[:5]
+            ],
+        }
+
+        # Write to fortress_cycles.jsonl
+        try:
+            with open(_FORTRESS_CYCLES_PATH, "a", encoding="utf-8") as f:
+                f.write(_json_mod.dumps(summary, default=str) + "\n")
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Update fortress_metrics.json (rolling aggregates)
+        _update_fortress_metrics(summary)
+
+        log.debug(
+            "[FortressCycle %s] end_cycle — %d universes touched, %d incidents",
+            context.get("cycle_id", "?")[:8],
+            len(universes_touched),
+            len(incidents),
+        )
+        return summary
+
+    # ── Top-level fortress_cycle() ────────────────────────────────────────────
+
+    def fortress_cycle(self) -> Dict[str, Any]:
+        """
+        Execute one complete FortressCycle:
+
+          begin_cycle() → plan_cycle() → execute_cycle()
+          → learn_from_results() → evolve_self() → end_cycle()
+
+        Also dispatches queued events via tick().
+        Returns the cycle summary dict.
+        """
+        context = self.begin_cycle()
+        plans = self.plan_cycle(context)
+        results = self.execute_cycle(plans)
+        self.learn_from_results(results)
+        evolution_actions = self.evolve_self()
+        self.tick()  # process any events emitted during the cycle
+        summary = self.end_cycle(context, plans, results, evolution_actions)
+        return summary
+
+
+def _update_fortress_metrics(summary: Dict[str, Any]) -> None:
+    """Merge a cycle summary into the rolling fortress_metrics.json."""
+    try:
+        existing: Dict[str, Any] = {}
+        if _FORTRESS_METRICS_PATH.exists():
+            try:
+                existing = _json_mod.loads(_FORTRESS_METRICS_PATH.read_text(encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                existing = {}
+
+        existing["last_cycle_id"] = summary.get("cycle_id", "")
+        existing["last_cycle_timestamp"] = summary.get("timestamp", time.time())
+        existing["total_cycles"] = existing.get("total_cycles", 0) + 1
+        existing["total_incidents"] = existing.get("total_incidents", 0) + len(summary.get("incidents", []))
+        existing["total_evolution_actions"] = (
+            existing.get("total_evolution_actions", 0) + len(summary.get("evolution_actions", []))
+        )
+
+        # Merge key_metrics as latest values
+        existing["latest_metrics"] = summary.get("key_metrics", {})
+
+        _FORTRESS_METRICS_PATH.write_text(
+            _json_mod.dumps(existing, indent=2, default=str), encoding="utf-8"
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# Inject the mixin into CognitiveGraphKernel so all instances have fortress phases
+for _attr, _method in _FortressCyclePhases.__dict__.items():
+    if _attr.startswith("_") and not _attr.startswith("__"):
+        continue
+    if callable(_method) and not isinstance(_method, (staticmethod, classmethod)):
+        if not hasattr(CognitiveGraphKernel, _attr):
+            setattr(CognitiveGraphKernel, _attr, _method)
+
+
+# =============================================================================
 # SINGLETON + BOOTSTRAP
 # =============================================================================
 

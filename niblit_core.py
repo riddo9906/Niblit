@@ -9325,6 +9325,29 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.debug("[NiblitCore] fused list_all_tasks failed: %s", exc)
         return []
 
+    def fortress_tick(self) -> Dict[str, Any]:
+        """
+        Execute one complete FortressCycle via the CognitiveGraphKernel.
+
+        Initialises the kernel on first call if not already done.
+        Returns the cycle summary dict.
+        """
+        if self.cognitive_graph_kernel is None:
+            try:
+                from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
+                self.cognitive_graph_kernel = get_cognitive_graph_kernel(
+                    membrane=getattr(self, "cyber_membrane", None),
+                    knowledge_db=getattr(self, "db", None),
+                )
+            except Exception as _exc:
+                return {"error": str(_exc), "success": False}
+        try:
+            return self.cognitive_graph_kernel.fortress_cycle()
+        except AttributeError:
+            # Older kernel build without fortress_cycle — fall back to plain tick
+            n = self.cognitive_graph_kernel.tick()
+            return {"success": True, "events_processed": n}
+
     def shutdown(self, timeout_seconds: Optional[float] = None):
         """Gracefully shutdown NiblitCore and all services."""
         # pylint: disable=too-many-branches

@@ -1985,6 +1985,170 @@ Ask me about:
         except Exception as exc:
             return f"[cgk] CognitiveGraphKernel not available: {exc}"
 
+    # ── Fortress Cycle handler (additive) ────────────────────────────────────
+
+    def _handle_fortress(self, cmd: str) -> str:
+        """Route 'fortress ...' commands to the FortressCycle / CognitiveGraphKernel."""
+        import json as _json
+        lower = cmd.strip().lower()
+        sub = lower[len("fortress"):].strip() if lower.startswith("fortress") else lower
+
+        try:
+            from modules.niblit_cognitive_graph_kernel import get_cognitive_graph_kernel
+            kernel = get_cognitive_graph_kernel(
+                knowledge_db=getattr(self.core, "db", None) if self.core else None,
+            )
+
+            if sub in ("", "status"):
+                from modules.universe_registry import get_universe_registry
+                from modules.evolution_queue import get_evolution_queue
+                data = {
+                    "kernel": kernel.status(),
+                    "universes": get_universe_registry().stats(),
+                    "evolution_queue": get_evolution_queue().stats(),
+                }
+                return _json.dumps(data, indent=2, default=str)
+
+            if sub == "tick":
+                if self.core is not None:
+                    summary = self.core.fortress_tick()
+                else:
+                    summary = kernel.fortress_cycle()
+                return _json.dumps(summary, indent=2, default=str)
+
+            if sub.startswith("run"):
+                parts = sub.split()
+                n = 3
+                if len(parts) > 1 and parts[1].isdigit():
+                    n = min(int(parts[1]), 20)
+                results = []
+                for _ in range(n):
+                    s = kernel.fortress_cycle()
+                    results.append({"cycle_id": s.get("cycle_id", "")[:8],
+                                    "universes": len(s.get("universes_touched", [])),
+                                    "incidents": len(s.get("incidents", []))})
+                return _json.dumps(results, indent=2, default=str)
+
+            if sub == "last-cycle":
+                import pathlib
+                p = pathlib.Path("fortress_cycles.jsonl")
+                if not p.exists():
+                    return "[fortress] No cycle records yet. Run 'fortress tick' first."
+                lines = p.read_text(encoding="utf-8").splitlines()
+                last = next((l for l in reversed(lines) if l.strip()), None)
+                return last or "[fortress] Empty cycle log."
+
+            if sub == "problems":
+                import pathlib
+                p = pathlib.Path("fortress_cycles.jsonl")
+                if not p.exists():
+                    return "[fortress] No cycle records yet."
+                incidents = []
+                lines = p.read_text(encoding="utf-8").splitlines()
+                for line in lines[-20:]:
+                    try:
+                        obj = _json.loads(line)
+                        incidents.extend(obj.get("incidents", []))
+                    except Exception:
+                        pass
+                return _json.dumps(incidents[-10:], indent=2, default=str) if incidents else "No recent incidents."
+
+            if sub == "metrics":
+                import pathlib
+                p = pathlib.Path("fortress_metrics.json")
+                if not p.exists():
+                    return "[fortress] No metrics yet. Run 'fortress tick' first."
+                return p.read_text(encoding="utf-8")
+
+            return (
+                "Fortress Cycle commands:\n"
+                "  fortress status         — kernel + universe + evolution queue status\n"
+                "  fortress tick           — run one FortressCycle\n"
+                "  fortress run [N]        — run N FortressCycles (default 3)\n"
+                "  fortress last-cycle     — show last recorded cycle summary\n"
+                "  fortress problems       — show recent incidents\n"
+                "  fortress metrics        — show rolling fortress_metrics.json"
+            )
+        except Exception as exc:
+            return f"[fortress] FortressCycle not available: {exc}"
+
+    # ── Universe Registry handler (additive) ──────────────────────────────────
+
+    def _handle_universe(self, cmd: str) -> str:
+        """Route 'universe ...' commands to the UniverseRegistry."""
+        import json as _json
+        lower = cmd.strip().lower()
+        sub = lower[len("universe"):].strip() if lower.startswith("universe") else lower
+
+        try:
+            from modules.universe_registry import get_universe_registry
+            registry = get_universe_registry()
+
+            if sub in ("", "list"):
+                return _json.dumps(registry.to_dict(), indent=2, default=str)
+
+            if sub.startswith("describe ") or sub.startswith("get "):
+                uid = sub.split(None, 1)[1].strip()
+                u = registry.get_universe(uid)
+                if u is None:
+                    return f"[universe] Unknown universe id: {uid}"
+                from dataclasses import asdict
+                return _json.dumps(asdict(u), indent=2, default=str)
+
+            if sub == "stats":
+                return _json.dumps(registry.stats(), indent=2, default=str)
+
+            return (
+                "Universe commands:\n"
+                "  universe list               — list all enabled universes\n"
+                "  universe describe <id>       — describe a specific universe\n"
+                "  universe stats               — registry summary"
+            )
+        except Exception as exc:
+            return f"[universe] UniverseRegistry not available: {exc}"
+
+    # ── Evolution Queue handler (additive) ────────────────────────────────────
+
+    def _handle_evolution_queue(self, cmd: str) -> str:
+        """Route 'evq ...' / 'evolution-queue ...' commands to the EvolutionQueue."""
+        import json as _json
+        lower = cmd.strip().lower()
+        for prefix in ("evolution-queue", "evo-queue", "evq"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = lower
+
+        try:
+            from modules.evolution_queue import get_evolution_queue
+            queue = get_evolution_queue()
+
+            if sub in ("", "status", "stats"):
+                return _json.dumps(queue.stats(), indent=2, default=str)
+
+            if sub in ("pending", "list-pending"):
+                items = queue.list_pending(limit=20)
+                return _json.dumps([i.to_dict() for i in items], indent=2, default=str)
+
+            if sub.startswith("list"):
+                parts = sub.split()
+                status_filter = parts[1] if len(parts) > 1 else None
+                items = queue.list_all(
+                    status=status_filter,  # type: ignore[arg-type]
+                    limit=30,
+                )
+                return _json.dumps([i.to_dict() for i in items], indent=2, default=str)
+
+            return (
+                "Evolution Queue commands:\n"
+                "  evq status              — queue stats\n"
+                "  evq pending             — list pending proposals\n"
+                "  evq list [STATUS]       — list all items (optional: PROPOSED|APPLIED|REJECTED)"
+            )
+        except Exception as exc:
+            return f"[evq] EvolutionQueue not available: {exc}"
+
     # ── EnvStateManager handler (additive) ───────────────────────────────────
 
     def _handle_env_state(self, cmd: str) -> str:
@@ -5029,6 +5193,20 @@ Ask me about:
                 lower.startswith("cgk ") or lower.startswith("cognitive-graph ") or
                 lower.startswith("cognitivegraph ")):
             return self._handle_cognitive_graph_kernel(cmd)
+
+        # FORTRESS CYCLE — unified FortressCycle via CognitiveGraphKernel (additive)
+        if (lower in ("fortress",) or lower.startswith("fortress ")):
+            return self._handle_fortress(cmd)
+
+        # UNIVERSE REGISTRY — manage universes (additive)
+        if lower in ("universe", "universes") or lower.startswith("universe "):
+            return self._handle_universe(cmd)
+
+        # EVOLUTION QUEUE — manage evolution proposals (additive)
+        if lower in ("evolution-queue", "evo-queue", "evq") or \
+                lower.startswith("evolution-queue ") or lower.startswith("evo-queue ") or \
+                lower.startswith("evq "):
+            return self._handle_evolution_queue(cmd)
 
         # CROSS-ENVIRONMENT STATE MANAGER (additive)
         if lower in ("env-state", "envstate") or \
