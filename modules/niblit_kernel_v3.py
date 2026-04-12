@@ -1144,6 +1144,22 @@ class NiblitCognitiveKernelV3:
         else:
             result.response = result.thought[:200]
 
+        # ── Phase 3b: BrainRouter augmentation ───────────────────────────────
+        # If the local response is weak/empty, ask BrainRouter to produce or
+        # improve the answer.  This gives the kernel access to Qwen local brain
+        # and cloud escalation without duplicating the routing logic here.
+        if not result.response or result.response.startswith("No strong"):
+            try:
+                from modules.brain_router import get_brain_router
+                _br = get_brain_router()
+                _kv3_ctx = result.thought[:400] if result.thought else ""
+                _br_resp = _br.route(text, context=_kv3_ctx)
+                if _br_resp and isinstance(_br_resp, str) and len(_br_resp) > 5:
+                    result.response = _br_resp
+            except Exception as _br_kv3_err:
+                log.debug("[KernelV3] BrainRouter augmentation skipped: %s", _br_kv3_err)
+        # ─────────────────────────────────────────────────────────────────────
+
         # ── Phase 4: v3 multi-agent orchestration ─────────────────────────────
         trace_id = str(uuid.uuid4())[:8]
         if use_agents:

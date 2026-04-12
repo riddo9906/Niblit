@@ -1909,7 +1909,7 @@ class AutonomousLearningEngine:
                 "topic": topic,
                 "summary": summary[:200],
                 "facts_added": getattr(result, "total_facts", 0),
-                "cycle": self._current_cycle,
+                "cycle": self._cycle_count,
             }, priority=0.55)
             return summary
         except Exception as exc:
@@ -3709,7 +3709,7 @@ class AutonomousLearningEngine:
                 "goals_count": goals_count,
                 "conclusion": conclusion,
                 "maintenance_ran": maintenance,
-                "cycle": self._current_cycle,
+                "cycle": self._cycle_count,
             }, priority=0.5)
 
             return (
@@ -5488,6 +5488,35 @@ class AutonomousLearningEngine:
         # Apply cross-cycle outputs from Phase C + E of the previous cycle
         # BEFORE running Step 1 so the research queue is already enriched.
         _apply_cross_cycle_context()
+
+        # ── MSG Layer pre-cycle hook ───────────────────────────────────────
+        # Runs before any research step so strategic intent, resource
+        # allocation, and meta-evaluation signals are available to all phases.
+        def _msg_pre_cycle() -> str:
+            try:
+                from modules.meta_cognition import get_msg_layer
+                msg = get_msg_layer()
+                meta_scores = msg.meta_evaluator.scores()
+                msg.intent_engine.tick(cycle, meta_scores=meta_scores)
+                msg.resource_allocator.rebalance(
+                    meta_scores=meta_scores,
+                    intent_budget=msg.intent_engine.current_intent().get(
+                        "resource_budget", 0.2),
+                )
+                msg.pre_cycle(cycle, self._current_cycle_topic or "")
+                # If the intent engine suggests a topic, prioritise it
+                hint = msg.intent_engine.research_topic_hint(
+                    msg.self_model.weaknesses(3)
+                )
+                if hint:
+                    self.add_research_topic(hint, priority=True)
+                    log.info("[MSG] Intent hint → priority topic: %r", hint)
+                return "MSG pre-cycle complete"
+            except Exception as _msg_err:
+                log.debug("[MSG] pre_cycle hook error: %s", _msg_err)
+                return f"[MSG skipped: {_msg_err}]"
+
+        _step("MSGPreCycle", _msg_pre_cycle)
 
         # ── Step 0 — Tiered knowledge research ────────────────────────────
         # Always runs first so Niblit progresses through Foundation → Basic →

@@ -91,25 +91,30 @@ prometheus-client>=0.19.0
 # • datasets      : HuggingFace Dataset / DatasetDict for training data
 # • evaluate      : LLM evaluation metrics (perplexity, BLEU, ROUGE)
 #
-# All are optional — LLMArchitectEngine degrades to BrainTrainer-based
-# in-context learning when these packages are absent.
+# ── Local Qwen2.5 Brain (Niblit primary brain — CPU-friendly 0.5B model) ─────
+# Required for QwenLocalBrain (modules/local_brain.py).
+# Install on Termux / proot-distro Ubuntu (Python 3.10):
+#   pip install transformers accelerate sentencepiece safetensors
+transformers>=4.40.0
+accelerate>=0.29.0
+sentencepiece>=0.2.0
+safetensors>=0.4.3
+# torch is needed for local inference; install the CPU wheel for Termux/proot:
+#   pip install torch  (or the ARM wheel from pytorch.org)
+# Uncomment if not already installed:
+# torch>=2.1.0
 #
-# Uncomment the block below to enable full local fine-tuning:
-# transformers>=4.40.0
+# Optional fine-tuning stack — uncomment to enable full local fine-tuning:
 # trl>=0.8.6
 # peft>=0.10.0
 # bitsandbytes>=0.43.0
-# accelerate>=0.29.0
 # datasets>=2.18.0
 # evaluate>=0.4.1
 # einops>=0.7.0
-# safetensors>=0.4.3
 
 # ── LLM Tokenizer Training (domain-specific BPE tokenizer for Niblit) ────────
-# sentencepiece: Google's BPE/unigram tokenizer — train on Niblit's own KB text
 # tiktoken: OpenAI's fast BPE tokenizer — used for token-count estimation
 # Uncomment to enable:
-# sentencepiece>=0.2.0
 # tiktoken>=0.6.0
 
 # ── Trading AI — Transformer Market Models ───────────────────────────────────

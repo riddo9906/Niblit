@@ -796,6 +796,58 @@ class NiblitBrain:
         except Exception as _e:
             log.debug("[BRAIN] LLMProviderManager unavailable: %s", _e)
 
+        # ─────── LOCAL BRAIN (Qwen2.5-0.5B) ───────
+        # Primary brain when toggle-llm is off or NIBLIT_BRAIN_MODE=local/offline.
+        # Lazy-loaded on first use so startup is not blocked by model download.
+        self.local_brain = None
+        try:
+            from modules.local_brain import get_local_brain
+            self.local_brain = get_local_brain()
+            log.info("[BRAIN] QwenLocalBrain registered (lazy load on first use)")
+        except Exception as _lb_e:
+            log.debug("[BRAIN] QwenLocalBrain unavailable: %s", _lb_e)
+
+        # ─────── BRAIN ROUTER ───────
+        # Wraps local + cloud brains behind an intelligent routing policy.
+        # Cloud callable: try LLMProviderManager, fall back to HFBrain direct.
+        self.brain_router = None
+        try:
+            from modules.brain_router import get_brain_router, reset_brain_router
+            reset_brain_router()  # ensure singleton is re-wired with current brains
+
+            _pm  = self.llm_provider_manager
+            _hfb = self.hf_brain
+
+            def _cloud_fn(p: str) -> str:
+                if _pm:
+                    try:
+                        return _pm.ask(p) or ""
+                    except Exception:
+                        pass
+                if _hfb:
+                    try:
+                        return _hfb.ask_single(p) or ""
+                    except Exception:
+                        pass
+                return ""
+
+            def _memory_fn(q: str) -> str:
+                try:
+                    from modules.graph_rag import get_graph_rag_pipeline
+                    res = get_graph_rag_pipeline().query(q, top_k=3)
+                    return res.get("context", "") or res.get("system_prompt", "")
+                except Exception:
+                    return ""
+
+            self.brain_router = get_brain_router(
+                local_brain=self.local_brain,
+                cloud_brain=_cloud_fn,
+                memory_retriever=_memory_fn,
+            )
+            log.info("[BRAIN] BrainRouter initialised (mode=%s)", self.brain_router.mode)
+        except Exception as _br_e:
+            log.debug("[BRAIN] BrainRouter init failed: %s", _br_e)
+
     def get_tools(self):
         """
         Return a list of GPT tool definition dicts for all registered tool functions.
@@ -1229,8 +1281,25 @@ class NiblitBrain:
             # ─────────────────────────────────────────────────────────────────
 
             if not self.llm_enabled:
-                log.debug("LLM disabled, trying academic knowledge fallback")
-                # Try AcademicStudyModule / LanguageModule before giving up
+                log.debug("[BRAIN] toggle-llm off — routing through local brain first")
+                # ── 1. Qwen local brain (primary when LLM is toggled off) ──────
+                if getattr(self, "brain_router", None):
+                    try:
+                        _lb_resp = self.brain_router._local_first(user_input, context=context)
+                        if _lb_resp and not _lb_resp.startswith("[LocalBrain unavailable"):
+                            _exit_stack.close()
+                            return _lb_resp
+                    except Exception as _lb_err:
+                        log.debug("[BRAIN] LocalBrain via router failed: %s", _lb_err)
+                elif getattr(self, "local_brain", None) and self.local_brain.is_available():
+                    try:
+                        _lb_direct = self.local_brain.ask(user_input, context=context)
+                        if _lb_direct and not _lb_direct.startswith("[LocalBrain unavailable"):
+                            _exit_stack.close()
+                            return _lb_direct
+                    except Exception as _lbd_err:
+                        log.debug("[BRAIN] LocalBrain direct failed: %s", _lbd_err)
+                # ── 2. Academic / language module ─────────────────────────────
                 try:
                     from modules.academic_study_module import get_academic_study_module
                     _asm_b = get_academic_study_module()
@@ -1240,11 +1309,11 @@ class NiblitBrain:
                         return _asm_answer
                 except Exception as _asm_err:
                     log.debug("[BRAIN] AcademicStudy fallback failed: %s", _asm_err)
-                # Kernel v3 local reasoning fallback (no LLM required)
+                # ── 3. Kernel v3 local reasoning (no LLM required) ────────────
                 if _kv3_response and not _kv3_response.startswith("No strong"):
                     _exit_stack.close()
                     return _kv3_response
-                # If Graph-RAG context was assembled, distil it into a response
+                # ── 4. Language module on assembled context ────────────────────
                 if context.strip():
                     try:
                         from modules.language_module import get_language_module
@@ -1257,38 +1326,56 @@ class NiblitBrain:
                     except Exception:
                         pass
                 _exit_stack.close()
-                return f"[LLM disabled] '{user_input}'"
+                return f"[Local brain: Qwen not yet loaded — run 'brain status'] '{user_input}'"
 
             response = None
 
-            # ── ChatCompletions engine: preferred response path ───────────────
+            # ── BrainRouter: intelligent multi-brain routing ──────────────────
+            # Replaces the direct LLMProviderManager call with a routed strategy
+            # that picks the best intelligence source (local/memory/cloud/hybrid)
+            # based on prompt complexity and the active NIBLIT_BRAIN_MODE.
+            # The context already assembled above (SECA/RAG/Graph-RAG) is passed
+            # as the memory context so the router can use it for local calls.
+            _extra_context_stripped = context.strip()
+            if getattr(self, "brain_router", None):
+                try:
+                    _br_response = self.brain_router.route(
+                        user_input,
+                        context=_extra_context_stripped,
+                    )
+                    if _br_response and isinstance(_br_response, str) and \
+                            not _br_response.startswith("[LocalBrain unavailable") and \
+                            not _br_response.startswith("[LocalBrain error"):
+                        response = _br_response
+                        log.debug("[BRAIN] BrainRouter response (mode=%s)",
+                                  self.brain_router.mode)
+                except Exception as _br_err:
+                    log.debug("[BRAIN] BrainRouter.route failed: %s", _br_err)
+
+            # ── ChatCompletions engine: preferred cloud response path ─────────
             # Uses GraphRAGPipeline + LLMChatMemory + LLMProviderManager in one
             # unified call so conversation history and tiered knowledge are
-            # always injected together.  The extra context already assembled
-            # above (SECA, RAG) is prepended to the question so it is still
-            # available to the LLM.
-            _extra_context_stripped = context.strip()
-            try:
-                from modules.chat_completions import get_chat_completions
-                _cc = get_chat_completions(
-                    llm_provider_manager=self.llm_provider_manager,
-                )
-                # Prepend any accumulated context (SECA/RAG/Graph-RAG) to the
-                # question so the completions engine sees everything.
-                _question_with_ctx = (
-                    _extra_context_stripped + "\n\n" + user_input
-                    if _extra_context_stripped
-                    else user_input
-                )
-                _cc_result = _cc.complete(_question_with_ctx, persist=True)
-                if _cc_result.response and not _cc_result.response.startswith("("):
-                    response = _cc_result.response
-                    log.debug(
-                        "[BRAIN] ChatCompletions response via tier=%s sources=%s",
-                        _cc_result.tier_used, _cc_result.sources,
+            # always injected together.
+            if not response:
+                try:
+                    from modules.chat_completions import get_chat_completions
+                    _cc = get_chat_completions(
+                        llm_provider_manager=self.llm_provider_manager,
                     )
-            except Exception as _cc_err:
-                log.debug("[BRAIN] ChatCompletions skipped: %s", _cc_err)
+                    _question_with_ctx = (
+                        _extra_context_stripped + "\n\n" + user_input
+                        if _extra_context_stripped
+                        else user_input
+                    )
+                    _cc_result = _cc.complete(_question_with_ctx, persist=True)
+                    if _cc_result.response and not _cc_result.response.startswith("("):
+                        response = _cc_result.response
+                        log.debug(
+                            "[BRAIN] ChatCompletions response via tier=%s sources=%s",
+                            _cc_result.tier_used, _cc_result.sources,
+                        )
+                except Exception as _cc_err:
+                    log.debug("[BRAIN] ChatCompletions skipped: %s", _cc_err)
 
             # Route through LLMProviderManager (HF primary → Anthropic fallback)
             if not response and self.llm_provider_manager:
@@ -1551,6 +1638,12 @@ class NiblitBrain:
 
         if hasattr(self, 'learning_batcher') and self.learning_batcher:
             stats["learning_batcher"] = self.learning_batcher.get_stats()
+
+        if getattr(self, "local_brain", None):
+            stats["local_brain"] = self.local_brain.status()
+
+        if getattr(self, "brain_router", None):
+            stats["brain_router"] = self.brain_router.stats()
 
         return stats
 

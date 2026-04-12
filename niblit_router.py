@@ -2971,6 +2971,193 @@ Ask me about:
             return safe_call(lambda: self.core._cmd_ale(stripped))
         return "[ale] ALECheckpointManager not available (core not initialised)"
 
+    def _handle_msg_layer(self, cmd: str) -> str:
+        """Route 'msg ...' / 'meta-cognition ...' commands to the MSG Layer.
+
+        Commands::
+
+            msg status            — full MSG Layer snapshot
+            msg self              — SelfModel: strengths, weaknesses, cycles
+            msg intent            — IntentEngine: current intent + queue
+            msg scores            — MetaEvaluator: subsystem scores
+            msg allocate          — ResourceAllocator: current allocation
+            msg plan              — EvolutionPlanner: pending & committed candidates
+            msg rebalance         — trigger resource rebalance now
+            msg weakest           — list weakest subsystems
+            msg observe <sub> <score>  — feed quality observation (0.0–1.0)
+            msg propose <desc>    — add an evolution candidate
+        """
+        import json as _json
+        lower = cmd.strip().lower()
+        for prefix in ("meta-cognition", "msg-layer", "msg"):
+            if lower.startswith(prefix):
+                lower = lower[len(prefix):].lstrip()
+                cmd = cmd.strip()[len(prefix):].lstrip()
+                break
+
+        try:
+            from modules.meta_cognition import get_msg_layer
+            msg = get_msg_layer()
+        except Exception as exc:
+            return f"[MSG] Layer not available: {exc}"
+
+        sub = lower.strip()
+
+        if not sub or sub == "status":
+            snap = msg.status()
+            return "[MSG] Status:\n" + _json.dumps(snap, indent=2, default=str)
+
+        if sub == "self":
+            snap = msg.self_model.snapshot()
+            lines = [
+                "[MSG] SelfModel Snapshot",
+                f"  Cycles tracked : {snap['cycle_count']}",
+                f"  Active domains : {snap['active_domains']}",
+                f"  Strengths      : {msg.self_model.strengths(5)}",
+                f"  Weaknesses     : {msg.self_model.weaknesses(5)}",
+            ]
+            return "\n".join(lines)
+
+        if sub == "intent":
+            snap = msg.intent_engine.snapshot()
+            cur = snap.get("current") or {}
+            lines = [
+                "[MSG] IntentEngine",
+                f"  Current intent : {cur.get('label', '—')}",
+                f"  Goal           : {cur.get('goal', '—')}",
+                f"  Priority       : {cur.get('priority', '—')}",
+                f"  Time horizon   : {cur.get('time_horizon', '—')}",
+                f"  Resource budget: {cur.get('resource_budget', '—')}",
+                f"  Active intents : {snap['active_intents']}",
+            ]
+            return "\n".join(lines)
+
+        if sub == "scores":
+            scores = msg.meta_evaluator.scores()
+            lines = ["[MSG] MetaEvaluator — Subsystem Scores:"]
+            for name, score in sorted(scores.items(), key=lambda x: x[1]):
+                bar = "█" * int(score * 20) + "░" * (20 - int(score * 20))
+                lines.append(f"  {name:<14} {bar} {score:.3f}")
+            lines.append(f"\n  Weakest  : {msg.meta_evaluator.weakest(3)}")
+            lines.append(f"  Strongest: {msg.meta_evaluator.strongest(3)}")
+            return "\n".join(lines)
+
+        if sub == "allocate":
+            alloc = msg.resource_allocator.get_allocation()
+            lines = ["[MSG] ResourceAllocator — Current Allocation:"]
+            for bucket, pct in sorted(alloc.items(), key=lambda x: x[1], reverse=True):
+                bar = "█" * int(pct * 40) + "░" * (40 - int(pct * 40))
+                lines.append(f"  {bucket:<16} {bar} {pct:.1%}")
+            return "\n".join(lines)
+
+        if sub == "plan":
+            snap = msg.evolution_planner.snapshot()
+            lines = [
+                "[MSG] EvolutionPlanner",
+                f"  Pending candidates : {snap['pending_candidates']}",
+                f"  Committed total    : {snap['committed_total']}",
+                f"  Avg historical gain: {snap['avg_historical_gain']}",
+                "  Recent committed:",
+            ]
+            for c in snap.get("recent_committed", []):
+                lines.append(f"    [{c['status']}] {c['description'][:60]} "
+                             f"(gain={c['expected_gain']:.2f})")
+            return "\n".join(lines)
+
+        if sub == "rebalance":
+            scores = msg.meta_evaluator.scores()
+            msg.resource_allocator.rebalance(meta_scores=scores)
+            alloc = msg.resource_allocator.get_allocation()
+            return "[MSG] Rebalanced. New allocation: " + str(
+                {k: f"{v:.0%}" for k, v in alloc.items()}
+            )
+
+        if sub == "weakest":
+            weakest = msg.meta_evaluator.weakest(5)
+            return "[MSG] Weakest subsystems: " + ", ".join(weakest)
+
+        if sub.startswith("observe "):
+            parts = sub.split()
+            if len(parts) >= 3:
+                subsystem = parts[1]
+                try:
+                    score = float(parts[2])
+                    msg.meta_evaluator.observe(subsystem, score)
+                    return f"[MSG] Observation recorded: {subsystem}={score:.3f}"
+                except ValueError:
+                    pass
+            return "[MSG] Usage: msg observe <subsystem> <score>"
+
+        if sub.startswith("propose "):
+            desc = cmd[len("propose "):].strip()
+            if not desc:
+                return "[MSG] Usage: msg propose <description>"
+            candidate = msg.evolution_planner.propose(
+                description=desc,
+                expected_gain=0.1,
+                risk=0.1,
+            )
+            return f"[MSG] Evolution candidate proposed: id={candidate.id}"
+
+        return (
+            "[MSG] Unknown sub-command. Available: status | self | intent | "
+            "scores | allocate | plan | rebalance | weakest | "
+            "observe <sub> <score> | propose <desc>"
+        )
+
+    def _handle_brain(self, cmd: str) -> str:
+        """Handle 'brain [status|mode <m>]' commands — Hybrid Brain Architecture.
+
+        Usage::
+
+            brain                    # show status
+            brain status             # show status
+            brain mode local         # route all prompts to Qwen local brain
+            brain mode balanced      # smart routing (default)
+            brain mode power         # hybrid always (local draft + cloud refine)
+            brain mode offline       # no cloud calls at all
+        """
+        import json
+        lower = cmd.strip().lower()
+        # Strip prefix
+        for prefix in ("brain-mode", "brain mode", "brain-status", "brain status", "brain"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = ""
+
+        try:
+            from modules.brain_router import get_brain_router
+            br = get_brain_router()
+        except Exception as _br_err:
+            return f"BrainRouter unavailable: {_br_err}"
+
+        if sub.startswith("mode "):
+            _new_mode = sub[len("mode "):].strip()
+            try:
+                br.set_mode(_new_mode)
+                return f"🧠 BrainRouter mode → {_new_mode}"
+            except ValueError as _ve:
+                return f"❌ {_ve}"
+
+        # status (default)
+        lb = getattr(self.core, "local_brain", None)
+        lb_info = lb.status() if lb else {}
+        st = br.stats()
+        lines = [
+            "🧠 Hybrid Brain Architecture",
+            f"  Mode          : {st['mode']}",
+            f"  Local Brain   : {'✅ loaded' if lb_info.get('loaded') else '⏳ pending (lazy load)'}",
+            f"  Local model   : {lb_info.get('model_name', 'Qwen/Qwen2.5-0.5B-Instruct')}",
+            f"  Cloud brain   : {'✅ available' if st['cloud_available'] else '❌ unavailable'}",
+            f"  Routing stats : {json.dumps(st.get('routing_counts', {}))}",
+            f"  Routing %     : {json.dumps(st.get('routing_pct', {}))}",
+        ]
+        if lb_info.get("load_error"):
+            lines.append(f"  Load error    : {lb_info['load_error']}")
+        return "\n".join(lines)
+
     def _handle_self_monitor(self, text: str) -> str:
         """Handle 'self-monitor <sub>' commands."""
         sub = text[len("self-monitor"):].strip()
@@ -5278,6 +5465,17 @@ Ask me about:
         # HYBRID-SEARCH — multi-model vector search (additive)
         if lower == "hybrid-search" or lower.startswith("hybrid-search "):
             return self._handle_hybrid_qdrant(cmd)
+
+        # MSG LAYER — Meta-Cognitive Self-Governance (additive)
+        if lower in ("msg", "meta-cognition", "msg-layer") or \
+                lower.startswith("msg ") or lower.startswith("meta-cognition ") or \
+                lower.startswith("msg-layer "):
+            return self._handle_msg_layer(cmd)
+
+        # BRAIN — Hybrid Brain Architecture status + mode control (additive)
+        if lower in ("brain", "brain status", "brain-status") or \
+                lower.startswith("brain mode ") or lower.startswith("brain-mode "):
+            return self._handle_brain(cmd)
 
         # KERNEL — NiblitKernel cognitive dashboard (additive)
         if lower == "kernel" or lower.startswith("kernel "):
