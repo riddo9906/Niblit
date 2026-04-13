@@ -44,7 +44,7 @@ let package = Package(
         // Cross-platform SHA-256 (CryptoKit on Apple, swift-crypto on Linux)
         .package(
             url: "https://github.com/apple/swift-crypto",
-            from: "3.0.0"
+            from: "4.3.1"
         ),
     ],
     targets: [
