@@ -68,7 +68,7 @@ scraping = [
     "scrapy>=2.15.0",
 ]
 mcp = [
-    "mcp>=1.0.0",
+    "mcp>=1.27.0",
 ]
 
 [project.urls]
