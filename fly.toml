@@ -1,80 +1,23 @@
-# fly.toml — Niblit Fly.io deployment configuration
-# ──────────────────────────────────────────────────────────────────────────────
-# Deploy with:   fly deploy
-# Logs:          fly logs
-# Shell:         fly ssh console
-# Volumes:       fly volumes list
-# Secrets:       fly secrets set HF_TOKEN=<your-token>
-# ──────────────────────────────────────────────────────────────────────────────
+# fly.toml app configuration file generated for niblit-9hm41w on 2026-04-13T21:34:40Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app            = "niblit"
-primary_region = "lax"          # Los Angeles — change to your preferred region
-kill_signal    = "SIGTERM"
-kill_timeout   = 60             # 60 s for Niblit's daemon threads to wind down
+app = 'niblit-9hm41w'
+primary_region = 'iad'
 
-# ── Swap: helps avoid OOM on memory spikes (e.g. sentence-transformers load) ──
-swap_size_mb = 512
-
-# ── Build ─────────────────────────────────────────────────────────────────────
 [build]
-  dockerfile = "Dockerfile"
 
-# ── Deploy strategy ───────────────────────────────────────────────────────────
-[deploy]
-  strategy = "rolling"
-
-# ── Persistent Volume ─────────────────────────────────────────────────────────
-# Free tier includes up to 3 GB of persistent volume storage.
-# All runtime state files (memory, DB, LEAN workspace, etc.) land here so they
-# survive restarts and new deploys.
-# IMPORTANT: Create the volume BEFORE first deploy:
-#   fly volumes create niblit_data --size 3 --region lax
-[mounts]
-  source      = "niblit_data"
-  destination = "/data"
-
-# ── Environment variables ─────────────────────────────────────────────────────
-# Non-sensitive configuration only.  Use `fly secrets set KEY=VALUE` for tokens.
-[env]
-  APP_ENV             = "production"
-  PORT                = "8080"
-  PYTHON_VERSION      = "3.12"
-
-  # ── Persistent storage paths (all land on /data) ──────────────────────────
-  NIBLIT_MEMORY_PATH    = "/data/niblit_memory.json"
-  NIBLIT_DB_PATH        = "/data/niblit.db"
-  FUSED_MEMORY_DB_PATH  = "/data/niblit_fused.sqlite"
-  ALE_CHECKPOINT_PATH   = "/data/ale_state.json"
-  NIBLIT_GAME_LOG_PATH  = "/data/niblit_game_log.jsonl"
-  NIBLIT_GAME_STATE_PATH= "/data/niblit_game_state.json"
-  LEAN_WORKSPACE        = "/data/lean_workspace"
-
-  # ── OANDA environment (change to 'live' only after thorough paper testing) ─
-  OANDA_ENVIRONMENT   = "practice"
-  ALPACA_PAPER        = "true"
-
-# ── HTTP service ──────────────────────────────────────────────────────────────
 [http_service]
-  internal_port       = 8080
-  force_https         = true
-  auto_stop_machines  = false   # Keep alive — Niblit has background daemon threads
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
-  processes           = ["web"] # Must match the process name defined in [processes]
+  min_machines_running = 0
+  processes = ['app']
 
-  [http_service.concurrency]
-    type       = "requests"
-    hard_limit = 50
-    soft_limit = 25
-
-# ── Health checks ─────────────────────────────────────────────────────────────
 [[vm]]
-  size   = "shared-cpu-1x"   # 256 MB base RAM; overridden to 512 MB below
-  memory = "512mb"           # Upgrade to 1024mb if loading sentence-transformers
-
-# ── Process ───────────────────────────────────────────────────────────────────
-# Uvicorn serves Niblit's FastAPI app on $PORT.
-# Worker count is kept at 1 because Niblit uses in-process singleton state
-# (NiblitMemory, ALE, TradingBrain, etc.) that must NOT be forked.
-[processes]
-  web = "uvicorn app:app --host 0.0.0.0 --port 8080 --workers 1 --log-level info"
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024
