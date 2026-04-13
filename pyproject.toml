@@ -54,8 +54,8 @@ dev = [
     "ruff>=0.4.0",
     "black>=26.3.1",
     "mypy>=1.7.0",
-    "pylint>=3.0.0",
-    "pre-commit>=4.5.1",
+    "pylint>=4.0.5",
+    "pre-commit>=3.5.0",
 ]
 trading = [
     "python-binance>=1.0.36",
