@@ -5965,7 +5965,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         checks: list = []
 
         def _ok(name: str) -> None:
-            checks.append(("✅", name))
+            checks.append(("✅ ", name))
 
         def _warn(name: str, detail: str = "") -> None:
             checks.append(("⚠️ ", f"{name}" + (f" ({detail})" if detail else "")))
@@ -6009,11 +6009,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
             _ok("CognitiveGraphKernel (graph reasoning)")
 
         warnings = [c for c in checks if c[0].startswith("⚠️")]
-        ready = [c for c in checks if c[0] == "✅"]
+        ready = [c for c in checks if c[0].startswith("✅")]
 
         lines = ["🔗 Unified feedback-loop verification:"]
         for icon, name in checks:
-            lines.append(f"   {icon} {name}")
+            lines.append(f"   {icon}{name}")
 
         if warnings:
             lines.append(

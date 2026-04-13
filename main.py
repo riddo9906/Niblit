@@ -338,7 +338,7 @@ def _cmd_show_notifications(core=None, io=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# LONG-RESPONSE PAGING (Enhancement 5 — long response chunking)
+# LONG-RESPONSE PAGING (long response chunking)
 # Responses longer than RESPONSE_PAGE_SIZE characters are automatically split
 # into pages so the user can scroll through them at their own pace.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -404,24 +404,32 @@ def _record_notifications(msgs: "list[str]") -> None:
         del _notif_history[: len(_notif_history) - NOTIF_HISTORY_LIMIT]
 
 
+NOTIF_DISPLAY_LIMIT = 50  # how many recent notifications to show in 'notifications history'
+
+
 def _cmd_notifications_history() -> str:
     """Return a human-readable replay of the notification history."""
     if not _notif_history:
         return "Notification history is empty."
     lines = ["📋 Notification history (most recent last):"]
-    for idx, m in enumerate(_notif_history[-50:], 1):  # show last 50
+    for idx, m in enumerate(_notif_history[-NOTIF_DISPLAY_LIMIT:], 1):
         lines.append(f"  {idx:3}. {m}")
-    if len(_notif_history) > 50:
-        lines.append(f"  … and {len(_notif_history) - 50} earlier entries (total {len(_notif_history)})")
+    if len(_notif_history) > NOTIF_DISPLAY_LIMIT:
+        lines.append(
+            f"  … and {len(_notif_history) - NOTIF_DISPLAY_LIMIT} earlier entries "
+            f"(total {len(_notif_history)})"
+        )
     return "\n".join(lines)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SESSION SUMMARY (Enhancement 5 — session summary/export)
+# SESSION SUMMARY (session summary/export)
 # ─────────────────────────────────────────────────────────────────────────────
 
 _session_history: "list[tuple[str, str]]" = []  # [(user_input, niblit_response)]
-SESSION_START = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# SESSION_START is set when run_shell() opens so the timestamp reflects when the
+# interactive session actually began rather than when the module was imported.
+SESSION_START: str = ""
 
 
 def _record_exchange(user_input: str, response: str) -> None:
@@ -455,8 +463,9 @@ def _cmd_session_summary(export_path: str = "") -> str:
 # COMMAND SHELL
 # ─────────────────────────────
 def run_shell(core, io):
-    global DEBUG_MODE, _active_core
+    global DEBUG_MODE, _active_core, SESSION_START
     _active_core = core  # expose to signal handlers
+    SESSION_START = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     io.out(f"{timestamp()} READY\n")
 
