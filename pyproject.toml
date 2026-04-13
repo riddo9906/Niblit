@@ -65,7 +65,7 @@ trading = [
     "ccxt>=4.3.0",
 ]
 scraping = [
-    "scrapy>=2.11.0",
+    "scrapy>=2.15.0",
 ]
 mcp = [
     "mcp>=1.0.0",
