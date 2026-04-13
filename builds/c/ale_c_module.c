@@ -1,5 +1,9 @@
 /*
- * ale_c_memory_safety_and_ownership — memory safety and ownership: 
+ * ale_c_systems_programming_and_pointers — systems programming and pointers: Learn in this tutorial about
+---
+Learn everything about
+---
+are a fundamental concept in
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,5 +21,9 @@ int main(int argc, char *argv[]) {
 }
 
 void run(void) {
-    printf("ale_c_memory_safety_and_ownership: memory safety and ownership: \n");
+    printf("ale_c_systems_programming_and_pointers: systems programming and pointers: Learn in this tutorial about
+---
+Learn everything about
+---
+are a fundamental concept in\n");
 }
