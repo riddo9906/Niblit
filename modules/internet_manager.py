@@ -2,9 +2,69 @@
 # modules/internet_manager.py
 
 import os
+import json
+import logging
 import requests
 import re
 import html
+
+log = logging.getLogger(__name__)
+
+# ── SerpAPI monthly search quota ─────────────────────────────────────────────
+SERPAPI_MONTHLY_LIMIT: int = 250
+# Counter state is persisted in this file (same directory as this module)
+_SERPAPI_COUNTER_FILE = os.path.join(os.path.dirname(__file__), "serpapi_usage.json")
+
+
+def _load_serpapi_counter() -> dict:
+    """Load the SerpAPI usage counter from disk, or return a fresh record."""
+    try:
+        with open(_SERPAPI_COUNTER_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_serpapi_counter(data: dict) -> None:
+    """Persist the SerpAPI usage counter to disk."""
+    try:
+        with open(_SERPAPI_COUNTER_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except OSError as exc:
+        log.warning("serpapi_counter: could not save usage file: %s", exc)
+
+
+def _get_current_month_key() -> str:
+    """Return a YYYY-MM string for the current calendar month."""
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def _serpapi_check_and_increment() -> bool:
+    """Return True and increment the counter if below the monthly limit.
+
+    Returns False (without incrementing) when the limit has been reached,
+    and resets the counter automatically when the calendar month changes.
+    """
+    month_key = _get_current_month_key()
+    data = _load_serpapi_counter()
+    # Reset counter on a new month
+    if data.get("month") != month_key:
+        data = {"month": month_key, "count": 0}
+    count = data.get("count", 0)
+    if count >= SERPAPI_MONTHLY_LIMIT:
+        log.warning(
+            "serpapi_counter: monthly limit of %d searches reached for %s — "
+            "SerpAPI calls are disabled until next month.",
+            SERPAPI_MONTHLY_LIMIT,
+            month_key,
+        )
+        return False
+    data["count"] = count + 1
+    _save_serpapi_counter(data)
+    return True
+
+
 try:
     from bs4 import BeautifulSoup  # for extracting text from HTML
     BS4_AVAILABLE = True
@@ -172,6 +232,9 @@ class InternetManager:
             or an empty list on failure / missing key / package not installed.
         """
         if not SERPAPI_ENABLED or not self.serpapi_api_key:
+            return []
+
+        if not _serpapi_check_and_increment():
             return []
 
         try:
