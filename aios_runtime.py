@@ -134,6 +134,8 @@ class AIOSRuntime:
         self.security_hardening: Optional[Any] = None
         self.security_membrane: Optional[Any] = None
         self.layer_registry: Optional[Any] = None
+        # MSG — Meta-Self-Governance (top-level feedback control)
+        self.msg_layer: Optional[Any] = None
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -210,6 +212,7 @@ class AIOSRuntime:
             "security_hardening_available": self.security_hardening is not None,
             "security_membrane_available": self.security_membrane is not None,
             "layer_registry_available": self.layer_registry is not None,
+            "msg_layer_available": self.msg_layer is not None,
         }
 
     # ── Phase implementations ─────────────────────────────────────────────────
@@ -322,13 +325,21 @@ class AIOSRuntime:
                 pass
 
     def _phase_5_learning(self) -> None:
-        """Phase 5 — LEARNING: start ALE / self-improvement engine."""
+        """Phase 5 — LEARNING: start ALE / self-improvement engine and MSG layer."""
         try:
             from modules.autonomous_learning_engine import get_autonomous_learning_engine
             self.ale = get_autonomous_learning_engine()
             log.debug("AIOSRuntime[5/LEARNING]: ALE ready")
         except Exception as exc:
             log.debug("AIOSRuntime[5/LEARNING]: ALE unavailable — %s", exc)
+
+        # MSG — Meta-Self-Governance layer: governs the unified feedback loop
+        try:
+            from modules.meta_cognition import get_msg_layer
+            self.msg_layer = get_msg_layer()
+            log.debug("AIOSRuntime[5/LEARNING]: MSGLayer ready")
+        except Exception as exc:
+            log.debug("AIOSRuntime[5/LEARNING]: MSGLayer unavailable — %s", exc)
 
         if self.scheduler is not None:
             try:

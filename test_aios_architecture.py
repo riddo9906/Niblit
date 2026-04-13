@@ -38,7 +38,8 @@ class TestAIOSLayerRegistry:
         from modules.aios_layer_registry import ALL_LAYERS, LAYER_APP, LAYER_INT
         from modules.aios_layer_registry import LAYER_LRN, LAYER_MEM, LAYER_NET
         from modules.aios_layer_registry import LAYER_SEC, LAYER_KRN, LAYER_HAL
-        expected = {LAYER_APP, LAYER_INT, LAYER_LRN, LAYER_MEM,
+        from modules.aios_layer_registry import LAYER_MSG
+        expected = {LAYER_MSG, LAYER_APP, LAYER_INT, LAYER_LRN, LAYER_MEM,
                     LAYER_NET, LAYER_SEC, LAYER_KRN, LAYER_HAL}
         assert expected == set(ALL_LAYERS)
 
@@ -122,7 +123,7 @@ class TestAIOSLayerRegistry:
     def test_status_dict_shape(self):
         reg = self._fresh()
         s = reg.status()
-        assert s["total_layers"] == 8
+        assert s["total_layers"] == 9
         assert "total_components" in s
         assert "layer_counts" in s
 
@@ -140,12 +141,33 @@ class TestAIOSLayerRegistry:
         mock_runtime.brain = None
         mock_runtime.ale = None
         mock_runtime.router = None
+        mock_runtime.core = None
+        mock_runtime.msg_layer = None
         mock_runtime.security_hardening = MagicMock()
         mock_runtime.security_membrane = None
-        mock_runtime.core = None
         reg.cross_wire(mock_runtime)
         # Only security_hardening should be registered
         assert reg.get(LAYER_SEC, "security_hardening") is not None
+
+    def test_cross_wire_registers_msg_layer(self):
+        """cross_wire should register an MSGLayer instance under LAYER_MSG."""
+        from modules.aios_layer_registry import LAYER_MSG
+        reg = self._fresh()
+        mock_runtime = MagicMock()
+        mock_runtime.hal = None
+        mock_runtime.kernel = None
+        mock_runtime.niblit_runtime = None
+        mock_runtime.scheduler = None
+        mock_runtime.memory = None
+        mock_runtime.brain = None
+        mock_runtime.ale = None
+        mock_runtime.router = None
+        mock_runtime.core = None
+        mock_runtime.security_hardening = None
+        mock_runtime.security_membrane = None
+        mock_runtime.msg_layer = MagicMock()
+        reg.cross_wire(mock_runtime)
+        assert reg.get(LAYER_MSG, "msg_layer") is not None
 
     def test_singleton_returns_same_instance(self):
         from modules.aios_layer_registry import get_aios_layer_registry
@@ -390,6 +412,12 @@ class TestAIOSRuntimeNewFields:
         assert hasattr(rt, "security_hardening")
         assert rt.security_hardening is None  # before boot
 
+    def test_runtime_has_msg_layer_attr(self):
+        from aios_runtime import AIOSRuntime
+        rt = AIOSRuntime()
+        assert hasattr(rt, "msg_layer")
+        assert rt.msg_layer is None  # before boot
+
     def test_runtime_has_security_membrane_attr(self):
         from aios_runtime import AIOSRuntime
         rt = AIOSRuntime()
@@ -409,7 +437,9 @@ class TestAIOSRuntimeNewFields:
         assert "security_hardening_available" in s
         assert "security_membrane_available" in s
         assert "layer_registry_available" in s
+        assert "msg_layer_available" in s
         assert s["security_hardening_available"] is False
+        assert s["msg_layer_available"] is False
 
     def test_phase_2_wires_security_hardening(self):
         """After _phase_2_bootloader(), security_hardening should be set."""
