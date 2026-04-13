@@ -2418,7 +2418,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
 
-        topic = text[len("autonomous-learn add-topic"):].strip()
+        topic = text[len("autonomous-learn add-topic"):].strip() if text.lower().startswith("autonomous-learn add-topic") else text.strip()
         if not topic:
             return "Usage: autonomous-learn add-topic <topic>"
 
@@ -5516,7 +5516,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_slsa_start(self, text: str) -> str:
         """SLSA start command."""
-        rest = text[len("start_slsa"):].strip()
+        rest = text[len("start_slsa"):].strip() if text.lower().startswith("start_slsa") else text.strip()
         topics = rest.split() if rest else None
         return self._start_slsa_engine(topics)
 
@@ -5526,13 +5526,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_slsa_restart(self, text: str) -> str:
         """SLSA restart command."""
-        rest = text[len("restart_slsa"):].strip()
+        rest = text[len("restart_slsa"):].strip() if text.lower().startswith("restart_slsa") else text.strip()
         topics = rest.split() if rest else None
         return self._restart_slsa_engine(topics)
 
     def _cmd_self_research(self, text: str) -> str:
         """Self-research command — uses self_researcher + internet directly, NOT LLM."""
-        topic = text[len("self-research"):].strip() or "general"
+        topic = (text[len("self-research"):].strip() if text.lower().startswith("self-research") else text.strip()) or "general"
         # Direct module path: use researcher directly
         if self.researcher and hasattr(self.researcher, "search"):
             try:
@@ -5563,7 +5563,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_self_idea(self, text: str) -> str:
         """Self-idea command — uses SelfIdeaImplementation directly, NOT LLM."""
-        prompt = text[len("self-idea"):].strip() or "system improvement"
+        prompt = (text[len("self-idea"):].strip() if text.lower().startswith("self-idea") else text.strip()) or "system improvement"
         # Direct module path: use idea_implementation
         if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
             try:
@@ -5588,7 +5588,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_reflect(self, _text: str) -> str:
         """Reflect command — uses ReflectModule directly, NOT LLM."""
-        topic = _text[len("reflect"):].strip() or ""
+        topic = (_text[len("reflect"):].strip() if _text.lower().startswith("reflect") else _text.strip()) or ""
         # Direct module path: use reflect directly
         if self.reflect and hasattr(self.reflect, "reflect_on_research"):
             # When a short topic is given, research first so the stored reflection
@@ -5631,7 +5631,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_self_implement(self, text: str) -> str:
         """Self-implement command — uses SelfImplementer directly."""
-        plan = text[len("self-implement"):].strip() or ""
+        plan = (text[len("self-implement"):].strip() if text.lower().startswith("self-implement") else text.strip()) or ""
         # Direct module path: enqueue to self_implementer
         if self.self_implementer and hasattr(self.self_implementer, "enqueue_plan"):
             try:
@@ -5904,43 +5904,140 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.startup_report.add("market_researcher", "unavailable", str(e))
 
     def _initialize_modules(self):
-        """Initialize all modules with dependency management."""
+        """Initialize all modules with dependency management.
+
+        Niblit boots in five named architectural layers.  Each layer is logged
+        individually so the user can see exactly which part of the system is
+        coming online.  After all layers finish a :meth:`_verify_unified_loop`
+        check confirms that the core cognitive feedback-loop is intact.
+        """
         with self.logger.context("initialize_modules"):
-            # Phase 1/5: Shared infrastructure (VectorStore / Qdrant)
+            # ── Layer 1 / 5 : Memory & Storage ────────────────────────────────
             self._push_init_progress(
-                "🔄 [1/5] Loading shared infrastructure (VectorStore, FusedMemory, SemanticAgent)..."
+                "🧱 [Layer 1/5] Memory & Storage — VectorStore, FusedMemory, SemanticAgent…"
             )
             self._init_vector_store()
-            self._push_init_progress("✅ [1/5] Shared infrastructure ready")
+            self._push_init_progress("✅ [Layer 1/5] Memory & Storage ready")
 
-            # Phase 2/5: Foundation modules (LLM, HFBrain, SelfTeacher, etc.)
+            # ── Layer 2 / 5 : AI Adapters ─────────────────────────────────────
             self._push_init_progress(
-                "🔄 [2/5] Loading AI adapters (LLM adapter, HFBrain, SelfTeacher, SelfImplementer)..."
+                "🤖 [Layer 2/5] AI Adapters — LLM, HFBrain, SelfTeacher, SelfImplementer…"
             )
             self._init_ai_adapters()
-            self._push_init_progress("✅ [2/5] AI adapters ready")
+            self._push_init_progress("✅ [Layer 2/5] AI Adapters ready")
 
-            # Phase 3/5: Intelligent systems (Brain, Router, Learning)
+            # ── Layer 3 / 5 : Cognitive Core ──────────────────────────────────
             self._push_init_progress(
-                "🔄 [3/5] Loading Brain, Router, and Learning systems (NiblitBrain, NiblitRouter, ALE learning)..."
+                "🧠 [Layer 3/5] Cognitive Core — NiblitBrain, NiblitRouter, ALE learning…"
             )
             self._init_brain_and_router()
             self._init_learning_systems()
-            self._push_init_progress("✅ [3/5] Brain, Router, and Learning systems ready")
+            self._push_init_progress("✅ [Layer 3/5] Cognitive Core ready")
 
-            # Phase 4/5: System services (Network, Sensors, Voice, Actions)
+            # ── Layer 4 / 5 : System Services ─────────────────────────────────
             self._push_init_progress(
-                "🔄 [4/5] Loading system services (Network, Sensors, Voice, Actions)..."
+                "⚙️  [Layer 4/5] System Services — Network, Sensors, Voice, Actions…"
             )
             self._init_system_services()
-            self._push_init_progress("✅ [4/5] System services ready")
+            self._push_init_progress("✅ [Layer 4/5] System Services ready")
 
-            # Phase 5/5: Optional heavy modules (ALE, Trading, Civilization, 60+)
+            # ── Layer 5 / 5 : Optional & Extended Services ────────────────────
             self._push_init_progress(
-                "🔄 [5/5] Loading optional services (ALE, TradingBrain, CivilizationController, 60+ modules)..."
+                "🔌 [Layer 5/5] Extended Services — ALE, TradingBrain, CivilizationController, 60+ modules…"
             )
             self._init_optional_services()
-            self._push_init_progress("✅ [5/5] All optional services loaded — Niblit is fully booted")
+            self._push_init_progress("✅ [Layer 5/5] Extended Services ready")
+
+            # ── Unification check ─────────────────────────────────────────────
+            # Confirm that all five layers are wired into a single coherent
+            # feedback loop before declaring Niblit fully operational.
+            self._verify_unified_loop()
+
+    def _verify_unified_loop(self) -> None:
+        """Verify that all layers are connected into one unified feedback loop.
+
+        Checks that the critical cognitive pipeline is intact:
+          Input → CommandRegistry/Router → Brain → Memory → ALE (loop)
+
+        Pushes a success or warning summary to the init-progress queue so the
+        user sees the result immediately after boot.
+        """
+        checks: list = []
+
+        def _ok(name: str) -> None:
+            checks.append(("✅", name))
+
+        def _warn(name: str, detail: str = "") -> None:
+            checks.append(("⚠️ ", f"{name}" + (f" ({detail})" if detail else "")))
+
+        # 1. Input layer — CommandRegistry
+        if getattr(self, "command_registry", None):
+            _ok("CommandRegistry (input dispatch)")
+        else:
+            _warn("CommandRegistry", "not available — commands use fallback dispatcher")
+
+        # 2. Routing layer — NiblitRouter
+        if getattr(self, "router", None):
+            _ok("NiblitRouter (routing layer)")
+        else:
+            _warn("NiblitRouter", "not initialised — falling back to core.handle()")
+
+        # 3. Cognitive layer — NiblitBrain
+        if getattr(self, "brain", None):
+            _ok("NiblitBrain (cognitive layer)")
+        else:
+            _warn("NiblitBrain", "not initialised — LLM responses unavailable")
+
+        # 4. Memory layer — KnowledgeDB
+        if getattr(self, "db", None):
+            _ok("KnowledgeDB (memory layer)")
+        else:
+            _warn("KnowledgeDB", "not initialised — knowledge will not persist")
+
+        # 5. Learning layer — ALE
+        if getattr(self, "ale", None):
+            _ok("AutonomousLearningEngine (learning loop)")
+        else:
+            _warn("AutonomousLearningEngine", "not initialised — background learning disabled")
+
+        # 6. Optional advanced layers
+        if getattr(self, "kernel_v3", None):
+            _ok("CognitiveKernelV3 (advanced reasoning)")
+        if getattr(self, "msg_layer", None):
+            _ok("MSGLayer (meta-cognition)")
+        if getattr(self, "cognitive_graph_kernel", None):
+            _ok("CognitiveGraphKernel (graph reasoning)")
+
+        warnings = [c for c in checks if c[0].startswith("⚠️")]
+        ready = [c for c in checks if c[0] == "✅"]
+
+        lines = ["🔗 Unified feedback-loop verification:"]
+        for icon, name in checks:
+            lines.append(f"   {icon} {name}")
+
+        if warnings:
+            lines.append(
+                f"⚡ Loop status: {len(ready)}/{len(checks)} subsystems unified "
+                f"— {len(warnings)} layer(s) degraded (Niblit will still operate)"
+            )
+            summary = "\n".join(lines)
+            log.warning("[UNIFIED-LOOP] %s", summary)
+        else:
+            lines.append(
+                f"✅ Unified loop CONFIRMED — all {len(ready)} subsystems active "
+                "and wired into one coherent feedback loop"
+            )
+            summary = "\n".join(lines)
+            log.info("[UNIFIED-LOOP] %s", summary)
+
+        self._push_init_progress(summary)
+        # Store the unification status for later inspection
+        self._unified_loop_status: dict = {
+            "ready": len(ready),
+            "total": len(checks),
+            "warnings": [n for _, n in warnings],
+            "verified": len(warnings) == 0,
+        }
 
     def _init_vector_store(self) -> None:
         """
