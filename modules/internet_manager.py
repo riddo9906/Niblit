@@ -29,15 +29,15 @@ def _save_serpapi_counter(data: dict) -> None:
     """Persist the SerpAPI usage counter to disk."""
     try:
         with open(_SERPAPI_COUNTER_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=2)
     except OSError as exc:
         log.warning("serpapi_counter: could not save usage file: %s", exc)
 
 
 def _get_current_month_key() -> str:
     """Return a YYYY-MM string for the current calendar month."""
-    from datetime import datetime
-    return datetime.utcnow().strftime("%Y-%m")
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).strftime("%Y-%m")
 
 
 def _serpapi_check_and_increment() -> bool:
