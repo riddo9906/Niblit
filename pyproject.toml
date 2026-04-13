@@ -59,7 +59,7 @@ dev = [
 ]
 trading = [
     "python-binance>=1.0.17",
-    "pandas>=2.0.0",
+    "pandas>=2.3.3",
     "ta>=0.11.0",
     "yfinance>=0.2.61",
     "ccxt>=4.3.0",
