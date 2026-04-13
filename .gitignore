@@ -62,3 +62,6 @@ niblit_deployment_bridge.json
 niblit_net_state.json
 .db
 .jsonl
+
+# Buildozer (Android build system)
+.buildozer/
