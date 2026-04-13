@@ -42,7 +42,7 @@ dependencies = [
     "huggingface-hub>=0.20.0",
     "qdrant-client>=1.7.0",
     "sentence-transformers>=2.2.2",
-    "numpy>=1.24.0",
+    "numpy>=1.26.4",
     "faiss-cpu>=1.7.4",
     "PyYAML>=6.0.0",
 ]
