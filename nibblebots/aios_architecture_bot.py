@@ -56,67 +56,93 @@ SKIP_DIRS = {
 }
 
 # ---------------------------------------------------------------------------
-# AIOS layer definitions — order matters for the diagram
+# AIOS layer definitions — order matters for the diagram (MSG on top)
 # ---------------------------------------------------------------------------
 LAYER_DEFS: List[Tuple[str, str, str]] = [
-    ("Application",   "APP", "User-facing interfaces, commands, routing"),
-    ("Intelligence",  "INT", "AI reasoning, LLMs, research, brain"),
-    ("Learning",      "LRN", "Continuous improvement, curriculum, ALE"),
-    ("Memory",        "MEM", "Persistent memory, vector store, knowledge DB"),
-    ("Network",       "NET", "Distributed mesh, inter-device comms"),
-    ("Security",      "SEC", "Auth, SLSA, encryption, permissions"),
-    ("Kernel",        "KRN", "Core runtime, process mgmt, resources"),
-    ("HAL",           "HAL", "Hardware abstraction — Swift, TS, Rust nodes"),
+    ("MSG",          "MSG", "Meta-Self-Governance — SelfModel · IntentEngine · MetaEvaluator · ResourceAllocator · EvolutionPlanner"),
+    ("Application",  "APP", "User-facing interfaces, commands, routing"),
+    ("Intelligence", "INT", "AI reasoning, LLMs, research, brain"),
+    ("Learning",     "LRN", "Continuous improvement, curriculum, ALE"),
+    ("Memory",       "MEM", "Persistent memory, vector store, knowledge DB"),
+    ("Network",      "NET", "Distributed mesh, inter-device comms"),
+    ("Security",     "SEC", "Auth, SLSA, encryption, permissions"),
+    ("Kernel",       "KRN", "Central EventBus backbone, runtime, lifecycle"),
+    ("HAL",          "HAL", "Hardware abstraction — Swift, TS, Rust nodes"),
 ]
 
 # Keyword → layer mapping used by the classifier
 _LAYER_KEYWORDS: Dict[str, List[str]] = {
+    "MSG": [
+        "meta_cognition", "meta-cognition", "metacognition", "self_model",
+        "intent_engine", "meta_evaluator", "resource_allocator",
+        "evolution_planner", "self_monitor", "self_improvement_orchestrator",
+        "gap_analyzer", "metrics_observability", "meta_adapter",
+        "monitoring_alerting", "self_governance", "msg_layer",
+    ],
     "Kernel": [
         "runtime", "kernel", "bootloader", "bios", "firmware",
         "orchestrator", "task_queue", "event_bus", "lifecycle",
         "module_loader", "workspace_init", "platform_bootstrap",
         "circuit_breaker", "resilience", "dependency_injection",
-        "safe_loader", "runtime_manager",
+        "safe_loader", "runtime_manager", "cognitive_graph_kernel",
+        "niblit_core_kernel", "aios_runtime", "aios_scheduler",
+        "structural_awareness", "background_jobs", "async_first",
+        "structured_logging", "module_autonomy", "niblit_kernel",
     ],
     "HAL": [
         "device_control", "device_manager", "device_mesh",
         "hardware_scanner", "termux", "env_adapter", "os_integration",
-        "terminal_tools", "binary_tools",
+        "terminal_tools", "binary_tools", "env_state",
+        "filesystem_manager", "universal_file_manager", "aios_hal",
     ],
     "Memory": [
         "memory", "vector_store", "knowledge_db", "knowledge_engine",
         "fused_memory", "sqlite", "storage", "db", "cache",
         "llm_chat_memory", "knowledge_digest", "knowledge_filter",
-        "knowledge_synthesizer", "ingestion",
+        "knowledge_synthesizer", "ingestion", "graph_rag",
+        "rag_pipeline", "tiered_knowledge", "multi_level_caching",
+        "hybrid_qdrant", "sqlite_researcher",
     ],
     "Intelligence": [
         "brain", "hf_brain", "llm", "openai", "anthropic",
         "reasoning", "prediction", "intent_parser", "reflect",
-        "metacognition", "multimodal", "researcher", "idea_generator",
+        "multimodal", "researcher", "idea_generator",
         "code_generator", "code_compiler", "code_error_fixer",
         "hf_adapter", "llm_adapter", "llm_controller", "llm_module",
-        "software_studier", "trading_brain",
+        "software_studier", "trading_brain", "chat_completions",
+        "cognition_core", "concept_synthesizer", "agentic_workflows",
+        "github_deep_research", "github_models_client",
+        "llm_provider_manager", "local_llm_adapter", "local_brain",
+        "brain_router",
     ],
     "Learning": [
         "learning", "ale", "curriculum", "self_researcher",
         "self_teacher", "self_improvement", "self_implementer",
         "self_idea", "evolve", "adaptive", "collaborative_learner",
         "parallel_learner", "parallel_learning", "graded_curriculum",
-        "autonomous_learning", "llm_training",
+        "autonomous_learning", "llm_training", "ale_checkpoint",
+        "tokenizer_trainer", "reward_model", "improvement_integrator",
+        "universe_registry", "evolution_queue", "evolve_adapter",
+        "defensive_evolution", "goal_engine", "knowledge_comprehension",
     ],
     "Network": [
         "network", "distributed", "mesh", "net", "api_gateway",
         "connection_pool", "realtime_stream", "internet_manager",
-        "autonomous_network",
+        "autonomous_network", "sync_engine", "github_sync",
+        "rate_limiting", "deployment_bridge", "lean_deploy",
+        "lean_engine", "mcp_server", "event_sourcing",
     ],
     "Security": [
         "security", "membrane", "guard", "slsa", "permission",
         "antifraud", "auth", "encryption", "slice_guard",
+        "counter_active_membrane", "defensive_evolution",
+        "security_hardening", "security_membrane",
     ],
     "Application": [
         "router", "command", "dashboard", "control_panel", "voice",
         "game_engine", "niblit_personality", "notification",
-        "kivy", "server", "app", "api",
+        "kivy", "server", "app", "api", "niblit_core",
+        "niblit_identity", "orchestrator", "niblit_orchestrator",
     ],
 }
 
@@ -327,36 +353,82 @@ def map_modules_to_layers(
 # ---------------------------------------------------------------------------
 
 def _ascii_diagram() -> str:
-    """Return an ASCII art system diagram of the AIOS layers."""
-    width = 64
-    border = "+" + "-" * (width - 2) + "+"
+    """Return an advanced ASCII art diagram of the NIBLIT AI OS unified architecture.
+
+    MSG sits at the top as the meta-cognitive governor of all layers.
+    The Kernel (KRN) with its EventBus is the central backbone that all
+    layers communicate through, forming one unified feedback loop.
+    """
+    w = 70  # total width
+    sep = "+" + "=" * (w - 2) + "+"
+    thin = "+" + "-" * (w - 2) + "+"
     lines: List[str] = []
     lines.append("```")
-    lines.append(f"{'NIBLIT AI OS COMPLETE':^{width}}")
-    lines.append(f"{'Architecture Overview':^{width}}")
+    lines.append(f"{'NIBLIT AI OS COMPLETE — UNIFIED FEEDBACK LOOP':^{w}}")
+    lines.append(f"{'Advanced 9-Layer Architecture':^{w}}")
     lines.append("")
-    lines.append(border)
-    lines.append(f"|{'APPLICATION LAYER (APP)':^{width - 2}}|")
-    lines.append(f"|{'Router · Commands · Dashboard · Voice · API':^{width - 2}}|")
-    lines.append(border)
-    lines.append(f"|{'INTELLIGENCE LAYER (INT)':^{width - 2}}|")
-    lines.append(f"|{'Brain · LLM Adapters · Reasoning · Research':^{width - 2}}|")
-    lines.append(border)
-    lines.append(f"|{'LEARNING ENGINE (LRN)':^{width - 2}}|")
-    lines.append(f"|{'ALE · Curriculum · Self-Researcher · Evolve':^{width - 2}}|")
-    lines.append(border)
-    lines.append(f"|{'  MEMORY SUBSYSTEM (MEM)  |  NETWORK LAYER (NET)  ':^{width - 2}}|")
-    lines.append(f"|{'  VectorStore · KnowledgeDB |  DistributedMesh · P2P ':^{width - 2}}|")
-    lines.append(border)
-    lines.append(f"|{'SECURITY LAYER (SEC)':^{width - 2}}|")
-    lines.append(f"|{'SLSA · Membrane · Permissions · Guard':^{width - 2}}|")
-    lines.append(border)
-    lines.append(f"|{'KERNEL LAYER (KRN)':^{width - 2}}|")
-    lines.append(f"|{'Runtime · EventBus · TaskQueue · Lifecycle':^{width - 2}}|")
-    lines.append(border)
-    lines.append(f"|{'HARDWARE ABSTRACTION LAYER (HAL)':^{width - 2}}|")
-    lines.append(f"|{'Swift/iOS  ·  TypeScript/Web  ·  Rust/Embedded':^{width - 2}}|")
-    lines.append(border)
+    # MSG at very top
+    lines.append(sep)
+    lines.append(f"|{'MSG — META-SELF-GOVERNANCE  (Top-Level Feedback Control)':^{w - 2}}|")
+    lines.append(f"|{'SelfModel · IntentEngine · MetaEvaluator · ResourceAllocator · EvolutionPlanner':^{w - 2}}|")
+    lines.append(f"|{'meta_cognition/ · metacognition.py · gap_analyzer.py · self_monitor.py':^{w - 2}}|")
+    lines.append(f"|{'  ▲ governs ▼ all layers — observes metrics — plans evolution  ':^{w - 2}}|")
+    lines.append(sep)
+    lines.append(f"|{' ↑↓ All cross-layer signals pass through KRN/EventBus below ↑↓ ':^{w - 2}}|")
+    lines.append(thin)
+    # APP
+    lines.append(f"|{'APPLICATION LAYER (APP)':^{w - 2}}|")
+    lines.append(f"|{'niblit_router · niblit_core · server · app · main · kivy_app · niblit_voice':^{w - 2}}|")
+    lines.append(f"|{'control_panel · dashboard · command_registry · niblit_personality · api/':^{w - 2}}|")
+    lines.append(thin)
+    # INT
+    lines.append(f"|{'INTELLIGENCE LAYER (INT)':^{w - 2}}|")
+    lines.append(f"|{'niblit_brain · hf_brain · brain_router · local_brain · llm_adapter':^{w - 2}}|")
+    lines.append(f"|{'reasoning_engine · concept_synthesizer · reflect · chat_completions · agents/':^{w - 2}}|")
+    lines.append(thin)
+    # LRN
+    lines.append(f"|{'LEARNING ENGINE (LRN)':^{w - 2}}|")
+    lines.append(f"|{'autonomous_learning_engine · evolve · graded_curriculum · self_teacher':^{w - 2}}|")
+    lines.append(f"|{'goal_engine · evolve_adapter · evolution_queue · niblit_defensive_evolution_loop':^{w - 2}}|")
+    lines.append(thin)
+    # MEM + NET side by side
+    lines.append(f"|{'  MEMORY SUBSYSTEM (MEM)    ':^{(w - 4) // 2}}|{'     NETWORK LAYER (NET)  ':^{(w - 4) // 2}}|")
+    lines.append(f"|{'  fused_memory · vector_store':^{(w - 4) // 2}}|{'  sync_engine · device_mesh ':^{(w - 4) // 2}}|")
+    lines.append(f"|{'  memory_weighting · graph_rag':^{(w - 4) // 2}}|{'  internet_manager · mcp_server':^{(w - 4) // 2}}|")
+    lines.append(thin)
+    # SEC
+    lines.append(f"|{'SECURITY LAYER (SEC)':^{w - 2}}|")
+    lines.append(f"|{'niblit_cyber_membrane · security_hardening · slsa_generator · slice_guard':^{w - 2}}|")
+    lines.append(f"|{'security_membrane · permission_manager · antifraud · counter_active_membrane':^{w - 2}}|")
+    lines.append(sep)
+    # KRN — special: doubled border to show it's the backbone
+    lines.append(f"|{'▓▓▓▓▓▓▓▓▓▓▓▓▓▓  KERNEL LAYER (KRN) — CENTRAL EVENTBUS BACKBONE  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓':^{w - 2}}|")
+    lines.append(f"|{'niblit_cognitive_graph_kernel · EventBus · niblit_core_kernel · niblit_kernel_v3':^{w - 2}}|")
+    lines.append(f"|{'core/event_bus · core/task_queue · aios_runtime · aios_scheduler · lifecycle_engine':^{w - 2}}|")
+    lines.append(f"|{'niblit_runtime · platform_bootstrap · circuit_breaker · niblit_core_kernel_v2':^{w - 2}}|")
+    lines.append(f"|{'  ◄── ALL layers publish events here · EventBus routes to subscribers ──►  ':^{w - 2}}|")
+    lines.append(sep)
+    # HAL
+    lines.append(f"|{'HARDWARE ABSTRACTION LAYER (HAL)':^{w - 2}}|")
+    lines.append(f"|{'aios_hal · device_control · hardware_scanner · env_adapter · terminal_tools':^{w - 2}}|")
+    lines.append(f"|{'Swift/iOS (Package.swift)  ·  TypeScript/Web (nodes/)  ·  Rust/Embedded (nodes/)':^{w - 2}}|")
+    lines.append(sep)
+    lines.append("")
+    lines.append(f"{'UNIFIED FEEDBACK LOOP':^{w}}")
+    lines.append(f"{'─' * w}")
+    lines.append(f"{'  User Input':^{w}}")
+    lines.append(f"{'      │':^{w}}")
+    lines.append(f"{'     APP  ──event──► KRN/EventBus ──route──► INT':^{w}}")
+    lines.append(f"{'                                               │':^{w}}")
+    lines.append(f"{'                            LRN ◄──learn from result──┘':^{w}}")
+    lines.append(f"{'                             │':^{w}}")
+    lines.append(f"{'                      MEM ◄──persist knowledge':^{w}}")
+    lines.append(f"{'                             │':^{w}}")
+    lines.append(f"{'               KRN/EventBus ◄──updated state':^{w}}")
+    lines.append(f"{'                             │':^{w}}")
+    lines.append(f"{'      APP ◄──improved response──── INT':^{w}}")
+    lines.append(f"{'                             │':^{w}}")
+    lines.append(f"{'      MSG governs & adjusts ─┘  (top-level meta-cognition)':^{w}}")
     lines.append("```")
     return "\n".join(lines)
 
@@ -565,36 +637,98 @@ def _growth_pipeline() -> str:
 ```"""
 
 
+def _unified_feedback_loop() -> str:
+    """Describe the complete unified feedback loop that makes Niblit one system."""
+    return (
+        "All 9 layers operate as **one unified feedback loop** — together they\n"
+        "form a single continuous cycle where every layer's output becomes\n"
+        "another layer's input, mediated entirely by the **Kernel EventBus**.\n\n"
+        "```\n"
+        "┌───────────────────────────────────────────────────────────────────┐\n"
+        "│          NIBLIT UNIFIED FEEDBACK LOOP — ONE SYSTEM                │\n"
+        "│                                                                   │\n"
+        "│   ┌──────────────────────────────────────────────────────────┐   │\n"
+        "│   │  MSG — Meta-Self-Governance  (outer governance loop)     │   │\n"
+        "│   │  Observes metrics from all layers → adjusts resources    │   │\n"
+        "│   │  plans evolution → routes priority via KRN/EventBus      │   │\n"
+        "│   └──────────────────────────────────────────────────────────┘   │\n"
+        "│              ▲                                    ▼              │\n"
+        "│   ┌──────────┴───────────────────────────────────┴────────────┐  │\n"
+        "│   │             INNER PROCESSING LOOP                         │  │\n"
+        "│   │                                                            │  │\n"
+        "│   │  HAL ──► KRN ──► SEC ──► NET ──► MEM                     │  │\n"
+        "│   │   ▲       │       │       │       │                        │  │\n"
+        "│   │   │       │  EventBus routes ALL inter-layer events        │  │\n"
+        "│   │   │       │       │       │       │                        │  │\n"
+        "│   │  APP ◄── KRN ◄── LRN ◄── INT ◄── MEM                    │  │\n"
+        "│   │   │                                                        │  │\n"
+        "│   │  (user)                                                    │  │\n"
+        "│   └────────────────────────────────────────────────────────────┘  │\n"
+        "│                                                                   │\n"
+        "│  Event types flowing through KRN/EventBus:                       │\n"
+        "│    memory.write  · memory.read  · memory.decay                   │\n"
+        "│    graph.update  · graph.edge   · graph.query                    │\n"
+        "│    security.threat · security.pattern_learned                    │\n"
+        "│    evolve.attack · evolve.result                                 │\n"
+        "│    system.tick   · system.prune · aios.boot.complete             │\n"
+        "│    knowledge.store · research.complete · ale.cycle               │\n"
+        "└───────────────────────────────────────────────────────────────────┘\n"
+        "```\n\n"
+        "**How the feedback loop closes:**\n\n"
+        "1. **HAL** provides raw device / environment signals → emits `hal.*` events\n"
+        "2. **KRN** (EventBus) routes all events; `CognitiveGraphKernel.tick()` is the heartbeat\n"
+        "3. **SEC** filters threats; `CyberMembrane` fires `security.threat` → triggers DEL\n"
+        "4. **NET** replicates state across nodes; `SyncEngine` emits `sync.*` artifacts\n"
+        "5. **MEM** persists knowledge; `MemoryStore` decays/reinforces on every tick\n"
+        "6. **LRN** improves from experience; ALE fires `ale.cycle` → updates MEM + INT\n"
+        "7. **INT** reasons about input; `BrainRouter` emits `intelligence.response`\n"
+        "8. **APP** presents to the user; `NiblitRouter` dispatches commands\n"
+        "9. **MSG** observes all subsystem scores; `MetaEvaluator` → `ResourceAllocator`\n"
+        "   → `EvolutionPlanner` closes the outer governance loop back to step 2\n"
+    )
+
+
 def _interlayer_comms() -> str:
     """Describe the inter-layer communication design."""
     return (
-        "All layers communicate through the **Kernel Event Bus** — a "
-        "publish/subscribe system already prototyped in `core/event_bus.py`.\n\n"
+        "All layers communicate **exclusively** through the **Kernel EventBus** — "
+        "a priority-heap publish/subscribe system implemented in\n"
+        "`modules/niblit_cognitive_graph_kernel.py` (`EventBus` class) and\n"
+        "`core/event_bus.py`.  No layer may call another layer's public API "
+        "directly at runtime.\n\n"
         "```\n"
-        "  APP \u2500\u2500\u2510                 \u250c\u2500\u2500 INT\n"
-        "       \u2502   \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510   \u2502\n"
-        "  LRN \u2500\u2500\u2524   \u2502 EVENT BUS \u2502   \u251c\u2500\u2500 MEM\n"
-        "       \u2502   \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518   \u2502\n"
-        "  NET \u2500\u2500\u2524       \u2502 \u2502       \u251c\u2500\u2500 SEC\n"
-        "       \u2502       \u2502 \u2502       \u2502\n"
-        "  HAL \u2500\u2500\u2518       KRN       \u2514\u2500\u2500 (external)\n"
+        "  MSG ──────────────────────────────────────────────────── MSG\n"
+        "         ▲ governance ▼                  ▲ metrics ▼\n"
+        "  APP ──┐             ┌─────────────────────────────── INT\n"
+        "        │   ┌─────────────────────────┐              │\n"
+        "  LRN ──┤   │   KRN / EVENT BUS       │              ├── MEM\n"
+        "        │   │  CognitiveGraphKernel    │              │\n"
+        "  NET ──┤   │  EventBus(priority heap) │              ├── SEC\n"
+        "        │   │  tick() dispatch cycle   │              │\n"
+        "  HAL ──┘   └─────────────────────────┘              └── (external)\n"
         "```\n\n"
-        "**Message format (proposed):**\n\n"
+        "**Event envelope (all inter-layer messages):**\n\n"
         "```json\n"
         "{\n"
         '  "source_layer": "LRN",\n'
         '  "target_layer": "MEM",\n'
         '  "event_type":   "knowledge.store",\n'
-        '  "payload":      { "key": "...", "value": "..." },\n'
-        '  "timestamp":    "2025-01-01T00:00:00Z",\n'
+        '  "payload":      { "key": "...", "value": "...", "tier": "hot" },\n'
+        '  "priority":     1,\n'
+        '  "energy":       1.0,\n'
+        '  "timestamp":    1712345678.0,\n'
         '  "trace_id":     "uuid-v4"\n'
         "}\n"
         "```\n\n"
-        "**Key design decisions:**\n"
-        "- Async-first: all cross-layer calls are non-blocking.\n"
-        "- Each layer registers handlers with the Event Bus at boot time.\n"
-        "- The Kernel guarantees at-least-once delivery within a node.\n"
-        "- Cross-node delivery is handled by the Network layer (mesh protocol)."
+        "**Key design rules** (from `niblit_cognitive_graph_kernel.py`):\n"
+        "- ❌ No direct cross-layer calls — all interactions through EventBus.\n"
+        "- ❌ No blocked external I/O inside `tick()`.\n"
+        "- ✅ All graph mutations are event-generated.\n"
+        "- ✅ Memory decay runs on every `tick()` (configurable decay factor).\n"
+        "- ✅ `security.threat` events automatically trigger `evolve.attack` events.\n"
+        "- ✅ MSG layer observes subsystem scores each ALE pre-cycle step.\n"
+        "- ✅ At-least-once delivery guaranteed within a node by the EventBus.\n"
+        "- ✅ Cross-node delivery handled by the Network layer (SyncEngine mesh)."
     )
 
 
@@ -612,13 +746,20 @@ def generate_proposal(
     lines: List[str] = []
 
     # Header
-    lines.append("## \U0001f3d7\ufe0f Niblit AI OS Complete — Architecture Proposal\n")
+    lines.append("## \U0001f3d7\ufe0f Niblit AI OS Complete — Unified Feedback Loop Architecture Proposal\n")
     lines.append(
         "This proposal was **automatically generated** by "
         "[nibblebot-aios-architecture]"
         "(https://github.com/riddo9906/Niblit/blob/main/nibblebots/"
         "aios_architecture_bot.py) "
         f"on **{date_str}** by introspecting the live Niblit codebase.\n"
+    )
+    lines.append(
+        "> **Design principle:** Niblit is not a collection of isolated layers — "
+        "it is **one unified system** where all 9 layers form a single continuous "
+        "feedback loop.  Every layer publishes events to and subscribes from the "
+        "**Kernel EventBus** (`CognitiveGraphKernel`).  The **MSG layer** at the "
+        "top provides meta-cognitive governance over the entire loop.\n"
     )
 
     # Quick stats
@@ -644,11 +785,16 @@ def generate_proposal(
     lines.append(_ascii_diagram())
     lines.append("")
 
+    # Unified Feedback Loop
+    lines.append("---\n### \U0001f501 Unified Feedback Loop — How All 9 Layers Form One System\n")
+    lines.append(_unified_feedback_loop())
+    lines.append("")
+
     # Module mapping table
     lines.append("---\n### \U0001f4cb Module-to-Layer Mapping\n")
     lines.append(
         f"*{total_modules} modules classified across "
-        f"{len([l for l, c in layer_counts.items() if c > 0])} layers.*\n"
+        f"{len([lyr for lyr, c in layer_counts.items() if c > 0])} layers.*\n"
     )
     for layer_name, code, desc in LAYER_DEFS:
         count = layer_counts.get(layer_name, 0)
@@ -673,7 +819,8 @@ def generate_proposal(
     # Growth pipeline
     lines.append("---\n### \U0001f331 Autonomous Growth Pipeline\n")
     lines.append(
-        "The AIOS continuously improves itself through a seven-stage loop:\n"
+        "The AIOS continuously improves itself through a seven-stage loop "
+        "that is itself driven by the unified feedback loop:\n"
     )
     lines.append(_growth_pipeline())
     lines.append("")
@@ -685,19 +832,37 @@ def generate_proposal(
 
     # Next steps
     lines.append("---\n### \u27a1\ufe0f Recommended Next Steps\n")
-    lines.append("1. **Stabilise the Kernel** — ensure `core/runtime_manager.py` "
-                 "and `core/event_bus.py` can boot all layers in order.")
-    lines.append("2. **Unify Memory** — wire `fused_memory.py` to serve as "
-                 "the single Memory-layer API for all other layers.")
-    lines.append("3. **HAL Node Contracts** — define a shared protobuf / JSON "
-                 "schema so Swift, TypeScript, and Rust nodes speak the same "
-                 "protocol.")
-    lines.append("4. **Security Audit** — add TLS between nodes and at-rest "
-                 "encryption for knowledge stores.")
-    lines.append("5. **Benchmark Harness** — create an automated eval suite "
-                 "that runs after every learning cycle to measure improvement.")
-    lines.append("6. **CI Gate** — add a GitHub Actions job that runs the full "
-                 "AIOS boot sequence and layer health-checks on every PR.")
+    lines.append(
+        "1. **Complete KRN EventBus wiring** — ensure every module emits events "
+        "rather than calling cross-layer APIs directly.  "
+        "`CognitiveGraphKernel.tick()` must be the single heartbeat."
+    )
+    lines.append(
+        "2. **MSG full integration** — wire `MSGLayer.pre_cycle()` into the "
+        "`CognitiveGraphKernel` tick so meta-cognition observes every subsystem "
+        "score automatically, closing the outer governance loop."
+    )
+    lines.append(
+        "3. **Unify Memory** — wire `fused_memory.py` and `memory_weighting.py` "
+        "so all MEM-layer reads/writes go through one event-driven API."
+    )
+    lines.append(
+        "4. **HAL Node Contracts** — define a shared protobuf / JSON schema so "
+        "Swift, TypeScript, and Rust nodes speak the same event envelope."
+    )
+    lines.append(
+        "5. **Security Audit** — route all `security.threat` events through the "
+        "Kernel EventBus so DEL (DefensiveEvolutionLoop) triggers automatically."
+    )
+    lines.append(
+        "6. **Benchmark Harness** — create an automated eval suite that runs "
+        "after every ALE learning cycle and emits results as `ale.cycle` events."
+    )
+    lines.append(
+        "7. **CI Gate** — add a GitHub Actions job that boots the full AIOS "
+        "(Phase 0→7), runs `AIOSLayerRegistry.health()`, and fails the PR if "
+        "any layer is unhealthy."
+    )
     lines.append("")
 
     # Footer

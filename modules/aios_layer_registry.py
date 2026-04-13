@@ -1,31 +1,59 @@
 #!/usr/bin/env python3
 """
-modules/aios_layer_registry.py — NIBLIT-AIOS 8-Layer Architecture Registry
+modules/aios_layer_registry.py — NIBLIT-AIOS 9-Layer Architecture Registry
 ===========================================================================
-Implements the formal 8-layer architecture diagram from the NIBLIT AI OS
-Complete proposal.  Every subsystem registers itself under one of the eight
-canonical layers so the runtime has a unified view of the system.
+Implements the formal 9-layer unified-feedback-loop architecture for NIBLIT
+AI OS Complete.  Every subsystem registers itself under one of the nine
+canonical layers so the runtime has a single, observable view of the system.
 
-Layers
-------
+The architecture is designed around **one unified feedback loop**: every
+layer communicates exclusively through the Kernel EventBus, and the MSG
+(Meta-Self-Governance) layer at the top provides continuous meta-cognition,
+resource allocation, and evolution planning across all other layers.
+
+Layers (top → bottom)
+----------------------
 +------+---------------------+----------------------------------------------+
 | ID   | Name                | Responsibilities                             |
 +------+---------------------+----------------------------------------------+
-| APP  | Application         | Router, Commands, Dashboard, Voice, API      |
-| INT  | Intelligence        | Brain, LLM Adapters, Reasoning, Research     |
-| LRN  | Learning            | ALE, Curriculum, Self-Researcher, Evolve     |
-| MEM  | Memory              | VectorStore, KnowledgeDB                     |
-| NET  | Network             | DistributedMesh, P2P inter-device comms      |
-| SEC  | Security            | SLSA, Membrane, Permissions, Guard           |
-| KRN  | Kernel              | Runtime, EventBus, TaskQueue, Lifecycle      |
+| MSG  | Meta-Self-Governance| SelfModel · IntentEngine · MetaEvaluator     |
+|      |                     | ResourceAllocator · EvolutionPlanner         |
+| APP  | Application         | Router · Commands · Dashboard · Voice · API  |
+| INT  | Intelligence        | Brain · LLM Adapters · Reasoning · Research  |
+| LRN  | Learning            | ALE · Curriculum · Self-Researcher · Evolve  |
+| MEM  | Memory              | VectorStore · KnowledgeDB · FusedMemory      |
+| NET  | Network             | DistributedMesh · P2P · SyncEngine           |
+| SEC  | Security            | SLSA · Membrane · Permissions · Guard        |
+| KRN  | Kernel              | EventBus · CognitiveGraphKernel · Runtime    |
 | HAL  | Hardware Abstraction| Swift/iOS · TypeScript/Web · Rust/Embedded   |
 +------+---------------------+----------------------------------------------+
 
+Unified Feedback Loop
+---------------------
+All cross-layer calls are mediated by the Kernel EventBus
+(``modules/niblit_cognitive_graph_kernel.EventBus``).  No layer calls another
+layer's public API directly.  The cycle is:
+
+    User Input
+        │
+       APP  ──(event)──► KRN/EventBus ──(route)──► INT
+                                                      │
+                                                     LRN ◄──(learn from result)
+                                                      │
+                                                     MEM  (persist knowledge)
+                                                      │
+                                              KRN/EventBus
+                                                      │
+                                                     INT ──(improved response)──► APP
+                                                      │
+                                                    loop ◄── MSG governs & adjusts
+
 Usage
 -----
-    from modules.aios_layer_registry import get_aios_layer_registry, LAYER_SEC
+    from modules.aios_layer_registry import get_aios_layer_registry, LAYER_MSG, LAYER_SEC
 
     registry = get_aios_layer_registry()
+    registry.register(LAYER_MSG, "msg_layer", msg_layer_instance)
     registry.register(LAYER_SEC, "security_membrane", membrane_instance)
     health = registry.health()
 
@@ -44,35 +72,150 @@ log = logging.getLogger("aios.layer_registry")
 
 # ── Layer constants ────────────────────────────────────────────────────────────
 
+LAYER_MSG = "MSG"   # Meta-Self-Governance (top-level feedback control)
 LAYER_APP = "APP"   # Application
 LAYER_INT = "INT"   # Intelligence
 LAYER_LRN = "LRN"   # Learning
 LAYER_MEM = "MEM"   # Memory
 LAYER_NET = "NET"   # Network
 LAYER_SEC = "SEC"   # Security
-LAYER_KRN = "KRN"   # Kernel
+LAYER_KRN = "KRN"   # Kernel (central EventBus backbone)
 LAYER_HAL = "HAL"   # Hardware Abstraction
 
+# Ordered top-to-bottom: MSG governs all; KRN is the backbone; HAL is the floor
 ALL_LAYERS: List[str] = [
-    LAYER_HAL,
-    LAYER_KRN,
-    LAYER_SEC,
-    LAYER_NET,
-    LAYER_MEM,
-    LAYER_LRN,
-    LAYER_INT,
+    LAYER_MSG,
     LAYER_APP,
+    LAYER_INT,
+    LAYER_LRN,
+    LAYER_MEM,
+    LAYER_NET,
+    LAYER_SEC,
+    LAYER_KRN,
+    LAYER_HAL,
 ]
 
 _LAYER_DESCRIPTIONS: Dict[str, str] = {
-    LAYER_APP: "Application — Router · Commands · Dashboard · Voice · API",
-    LAYER_INT: "Intelligence — Brain · LLM Adapters · Reasoning · Research",
-    LAYER_LRN: "Learning — ALE · Curriculum · Self-Researcher · Evolve",
-    LAYER_MEM: "Memory — VectorStore · KnowledgeDB",
-    LAYER_NET: "Network — DistributedMesh · P2P",
-    LAYER_SEC: "Security — SLSA · Membrane · Permissions · Guard",
-    LAYER_KRN: "Kernel — Runtime · EventBus · TaskQueue · Lifecycle",
-    LAYER_HAL: "HAL — Swift/iOS · TypeScript/Web · Rust/Embedded",
+    LAYER_MSG: (
+        "MSG — Meta-Self-Governance: SelfModel · IntentEngine · MetaEvaluator "
+        "· ResourceAllocator · EvolutionPlanner  "
+        "[meta_cognition/__init__.py · self_model.py · intent_engine.py "
+        "· meta_evaluator.py · resource_allocator.py · evolution_planner.py "
+        "· metacognition.py · meta_adapter.py · self_monitor.py "
+        "· self_improvement_orchestrator.py · gap_analyzer.py · metrics_observability.py]"
+    ),
+    LAYER_APP: (
+        "APP — Application: Router · Commands · Dashboard · Voice · API  "
+        "[niblit_router.py · niblit_core.py · niblit_identity.py · server.py "
+        "· app.py · main.py · kivy_app.py · niblit_voice_full.py "
+        "· modules/control_panel.py · modules/dashboard.py "
+        "· modules/command_registry.py · modules/game_engine.py "
+        "· modules/niblit_personality.py · core/notification_queue.py "
+        "· orchestrator.py · niblit_orchestrator.py · api/]"
+    ),
+    LAYER_INT: (
+        "INT — Intelligence: Brain · LLM Adapters · Reasoning · Research  "
+        "[niblit_brain.py · modules/hf_brain.py · modules/brain_router.py "
+        "· modules/local_brain.py · modules/llm_adapter.py "
+        "· modules/llm_controller.py · modules/llm_module.py "
+        "· modules/anthropic_adapter.py · modules/openai_adapter.py "
+        "· modules/hf_adapter.py · modules/local_llm_adapter.py "
+        "· modules/github_models_client.py · modules/llm_provider_manager.py "
+        "· modules/reasoning_engine.py · modules/concept_synthesizer.py "
+        "· modules/intent_parser.py · modules/reflect.py "
+        "· modules/phased_research_engine.py · modules/researcher_engine.py "
+        "· modules/multimodal_intelligence.py · modules/chat_completions.py "
+        "· modules/cognition_core.py · modules/prediction_engine.py "
+        "· modules/software_studier.py · modules/trading_brain.py "
+        "· modules/idea_generator.py · modules/code_generator.py "
+        "· modules/code_compiler.py · modules/code_error_fixer.py "
+        "· modules/agentic_workflows.py · modules/github_deep_research.py "
+        "· SelfResearcher.py · agents/]"
+    ),
+    LAYER_LRN: (
+        "LRN — Learning: ALE · Curriculum · Self-Researcher · Evolve  "
+        "[modules/autonomous_learning_engine.py · modules/evolve.py "
+        "· modules/graded_curriculum.py · modules/self_teacher.py "
+        "· modules/self_researcher.py · modules/self_implementer.py "
+        "· modules/self_idea_generator.py · modules/self_idea_implementation.py "
+        "· modules/collaborative_learner.py · modules/parallel_learner.py "
+        "· modules/parallel_learning_engine.py · modules/adaptive_learning.py "
+        "· modules/llm_training_agent.py · modules/tokenizer_trainer.py "
+        "· modules/reward_model.py · modules/knowledge_comprehension.py "
+        "· modules/ale_checkpoint.py · modules/improvement_integrator.py "
+        "· modules/universe_registry.py · modules/evolution_queue.py "
+        "· modules/evolve_adapter.py · modules/ale_adapter.py "
+        "· modules/niblit_defensive_evolution_loop.py "
+        "· modules/goal_engine.py · modules/niblit_kernel_v3.py "
+        "· niblit_learning.py · niblit_hf.py · trainer_full.py]"
+    ),
+    LAYER_MEM: (
+        "MEM — Memory: VectorStore · KnowledgeDB · FusedMemory  "
+        "[niblit_memory/ · modules/memory_weighting.py "
+        "· modules/memory_graph.py · modules/fused_memory.py "
+        "· modules/fused_memory_primary.py · modules/vector_store.py "
+        "· modules/hybrid_qdrant_manager.py · modules/knowledge_db.py "
+        "· modules/knowledge_engine/ · modules/knowledge_digest.py "
+        "· modules/knowledge_filter.py · modules/knowledge_synthesizer.py "
+        "· modules/tiered_knowledge_system.py · modules/graph_rag.py "
+        "· modules/graph_rag_bridge.py · modules/rag_pipeline.py "
+        "· modules/ingestion.py · modules/llm_chat_memory.py "
+        "· modules/multi_level_caching.py · modules/storage.py "
+        "· modules/db.py · niblit_sqlite_db.py · niblit_memory.py "
+        "· modules/sqlite_researcher.py]"
+    ),
+    LAYER_NET: (
+        "NET — Network: DistributedMesh · P2P · SyncEngine  "
+        "[modules/sync_engine.py · modules/autonomous_network.py "
+        "· modules/device_mesh.py · modules/internet_manager.py "
+        "· modules/connection_pooling.py · modules/realtime_stream.py "
+        "· modules/github_sync.py · modules/rate_limiting.py "
+        "· niblit_net.py · niblit_network_full.py "
+        "· distributed_niblit/ · modules/mcp_server.py "
+        "· modules/event_sourcing.py · modules/deployment_bridge.py "
+        "· modules/lean_deploy_engine.py · modules/lean_engine.py "
+        "· modules/monitoring_alerting.py · modules/analytics.py]"
+    ),
+    LAYER_SEC: (
+        "SEC — Security: SLSA · Membrane · Permissions · Guard  "
+        "[modules/niblit_cyber_membrane.py · modules/security_hardening.py "
+        "· modules/security_membrane.py · modules/slice_guard.py "
+        "· modules/slsa_generator.py · modules/slsa_manager.py "
+        "· modules/permission_manager.py · modules/antifraud.py "
+        "· modules/niblit_defensive_evolution_loop.py "
+        "· modules/counter_active_membrane.py · niblit_guard.py "
+        "· slsa_generator_full.py · Slsa_generator_full.py "
+        "· membrane_full.py · SECURITY.md]"
+    ),
+    LAYER_KRN: (
+        "KRN — Kernel (Central EventBus Backbone): "
+        "CognitiveGraphKernel · EventBus · TaskQueue · Lifecycle  "
+        "[modules/niblit_cognitive_graph_kernel.py · modules/niblit_core_kernel.py "
+        "· modules/niblit_core_kernel_v2.py · modules/niblit_kernel_v3.py "
+        "· modules/niblit_kernel.py · modules/niblit_runtime.py "
+        "· core/event_bus.py · core/task_queue.py · core/runtime_manager.py "
+        "· core/orchestrator.py · core/notification_queue.py "
+        "· modules/kernel_integration.py · modules/bios.py "
+        "· modules/bios_integration.py · modules/bootloader.py "
+        "· modules/firmware.py · modules/platform_bootstrap.py "
+        "· modules/module_autonomy.py · modules/circuit_breaker.py "
+        "· modules/resilience_wrapper.py · modules/dependency_injection.py "
+        "· modules/safe_loader.py · modules/background_jobs.py "
+        "· modules/async_first.py · modules/structured_logging.py "
+        "· aios_runtime.py · aios_scheduler.py · lifecycle_engine.py "
+        "· module_loader.py · workspace_init.py · orchestrator.py "
+        "· niblit_core.py · modules/structural_awareness.py]"
+    ),
+    LAYER_HAL: (
+        "HAL — Hardware Abstraction: Swift/iOS · TypeScript/Web · Rust/Embedded  "
+        "[aios_hal.py · modules/device_control.py · modules/device_manager.py "
+        "· modules/device_mesh.py · modules/hardware_scanner.py "
+        "· modules/env_adapter.py · modules/env_state.py "
+        "· modules/os_integration.py · modules/terminal_tools.py "
+        "· modules/binary_tools.py · modules/termux_wakelock.py "
+        "· modules/filesystem_manager.py · modules/universal_file_manager.py "
+        "· Package.swift · nodes/ · builds/ · buildozer.spec]"
+    ),
 }
 
 
@@ -278,18 +421,29 @@ class AIOSLayerRegistry:
         instance and register them under the correct layers.
 
         This is called at the end of the AIOS boot sequence to populate the
-        registry from the already-initialised subsystems.
+        registry from the already-initialised subsystems.  All layers are wired
+        through the Kernel EventBus so the unified feedback loop is active.
         """
         _wire_map = [
             # (layer, name, attr_on_runtime)
-            (LAYER_HAL, "hal",           "hal"),
-            (LAYER_KRN, "kernel",        "kernel"),
-            (LAYER_KRN, "niblit_runtime","niblit_runtime"),
-            (LAYER_KRN, "scheduler",     "scheduler"),
-            (LAYER_MEM, "memory",        "memory"),
-            (LAYER_INT, "brain",         "brain"),
-            (LAYER_LRN, "ale",           "ale"),
-            (LAYER_APP, "router",        "router"),
+            # MSG — top-level meta-cognition governs all other layers
+            (LAYER_MSG, "msg_layer",          "msg_layer"),
+            # APP — user-facing interfaces
+            (LAYER_APP, "router",             "router"),
+            (LAYER_APP, "core",               "core"),
+            # INT — intelligence & reasoning
+            (LAYER_INT, "brain",              "brain"),
+            # LRN — learning & self-improvement
+            (LAYER_LRN, "ale",                "ale"),
+            # MEM — persistent memory
+            (LAYER_MEM, "memory",             "memory"),
+            # KRN — kernel backbone (EventBus lives here)
+            (LAYER_KRN, "kernel",             "kernel"),
+            (LAYER_KRN, "niblit_runtime",     "niblit_runtime"),
+            (LAYER_KRN, "scheduler",          "scheduler"),
+            # HAL — hardware abstraction
+            (LAYER_HAL, "hal",                "hal"),
+            # SEC — security layer
             (LAYER_SEC, "security_hardening", "security_hardening"),
             (LAYER_SEC, "security_membrane",  "security_membrane"),
         ]
@@ -304,13 +458,21 @@ class AIOSLayerRegistry:
                         layer, comp_name, exc,
                     )
 
-        # Also try to pick up NiblitCore security_membrane if available
+        # Also try to pick up NiblitCore cyber_membrane and cognitive_graph_kernel
         core = getattr(aios_runtime, "core", None)
         if core is not None:
-            membrane = getattr(core, "security_membrane", None)
+            membrane = getattr(core, "cyber_membrane", None) or getattr(
+                core, "security_membrane", None
+            )
             if membrane is not None:
                 try:
                     self.register(LAYER_SEC, "core_membrane", membrane)
+                except Exception:
+                    pass
+            cgk = getattr(core, "cognitive_graph_kernel", None)
+            if cgk is not None:
+                try:
+                    self.register(LAYER_KRN, "cognitive_graph_kernel", cgk)
                 except Exception:
                     pass
 
