@@ -58,8 +58,8 @@ dev = [
     "pre-commit>=3.5.0",
 ]
 trading = [
-    "python-binance>=1.0.17",
-    "pandas>=2.3.3",
+    "python-binance>=1.0.36",
+    "pandas>=2.0.0",
     "ta>=0.11.0",
     "yfinance>=0.2.61",
     "ccxt>=4.3.0",
