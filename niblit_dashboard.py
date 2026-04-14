@@ -558,10 +558,12 @@ if _kivy_available:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Chat message label helper
+# Chat message label helper + Main App (require Kivy)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _chat_label(text: str, align: str = "left", color=(1, 1, 1, 1)) -> "Label":
+def _chat_label(text: str, align: str = "left", color=(1, 1, 1, 1)):
+    if not _kivy_available:
+        return None
     lbl = Label(
         text=text,
         markup=False,
@@ -576,11 +578,9 @@ def _chat_label(text: str, align: str = "left", color=(1, 1, 1, 1)) -> "Label":
     return lbl
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Main App
-# ──────────────────────────────────────────────────────────────────────────────
+if _kivy_available:
 
-class NiblitKivyApp(App):
+  class NiblitKivyApp(App):
     """Niblit AIOS Dashboard application."""
 
     search_providers = ListProperty(SEARCH_PROVIDERS)

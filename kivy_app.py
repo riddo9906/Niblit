@@ -16,7 +16,15 @@ Build APK::
 See niblit_dashboard.py for full documentation.
 """
 
-from niblit_dashboard import NiblitKivyApp
+import sys
+import niblit_dashboard
 
 if __name__ == "__main__":
+    NiblitKivyApp = getattr(niblit_dashboard, "NiblitKivyApp", None)
+    if NiblitKivyApp is None:
+        raise SystemExit(
+            "Kivy is required to run the Niblit APK dashboard.\n"
+            "Install it with:  pip install kivy\n"
+            "Then re-run:  python kivy_app.py"
+        )
     NiblitKivyApp().run()
