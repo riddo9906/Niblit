@@ -335,16 +335,18 @@ def _cmd_show_notifications(core=None, io=None):
     if not msgs:
         return "No pending notifications."
 
-    # Deduplicate consecutive identical messages (e.g. repeated serpapi warnings)
-    deduped: "list[str]" = []
-    _seen_msgs: "dict[str, int]" = {}
+    # Deduplicate repeated identical messages (e.g. repeated serpapi warnings)
+    # preserving chronological first-occurrence order.
+    _seen_dedup: "dict[str, int]" = {}
     for m in msgs:
-        _seen_msgs[m] = _seen_msgs.get(m, 0) + 1
-    for m, count in _seen_msgs.items():
-        if count > 1:
-            deduped.append(f"{m} (×{count})")
-        else:
-            deduped.append(m)
+        _seen_dedup[m] = _seen_dedup.get(m, 0) + 1
+    deduped: "list[str]" = []
+    _already_added: "set[str]" = set()
+    for m in msgs:
+        if m not in _already_added:
+            count = _seen_dedup[m]
+            deduped.append(f"{m} (×{count})" if count > 1 else m)
+            _already_added.add(m)
 
     return "Background notifications:\n" + "\n".join(f"  > {m}" for m in deduped)
 

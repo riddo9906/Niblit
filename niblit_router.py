@@ -4508,11 +4508,12 @@ Ask me about:
         lower = text.lower().strip()
 
         # ─── 1. Casual / open-ended → reply naturally ───────────────────
-        _CASUAL_MARKERS = (
+        _CASUAL_SINGLE = frozenset((
             "talk", "chat", "conversation", "nothing", "nothin",
-            "nah", "nope", "just", "ask me", "bored", "chill",
+            "nah", "nope", "just", "bored", "chill",
             "sup", "yo", "hm", "hmm", "idk", "dunno",
-        )
+        ))
+        _CASUAL_MULTI = ("ask me",)
         # Short casual messages (≤ this many words) with a chat marker are
         # treated as conversational openers, not knowledge queries.
         # Use word-level matching to avoid false matches (e.g. "conversational"
@@ -4521,8 +4522,10 @@ Ask me about:
         _lower_words = set(lower.split())
         if (
             len(lower.split()) <= _MAX_CASUAL_WORDS
-            and any(m in _lower_words or (len(m.split()) > 1 and m in lower)
-                    for m in _CASUAL_MARKERS)
+            and (
+                bool(_lower_words & _CASUAL_SINGLE)
+                or any(m in lower for m in _CASUAL_MULTI)
+            )
         ):
             return self._get_chat_response('conversation')
 
