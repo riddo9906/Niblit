@@ -270,7 +270,9 @@ def print_notifications(core=None, io=None):
 # ─────────────────────────────
 def boot():
     io = NiblitIO()
-    io.out(f"{timestamp()} TRUE AUTONOMOUS NIBLIT BOOT")
+    io.out(f"{timestamp()} ═══════════════════════════════════════════")
+    io.out(f"{timestamp()} ✨  TRUE AUTONOMOUS NIBLIT AIOS BOOT")
+    io.out(f"{timestamp()} ═══════════════════════════════════════════")
 
     # Print service status table so the user immediately knows which keys are set.
     try:
@@ -280,7 +282,7 @@ def boot():
         pass
 
     core = NiblitCore()
-    io.out(f"{timestamp()} CORE READY")
+    io.out(f"{timestamp()} 🔷 Phase 0 (fast-start) complete — CORE READY")
 
     # Report wake-lock status so the user knows whether the background loops
     # will keep running while the screen is off / Termux is in the background.
@@ -335,12 +337,135 @@ def _cmd_show_notifications(core=None, io=None):
     return "Background notifications:\n" + "\n".join(f"  > {m}" for m in msgs)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# LONG-RESPONSE PAGING (long response chunking)
+# Responses longer than RESPONSE_PAGE_SIZE characters are automatically split
+# into pages so the user can scroll through them at their own pace.
+# ─────────────────────────────────────────────────────────────────────────────
+
+RESPONSE_PAGE_SIZE = 2000  # characters per page
+
+
+def _paged_out(io, response: str) -> None:
+    """Print *response* to the terminal, paginating if it exceeds RESPONSE_PAGE_SIZE.
+
+    Each page is followed by a '[-- more: X/Y --]' indicator.  If the terminal
+    is not interactive (e.g. piped output) the full response is printed at once.
+    """
+    if not response or len(response) <= RESPONSE_PAGE_SIZE:
+        io.out(response)
+        return
+
+    # Split on newlines to avoid cutting mid-word
+    lines = response.splitlines(keepends=True)
+    pages: list = []
+    current: list = []
+    current_len = 0
+
+    for line in lines:
+        if current_len + len(line) > RESPONSE_PAGE_SIZE and current:
+            pages.append("".join(current))
+            current = [line]
+            current_len = len(line)
+        else:
+            current.append(line)
+            current_len += len(line)
+    if current:
+        pages.append("".join(current))
+
+    total = len(pages)
+    for idx, page in enumerate(pages, 1):
+        io.out(page.rstrip())
+        if idx < total:
+            try:
+                cont = input(f"\n[-- more: {idx}/{total} — press Enter to continue, 'q' to stop --] ")
+                if cont.strip().lower() == "q":
+                    io.out(f"[Stopped at page {idx}/{total}]")
+                    break
+            except (EOFError, KeyboardInterrupt):
+                break
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NOTIFICATION HISTORY (Enhancement 3 — replay/exportable notification history)
+# A fixed-size ring buffer persists up to NOTIF_HISTORY_LIMIT past notifications
+# so that 'notifications history' can replay them at any time.
+# ─────────────────────────────────────────────────────────────────────────────
+
+NOTIF_HISTORY_LIMIT = 200
+_notif_history: "list[str]" = []  # global ring buffer
+
+
+def _record_notifications(msgs: "list[str]") -> None:
+    """Append *msgs* to the notification history ring buffer."""
+    _notif_history.extend(msgs)
+    # Trim to limit (keep most recent)
+    if len(_notif_history) > NOTIF_HISTORY_LIMIT:
+        del _notif_history[: len(_notif_history) - NOTIF_HISTORY_LIMIT]
+
+
+NOTIF_DISPLAY_LIMIT = 50  # how many recent notifications to show in 'notifications history'
+
+
+def _cmd_notifications_history() -> str:
+    """Return a human-readable replay of the notification history."""
+    if not _notif_history:
+        return "Notification history is empty."
+    lines = ["📋 Notification history (most recent last):"]
+    for idx, m in enumerate(_notif_history[-NOTIF_DISPLAY_LIMIT:], 1):
+        lines.append(f"  {idx:3}. {m}")
+    if len(_notif_history) > NOTIF_DISPLAY_LIMIT:
+        lines.append(
+            f"  … and {len(_notif_history) - NOTIF_DISPLAY_LIMIT} earlier entries "
+            f"(total {len(_notif_history)})"
+        )
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SESSION SUMMARY (session summary/export)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_session_history: "list[tuple[str, str]]" = []  # [(user_input, niblit_response)]
+# SESSION_START is set when run_shell() opens so the timestamp reflects when the
+# interactive session actually began rather than when the module was imported.
+SESSION_START: str = ""
+
+
+def _record_exchange(user_input: str, response: str) -> None:
+    """Record one user↔Niblit exchange for the session summary."""
+    _session_history.append((user_input, response))
+
+
+def _cmd_session_summary(export_path: str = "") -> str:
+    """Return a summary of this session's commands and responses."""
+    if not _session_history:
+        return "No session history yet."
+    lines = [f"📝 Session summary (started {SESSION_START}):"]
+    lines.append(f"   {len(_session_history)} exchange(s) recorded\n")
+    for idx, (inp, resp) in enumerate(_session_history, 1):
+        lines.append(f"  [{idx}] You: {inp[:120]}")
+        resp_preview = (resp[:200] + "…") if len(resp) > 200 else resp
+        lines.append(f"       Niblit: {resp_preview}")
+        lines.append("")
+    summary = "\n".join(lines)
+    if export_path:
+        try:
+            with open(export_path, "w", encoding="utf-8") as fh:
+                fh.write(summary)
+            summary += f"\n✅ Exported to: {export_path}"
+        except OSError as exc:
+            summary += f"\n❌ Export failed: {exc}"
+    return summary
+
+
 # ─────────────────────────────
 # COMMAND SHELL
 # ─────────────────────────────
 def run_shell(core, io):
-    global DEBUG_MODE, _active_core
+    global DEBUG_MODE, _active_core, SESSION_START
     _active_core = core  # expose to signal handlers
+    SESSION_START = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     io.out(f"{timestamp()} READY\n")
 
@@ -374,29 +499,58 @@ def run_shell(core, io):
 
         "threads": lambda: list_threads(),
 
-        # ── New commands: background management (additive) ─────────────────
-        # 'notifications' — drain and display the background notification queue
+        # ── Background management (additive) ──────────────────────────────
         "notifications": lambda: _cmd_show_notifications(core, io),
+        "notifications history": lambda: _cmd_notifications_history(),
 
-        # 'reload_params' — on-demand parameter manager reload
+        # ── Session management (Enhancement 5) ────────────────────────────
+        "session summary": lambda: _cmd_session_summary(),
+
+        # ── Param reload / self-heal ───────────────────────────────────────
         "reload_params": lambda: (
             core._cmd_reload_params()
             if hasattr(core, "_cmd_reload_params")
             else "[reload_params not available]"
         ),
 
-        # 'run_selfheal' — explicit self-heal trigger with notification output
         "run_selfheal": lambda: (
             core._cmd_run_selfheal()
             if hasattr(core, "_cmd_run_selfheal")
             else "[run_selfheal not available]"
+        ),
+
+        # ── Unified loop status (additive) ────────────────────────────────
+        "unified status": lambda: (
+            "\n".join([
+                "🔗 Unified feedback-loop status:",
+                f"  Layers ready  : {core._unified_loop_status.get('ready', '?')}/{core._unified_loop_status.get('total', '?')}",
+                f"  Verified      : {'✅ Yes' if core._unified_loop_status.get('verified') else '⚠️  No — some layers degraded'}",
+                f"  Degraded      : {', '.join(core._unified_loop_status.get('warnings', [])) or 'none'}",
+            ]) if hasattr(core, "_unified_loop_status")
+            else "[Unified-loop status not yet available — boot may still be in progress]"
         ),
     }
 
     while True:
         try:
             # Show any background notifications accumulated since last prompt
-            print_notifications(core, io)
+            pending_msgs = []
+            if _NOTIF_QUEUE_AVAILABLE and notif_queue is not None:
+                pending_msgs.extend(notif_queue.pop_all())
+            if core is not None:
+                import contextlib
+                core_notifs = getattr(core, "_notifications", None)
+                if core_notifs is not None:
+                    with getattr(core, "_lock", contextlib.nullcontext()):
+                        pending_msgs.extend(list(core_notifs))
+                        core_notifs.clear()
+            _record_notifications(pending_msgs)
+            if pending_msgs:
+                output_fn = io.out
+                output_fn("\n--- Background Notifications ---")
+                for m in pending_msgs:
+                    output_fn(f"  > {m}")
+                output_fn("--- End Notifications ---\n")
 
             user_input = input("Niblit > ").strip()
 
@@ -425,10 +579,23 @@ def run_shell(core, io):
                 io.out("Debug mode disabled.")
                 continue
 
-            # DIRECT COMMANDS
-            if cmd in DIRECT_COMMANDS:
-                output = log_command(io, cmd, DIRECT_COMMANDS[cmd])
-                io.out(output)
+            # SESSION EXPORT (accepts optional path argument)
+            if cmd.startswith("session summary"):
+                rest = user_input[len("session summary"):].strip()
+                output = _cmd_session_summary(rest)
+                _paged_out(io, output)
+                continue
+
+            # DIRECT COMMANDS (check multi-word commands first)
+            _matched_direct = None
+            for _key in sorted(DIRECT_COMMANDS.keys(), key=len, reverse=True):
+                if cmd == _key or cmd.startswith(_key + " "):
+                    _matched_direct = _key
+                    break
+            if _matched_direct is not None:
+                output = log_command(io, _matched_direct, DIRECT_COMMANDS[_matched_direct])
+                _record_exchange(user_input, output)
+                _paged_out(io, output)
                 continue
 
             # ROUTED COMMANDS
@@ -441,13 +608,15 @@ def run_shell(core, io):
                     resp = core.handle(user_input)
 
                 debug(io, "ROUTER RESULT RETURNED")
-                io.out(resp)
+                _record_exchange(user_input, resp)
+                _paged_out(io, resp)
                 continue
 
             # FINAL TRACE
             debug(io, "Passing to core.handle()")
             response = core.handle(user_input)
-            io.out(response)
+            _record_exchange(user_input, response)
+            _paged_out(io, response)
 
             # Suggestion engine
             sug = suggest_command(cmd)
@@ -589,6 +758,23 @@ if __name__ == "__main__":
                     io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
             except Exception:
                 io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
+
+            # Show the unified-loop verification result (written by
+            # _verify_unified_loop into the init-progress queue).
+            _uls = getattr(core, "_unified_loop_status", None)
+            if _uls:
+                if _uls.get("verified"):
+                    io.out(
+                        f"{timestamp()} 🔗 Unified feedback loop CONFIRMED — "
+                        f"all {_uls['ready']}/{_uls['total']} layers wired and active"
+                    )
+                else:
+                    _warns = ", ".join(_uls.get("warnings", []))
+                    io.out(
+                        f"{timestamp()} ⚡ Feedback loop PARTIALLY unified — "
+                        f"{_uls['ready']}/{_uls['total']} layers active "
+                        f"(degraded: {_warns})"
+                    )
         else:
             io.out(
                 f"{timestamp()} ⚠️  Background init did not complete cleanly "

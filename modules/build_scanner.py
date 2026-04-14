@@ -23,6 +23,12 @@ except Exception:
         "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
     )
 
+# When the configured build path doesn't exist (e.g. running outside Termux),
+# fall back to the Niblit project root so 'scan build' still works and Niblit
+# can read its own source files for self-knowledge.
+if not NIBLIT_BUILD_PATH.exists():
+    NIBLIT_BUILD_PATH = Path(__file__).resolve().parent.parent
+
 # Maximum bytes read per file to avoid flooding memory
 _MAX_READ_BYTES = 32 * 1024  # 32 KB
 
@@ -209,7 +215,7 @@ class BuildScanner:
         try:
             self.db.add_fact(
                 f"build_file:{name}:{int(time.time())}",
-                content[:500],
+                content[:2000],
                 tags=["build", "self_knowledge", "source"],
             )
         except Exception:
