@@ -327,8 +327,8 @@ class AIOSRuntime:
     def _phase_5_learning(self) -> None:
         """Phase 5 — LEARNING: start ALE / self-improvement engine and MSG layer."""
         try:
-            from modules.autonomous_learning_engine import get_autonomous_learning_engine
-            self.ale = get_autonomous_learning_engine()
+            from modules.autonomous_learning_engine import get_autonomous_engine
+            self.ale = get_autonomous_engine()
             log.debug("AIOSRuntime[5/LEARNING]: ALE ready")
         except Exception as exc:
             log.debug("AIOSRuntime[5/LEARNING]: ALE unavailable — %s", exc)

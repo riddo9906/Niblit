@@ -5995,7 +5995,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             _warn("KnowledgeDB", "not initialised — knowledge will not persist")
 
         # 5. Learning layer — ALE
-        if getattr(self, "ale", None):
+        if getattr(self, "autonomous_engine", None):
             _ok("AutonomousLearningEngine (learning loop)")
         else:
             _warn("AutonomousLearningEngine", "not initialised — background learning disabled")
