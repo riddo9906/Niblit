@@ -303,6 +303,8 @@ class NiblitRouter:
         "lean",
         # QuantConnect REST API — live trade deployment (additive)
         "lean deploy",
+        # Niblit LEAN Algorithms manager — niblit-lean-algos bridge (additive)
+        "lean algo",
         # Multi-provider free market data (additive)
         "market", "market data",
         # Hardware scanner — cross-platform hardware profiling (additive)
@@ -1660,7 +1662,7 @@ Ask me about:
     # ── LEAN CLI handler (additive) ───────────────────────────────────────────
 
     def _handle_lean(self, cmd: str) -> str:
-        """Route 'lean ...' commands to the LeanEngine / LeanDeployEngine.
+        """Route 'lean ...' commands to the LeanEngine / LeanDeployEngine / LeanAlgoManager.
 
         Strips the leading 'lean' token and delegates to core._cmd_lean()
         or core._cmd_lean_deploy() for 'lean deploy ...' sub-commands.
@@ -1670,6 +1672,11 @@ Ask me about:
         stripped = cmd.strip()
         if stripped.lower().startswith("lean"):
             stripped = stripped[4:].lstrip()
+
+        # Route 'lean algo ...' to LeanAlgoManager
+        if stripped.lower().startswith("algo"):
+            algo_cmd = stripped[4:].lstrip()
+            return self._handle_lean_algo(algo_cmd)
 
         # Route 'lean deploy ...' to LeanDeployEngine
         if stripped.lower().startswith("deploy"):
@@ -1693,6 +1700,99 @@ Ask me about:
             return engine.status() if not stripped else "[lean] Core not available — limited LEAN support"
         except Exception as exc:
             return f"[lean] LeanEngine not available: {exc}"
+
+    def _handle_lean_algo(self, cmd: str) -> str:
+        """Route 'lean algo <sub>' to LeanAlgoManager.
+
+        Subcommands
+        -----------
+        status                    — Show LeanAlgoManager status
+        signal                    — Show current Niblit signal
+        deploy-all [dry-run]      — Deploy all algorithms to QC Cloud
+        projects                  — List deployed project IDs
+        start <project_id>        — Start live practice on paper brokerage
+        stop  <project_id>        — Stop a live algorithm
+        results                   — Show latest AI Master performance
+        help                      — Show this help
+        """
+        # Get or create manager
+        mgr = getattr(self.core, "lean_algo_manager", None)
+        if mgr is None:
+            try:
+                from modules.lean_algo_manager import get_lean_algo_manager as _glam
+                lean_deploy = getattr(self.core, "lean_deploy_engine", None)
+                trading_brain = getattr(self.core, "trading_brain", None)
+                knowledge_db = getattr(self.core, "db", None) or getattr(self.core, "memory", None)
+                mgr = _glam(
+                    trading_brain=trading_brain,
+                    lean_deploy_engine=lean_deploy,
+                    knowledge_db=knowledge_db,
+                )
+                if self.core:
+                    self.core.lean_algo_manager = mgr
+            except Exception as exc:
+                return f"[lean algo] LeanAlgoManager not available: {exc}"
+
+        sub = cmd.strip().lower()
+
+        if not sub or sub == "status":
+            return mgr.status()
+
+        if sub == "signal":
+            return mgr.show_signal()
+
+        if sub.startswith("deploy-all"):
+            dry = "dry" in sub or "dry-run" in sub
+            return mgr.deploy_all(dry_run=dry)
+
+        if sub == "projects":
+            return mgr.list_projects()
+
+        if sub.startswith("start"):
+            parts = sub.split()
+            if len(parts) < 2:
+                return "Usage: lean algo start <project_id> [brokerage]"
+            try:
+                pid = int(parts[1])
+            except ValueError:
+                return f"Invalid project_id: {parts[1]}"
+            brokerage = parts[2] if len(parts) > 2 else "PaperBrokerage"
+            return mgr.start_live(pid, brokerage)
+
+        if sub.startswith("stop"):
+            parts = sub.split()
+            if len(parts) < 2:
+                return "Usage: lean algo stop <project_id>"
+            lean_deploy = getattr(self.core, "lean_deploy_engine", None)
+            if not lean_deploy:
+                return "[lean algo stop] LeanDeployEngine not available"
+            try:
+                pid = int(parts[1])
+                r = lean_deploy._api("POST", "live/stop", {"projectId": pid})
+                if "error" in r:
+                    return f"[lean algo stop] {r['error']}"
+                return f"✅ Live algorithm stopped for project {pid}"
+            except Exception as exc:
+                return f"[lean algo stop] Failed: {exc}"
+
+        if sub == "results":
+            return mgr.show_results()
+
+        if sub == "help":
+            return (
+                "lean algo commands:\n"
+                "  lean algo status            — Show manager status\n"
+                "  lean algo signal            — Show current Niblit AI signal\n"
+                "  lean algo deploy-all        — Deploy all 20 algorithms to QC Cloud\n"
+                "  lean algo deploy-all dry-run— Preview deployment (no changes)\n"
+                "  lean algo projects          — List deployed project IDs\n"
+                "  lean algo start <id>        — Start live practice (paper brokerage)\n"
+                "  lean algo stop  <id>        — Stop live algorithm\n"
+                "  lean algo results           — Latest Niblit AI Master performance\n"
+                "  lean algo help              — Show this help"
+            )
+
+        return f"Unknown lean algo subcommand '{cmd}'. Type 'lean algo help'."
 
     # ── Market data handler (additive) ────────────────────────────────────────
 
@@ -6063,6 +6163,16 @@ Ask me about:
             "lean sweep <n> p=v1,v2 ...   — Parameter grid sweep (background, finds best)",
             "lean params [name]           — Show stored optimal parameter sets",
             "lean jobs                    — Show active LEAN background jobs",
+            "",
+            "=== LEAN ALGO MANAGER (niblit-lean-algos AI algorithms) ===",
+            "lean algo status             — Show signal + deployment status",
+            "lean algo signal             — Show current Niblit AI trading signal",
+            "lean algo deploy-all         — Deploy all 20 AI algorithms to QC Cloud",
+            "lean algo deploy-all dry-run — Preview deployment (no changes)",
+            "lean algo projects           — List deployed project IDs",
+            "lean algo start <id>         — Start live practice (paper brokerage)",
+            "lean algo stop  <id>         — Stop a live algorithm",
+            "lean algo results            — Latest Niblit AI Master performance",
             "",
             "=== LEAN DEPLOY ENGINE (QuantConnect REST API) ===",
             "lean deploy status           — Show credentials + available commands",
