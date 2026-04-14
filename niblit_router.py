@@ -58,6 +58,11 @@ class ChatDetector:
         r'how\s+do\s+you\s+feel\s+about\s+yourself',
         r'what\s+are\s+you\s+proud\s+of',
         r'what\s+do\s+you\s+need\s+to\s+improve',
+        # Opinion/thought questions directed at Niblit
+        r'what\s+do\s+you\s+think\s+about',
+        r'what\s+is\s+your\s+(opinion|thought|view)\s+(on|about)',
+        r'how\s+do\s+you\s+feel\s+about',
+        r'do\s+you\s+have\s+(thoughts|opinions|views)\s+(on|about)',
     ]
 
     # Self-referential patterns - asking about Niblit itself
@@ -76,6 +81,12 @@ class ChatDetector:
         r'^what\s+can\s+you\s+do\s*\??$',
         r'^what\s+are\s+your\s+(capabilities|features)\s*\??$',
         r'^how\s+many\s+(memories|facts|things)\s+do\s+you\s+have\s*\??$',
+        # Questions about Niblit's current skills/abilities/knowledge
+        r'(have|has)\s+your\s+\w+\s+(skill|skills|ability|abilities|knowledge|learning)\s+(been\s+)?(learned|improved|developed|built|trained)',
+        r'(are|have)\s+you\s+(been\s+)?(able\s+to\s+)?(learn|understand|hold|have)\s+(a\s+)?(conversation|conversations)',
+        r'(can|could)\s+you\s+(have\s+a\s+)?(conversation|chat|talk)',
+        r'how\s+(good|well)\s+(are\s+you|have\s+you\s+gotten)\s+at\s+(conversation|talking|chatting)',
+        r'(do\s+you|are\s+you)\s+(still\s+)?(only|just)\s+(respond(ing)?\s+to|answer(ing)?)\s+commands',
     ]
 
     # Information query patterns
@@ -580,8 +591,26 @@ What aspect interests you most?"""
 Your feedback helps me identify what to improve!"""
                 return response
 
-            # How do you feel / proud of / opinion
-            if 'feel' in query_lower or 'proud' in query_lower or 'opinion' in query_lower:
+            # How do you feel / proud of / opinion / think about
+            if 'feel' in query_lower or 'proud' in query_lower or 'opinion' in query_lower or 'think about' in query_lower or 'view' in query_lower:
+                # Extract the subject of the opinion question if present
+                _subject = ""
+                for _prefix in ('what do you think about ', 'what is your opinion on ',
+                                 'what is your view on ', 'how do you feel about '):
+                    if _prefix in query_lower:
+                        _subject = query_lower.split(_prefix, 1)[-1].strip().rstrip('?').strip()
+                        break
+
+                if _subject:
+                    response = (
+                        f"Thinking about '{_subject}': based on what I've learned and "
+                        f"reasoned so far, I can explore this from the knowledge I've "
+                        f"accumulated. I don't have subjective feelings, but I can reason "
+                        f"about patterns, tradeoffs, and implications. "
+                        f"Try 'self-research {_subject[:60]}' for a deeper dive, "
+                        f"or 'recall {_subject[:40]}' to see what I already know."
+                    )
+                    return response
                 response = """💭 **My Self-Reflection:**
 
 **What I'm Proud Of:**
@@ -3896,9 +3925,10 @@ Ask me about:
             'thanks': self.CHAT_RESPONSES.get('thanks', ["You're welcome!"]),
             'okay': self.CHAT_RESPONSES.get('okay', ["Got it!"]),
             'goodbye': self.CHAT_RESPONSES.get('goodbye', ["Goodbye!"]),
+            'conversation': self.CHAT_RESPONSES.get('conversation', ["I'd love to chat! What's on your mind?"]),
         }
 
-        response_list = responses.get(query_type, ["How can I help?"])
+        response_list = responses.get(query_type, self.CHAT_RESPONSES.get('greeting', ["How can I help?"]))
         return random.choice(response_list)
 
     # ─────────────────────────────────
@@ -4485,10 +4515,14 @@ Ask me about:
         )
         # Short casual messages (≤ this many words) with a chat marker are
         # treated as conversational openers, not knowledge queries.
+        # Use word-level matching to avoid false matches (e.g. "conversational"
+        # should not match the casual marker "conversation").
         _MAX_CASUAL_WORDS = 8
+        _lower_words = set(lower.split())
         if (
             len(lower.split()) <= _MAX_CASUAL_WORDS
-            and any(m in lower for m in _CASUAL_MARKERS)
+            and any(m in _lower_words or (len(m.split()) > 1 and m in lower)
+                    for m in _CASUAL_MARKERS)
         ):
             return self._get_chat_response('conversation')
 
@@ -4819,6 +4853,7 @@ Ask me about:
             # ─────── CHAT MESSAGE ───────
             if msg_type == 'chat':
                 lower_text = cleaned.lower().strip()
+                _lt_words = set(lower_text.split())
 
                 if any(p in lower_text for p in ['hi', 'hello', 'hey', 'howdy', 'greetings']):
                     response = self._get_chat_response('greeting')
@@ -4830,10 +4865,10 @@ Ask me about:
                     response = self._get_chat_response('goodbye')
                 elif any(p in lower_text for p in ['ok', 'okay', 'got it', 'nice', 'cool', 'awesome', 'great']):
                     response = self._get_chat_response('okay')
-                elif any(kw in lower_text for kw in [
-                    'talk', 'chat', 'conversation', 'ask me',
-                    'nothing', 'nothin', 'nah', 'nope', 'just',
-                ]):
+                elif (
+                    any(kw in _lt_words for kw in ['talk', 'chat', 'conversation', 'nothing', 'nothin', 'nah', 'nope', 'just'])
+                    or 'ask me' in lower_text
+                ):
                     response = self._get_chat_response('conversation')
                 else:
                     response = self._get_chat_response('greeting')

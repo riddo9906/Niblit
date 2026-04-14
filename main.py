@@ -334,7 +334,19 @@ def _cmd_show_notifications(core=None, io=None):
 
     if not msgs:
         return "No pending notifications."
-    return "Background notifications:\n" + "\n".join(f"  > {m}" for m in msgs)
+
+    # Deduplicate consecutive identical messages (e.g. repeated serpapi warnings)
+    deduped: "list[str]" = []
+    _seen_msgs: "dict[str, int]" = {}
+    for m in msgs:
+        _seen_msgs[m] = _seen_msgs.get(m, 0) + 1
+    for m, count in _seen_msgs.items():
+        if count > 1:
+            deduped.append(f"{m} (×{count})")
+        else:
+            deduped.append(m)
+
+    return "Background notifications:\n" + "\n".join(f"  > {m}" for m in deduped)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -533,25 +545,6 @@ def run_shell(core, io):
 
     while True:
         try:
-            # Show any background notifications accumulated since last prompt
-            pending_msgs = []
-            if _NOTIF_QUEUE_AVAILABLE and notif_queue is not None:
-                pending_msgs.extend(notif_queue.pop_all())
-            if core is not None:
-                import contextlib
-                core_notifs = getattr(core, "_notifications", None)
-                if core_notifs is not None:
-                    with getattr(core, "_lock", contextlib.nullcontext()):
-                        pending_msgs.extend(list(core_notifs))
-                        core_notifs.clear()
-            _record_notifications(pending_msgs)
-            if pending_msgs:
-                output_fn = io.out
-                output_fn("\n--- Background Notifications ---")
-                for m in pending_msgs:
-                    output_fn(f"  > {m}")
-                output_fn("--- End Notifications ---\n")
-
             user_input = input("Niblit > ").strip()
 
             if not user_input:

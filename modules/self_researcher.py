@@ -770,7 +770,11 @@ class SelfResearcher:
         if self._github_deep_research and hasattr(self._github_deep_research, "trending_summary"):
             try:
                 gdr_text = self._github_deep_research.trending_summary(topic=query[:60])
-                if gdr_text and is_relevant(query, gdr_text):
+                # Skip error/status messages (e.g. "No trending repos found for '...'")
+                if (gdr_text and is_relevant(query, gdr_text)
+                        and not gdr_text.startswith("No trending repos found")
+                        and not gdr_text.startswith("No results")
+                        and "(check rate limits)" not in gdr_text):
                     collected_results.append(gdr_text[:600])
                     log.debug("[SEARCH] GitHubDeepResearch: got trending summary for %r", query)
             except Exception as exc:
