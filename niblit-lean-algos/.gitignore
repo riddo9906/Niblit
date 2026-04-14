@@ -1,0 +1,24 @@
+# LEAN workspace + build artefacts
+.lean/
+backtests/
+live/
+results/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment / credentials — NEVER commit these
+.env
+*.env
+niblit_params.json
+niblit_lean_signal.json
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

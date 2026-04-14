@@ -58,6 +58,11 @@ class ChatDetector:
         r'how\s+do\s+you\s+feel\s+about\s+yourself',
         r'what\s+are\s+you\s+proud\s+of',
         r'what\s+do\s+you\s+need\s+to\s+improve',
+        # Opinion/thought questions directed at Niblit
+        r'what\s+do\s+you\s+think\s+about',
+        r'what\s+is\s+your\s+(opinion|thought|view)\s+(on|about)',
+        r'how\s+do\s+you\s+feel\s+about',
+        r'do\s+you\s+have\s+(thoughts|opinions|views)\s+(on|about)',
     ]
 
     # Self-referential patterns - asking about Niblit itself
@@ -76,6 +81,12 @@ class ChatDetector:
         r'^what\s+can\s+you\s+do\s*\??$',
         r'^what\s+are\s+your\s+(capabilities|features)\s*\??$',
         r'^how\s+many\s+(memories|facts|things)\s+do\s+you\s+have\s*\??$',
+        # Questions about Niblit's current skills/abilities/knowledge
+        r'(have|has)\s+your\s+\w+\s+(skill|skills|ability|abilities|knowledge|learning)\s+(been\s+)?(learned|improved|developed|built|trained)',
+        r'(are|have)\s+you\s+(been\s+)?(able\s+to\s+)?(learn|understand|hold|have)\s+(a\s+)?(conversation|conversations)',
+        r'(can|could)\s+you\s+(have\s+a\s+)?(conversation|chat|talk)',
+        r'how\s+(good|well)\s+(are\s+you|have\s+you\s+gotten)\s+at\s+(conversation|talking|chatting)',
+        r'(do\s+you|are\s+you)\s+(still\s+)?(only|just)\s+(respond(ing)?\s+to|answer(ing)?)\s+commands',
     ]
 
     # Information query patterns
@@ -292,6 +303,8 @@ class NiblitRouter:
         "lean",
         # QuantConnect REST API — live trade deployment (additive)
         "lean deploy",
+        # Niblit LEAN Algorithms manager — niblit-lean-algos bridge (additive)
+        "lean algo",
         # Multi-provider free market data (additive)
         "market", "market data",
         # Hardware scanner — cross-platform hardware profiling (additive)
@@ -580,8 +593,26 @@ What aspect interests you most?"""
 Your feedback helps me identify what to improve!"""
                 return response
 
-            # How do you feel / proud of / opinion
-            if 'feel' in query_lower or 'proud' in query_lower or 'opinion' in query_lower:
+            # How do you feel / proud of / opinion / think about
+            if 'feel' in query_lower or 'proud' in query_lower or 'opinion' in query_lower or 'think about' in query_lower or 'view' in query_lower:
+                # Extract the subject of the opinion question if present
+                _subject = ""
+                for _prefix in ('what do you think about ', 'what is your opinion on ',
+                                 'what is your view on ', 'how do you feel about '):
+                    if _prefix in query_lower:
+                        _subject = query_lower.split(_prefix, 1)[-1].strip().rstrip('?').strip()
+                        break
+
+                if _subject:
+                    response = (
+                        f"Thinking about '{_subject}': based on what I've learned and "
+                        f"reasoned so far, I can explore this from the knowledge I've "
+                        f"accumulated. I don't have subjective feelings, but I can reason "
+                        f"about patterns, tradeoffs, and implications. "
+                        f"Try 'self-research {_subject[:60]}' for a deeper dive, "
+                        f"or 'recall {_subject[:40]}' to see what I already know."
+                    )
+                    return response
                 response = """💭 **My Self-Reflection:**
 
 **What I'm Proud Of:**
@@ -1631,7 +1662,7 @@ Ask me about:
     # ── LEAN CLI handler (additive) ───────────────────────────────────────────
 
     def _handle_lean(self, cmd: str) -> str:
-        """Route 'lean ...' commands to the LeanEngine / LeanDeployEngine.
+        """Route 'lean ...' commands to the LeanEngine / LeanDeployEngine / LeanAlgoManager.
 
         Strips the leading 'lean' token and delegates to core._cmd_lean()
         or core._cmd_lean_deploy() for 'lean deploy ...' sub-commands.
@@ -1641,6 +1672,11 @@ Ask me about:
         stripped = cmd.strip()
         if stripped.lower().startswith("lean"):
             stripped = stripped[4:].lstrip()
+
+        # Route 'lean algo ...' to LeanAlgoManager
+        if stripped.lower().startswith("algo"):
+            algo_cmd = stripped[4:].lstrip()
+            return self._handle_lean_algo(algo_cmd)
 
         # Route 'lean deploy ...' to LeanDeployEngine
         if stripped.lower().startswith("deploy"):
@@ -1664,6 +1700,99 @@ Ask me about:
             return engine.status() if not stripped else "[lean] Core not available — limited LEAN support"
         except Exception as exc:
             return f"[lean] LeanEngine not available: {exc}"
+
+    def _handle_lean_algo(self, cmd: str) -> str:
+        """Route 'lean algo <sub>' to LeanAlgoManager.
+
+        Subcommands
+        -----------
+        status                    — Show LeanAlgoManager status
+        signal                    — Show current Niblit signal
+        deploy-all [dry-run]      — Deploy all algorithms to QC Cloud
+        projects                  — List deployed project IDs
+        start <project_id>        — Start live practice on paper brokerage
+        stop  <project_id>        — Stop a live algorithm
+        results                   — Show latest AI Master performance
+        help                      — Show this help
+        """
+        # Get or create manager
+        mgr = getattr(self.core, "lean_algo_manager", None)
+        if mgr is None:
+            try:
+                from modules.lean_algo_manager import get_lean_algo_manager as _glam
+                lean_deploy = getattr(self.core, "lean_deploy_engine", None)
+                trading_brain = getattr(self.core, "trading_brain", None)
+                knowledge_db = getattr(self.core, "db", None) or getattr(self.core, "memory", None)
+                mgr = _glam(
+                    trading_brain=trading_brain,
+                    lean_deploy_engine=lean_deploy,
+                    knowledge_db=knowledge_db,
+                )
+                if self.core:
+                    self.core.lean_algo_manager = mgr
+            except Exception as exc:
+                return f"[lean algo] LeanAlgoManager not available: {exc}"
+
+        sub = cmd.strip().lower()
+
+        if not sub or sub == "status":
+            return mgr.status()
+
+        if sub == "signal":
+            return mgr.show_signal()
+
+        if sub.startswith("deploy-all"):
+            dry = "dry" in sub or "dry-run" in sub
+            return mgr.deploy_all(dry_run=dry)
+
+        if sub == "projects":
+            return mgr.list_projects()
+
+        if sub.startswith("start"):
+            parts = sub.split()
+            if len(parts) < 2:
+                return "Usage: lean algo start <project_id> [brokerage]"
+            try:
+                pid = int(parts[1])
+            except ValueError:
+                return f"Invalid project_id: {parts[1]}"
+            brokerage = parts[2] if len(parts) > 2 else "PaperBrokerage"
+            return mgr.start_live(pid, brokerage)
+
+        if sub.startswith("stop"):
+            parts = sub.split()
+            if len(parts) < 2:
+                return "Usage: lean algo stop <project_id>"
+            lean_deploy = getattr(self.core, "lean_deploy_engine", None)
+            if not lean_deploy:
+                return "[lean algo stop] LeanDeployEngine not available"
+            try:
+                pid = int(parts[1])
+                r = lean_deploy._api("POST", "live/stop", {"projectId": pid})
+                if "error" in r:
+                    return f"[lean algo stop] {r['error']}"
+                return f"✅ Live algorithm stopped for project {pid}"
+            except Exception as exc:
+                return f"[lean algo stop] Failed: {exc}"
+
+        if sub == "results":
+            return mgr.show_results()
+
+        if sub == "help":
+            return (
+                "lean algo commands:\n"
+                "  lean algo status            — Show manager status\n"
+                "  lean algo signal            — Show current Niblit AI signal\n"
+                "  lean algo deploy-all        — Deploy all 20 algorithms to QC Cloud\n"
+                "  lean algo deploy-all dry-run— Preview deployment (no changes)\n"
+                "  lean algo projects          — List deployed project IDs\n"
+                "  lean algo start <id>        — Start live practice (paper brokerage)\n"
+                "  lean algo stop  <id>        — Stop live algorithm\n"
+                "  lean algo results           — Latest Niblit AI Master performance\n"
+                "  lean algo help              — Show this help"
+            )
+
+        return f"Unknown lean algo subcommand '{cmd}'. Type 'lean algo help'."
 
     # ── Market data handler (additive) ────────────────────────────────────────
 
@@ -3896,9 +4025,10 @@ Ask me about:
             'thanks': self.CHAT_RESPONSES.get('thanks', ["You're welcome!"]),
             'okay': self.CHAT_RESPONSES.get('okay', ["Got it!"]),
             'goodbye': self.CHAT_RESPONSES.get('goodbye', ["Goodbye!"]),
+            'conversation': self.CHAT_RESPONSES.get('conversation', ["I'd love to chat! What's on your mind?"]),
         }
 
-        response_list = responses.get(query_type, ["How can I help?"])
+        response_list = responses.get(query_type, self.CHAT_RESPONSES.get('greeting', ["How can I help?"]))
         return random.choice(response_list)
 
     # ─────────────────────────────────
@@ -4478,17 +4608,24 @@ Ask me about:
         lower = text.lower().strip()
 
         # ─── 1. Casual / open-ended → reply naturally ───────────────────
-        _CASUAL_MARKERS = (
+        _CASUAL_SINGLE = frozenset((
             "talk", "chat", "conversation", "nothing", "nothin",
-            "nah", "nope", "just", "ask me", "bored", "chill",
+            "nah", "nope", "just", "bored", "chill",
             "sup", "yo", "hm", "hmm", "idk", "dunno",
-        )
+        ))
+        _CASUAL_MULTI = ("ask me",)
         # Short casual messages (≤ this many words) with a chat marker are
         # treated as conversational openers, not knowledge queries.
+        # Use word-level matching to avoid false matches (e.g. "conversational"
+        # should not match the casual marker "conversation").
         _MAX_CASUAL_WORDS = 8
+        _lower_words = set(lower.split())
         if (
             len(lower.split()) <= _MAX_CASUAL_WORDS
-            and any(m in lower for m in _CASUAL_MARKERS)
+            and (
+                bool(_lower_words & _CASUAL_SINGLE)
+                or any(m in lower for m in _CASUAL_MULTI)
+            )
         ):
             return self._get_chat_response('conversation')
 
@@ -4819,6 +4956,7 @@ Ask me about:
             # ─────── CHAT MESSAGE ───────
             if msg_type == 'chat':
                 lower_text = cleaned.lower().strip()
+                _lt_words = set(lower_text.split())
 
                 if any(p in lower_text for p in ['hi', 'hello', 'hey', 'howdy', 'greetings']):
                     response = self._get_chat_response('greeting')
@@ -4830,10 +4968,10 @@ Ask me about:
                     response = self._get_chat_response('goodbye')
                 elif any(p in lower_text for p in ['ok', 'okay', 'got it', 'nice', 'cool', 'awesome', 'great']):
                     response = self._get_chat_response('okay')
-                elif any(kw in lower_text for kw in [
-                    'talk', 'chat', 'conversation', 'ask me',
-                    'nothing', 'nothin', 'nah', 'nope', 'just',
-                ]):
+                elif (
+                    any(kw in _lt_words for kw in ['talk', 'chat', 'conversation', 'nothing', 'nothin', 'nah', 'nope', 'just'])
+                    or 'ask me' in lower_text
+                ):
                     response = self._get_chat_response('conversation')
                 else:
                     response = self._get_chat_response('greeting')
@@ -6025,6 +6163,16 @@ Ask me about:
             "lean sweep <n> p=v1,v2 ...   — Parameter grid sweep (background, finds best)",
             "lean params [name]           — Show stored optimal parameter sets",
             "lean jobs                    — Show active LEAN background jobs",
+            "",
+            "=== LEAN ALGO MANAGER (niblit-lean-algos AI algorithms) ===",
+            "lean algo status             — Show signal + deployment status",
+            "lean algo signal             — Show current Niblit AI trading signal",
+            "lean algo deploy-all         — Deploy all 20 AI algorithms to QC Cloud",
+            "lean algo deploy-all dry-run — Preview deployment (no changes)",
+            "lean algo projects           — List deployed project IDs",
+            "lean algo start <id>         — Start live practice (paper brokerage)",
+            "lean algo stop  <id>         — Stop a live algorithm",
+            "lean algo results            — Latest Niblit AI Master performance",
             "",
             "=== LEAN DEPLOY ENGINE (QuantConnect REST API) ===",
             "lean deploy status           — Show credentials + available commands",

@@ -1069,6 +1069,15 @@ except Exception as _lde:
     _get_lean_deploy_engine = None  # type: ignore[assignment]
     _LEAN_DEPLOY_AVAILABLE = False
 
+# Niblit LEAN Algorithms manager — bridges TradingBrain with niblit-lean-algos.
+try:
+    from modules.lean_algo_manager import get_lean_algo_manager as _get_lean_algo_manager
+    _LEAN_ALGO_MANAGER_AVAILABLE = True
+except Exception as _lam:
+    log.debug(f"lean_algo_manager not available: {_lam}")
+    _get_lean_algo_manager = None  # type: ignore[assignment]
+    _LEAN_ALGO_MANAGER_AVAILABLE = False
+
 # ── MarketDataProviders (additive) ────────────────────────────────────────────
 # Unified gateway for free market data: yfinance, CCXT, TwelveData, OANDA, Alpaca.
 try:
@@ -1672,6 +1681,8 @@ class NiblitCore:
         self.knowledge_filter: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: LeanDeployEngine (QuantConnect REST API) ────────────
         self.lean_deploy_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: LeanAlgoManager (niblit-lean-algos bridge) ───────────
+        self.lean_algo_manager: Optional[Any] = None   # initialised in _init_optional_services
         # ── Additive: MarketDataProviders (multi-provider free data) ──────
         self.market_data_providers: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: TradingStudy (study/reflect/metacognition) ──────────
@@ -7264,6 +7275,21 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _ldee:
                 log.debug("[INIT] LeanDeployEngine init failed: %s", _ldee)
                 self.startup_report.add("lean_deploy_engine", "degraded", str(_ldee))
+
+        # ── LeanAlgoManager (additive) ────────────────────────────────────────
+        # Bridges TradingBrain with the niblit-lean-algos repo and QC Cloud.
+        if _LEAN_ALGO_MANAGER_AVAILABLE and _get_lean_algo_manager is not None:
+            try:
+                self.lean_algo_manager = _get_lean_algo_manager(
+                    trading_brain=getattr(self, "trading_brain", None),
+                    lean_deploy_engine=self.lean_deploy_engine,
+                    knowledge_db=self.db,
+                )
+                log.info("✅ LeanAlgoManager initialised")
+                self.startup_report.add("lean_algo_manager", "ready")
+            except Exception as _lame:
+                log.debug("[INIT] LeanAlgoManager init failed: %s", _lame)
+                self.startup_report.add("lean_algo_manager", "degraded", str(_lame))
 
         # ── TradingStudy (additive) ───────────────────────────────────────────
         # Study/reflect/metacognition engine for trading improvement.
