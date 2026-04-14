@@ -197,12 +197,13 @@ class LstmPredictor(QCAlgorithm):
         norm_seq = [(p - mu) / sigma for p in prices]
 
         # Run LSTM forward through the window
+        y_hat = 0.5  # default neutral probability if sequence is empty
         self._lstm.reset_state()
         for val in norm_seq[:-1]:
             y_hat = self._lstm.forward(val)
 
         # Prediction = last output
-        prob_up = y_hat  # type: ignore[possibly-undefined]
+        prob_up = y_hat
 
         # Online label: was the previous bar positive?
         actual_up = 1.0 if prices[-1] > prices[-2] else 0.0
