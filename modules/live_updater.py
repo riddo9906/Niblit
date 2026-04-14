@@ -146,8 +146,26 @@ class LiveUpdater:
     # INTERNALS
     # ──────────────────────────────────────────────
 
+    @staticmethod
+    def _normalize_module_name(module_name: str) -> str:
+        """Convert a file-path style name to a dotted module name.
+
+        Examples::
+
+            'modules/autonomous_learning_engine.py'  →  'modules.autonomous_learning_engine'
+            'modules\\knowledge_db.py'               →  'modules.knowledge_db'
+            'modules.knowledge_db'                   →  'modules.knowledge_db'  (unchanged)
+        """
+        # Strip optional .py suffix
+        if module_name.endswith(".py"):
+            module_name = module_name[:-3]
+        # Replace path separators with dots
+        module_name = module_name.replace(os.sep, ".").replace("/", ".").replace("\\", ".")
+        return module_name
+
     def _find_module_path(self, module_name: str) -> Optional[Path]:
         """Locate the .py file for a module name (dotted or plain)."""
+        module_name = self._normalize_module_name(module_name)
         # Already loaded → use spec
         mod = sys.modules.get(module_name)
         if mod:
@@ -193,6 +211,7 @@ class LiveUpdater:
             return None
 
     def _safe_reload(self, module_name: str) -> Dict[str, Any]:
+        module_name = self._normalize_module_name(module_name)
         ts_start = time.time()
         record: Dict[str, Any] = {
             "action": "reload",
@@ -225,6 +244,7 @@ class LiveUpdater:
         return record
 
     def _safe_patch(self, module_name: str, new_source: str) -> Dict[str, Any]:
+        module_name = self._normalize_module_name(module_name)
         ts_start = time.time()
         record: Dict[str, Any] = {
             "action": "patch",
