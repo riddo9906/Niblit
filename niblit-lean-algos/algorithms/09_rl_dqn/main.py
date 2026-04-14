@@ -208,9 +208,8 @@ class RlDqn(QCAlgorithm):
         # Niblit override (soft)
         if self._bridge is not None:
             try:
-                sig = self._bridge.get_signal(str(self._sym))
-                act  = sig.get("action", "HOLD").upper()
-                conf = float(sig.get("confidence", 0.5))
+                act = (self._bridge.get_signal() or "HOLD").upper()
+                conf = self._bridge.get_confidence()
                 if conf > 0.8:
                     action = _BUY if act == "BUY" else (_SELL if act == "SELL" else action)
                     self.log(f"Niblit override: {act}")

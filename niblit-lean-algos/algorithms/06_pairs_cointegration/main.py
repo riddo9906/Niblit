@@ -98,8 +98,8 @@ class PairsCointegration(QCAlgorithm):
             niblit_allow = True
             if self._bridge is not None:
                 try:
-                    sig_a = self._bridge.get_signal(str(self._sym_a))
-                    self.log(f"Niblit SPY: {sig_a.get('action','HOLD')}")
+                    _sig_str = (self._bridge.get_signal() or "HOLD").upper()
+                    self.log(f"Niblit SPY: {_sig_str}")
                 except Exception as exc:
                     self.log(f"Niblit error: {exc}")
 

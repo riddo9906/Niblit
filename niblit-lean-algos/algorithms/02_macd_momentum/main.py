@@ -93,9 +93,8 @@ class MacdMomentum(QCAlgorithm):
         niblit_mult = 1.0
         if self._bridge is not None:
             try:
-                sig = self._bridge.get_signal(str(self._sym))
-                action = sig.get("action", "HOLD").upper()
-                conf   = float(sig.get("confidence", 0.5))
+                action = (self._bridge.get_signal() or "HOLD").upper()
+                conf = self._bridge.get_confidence()
                 self.log(f"Niblit: {action} conf={conf:.3f}")
                 if action == "BUY":
                     niblit_mult = 1.0 + 0.25 * conf

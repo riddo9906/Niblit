@@ -174,9 +174,8 @@ class SupertrendAtr(QCAlgorithm):
         niblit_ok = True
         if self._bridge is not None:
             try:
-                sig = self._bridge.get_signal(str(self._sym))
-                act = sig.get("action", "HOLD").upper()
-                conf = float(sig.get("confidence", 0.5))
+                act = (self._bridge.get_signal() or "HOLD").upper()
+                conf = self._bridge.get_confidence()
                 self.log(f"Niblit: {act} conf={conf:.3f}")
                 if want_long  and act == "SELL" and conf > 0.7:
                     niblit_ok = False

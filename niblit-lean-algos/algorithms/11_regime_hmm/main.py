@@ -236,8 +236,8 @@ class RegimeHmm(QCAlgorithm):
         # Niblit optional log
         if self._bridge is not None:
             try:
-                sig = self._bridge.get_signal(str(self._sym))
-                self.log(f"Niblit: {sig.get('action','HOLD')}")
+                _sig_str = (self._bridge.get_signal() or "HOLD").upper()
+                self.log(f"Niblit: {_sig_str}")
             except Exception:
                 pass
 

@@ -111,8 +111,7 @@ class RsiMeanReversion(QCAlgorithm):
         niblit_allow = True
         if self._bridge is not None:
             try:
-                sig = self._bridge.get_signal(str(self._sym))
-                action = sig.get("action", "HOLD").upper()
+                action = (self._bridge.get_signal() or "HOLD").upper()
                 self.log(f"Niblit: {action}")
                 # Hard veto only when bridge says strongly opposite
                 if rsi < self._RSI_ENTRY_LO and action == "SELL":

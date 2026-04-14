@@ -128,8 +128,7 @@ class BollingerSqueeze(QCAlgorithm):
             niblit_ok = True
             if self._bridge is not None:
                 try:
-                    sig = self._bridge.get_signal(str(self._sym))
-                    act = sig.get("action", "HOLD").upper()
+                    act = (self._bridge.get_signal() or "HOLD").upper()
                     if direction == 1 and act == "SELL":
                         niblit_ok = False
                     if direction == -1 and act == "BUY":

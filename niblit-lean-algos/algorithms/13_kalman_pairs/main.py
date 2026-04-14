@@ -162,8 +162,7 @@ class KalmanPairs(QCAlgorithm):
             niblit_allow = True
             if self._bridge is not None:
                 try:
-                    sig = self._bridge.get_signal(str(self._sym_a))
-                    act = sig.get("action", "HOLD").upper()
+                    act = (self._bridge.get_signal() or "HOLD").upper()
                     self.log(f"Niblit GLD: {act}")
                 except Exception as exc:
                     self.log(f"Niblit error: {exc}")

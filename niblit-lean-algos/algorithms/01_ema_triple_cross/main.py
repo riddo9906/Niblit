@@ -93,9 +93,8 @@ class EmaTripleCross(QCAlgorithm):
         niblit_bias = 0.0   # +1 buy, -1 sell, 0 neutral
         if self._bridge is not None:
             try:
-                sig = self._bridge.get_signal(str(self._symbol))
-                action = sig.get("action", "HOLD").upper()
-                conf   = float(sig.get("confidence", 0.5))
+                action = (self._bridge.get_signal() or "HOLD").upper()
+                conf = self._bridge.get_confidence()
                 niblit_bias = conf if action == "BUY" else (-conf if action == "SELL" else 0.0)
                 self.log(f"Niblit signal: action={action} conf={conf:.3f}")
             except Exception as exc:

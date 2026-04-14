@@ -132,8 +132,7 @@ class VolatilityTargeting(QCAlgorithm):
         if self._bridge is not None:
             try:
                 for sym in self._syms:
-                    sig = self._bridge.get_signal(str(sym))
-                    act = sig.get("action", "HOLD").upper()
+                    act = (self._bridge.get_signal() or "HOLD").upper()
                     # If Niblit says SELL, halve the weight
                     if act == "SELL":
                         weights[sym] *= 0.5

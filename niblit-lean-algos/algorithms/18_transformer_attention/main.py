@@ -228,9 +228,8 @@ class TransformerAttention(QCAlgorithm):
         niblit_adj = 0.0
         if self._bridge is not None:
             try:
-                sig  = self._bridge.get_signal(str(self._sym))
-                act  = sig.get("action", "HOLD").upper()
-                conf = float(sig.get("confidence", 0.5))
+                act = (self._bridge.get_signal() or "HOLD").upper()
+                conf = self._bridge.get_confidence()
                 niblit_adj = 0.04 * conf if act == "BUY" else \
                             -0.04 * conf if act == "SELL" else 0.0
                 self.log(f"Niblit: {act} conf={conf:.3f}")

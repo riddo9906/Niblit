@@ -159,8 +159,8 @@ class MultiFactor(QCAlgorithm):
         if self._bridge is not None:
             try:
                 for sym in top_syms:
-                    sig = self._bridge.get_signal(str(sym))
-                    self.log(f"Niblit {sym}: {sig.get('action','HOLD')}")
+                    _sig_str = (self._bridge.get_signal() or "HOLD").upper()
+                    self.log(f"Niblit {sym}: {_sig_str}")
             except Exception as exc:
                 self.log(f"Niblit error: {exc}")
 

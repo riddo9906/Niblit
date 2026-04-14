@@ -1,0 +1,12 @@
+# Core LEAN / QuantConnect (managed by QuantConnect cloud — not pip installable)
+# lean  # install via: pip install lean
+
+# Data + numerics (optional — pure-Python fallbacks exist in all algorithms)
+numpy>=1.24
+pandas>=2.0
+
+# HTTP (used by deploy scripts)
+requests>=2.28
+
+# For local development only
+python-dotenv>=1.0

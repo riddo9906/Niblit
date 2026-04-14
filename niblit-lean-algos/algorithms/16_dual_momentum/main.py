@@ -120,9 +120,8 @@ class DualMomentum(QCAlgorithm):
         # Niblit opinion (logged; only flips risk-off if high confidence)
         if self._bridge is not None:
             try:
-                sig  = self._bridge.get_signal(str(self._syms[best_risky]))
-                act  = sig.get("action", "HOLD").upper()
-                conf = float(sig.get("confidence", 0.5))
+                act = (self._bridge.get_signal() or "HOLD").upper()
+                conf = self._bridge.get_confidence()
                 self.log(f"Niblit {best_risky}: {act} conf={conf:.3f}")
                 # If Niblit strongly disagrees and model says risk-on → go risk-off
                 if target != self._RF and act == "SELL" and conf > 0.8:

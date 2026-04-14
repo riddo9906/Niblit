@@ -138,11 +138,11 @@ class NiblitAiMaster(QCAlgorithm):
 
         if self._bridge is not None:
             try:
-                sig = self._bridge.get_signal(str(self._sym))
-                niblit_action     = sig.get("action",     "HOLD").upper()
-                niblit_confidence = float(sig.get("confidence",  0.5))
-                niblit_regime     = sig.get("regime",     "unknown")
-                niblit_risk_pct   = float(sig.get("risk_pct",   _DEFAULT_RISK))
+                sig               = self._bridge.get_full()
+                niblit_action     = ((sig.get("signal") or "HOLD") if sig else "HOLD").upper()
+                niblit_confidence = float(sig.get("confidence", 0.5)) if sig else 0.5
+                niblit_regime     = (sig.get("regime", "unknown") if sig else "unknown")
+                niblit_risk_pct   = float(sig.get("risk_pct", _DEFAULT_RISK)) if sig else _DEFAULT_RISK
                 self.log(
                     f"[Niblit] action={niblit_action}  "
                     f"confidence={niblit_confidence:.3f}  "

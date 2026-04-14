@@ -179,9 +179,8 @@ class CryptoFundingArb(QCAlgorithm):
         niblit_boost = 1.0
         if self._bridge is not None:
             try:
-                sig = self._bridge.get_signal(str(sym))
-                act  = sig.get("action", "HOLD").upper()
-                conf = float(sig.get("confidence", 0.5))
+                act = (self._bridge.get_signal() or "HOLD").upper()
+                conf = self._bridge.get_confidence()
                 if act == "BUY":
                     niblit_boost = 1.0 + 0.2 * conf
                 elif act == "SELL":
