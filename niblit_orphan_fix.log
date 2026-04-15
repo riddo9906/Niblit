@@ -4586,3 +4586,237 @@ ModuleNotFoundError: No module named 'fastapi'
 [2026-04-15 18:13:16.635852] SUCCESS: Loaded tools.structural_helper
 [2026-04-15 18:13:16.635871] SUCCESS: Loaded tools.FixGuideGenerator
 [2026-04-15 18:13:16.635888] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:45:10.869886] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:45:10.870132] Checking missing modules...
+[2026-04-15 20:45:16.052612] SUCCESS: Loaded modules.db
+[2026-04-15 20:45:16.053805] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:45:16.053983] Checking orphan modules...
+[2026-04-15 20:45:16.442917] SUCCESS: Loaded main
+[2026-04-15 20:45:16.442973] SUCCESS: Loaded niblit_net
+[2026-04-15 20:45:16.571053] SUCCESS: Loaded server
+[2026-04-15 20:45:16.571105] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:45:16.584095] SUCCESS: Loaded app
+[2026-04-15 20:45:16.584618] SUCCESS: Loaded hf_test
+[2026-04-15 20:45:16.584681] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:45:16.584713] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:45:16.584738] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:45:16.584760] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:45:16.584781] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:45:16.584800] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:45:16.584819] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:45:45.073318] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:45:45.073365] Checking missing modules...
+[2026-04-15 20:45:50.005597] SUCCESS: Loaded modules.db
+[2026-04-15 20:45:50.006773] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:45:50.006999] Checking orphan modules...
+[2026-04-15 20:45:50.145112] SUCCESS: Loaded main
+[2026-04-15 20:45:50.145166] SUCCESS: Loaded niblit_net
+[2026-04-15 20:45:50.275871] SUCCESS: Loaded server
+[2026-04-15 20:45:50.275927] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:45:50.282074] SUCCESS: Loaded app
+[2026-04-15 20:45:50.282733] SUCCESS: Loaded hf_test
+[2026-04-15 20:45:50.282775] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:45:50.282811] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:45:50.282846] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:45:50.282870] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:45:50.282892] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:45:50.282912] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:45:50.282932] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:46:18.614854] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:46:18.614904] Checking missing modules...
+[2026-04-15 20:46:23.568205] SUCCESS: Loaded modules.db
+[2026-04-15 20:46:23.568943] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:46:23.569017] Checking orphan modules...
+[2026-04-15 20:46:23.705646] SUCCESS: Loaded main
+[2026-04-15 20:46:23.705727] SUCCESS: Loaded niblit_net
+[2026-04-15 20:46:23.835425] SUCCESS: Loaded server
+[2026-04-15 20:46:23.835479] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:46:23.841629] SUCCESS: Loaded app
+[2026-04-15 20:46:23.842313] SUCCESS: Loaded hf_test
+[2026-04-15 20:46:23.842356] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:46:23.842385] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:46:23.842410] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:46:23.842432] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:46:23.842453] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:46:23.842473] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:46:23.842493] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:46:52.260137] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:46:52.260185] Checking missing modules...
+[2026-04-15 20:46:57.223294] SUCCESS: Loaded modules.db
+[2026-04-15 20:46:57.224041] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:46:57.224244] Checking orphan modules...
+[2026-04-15 20:46:57.358181] SUCCESS: Loaded main
+[2026-04-15 20:46:57.358233] SUCCESS: Loaded niblit_net
+[2026-04-15 20:46:57.485804] SUCCESS: Loaded server
+[2026-04-15 20:46:57.485854] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:46:57.491963] SUCCESS: Loaded app
+[2026-04-15 20:46:57.492604] SUCCESS: Loaded hf_test
+[2026-04-15 20:46:57.492644] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:46:57.492705] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:46:57.492730] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:46:57.492752] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:46:57.492771] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:46:57.492790] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:46:57.492808] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:47:25.736988] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:47:25.737032] Checking missing modules...
+[2026-04-15 20:47:30.656806] SUCCESS: Loaded modules.db
+[2026-04-15 20:47:30.657372] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:47:30.657429] Checking orphan modules...
+[2026-04-15 20:47:30.793367] SUCCESS: Loaded main
+[2026-04-15 20:47:30.793423] SUCCESS: Loaded niblit_net
+[2026-04-15 20:47:30.922017] SUCCESS: Loaded server
+[2026-04-15 20:47:30.922072] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:47:30.928186] SUCCESS: Loaded app
+[2026-04-15 20:47:30.928870] SUCCESS: Loaded hf_test
+[2026-04-15 20:47:30.928912] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:47:30.928941] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:47:30.928964] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:47:30.928986] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:47:30.929006] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:47:30.929026] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:47:30.929045] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:47:58.964249] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:47:58.964294] Checking missing modules...
+[2026-04-15 20:48:03.913946] SUCCESS: Loaded modules.db
+[2026-04-15 20:48:03.914635] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:48:03.915030] Checking orphan modules...
+[2026-04-15 20:48:04.050958] SUCCESS: Loaded main
+[2026-04-15 20:48:04.051011] SUCCESS: Loaded niblit_net
+[2026-04-15 20:48:04.179112] SUCCESS: Loaded server
+[2026-04-15 20:48:04.179164] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:48:04.185356] SUCCESS: Loaded app
+[2026-04-15 20:48:04.186026] SUCCESS: Loaded hf_test
+[2026-04-15 20:48:04.186068] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:48:04.186096] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:48:04.186120] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:48:04.186143] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:48:04.186180] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:48:04.186222] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:48:04.186247] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:48:32.468549] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:48:32.468596] Checking missing modules...
+[2026-04-15 20:48:37.400013] SUCCESS: Loaded modules.db
+[2026-04-15 20:48:37.400580] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:48:37.400631] Checking orphan modules...
+[2026-04-15 20:48:37.537145] SUCCESS: Loaded main
+[2026-04-15 20:48:37.537200] SUCCESS: Loaded niblit_net
+[2026-04-15 20:48:37.666602] SUCCESS: Loaded server
+[2026-04-15 20:48:37.666676] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:48:37.672827] SUCCESS: Loaded app
+[2026-04-15 20:48:37.673463] SUCCESS: Loaded hf_test
+[2026-04-15 20:48:37.673505] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:48:37.673533] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:48:37.673556] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:48:37.673577] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:48:37.673598] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:48:37.673624] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:48:37.673645] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:49:06.171963] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:49:06.172010] Checking missing modules...
+[2026-04-15 20:49:11.151035] SUCCESS: Loaded modules.db
+[2026-04-15 20:49:11.152147] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:49:11.152791] Checking orphan modules...
+[2026-04-15 20:49:11.287772] SUCCESS: Loaded main
+[2026-04-15 20:49:11.287826] SUCCESS: Loaded niblit_net
+[2026-04-15 20:49:11.416402] SUCCESS: Loaded server
+[2026-04-15 20:49:11.416457] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:49:11.422607] SUCCESS: Loaded app
+[2026-04-15 20:49:11.423284] SUCCESS: Loaded hf_test
+[2026-04-15 20:49:11.423327] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:49:11.423355] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:49:11.423379] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:49:11.423402] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:49:11.423423] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:49:11.423445] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:49:11.423480] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:49:39.908194] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:49:39.908287] Checking missing modules...
+[2026-04-15 20:49:45.025348] SUCCESS: Loaded modules.db
+[2026-04-15 20:49:45.026153] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:49:45.026490] Checking orphan modules...
+[2026-04-15 20:49:45.161835] SUCCESS: Loaded main
+[2026-04-15 20:49:45.161889] SUCCESS: Loaded niblit_net
+[2026-04-15 20:49:45.291504] SUCCESS: Loaded server
+[2026-04-15 20:49:45.291568] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:49:45.297778] SUCCESS: Loaded app
+[2026-04-15 20:49:45.298434] SUCCESS: Loaded hf_test
+[2026-04-15 20:49:45.298475] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:49:45.298503] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:49:45.298527] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:49:45.298549] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:49:45.298570] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:49:45.298591] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:49:45.298619] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:50:14.214847] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:50:14.214894] Checking missing modules...
+[2026-04-15 20:50:19.163081] SUCCESS: Loaded modules.db
+[2026-04-15 20:50:19.163596] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:50:19.164148] Checking orphan modules...
+[2026-04-15 20:50:19.299751] SUCCESS: Loaded main
+[2026-04-15 20:50:19.299806] SUCCESS: Loaded niblit_net
+[2026-04-15 20:50:19.427302] SUCCESS: Loaded server
+[2026-04-15 20:50:19.427352] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:50:19.433473] SUCCESS: Loaded app
+[2026-04-15 20:50:19.434132] SUCCESS: Loaded hf_test
+[2026-04-15 20:50:19.434174] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:50:19.434202] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:50:19.434224] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:50:19.434246] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:50:19.434268] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:50:19.434288] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:50:19.434307] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:50:47.835051] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:50:47.835098] Checking missing modules...
+[2026-04-15 20:50:54.174564] SUCCESS: Loaded modules.db
+[2026-04-15 20:50:54.175222] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:50:54.175332] Checking orphan modules...
+[2026-04-15 20:50:54.313908] SUCCESS: Loaded main
+[2026-04-15 20:50:54.313968] SUCCESS: Loaded niblit_net
+[2026-04-15 20:50:54.447049] SUCCESS: Loaded server
+[2026-04-15 20:50:54.447111] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:50:54.453572] SUCCESS: Loaded app
+[2026-04-15 20:50:54.454264] SUCCESS: Loaded hf_test
+[2026-04-15 20:50:54.454305] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:50:54.454333] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:50:54.454355] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:50:54.454376] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:50:54.454412] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:50:54.454437] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:50:54.454456] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:51:23.744138] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:51:23.744183] Checking missing modules...
+[2026-04-15 20:51:29.571530] SUCCESS: Loaded modules.db
+[2026-04-15 20:51:29.572826] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:51:29.573452] Checking orphan modules...
+[2026-04-15 20:51:29.709429] SUCCESS: Loaded main
+[2026-04-15 20:51:29.709482] SUCCESS: Loaded niblit_net
+[2026-04-15 20:51:29.838383] SUCCESS: Loaded server
+[2026-04-15 20:51:29.838435] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:51:29.844625] SUCCESS: Loaded app
+[2026-04-15 20:51:29.845281] SUCCESS: Loaded hf_test
+[2026-04-15 20:51:29.845322] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:51:29.845350] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:51:29.845397] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:51:29.845444] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:51:29.845472] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:51:29.845494] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:51:29.845514] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 20:52:01.952026] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 20:52:01.952074] Checking missing modules...
+[2026-04-15 20:52:07.000590] SUCCESS: Loaded modules.db
+[2026-04-15 20:52:07.001138] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:52:07.001197] Checking orphan modules...
+[2026-04-15 20:52:07.139043] SUCCESS: Loaded main
+[2026-04-15 20:52:07.139100] SUCCESS: Loaded niblit_net
+[2026-04-15 20:52:07.268612] SUCCESS: Loaded server
+[2026-04-15 20:52:07.268690] SUCCESS: Loaded niblit_memory
+[2026-04-15 20:52:07.274929] SUCCESS: Loaded app
+[2026-04-15 20:52:07.275575] SUCCESS: Loaded hf_test
+[2026-04-15 20:52:07.275616] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 20:52:07.275645] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 20:52:07.275704] SUCCESS: Loaded modules.evolve
+[2026-04-15 20:52:07.275728] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 20:52:07.275750] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 20:52:07.275770] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 20:52:07.275790] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
