@@ -6488,10 +6488,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 def _run_module_loader() -> None:
                     try:
                         load_modules()
-                        self.startup_report.add("module_loader", "ready")
+                        log.info("✅ module_loader background load complete")
                     except Exception as e:
                         log.debug(f"load_modules failed: {e}")
-                        self.startup_report.add("module_loader", "degraded", str(e))
 
                 try:
                     _ml_thread = threading.Thread(
