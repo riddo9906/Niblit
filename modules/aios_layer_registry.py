@@ -453,7 +453,8 @@ class AIOSLayerRegistry:
         _wire_map = [
             # (layer, name, attr_on_runtime)
             # MSG — top-level meta-cognition governs all other layers
-            (LAYER_MSG, "msg_layer",          "msg_layer"),
+            (LAYER_MSG, "msg_layer",             "msg_layer"),
+            (LAYER_MSG, "unified_self_modules",  "unified_self_modules"),
             # APP — user-facing interfaces
             (LAYER_APP, "router",             "router"),
             (LAYER_APP, "core",               "core"),

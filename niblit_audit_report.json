@@ -1,5 +1,5 @@
 {
-    "timestamp": 1776273532.145673,
+    "timestamp": 1776276808.217052,
     "circular_imports": [
         "niblit_memory -> niblit_memory",
         "modules.graph_rag -> modules.sync_engine -> modules.niblit_core_kernel_v2 -> modules.niblit_core_kernel -> modules.phased_research_engine -> modules.language_module -> modules.graph_rag",
@@ -252,7 +252,6 @@
         "modules.slice_guard",
         "modules.storage",
         "modules.terminal_tools",
-        "modules.unified_self_modules",
         "nibblebots.ai_trading_bot",
         "nibblebots.aios_architecture_bot",
         "nibblebots.aios_integration_bot",
@@ -746,6 +745,7 @@
         "modules.trading_brain",
         "modules.trading_study",
         "modules.trading_swing_v3",
+        "modules.unified_self_modules",
         "modules.universal_file_manager",
         "modules.universe_registry",
         "modules.vector_store",
@@ -918,7 +918,7 @@
         "files_with_errors": 0,
         "circular_imports_found": 10,
         "missing_modules_found": 173,
-        "orphaned_modules_found": 143,
-        "audit_time": 3.081847906112671
+        "orphaned_modules_found": 142,
+        "audit_time": 3.2374818325042725
     }
 }
