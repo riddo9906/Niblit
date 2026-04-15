@@ -17,9 +17,9 @@ Four lightweight signals combined into a quality score ∈ [0, 1]:
 
 Optional DistilBERT classifier (when ``transformers`` is installed)
 -------------------------------------------------------------------
-A ``distilbert-base-uncased`` model fine-tuned on (query, answer, context)
-triples with binary quality labels.  When not yet fine-tuned it falls back
-to the heuristic scorer automatically.
+Uses a sequence-classification DistilBERT checkpoint so classifier head
+weights are present at load-time (avoiding mismatched/missing head warnings).
+When unavailable it falls back to the heuristic scorer automatically.
 
 Public API
 ----------
@@ -84,6 +84,7 @@ _STOP_WORDS: frozenset = frozenset({
 })
 
 _TOKEN_RE = re.compile(r"[a-z]{2,}")
+_DEFAULT_CLASSIFIER_MODEL = "distilbert-base-uncased-finetuned-sst-2-english"
 
 
 def _tokenize(text: str) -> List[str]:
@@ -189,7 +190,7 @@ class RewardModel:
     heuristic scorer is used exclusively.
     """
 
-    def __init__(self, model_name: str = "distilbert-base-uncased") -> None:
+    def __init__(self, model_name: str = _DEFAULT_CLASSIFIER_MODEL) -> None:
         self._model_name = model_name
         self._pipeline: Optional[Any] = None
         self._pipeline_lock = threading.Lock()
@@ -329,12 +330,8 @@ class RewardModel:
     def _get_pipeline(self) -> Optional[Any]:
         """Lazy-load the HF classifier pipeline (once per process).
 
-        stdout/stderr are captured during model construction so that the
-        safetensors "LOAD REPORT" table (UNEXPECTED/MISSING keys) and tqdm
-        progress bars never appear on the console — they are benign artefacts
-        of loading a base checkpoint for a different task head.
-        ``ignore_mismatched_sizes=True`` is passed so that transformers does
-        not raise when the checkpoint has different head dimensions.
+        stdout/stderr are captured during model construction so noisy download
+        progress bars never appear on the console.
         """
         if self._pipeline_tried:
             return self._pipeline
@@ -357,12 +354,24 @@ class RewardModel:
                 sys.stderr = captured_err
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore")
-                    self._pipeline = _hf_pipeline(
-                        "text-classification",
-                        model=self._model_name,
-                        device=-1,  # CPU
-                        model_kwargs={"ignore_mismatched_sizes": True},
-                    )
+                    hf_log = logging.getLogger("transformers")
+                    st_log = logging.getLogger("safetensors")
+                    prev_hf_level = hf_log.level
+                    prev_st_level = st_log.level
+                    hf_log.setLevel(logging.ERROR)
+                    st_log.setLevel(logging.ERROR)
+                    try:
+                        tokenizer = _AutoTokenizer.from_pretrained(self._model_name)
+                        model = _AutoModelForSeqClass.from_pretrained(self._model_name)
+                        self._pipeline = _hf_pipeline(
+                            "text-classification",
+                            model=model,
+                            tokenizer=tokenizer,
+                            device=-1,  # CPU
+                        )
+                    finally:
+                        hf_log.setLevel(prev_hf_level)
+                        st_log.setLevel(prev_st_level)
             except Exception as exc:
                 _load_exc = exc
             finally:
@@ -390,7 +399,7 @@ _reward_singleton: Optional[RewardModel] = None
 _reward_lock = threading.Lock()
 
 
-def get_reward_model(model_name: str = "distilbert-base-uncased") -> RewardModel:
+def get_reward_model(model_name: str = _DEFAULT_CLASSIFIER_MODEL) -> RewardModel:
     """Return the global :class:`RewardModel` singleton.  Thread-safe."""
     global _reward_singleton
     with _reward_lock:
