@@ -48,6 +48,8 @@ from niblit_core import NiblitCore
 from niblit_io import NiblitIO
 from niblit_router import safe_call
 
+DEFAULT_INIT_WAIT_MAX_SECONDS = 300.0
+
 # ── Non-blocking background notification queue (additive) ──────────────────
 # Import the shared notification queue so we can surface background output
 # ONLY after the user presses Enter (never during typing).
@@ -688,20 +690,32 @@ if __name__ == "__main__":
     # continues; some features degrade gracefully until it finishes).
     _skip_wait = os.getenv("NIBLIT_SKIP_INIT_WAIT", "0").strip() in ("1", "true", "yes")
     if not _skip_wait and hasattr(core, "wait_for_ready"):
-        _max_wait_s = 300.0
+        _max_wait_s = DEFAULT_INIT_WAIT_MAX_SECONDS
+        _timeout_disabled = False
+        _init_wait_cfg_warning = ""
         _max_wait_raw = os.getenv("NIBLIT_INIT_WAIT_MAX_SECONDS", "").strip()
         if _max_wait_raw:
             try:
                 _max_wait_s = float(_max_wait_raw)
             except ValueError:
-                _max_wait_s = 300.0
+                _max_wait_s = DEFAULT_INIT_WAIT_MAX_SECONDS
+                _init_wait_cfg_warning = (
+                    f"⚠️ Invalid NIBLIT_INIT_WAIT_MAX_SECONDS='{_max_wait_raw}' "
+                    f"— using default {int(DEFAULT_INIT_WAIT_MAX_SECONDS)}s"
+                )
         if _max_wait_s <= 0:
-            _max_wait_s = 0.0
+            _timeout_disabled = True
+            _init_wait_cfg_warning = (
+                "ℹ️ NIBLIT_INIT_WAIT_MAX_SECONDS<=0 — init wait timeout disabled "
+                "(waits until ready, failed, or Ctrl+C)"
+            )
         _wait_started_at = time.monotonic()
         io.out(
             f"{timestamp()} ⏳ Niblit initialising — please wait until fully booted\n"
             f"          (Ctrl+C to skip to CLI now, or set NIBLIT_SKIP_INIT_WAIT=1)"
         )
+        if _init_wait_cfg_warning:
+            io.out(f"{timestamp()} {_init_wait_cfg_warning}")
         _init_pq = getattr(core, "_init_progress_queue", None)
         _heartbeat_ticks = 0
         try:
@@ -725,7 +739,7 @@ if __name__ == "__main__":
                     break
 
                 # Safety valve: avoid waiting forever if deferred init gets stuck.
-                if _max_wait_s > 0 and (time.monotonic() - _wait_started_at) >= _max_wait_s:
+                if not _timeout_disabled and (time.monotonic() - _wait_started_at) >= _max_wait_s:
                     io.out(
                         f"{timestamp()} ⚠️ Init wait timeout reached ({int(_max_wait_s)}s) — "
                         "opening CLI while remaining modules continue in background"
