@@ -3,11 +3,12 @@
 modules/llm_provider_manager.py — Runtime LLM provider selector for Niblit.
 
 Priority:
-    1. HuggingFace Router (HFBrain / HFAdapter)  ← PRIMARY
-    2. Anthropic Claude (ClaudeEngine)            ← FALLBACK
+    1. HuggingFace Router (HFBrain / HFAdapter)  ← PRIMARY (default)
+    2. Anthropic Claude (ClaudeEngine)           ← FALLBACK
+    3. Qwen Local Brain (QwenLocalBrain)         ← LOCAL OPTION
 
 The active provider can be switched at runtime via the ``llm-provider``
-CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic`` in the
+CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic|qwen`` in the
 environment before startup.
 
 Usage::
@@ -17,6 +18,7 @@ Usage::
 
     mgr.switch("anthropic")   # swap at runtime
     mgr.switch("hf")          # swap back
+    mgr.switch("qwen")        # use local Qwen brain
 
     info = mgr.status()       # {"active": "hf", "hf": True, "anthropic": False, ...}
 """
@@ -32,7 +34,7 @@ log = logging.getLogger("LLMProviderManager")
 _manager: Optional["LLMProviderManager"] = None
 _manager_lock = threading.Lock()
 
-VALID_PROVIDERS = ("hf", "anthropic")
+VALID_PROVIDERS = ("hf", "anthropic", "qwen")
 
 
 def get_llm_provider_manager() -> "LLMProviderManager":
@@ -55,6 +57,9 @@ class LLMProviderManager:
     ``"anthropic"``  Anthropic Messages API via
                      :class:`~niblit_models.claude_engine.ClaudeEngine`
                      (requires ``ANTHROPIC_API_KEY``).
+    ``"qwen"``       Local Qwen brain via
+                     :class:`~modules.local_brain.QwenLocalBrain`
+                     (local model, no cloud API key required).
 
     The active provider is stored as a plain string attribute so it can be
     read or overwritten by any module that holds a reference.
@@ -68,6 +73,7 @@ class LLMProviderManager:
         # Lazily resolved provider instances — set by wire() or on first ask()
         self._hf_brain: Optional[Any] = None
         self._claude: Optional[Any] = None
+        self._local_brain: Optional[Any] = None
 
     # ── wiring (called by niblit_core / niblit_brain after init) ─────────────
 
@@ -75,6 +81,7 @@ class LLMProviderManager:
         self,
         hf_brain: Optional[Any] = None,
         claude: Optional[Any] = None,
+        local_brain: Optional[Any] = None,
     ) -> None:
         """Attach live provider instances.  Safe to call multiple times."""
         with self._lock:
@@ -82,6 +89,8 @@ class LLMProviderManager:
                 self._hf_brain = hf_brain
             if claude is not None:
                 self._claude = claude
+            if local_brain is not None:
+                self._local_brain = local_brain
 
     # ── runtime switch ────────────────────────────────────────────────────────
 
@@ -101,14 +110,22 @@ class LLMProviderManager:
         """Return a status dict with provider availability."""
         hf_ok = self._hf_available()
         ant_ok = self._anthropic_available()
+        qwen_ok = self._qwen_available()
         return {
             "active": self.active,
             "hf": hf_ok,
             "anthropic": ant_ok,
+            "qwen": qwen_ok,
             "hf_model": getattr(self._hf_brain, "model", "n/a") if hf_ok else "n/a",
             "anthropic_model": (
                 getattr(self._claude, "_model", "n/a")
-                if self._claude is not None else "n/a"
+                if self._claude is not None
+                else "n/a"
+            ),
+            "qwen_model": (
+                getattr(self._local_brain, "model_name", "n/a")
+                if self._local_brain is not None
+                else "n/a"
             ),
         }
 
@@ -124,27 +141,23 @@ class LLMProviderManager:
 
         Returns ``None`` when both providers are unavailable.
         """
-        primary, fallback = (
-            (self._ask_hf, self._ask_anthropic)
-            if self.active == "hf"
-            else (self._ask_anthropic, self._ask_hf)
-        )
+        providers = {
+            "hf": self._ask_hf,
+            "anthropic": self._ask_anthropic,
+            "qwen": self._ask_qwen,
+        }
+        order = [self.active] + [p for p in VALID_PROVIDERS if p != self.active]
 
-        try:
-            result = primary(prompt, system=system, max_tokens=max_tokens)
-            if result:
-                return result
-        except Exception as exc:
-            log.debug("[LLMProviderManager] Primary (%s) error: %s", self.active, exc)
-
-        # Fallback
-        fallback_name = "anthropic" if self.active == "hf" else "hf"
-        log.debug("[LLMProviderManager] Falling back to %s", fallback_name)
-        try:
-            return fallback(prompt, system=system, max_tokens=max_tokens)
-        except Exception as exc:
-            log.debug("[LLMProviderManager] Fallback (%s) error: %s", fallback_name, exc)
-            return None
+        for idx, provider_name in enumerate(order):
+            fn = providers[provider_name]
+            try:
+                result = fn(prompt, system=system, max_tokens=max_tokens)
+                if result:
+                    return result
+            except Exception as exc:
+                role = "Primary" if idx == 0 else "Fallback"
+                log.debug("[LLMProviderManager] %s (%s) error: %s", role, provider_name, exc)
+        return None
 
     # ── private helpers ───────────────────────────────────────────────────────
 
@@ -184,6 +197,33 @@ class LLMProviderManager:
         result = cl.generate(prompt, system=system or "", max_tokens=max_tokens)
         return result if result and result.strip() else None
 
+    def _qwen_available(self) -> bool:
+        lb = self._local_brain
+        if lb is None:
+            self._local_brain = self._lazy_local_brain()
+            lb = self._local_brain
+        return lb is not None
+
+    def _ask_qwen(self, prompt: str, system: str = "", max_tokens: int = 500) -> Optional[str]:
+        lb = self._local_brain
+        if lb is None:
+            lb = self._lazy_local_brain()
+            self._local_brain = lb
+        if lb is None:
+            return None
+        result = None
+        if hasattr(lb, "generate"):
+            result = lb.generate(prompt, max_new_tokens=max_tokens, system_prompt=system or None)
+        elif hasattr(lb, "ask"):
+            result = lb.ask(prompt, context=system or "")
+        if not result or not result.strip():
+            return None
+        text = result.strip()
+        lower = text.lower()
+        if lower.startswith("[localbrain ") and ("unavailable" in lower or "error" in lower):
+            return None
+        return text
+
     def _lazy_hf(self) -> Optional[Any]:
         """Try to import and instantiate HFBrain without requiring a DB."""
         try:
@@ -200,6 +240,15 @@ class LLMProviderManager:
             return ClaudeEngine()
         except Exception as exc:
             log.debug("[LLMProviderManager] ClaudeEngine lazy-init failed: %s", exc)
+            return None
+
+    def _lazy_local_brain(self) -> Optional[Any]:
+        """Try to import and instantiate local Qwen brain singleton."""
+        try:
+            from modules.local_brain import get_local_brain  # type: ignore[import]
+            return get_local_brain()
+        except Exception as exc:
+            log.debug("[LLMProviderManager] LocalBrain lazy-init failed: %s", exc)
             return None
 
 

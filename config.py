@@ -41,8 +41,8 @@ class Config:
     # unless overridden by provider-specific env vars.
     LLM_MODEL: str = os.getenv("NIBLIT_LLM_MODEL", "")
 
-    # Active LLM provider: "hf" (HuggingFace, default) or "anthropic".
-    # Can be switched at runtime with `llm-provider hf|anthropic`.
+    # Active LLM provider: "hf" (HuggingFace, default), "anthropic", or "qwen".
+    # Can be switched at runtime with `llm-provider hf|anthropic|qwen`.
     LLM_ACTIVE_PROVIDER: str = os.getenv("NIBLIT_LLM_PROVIDER", "hf")
 
     # OpenAI (https://platform.openai.com/api-keys)

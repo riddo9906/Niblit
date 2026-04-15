@@ -2585,12 +2585,13 @@ Ask me about:
     # ── LLM Provider Switch handler ───────────────────────────────────────────
 
     def _handle_llm_provider(self, cmd: str) -> str:
-        """Route ``llm-provider hf|anthropic|status`` commands.
+        """Route ``llm-provider hf|anthropic|qwen|status`` commands.
 
         Subcommands::
 
             llm-provider hf         — set HuggingFace as primary (default)
             llm-provider anthropic  — set Anthropic Claude as primary
+            llm-provider qwen       — set local Qwen brain as primary
             llm-provider status     — show active provider and availability
         """
         lower = cmd.strip().lower()
@@ -2606,6 +2607,7 @@ Ask me about:
                 mgr.wire(
                     hf_brain=getattr(brain, "hf_brain", None),
                     claude=getattr(brain, "claude", None),
+                    local_brain=getattr(brain, "local_brain", None),
                 )
         except Exception as exc:
             return f"❌ LLMProviderManager unavailable: {exc}"
@@ -2614,20 +2616,23 @@ Ask me about:
             s = mgr.status()
             hf_flag = "✅" if s["hf"] else "❌"
             ant_flag = "✅" if s["anthropic"] else "❌"
-            primary_flag = "← active" if s["active"] == "hf" else ""
-            fallback_flag = "← active" if s["active"] == "anthropic" else ""
+            qwen_flag = "✅" if s["qwen"] else "❌"
+            hf_active = "← active" if s["active"] == "hf" else ""
+            ant_active = "← active" if s["active"] == "anthropic" else ""
+            qwen_active = "← active" if s["active"] == "qwen" else ""
             return (
                 f"**LLM Provider Status**\n"
                 f"• Active provider: **{s['active']}**\n"
-                f"• HuggingFace  {hf_flag}  (model: {s['hf_model']}) {primary_flag}\n"
-                f"• Anthropic    {ant_flag}  (model: {s['anthropic_model']}) {fallback_flag}\n"
-                f"\nSwitch: `llm-provider hf` or `llm-provider anthropic`"
+                f"• HuggingFace  {hf_flag}  (model: {s['hf_model']}) {hf_active}\n"
+                f"• Anthropic    {ant_flag}  (model: {s['anthropic_model']}) {ant_active}\n"
+                f"• Qwen Local   {qwen_flag}  (model: {s['qwen_model']}) {qwen_active}\n"
+                f"\nSwitch: `llm-provider hf`, `llm-provider anthropic`, or `llm-provider qwen`"
             )
 
-        if arg in ("hf", "anthropic"):
+        if arg in ("hf", "anthropic", "qwen"):
             return mgr.switch(arg)
 
-        return "Usage: llm-provider hf|anthropic|status"
+        return "Usage: llm-provider hf|anthropic|qwen|status"
 
     # ── Chat Memory handler (LLM inference provider memory) ───────────────────
 
@@ -5968,7 +5973,7 @@ Ask me about:
         if lower in ("hf-status",) or lower.startswith("hf-enable") or lower.startswith("hf-disable") or lower.startswith("hf-ask"):
             return self._handle_hf_brain(cmd)
 
-        # LLM PROVIDER SWITCH (llm-provider hf | anthropic | status)
+        # LLM PROVIDER SWITCH (llm-provider hf | anthropic | qwen | status)
         if lower.startswith("llm-provider"):
             return self._handle_llm_provider(cmd)
 
@@ -6277,6 +6282,7 @@ Ask me about:
             "toggle-llm status            — Show LLM session & chat memory status",
             "llm-provider hf              — Set HuggingFace as primary LLM (default)",
             "llm-provider anthropic       — Set Anthropic Claude as primary LLM",
+            "llm-provider qwen            — Set local Qwen brain as primary LLM",
             "llm-provider status          — Show active provider & availability",
             "status, health               — System status",
             "time                         — Current time",
