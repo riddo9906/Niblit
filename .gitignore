@@ -72,3 +72,6 @@ niblit-lean-algos/
 .json
 serpapi_usage.json
 niblit_memory_graph.pkl.backup
+niblit-lean-algos/algorithms
+niblit-lean-algos/scripts
+niblit-lean-algos/niblit_bridge/
