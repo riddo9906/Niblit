@@ -1,5 +1,5 @@
 {
-    "timestamp": 1776258011.0211496,
+    "timestamp": 1776270956.598002,
     "circular_imports": [
         "niblit_memory -> niblit_memory",
         "modules.graph_rag -> modules.sync_engine -> modules.niblit_core_kernel_v2 -> modules.niblit_core_kernel -> modules.phased_research_engine -> modules.language_module -> modules.graph_rag",
@@ -245,7 +245,6 @@
         "modules.layered_architecture",
         "modules.llm_controller",
         "modules.local_llm_adapter",
-        "modules.niblit_personality",
         "modules.parallel_learning_engine",
         "modules.permission_manager",
         "modules.safe_loader",
@@ -695,6 +694,7 @@
         "modules.niblit_defensive_evolution_loop",
         "modules.niblit_kernel",
         "modules.niblit_kernel_v3",
+        "modules.niblit_personality",
         "modules.niblit_runtime",
         "modules.openai_adapter",
         "modules.orphan_imports",
@@ -918,7 +918,7 @@
         "files_with_errors": 0,
         "circular_imports_found": 10,
         "missing_modules_found": 173,
-        "orphaned_modules_found": 144,
-        "audit_time": 3.047494649887085
+        "orphaned_modules_found": 143,
+        "audit_time": 3.064511775970459
     }
 }

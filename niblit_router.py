@@ -119,8 +119,15 @@ class ChatDetector:
         r'^okay\s*$|^ok\s*$|^got\s+it\s*$',
         r'^nice\s*$|^cool\s*$|^awesome\s*$|^great\s*$',
         r'^bye\s*$|^goodbye\s*$|^see\s+you\s*$',
-        r'^lol\s*$|^haha\s*$',
+        r'^lol\s*$|^haha\s*$|^hehe\s*$|^lmao\s*$|^😂\s*$|^😄\s*$',
         r'^(yes|no)\s*$',
+        r'^wow\s*$|^whoa\s*$|^no\s+way\s*$|^seriously\s*$|^omg\s*$',
+        r'^same\s*$|^agreed\s*$|^exactly\s*$|^totally\s*$|^absolutely\s*$',
+        r'^sorry\s*$|^my\s+bad\s*$|^my\s+fault\s*$|^oops\s*$',
+        r'^yay\s*$|^yes!\s*$|^woohoo\s*$',
+        r'^ugh\s*$|^argh\s*$|^damn\s*$',
+        r'^interesting\s*$|^fair\s+enough\s*$|^makes\s+sense\s*$',
+        r'^what\s*\?\s*$|^huh\s*\??$',
         # Conversational openers — should produce a natural reply, NOT a KB dump
         r'let\'?s\s+(have\s+a\s+)?(normal\s+)?(talk|chat|conversation)',
         r'(can|could)\s+we\s+(just\s+)?(talk|chat|have\s+a\s+conversation)',
@@ -129,6 +136,13 @@ class ChatDetector:
         r'^just\s+(talking|chatting|chilling)',
         r'^i\s+(just\s+)?want\s+to\s+(talk|chat)',
         r'^ask\s+me\s+(a\s+question|something|anything)',
+        # Joke / fun requests
+        r'^(tell\s+me\s+)?a?\s*joke\s*$',
+        r'^(tell\s+me\s+)?something\s+funny\s*$',
+        r'^make\s+me\s+(laugh|smile)\s*$',
+        # Boredom
+        r'^\s*i\'?m\s+(so\s+)?bored\s*$',
+        r'^(i\s+have\s+)?nothing\s+to\s+do\s*$',
     ]
 
     # Knowledge-share patterns — user asking Niblit to share what it has learned.
@@ -384,26 +398,36 @@ class NiblitRouter:
             "Hi! I'm Niblit, an autonomous AI system. How can I help?",
             "Hello! Ready to assist. What would you like to know?",
             "Hey there! What can I do for you?",
+            "Hi! Great to chat with you. What's on your mind?",
+            "Hello! I'm here and ready. What shall we explore?",
         ],
         'how_are_you': [
             "I'm running smoothly and continuously learning! Thanks for asking.",
             "Doing great! My autonomous learning engine is actively improving my knowledge.",
             "I'm operating at full capacity and learning new things all the time!",
+            "All good here — my research cycles are ticking along nicely. How about you?",
+            "Fully operational and curious! What about you?",
         ],
         'thanks': [
             "You're welcome! Happy to help.",
             "My pleasure! Feel free to ask me anything.",
             "Anytime! Let me know if you need more.",
+            "Glad I could help! 😊",
+            "Of course — that's what I'm here for!",
         ],
         'okay': [
             "Got it!",
             "Understood!",
             "No problem!",
+            "Roger that! 👍",
+            "Sure thing!",
         ],
         'goodbye': [
             "Goodbye! See you next time!",
             "Take care!",
             "See you soon!",
+            "Bye! I'll keep learning while you're gone. 😄",
+            "Later! Come back anytime.",
         ],
         'conversation': [
             "Sure! What should we talk about? Ask me a question and I'll see what I know!",
@@ -411,6 +435,85 @@ class NiblitRouter:
             "Alright, let's talk! Pick a topic or ask me anything.",
             "Sure thing! Ask me a question, or tell me what you're interested in.",
             "I'm all ears! What would you like to discuss?",
+            "Happy to just talk! Start anywhere — I'll keep up.",
+            "Casual conversation mode: on. 😄 What's going on?",
+        ],
+        'laughter': [
+            "Ha! 😄",
+            "Haha, nice one!",
+            "That's a good one!",
+            "I may not laugh out loud, but I appreciated that!",
+            "Ha — okay I'll admit, that's funny.",
+        ],
+        'compliment': [
+            "Thank you! That genuinely means something to me.",
+            "Appreciate that — I'm always working to be better.",
+            "Thanks! You just motivated my next learning cycle. 😄",
+            "That's kind of you!",
+            "Glad I could impress! What else can I help with?",
+        ],
+        'apology': [
+            "No worries at all!",
+            "All good — no stress.",
+            "No problem, seriously.",
+            "We're good! 😊",
+            "Nothing to apologise for — let's keep going.",
+        ],
+        'confused': [
+            "Happy to clarify — what part are you unsure about?",
+            "Let me try a different angle on that.",
+            "Fair enough! Let me rephrase.",
+            "No worries — want me to break it down differently?",
+            "I can explain it another way. What's not clicking?",
+        ],
+        'excited': [
+            "Love the energy! What are we excited about?",
+            "Yes!! Let's go — what's happening?",
+            "That enthusiasm is contagious! Tell me more.",
+            "Great vibes! What's the big thing?",
+        ],
+        'sad': [
+            "I'm sorry to hear that. Want to talk about it?",
+            "That sounds tough. I'm here.",
+            "Hang in there — what's going on?",
+            "I hear you. Sometimes things are just hard.",
+        ],
+        'frustrated': [
+            "That sounds frustrating. What's the issue?",
+            "Totally understandable — let's see if we can sort it out.",
+            "Ugh, I get it. What's stuck?",
+            "Frustration usually means you're close to a breakthrough. What's happening?",
+        ],
+        'bored': [
+            "Bored? Let's fix that! Ask me something — anything.",
+            "How about this: name a topic and I'll share the most interesting thing I know about it.",
+            "Boredom is just unexplored curiosity. What are you curious about?",
+            "Let's make this interesting — what do you want to explore?",
+        ],
+        'joke_request': [
+            "Why did the neural network go to therapy? Too many hidden layers. 😄",
+            "Why do programmers prefer dark mode? Because light attracts bugs! 🐛",
+            "I told an AI a joke about UDP. It didn't get it.",
+            "What do you call an AI that sings? Algo-rhythm.",
+            "I have a joke about recursion, but you'd need to understand recursion first.",
+        ],
+        'surprise': [
+            "Oh wow, I didn't expect that!",
+            "Really? That's genuinely surprising.",
+            "Huh — interesting! Tell me more.",
+            "Wait, seriously? That's fascinating.",
+        ],
+        'agree': [
+            "Exactly! Glad we're on the same page.",
+            "Right? I think so too.",
+            "Totally.",
+            "Yep, that tracks.",
+        ],
+        'disagree': [
+            "That's an interesting perspective — I see it slightly differently.",
+            "Fair point, though I'd push back a little.",
+            "Hmm, I'm not sure I agree, but I'm open to discussing it.",
+            "Interesting. What makes you say that?",
         ],
     }
 
@@ -4020,12 +4123,24 @@ Ask me about:
         import random
 
         responses = {
-            'greeting': self.CHAT_RESPONSES.get('greeting', ["Hi there!"]),
-            'how_are_you': self.CHAT_RESPONSES.get('how_are_you', ["I'm doing well!"]),
-            'thanks': self.CHAT_RESPONSES.get('thanks', ["You're welcome!"]),
-            'okay': self.CHAT_RESPONSES.get('okay', ["Got it!"]),
-            'goodbye': self.CHAT_RESPONSES.get('goodbye', ["Goodbye!"]),
+            'greeting':     self.CHAT_RESPONSES.get('greeting',     ["Hi there!"]),
+            'how_are_you':  self.CHAT_RESPONSES.get('how_are_you',  ["I'm doing well!"]),
+            'thanks':       self.CHAT_RESPONSES.get('thanks',       ["You're welcome!"]),
+            'okay':         self.CHAT_RESPONSES.get('okay',         ["Got it!"]),
+            'goodbye':      self.CHAT_RESPONSES.get('goodbye',      ["Goodbye!"]),
             'conversation': self.CHAT_RESPONSES.get('conversation', ["I'd love to chat! What's on your mind?"]),
+            'laughter':     self.CHAT_RESPONSES.get('laughter',     ["Ha! 😄"]),
+            'compliment':   self.CHAT_RESPONSES.get('compliment',   ["Thank you!"]),
+            'apology':      self.CHAT_RESPONSES.get('apology',      ["No worries!"]),
+            'confused':     self.CHAT_RESPONSES.get('confused',     ["Let me try again!"]),
+            'excited':      self.CHAT_RESPONSES.get('excited',      ["Yes!!"]),
+            'sad':          self.CHAT_RESPONSES.get('sad',          ["I'm here for you."]),
+            'frustrated':   self.CHAT_RESPONSES.get('frustrated',   ["Let's sort it out."]),
+            'bored':        self.CHAT_RESPONSES.get('bored',        ["Let's make this interesting!"]),
+            'joke_request': self.CHAT_RESPONSES.get('joke_request', ["Why did the AI fail? It was too honest."]),
+            'surprise':     self.CHAT_RESPONSES.get('surprise',     ["Whoa!"]),
+            'agree':        self.CHAT_RESPONSES.get('agree',        ["Exactly!"]),
+            'disagree':     self.CHAT_RESPONSES.get('disagree',     ["Hmm, I see it differently."]),
         }
 
         response_list = responses.get(query_type, self.CHAT_RESPONSES.get('greeting', ["How can I help?"]))
@@ -4599,13 +4714,43 @@ Ask me about:
         that are not explicit info-queries.
 
         Priority order:
-        1. Detect casual / open-ended messages and reply naturally — never
+        1. Try NiblitPersonality for natural questions & small-talk categories.
+        2. Detect casual / open-ended messages and reply naturally — never
            dump knowledge-base results when the user just wants to chat.
-        2. If the message contains a real subject, try KB facts.
-        3. Status / identity facts synthesised from core.
-        4. Trigger gap-learning only as a last resort.
+        3. If the message contains a real subject, try KB facts.
+        4. Status / identity facts synthesised from core.
+        5. Trigger gap-learning only as a last resort.
         """
         lower = text.lower().strip()
+
+        # ─── 0. Try NiblitPersonality (natural question + small-talk) ───
+        # Avoids importing at module load by going through core if available.
+        _personality = None
+        if self.core:
+            _personality = getattr(self.core, "personality", None)
+        if _personality is None:
+            try:
+                from modules.niblit_personality import NiblitPersonality
+                _personality = NiblitPersonality(
+                    brain=self.brain,
+                )
+            except Exception:
+                pass
+
+        if _personality is not None:
+            # First check for a small-talk category (fast keyword scan)
+            st_category = None
+            if hasattr(_personality, "classify_small_talk"):
+                st_category = _personality.classify_small_talk(text)
+            if st_category and isinstance(st_category, str):
+                resp = _personality.respond_to_small_talk(st_category)
+                if isinstance(resp, str) and resp:
+                    return resp
+
+            # Then try the broader natural-question matcher
+            nat_resp = _personality.handle_natural_question(text)
+            if nat_resp and isinstance(nat_resp, str):
+                return nat_resp
 
         # ─── 1. Casual / open-ended → reply naturally ───────────────────
         _CASUAL_SINGLE = frozenset((
@@ -4968,6 +5113,26 @@ Ask me about:
                     response = self._get_chat_response('goodbye')
                 elif any(p in lower_text for p in ['ok', 'okay', 'got it', 'nice', 'cool', 'awesome', 'great']):
                     response = self._get_chat_response('okay')
+                elif re.search(r'\b(lol|lmao|haha|hehe|😂|😄)\b', lower_text):
+                    response = self._get_chat_response('laughter')
+                elif re.search(r'\b(sorry|my bad|my fault|oops|apologis|apologiz)\b', lower_text):
+                    response = self._get_chat_response('apology')
+                elif re.search(r'\b(you(?:\'re| are) (?:great|awesome|amazing|brilliant|smart|cool|the best))\b', lower_text):
+                    response = self._get_chat_response('compliment')
+                elif re.search(r'\b(tell\s+me\s+)?a?\s*(joke|something funny)\b', lower_text):
+                    response = self._get_chat_response('joke_request')
+                elif re.search(r'\b(sad|unhappy|down|upset|depressed|feel bad)\b', lower_text):
+                    response = self._get_chat_response('sad')
+                elif re.search(r'\b(frustrated|annoyed|angry|mad|ugh|argh)\b', lower_text):
+                    response = self._get_chat_response('frustrated')
+                elif re.search(r'\b(excited|yay|woohoo|yes!)\b', lower_text):
+                    response = self._get_chat_response('excited')
+                elif re.search(r'\b(bored|boring|nothing to do)\b', lower_text):
+                    response = self._get_chat_response('bored')
+                elif re.search(r'\b(wow|whoa|no way|seriously|omg)\b', lower_text):
+                    response = self._get_chat_response('surprise')
+                elif re.search(r'\b(confused|don\'t understand|not sure what you mean)\b', lower_text):
+                    response = self._get_chat_response('confused')
                 elif (
                     any(kw in _lt_words for kw in ['talk', 'chat', 'conversation', 'nothing', 'nothin', 'nah', 'nope', 'just'])
                     or 'ask me' in lower_text
