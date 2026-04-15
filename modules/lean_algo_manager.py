@@ -86,6 +86,37 @@ except ImportError:
         def push(self, msg: str) -> None: pass
     _notif_queue = _NopQueue()  # type: ignore[assignment]
 
+# ── EventBus integration ──────────────────────────────────────────────────────
+# Event types for the unified Niblit feedback loop (KRN layer).
+# These let NET-layer trading signals flow through the kernel EventBus so that
+# INT, LRN, and MEM layers can react without direct cross-layer calls.
+EVT_TRADING_SIGNAL  = "trading.signal"
+EVT_TRADING_RESULTS = "trading.results"
+
+
+def _emit_trading_event(event_type: str, payload: Dict[str, Any]) -> None:
+    """Emit a trading event to the CognitiveGraphKernel EventBus (best-effort).
+
+    This closes the NET → KRN → INT/LRN feedback arc: every published
+    Niblit signal and every ingested LEAN result becomes a first-class
+    kernel event, allowing all layers to observe and react via their
+    normal EventBus subscriptions rather than polling external files.
+    """
+    try:
+        from modules.niblit_cognitive_graph_kernel import (
+            Event,
+            get_cognitive_graph_kernel,
+        )
+        kernel = get_cognitive_graph_kernel()
+        kernel.bus.emit(Event(
+            type=event_type,
+            payload=payload,
+            source="lean_algo_manager",
+            priority=2.0,
+        ))
+    except Exception:  # pragma: no cover – kernel may not be running
+        pass
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Paths
 # ─────────────────────────────────────────────────────────────────────────────
@@ -259,6 +290,8 @@ class LeanAlgoManager:
         }
         self._last_signal = signal_data
         self._write_json(self.signal_file, signal_data)
+        # Publish into the unified Kernel EventBus so other layers can react
+        _emit_trading_event(EVT_TRADING_SIGNAL, signal_data)
         log.debug("[LeanAlgoManager] Signal published: %s (conf=%.2f)",
                   decision, signal_data["confidence"])
 
@@ -352,6 +385,9 @@ class LeanAlgoManager:
             )
             _notif_queue.push(f"[LeanAlgo] {summary}")
             log.info("[LeanAlgoManager] Ingested results: %s", summary)
+
+            # Emit into the unified Kernel EventBus so LRN/INT layers can learn
+            _emit_trading_event(EVT_TRADING_RESULTS, data)
 
             # Store in knowledge DB
             if self.knowledge_db and hasattr(self.knowledge_db, "add_fact"):
@@ -563,3 +599,7 @@ class LeanAlgoManager:
             tmp.rename(path)
         except Exception as exc:
             log.debug("[LeanAlgoManager] JSON write failed %s: %s", path, exc)
+
+
+if __name__ == "__main__":
+    print('Running lean_algo_manager.py')

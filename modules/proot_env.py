@@ -507,3 +507,7 @@ def get_proot_env() -> ProotEnvironment:
         if _instance is None:
             _instance = ProotEnvironment()
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running proot_env.py')

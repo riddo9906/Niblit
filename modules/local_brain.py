@@ -217,3 +217,7 @@ def get_local_brain(
                     max_new_tokens=max_new_tokens,
                 )
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running local_brain.py')

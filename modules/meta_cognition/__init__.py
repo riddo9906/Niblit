@@ -79,3 +79,5 @@ def get_msg_layer() -> MSGLayer:
             if _singleton is None:
                 _singleton = MSGLayer()
     return _singleton
+if __name__ == "__main__":
+    print('Running __init__.py')

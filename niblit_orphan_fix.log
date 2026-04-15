@@ -2936,3 +2936,153 @@ ModuleNotFoundError: No module named 'fastapi'
 [2026-04-12 07:12:05.900667] SUCCESS: Loaded tools.structural_helper
 [2026-04-12 07:12:05.900685] SUCCESS: Loaded tools.FixGuideGenerator
 [2026-04-12 07:12:05.900713] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 12:59:28.858811] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 12:59:28.858872] Checking missing modules...
+[2026-04-15 12:59:28.909411] SUCCESS: Loaded modules.db
+[2026-04-15 12:59:28.910061] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 12:59:28.910120] Checking orphan modules...
+[2026-04-15 12:59:29.494910] SUCCESS: Loaded main
+[2026-04-15 12:59:29.494977] SUCCESS: Loaded niblit_net
+[2026-04-15 12:59:29.496091] FAILED: server — No module named 'fastapi'
+[2026-04-15 12:59:29.497164] Traceback (most recent call last):
+  File "/home/runner/work/Niblit/Niblit/modules/orphan_imports.py", line 16, in try_import
+    importlib.import_module(module_name)
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/runner/work/Niblit/Niblit/server.py", line 13, in <module>
+    from fastapi import FastAPI, Request
+ModuleNotFoundError: No module named 'fastapi'
+
+[2026-04-15 12:59:29.497226] SUCCESS: Loaded niblit_memory
+[2026-04-15 12:59:29.504614] FAILED: app — No module named 'fastapi'
+[2026-04-15 12:59:29.505357] Traceback (most recent call last):
+  File "/home/runner/work/Niblit/Niblit/modules/orphan_imports.py", line 16, in try_import
+    importlib.import_module(module_name)
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/runner/work/Niblit/Niblit/app.py", line 28, in <module>
+    from fastapi import FastAPI, Request
+ModuleNotFoundError: No module named 'fastapi'
+
+[2026-04-15 12:59:29.505956] SUCCESS: Loaded hf_test
+[2026-04-15 12:59:29.505993] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 12:59:29.506020] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 12:59:29.506042] SUCCESS: Loaded modules.evolve
+[2026-04-15 12:59:29.506064] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 12:59:29.506084] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 12:59:29.506104] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 12:59:29.506121] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 12:59:44.337174] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 12:59:44.337218] Checking missing modules...
+[2026-04-15 12:59:44.385020] SUCCESS: Loaded modules.db
+[2026-04-15 12:59:44.385814] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 12:59:44.385869] Checking orphan modules...
+[2026-04-15 12:59:44.598170] SUCCESS: Loaded main
+[2026-04-15 12:59:44.598233] SUCCESS: Loaded niblit_net
+[2026-04-15 12:59:44.598614] FAILED: server — No module named 'fastapi'
+[2026-04-15 12:59:44.599185] Traceback (most recent call last):
+  File "/home/runner/work/Niblit/Niblit/modules/orphan_imports.py", line 16, in try_import
+    importlib.import_module(module_name)
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/runner/work/Niblit/Niblit/server.py", line 13, in <module>
+    from fastapi import FastAPI, Request
+ModuleNotFoundError: No module named 'fastapi'
+
+[2026-04-15 12:59:44.599231] SUCCESS: Loaded niblit_memory
+[2026-04-15 12:59:44.599950] FAILED: app — No module named 'fastapi'
+[2026-04-15 12:59:44.600679] Traceback (most recent call last):
+  File "/home/runner/work/Niblit/Niblit/modules/orphan_imports.py", line 16, in try_import
+    importlib.import_module(module_name)
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/runner/work/Niblit/Niblit/app.py", line 28, in <module>
+    from fastapi import FastAPI, Request
+ModuleNotFoundError: No module named 'fastapi'
+
+[2026-04-15 12:59:44.601312] SUCCESS: Loaded hf_test
+[2026-04-15 12:59:44.601350] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 12:59:44.601375] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 12:59:44.601396] SUCCESS: Loaded modules.evolve
+[2026-04-15 12:59:44.601416] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 12:59:44.601435] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 12:59:44.601455] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 12:59:44.601472] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====
+[2026-04-15 12:59:59.516012] ===== NIBLIT ORPHAN + MISSING MODULE FIX STARTED =====
+[2026-04-15 12:59:59.516060] Checking missing modules...
+[2026-04-15 12:59:59.564295] SUCCESS: Loaded modules.db
+[2026-04-15 12:59:59.564935] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 12:59:59.565261] Checking orphan modules...
+[2026-04-15 12:59:59.774858] SUCCESS: Loaded main
+[2026-04-15 12:59:59.774916] SUCCESS: Loaded niblit_net
+[2026-04-15 12:59:59.775264] FAILED: server — No module named 'fastapi'
+[2026-04-15 12:59:59.775866] Traceback (most recent call last):
+  File "/home/runner/work/Niblit/Niblit/modules/orphan_imports.py", line 16, in try_import
+    importlib.import_module(module_name)
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/runner/work/Niblit/Niblit/server.py", line 13, in <module>
+    from fastapi import FastAPI, Request
+ModuleNotFoundError: No module named 'fastapi'
+
+[2026-04-15 12:59:59.775913] SUCCESS: Loaded niblit_memory
+[2026-04-15 12:59:59.776617] FAILED: app — No module named 'fastapi'
+[2026-04-15 12:59:59.777304] Traceback (most recent call last):
+  File "/home/runner/work/Niblit/Niblit/modules/orphan_imports.py", line 16, in try_import
+    importlib.import_module(module_name)
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 995, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/runner/work/Niblit/Niblit/app.py", line 28, in <module>
+    from fastapi import FastAPI, Request
+ModuleNotFoundError: No module named 'fastapi'
+
+[2026-04-15 12:59:59.777942] SUCCESS: Loaded hf_test
+[2026-04-15 12:59:59.777981] SUCCESS: Loaded modules.llm_adapter
+[2026-04-15 12:59:59.778007] SUCCESS: Loaded modules.internet_manager
+[2026-04-15 12:59:59.778030] SUCCESS: Loaded modules.evolve
+[2026-04-15 12:59:59.778049] SUCCESS: Loaded tools.repo_audit
+[2026-04-15 12:59:59.778067] SUCCESS: Loaded tools.structural_helper
+[2026-04-15 12:59:59.778086] SUCCESS: Loaded tools.FixGuideGenerator
+[2026-04-15 12:59:59.778102] ===== NIBLIT ORPHAN + MISSING MODULE FIX COMPLETED =====

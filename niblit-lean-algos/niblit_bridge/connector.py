@@ -150,3 +150,7 @@ class NiblitBridge:
 
         self._last_signal = data
         return data
+
+
+if __name__ == "__main__":
+    print('Running connector.py')

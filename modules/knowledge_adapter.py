@@ -135,3 +135,7 @@ def store_facts(
         "total": len(facts),
         "error": "; ".join(errors) if errors else None,
     }
+
+
+if __name__ == "__main__":
+    print('Running knowledge_adapter.py')

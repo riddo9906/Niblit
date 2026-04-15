@@ -165,3 +165,7 @@ def get_meta_evaluator() -> MetaEvaluator:
             if _instance is None:
                 _instance = MetaEvaluator()
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running meta_evaluator.py')

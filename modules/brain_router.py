@@ -293,3 +293,7 @@ def reset_brain_router() -> None:
     global _instance
     with _inst_lock:
         _instance = None
+
+
+if __name__ == "__main__":
+    print('Running brain_router.py')

@@ -102,16 +102,21 @@ _LAYER_DESCRIPTIONS: Dict[str, str] = {
         "[meta_cognition/__init__.py · self_model.py · intent_engine.py "
         "· meta_evaluator.py · resource_allocator.py · evolution_planner.py "
         "· metacognition.py · meta_adapter.py · self_monitor.py "
-        "· self_improvement_orchestrator.py · gap_analyzer.py · metrics_observability.py]"
+        "· self_improvement_orchestrator.py · gap_analyzer.py · metrics_observability.py "
+        "· modules/unified_self_modules.py · modules/self_healer.py "
+        "· modules/self_maintenance.py · self_maintenance_full.py · healer_full.py]"
     ),
     LAYER_APP: (
         "APP — Application: Router · Commands · Dashboard · Voice · API  "
         "[niblit_router.py · niblit_core.py · niblit_identity.py · server.py "
         "· app.py · main.py · kivy_app.py · niblit_voice_full.py "
+        "· niblit_dashboard.py · niblit_actions.py · niblit_io.py "
+        "· niblit_tasks.py · niblit_manager.py · live_command_tester.py "
+        "· run_realtime.py · run_trading_brain.py · run_diagnostics.py "
         "· modules/control_panel.py · modules/dashboard.py "
         "· modules/command_registry.py · modules/game_engine.py "
-        "· modules/niblit_personality.py · core/notification_queue.py "
-        "· orchestrator.py · niblit_orchestrator.py · api/]"
+        "· modules/niblit_personality.py · modules/enterprise_utility.py "
+        "· core/notification_queue.py · orchestrator.py · niblit_orchestrator.py · api/]"
     ),
     LAYER_INT: (
         "INT — Intelligence: Brain · LLM Adapters · Reasoning · Research  "
@@ -121,15 +126,23 @@ _LAYER_DESCRIPTIONS: Dict[str, str] = {
         "· modules/anthropic_adapter.py · modules/openai_adapter.py "
         "· modules/hf_adapter.py · modules/local_llm_adapter.py "
         "· modules/github_models_client.py · modules/llm_provider_manager.py "
-        "· modules/reasoning_engine.py · modules/concept_synthesizer.py "
-        "· modules/intent_parser.py · modules/reflect.py "
+        "· modules/llm_architect_engine.py · modules/reasoning_engine.py "
+        "· modules/concept_synthesizer.py · modules/intent_parser.py "
+        "· modules/language_module.py · modules/reflect.py "
         "· modules/phased_research_engine.py · modules/researcher_engine.py "
         "· modules/multimodal_intelligence.py · modules/chat_completions.py "
         "· modules/cognition_core.py · modules/prediction_engine.py "
         "· modules/software_studier.py · modules/trading_brain.py "
+        "· modules/trading_swing_v3.py · modules/position_sizer.py "
         "· modules/idea_generator.py · modules/code_generator.py "
         "· modules/code_compiler.py · modules/code_error_fixer.py "
-        "· modules/agentic_workflows.py · modules/github_deep_research.py "
+        "· modules/code_quality_checker.py · modules/agentic_workflows.py "
+        "· modules/github_deep_research.py · modules/github_code_search.py "
+        "· modules/market_researcher.py · modules/pypi_search.py "
+        "· modules/stackoverflow_search.py · modules/searchcode_search.py "
+        "· modules/topic_constructor.py · modules/dynamic_topic_manager.py "
+        "· modules/background_topic_refresh.py · modules/build_scanner.py "
+        "· modules/global_code_intelligence/ · modules/ai_dev_lab/ "
         "· SelfResearcher.py · agents/]"
     ),
     LAYER_LRN: (
@@ -145,16 +158,20 @@ _LAYER_DESCRIPTIONS: Dict[str, str] = {
         "· modules/ale_checkpoint.py · modules/improvement_integrator.py "
         "· modules/universe_registry.py · modules/evolution_queue.py "
         "· modules/evolve_adapter.py · modules/ale_adapter.py "
-        "· modules/niblit_defensive_evolution_loop.py "
+        "· modules/knowledge_adapter.py · modules/civilization_adapter.py "
+        "· modules/niblit_defensive_evolution_loop.py · modules/rl_trading_policy.py "
+        "· modules/trading_study.py · modules/academic_study_module.py "
         "· modules/goal_engine.py · modules/niblit_kernel_v3.py "
-        "· niblit_learning.py · niblit_hf.py · trainer_full.py]"
+        "· niblit_learning.py · niblit_hf.py · trainer_full.py "
+        "· niblit_full_upgrade_pipeline.py · collector_full.py · generator_full.py]"
     ),
     LAYER_MEM: (
         "MEM — Memory: VectorStore · KnowledgeDB · FusedMemory  "
         "[niblit_memory/ · modules/memory_weighting.py "
-        "· modules/memory_graph.py · modules/fused_memory.py "
-        "· modules/fused_memory_primary.py · modules/vector_store.py "
-        "· modules/hybrid_qdrant_manager.py · modules/knowledge_db.py "
+        "· modules/memory_graph.py · modules/memory_optimizer.py "
+        "· modules/fused_memory.py · modules/fused_memory_primary.py "
+        "· modules/vector_store.py · modules/hybrid_qdrant_manager.py "
+        "· modules/qdrant_tools.py · modules/knowledge_db.py "
         "· modules/knowledge_engine/ · modules/knowledge_digest.py "
         "· modules/knowledge_filter.py · modules/knowledge_synthesizer.py "
         "· modules/tiered_knowledge_system.py · modules/graph_rag.py "
@@ -165,16 +182,18 @@ _LAYER_DESCRIPTIONS: Dict[str, str] = {
         "· modules/sqlite_researcher.py]"
     ),
     LAYER_NET: (
-        "NET — Network: DistributedMesh · P2P · SyncEngine  "
+        "NET — Network: DistributedMesh · P2P · SyncEngine · LEAN Bridge  "
         "[modules/sync_engine.py · modules/autonomous_network.py "
         "· modules/device_mesh.py · modules/internet_manager.py "
         "· modules/connection_pooling.py · modules/realtime_stream.py "
         "· modules/github_sync.py · modules/rate_limiting.py "
+        "· modules/lean_algo_manager.py · modules/market_data_providers.py "
         "· niblit_net.py · niblit_network_full.py "
         "· distributed_niblit/ · modules/mcp_server.py "
         "· modules/event_sourcing.py · modules/deployment_bridge.py "
         "· modules/lean_deploy_engine.py · modules/lean_engine.py "
-        "· modules/monitoring_alerting.py · modules/analytics.py]"
+        "· modules/monitoring_alerting.py · modules/analytics.py "
+        "· niblit-lean-algos/niblit_bridge/]"
     ),
     LAYER_SEC: (
         "SEC — Security: SLSA · Membrane · Permissions · Guard  "
@@ -193,6 +212,10 @@ _LAYER_DESCRIPTIONS: Dict[str, str] = {
         "[modules/niblit_cognitive_graph_kernel.py · modules/niblit_core_kernel.py "
         "· modules/niblit_core_kernel_v2.py · modules/niblit_kernel_v3.py "
         "· modules/niblit_kernel.py · modules/niblit_runtime.py "
+        "· modules/aios_layer_registry.py · modules/layered_architecture.py "
+        "· modules/plugin_architecture.py · modules/orphan_imports.py "
+        "· modules/batch_processing.py · modules/parameter_manager.py "
+        "· modules/live_updater.py · modules/builds_integrator.py "
         "· core/event_bus.py · core/task_queue.py · core/runtime_manager.py "
         "· core/orchestrator.py · core/notification_queue.py "
         "· modules/kernel_integration.py · modules/bios.py "
@@ -204,7 +227,8 @@ _LAYER_DESCRIPTIONS: Dict[str, str] = {
         "· modules/async_first.py · modules/structured_logging.py "
         "· aios_runtime.py · aios_scheduler.py · lifecycle_engine.py "
         "· module_loader.py · workspace_init.py · orchestrator.py "
-        "· niblit_core.py · modules/structural_awareness.py]"
+        "· niblit_core.py · niblit_core_full.py · niblit_core_refactor_full.py "
+        "· config.py · modules/structural_awareness.py]"
     ),
     LAYER_HAL: (
         "HAL — Hardware Abstraction: Swift/iOS · TypeScript/Web · Rust/Embedded  "
@@ -214,6 +238,8 @@ _LAYER_DESCRIPTIONS: Dict[str, str] = {
         "· modules/os_integration.py · modules/terminal_tools.py "
         "· modules/binary_tools.py · modules/termux_wakelock.py "
         "· modules/filesystem_manager.py · modules/universal_file_manager.py "
+        "· modules/proot_env.py · modules/apk_bootstrap.py "
+        "· niblit_env.py · niblit_sensors_full.py "
         "· Package.swift · nodes/ · builds/ · buildozer.spec]"
     ),
 }
@@ -437,6 +463,9 @@ class AIOSLayerRegistry:
             (LAYER_LRN, "ale",                "ale"),
             # MEM — persistent memory
             (LAYER_MEM, "memory",             "memory"),
+            # NET — network & external bridges (includes LEAN algo bridge)
+            (LAYER_NET, "sync_engine",        "sync_engine"),
+            (LAYER_NET, "lean_algo_manager",  "lean_algo_manager"),
             # KRN — kernel backbone (EventBus lives here)
             (LAYER_KRN, "kernel",             "kernel"),
             (LAYER_KRN, "niblit_runtime",     "niblit_runtime"),

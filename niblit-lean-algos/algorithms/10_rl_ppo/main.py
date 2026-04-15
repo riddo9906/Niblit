@@ -328,3 +328,7 @@ class RlPpo(QCAlgorithm):
 
     def on_end_of_algorithm(self) -> None:
         self.log(f"Final value: {self.portfolio.total_portfolio_value:.2f}")
+
+
+if __name__ == "__main__":
+    print('Running main.py')
