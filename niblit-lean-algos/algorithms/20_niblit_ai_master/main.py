@@ -349,3 +349,7 @@ class NiblitAiMaster(QCAlgorithm):
 
         # Write performance JSON for Niblit ingestion
         self._write_results()
+
+
+if __name__ == "__main__":
+    print('Running main.py')

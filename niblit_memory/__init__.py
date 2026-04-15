@@ -409,7 +409,7 @@ class FusedMemory:
                 if source or title:
                     prefix = " | ".join(filter(None, [source, title]))
                     enriched = f"[{prefix}] {text}"
-            vs.add(doc_id, enriched[:4000])
+            vs.add(doc_id, enriched[:6000])
             return True
         except Exception as exc:
             _fused_log.debug("[FusedMemory] add_embedding failed: %s", exc)
@@ -577,7 +577,7 @@ class FusedMemoryPrimary(FusedMemory):
             try:
                 text_repr = metadata.get("source", "") or metadata.get("title", "") or str(metadata)[:200]
                 doc_id = metadata.get("id", f"rv-{int(time.time()*1000)}")
-                vs.add(str(doc_id), text_repr[:500])
+                vs.add(str(doc_id), text_repr[:6000])
                 return True
             except Exception as exc:
                 _fused_primary_log.debug("[FusedMemoryPrimary] VectorStore upsert failed: %s", exc)
@@ -1747,7 +1747,7 @@ class KnowledgeStore:
             return
         for row in rows:
             try:
-                vs.add(row["key"], row["text"][:500])
+                vs.add(row["key"], row["text"][:6000])
             except Exception as exc:
                 _ks_log.debug("KnowledgeStore: Qdrant upsert failed: %s", exc)
 

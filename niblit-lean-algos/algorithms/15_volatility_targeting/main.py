@@ -153,3 +153,7 @@ class VolatilityTargeting(QCAlgorithm):
         final = self.portfolio.total_portfolio_value
         vols  = {str(s): f"{self._realized_vol(s)*100:.1f}%" for s in self._syms}
         self.log(f"Final value: {final:.2f}  vols={vols}")
+
+
+if __name__ == "__main__":
+    print('Running main.py')

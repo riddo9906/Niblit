@@ -15,3 +15,5 @@ Integration is purely file-based:
 from .connector import NiblitBridge
 
 __all__ = ["NiblitBridge"]
+if __name__ == "__main__":
+    print('Running __init__.py')

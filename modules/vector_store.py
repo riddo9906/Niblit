@@ -79,8 +79,12 @@ except ImportError:
 
 
 _EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
-_EMBEDDING_DIM = 384       # default dim for intfloat/multilingual-e5-small
-_MAX_STORED_ITEMS = 10_000  # in-memory/FAISS safety cap
+_EMBEDDING_DIM = 384         # default dim for intfloat/multilingual-e5-small (vector dimension)
+_MAX_STORED_ITEMS = 10_000   # in-memory/FAISS safety cap
+# Maximum characters stored as ``text`` in the Qdrant payload.  Using 6000
+# characters ensures rich context is preserved without hitting Qdrant's per-
+# document payload size limits on typical cloud configurations.
+_QDRANT_TEXT_MAX_CHARS = int(os.getenv("QDRANT_TEXT_MAX_CHARS", "6000"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -430,21 +434,28 @@ class VectorStore:
         """Always True — memory backend is always available."""
         return True
 
-    def add(self, doc_id: str, text: str) -> bool:
+    def add(self, doc_id: str, text: str, topic: str = "") -> bool:
         """
         Store a text document.
 
         Args:
             doc_id:  Unique identifier for this document.
-            text:    Text content to embed and store.
+            text:    Text content to embed and store.  Stored verbatim in the
+                     payload up to ``_QDRANT_TEXT_MAX_CHARS`` characters.
+            topic:   Short human-readable topic description (≤ 120 chars).
+                     Stored as ``topic`` in the payload.  Callers should use
+                     :class:`~modules.qdrant_tools.TopicSummariser` to generate
+                     this value.  Defaults to the first 80 chars of *text*.
 
         Returns:
             True on success, False on failure.
         """
+        # Derive a fallback topic from the text when none is supplied
+        effective_topic = topic.strip() if topic.strip() else text[:80].split("\n")[0].strip()
         vector = self._embedder.encode(text)
 
         if self._backend_name == "qdrant" and self._qdrant_client is not None:
-            return self._add_qdrant(doc_id, text, vector)
+            return self._add_qdrant(doc_id, text, vector, effective_topic)
         if self._backend_name == "faiss" and self._faiss_index is not None:
             return self._add_faiss(doc_id, text, vector)
         self._memory_backend.add(doc_id, text, vector)
@@ -502,16 +513,25 @@ class VectorStore:
     # ── backend-specific implementations ─────────────────────────────────────
 
     def _add_qdrant(
-        self, doc_id: str, text: str, vector: Optional[List[float]]
+        self, doc_id: str, text: str, vector: Optional[List[float]], topic: str = ""
     ) -> bool:
         if vector is None:
             return False
         try:
-            # Use a stable integer ID derived from the doc_id string
+            # Use a stable integer ID derived from the doc_id string.
+            # The integer point ID is the sole unique identifier — we do NOT
+            # store the topic-derived doc_id string inside the payload so that
+            # payload fields always contain human-readable text, never opaque IDs.
             int_id = int(hashlib.md5(doc_id.encode()).hexdigest(), 16) % (2**63)
+            # Store the full text (up to _QDRANT_TEXT_MAX_CHARS) and a short
+            # topic description.  No topic_id or slug field is persisted.
+            payload = {
+                "text": text[:_QDRANT_TEXT_MAX_CHARS],
+                "topic": topic[:120] if topic else text[:80].split("\n")[0].strip(),
+            }
             self._qdrant_client.upsert(
                 collection_name=self.collection,
-                points=[_PointStruct(id=int_id, vector=vector, payload={"id": doc_id, "text": text})],
+                points=[_PointStruct(id=int_id, vector=vector, payload=payload)],
             )
             return True
         except Exception as exc:
@@ -560,8 +580,9 @@ class VectorStore:
             )
             return [
                 {
-                    "id": h.payload.get("id", str(h.id)) if h.payload else str(h.id),
+                    "id": str(h.id),
                     "text": h.payload.get("text", "") if h.payload else "",
+                    "topic": h.payload.get("topic", "") if h.payload else "",
                     "score": h.score,
                 }
                 for h in hits

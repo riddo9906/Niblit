@@ -171,7 +171,13 @@ class ResearcherEngine:
                 from datetime import datetime, timezone
                 ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
                 doc_id = f"research:{hashlib.md5(topic.encode()).hexdigest()[:12]}:{ts}"
-                self.vector_store.add(doc_id, summary[:1000])
+                # Build short topic label — never store topic slug as payload field.
+                try:
+                    from modules.qdrant_tools import TopicSummariser as _TS  # type: ignore[import]
+                    _topic_label = _TS.summarise(summary, hint=topic)
+                except Exception:
+                    _topic_label = topic[:80]
+                self.vector_store.add(doc_id, summary[:6000], topic=_topic_label)
             except Exception as exc:
                 log.debug("ResearcherEngine: failed to store result in VectorStore: %s", exc)
 

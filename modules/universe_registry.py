@@ -296,3 +296,7 @@ def get_universe_registry() -> UniverseRegistry:
         if _registry_instance is None:
             _registry_instance = UniverseRegistry()
     return _registry_instance
+
+
+if __name__ == "__main__":
+    print('Running universe_registry.py')

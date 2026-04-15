@@ -32,6 +32,8 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("Niblit.QdrantEngine")
 
 _COLLECTION = os.getenv("QDRANT_COLLECTION", "niblit_knowledge")
+# Maximum characters stored in the payload text field.
+_ENGINE_TEXT_MAX_CHARS = int(os.getenv("QDRANT_TEXT_MAX_CHARS", "6000"))
 
 
 class QdrantEngine:
@@ -132,6 +134,8 @@ class QdrantEngine:
             # Encode metadata into the text field via a prefix so it is
             # searchable even on backends that don't support payload queries.
             enriched_text = text
+            source = ""
+            title = ""
             if metadata:
                 source = metadata.get("source", "")
                 title = metadata.get("title", "")
@@ -139,8 +143,17 @@ class QdrantEngine:
                     prefix = " | ".join(filter(None, [source, title]))
                     enriched_text = f"[{prefix}] {text}"
 
+            # Generate a short topic description — stored as human-readable
+            # prose in the payload, never as a topic ID or slug.
             try:
-                vs.add(doc_id, enriched_text[:1000])
+                from modules.qdrant_tools import TopicSummariser as _TS  # type: ignore[import]
+                hint = title or source or ""
+                topic = _TS.summarise(text, hint=hint)
+            except Exception:
+                topic = text[:80].split("\n")[0].strip()
+
+            try:
+                vs.add(doc_id, enriched_text[:_ENGINE_TEXT_MAX_CHARS], topic=topic)
                 count += 1
             except Exception as exc:
                 logger.debug("[QdrantEngine] upsert failed for doc %s: %s", doc_id, exc)

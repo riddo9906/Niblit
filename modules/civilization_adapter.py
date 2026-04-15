@@ -185,3 +185,7 @@ def _emit_to_graph(
         )
     except Exception:  # noqa: BLE001
         pass
+
+
+if __name__ == "__main__":
+    print('Running civilization_adapter.py')

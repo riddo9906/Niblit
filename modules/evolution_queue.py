@@ -252,3 +252,7 @@ def get_evolution_queue() -> EvolutionQueue:
         if _queue_instance is None:
             _queue_instance = EvolutionQueue()
     return _queue_instance
+
+
+if __name__ == "__main__":
+    print('Running evolution_queue.py')

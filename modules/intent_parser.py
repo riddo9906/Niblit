@@ -53,6 +53,14 @@ _PREFIX: Tuple[Tuple, ...] = (
     ("why does ", "reason_query"),
     ("tell me about ", "explain"),
     ("describe ", "explain"),
+    # jokes
+    ("tell me a joke about ", "joke"),
+    ("joke about ", "joke"),
+    # opinions
+    ("what do you think about ", "opinion_query"),
+    ("what do you think of ", "opinion_query"),
+    ("what is your opinion on ", "opinion_query"),
+    ("how do you feel about ", "opinion_query"),
     # system commands
     ("toggle-llm ", "toggle_llm"),
     ("/slsa ", "slsa"),
@@ -89,6 +97,22 @@ _KEYWORD: Tuple[Tuple[Tuple[str, ...], str], ...] = (
     (("hello", "hi", "hey", "howdy", "greetings"), "greeting"),
     # thanks
     (("thanks", "thank you", "cheers"), "thanks"),
+    # laughter / fun
+    (("lol", "lmao", "haha", "hehe", "😂", "😄"), "laughter"),
+    # compliment
+    (("you're great", "you are great", "you're awesome", "you are awesome",
+      "you're amazing", "you are amazing", "well done", "nice work"), "compliment"),
+    # apology
+    (("sorry", "apologies", "my bad", "my fault", "oops"), "apology"),
+    # joke request
+    (("joke", "tell me a joke", "something funny", "make me laugh", "make me smile"), "joke"),
+    # emotional states — routed to empathy handler
+    (("i'm sad", "im sad", "feeling sad", "i'm down", "im down"), "emotional_sad"),
+    (("i'm frustrated", "im frustrated", "i'm annoyed", "so frustrated"), "emotional_frustrated"),
+    (("i'm excited", "im excited", "so excited"), "emotional_excited"),
+    (("i'm bored", "im bored", "so bored", "nothing to do"), "emotional_bored"),
+    # boredom (broad)
+    (("bored", "boring"), "bored"),
     # weather
     (("weather", "forecast", "temperature", "rain", "sunny", "cloudy"), "weather"),
     # math
@@ -209,7 +233,7 @@ def _estimate_confidence(intent: str, lower: str) -> float:
     """Heuristic confidence: command-style intents score higher than 'chat'."""
     if intent == "chat":
         return 0.40
-    if intent in ("greeting", "thanks"):
+    if intent in ("greeting", "thanks", "laughter", "compliment", "apology"):
         return 0.95
     if intent in ("time", "help", "status", "shutdown", "clear", "version", "notifications"):
         return 0.99
@@ -219,14 +243,19 @@ def _estimate_confidence(intent: str, lower: str) -> float:
         return 0.90
     if intent in ("definition_query", "explain", "process_query", "reason_query"):
         return 0.85
+    if intent in ("joke", "opinion_query"):
+        return 0.88
     if intent in ("weather", "trade", "price_query", "calculation"):
         return 0.80
+    if intent.startswith("emotional_") or intent == "bored":
+        return 0.85
     return 0.70
 
 
 def _classify_question_type(intent: str, lower: str) -> str:
     """Map an intent label to a broad question-type category."""
-    if intent in ("greeting", "thanks", "chat"):
+    if intent in ("greeting", "thanks", "laughter", "compliment", "apology",
+                  "chat", "joke", "bored") or intent.startswith("emotional_"):
         return "conversational"
     if intent == "greeting":
         return "greeting"
@@ -236,6 +265,8 @@ def _classify_question_type(intent: str, lower: str) -> str:
         return "process"
     if intent in ("reason_query",):
         return "reason"
+    if intent in ("opinion_query",):
+        return "opinion"
     if intent in ("knowledge_query", "search", "recall"):
         return "factual"
     return "command"
