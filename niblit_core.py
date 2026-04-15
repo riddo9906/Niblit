@@ -6480,11 +6480,30 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as e:
                     log.debug(f"LifecycleEngine failed to start: {e}")
 
+            # module_loader can execute many optional module imports that may
+            # be slow (or occasionally block on constrained Termux/proot
+            # environments). Keep it off the DeferredInitThread critical path
+            # so Phase-1 readiness can complete and the CLI can open.
             if load_modules:
+                def _run_module_loader() -> None:
+                    try:
+                        load_modules()
+                        log.info("✅ module_loader background load complete")
+                    except Exception as e:
+                        log.debug(f"load_modules failed: {e}")
+
                 try:
-                    load_modules()
+                    _ml_thread = threading.Thread(
+                        target=_run_module_loader,
+                        daemon=True,
+                        name="ModuleLoaderThread",
+                    )
+                    _ml_thread.start()
+                    log.info("⏳ module_loader started in background thread (non-blocking)")
+                    self.startup_report.add("module_loader", "background")
                 except Exception as e:
-                    log.debug(f"load_modules failed: {e}")
+                    log.debug(f"module_loader background start failed: {e}")
+                    self.startup_report.add("module_loader", "degraded", str(e))
 
             # ============================
             # INITIALIZE 10 SELF-IMPROVEMENTS
