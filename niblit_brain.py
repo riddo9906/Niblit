@@ -783,7 +783,7 @@ class NiblitBrain:
         except Exception as _e:
             log.debug("[BRAIN] ClaudeEngine unavailable: %s", _e)
 
-        # LLMProviderManager — routes HF ↔ Anthropic with runtime switching
+        # LLMProviderManager — routes HF ↔ Anthropic ↔ Qwen with runtime switching
         self.llm_provider_manager = None
         try:
             from modules.llm_provider_manager import get_llm_provider_manager
@@ -806,6 +806,12 @@ class NiblitBrain:
             log.info("[BRAIN] QwenLocalBrain registered (lazy load on first use)")
         except Exception as _lb_e:
             log.debug("[BRAIN] QwenLocalBrain unavailable: %s", _lb_e)
+
+        if self.llm_provider_manager and self.local_brain is not None:
+            try:
+                self.llm_provider_manager.wire(local_brain=self.local_brain)
+            except Exception as _pm_wire_e:
+                log.debug("[BRAIN] LLMProviderManager local brain wire failed: %s", _pm_wire_e)
 
         # ─────── BRAIN ROUTER ───────
         # Wraps local + cloud brains behind an intelligent routing policy.
@@ -1377,7 +1383,7 @@ class NiblitBrain:
                 except Exception as _cc_err:
                     log.debug("[BRAIN] ChatCompletions skipped: %s", _cc_err)
 
-            # Route through LLMProviderManager (HF primary → Anthropic fallback)
+            # Route through LLMProviderManager (active provider + fallback chain)
             if not response and self.llm_provider_manager:
                 try:
                     response = self.llm_provider_manager.ask(prompt)

@@ -10,8 +10,8 @@ grounded in Niblit's accumulated knowledge.  It integrates:
 * **Persistent conversation history** (``LLMChatMemory``) — full multi-turn
   context formatted as ``"User: …\\nNiblit: …"`` lines and prepended to each
   request prompt for conversational continuity.
-* **LLM routing** (``LLMProviderManager``) — HuggingFace primary with
-  Anthropic fallback.  Falls back further to plain ``HFBrain.ask_single()``
+* **LLM routing** (``LLMProviderManager``) — runtime-switchable HuggingFace /
+  Anthropic / Qwen-local providers. Falls back further to plain ``HFBrain.ask_single()``
   when the manager is unavailable.
 
 Architecture
@@ -27,7 +27,7 @@ Architecture
     build_messages()                   ← system prompt + history + question
          │
          ▼
-    LLMProviderManager.ask()           ← HF → Anthropic fallback
+    LLMProviderManager.ask()           ← active provider + fallback chain
          │
          ▼
     record to LLMChatMemory            ← persist for next turn

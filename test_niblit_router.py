@@ -193,6 +193,32 @@ class TestNiblitRouterProcess:
         result = router.process("version")
         assert isinstance(result, str)
 
+    def test_llm_provider_qwen_switch_command(self):
+        router, _, _, _ = _make_router()
+        mock_mgr = MagicMock()
+        mock_mgr.switch.return_value = "✅ LLM provider switched to **qwen**."
+        with patch("modules.llm_provider_manager.get_llm_provider_manager", return_value=mock_mgr):
+            result = router.process("llm-provider qwen")
+        mock_mgr.switch.assert_called_once_with("qwen")
+        assert "qwen" in result.lower()
+
+    def test_llm_provider_status_includes_qwen(self):
+        router, _, _, _ = _make_router()
+        mock_mgr = MagicMock()
+        mock_mgr.status.return_value = {
+            "active": "qwen",
+            "hf": True,
+            "anthropic": False,
+            "qwen": True,
+            "hf_model": "hf-model",
+            "anthropic_model": "n/a",
+            "qwen_model": "Qwen/Qwen2.5-0.5B-Instruct",
+        }
+        with patch("modules.llm_provider_manager.get_llm_provider_manager", return_value=mock_mgr):
+            result = router.process("llm-provider status")
+        assert "qwen" in result.lower()
+        assert "active provider: **qwen**" in result.lower()
+
 
 # ---------------------------------------------------------------------------
 # NiblitRouter.log_event
