@@ -23,6 +23,7 @@ import traceback
 import difflib
 import datetime
 import threading
+import time
 
 # ── Centralised logging configuration ──────────────────────────────────────
 # Set up the root logger ONCE here, before any module imports.  Individual
@@ -687,6 +688,16 @@ if __name__ == "__main__":
     # continues; some features degrade gracefully until it finishes).
     _skip_wait = os.getenv("NIBLIT_SKIP_INIT_WAIT", "0").strip() in ("1", "true", "yes")
     if not _skip_wait and hasattr(core, "wait_for_ready"):
+        _max_wait_s = 300.0
+        _max_wait_raw = os.getenv("NIBLIT_INIT_WAIT_MAX_SECONDS", "").strip()
+        if _max_wait_raw:
+            try:
+                _max_wait_s = float(_max_wait_raw)
+            except ValueError:
+                _max_wait_s = 300.0
+        if _max_wait_s <= 0:
+            _max_wait_s = 0.0
+        _wait_started_at = time.monotonic()
         io.out(
             f"{timestamp()} ⏳ Niblit initialising — please wait until fully booted\n"
             f"          (Ctrl+C to skip to CLI now, or set NIBLIT_SKIP_INIT_WAIT=1)"
@@ -711,6 +722,14 @@ if __name__ == "__main__":
                             break
 
                 if _phase in ("complete", "failed"):
+                    break
+
+                # Safety valve: avoid waiting forever if deferred init gets stuck.
+                if _max_wait_s > 0 and (time.monotonic() - _wait_started_at) >= _max_wait_s:
+                    io.out(
+                        f"{timestamp()} ⚠️ Init wait timeout reached ({int(_max_wait_s)}s) — "
+                        "opening CLI while remaining modules continue in background"
+                    )
                     break
 
                 # Show a periodic heartbeat if nothing arrived this tick so
