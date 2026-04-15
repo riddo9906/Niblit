@@ -45,7 +45,7 @@ class TestLLMProviderManagerQwen:
     def test_qwen_falls_back_to_hf_when_local_unavailable(self):
         mgr = LLMProviderManager()
         mgr.wire(
-            local_brain=_StubLocalBrain("[LocalBrain unavailable — model missing]"),
+            local_brain=_StubLocalBrain("[LocalBrain unavailable - model missing]"),
             hf_brain=_StubHFBrain(),
         )
         mgr.switch("qwen")

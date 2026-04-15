@@ -217,7 +217,8 @@ class LLMProviderManager:
         if not result or not result.strip():
             return None
         text = result.strip()
-        if text.startswith("[LocalBrain unavailable") or text.startswith("[LocalBrain error"):
+        lower = text.lower()
+        if lower.startswith("[localbrain ") and ("unavailable" in lower or "error" in lower):
             return None
         return text
 
