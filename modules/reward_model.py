@@ -37,19 +37,22 @@ Design
 from __future__ import annotations
 
 import logging
-import math
 import re
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("RewardModel")
 
 # ── optional transformers ─────────────────────────────────────────────────────
 try:
+    from transformers import (
+        AutoModelForSequenceClassification as _AutoModelForSeqClass,
+    )
+    from transformers import (
+        AutoTokenizer as _AutoTokenizer,
+    )
     from transformers import (  # type: ignore[import]
         pipeline as _hf_pipeline,
-        AutoTokenizer as _AutoTokenizer,
-        AutoModelForSequenceClassification as _AutoModelForSeqClass,
     )
     _TRANSFORMERS_AVAILABLE = True
 except ImportError:
@@ -87,7 +90,7 @@ _TOKEN_RE = re.compile(r"[a-z]{2,}")
 _DEFAULT_CLASSIFIER_MODEL = "distilbert-base-uncased-finetuned-sst-2-english"
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     return [w for w in _TOKEN_RE.findall(text.lower()) if w not in _STOP_WORDS]
 
 
@@ -98,8 +101,8 @@ def _tokenize(text: str) -> List[str]:
 def _heuristic_score(
     query: str,
     answer: str,
-    snippets: List[str],
-) -> Dict[str, float]:
+    snippets: list[str],
+) -> dict[str, float]:
     """Compute the four heuristic signals and return a breakdown dict.
 
     Returns
@@ -192,7 +195,7 @@ class RewardModel:
 
     def __init__(self, model_name: str = _DEFAULT_CLASSIFIER_MODEL) -> None:
         self._model_name = model_name
-        self._pipeline: Optional[Any] = None
+        self._pipeline: Any | None = None
         self._pipeline_lock = threading.Lock()
         self._pipeline_tried = False
 
@@ -202,7 +205,7 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: Optional[List[str]] = None,
+        snippets: list[str] | None = None,
     ) -> float:
         """Return a quality score ∈ [0, 1].  Never raises."""
         try:
@@ -214,8 +217,8 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        snippets: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Return a full quality breakdown dict.
 
         Keys: ``score``, ``method``, ``heuristic`` (sub-breakdown), and
@@ -234,10 +237,10 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: List[str],
-        node_ids: Optional[List[str]] = None,
-        is_good: Optional[bool] = None,
-        memory_graph: Optional[Any] = None,
+        snippets: list[str],
+        node_ids: list[str] | None = None,
+        is_good: bool | None = None,
+        memory_graph: Any | None = None,
     ) -> None:
         """Evaluate an answer and propagate score deltas back to the MemoryGraph.
 
@@ -276,14 +279,14 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: List[str],
-    ) -> Dict[str, Any]:
+        snippets: list[str],
+    ) -> dict[str, Any]:
         heuristic = _heuristic_score(query, answer, snippets)
         base_score = heuristic["total"]
         method = "heuristic"
 
         # Try classifier if transformers available and pipeline loaded
-        model_score: Optional[float] = None
+        model_score: float | None = None
         if _TRANSFORMERS_AVAILABLE:
             model_score = self._classifier_score(query, answer, snippets)
             if model_score is not None:
@@ -302,8 +305,8 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: List[str],
-    ) -> Optional[float]:
+        snippets: list[str],
+    ) -> float | None:
         """Run the DistilBERT classifier.  Returns None on any failure."""
         pipe = self._get_pipeline()
         if pipe is None:
@@ -327,7 +330,7 @@ class RewardModel:
             log.debug("[RewardModel] classifier error: %s", exc)
         return None
 
-    def _get_pipeline(self) -> Optional[Any]:
+    def _get_pipeline(self) -> Any | None:
         """Lazy-load the HF classifier pipeline (once per process).
 
         stdout/stderr are captured during model construction so noisy download
@@ -348,7 +351,7 @@ class RewardModel:
             captured_out = io.StringIO()
             captured_err = io.StringIO()
             old_out, old_err = sys.stdout, sys.stderr
-            _load_exc: Optional[Exception] = None
+            _load_exc: Exception | None = None
             try:
                 sys.stdout = captured_out
                 sys.stderr = captured_err
@@ -395,7 +398,7 @@ class RewardModel:
 # Singleton
 # ─────────────────────────────────────────────────────────────────────────────
 
-_reward_singleton: Optional[RewardModel] = None
+_reward_singleton: RewardModel | None = None
 _reward_lock = threading.Lock()
 
 

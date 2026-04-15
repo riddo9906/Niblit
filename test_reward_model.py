@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_default_classifier_model_constant_is_used():
-    from modules.reward_model import RewardModel, _DEFAULT_CLASSIFIER_MODEL
+    from modules.reward_model import _DEFAULT_CLASSIFIER_MODEL, RewardModel
 
     rm = RewardModel()
     assert rm._model_name == _DEFAULT_CLASSIFIER_MODEL
