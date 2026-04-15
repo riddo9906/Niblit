@@ -119,11 +119,13 @@ class LLMProviderManager:
             "hf_model": getattr(self._hf_brain, "model", "n/a") if hf_ok else "n/a",
             "anthropic_model": (
                 getattr(self._claude, "_model", "n/a")
-                if self._claude is not None else "n/a"
+                if self._claude is not None
+                else "n/a"
             ),
             "qwen_model": (
                 getattr(self._local_brain, "model_name", "n/a")
-                if self._local_brain is not None else "n/a"
+                if self._local_brain is not None
+                else "n/a"
             ),
         }
 

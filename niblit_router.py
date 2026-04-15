@@ -2616,7 +2616,7 @@ Ask me about:
             s = mgr.status()
             hf_flag = "✅" if s["hf"] else "❌"
             ant_flag = "✅" if s["anthropic"] else "❌"
-            qwen_flag = "✅" if s.get("qwen") else "❌"
+            qwen_flag = "✅" if s["qwen"] else "❌"
             hf_active = "← active" if s["active"] == "hf" else ""
             ant_active = "← active" if s["active"] == "anthropic" else ""
             qwen_active = "← active" if s["active"] == "qwen" else ""
@@ -2625,7 +2625,7 @@ Ask me about:
                 f"• Active provider: **{s['active']}**\n"
                 f"• HuggingFace  {hf_flag}  (model: {s['hf_model']}) {hf_active}\n"
                 f"• Anthropic    {ant_flag}  (model: {s['anthropic_model']}) {ant_active}\n"
-                f"• Qwen Local   {qwen_flag}  (model: {s.get('qwen_model', 'n/a')}) {qwen_active}\n"
+                f"• Qwen Local   {qwen_flag}  (model: {s['qwen_model']}) {qwen_active}\n"
                 f"\nSwitch: `llm-provider hf`, `llm-provider anthropic`, or `llm-provider qwen`"
             )
 
