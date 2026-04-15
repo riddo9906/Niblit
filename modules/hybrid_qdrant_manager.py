@@ -503,7 +503,7 @@ class HybridQdrantManager:
                 k: (v.vector if hasattr(v, "vector") else v)
                 for k, v in vectors.items()
             }
-            point = PointStruct(id=point_id, vector=plain_vectors, payload={**payload, "_text": text[:1000]})
+            point = PointStruct(id=point_id, vector=plain_vectors, payload={**payload, "_text": text[:6000]})
             t0 = time.time()
             client.upsert(collection_name=full_name, points=[point])
             latency_ms = round((time.time() - t0) * 1000, 1)
@@ -621,12 +621,17 @@ class HybridQdrantManager:
         Convenience wrapper for dict-based knowledge items.
 
         Expects *item* to contain:
-          - ``id``         (str)  — stable document identifier
+          - ``id``         (str)  — stable document identifier (used only for
+                                    computing the integer point ID; never stored
+                                    as a topic ID in the payload)
           - ``text``       (str)  — document text to embed
           - ``payload``    (dict) — metadata to store alongside the vector
           - ``collection`` (str)  — target collection name
 
         Optional keys:
+          - ``topic``      (str)  — short human-readable topic description.
+                                    When absent, ``TopicSummariser`` derives it
+                                    from the text automatically.
           - ``models``     (list) — override model selection
 
         Returns True if upsert succeeded for at least one model.
@@ -641,9 +646,22 @@ class HybridQdrantManager:
             log.warning("[HybridQdrantManager] upsert_knowledge_item: empty text for id='%s'", doc_id)
             return False
 
+        # Build a short topic description — never store a topic ID or slug.
+        explicit_topic = str(item.get("topic", "")).strip()
+        if not explicit_topic:
+            try:
+                from modules.qdrant_tools import TopicSummariser as _TS  # type: ignore[import]
+                explicit_topic = _TS.summarise(text, hint=doc_id)
+            except Exception:
+                explicit_topic = text[:80].split("\n")[0].strip()
+
+        # Merge the topic description into the payload.  Do NOT add doc_id as
+        # a payload field so that no topic-derived ID is persisted in the point.
+        merged_payload = {**payload, "_topic": explicit_topic}
+
         return self.upsert(
             text=text,
-            payload={**payload, "_id": doc_id},
+            payload=merged_payload,
             collection=collection,
             models=models,
             doc_id=doc_id if doc_id else None,

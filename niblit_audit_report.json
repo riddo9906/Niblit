@@ -1,5 +1,5 @@
 {
-    "timestamp": 1776270956.598002,
+    "timestamp": 1776273532.145673,
     "circular_imports": [
         "niblit_memory -> niblit_memory",
         "modules.graph_rag -> modules.sync_engine -> modules.niblit_core_kernel_v2 -> modules.niblit_core_kernel -> modules.phased_research_engine -> modules.language_module -> modules.graph_rag",
@@ -919,6 +919,6 @@
         "circular_imports_found": 10,
         "missing_modules_found": 173,
         "orphaned_modules_found": 143,
-        "audit_time": 3.064511775970459
+        "audit_time": 3.081847906112671
     }
 }
