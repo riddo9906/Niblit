@@ -266,5 +266,77 @@ class TestActiveCoreExposed:
         assert main._active_core is core
 
 
+class TestCliToolMode:
+    def test_parse_args_list_tools(self):
+        import main
+
+        args = main.parse_args(["--list-tools"])
+        assert args.list_tools is True
+        assert args.tool_call is None
+
+    def test_parse_args_tool_call_and_arguments(self):
+        import main
+
+        args = main.parse_args(["--tool-call", "echo_tool", "--tool-arguments", '{"x":1}'])
+        assert args.tool_call == "echo_tool"
+        assert args.tool_arguments == '{"x":1}'
+
+    def test_parse_tool_arguments_valid_json_object(self):
+        import main
+
+        parsed = main._parse_tool_arguments('{"query":"hello","n":2}')
+        assert parsed == {"query": "hello", "n": 2}
+
+    def test_parse_tool_arguments_invalid_json_raises(self):
+        import main
+
+        with pytest.raises(ValueError, match="Invalid --tool-arguments JSON"):
+            main._parse_tool_arguments("{bad json")
+
+    def test_parse_tool_arguments_non_object_raises(self):
+        import main
+
+        with pytest.raises(ValueError, match="JSON object"):
+            main._parse_tool_arguments('["not","object"]')
+
+    def test_run_tool_cli_mode_list_tools(self):
+        import main
+
+        args = main.parse_args(["--list-tools"])
+        io = _make_io()
+        mock_reg = MagicMock()
+        mock_reg.list_tools.return_value = [{"name": "demo", "description": "Demo tool"}]
+
+        with patch("niblit_tools.tool_registry.get_registry", return_value=mock_reg):
+            exit_code = main._run_tool_cli_mode(args, io=io)
+
+        assert exit_code == 0
+        io.out.assert_called()
+        assert "demo" in io.out.call_args_list[0].args[0]
+
+    def test_run_tool_cli_mode_calls_tool_with_parsed_args(self):
+        import main
+
+        args = main.parse_args(
+            ["--tool-call", "demo_tool", "--tool-arguments", '{"message":"hi"}']
+        )
+        io = _make_io()
+        mock_reg = MagicMock()
+        mock_reg.run.return_value = "ok"
+
+        with patch("niblit_tools.tool_registry.get_registry", return_value=mock_reg):
+            exit_code = main._run_tool_cli_mode(args, io=io)
+
+        assert exit_code == 0
+        mock_reg.run.assert_called_once_with("demo_tool", {"message": "hi"})
+        assert any("ok" in str(c) for c in io.out.call_args_list)
+
+    def test_run_tool_cli_mode_returns_minus_one_when_disabled(self):
+        import main
+
+        args = main.parse_args([])
+        assert main._run_tool_cli_mode(args) == -1
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
