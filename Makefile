@@ -110,3 +110,21 @@ clean:
 	find . -name "*.pyo" -delete 2>/dev/null || true
 	rm -rf build/ dist/ *.egg-info/ .mypy_cache/ .ruff_cache/ htmlcov/ .coverage
 	@echo "Cleaned up build artifacts and caches."
+
+# ── NiblitOS C++ kernel ────────────────────────────────────────────────────────
+
+## boot-kernel: Build the NiblitOS C++ kernel ELF (requires i686-elf cross-compiler)
+boot-kernel:
+	$(MAKE) -C os all
+
+## boot-kernel-iso: Build bootable ISO image for NiblitOS
+boot-kernel-iso:
+	$(MAKE) -C os iso
+
+## run-os: Boot NiblitOS in QEMU (requires make boot-kernel-iso first)
+run-os:
+	$(MAKE) -C os run
+
+## run-os-elf: Boot NiblitOS ELF directly in QEMU (faster, no ISO)
+run-os-elf:
+	$(MAKE) -C os run-elf
