@@ -25,7 +25,7 @@ the kernel subsystems passed in the constructor.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("NiblitOSKernel.SyscallDispatcher")
 
@@ -62,7 +62,7 @@ class SyscallDispatcher:
         device_manager=None,
         ipc=None,
     ) -> None:
-        self._syscalls: Dict[str, Any] = {}
+        self._syscalls: dict[str, Any] = {}
         self._pm = process_manager
         self._mm = memory_manager
         self._fs = fs_manager
@@ -155,7 +155,7 @@ class SyscallDispatcher:
         self._syscalls[name] = fn
         log.debug("[Syscall] Registered custom syscall: %s", name)
 
-    def call(self, name: str, kwargs: Optional[Dict[str, Any]] = None) -> Any:
+    def call(self, name: str, kwargs: dict[str, Any] | None = None) -> Any:
         """
         Dispatch a syscall by *name* with optional keyword arguments.
 
@@ -185,11 +185,11 @@ class SyscallDispatcher:
 
         raise KeyError(f"Unknown syscall: {name!r}")
 
-    def registered_syscalls(self) -> List[str]:
+    def registered_syscalls(self) -> list[str]:
         """Return names of all registered built-in/custom syscalls."""
         return sorted(self._syscalls.keys())
 
-    def all_callable_names(self) -> List[str]:
+    def all_callable_names(self) -> list[str]:
         """Return names of all callable syscalls including tool registry tools."""
         names = set(self._syscalls.keys())
         if self._tool_registry is not None:

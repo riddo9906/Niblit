@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import platform
 import threading
-from typing import Any, Dict, Optional
+from typing import Any
 
 log = logging.getLogger("NiblitOSKernel.DeviceManager")
 
@@ -119,7 +119,7 @@ class DeviceManager:
     """
 
     def __init__(self) -> None:
-        self._devices: Dict[str, Any] = {}
+        self._devices: dict[str, Any] = {}
         self._lock = threading.Lock()
         self._refresh_devices()
         log.debug("[DM] DeviceManager ready with %d devices", len(self._devices))
@@ -156,12 +156,12 @@ class DeviceManager:
         return existed
 
     # ---------------------------------------------------------- query ---------
-    def get(self, name: str) -> Optional[dict]:
+    def get(self, name: str) -> dict | None:
         """Return the device dict for *name*, or None."""
         with self._lock:
             return dict(self._devices[name]) if name in self._devices else None
 
-    def list_devices(self) -> Dict[str, dict]:
+    def list_devices(self) -> dict[str, dict]:
         """Return a shallow copy of the full device registry."""
         with self._lock:
             return {k: dict(v) for k, v in self._devices.items()}

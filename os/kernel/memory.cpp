@@ -70,8 +70,8 @@ void init(uint32_t mmap_addr, uint32_t mmap_length, uint32_t kernel_end) {
                 }
             }
         }
-        # The Multiboot2 mmap entry_size field records the size of the entry
-        # body only (not the entry_size field itself, which is 4 bytes).
+        // The Multiboot2 mmap entry_size field records the size of the entry
+        // body only (not the entry_size field itself, which is 4 bytes).
         offset += entry->entry_size + 4;
     }
 

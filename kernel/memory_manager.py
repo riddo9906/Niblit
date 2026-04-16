@@ -15,7 +15,6 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Optional
 
 log = logging.getLogger("NiblitOSKernel.MemoryManager")
 
@@ -37,7 +36,7 @@ class MemoryAllocation:
     bytes_reserved: int
     allocated_at: float = field(default_factory=time.time)
     released: bool = False
-    released_at: Optional[float] = None
+    released_at: float | None = None
 
 
 class MemoryManager:
@@ -60,7 +59,7 @@ class MemoryManager:
 
     def __init__(self, total_budget_bytes: int = DEFAULT_BUDGET) -> None:
         self._budget = total_budget_bytes
-        self._allocations: Dict[str, MemoryAllocation] = {}
+        self._allocations: dict[str, MemoryAllocation] = {}
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------ reserve ---

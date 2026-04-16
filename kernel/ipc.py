@@ -19,8 +19,9 @@ import logging
 import queue
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("NiblitOSKernel.IPC")
 
@@ -56,8 +57,8 @@ class IPCBus:
     """
 
     def __init__(self) -> None:
-        self._channels: Dict[str, queue.Queue] = {}
-        self._subscribers: Dict[str, List[Callable]] = {}
+        self._channels: dict[str, queue.Queue] = {}
+        self._subscribers: dict[str, list[Callable]] = {}
         self._lock = threading.Lock()
 
     # ──────────────────────────────────────────── named-channel (queue) API ──
@@ -75,8 +76,8 @@ class IPCBus:
         log.debug("[IPC] push → %s from %s", channel, sender)
 
     def pop(
-        self, channel: str, timeout: Optional[float] = None
-    ) -> Optional[IPCMessage]:
+        self, channel: str, timeout: float | None = None
+    ) -> IPCMessage | None:
         """
         Dequeue the next message from *channel*.
 
@@ -90,10 +91,10 @@ class IPCBus:
         except queue.Empty:
             return None
 
-    def drain(self, channel: str) -> List[IPCMessage]:
+    def drain(self, channel: str) -> list[IPCMessage]:
         """Return all currently queued messages from *channel* (non-blocking)."""
         q = self._get_channel(channel)
-        messages: List[IPCMessage] = []
+        messages: list[IPCMessage] = []
         while True:
             try:
                 messages.append(q.get_nowait())

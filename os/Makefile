@@ -31,10 +31,16 @@ LDFLAGS := -T linker.ld -nostdlib -z noexecstack
 BOOT_ASM  := boot/boot.asm
 KERNEL_CPP:= kernel/kernel.cpp   \
              kernel/vga.cpp      \
+             kernel/serial.cpp   \
              kernel/gdt.cpp      \
              kernel/idt.cpp      \
              kernel/memory.cpp   \
+             kernel/paging.cpp   \
+             kernel/heap.cpp     \
+             kernel/pit.cpp      \
              kernel/process.cpp  \
+             kernel/vfs.cpp      \
+             kernel/syscall.cpp  \
              kernel/niblit_iface.cpp
 KERNEL_ASM:= kernel/gdt.asm      \
              kernel/idt.asm      \
@@ -81,13 +87,25 @@ iso: $(KERNEL_ELF)
 
 # ── Run in QEMU ───────────────────────────────────────────────────────────────
 run: $(KERNEL_ISO)
-	qemu-system-i386 -cdrom $(KERNEL_ISO) -m 128M
+	qemu-system-i386 -cdrom $(KERNEL_ISO) -m 128M -serial stdio
 
-# Run directly from ELF (no ISO needed)
+# Run directly from ELF (no ISO needed) — serial output on stdout
 run-elf: $(KERNEL_ELF)
-	qemu-system-i386 -kernel $(KERNEL_ELF) -m 128M
+	qemu-system-i386 -kernel $(KERNEL_ELF) -m 128M -serial stdio
 
-# ── Create build directory ────────────────────────────────────────────────────
+# ── Userland shell (Linux test build) ────────────────────────────────────────
+SHELL_BIN := build/niblit-shell
+
+shell: $(SHELL_BIN)
+
+$(SHELL_BIN): userland/shell/shell.c | build
+	gcc -std=c11 -O2 -Wall -DLINUX_TEST userland/shell/shell.c -o $@
+	@echo "Shell binary: $@"
+
+shell-run: $(SHELL_BIN)
+	./$(SHELL_BIN)
+
+
 build:
 	mkdir -p build
 

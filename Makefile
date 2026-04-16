@@ -128,3 +128,16 @@ run-os:
 ## run-os-elf: Boot NiblitOS ELF directly in QEMU (faster, no ISO)
 run-os-elf:
 	$(MAKE) -C os run-elf
+
+## niblit-shell: Build the NiblitOS userland shell binary (gcc, no cross-compiler needed)
+niblit-shell:
+	$(MAKE) -C os shell
+
+## niblit-shell-run: Launch the interactive NiblitOS shell on the host
+niblit-shell-run:
+	$(MAKE) -C os shell-run
+
+## kernel-shell: Start the Python kernel/ interactive shell
+kernel-shell:
+	python3 -m kernel.shell
+

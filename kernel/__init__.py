@@ -24,14 +24,13 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Optional
 
-from kernel.process_manager import ProcessManager
-from kernel.memory_manager import MemoryManager
-from kernel.fs_manager import FSManager
 from kernel.device_manager import DeviceManager
-from kernel.syscall_dispatcher import SyscallDispatcher
+from kernel.fs_manager import FSManager
 from kernel.ipc import IPCBus
+from kernel.memory_manager import MemoryManager
+from kernel.process_manager import ProcessManager
+from kernel.syscall_dispatcher import SyscallDispatcher
 
 log = logging.getLogger("NiblitOSKernel")
 
@@ -57,12 +56,12 @@ class NiblitOSKernel:
         self._lock = threading.Lock()
 
         # Subsystems (set during boot)
-        self.process_manager: Optional[ProcessManager] = None
-        self.memory_manager: Optional[MemoryManager] = None
-        self.fs_manager: Optional[FSManager] = None
-        self.device_manager: Optional[DeviceManager] = None
-        self.syscall_dispatcher: Optional[SyscallDispatcher] = None
-        self.ipc: Optional[IPCBus] = None
+        self.process_manager: ProcessManager | None = None
+        self.memory_manager: MemoryManager | None = None
+        self.fs_manager: FSManager | None = None
+        self.device_manager: DeviceManager | None = None
+        self.syscall_dispatcher: SyscallDispatcher | None = None
+        self.ipc: IPCBus | None = None
 
     # ------------------------------------------------------------------ boot /
     def boot(self) -> None:
@@ -133,7 +132,7 @@ class NiblitOSKernel:
 
 
 # ─────────────────────────────────────────────────────────────────── singleton
-_kernel_instance: Optional[NiblitOSKernel] = None
+_kernel_instance: NiblitOSKernel | None = None
 _kernel_lock = threading.Lock()
 
 

@@ -12,8 +12,8 @@ import logging
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional
 
 log = logging.getLogger("NiblitOSKernel.ProcessManager")
 
@@ -26,17 +26,17 @@ class ProcessRecord:
 
     pid: str                        # logical name / ID
     kind: str                       # "thread" | "subprocess"
-    target: Optional[Callable] = None
+    target: Callable | None = None
     args: tuple = field(default_factory=tuple)
     kwargs: dict = field(default_factory=dict)
     daemon: bool = True
     started_at: float = field(default_factory=time.time)
-    stopped_at: Optional[float] = None
+    stopped_at: float | None = None
     status: str = "running"         # "running" | "stopped" | "failed"
 
     # Runtime handles (not serialised)
-    _thread: Optional[threading.Thread] = field(default=None, repr=False, compare=False)
-    _proc: Optional[subprocess.Popen] = field(default=None, repr=False, compare=False)
+    _thread: threading.Thread | None = field(default=None, repr=False, compare=False)
+    _proc: subprocess.Popen | None = field(default=None, repr=False, compare=False)
 
     def is_alive(self) -> bool:
         if self.kind == "thread" and self._thread:
@@ -58,7 +58,7 @@ class ProcessManager:
     """
 
     def __init__(self) -> None:
-        self._records: Dict[str, ProcessRecord] = {}
+        self._records: dict[str, ProcessRecord] = {}
         self._lock = threading.Lock()
 
     # -------------------------------------------------------- spawn_thread ---
@@ -67,7 +67,7 @@ class ProcessManager:
         pid: str,
         target: Callable,
         args: tuple = (),
-        kwargs: Optional[dict] = None,
+        kwargs: dict | None = None,
         daemon: bool = True,
     ) -> ProcessRecord:
         """
@@ -101,7 +101,7 @@ class ProcessManager:
     def spawn_subprocess(
         self,
         pid: str,
-        cmd: List[str],
+        cmd: list[str],
         **popen_kwargs,
     ) -> ProcessRecord:
         """
@@ -149,7 +149,7 @@ class ProcessManager:
         return True
 
     # -------------------------------------------------------------- list_all --
-    def list_all(self) -> List[dict]:
+    def list_all(self) -> list[dict]:
         with self._lock:
             return [
                 {

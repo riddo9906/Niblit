@@ -19,7 +19,6 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
 
 log = logging.getLogger("NiblitOSKernel.FSManager")
 
@@ -41,9 +40,9 @@ class FSManager:
         the current working directory.
     """
 
-    def __init__(self, root: Optional[str] = None) -> None:
+    def __init__(self, root: str | None = None) -> None:
         self._root = Path(root).resolve() if root else Path.cwd()
-        self._mounts: Dict[str, Path] = {}  # logical_name → real_path
+        self._mounts: dict[str, Path] = {}  # logical_name → real_path
         log.debug("[FS] FSManager initialised with root %s", self._root)
 
     # ------------------------------------------------------------ mount/umount
@@ -125,7 +124,7 @@ class FSManager:
         real.write_bytes(data)
 
     # ------------------------------------------------------------------- list
-    def listdir(self, virtual_path: str = "") -> List[str]:
+    def listdir(self, virtual_path: str = "") -> list[str]:
         """Return names of entries in *virtual_path* (or root if empty)."""
         real = self.resolve(virtual_path) if virtual_path else self._root
         if not real.is_dir():
