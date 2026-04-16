@@ -6,6 +6,8 @@
 #include "memory.h"
 #include "process.h"
 #include "pit.h"
+#include "vfs.h"
+#include "elf_loader.h"
 #include "niblit_iface.h"
 #include <stddef.h>
 
@@ -101,6 +103,27 @@ static uint32_t sys_proc_list(char* buf, uint32_t /*len*/) {
     return 0;
 }
 
+static uint32_t sys_open(const char* path, uint32_t flags) {
+    if (!path) return static_cast<uint32_t>(-1);
+    int fd = VFS::open(path, flags);
+    return static_cast<uint32_t>(fd);
+}
+
+static uint32_t sys_close(uint32_t fd) {
+    return static_cast<uint32_t>(VFS::close(static_cast<int>(fd)));
+}
+
+static uint32_t sys_mkdir(const char* path) {
+    if (!path) return static_cast<uint32_t>(-1);
+    return static_cast<uint32_t>(VFS::mkdir(path));
+}
+
+static uint32_t sys_exec(const char* path, const char* name) {
+    if (!path) return static_cast<uint32_t>(-1);
+    int tid = ELF::exec(path, name);
+    return static_cast<uint32_t>(tid);
+}
+
 // ── Main dispatcher ───────────────────────────────────────────────────────────
 static void syscall_handler(IDT::Registers* r) {
     uint32_t num  = r->eax;
@@ -141,6 +164,19 @@ static void syscall_handler(IDT::Registers* r) {
         case SYS_PROC_LIST:
             ret = sys_proc_list(reinterpret_cast<char*>(arg1), arg2);
             break;
+        case SYS_OPEN:
+            ret = sys_open(reinterpret_cast<const char*>(arg1), arg2);
+            break;
+        case SYS_CLOSE:
+            ret = sys_close(arg1);
+            break;
+        case SYS_MKDIR:
+            ret = sys_mkdir(reinterpret_cast<const char*>(arg1));
+            break;
+        case SYS_EXEC:
+            ret = sys_exec(reinterpret_cast<const char*>(arg1),
+                           reinterpret_cast<const char*>(arg2));
+            break;
         default:
             Serial::log("[SYSCALL] unknown #");
             Serial::write_dec(Serial::COM1, num);
@@ -158,7 +194,7 @@ void init() {
     // We reuse the IDT gate mechanism; gate type 0xEE = 32-bit interrupt gate, DPL=3.
     // The IDT::register_handler path uses DPL=0 gates, so we set the gate directly.
     IDT::register_handler(0x80, syscall_handler);
-    VGA::writeln("[SYSCALL] int 0x80 handler registered (10 syscalls).");
+    VGA::writeln("[SYSCALL] int 0x80 handler registered (15 syscalls).");
     Serial::logln("[SYSCALL] Ready.");
 }
 

@@ -32,6 +32,8 @@
 #include "process.h"
 #include "vfs.h"
 #include "syscall.h"
+#include "keyboard.h"
+#include "elf_loader.h"
 #include "niblit_iface.h"
 #include <stdint.h>
 
@@ -98,15 +100,20 @@ static void shell_handle_command(const char* cmd) {
     if (kstrstartswith(cmd, "help")) {
         const char* help =
             "NiblitOS Shell Commands:\n"
-            "  help            — this help text\n"
-            "  version         — kernel version\n"
-            "  mem             — memory statistics\n"
-            "  ps              — process list\n"
-            "  ls <path>       — list VFS directory\n"
-            "  cat <path>      — read a VFS file\n"
-            "  ask <query>     — send query to Niblit AI\n"
-            "  tool <name> <j> — call a Niblit tool with JSON args\n"
-            "  uptime          — milliseconds since boot\n";
+            "  help              — this help text\n"
+            "  version           — kernel version\n"
+            "  mem               — memory statistics\n"
+            "  ps                — process list\n"
+            "  ls <path>         — list VFS directory\n"
+            "  cat <path>        — read a VFS file\n"
+            "  write <path> <s>  — write string to VFS file\n"
+            "  touch <path>      — create empty VFS file\n"
+            "  mkdir <path>      — create VFS directory\n"
+            "  exec  <path>      — load + run an ELF32 binary\n"
+            "  ask <query>       — send query to Niblit AI\n"
+            "  tool <name> <j>   — call a Niblit tool with JSON args\n"
+            "  niblit-poll       — show pending Niblit AI responses\n"
+            "  uptime            — milliseconds since boot\n";
         VGA::write(help);
         Serial::write(Serial::COM1, help);
 
@@ -139,6 +146,50 @@ static void shell_handle_command(const char* cmd) {
             VGA::write(buf);
             Serial::write(Serial::COM1, buf);
         }
+
+    } else if (kstrstartswith(cmd, "exec ")) {
+        const char* path = cmd + 5;
+        int tid = ELF::exec(path, nullptr);
+        if (tid > 0) {
+            VGA::write("Launched tid="); VGA::write_dec((uint32_t)tid); VGA::newline();
+        } else {
+            VGA::write("exec failed: error="); VGA::write_dec((uint32_t)(-tid)); VGA::newline();
+        }
+
+    } else if (kstrstartswith(cmd, "write ")) {
+        // write <path> <content>
+        const char* rest = cmd + 6;
+        char path[VFS::MAX_PATH] = {};
+        size_t i = 0;
+        while (rest[i] && rest[i] != ' ' && i < VFS::MAX_PATH - 1) { path[i] = rest[i]; ++i; }
+        const char* content = (rest[i] == ' ') ? rest + i + 1 : "";
+        int r = VFS::write_file(path, content);
+        if (r >= 0) { VGA::write("Wrote "); VGA::write_dec((uint32_t)r); VGA::writeln(" bytes."); }
+        else { VGA::writeln("write: error"); }
+
+    } else if (kstrstartswith(cmd, "touch ")) {
+        const char* path = cmd + 6;
+        VFS::write_file(path, "");
+        VGA::write("Touched "); VGA::writeln(path);
+
+    } else if (kstrstartswith(cmd, "mkdir ")) {
+        int r = VFS::mkdir(cmd + 6);
+        VGA::writeln(r == 0 ? "Directory created." : "mkdir failed.");
+
+    } else if (kstrstartswith(cmd, "niblit-poll")) {
+        // Poll all response slots and print results
+        bool found = false;
+        for (uint32_t id = 1; id < 10; ++id) {
+            NiblitResponse* resp = NiblitIface::poll_response(id);
+            if (resp) {
+                found = true;
+                VGA::write("[NIBLIT] Response #"); VGA::write_dec(id);
+                VGA::write(" status="); VGA::write_dec(resp->status);
+                VGA::write(": ");
+                VGA::writeln(resp->result);
+            }
+        }
+        if (!found) VGA::writeln("[NIBLIT] No responses yet.");
 
     } else if (kstrstartswith(cmd, "ask ")) {
         uint32_t id = NiblitIface::send_request(0, "", cmd + 4);
@@ -174,7 +225,9 @@ static void niblit_shell_task() {
     shell_print_prompt();
 
     while (true) {
+        // Accept input from either serial (COM1) or PS/2 keyboard
         char c = Serial::read_char(Serial::COM1);
+        if (!c) c = Keyboard::read_char();
         if (!c) {
             asm volatile("hlt"); // yield
             continue;
@@ -305,12 +358,17 @@ extern "C" void kernel_main(uint32_t mb2_magic, uint32_t mb2_info_addr) {
     VFS::init();
     VGA::writeln("OK");
 
-    // ── 12. Syscall interface ─────────────────────────────────────────────────
+    // ── 12. Keyboard (PS/2) ───────────────────────────────────────────────────
+    VGA::write("[BOOT] Keyboard... ");
+    Keyboard::init();
+    VGA::writeln("OK");
+
+    // ── 13. Syscall interface ─────────────────────────────────────────────────
     VGA::write("[BOOT] Syscalls... ");
     Syscall::init();
     VGA::writeln("OK");
 
-    // ── 13. Niblit AI tool interface ──────────────────────────────────────────
+    // ── 14. Niblit AI tool interface ──────────────────────────────────────────
     VGA::write("[BOOT] Niblit AI interface... ");
     NiblitIface::init();
     VGA::writeln("OK");
@@ -327,11 +385,12 @@ extern "C" void kernel_main(uint32_t mb2_magic, uint32_t mb2_info_addr) {
     // ── 16. Boot summary ──────────────────────────────────────────────────────
     VGA::set_colour(VGA::Colour::YELLOW, VGA::Colour::BLACK);
     VGA::writeln("");
-    VGA::writeln("  ╔═══════════════════════════════════════╗");
-    VGA::writeln("  ║  NiblitOS v2.0 — Fully Operational   ║");
-    VGA::writeln("  ║  Niblit AI tool: ACTIVE               ║");
-    VGA::writeln("  ║  Shell: serial COM1 (-serial stdio)   ║");
-    VGA::writeln("  ╚═══════════════════════════════════════╝");
+    VGA::writeln("  ╔═══════════════════════════════════════════╗");
+    VGA::writeln("  ║  NiblitOS v2.1 — Fully Operational        ║");
+    VGA::writeln("  ║  Niblit AI tool: ACTIVE                   ║");
+    VGA::writeln("  ║  Shell: serial COM1 + PS/2 keyboard       ║");
+    VGA::writeln("  ║  ELF32 loader: ACTIVE                     ║");
+    VGA::writeln("  ╚═══════════════════════════════════════════╝");
     VGA::set_colour(VGA::Colour::LIGHT_GREY, VGA::Colour::BLACK);
 
     Memory::Stats ms = Memory::stats();

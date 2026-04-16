@@ -18,6 +18,9 @@
 static constexpr uint32_t SYS_EXIT          =  1;
 static constexpr uint32_t SYS_WRITE         =  4;  // write(fd, buf, len)
 static constexpr uint32_t SYS_READ          =  3;  // read(fd, buf, len)
+static constexpr uint32_t SYS_OPEN          =  5;  // open(path, flags)
+static constexpr uint32_t SYS_CLOSE         =  6;  // close(fd)
+static constexpr uint32_t SYS_MKDIR         = 39;  // mkdir(path, mode)
 static constexpr uint32_t SYS_YIELD         = 24;  // sched_yield()
 static constexpr uint32_t SYS_GETPID        = 20;  // getpid()
 static constexpr uint32_t SYS_SLEEP         = 162; // nanosleep-like (arg1 = ms)
@@ -25,6 +28,7 @@ static constexpr uint32_t SYS_MEM_INFO      = 200; // NiblitOS extension: memory
 static constexpr uint32_t SYS_NIBLIT_QUERY  = 201; // NiblitOS extension: AI query
 static constexpr uint32_t SYS_NIBLIT_TOOL   = 202; // NiblitOS extension: AI tool call
 static constexpr uint32_t SYS_PROC_LIST     = 203; // NiblitOS extension: process list
+static constexpr uint32_t SYS_EXEC          = 204; // NiblitOS extension: exec ELF
 
 // File descriptors
 static constexpr uint32_t FD_STDIN  = 0;

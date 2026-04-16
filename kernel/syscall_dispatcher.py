@@ -136,15 +136,60 @@ class SyscallDispatcher:
                 result["ipc"] = self._ipc.status()
             return result
 
+        def fs_write(path: str = "", content: str = "", **_kw) -> bool:
+            if not self._fs or not path:
+                return False
+            self._fs.write_text(path, content)
+            return True
+
+        def fs_mkdir(path: str = "", **_kw) -> bool:
+            if not self._fs or not path:
+                return False
+            self._fs.mkdir(path)
+            return True
+
+        def niblit_query(query: str = "", **_kw) -> str:
+            """Route a natural-language query through NiblitCore (if available)."""
+            if not query:
+                return "(empty query)"
+            try:
+                from niblit_core import NiblitCore  # type: ignore[import]
+                core = NiblitCore()
+                return str(core.process(query)) or "(no response)"
+            except Exception as exc:  # noqa: BLE001
+                return f"ERROR: NiblitCore unavailable — {exc}"
+
+        def niblit_tool(tool: str = "", args: str = "{}", **_kw) -> str:
+            """Invoke a registered Niblit tool by name with a JSON args string."""
+            if not tool:
+                return "(no tool specified)"
+            try:
+                import json as _json
+
+                from niblit_tools.tool_registry import get_registry  # type: ignore[import]
+                registry = get_registry()
+                try:
+                    kwargs = _json.loads(args) if args else {}
+                except _json.JSONDecodeError:
+                    kwargs = {}
+                result = registry.run(tool, kwargs)
+                return _json.dumps(result, default=str)
+            except Exception as exc:  # noqa: BLE001
+                return f"ERROR: tool '{tool}' failed — {exc}"
+
         for name, fn in (
             ("proc_list", proc_list),
             ("mem_info", mem_info),
             ("dev_list", dev_list),
             ("fs_listdir", fs_listdir),
             ("fs_read", fs_read),
+            ("fs_write", fs_write),
+            ("fs_mkdir", fs_mkdir),
             ("ipc_push", ipc_push),
             ("ipc_pop", ipc_pop),
             ("kernel_status", kernel_status),
+            ("niblit_query", niblit_query),
+            ("niblit_tool", niblit_tool),
         ):
             self._syscalls[name] = fn
 
@@ -188,6 +233,10 @@ class SyscallDispatcher:
     def registered_syscalls(self) -> list[str]:
         """Return names of all registered built-in/custom syscalls."""
         return sorted(self._syscalls.keys())
+
+    def list_syscalls(self) -> list[str]:
+        """Alias for registered_syscalls()."""
+        return self.registered_syscalls()
 
     def all_callable_names(self) -> list[str]:
         """Return names of all callable syscalls including tool registry tools."""

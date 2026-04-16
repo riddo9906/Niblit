@@ -41,6 +41,8 @@ KERNEL_CPP:= kernel/kernel.cpp   \
              kernel/process.cpp  \
              kernel/vfs.cpp      \
              kernel/syscall.cpp  \
+             kernel/keyboard.cpp \
+             kernel/elf_loader.cpp \
              kernel/niblit_iface.cpp
 KERNEL_ASM:= kernel/gdt.asm      \
              kernel/idt.asm      \

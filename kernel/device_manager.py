@@ -161,6 +161,14 @@ class DeviceManager:
         with self._lock:
             return dict(self._devices[name]) if name in self._devices else None
 
+    def get_device(self, name: str) -> dict | None:
+        """Alias for get()."""
+        return self.get(name)
+
+    def probe_all(self) -> None:
+        """Alias for refresh()."""
+        self.refresh()
+
     def list_devices(self) -> dict[str, dict]:
         """Return a shallow copy of the full device registry."""
         with self._lock:

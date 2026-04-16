@@ -131,6 +131,35 @@ class FSManager:
             raise NotADirectoryError(f"[FS] Not a directory: {virtual_path!r}")
         return sorted(e.name for e in real.iterdir())
 
+    def mkdir(self, virtual_path: str) -> None:
+        """Create a directory at *virtual_path* (including all parent dirs)."""
+        real = self.resolve(virtual_path)
+        real.mkdir(parents=True, exist_ok=True)
+        log.debug("[FS] mkdir %s", real)
+
+    def remove(self, virtual_path: str) -> None:
+        """Remove a file at *virtual_path*."""
+        real = self.resolve(virtual_path)
+        if real.is_dir():
+            raise IsADirectoryError(f"[FS] {virtual_path!r} is a directory — use rmdir()")
+        real.unlink()
+        log.debug("[FS] removed %s", real)
+
+    def rmdir(self, virtual_path: str) -> None:
+        """Remove an empty directory at *virtual_path*."""
+        real = self.resolve(virtual_path)
+        real.rmdir()
+        log.debug("[FS] rmdir %s", real)
+
+    # Aliases for compatibility with kernel/shell.py and niblit wiring
+    def read_file(self, virtual_path: str, encoding: str = "utf-8") -> str:
+        """Alias for read_text()."""
+        return self.read_text(virtual_path, encoding=encoding)
+
+    def write_file(self, virtual_path: str, content: str, encoding: str = "utf-8") -> None:
+        """Alias for write_text()."""
+        self.write_text(virtual_path, content, encoding=encoding)
+
     def exists(self, virtual_path: str) -> bool:
         """Return True if *virtual_path* exists."""
         try:

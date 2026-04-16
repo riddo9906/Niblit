@@ -171,6 +171,22 @@ class ProcessManager:
             "processes": records,
         }
 
+    # Convenience aliases for kernel/shell.py compatibility
+    def spawn(self, pid: str, cmd: list[str], **popen_kwargs) -> ProcessRecord:
+        """Alias for spawn_subprocess()."""
+        return self.spawn_subprocess(pid, cmd, **popen_kwargs)
+
+    def kill(self, pid: str, timeout: float = 5.0) -> bool:
+        """Alias for stop()."""
+        return self.stop(pid, timeout=timeout)
+
+    def list_processes(self) -> list[dict]:
+        """Alias for list_all(), remaps 'kind' → 'type' for shell display."""
+        records = self.list_all()
+        for r in records:
+            r.setdefault("type", r.get("kind", "unknown"))
+        return records
+
     def shutdown(self) -> None:
         """Stop all managed subprocesses on kernel shutdown."""
         with self._lock:
