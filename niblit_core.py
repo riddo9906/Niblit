@@ -7741,6 +7741,34 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.local_brain = get_local_brain()
             log.info("✅ QwenLocalBrain registered (lazy-loads Qwen2.5-0.5B on first generate)")
             self.startup_report.add("local_brain", "ready")
+            try:
+                _lb_status = self.local_brain.status()
+                _model_files = _lb_status.get("model_files", [])
+                if _lb_status.get("installed_locally"):
+                    if _model_files:
+                        _first_model_file = _model_files[0]
+                        log.info(
+                            "✅ Local Qwen model detected in cache (%d files): %s",
+                            len(_model_files),
+                            _first_model_file,
+                        )
+                        self.startup_report.add("local_brain_model", "ready", _first_model_file)
+                    else:
+                        _msg = "Local Qwen model marked installed but no model files were listed."
+                        log.warning("[Core] %s", _msg)
+                        self.startup_report.add("local_brain_model", "degraded", _msg)
+                else:
+                    _repo_cache_dir = _lb_status.get("repo_cache_dir", "unknown")
+                    _msg = (
+                        f"Local Qwen model files not found in cache ({_repo_cache_dir}). "
+                        "Run: python tools/install_local_qwen_model.py"
+                    )
+                    log.warning("[Core] %s", _msg)
+                    self.startup_report.add("local_brain_model", "degraded", _msg)
+            except Exception as _lb_status_err:
+                _msg = f"Local brain cache-status check failed: {_lb_status_err}"
+                log.warning("[Core] %s", _msg)
+                self.startup_report.add("local_brain_model", "degraded", _msg)
         except Exception as _lb_err:
             log.warning("[Core] QwenLocalBrain init failed (degraded): %s", _lb_err)
             self.startup_report.add("local_brain", "degraded", str(_lb_err))

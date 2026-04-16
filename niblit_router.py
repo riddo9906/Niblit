@@ -2589,9 +2589,9 @@ Ask me about:
 
         Subcommands::
 
-            llm-provider hf         — set HuggingFace as primary (default)
+            llm-provider qwen       — set local Qwen brain as primary (default)
             llm-provider anthropic  — set Anthropic Claude as primary
-            llm-provider qwen       — set local Qwen brain as primary
+            llm-provider hf         — set HuggingFace as primary
             llm-provider status     — show active provider and availability
         """
         lower = cmd.strip().lower()
@@ -6280,9 +6280,9 @@ Ask me about:
             "toggle-llm off               — Pause LLM (chat history preserved)",
             "toggle-llm on                — Resume LLM (full history reloaded)",
             "toggle-llm status            — Show LLM session & chat memory status",
-            "llm-provider hf              — Set HuggingFace as primary LLM (default)",
+            "llm-provider qwen            — Set local Qwen brain as primary LLM (default)",
             "llm-provider anthropic       — Set Anthropic Claude as primary LLM",
-            "llm-provider qwen            — Set local Qwen brain as primary LLM",
+            "llm-provider hf              — Set HuggingFace as primary LLM",
             "llm-provider status          — Show active provider & availability",
             "status, health               — System status",
             "time                         — Current time",
