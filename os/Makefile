@@ -29,21 +29,29 @@ LDFLAGS := -T linker.ld -nostdlib -z noexecstack
 
 # ── Source files ──────────────────────────────────────────────────────────────
 BOOT_ASM  := boot/boot.asm
-KERNEL_CPP:= kernel/kernel.cpp   \
-             kernel/vga.cpp      \
-             kernel/serial.cpp   \
-             kernel/gdt.cpp      \
-             kernel/idt.cpp      \
-             kernel/memory.cpp   \
-             kernel/paging.cpp   \
-             kernel/heap.cpp     \
-             kernel/pit.cpp      \
-             kernel/process.cpp  \
-             kernel/vfs.cpp      \
-             kernel/syscall.cpp  \
-             kernel/keyboard.cpp \
-             kernel/elf_loader.cpp \
-             kernel/niblit_iface.cpp
+KERNEL_CPP:= kernel/kernel.cpp        \
+             kernel/vga.cpp           \
+             kernel/serial.cpp        \
+             kernel/gdt.cpp           \
+             kernel/idt.cpp           \
+             kernel/memory.cpp        \
+             kernel/paging.cpp        \
+             kernel/heap.cpp          \
+             kernel/pit.cpp           \
+             kernel/process.cpp       \
+             kernel/vfs.cpp           \
+             kernel/syscall.cpp       \
+             kernel/keyboard.cpp      \
+             kernel/elf_loader.cpp    \
+             kernel/niblit_iface.cpp  \
+             kernel/acpi.cpp          \
+             kernel/irq.cpp           \
+             kernel/pci.cpp           \
+             kernel/rtc.cpp           \
+             kernel/dma.cpp           \
+             kernel/ata.cpp           \
+             kernel/net.cpp           \
+             kernel/msg.cpp
 KERNEL_ASM:= kernel/gdt.asm      \
              kernel/idt.asm      \
              kernel/process.asm
@@ -90,6 +98,13 @@ iso: $(KERNEL_ELF)
 # ── Run in QEMU ───────────────────────────────────────────────────────────────
 run: $(KERNEL_ISO)
 	qemu-system-i386 -cdrom $(KERNEL_ISO) -m 128M -serial stdio
+
+# Run in QEMU with OVMF UEFI firmware (requires ovmf package)
+run-uefi: $(KERNEL_ISO)
+	qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd \
+	    -cdrom $(KERNEL_ISO) -m 128M -serial stdio || \
+	qemu-system-x86_64 -bios /usr/share/qemu/OVMF.fd \
+	    -cdrom $(KERNEL_ISO) -m 128M -serial stdio
 
 # Run directly from ELF (no ISO needed) — serial output on stdout
 run-elf: $(KERNEL_ELF)

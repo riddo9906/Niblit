@@ -1,16 +1,25 @@
 // os/kernel/kernel.cpp — NiblitOS C++ kernel entry point
 //
-// Boot sequence (v2 — extended capabilities):
+// Boot sequence (v3 — full driver suite):
 //   VGA::init()            → text display available
 //   Serial::init()         → COM1 debug output
 //   GDT::init()            → flat segment model
-//   IDT::init()            → exception + IRQ handlers (PIC remapped)
+//   IDT::init()            → exception handlers (PIC not yet remapped)
+//   IRQ::init()            → remap PIC, register IRQ dispatch
 //   Memory::init()         → physical page frame allocator
 //   Paging::init()         → virtual memory + identity map (CR0.PG enabled)
 //   Heap::init()           → kernel slab/page heap (kmalloc/kfree)
+//   RTC::init()            → CMOS real-time clock
 //   PIT::init()            → 100 Hz timer (drives scheduler preemption)
 //   Process::init()        → round-robin task scheduler + idle task
 //   VFS::init()            → virtual filesystem (RamFS at /, DevFS at /dev)
+//   Keyboard::init()       → PS/2 keyboard (IRQ 1)
+//   DMA::init()            → 8237 ISA DMA controllers
+//   ACPI::init()           → ACPI tables (RSDP/RSDT/MADT/FADT)
+//   PCI::init()            → PCI bus enumeration
+//   ATA::init()            → ATA/IDE storage detection
+//   Net::init()            → E1000 NIC + minimal IP stack
+//   MSG::init()            → kernel IPC message queues
 //   Syscall::init()        → int 0x80 system call table
 //   NiblitIface::init()    → Niblit AI tool IPC ring buffer
 //   sti                    → enable interrupts
@@ -25,14 +34,22 @@
 #include "serial.h"
 #include "gdt.h"
 #include "idt.h"
+#include "irq.h"
 #include "memory.h"
 #include "paging.h"
 #include "heap.h"
+#include "rtc.h"
 #include "pit.h"
 #include "process.h"
 #include "vfs.h"
-#include "syscall.h"
 #include "keyboard.h"
+#include "dma.h"
+#include "acpi.h"
+#include "pci.h"
+#include "ata.h"
+#include "net.h"
+#include "msg.h"
+#include "syscall.h"
 #include "elf_loader.h"
 #include "niblit_iface.h"
 #include <stdint.h>
@@ -97,7 +114,7 @@ static void shell_print_prompt() {
 static void shell_handle_command(const char* cmd) {
     if (!*cmd) return;
 
-    if (kstrstartswith(cmd, "help")) {
+    } else if (kstrstartswith(cmd, "help")) {
         const char* help =
             "NiblitOS Shell Commands:\n"
             "  help              — this help text\n"
@@ -113,7 +130,17 @@ static void shell_handle_command(const char* cmd) {
             "  ask <query>       — send query to Niblit AI\n"
             "  tool <name> <j>   — call a Niblit tool with JSON args\n"
             "  niblit-poll       — show pending Niblit AI responses\n"
-            "  uptime            — milliseconds since boot\n";
+            "  uptime            — milliseconds since boot\n"
+            "  date              — current date/time from RTC\n"
+            "  pci               — list PCI devices\n"
+            "  ata               — list detected ATA drives\n"
+            "  net               — network interface status\n"
+            "  ping <ip>         — ICMP ping (e.g. ping 192.168.1.1)\n"
+            "  acpi              — ACPI info (CPUs, I/O APICs)\n"
+            "  msg               — message queue status\n"
+            "  syslog            — print syslog queue\n"
+            "  reboot            — reboot via ACPI\n"
+            "  poweroff          — power off via ACPI\n";
         VGA::write(help);
         Serial::write(Serial::COM1, help);
 
@@ -208,6 +235,76 @@ static void shell_handle_command(const char* cmd) {
     } else if (kstrstartswith(cmd, "uptime")) {
         VGA::write("Uptime: "); VGA::write_dec(PIT::millis()); VGA::writeln(" ms");
 
+    } else if (kstrstartswith(cmd, "date")) {
+        char buf[32] = {};
+        RTC::format_timestamp(buf, sizeof(buf));
+        VGA::writeln(buf);
+        Serial::writeln(Serial::COM1, buf);
+
+    } else if (kstrstartswith(cmd, "pci")) {
+        PCI::dump();
+
+    } else if (kstrstartswith(cmd, "ata")) {
+        ATA::dump();
+
+    } else if (kstrstartswith(cmd, "net")) {
+        Net::dump();
+
+    } else if (kstrstartswith(cmd, "ping ")) {
+        // ping <a.b.c.d>
+        const char* s = cmd + 5;
+        Net::IPv4Addr target = {};
+        for (int i = 0; i < 4; ++i) {
+            uint32_t v = 0;
+            while (*s >= '0' && *s <= '9') v = v * 10 + (*s++ - '0');
+            target.bytes[i] = (uint8_t)v;
+            if (*s == '.') ++s;
+        }
+        VGA::write("PING ");
+        for (int i = 0; i < 4; ++i) {
+            VGA::write_dec(target.bytes[i]); if (i < 3) VGA::write(".");
+        }
+        VGA::writeln(" ...");
+        int ms = Net::icmp_ping("eth0", target);
+        if (ms >= 0) { VGA::write("Reply: "); VGA::write_dec((uint32_t)ms); VGA::writeln(" ms"); }
+        else VGA::writeln("No reply (timeout or no NIC).");
+
+    } else if (kstrstartswith(cmd, "acpi")) {
+        if (ACPI::available()) {
+            VGA::write("ACPI: CPUs="); VGA::write_dec((uint32_t)ACPI::cpu_count());
+            VGA::write(" IOAPICs="); VGA::write_dec((uint32_t)ACPI::ioapic_count());
+            VGA::write(" LAPIC=0x"); VGA::write_hex(ACPI::lapic_addr());
+            VGA::newline();
+            for (size_t i = 0; i < ACPI::cpu_count(); ++i) {
+                ACPI::CpuInfo c = ACPI::cpu(i);
+                VGA::write("  CPU"); VGA::write_dec((uint32_t)i);
+                VGA::write(" APIC="); VGA::write_dec(c.apic_id);
+                VGA::writeln(c.enabled ? " enabled" : " disabled");
+            }
+        } else {
+            VGA::writeln("ACPI not available on this machine.");
+        }
+
+    } else if (kstrstartswith(cmd, "msg")) {
+        MSG::dump();
+
+    } else if (kstrstartswith(cmd, "syslog")) {
+        MSG::QueueId qid = MSG::queue_open("syslog");
+        MSG::Message m;
+        bool any = false;
+        while (MSG::msgrcv(qid, &m, MSG::MTYPE_SYSLOG) == 0) {
+            m.data[m.data_len < MSG::MSG_MAX_DATA ? m.data_len : MSG::MSG_MAX_DATA - 1] = '\0';
+            VGA::writeln((const char*)m.data);
+            any = true;
+        }
+        if (!any) VGA::writeln("(syslog empty)");
+
+    } else if (kstrstartswith(cmd, "reboot")) {
+        ACPI::reboot();
+
+    } else if (kstrstartswith(cmd, "poweroff")) {
+        ACPI::power_off();
+
     } else {
         VGA::write("Unknown command: "); VGA::writeln(cmd);
         Serial::log("Unknown: "); Serial::writeln(Serial::COM1, cmd);
@@ -260,15 +357,31 @@ static void niblit_daemon_task() {
     // Write a boot message to the VFS log
     VFS::write_file("/var/log/niblit.log", "Niblit AI daemon started at boot.\n");
 
-    // Post initial status requests
+    // Log boot event to MSG syslog
+    MSG::syslog("[niblit-daemon] Boot complete. AI tool active.");
+
+    // Publish a "kernel.boot" event on the MSG event bus
+    const char* boot_msg = "NiblitOS v3.0 boot complete";
+    MSG::publish("kernel.boot", MSG::MTYPE_KERNEL,
+                 boot_msg, 28);
+
+    // Post initial status requests to Niblit AI
     NiblitIface::ask("What is the current kernel status?");
     NiblitIface::call_tool("kernel_status", "{}");
 
     // Poll loop: check for responses and log them
+    uint32_t tick = 0;
     while (true) {
         NiblitResponse* resp = NiblitIface::poll_response(1);
         if (resp && resp->status == 0) {
             VFS::write_file("/var/log/niblit.log", resp->result);
+            MSG::syslog(resp->result);
+        }
+        // Every ~10 s (100 Hz PIT → 1000 ticks/s), post a heartbeat
+        ++tick;
+        if (tick % 1000 == 0) {
+            MSG::syslog("[niblit-daemon] heartbeat");
+            NiblitIface::call_tool("heartbeat", "{}");
         }
         asm volatile("hlt");
     }
@@ -303,12 +416,17 @@ extern "C" void kernel_main(uint32_t mb2_magic, uint32_t mb2_info_addr) {
     GDT::init();
     VGA::writeln("OK");
 
-    // ── 5. IDT + PIC ─────────────────────────────────────────────────────────
+    // ── 5. IDT (exception handlers) ───────────────────────────────────────────
     VGA::write("[BOOT] IDT... ");
     IDT::init();
     VGA::writeln("OK");
 
-    // ── 6. Memory (parse Multiboot2 memory map) ───────────────────────────────
+    // ── 6. IRQ manager (remap 8259 PIC, install dispatch stubs) ──────────────
+    VGA::write("[BOOT] IRQ manager... ");
+    IRQ::init();
+    VGA::writeln("OK");
+
+    // ── 7. Memory (parse Multiboot2 memory map) ───────────────────────────────
     VGA::write("[BOOT] Memory... ");
     uint32_t kernel_end_addr = 0;
     {
@@ -333,63 +451,104 @@ extern "C" void kernel_main(uint32_t mb2_magic, uint32_t mb2_info_addr) {
     }
     VGA::writeln("OK");
 
-    // ── 7. Paging ────────────────────────────────────────────────────────────
+    // ── 8. Paging ────────────────────────────────────────────────────────────
     VGA::write("[BOOT] Paging... ");
     Paging::init(kernel_end_addr);
     VGA::writeln("OK");
 
-    // ── 8. Kernel heap ────────────────────────────────────────────────────────
+    // ── 9. Kernel heap ────────────────────────────────────────────────────────
     VGA::write("[BOOT] Heap... ");
     Heap::init();
     VGA::writeln("OK");
 
-    // ── 9. PIT timer ─────────────────────────────────────────────────────────
+    // ── 10. RTC ──────────────────────────────────────────────────────────────
+    VGA::write("[BOOT] RTC... ");
+    RTC::init();
+    // (RTC::init prints its own timestamp)
+
+    // ── 11. PIT timer ─────────────────────────────────────────────────────────
     VGA::write("[BOOT] PIT timer... ");
     PIT::init(100);
     VGA::writeln("OK");
 
-    // ── 10. Process scheduler ─────────────────────────────────────────────────
+    // ── 12. Process scheduler ─────────────────────────────────────────────────
     VGA::write("[BOOT] Scheduler... ");
     Process::init();
     VGA::writeln("OK");
 
-    // ── 11. Virtual Filesystem ────────────────────────────────────────────────
+    // ── 13. Virtual Filesystem ────────────────────────────────────────────────
     VGA::write("[BOOT] VFS... ");
     VFS::init();
     VGA::writeln("OK");
 
-    // ── 12. Keyboard (PS/2) ───────────────────────────────────────────────────
+    // ── 14. Keyboard (PS/2) ───────────────────────────────────────────────────
     VGA::write("[BOOT] Keyboard... ");
     Keyboard::init();
     VGA::writeln("OK");
 
-    // ── 13. Syscall interface ─────────────────────────────────────────────────
+    // ── 15. DMA controllers ───────────────────────────────────────────────────
+    VGA::write("[BOOT] DMA... ");
+    DMA::init();
+
+    // ── 16. ACPI ─────────────────────────────────────────────────────────────
+    VGA::write("[BOOT] ACPI... ");
+    if (ACPI::init()) {
+        VGA::writeln("OK");
+    } else {
+        VGA::writeln("(not available)");
+    }
+
+    // ── 17. PCI bus ───────────────────────────────────────────────────────────
+    VGA::write("[BOOT] PCI... ");
+    PCI::init();
+
+    // ── 18. ATA storage ──────────────────────────────────────────────────────
+    VGA::write("[BOOT] ATA... ");
+    ATA::init();
+
+    // ── 19. Network ───────────────────────────────────────────────────────────
+    VGA::write("[BOOT] Network... ");
+    Net::init();
+
+    // ── 20. MSG IPC subsystem ─────────────────────────────────────────────────
+    VGA::write("[BOOT] MSG IPC... ");
+    MSG::init();
+
+    // ── 21. Syscall interface ─────────────────────────────────────────────────
     VGA::write("[BOOT] Syscalls... ");
     Syscall::init();
     VGA::writeln("OK");
 
-    // ── 14. Niblit AI tool interface ──────────────────────────────────────────
+    // ── 22. Niblit AI tool interface ──────────────────────────────────────────
     VGA::write("[BOOT] Niblit AI interface... ");
     NiblitIface::init();
     VGA::writeln("OK");
 
-    // ── 14. Enable interrupts ─────────────────────────────────────────────────
+    // ── 23. Enable interrupts ─────────────────────────────────────────────────
     asm volatile("sti");
     VGA::writeln("[BOOT] Interrupts enabled.");
     Serial::logln("[BOOT] All subsystems initialised. Interrupts ON.");
 
-    // ── 15. Launch kernel tasks ────────────────────────────────────────────────
+    // Log boot event to syslog
+    {
+        char ts[32] = {};
+        RTC::format_timestamp(ts, sizeof(ts));
+        MSG::syslog("NiblitOS booted at ");
+        MSG::syslog(ts);
+    }
+
+    // ── 24. Launch kernel tasks ────────────────────────────────────────────────
     Process::create("niblit-daemon", niblit_daemon_task);
     Process::create("niblit-shell",  niblit_shell_task);
 
-    // ── 16. Boot summary ──────────────────────────────────────────────────────
+    // ── 25. Boot summary ──────────────────────────────────────────────────────
     VGA::set_colour(VGA::Colour::YELLOW, VGA::Colour::BLACK);
     VGA::writeln("");
     VGA::writeln("  ╔═══════════════════════════════════════════╗");
-    VGA::writeln("  ║  NiblitOS v2.1 — Fully Operational        ║");
+    VGA::writeln("  ║  NiblitOS v3.0 — Full Driver Suite        ║");
     VGA::writeln("  ║  Niblit AI tool: ACTIVE                   ║");
+    VGA::writeln("  ║  ACPI | PCI | ATA | NET | MSG: ACTIVE     ║");
     VGA::writeln("  ║  Shell: serial COM1 + PS/2 keyboard       ║");
-    VGA::writeln("  ║  ELF32 loader: ACTIVE                     ║");
     VGA::writeln("  ╚═══════════════════════════════════════════╝");
     VGA::set_colour(VGA::Colour::LIGHT_GREY, VGA::Colour::BLACK);
 
@@ -400,12 +559,14 @@ extern "C" void kernel_main(uint32_t mb2_magic, uint32_t mb2_info_addr) {
     VGA::writeln(" MiB total");
     VGA::write("  Heap used: "); VGA::write_dec(Heap::used_bytes()); VGA::writeln(" bytes");
     VGA::write("  Uptime: "); VGA::write_dec(PIT::millis()); VGA::writeln(" ms");
+    VGA::write("  PCI devices: "); VGA::write_dec((uint32_t)PCI::device_count()); VGA::newline();
+    VGA::write("  ATA drives:  "); VGA::write_dec((uint32_t)ATA::drive_count()); VGA::newline();
+    VGA::write("  Net ifaces:  "); VGA::write_dec((uint32_t)Net::iface_count()); VGA::newline();
     VGA::newline();
     Process::dump();
 
-    // ── 17. Idle loop ─────────────────────────────────────────────────────────
+    // ── 26. Idle loop ─────────────────────────────────────────────────────────
     while (true) {
         asm volatile("hlt");
     }
 }
-
