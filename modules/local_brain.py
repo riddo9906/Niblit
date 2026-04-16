@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 log = logging.getLogger("Niblit.LocalBrain")
@@ -37,6 +38,41 @@ log = logging.getLogger("Niblit.LocalBrain")
 _MODEL_NAME   = os.environ.get("NIBLIT_LOCAL_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
 _MAX_NEW_TOKENS = int(os.environ.get("NIBLIT_LOCAL_MAX_NEW", "200"))
 _DTYPE_STR    = os.environ.get("NIBLIT_LOCAL_DTYPE", "float32")
+
+
+def _resolve_hf_hub_cache_dir() -> Path:
+    """Resolve HuggingFace Hub cache directory used by transformers downloads."""
+    explicit_hub = os.environ.get("HUGGINGFACE_HUB_CACHE", "").strip()
+    if explicit_hub:
+        return Path(explicit_hub).expanduser()
+
+    hf_home = os.environ.get("HF_HOME", "").strip()
+    if hf_home:
+        return Path(hf_home).expanduser() / "hub"
+
+    try:
+        from huggingface_hub.constants import HUGGINGFACE_HUB_CACHE  # type: ignore[import]
+        return Path(HUGGINGFACE_HUB_CACHE).expanduser()
+    except Exception:
+        return Path.home() / ".cache" / "huggingface" / "hub"
+
+
+def _repo_cache_dir(model_name: str) -> Path:
+    safe_repo = model_name.replace("/", "--")
+    return _resolve_hf_hub_cache_dir() / f"models--{safe_repo}"
+
+
+def _model_file_candidates(model_name: str) -> list[Path]:
+    repo_dir = _repo_cache_dir(model_name)
+    if not repo_dir.exists():
+        return []
+
+    patterns = ("snapshots/*/model.safetensors", "snapshots/*/model.safetensors.index.json")
+    paths: list[Path] = []
+    for pattern in patterns:
+        paths.extend(repo_dir.glob(pattern))
+    unique_sorted = sorted({p.resolve() for p in paths}, key=lambda p: str(p))
+    return unique_sorted
 
 
 class QwenLocalBrain:
@@ -70,6 +106,21 @@ class QwenLocalBrain:
     def load_error(self) -> Optional[str]:
         """Return the last load error string, or None if loaded successfully."""
         return self._load_error
+
+    def ensure_loaded(self) -> bool:
+        """Public wrapper that loads model + tokenizer lazily if needed."""
+        return self._ensure_loaded()
+
+    def cache_info(self) -> Dict[str, Any]:
+        """Return HuggingFace cache inspection info for this model."""
+        model_files = _model_file_candidates(self.model_name)
+        repo_dir = _repo_cache_dir(self.model_name)
+        return {
+            "hub_cache_dir": str(_resolve_hf_hub_cache_dir()),
+            "repo_cache_dir": str(repo_dir),
+            "model_files": [str(p) for p in model_files],
+            "installed_locally": bool(model_files),
+        }
 
     # ── Lazy model loading ────────────────────────────────────────────────────
 
@@ -187,6 +238,7 @@ class QwenLocalBrain:
 
     def status(self) -> Dict[str, Any]:
         """Return a serialisable status dict."""
+        cache = self.cache_info()
         return {
             "model_name":   self.model_name,
             "loaded":       self._model is not None,
@@ -194,6 +246,10 @@ class QwenLocalBrain:
             "load_error":   self._load_error,
             "max_new_tokens": self.max_new_tokens,
             "dtype":        self.dtype_str,
+            "hub_cache_dir": cache["hub_cache_dir"],
+            "repo_cache_dir": cache["repo_cache_dir"],
+            "model_files": cache["model_files"],
+            "installed_locally": cache["installed_locally"],
         }
 
 

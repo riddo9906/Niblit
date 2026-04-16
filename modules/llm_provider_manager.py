@@ -3,9 +3,9 @@
 modules/llm_provider_manager.py — Runtime LLM provider selector for Niblit.
 
 Priority:
-    1. HuggingFace Router (HFBrain / HFAdapter)  ← PRIMARY (default)
-    2. Anthropic Claude (ClaudeEngine)           ← FALLBACK
-    3. Qwen Local Brain (QwenLocalBrain)         ← LOCAL OPTION
+    1. Qwen Local Brain (QwenLocalBrain)         ← PRIMARY (default)
+    2. HuggingFace Router (HFBrain / HFAdapter)  ← FALLBACK
+    3. Anthropic Claude (ClaudeEngine)           ← FALLBACK
 
 The active provider can be switched at runtime via the ``llm-provider``
 CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic|qwen`` in the
@@ -66,7 +66,7 @@ class LLMProviderManager:
     """
 
     def __init__(self) -> None:
-        raw = os.getenv("NIBLIT_LLM_PROVIDER", "hf").lower().strip()
+        raw = os.getenv("NIBLIT_LLM_PROVIDER", "qwen").lower().strip()
         self.active: str = raw if raw in VALID_PROVIDERS else "hf"
         self._lock = threading.Lock()
 

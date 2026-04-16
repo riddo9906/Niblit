@@ -543,6 +543,11 @@ pip install trl peft bitsandbytes accelerate datasets transformers
 # Then set LOCAL_MODEL_PATH=Qwen/Qwen2.5-0.5B-Instruct in .env
 ```
 
+Pre-install local Qwen model files (recommended on Termux if runtime download crashes):
+```bash
+python tools/install_local_qwen_model.py
+```
+
 ---
 
 ## What YOU Need To Do
