@@ -75,6 +75,9 @@ def main() -> None:
     except Exception:  # noqa: BLE001
         result = f"ERROR: unhandled exception\n{traceback.format_exc()}"
 
+    # Coerce to str before any string-method calls.
+    result = str(result) if not isinstance(result, str) else result
+
     # Output the result as a JSON envelope so niblit_runner can parse it.
     envelope = {
         "request_id": int(request_id),

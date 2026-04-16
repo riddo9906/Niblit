@@ -70,7 +70,9 @@ void init(uint32_t mmap_addr, uint32_t mmap_length, uint32_t kernel_end) {
                 }
             }
         }
-        offset += entry->entry_size + 4; // entry_size field does not include itself
+        # The Multiboot2 mmap entry_size field records the size of the entry
+        # body only (not the entry_size field itself, which is 4 bytes).
+        offset += entry->entry_size + 4;
     }
 
     VGA::write("[MEM] Frames free: ");

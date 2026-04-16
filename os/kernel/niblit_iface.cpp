@@ -56,7 +56,8 @@ uint32_t send_request(uint32_t type, const char* tool, const char* query) {
     kstrncpy(req->tool,  tool  ? tool  : "", NIBLIT_MAX_TOOL);
     kstrncpy(req->query, query ? query : "", NIBLIT_MAX_QUERY);
 
-    // Advance head (visible to daemon after this write)
+    // Advance head (visible to daemon after this write).
+    // Callers must ensure cmd is constructed from trusted sources only.
     s_ring->head = next;
     return req->id;
 }

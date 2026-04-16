@@ -48,8 +48,10 @@ _start:
     mov esp, stack_top
 
     ; Push Multiboot2 info pointer and magic for kernel_main(uint32_t magic, uint32_t* mbi)
-    push eax            ; Multiboot2 magic value (should be 0x36D76289)
-    push ebx            ; Multiboot2 info structure pointer
+    ; C calling convention: first arg at [esp+4], second at [esp+8] after call.
+    ; We push in reverse order: info pointer first (second arg), then magic (first arg).
+    push ebx            ; Multiboot2 info structure pointer (second arg → [esp+4] → mb2_info_addr)
+    push eax            ; Multiboot2 magic value           (first  arg → [esp+4] after push → mb2_magic)
 
     ; Call into C++ kernel
     call kernel_main
