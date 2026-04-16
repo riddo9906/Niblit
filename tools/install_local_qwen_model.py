@@ -71,7 +71,10 @@ def main() -> int:
     _print_status(after, "== Post-check ==")
 
     if after.get("installed_locally") and after.get("loaded"):
-        print("✅ Qwen local model installed and loadable. Niblit startup should use it.")
+        print(
+            "✅ Qwen local model installed and loadable. "
+            "Use NIBLIT_LLM_PROVIDER=qwen (or `llm-provider qwen`) to make it active."
+        )
         return 0
 
     print("❌ Local model check failed after installation attempt.")

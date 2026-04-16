@@ -35,6 +35,7 @@ _manager: Optional["LLMProviderManager"] = None
 _manager_lock = threading.Lock()
 
 VALID_PROVIDERS = ("hf", "anthropic", "qwen")
+DEFAULT_PROVIDER = "qwen"
 
 
 def get_llm_provider_manager() -> "LLMProviderManager":
@@ -66,8 +67,8 @@ class LLMProviderManager:
     """
 
     def __init__(self) -> None:
-        raw = os.getenv("NIBLIT_LLM_PROVIDER", "qwen").lower().strip()
-        self.active: str = raw if raw in VALID_PROVIDERS else "hf"
+        raw = os.getenv("NIBLIT_LLM_PROVIDER", DEFAULT_PROVIDER).lower().strip()
+        self.active: str = raw if raw in VALID_PROVIDERS else DEFAULT_PROVIDER
         self._lock = threading.Lock()
 
         # Lazily resolved provider instances — set by wire() or on first ask()

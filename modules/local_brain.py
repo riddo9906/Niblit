@@ -71,7 +71,11 @@ def _model_file_candidates(model_name: str) -> list[Path]:
     paths: list[Path] = []
     for pattern in patterns:
         paths.extend(repo_dir.glob(pattern))
-    unique_sorted = sorted({p.resolve() for p in paths}, key=lambda p: str(p))
+    if not paths:
+        # Fallback if cache layout differs from expected snapshots/* layout.
+        paths.extend(repo_dir.rglob("model.safetensors"))
+        paths.extend(repo_dir.rglob("model.safetensors.index.json"))
+    unique_sorted = sorted({p.resolve() for p in paths})
     return unique_sorted
 
 
