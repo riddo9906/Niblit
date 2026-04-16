@@ -1334,6 +1334,15 @@ except Exception as _e:
     _get_kernel = None  # type: ignore[assignment]
     _NIBLIT_KERNEL_AVAILABLE = False
 
+# ── NiblitOSKernel (OS abstraction layer) ────────────────────────────────────
+try:
+    from kernel import get_os_kernel as _get_os_kernel
+    _NIBLIT_OS_KERNEL_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"NiblitOSKernel not available: {_e}")
+    _get_os_kernel = None  # type: ignore[assignment]
+    _NIBLIT_OS_KERNEL_AVAILABLE = False
+
 # ── ResilienceWrapper (additive) ──────────────────────────────────────────────
 try:
     from modules.resilience_wrapper import safe_init as _safe_init, safe_call as _safe_call, wrap_module as _wrap_module
@@ -1675,6 +1684,8 @@ class NiblitCore:
         self.self_monitor: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: NiblitKernel ───────────────────────────────────────
         self.kernel: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: NiblitOSKernel (OS abstraction layer) ─────────────
+        self.os_kernel: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: KnowledgeDigest ────────────────────────────────────
         self.knowledge_digest: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: KnowledgeFilter ────────────────────────────────────
@@ -7608,6 +7619,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self.kernel = None
         else:
             self.kernel = None
+
+        # ── NiblitOSKernel (OS abstraction layer) ────────────────────────────
+        if _NIBLIT_OS_KERNEL_AVAILABLE and _get_os_kernel:
+            try:
+                self.os_kernel = _get_os_kernel()
+                log.info("[Core] NiblitOSKernel ready (v%s)", self.os_kernel.VERSION)
+            except Exception as _e:
+                log.debug(f"[Core] NiblitOSKernel init failed: {_e}")
+                self.os_kernel = None
+        else:
+            self.os_kernel = None
 
         # ============================
         # DEPLOYMENT BRIDGE
