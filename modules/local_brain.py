@@ -146,13 +146,16 @@ class QwenLocalBrain:
 
                 dtype = torch.float32 if self.dtype_str == "float32" else torch.float16
 
-                log.info("[LocalBrain] Loading %s (dtype=%s, device=cpu)…",
-                         self.model_name, self.dtype_str)
+                log.info(
+                    "[LocalBrain] Loading %s (dtype=%s, format=safetensors, device=cpu)…",
+                    self.model_name, self.dtype_str,
+                )
                 tokenizer = AutoTokenizer.from_pretrained(self.model_name)
                 model = AutoModelForCausalLM.from_pretrained(
                     self.model_name,
                     torch_dtype=dtype,
                     device_map="cpu",
+                    use_safetensors=True,
                 )
                 model.eval()
                 self._tokenizer = tokenizer
