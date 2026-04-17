@@ -89,7 +89,11 @@ _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
 
 # Backend selector: 'auto' | 'http' | 'subprocess' | 'python'
-_GGUF_BACKEND = os.environ.get("NIBLIT_GGUF_BACKEND", "auto").strip().lower()
+# Default is 'http': llama-server loads the model once and keeps it in RAM;
+# each Niblit call is a lightweight HTTP request.  The subprocess backend
+# reloads the model from disk on every call (CPU/RAM heavy) and should only
+# be used when llama-server is not running.
+_GGUF_BACKEND = os.environ.get("NIBLIT_GGUF_BACKEND", "http").strip().lower()
 
 # Path to the llama.cpp CLI binary (llama-cli / main).
 # When empty, common locations are searched automatically.
