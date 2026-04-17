@@ -90,14 +90,15 @@ _GGUF_CHAT_TEMPLATE = os.environ.get("NIBLIT_GGUF_CHAT_TEMPLATE", "qwen").strip(
 _GGUF_STOP_TOKENS_STR = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
 
 # Candidate binary names / paths for the subprocess backend (searched in order).
+# CMake build (current default) takes precedence over old Makefile paths.
 _LLAMA_BINARY_CANDIDATES = [
     "llama-cli",                          # in PATH (new name, llama.cpp >= 3.x)
     "llama",                              # in PATH (some distributions)
     "main",                               # in PATH (old name)
-    "~/llama.cpp/llama-cli",
-    "~/llama.cpp/main",
-    "~/llama.cpp/build/bin/llama-cli",
-    "~/llama.cpp/build/bin/main",
+    "~/llama.cpp/build/bin/llama-cli",    # CMake build (Termux / Linux default)
+    "~/llama.cpp/build/bin/main",         # CMake build (old binary name)
+    "~/llama.cpp/llama-cli",              # legacy Makefile build
+    "~/llama.cpp/main",                   # legacy Makefile build (old name)
 ]
 
 # ── GGUF chat-template helpers ────────────────────────────────────────────────
@@ -474,8 +475,10 @@ class QwenLocalBrain:
                 "Build it on Termux with:\n"
                 "  pkg install git cmake clang make\n"
                 "  git clone https://github.com/ggerganov/llama.cpp ~/llama.cpp\n"
-                "  cd ~/llama.cpp && make -j1\n"
-                "Then set: export NIBLIT_LLAMA_BINARY=~/llama.cpp/llama-cli"
+                "  cd ~/llama.cpp && mkdir -p build && cd build\n"
+                "  cmake .. -DLLAMA_NATIVE=OFF -DLLAMA_BUILD_TESTS=OFF\n"
+                "  cmake --build . -j1\n"
+                "Then set: export NIBLIT_LLAMA_BINARY=~/llama.cpp/build/bin/llama-cli"
             )
             log.warning("[LocalBrain] %s", self._load_error)
             return False
