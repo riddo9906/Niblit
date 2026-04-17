@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if REPO_ROOT not in sys.path:
@@ -26,6 +27,8 @@ _DEFAULT_GGUF_URL = (
     "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 )
 _DEFAULT_GGUF_FILENAME = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+_DEFAULT_GGUF_DIR = "~/models"
+_DEFAULT_GGUF_DEST = f"{_DEFAULT_GGUF_DIR}/{_DEFAULT_GGUF_FILENAME}"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -77,13 +80,18 @@ def _print_status(status: dict, header: str) -> None:
 
 def _show_gguf_instructions(gguf_path: str) -> None:
     """Print actionable download instructions for the GGUF model."""
-    dest = gguf_path or f"~/{_DEFAULT_GGUF_FILENAME}"
+    dest = gguf_path or _DEFAULT_GGUF_DEST
+    dest_dir = str(Path(dest).expanduser().parent).replace(str(Path.home()), "~")
     print()
     print("=" * 60)
     print("  GGUF model setup for Niblit (Termux / mobile / desktop)")
     print("=" * 60)
     print()
-    print("1. Download the pre-quantized model (~390 MB):")
+    print("1. Create the models directory:")
+    print()
+    print(f"     mkdir -p {dest_dir}")
+    print()
+    print("2. Download the pre-quantized model (~390 MB):")
     print()
     print(f"     wget -O {dest} \\")
     print(f"       {_DEFAULT_GGUF_URL}")
@@ -93,11 +101,11 @@ def _show_gguf_instructions(gguf_path: str) -> None:
     print(f"     curl -L -o {dest} \\")
     print(f"       {_DEFAULT_GGUF_URL}")
     print()
-    print("2. Set environment variables (add to ~/.bashrc or .env):")
+    print("3. Set environment variables (add to ~/.bashrc or .env):")
     print()
     print(f"     export NIBLIT_GGUF_MODEL_PATH={dest}")
     print()
-    print("3. Install llama-cpp-python (if not already installed):")
+    print("4. Install llama-cpp-python (if not already installed):")
     print()
     print("     pip install llama-cpp-python")
     print()
@@ -106,7 +114,7 @@ def _show_gguf_instructions(gguf_path: str) -> None:
     print("     pip install llama-cpp-python --extra-index-url \\")
     print("       https://abetlen.github.io/llama-cpp-python/whl/cpu")
     print()
-    print("4. Verify:")
+    print("5. Verify:")
     print()
     print(f"     python tools/install_local_qwen_model.py \\")
     print(f"       --gguf-path {dest} --verify-only")

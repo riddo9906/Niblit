@@ -250,7 +250,14 @@ class QwenLocalBrain:
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _resolved_gguf_path(self) -> Optional[Path]:
-        """Return the resolved path to the GGUF file, or None if not found."""
+        """Return the resolved path to the GGUF file, or None if not found.
+
+        Resolution order:
+        1. Explicit ``NIBLIT_GGUF_MODEL_PATH`` / ``gguf_model_path`` param.
+        2. ``NIBLIT_LOCAL_MODEL`` / ``model_name`` ends in ``.gguf``.
+        3. Default location: ``~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf``.
+        4. HuggingFace cache scan for any ``.gguf`` file.
+        """
         # 1. Explicit env-var path
         if self.gguf_model_path:
             p = Path(self.gguf_model_path).expanduser()
@@ -263,11 +270,16 @@ class QwenLocalBrain:
         if self.model_name.lower().endswith(".gguf"):
             p = Path(self.model_name).expanduser()
             return p
-        # 3. Check HuggingFace cache for any .gguf file
+        # 3. Default install location used by tools/install_local_qwen_model.py
+        default_path = Path.home() / "models" / "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+        if default_path.is_file():
+            return default_path
+        # 4. Check HuggingFace cache for any .gguf file
         cached = _find_gguf_in_cache(self.model_name)
         if cached:
             return cached
-        return None
+        # Return the default path even if absent so the error message is actionable.
+        return default_path
 
     # ── Lazy model loading ────────────────────────────────────────────────────
 
