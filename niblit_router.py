@@ -3386,7 +3386,7 @@ Ask me about:
             "🧠 Hybrid Brain Architecture",
             f"  Mode          : {st['mode']}",
             f"  Local Brain   : {'✅ loaded' if lb_info.get('loaded') else '⏳ pending (lazy load)'}",
-            f"  Local model   : {lb_info.get('model_name', 'Qwen/Qwen2.5-0.5B-Instruct')}",
+            f"  Local model   : {lb_info.get('model_name', 'qwen2.5-0.5b-instruct-q4_k_m.gguf')}",
             f"  Cloud brain   : {'✅ available' if st['cloud_available'] else '❌ unavailable'}",
             f"  Routing stats : {json.dumps(st.get('routing_counts', {}))}",
             f"  Routing %     : {json.dumps(st.get('routing_pct', {}))}",

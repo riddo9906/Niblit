@@ -42,6 +42,71 @@ except ImportError:  # pragma: no cover – graceful degradation
         return len(results) > 0
 
 
+# ── Code/programming query detector ─────────────────────────────────────────
+# Keywords that strongly indicate a programming / software-engineering query.
+# Used to gate code-specialised backends (Searchcode, StackOverflow) so they
+# only run when genuinely relevant and don't pollute general knowledge answers.
+#
+# NOTE: multi-word phrases here are matched as substrings against the full
+# lowercased query string, not against the individual word set.  Single-word
+# terms are matched against the word set (word-boundary aware).
+_CODE_QUERY_KEYWORDS = frozenset({
+    "python", "javascript", "typescript", "java", "kotlin", "swift",
+    "golang", "rust", "ruby", "php", "html", "css", "sql",
+    "code", "function", "class", "method", "variable", "import", "module",
+    "library", "package", "framework", "api", "bug", "error", "exception",
+    "debug", "refactor", "compile", "runtime", "syntax", "algorithm",
+    "regex", "git", "bash", "script", "loop", "array",
+    "dictionary", "tuple", "interface", "async", "await",
+    "callback", "promise", "http", "json", "xml",
+    "database", "schema", "orm", "migration", "server",
+    "docker", "kubernetes", "npm", "pip", "gradle", "maven",
+    "stackoverflow", "repository", "commit",
+    "bootstrap", "react", "angular",
+    "vue", "django", "flask", "fastapi", "spring", "express",
+    "webpack", "vite", "eslint", "pytest", "unittest", "lint",
+    "linter", "formatter", "decorator",
+    "inheritance", "polymorphism", "encapsulation", "recursion", "iterator",
+    "generator", "socket",
+    "encryption", "hash", "jwt", "oauth", "ssl", "tls",
+    "programmatically", "implementation", "implement", "integrate",
+    "sdk", "cli", "yaml", "toml",
+})
+
+# Multi-word phrases that individually are ambiguous but together signal code.
+_CODE_QUERY_PHRASES = (
+    "data structure", "stack overflow", "command line",
+    "environment variable", "configuration file", "type hint",
+    "context manager", "pull request", "github", "source code",
+    "programming language", "version control",
+)
+
+_CODE_QUERY_PREFIXES = (
+    "how to code", "how to implement", "how to write", "how to fix",
+    "how to debug", "how to install",
+    "what is the syntax", "what does this code",
+)
+
+
+def _is_code_query(query: str) -> bool:
+    """Return True when *query* is likely about code or software development.
+
+    This is intentionally broad (low false-negative rate) so legitimate code
+    searches are never suppressed, while clearly non-technical general
+    knowledge queries (e.g. "what is a primary color") return False.
+    """
+    lower = query.lower()
+    # Check phrase prefixes first (most precise signal)
+    if any(lower.startswith(p) for p in _CODE_QUERY_PREFIXES):
+        return True
+    # Check multi-word phrases as substrings of the full query
+    if any(phrase in lower for phrase in _CODE_QUERY_PHRASES):
+        return True
+    # Check individual keywords against the word set (word-boundary aware)
+    query_words = set(re.findall(r"\b\w+\b", lower))
+    return bool(query_words & _CODE_QUERY_KEYWORDS)
+
+
 class IntentAnalyzer:
     """Analyzes user queries to understand intent without LLM"""
 
@@ -724,8 +789,9 @@ class SelfResearcher:
                 log.debug("Scrapy search failed: %s", exc)
 
         # 3️⃣ SEARCHCODE — code-specific open-source index
-        # Run for all queries so code patterns enrich general research too.
-        if self._searchcode_search and hasattr(self._searchcode_search, "search_code"):
+        # Only run for queries that appear to be code / programming related so
+        # that general knowledge queries don't pick up irrelevant source files.
+        if self._searchcode_search and hasattr(self._searchcode_search, "search_code") and _is_code_query(query):
             try:
                 sc_results = self._searchcode_search.search_code(query, max_results=max_results)
                 for r in (sc_results or []):
@@ -739,7 +805,10 @@ class SelfResearcher:
                 log.debug("Searchcode search failed: %s", exc)
 
         # 3b️⃣ STACKOVERFLOW — Q&A + code-pattern search
-        if self._stackoverflow_search and hasattr(self._stackoverflow_search, "search"):
+        # Only run for code/programming queries; general knowledge questions
+        # (e.g. "what is a primary color") would otherwise receive irrelevant
+        # SO programming snippets as the top answer.
+        if self._stackoverflow_search and hasattr(self._stackoverflow_search, "search") and _is_code_query(query):
             try:
                 so_results = self._stackoverflow_search.search(query, max_results=max_results)
                 for r in (so_results or []):
