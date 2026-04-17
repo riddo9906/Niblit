@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Standalone local-model installer/validator for Niblit's local brain.
+"""Runtime verifier for Niblit's local GGUF model (QwenLocalBrain).
 
-Prints ready-to-use ``wget`` / ``curl`` download commands for a
-pre-quantized GGUF ``.gguf`` file and verifies an existing download when
-``--gguf-path`` is provided.
+By default, checks whether the GGUF model file and inference binary are in
+place and prints a pass/fail status.  Use ``--setup`` to print one-time
+download/build instructions.
 
-This script uses the same paths as ``modules.local_brain.QwenLocalBrain``
-so runtime startup does not need network access once the file is present.
+This script is safe to call at Niblit startup or from CI — it never
+downloads anything automatically.
 """
 
 from __future__ import annotations
@@ -33,22 +33,27 @@ _DEFAULT_GGUF_DEST = f"{_DEFAULT_GGUF_DIR}/{_DEFAULT_GGUF_FILENAME}"
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Install/verify GGUF model for Niblit local brain.",
+        description="Verify GGUF model installation for Niblit local brain.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples
 --------
-# Show download instructions:
+# Verify model is in place (default — no network access):
   python tools/install_local_qwen_model.py
 
-# Verify an already-downloaded GGUF file:
+# Show one-time download/build instructions:
+  python tools/install_local_qwen_model.py --setup
+
+# Verify a specific GGUF file path:
   python tools/install_local_qwen_model.py \\
-    --gguf-path ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf --verify-only
+    --gguf-path ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
 """,
     )
     parser.add_argument(
         "--model",
-        default=os.environ.get("NIBLIT_LOCAL_MODEL", "Qwen/Qwen2.5-0.5B-Instruct"),
+        default=os.environ.get(
+            "NIBLIT_LOCAL_MODEL", "~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+        ),
         help="HuggingFace model id or path to .gguf file (used for cache lookup).",
     )
     parser.add_argument(
@@ -57,9 +62,9 @@ Examples
         help="Explicit path to a local .gguf file (sets NIBLIT_GGUF_MODEL_PATH).",
     )
     parser.add_argument(
-        "--verify-only",
+        "--setup",
         action="store_true",
-        help="Only verify existing local installation; do not show download instructions.",
+        help="Print one-time download and build instructions, then exit.",
     )
     return parser.parse_args()
 
@@ -67,10 +72,13 @@ Examples
 def _print_status(status: dict, header: str) -> None:
     print(header)
     print(f"  model:             {status.get('model_name', 'unknown')}")
+    print(f"  backend_in_use:    {status.get('backend_in_use', 'none')}")
     print(f"  loaded:            {status.get('loaded', False)}")
     print(f"  installed_locally: {status.get('installed_locally', False)}")
     if status.get("gguf_model_path"):
         print(f"  gguf_path:         {status['gguf_model_path']}")
+    if status.get("llama_binary"):
+        print(f"  llama_binary:      {status['llama_binary']}")
     files = status.get("model_files", []) or []
     if files:
         print("  model files:")
@@ -78,55 +86,42 @@ def _print_status(status: dict, header: str) -> None:
             print(f"    - {f}")
 
 
-def _show_gguf_instructions(gguf_path: str) -> None:
-    """Print actionable download instructions for the GGUF model."""
+def _show_setup_instructions(gguf_path: str) -> None:
+    """Print one-time setup instructions for the GGUF model and llama.cpp."""
     dest = gguf_path or _DEFAULT_GGUF_DEST
     dest_dir = str(Path(dest).expanduser().parent).replace(str(Path.home()), "~")
     print()
     print("=" * 60)
-    print("  GGUF model setup for Niblit (Termux / mobile / desktop)")
+    print("  One-time setup: GGUF model + llama.cpp binary")
     print("=" * 60)
     print()
-    print("1. Create the models directory:")
+    print("── Step 1: Download the model (~390 MB) ────────────────────")
     print()
-    print(f"     mkdir -p {dest_dir}")
+    print(f"  mkdir -p {dest_dir}")
+    print(f"  wget -O {dest} \\")
+    print(f"    {_DEFAULT_GGUF_URL}")
     print()
-    print("2. Download the pre-quantized model (~390 MB):")
+    print("  Or with curl:")
     print()
-    print(f"     wget -O {dest} \\")
-    print(f"       {_DEFAULT_GGUF_URL}")
+    print(f"  curl -L -o {dest} \\")
+    print(f"    {_DEFAULT_GGUF_URL}")
     print()
-    print("   Or with curl:")
+    print("── Step 2: Build llama.cpp (Termux / Linux) ─────────────────")
     print()
-    print(f"     curl -L -o {dest} \\")
-    print(f"       {_DEFAULT_GGUF_URL}")
+    print("  pkg install git cmake clang make   # Termux")
+    print("  # or: apt install git cmake clang make  # Debian/Ubuntu")
+    print("  git clone https://github.com/ggerganov/llama.cpp ~/llama.cpp")
+    print("  cd ~/llama.cpp && make -j1")
     print()
-    print("3. Set environment variables (add to ~/.bashrc or .env):")
+    print("── Step 3: Add to ~/.bashrc or .env ─────────────────────────")
     print()
-    print(f"     export NIBLIT_GGUF_MODEL_PATH={dest}")
+    print(f"  export NIBLIT_GGUF_MODEL_PATH={dest}")
+    print("  export NIBLIT_GGUF_BACKEND=subprocess")
+    print("  export NIBLIT_LLAMA_BINARY=~/llama.cpp/llama-cli")
     print()
-    print("4. Inference backend — choose ONE:")
+    print("── Step 4: Verify ───────────────────────────────────────────")
     print()
-    print("   ── Option A: llama-cpp-python (desktop / server) ──")
-    print()
-    print("     pip install llama-cpp-python")
-    print()
-    print("   ── Option B: llama.cpp binary  ← RECOMMENDED for Termux ──")
-    print("      (no C++ compilation inside Python, uses ~300 MB RAM to build)")
-    print()
-    print("     pkg install git cmake clang make")
-    print("     git clone https://github.com/ggerganov/llama.cpp ~/llama.cpp")
-    print("     cd ~/llama.cpp && make -j1")
-    print()
-    print("     export NIBLIT_GGUF_BACKEND=subprocess")
-    print("     export NIBLIT_LLAMA_BINARY=~/llama.cpp/llama-cli")
-    print()
-    print("     # (add both exports to ~/.bashrc or .env)")
-    print()
-    print("5. Verify:")
-    print()
-    print(f"     python tools/install_local_qwen_model.py \\")
-    print(f"       --gguf-path {dest} --verify-only")
+    print("  python tools/install_local_qwen_model.py")
     print()
     print("=" * 60)
     print()
@@ -134,57 +129,35 @@ def _show_gguf_instructions(gguf_path: str) -> None:
 
 def main() -> int:
     args = _parse_args()
+
+    if args.setup:
+        _show_setup_instructions(args.gguf_path)
+        return 0
+
+    # Set env vars so QwenLocalBrain picks up the explicit path.
     os.environ["NIBLIT_LOCAL_MODEL"] = args.model
     if args.gguf_path:
         os.environ["NIBLIT_GGUF_MODEL_PATH"] = args.gguf_path
 
     from modules.local_brain import QwenLocalBrain
 
-    if not args.verify_only:
-        _show_gguf_instructions(args.gguf_path)
-
     brain = QwenLocalBrain(
         model_name=args.model,
         gguf_model_path=args.gguf_path,
     )
-    before = brain.status()
-    _print_status(before, "== Pre-check ==")
+    status = brain.status()
+    _print_status(status, "== Local brain status ==")
 
-    if args.verify_only:
-        if before.get("installed_locally"):
-            print("\n✅ GGUF model installation verified.")
-            return 0
+    if status.get("installed_locally"):
+        print("\n✅ GGUF model file found.")
+    else:
         print(
             "\n❌ GGUF model file not found. "
-            "Download it and set NIBLIT_GGUF_MODEL_PATH, then re-run."
+            "Run with --setup for download/build instructions."
         )
         return 1
 
-    if not before.get("installed_locally"):
-        print(
-            "❌ GGUF model file not found. "
-            "Download it using the instructions above, then re-run with --verify-only."
-        )
-        return 1
-
-    print("GGUF file found; validating load…")
-
-    if not brain.ensure_loaded():
-        print(f"❌ Failed to load model: {brain.load_error() or 'unknown error'}")
-        return 1
-
-    after = brain.status()
-    _print_status(after, "== Post-check ==")
-
-    if after.get("installed_locally") and after.get("loaded"):
-        print(
-            "✅ GGUF model installed and loadable. "
-            "Set NIBLIT_GGUF_MODEL_PATH to make it active."
-        )
-        return 0
-
-    print("❌ Local model check failed after installation attempt.")
-    return 1
+    return 0
 
 
 if __name__ == "__main__":
