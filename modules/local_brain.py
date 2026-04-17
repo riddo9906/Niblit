@@ -1,20 +1,29 @@
 """modules/local_brain.py — QwenLocalBrain: Niblit's primary local LLM.
 
-Supports two execution backends for GGUF quantized models:
+Supports three execution backends for GGUF quantized models:
+
+* **http** — calls a running ``llama-server`` instance via its OpenAI-
+  compatible HTTP API (``POST /v1/chat/completions``).  **Recommended for
+  the two-session Termux/proot setup**: run ``llama-server`` natively in
+  one Termux session and Niblit (in proot) in another; they communicate
+  over localhost HTTP, which crosses the proot boundary cleanly.
+  Start the server with::
+
+      ~/llama.cpp/build/bin/llama-server \\
+          -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\
+          --port 8080 --host 127.0.0.1 -c 2048 -t 4
+
+  Then set ``NIBLIT_GGUF_BACKEND=http`` (or ``auto``).
+
+* **subprocess** — calls the pre-built ``llama-cli`` binary via
+  ``subprocess.run()``.  Zero Python compilation; ideal when Niblit and
+  llama.cpp run in the **same** Termux session.
 
 * **python** — ``llama-cpp-python`` (``pip install llama-cpp-python``).
-  Preferred on desktop/server.  Requires ~2–4 GB RAM to *compile* on first
-  install, which can OOM-kill Android/Termux processes.
+  Preferred on desktop/server where RAM for compilation is available.
 
-* **subprocess** — calls the pre-built ``llama.cpp`` CLI binary
-  (``llama-cli`` / ``main``) via ``subprocess.run()``.  Zero Python
-  compilation; ideal for Termux and other low-RAM environments.
-  Build with: ``pkg install git cmake clang make && git clone
-  https://github.com/ggerganov/llama.cpp && cd llama.cpp && make -j1``
-
-In ``auto`` mode (default) the python backend is tried first; if
-``llama-cpp-python`` is not installed the subprocess backend is used
-automatically.
+In ``auto`` mode (default) the order is: **http → subprocess → python**.
+This ensures the crash-safe cross-session bridge is preferred on Termux.
 
 Role in the Hybrid Brain Architecture
 --------------------------------------
@@ -34,7 +43,7 @@ Environment variables
 ---------------------
 NIBLIT_LOCAL_MODEL          Path to a ``.gguf`` file **or** a HuggingFace
                             model id whose cache is scanned for ``.gguf``
-                            files.  Default: ``Qwen/Qwen2.5-0.5B-Instruct``
+                            files.  Default: ``~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf``
 NIBLIT_GGUF_MODEL_PATH      Explicit path to a local ``.gguf`` file
                             (takes priority over NIBLIT_LOCAL_MODEL).
 NIBLIT_LOCAL_MAX_NEW        Max new tokens (default: 200)
@@ -44,20 +53,28 @@ NIBLIT_GGUF_CHAT_TEMPLATE   Chat template: ``qwen`` (default / ChatML),
                             ``llama2``, ``alpaca``, or ``raw``.
 NIBLIT_GGUF_STOP_TOKENS     Comma-separated stop tokens.  When empty,
                             defaults are derived from the chat template.
-NIBLIT_GGUF_BACKEND         Backend: ``auto`` (default), ``python``
-                            (llama-cpp-python only), or ``subprocess``
-                            (llama.cpp binary, no Python compilation needed).
+NIBLIT_GGUF_BACKEND         Backend: ``auto`` (default), ``http``
+                            (llama-server HTTP bridge), ``subprocess``
+                            (llama.cpp binary), or ``python``
+                            (llama-cpp-python).
 NIBLIT_LLAMA_BINARY         Path to the llama.cpp CLI binary
                             (``llama-cli`` or ``main``).  When unset,
                             common PATH entries and build locations are tried.
+NIBLIT_LLAMA_SERVER_URL     Base URL of a running llama-server instance.
+                            Default: ``http://127.0.0.1:8080``
+NIBLIT_LLAMA_SERVER_TIMEOUT HTTP timeout in seconds for llama-server calls.
+                            Default: 120
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import subprocess
 import tempfile
 import threading
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -71,12 +88,18 @@ _GGUF_N_CTX      = int(os.environ.get("NIBLIT_GGUF_N_CTX", "2048"))
 _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
 
-# Backend selector: 'auto' | 'python' | 'subprocess'
+# Backend selector: 'auto' | 'http' | 'subprocess' | 'python'
 _GGUF_BACKEND = os.environ.get("NIBLIT_GGUF_BACKEND", "auto").strip().lower()
 
 # Path to the llama.cpp CLI binary (llama-cli / main).
 # When empty, common locations are searched automatically.
 _LLAMA_BINARY = os.environ.get("NIBLIT_LLAMA_BINARY", "").strip()
+
+# llama-server HTTP bridge configuration.
+# NIBLIT_LLAMA_SERVER_URL — base URL of a running llama-server instance.
+# NIBLIT_LLAMA_SERVER_TIMEOUT — per-request timeout in seconds.
+_LLAMA_SERVER_URL = os.environ.get("NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8080").rstrip("/")
+_LLAMA_SERVER_TIMEOUT = int(os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "120"))
 
 # GGUF chat template style.  Supported values:
 #   qwen   — Qwen2.5 / ChatML style (default; also used for generic ChatML models)
@@ -91,6 +114,8 @@ _GGUF_STOP_TOKENS_STR = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
 
 # Candidate binary names / paths for the subprocess backend (searched in order).
 # CMake build (current default) takes precedence over old Makefile paths.
+# Absolute Termux paths are listed after tilde paths so they work from inside
+# proot (where ~ resolves to the proot home, not the real Termux home).
 _LLAMA_BINARY_CANDIDATES = [
     "llama-cli",                          # in PATH (new name, llama.cpp >= 3.x)
     "llama",                              # in PATH (some distributions)
@@ -99,6 +124,12 @@ _LLAMA_BINARY_CANDIDATES = [
     "~/llama.cpp/build/bin/main",         # CMake build (old binary name)
     "~/llama.cpp/llama-cli",              # legacy Makefile build
     "~/llama.cpp/main",                   # legacy Makefile build (old name)
+    # Absolute Termux paths — used when Niblit runs inside proot where ~
+    # resolves to the proot home, not /data/data/com.termux/files/home.
+    "/data/data/com.termux/files/home/llama.cpp/build/bin/llama-cli",
+    "/data/data/com.termux/files/home/llama.cpp/build/bin/main",
+    "/data/data/com.termux/files/home/llama.cpp/llama-cli",
+    "/data/data/com.termux/files/home/llama.cpp/main",
 ]
 
 # ── GGUF chat-template helpers ────────────────────────────────────────────────
@@ -286,6 +317,8 @@ class QwenLocalBrain:
         gguf_chat_template: str = _GGUF_CHAT_TEMPLATE,
         gguf_backend: str = _GGUF_BACKEND,
         llama_binary: str = _LLAMA_BINARY,
+        llama_server_url: str = _LLAMA_SERVER_URL,
+        llama_server_timeout: int = _LLAMA_SERVER_TIMEOUT,
         # Accepted for backward-compatibility; ignored (always GGUF).
         model_format: str = "gguf",
         dtype_str: str = "float32",
@@ -298,6 +331,8 @@ class QwenLocalBrain:
         self.gguf_chat_template = gguf_chat_template
         self.gguf_backend = gguf_backend
         self.llama_binary = llama_binary
+        self.llama_server_url = llama_server_url.rstrip("/")
+        self.llama_server_timeout = llama_server_timeout
         self.model_format = "gguf"
 
         self._lock = threading.Lock()
@@ -308,7 +343,10 @@ class QwenLocalBrain:
         # subprocess backend state
         self._subprocess_bin: Optional[Path] = None
 
-        # which backend is active: 'python' | 'subprocess' | ''
+        # http backend state
+        self._server_url: Optional[str] = None  # set when server is reachable
+
+        # which backend is active: 'python' | 'subprocess' | 'http' | ''
         self._backend_in_use: str = ""
 
         self._load_tried: bool = False
@@ -318,7 +356,11 @@ class QwenLocalBrain:
 
     def is_available(self) -> bool:
         """Return True once a backend has been loaded successfully."""
-        return self._llama is not None or self._subprocess_bin is not None
+        return (
+            self._llama is not None
+            or self._subprocess_bin is not None
+            or self._server_url is not None
+        )
 
     def load_error(self) -> Optional[str]:
         """Return the last load error string, or None if loaded successfully."""
@@ -392,26 +434,172 @@ class QwenLocalBrain:
     def _load_gguf(self) -> bool:
         """Dispatch to the configured backend(s).
 
-        ``auto``: tries python first, falls back to subprocess.
-        ``python``: python only.
+        ``auto``: tries http first (cross-session bridge), then subprocess,
+                  then python.
+        ``http``: HTTP bridge only (requires llama-server running separately).
         ``subprocess``: subprocess only.
+        ``python``: python only.
         """
         backend = self.gguf_backend
-        if backend in ("python", "auto"):
-            if self._load_python_backend():
+
+        if backend == "http":
+            return self._load_http_backend()
+
+        if backend == "auto":
+            # Preferred order on Termux: http (separate session, no proot
+            # boundary issues) → subprocess (same session) → python (compiled).
+            if self._load_http_backend():
                 return True
-            if backend == "python":
-                return False
-            # auto: fall through to subprocess
+            if self._load_subprocess_backend():
+                return True
+            return self._load_python_backend()
 
         if backend in ("subprocess", "auto"):
             return self._load_subprocess_backend()
+
+        if backend == "python":
+            return self._load_python_backend()
 
         # Unknown backend value — treat as auto
         log.warning(
             "[LocalBrain] Unknown NIBLIT_GGUF_BACKEND=%r; falling back to auto.", backend
         )
-        return self._load_python_backend() or self._load_subprocess_backend()
+        return (
+            self._load_http_backend()
+            or self._load_subprocess_backend()
+            or self._load_python_backend()
+        )
+
+    def _check_server_url(self, url: str) -> bool:
+        """Return True if a llama-server health endpoint responds at *url*."""
+        health_url = url + "/health"
+        try:
+            req = urllib.request.Request(health_url, method="GET")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
+
+    def _load_http_backend(self) -> bool:
+        """Check that llama-server is reachable at NIBLIT_LLAMA_SERVER_URL."""
+        url = self.llama_server_url
+        if not url:
+            self._load_error = "NIBLIT_LLAMA_SERVER_URL is not set."
+            return False
+
+        if self._check_server_url(url):
+            self._server_url = url
+            self._backend_in_use = "http"
+            self._load_error = None
+            log.info("[LocalBrain] ✅ http backend ready: %s", url)
+            return True
+
+        self._load_error = (
+            f"llama-server not reachable at {url}. "
+            "Start it in a separate Termux session with:\n"
+            "  ~/llama.cpp/build/bin/llama-server \\\n"
+            "      -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\\n"
+            "      --port 8080 --host 127.0.0.1 -c 2048 -t 4\n"
+            "Then set: export NIBLIT_GGUF_BACKEND=http"
+        )
+        log.info("[LocalBrain] http backend unavailable: %s", self._load_error)
+        return False
+
+    def _generate_http(
+        self,
+        prompt: str,
+        max_new_tokens: int,
+        system_prompt: Optional[str],
+    ) -> str:
+        """Generate by calling the llama-server OpenAI-compatible API.
+
+        Uses ``POST /v1/chat/completions`` with the ChatML messages format.
+        Falls back to ``POST /completion`` (legacy llama-server endpoint) if
+        the chat endpoint is unavailable.
+        """
+        url = self._server_url
+        if url is None:
+            return "[LocalBrain http: server URL not set]"
+
+        # Re-check connectivity; server may have gone down between calls.
+        if not self._check_server_url(url):
+            log.warning("[LocalBrain] llama-server at %s is no longer reachable.", url)
+            self._server_url = None
+            self._backend_in_use = ""
+            return "[LocalBrain http: server unreachable — restart llama-server]"
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": "local",
+            "messages": messages,
+            "max_tokens": max_new_tokens,
+            "temperature": 0.7,
+            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop_tokens", [])),
+        }
+
+        body = json.dumps(payload).encode("utf-8")
+        chat_url = url + "/v1/chat/completions"
+        req = urllib.request.Request(
+            chat_url,
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            text: str = data["choices"][0]["message"]["content"]
+            log.debug(
+                "[LocalBrain] http generated response for prompt[:60]=%r", prompt[:60]
+            )
+            return text.strip() or "[LocalBrain: empty response]"
+        except urllib.error.HTTPError as exc:
+            # Fall back to legacy /completion endpoint if chat endpoint not supported.
+            if exc.code == 404:
+                return self._generate_http_legacy(prompt, max_new_tokens, system_prompt)
+            log.debug("[LocalBrain] http generate HTTPError: %s", exc)
+            return f"[LocalBrain http error: {exc}]"
+        except Exception as exc:
+            log.debug("[LocalBrain] http generate error: %s", exc)
+            return f"[LocalBrain http error: {exc}]"
+
+    def _generate_http_legacy(
+        self,
+        prompt: str,
+        max_new_tokens: int,
+        system_prompt: Optional[str],
+    ) -> str:
+        """Generate via the legacy ``POST /completion`` llama-server endpoint."""
+        url = self._server_url
+        if url is None:
+            return "[LocalBrain http: server URL not set]"
+
+        full_prompt, _ = _build_gguf_prompt(prompt, system_prompt, self.gguf_chat_template)
+        payload = {
+            "prompt": full_prompt,
+            "n_predict": max_new_tokens,
+            "temperature": 0.7,
+            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop_tokens", [])),
+        }
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url + "/completion",
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            text = data.get("content", "")
+            return text.strip() or "[LocalBrain: empty response]"
+        except Exception as exc:
+            log.debug("[LocalBrain] http legacy generate error: %s", exc)
+            return f"[LocalBrain http legacy error: {exc}]"
 
     def _load_python_backend(self) -> bool:
         """Load model via llama-cpp-python."""
@@ -530,6 +718,8 @@ class QwenLocalBrain:
 
         n_tokens = max_new_tokens or self.max_new_tokens
 
+        if self._backend_in_use == "http":
+            return self._generate_http(prompt, n_tokens, system_prompt)
         if self._backend_in_use == "subprocess":
             return self._generate_subprocess(prompt, n_tokens, system_prompt)
         return self._generate_python(prompt, n_tokens, system_prompt)
@@ -574,6 +764,19 @@ class QwenLocalBrain:
         )
         gguf_path = self._resolved_gguf_path()
         binary = self._subprocess_bin
+
+        # When running inside proot the model path may also need the absolute
+        # Termux prefix.  Expand ~ against the real Termux home if the resolved
+        # path doesn't exist but the absolute Termux path does.
+        if gguf_path is not None and not gguf_path.is_file():
+            termux_home = Path("/data/data/com.termux/files/home")
+            try:
+                rel = gguf_path.relative_to(Path.home())
+                candidate = termux_home / rel
+                if candidate.is_file():
+                    gguf_path = candidate
+            except ValueError:
+                pass
 
         prompt_file: Optional[str] = None
         try:
@@ -655,6 +858,7 @@ class QwenLocalBrain:
             "gguf_n_threads":       self.gguf_n_threads,
             "gguf_chat_template":   self.gguf_chat_template,
             "llama_binary":         str(self._subprocess_bin) if self._subprocess_bin else self.llama_binary,
+            "llama_server_url":     self._server_url or self.llama_server_url,
             "hub_cache_dir":        cache.get("hub_cache_dir", ""),
             "model_files":          cache.get("model_files", []),
             "installed_locally":    cache.get("installed_locally", False),
