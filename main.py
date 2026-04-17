@@ -15,6 +15,7 @@ longer print to the terminal mid-typing.
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -49,6 +50,7 @@ from niblit_io import NiblitIO
 from niblit_router import safe_call
 
 DEFAULT_INIT_WAIT_MAX_SECONDS = 300.0
+TOOL_NO_OUTPUT_MESSAGE = "[Tool returned no output]"
 
 # ── Non-blocking background notification queue (additive) ──────────────────
 # Import the shared notification queue so we can surface background output
@@ -161,6 +163,9 @@ def parse_args(argv=None):
             "  niblit                          Start the interactive shell\n"
             "  niblit -c 'status'              Run one command and exit\n"
             "  niblit -c 'learn about python'  Learn a topic, then exit\n"
+            "  niblit --list-tools             List registered function-calling tools\n"
+            "  niblit --tool-call my_tool --tool-arguments '{\"x\":1}'\n"
+            "                                  Run a registered tool and exit\n"
             "  niblit --quiet                  Start shell without startup banners\n"
             "  niblit --version                Show version information\n"
         ),
@@ -188,7 +193,79 @@ def parse_args(argv=None):
         action="version",
         version=f"Niblit AIOS {_version}",
     )
+    p.add_argument(
+        "--list-tools",
+        action="store_true",
+        default=False,
+        help="List registered tool-use / function-calling tools and exit",
+    )
+    p.add_argument(
+        "--tool-call",
+        metavar="TOOL",
+        default=None,
+        help="Execute a registered tool by name and exit",
+    )
+    p.add_argument(
+        "--tool-arguments",
+        metavar="JSON",
+        default="{}",
+        help="JSON object arguments for --tool-call (default: '{}')",
+    )
     return p.parse_args(argv)
+
+
+def _parse_tool_arguments(raw: str) -> dict:
+    """Parse ``--tool-arguments`` into a JSON-object dict."""
+    text = (raw or "").strip()
+    if not text:
+        return {}
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid --tool-arguments JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("--tool-arguments must decode to a JSON object")
+    return payload
+
+
+def _run_tool_cli_mode(args, io=None) -> int:
+    """Handle ``--list-tools`` / ``--tool-call`` mode. Return process exit code."""
+    if not (getattr(args, "list_tools", False) or getattr(args, "tool_call", None)):
+        return -1
+
+    from niblit_tools.tool_registry import get_registry
+    registry = get_registry()
+    if io is not None and hasattr(io, "out") and hasattr(io, "error"):
+        out = io.out
+        err = io.error
+    else:
+        out = print
+
+        def err(msg):
+            print(msg, file=sys.stderr)
+
+    if getattr(args, "list_tools", False):
+        defs = registry.list_tools()
+        if not defs:
+            out("No tools registered.")
+        else:
+            lines = ["🔧 Registered tools:"]
+            for d in defs:
+                name = d.get("name", "<unnamed>")
+                desc = (d.get("description") or "").strip() or "No description"
+                lines.append(f"  - {name}: {desc}")
+            out("\n".join(lines))
+        if not getattr(args, "tool_call", None):
+            return 0
+
+    try:
+        tool_args = _parse_tool_arguments(getattr(args, "tool_arguments", "{}"))
+        result = registry.run(args.tool_call, tool_args)
+        out(TOOL_NO_OUTPUT_MESSAGE if result is None else str(result))
+        return 0
+    except Exception as exc:
+        err(f"[TOOL-CALL ERROR] {exc}")
+        return 2
 
 # ─────────────────────────────
 # DEBUG PRINT
@@ -658,6 +735,11 @@ if __name__ == "__main__":
         DEBUG_MODE = True
     if _args.quiet:
         NiblitIO._quiet = True
+
+    # Tool registry CLI mode (LangChain-style function calling)
+    _tool_mode_exit = _run_tool_cli_mode(_args)
+    if _tool_mode_exit >= 0:
+        sys.exit(_tool_mode_exit)
 
     # Register OS-level signal handlers so that SIGTERM (system kill) and
     # SIGHUP (Termux session close) also trigger a clean shutdown instead
