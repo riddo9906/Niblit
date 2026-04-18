@@ -40,6 +40,7 @@ KERNEL_CPP:= kernel/kernel.cpp        \
              kernel/pit.cpp           \
              kernel/process.cpp       \
              kernel/vfs.cpp           \
+             kernel/procfs.cpp        \
              kernel/syscall.cpp       \
              kernel/keyboard.cpp      \
              kernel/elf_loader.cpp    \

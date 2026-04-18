@@ -51,6 +51,7 @@
 #include "msg.h"
 #include "syscall.h"
 #include "elf_loader.h"
+#include "procfs.h"
 #include "niblit_iface.h"
 #include <stdint.h>
 
@@ -114,7 +115,7 @@ static void shell_print_prompt() {
 static void shell_handle_command(const char* cmd) {
     if (!*cmd) return;
 
-    } else if (kstrstartswith(cmd, "help")) {
+    if (kstrstartswith(cmd, "help")) {
         const char* help =
             "NiblitOS Shell Commands:\n"
             "  help              — this help text\n"
@@ -130,6 +131,9 @@ static void shell_handle_command(const char* cmd) {
             "  ask <query>       — send query to Niblit AI\n"
             "  tool <name> <j>   — call a Niblit tool with JSON args\n"
             "  niblit-poll       — show pending Niblit AI responses\n"
+            "  kbwrite <k> <v>   — write KB fact (key value) to /var/niblit/kb/\n"
+            "  kbread  <k>       — read  KB fact from /var/niblit/kb/\n"
+            "  procinfo          — refresh and dump all /proc files\n"
             "  uptime            — milliseconds since boot\n"
             "  date              — current date/time from RTC\n"
             "  pci               — list PCI devices\n"
@@ -145,8 +149,8 @@ static void shell_handle_command(const char* cmd) {
         Serial::write(Serial::COM1, help);
 
     } else if (kstrstartswith(cmd, "version")) {
-        VGA::writeln("NiblitOS v2.0 — C++ kernel + Niblit AI tool layer");
-        Serial::writeln(Serial::COM1, "NiblitOS v2.0");
+        VGA::writeln("NiblitOS v3.0 — C++ kernel + Niblit AI tool layer");
+        Serial::writeln(Serial::COM1, "NiblitOS v3.0");
 
     } else if (kstrstartswith(cmd, "mem")) {
         Memory::Stats s = Memory::stats();
@@ -305,6 +309,55 @@ static void shell_handle_command(const char* cmd) {
     } else if (kstrstartswith(cmd, "poweroff")) {
         ACPI::power_off();
 
+    } else if (kstrstartswith(cmd, "kbwrite ")) {
+        // kbwrite <key> <value>
+        const char* rest = cmd + 8;
+        char key[64] = {};
+        size_t ki = 0;
+        while (rest[ki] && rest[ki] != ' ' && ki < 63) { key[ki] = rest[ki]; ++ki; }
+        const char* value = (rest[ki] == ' ') ? rest + ki + 1 : "";
+        char path[VFS::MAX_PATH] = "/var/niblit/kb/";
+        size_t pi = 15;
+        for (size_t i = 0; key[i] && pi < VFS::MAX_PATH - 1; ++i) path[pi++] = key[i];
+        path[pi] = '\0';
+        int r = VFS::write_file(path, value);
+        if (r >= 0) {
+            VGA::write("KB stored: "); VGA::writeln(key);
+        } else {
+            VGA::writeln("kbwrite: failed (VFS error)");
+        }
+
+    } else if (kstrstartswith(cmd, "kbread ")) {
+        // kbread <key>
+        const char* key = cmd + 7;
+        char path[VFS::MAX_PATH] = "/var/niblit/kb/";
+        size_t pi = 15;
+        for (size_t i = 0; key[i] && pi < VFS::MAX_PATH - 1; ++i) path[pi++] = key[i];
+        path[pi] = '\0';
+        char buf[VFS::MAX_FILE_SZ] = {};
+        int r = VFS::read_file(path, buf, sizeof(buf));
+        if (r >= 0) {
+            VGA::write(key); VGA::write(" = "); VGA::writeln(buf);
+        } else {
+            VGA::write("kbread: key not found: "); VGA::writeln(key);
+        }
+
+    } else if (kstrstartswith(cmd, "procinfo")) {
+        // Refresh /proc and show a summary
+        ProcFS::refresh();
+        const char* files[] = {
+            "/proc/version", "/proc/uptime", "/proc/meminfo",
+            "/proc/niblit", nullptr
+        };
+        for (const char** f = files; *f; ++f) {
+            VGA::write("── "); VGA::write(*f); VGA::writeln(" ──");
+            char buf[VFS::MAX_FILE_SZ] = {};
+            if (VFS::read_file(*f, buf, sizeof(buf)) >= 0) {
+                VGA::write(buf);
+                Serial::write(Serial::COM1, buf);
+            }
+        }
+
     } else {
         VGA::write("Unknown command: "); VGA::writeln(cmd);
         Serial::log("Unknown: "); Serial::writeln(Serial::COM1, cmd);
@@ -357,6 +410,11 @@ static void niblit_daemon_task() {
     // Write a boot message to the VFS log
     VFS::write_file("/var/log/niblit.log", "Niblit AI daemon started at boot.\n");
 
+    // Create the KB directory tree for kernel-level fact storage
+    VFS::mkdir("/var/niblit");
+    VFS::mkdir("/var/niblit/kb");
+    VFS::write_file("/var/niblit/kb/.version", "niblit-os-kb-v3.0\n");
+
     // Log boot event to MSG syslog
     MSG::syslog("[niblit-daemon] Boot complete. AI tool active.");
 
@@ -382,6 +440,8 @@ static void niblit_daemon_task() {
         if (tick % 1000 == 0) {
             MSG::syslog("[niblit-daemon] heartbeat");
             NiblitIface::call_tool("heartbeat", "{}");
+            // Keep /proc files fresh so kernel-shell 'procinfo' shows live data
+            ProcFS::refresh();
         }
         asm volatile("hlt");
     }
@@ -393,13 +453,13 @@ extern "C" void kernel_main(uint32_t mb2_magic, uint32_t mb2_info_addr) {
     // ── 1. VGA ────────────────────────────────────────────────────────────────
     VGA::init();
     VGA::set_colour(VGA::Colour::LIGHT_GREEN, VGA::Colour::BLACK);
-    VGA::writeln("NiblitOS v2.0 — booting...");
+    VGA::writeln("NiblitOS v3.0 — booting...");
     VGA::set_colour(VGA::Colour::LIGHT_GREY, VGA::Colour::BLACK);
 
     // ── 2. Serial (COM1) ──────────────────────────────────────────────────────
     if (Serial::init(Serial::COM1, 38400)) {
         Serial::writeln(Serial::COM1, "\r\n\r\n====================================");
-        Serial::writeln(Serial::COM1, "NiblitOS v2.0 serial log active.");
+        Serial::writeln(Serial::COM1, "NiblitOS v3.0 serial log active.");
         Serial::writeln(Serial::COM1, "====================================");
         VGA::writeln("[BOOT] Serial COM1 ready.");
     } else {
@@ -481,6 +541,10 @@ extern "C" void kernel_main(uint32_t mb2_magic, uint32_t mb2_info_addr) {
     VFS::init();
     VGA::writeln("OK");
 
+    // ── 13a. ProcFS (/proc pseudo-filesystem) ─────────────────────────────────
+    VGA::write("[BOOT] ProcFS... ");
+    ProcFS::init(); // prints "OK" itself
+
     // ── 14. Keyboard (PS/2) ───────────────────────────────────────────────────
     VGA::write("[BOOT] Keyboard... ");
     Keyboard::init();
@@ -546,8 +610,9 @@ extern "C" void kernel_main(uint32_t mb2_magic, uint32_t mb2_info_addr) {
     VGA::writeln("");
     VGA::writeln("  ╔═══════════════════════════════════════════╗");
     VGA::writeln("  ║  NiblitOS v3.0 — Full Driver Suite        ║");
-    VGA::writeln("  ║  Niblit AI tool: ACTIVE                   ║");
+    VGA::writeln("  ║  Niblit AI tool: ACTIVE  (PID 1 = AI)     ║");
     VGA::writeln("  ║  ACPI | PCI | ATA | NET | MSG: ACTIVE     ║");
+    VGA::writeln("  ║  /proc: READY  |  /var/niblit/kb: READY   ║");
     VGA::writeln("  ║  Shell: serial COM1 + PS/2 keyboard       ║");
     VGA::writeln("  ╚═══════════════════════════════════════════╝");
     VGA::set_colour(VGA::Colour::LIGHT_GREY, VGA::Colour::BLACK);

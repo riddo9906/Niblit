@@ -13,6 +13,9 @@ including your Android phone via Termux.
 - [What Can Niblit Do?](#what-can-niblit-do)
 - [Running Niblit in Termux (proot-Ubuntu)](#running-niblit-in-termux-proot-ubuntu)
 - [Running Niblit in a Simulated Environment in Termux](#running-niblit-in-a-simulated-environment-in-termux)
+- [🆕 NiblitOS — Niblit IS the Operating System](#niblitos--niblit-is-the-operating-system)
+- [🆕 Running Qwen Locally on Termux](#running-qwen-locally-on-termux)
+- [🆕 Two-Session Setup: Niblit in proot + Qwen in Termux](#two-session-setup-niblit-in-proot--qwen-in-termux)
 - [Architecture: The LLM Engineer's Pipeline](#architecture-the-llm-engineers-pipeline)
 - [Architecture: The Trading AI Engineer's Pipeline](#architecture-the-trading-ai-engineers-pipeline)
 - [Quick Start](#quick-start)
@@ -321,6 +324,288 @@ pip install --upgrade pip
 | `NIBLIT_ALE_INTER_PHASE_SLEEP` | `1` | Speed up ALE phase gaps (default 5s) |
 | `NIBLIT_EVOLVE_INTER_PHASE_SLEEP` | `1` | Speed up EvolveEngine (default 5s) |
 | `HF_TOKEN` | _(optional)_ | Leave unset to run fully offline |
+
+---
+
+## NiblitOS — Niblit IS the Operating System
+
+NiblitOS is not just an AI agent running on Linux — it is a real, bootable
+**x86 operating system** where Niblit itself is the init process (PID 1
+equivalent).  The C++ kernel lives in `os/` and boots via GRUB2 /
+Multiboot2.
+
+```
+BIOS/UEFI → GRUB2 → NiblitOS C++ kernel → niblit-daemon (PID 1) → NiblitCore AI
+```
+
+### Why this is different
+
+| Typical AI agent | NiblitOS |
+|---|---|
+| Runs *on* an OS that can kill it | *Is* the OS — controls scheduling |
+| Subject to cgroup resource limits | Sees real RAM/CPU from physical hardware |
+| Needs systemd / docker to restart | Boot = Niblit comes up automatically |
+| LLM is a subprocess started by the OS | LLM is just a device (`/dev/llm0`) Niblit opens |
+| Sandboxed filesystem access | Owns VFS, can spawn or kill any process |
+
+### The full stack
+
+```
+Layer  Component           Description
+────── ─────────────────── ──────────────────────────────────────────
+  C++  NiblitOS kernel      21 subsystems: VGA, GDT, IDT, IRQ, Memory,
+                            Paging, Heap, RTC, PIT, Scheduler, VFS,
+                            ProcFS, Keyboard, DMA, ACPI, PCI, ATA,
+                            E1000 Net, MSG IPC, Syscalls, NiblitIface
+  C++  niblit-daemon        Kernel task (PID 1). Polls IPC ring, manages
+                            /proc refresh, /var/niblit/kb/
+   C   niblit_runner.c      Userland bridge: kernel ring ↔ Python socket
+  Py   niblit_entry.py      Python entry: --daemon mode (UNIX socket)
+  Py   NiblitCore           Full AI stack: QwenLocalBrain, BrainRouter,
+                            ALE 32-step cycle, KnowledgeDB, QwenMemoryAdapter
+```
+
+### Niblit-specific syscalls (unique to NiblitOS)
+
+```c
+int  SYS_NIBLIT_SPAWN_REASONER = 205  // spawn Python reasoning daemon
+int  SYS_NIBLIT_KB_WRITE       = 206  // write KB fact from userspace
+int  SYS_NIBLIT_KB_READ        = 207  // read  KB fact from userspace
+int  SYS_NIBLIT_RESOURCE_INFO  = 208  // get real RAM/CPU/uptime metrics
+int  SYS_NIBLIT_MMAP_RING      = 209  // map IPC ring to userspace addr
+```
+
+### /proc filesystem
+
+After boot, `/proc` exposes live kernel data:
+
+```bash
+# From the NiblitOS shell (connect via: qemu -serial stdio)
+niblit-os> cat /proc/version
+NiblitOS v3.0 (C++ kernel + Niblit AI tool layer)
+niblit-os> cat /proc/niblit
+daemon_status:  active
+uptime_ms:      12345
+kb_path:        /var/niblit/kb/
+niblit-os> procinfo           # refresh all /proc entries and dump
+niblit-os> kbwrite my_key my value here
+niblit-os> kbread  my_key
+```
+
+### Build and boot in QEMU
+
+```bash
+# Requires: nasm, i686-elf-g++, grub-mkrescue, qemu-system-i386
+cd os
+make iso        # builds niblit-os.iso
+make run        # boots in QEMU, serial output on stdout
+
+# Connect the shell:
+# QEMU output appears on terminal (via -serial stdio)
+# Type: help   → full command list
+```
+
+See [`os/README.md`](os/README.md) for the full build guide, boot sequence
+diagram, and roadmap.
+
+---
+
+## Running Qwen Locally on Termux
+
+Qwen acts as Niblit's **local brain, memory manager, coach, and trainer**
+via `modules/local_brain.py` (QwenLocalBrain).  You do **not** need a GPU
+or cloud account — the 0.5B GGUF model runs on 512 MB RAM.
+
+### Session 1 — Build llama.cpp (in normal Termux)
+
+```bash
+# Install build dependencies
+pkg update && pkg install -y clang cmake git
+
+# Clone and build llama.cpp
+git clone https://github.com/ggml-org/llama.cpp ~/llama.cpp
+cd ~/llama.cpp
+mkdir -p build && cd build
+cmake .. -DLLAMA_NATIVE=OFF -DLLAMA_BUILD_TESTS=OFF
+cmake --build . -j1              # takes 10–30 min on Android
+# Binary: ~/llama.cpp/build/bin/llama-cli
+```
+
+### Download the Qwen GGUF model
+
+```bash
+# Create models directory
+mkdir -p ~/models
+
+# Option A — huggingface-cli (requires pip install huggingface-hub)
+pip install huggingface-hub
+huggingface-cli download \
+    Qwen/Qwen2.5-0.5B-Instruct-GGUF \
+    qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    --local-dir ~/models
+
+# Option B — direct wget (get URL from https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF)
+wget -O ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+```
+
+### Start the llama-server (HTTP backend — recommended)
+
+Running a server lets Niblit call Qwen without reloading the model for
+every request, dramatically reducing latency.
+
+```bash
+# Session 1 (normal Termux — keep this open)
+~/llama.cpp/build/bin/llama-server \
+    -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    --host 127.0.0.1 --port 8080 \
+    -c 4096 --threads 4
+# Server listens on http://127.0.0.1:8080
+```
+
+### Configure Niblit to use the server
+
+In your `.env` (inside proot-Ubuntu, next section):
+
+```dotenv
+# Use http backend pointing to the Termux-side llama-server
+NIBLIT_GGUF_BACKEND=http
+NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8080
+NIBLIT_LOCAL_MODEL=~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+```
+
+### Alternative: subprocess backend (no server)
+
+```dotenv
+NIBLIT_GGUF_BACKEND=subprocess
+NIBLIT_LLAMA_BINARY=~/llama.cpp/build/bin/llama-cli
+NIBLIT_GGUF_MODEL_PATH=~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+```
+
+### Verify Qwen is working
+
+```bash
+# Quick smoke test (in proot or normal Termux)
+python tools/install_local_qwen_model.py     # verify only
+python tools/install_local_qwen_model.py --setup   # show full instructions
+
+# From Niblit CLI once running:
+qwen status
+qwen ask "What are my current KB gaps?"
+qwen audit-kb dry           # dry-run KB quality audit
+qwen coach                  # get Niblit improvement recommendations
+```
+
+---
+
+## Two-Session Setup: Niblit in proot + Qwen in Termux
+
+The recommended production setup on Android uses **two Termux sessions**
+so Qwen's model stays loaded in RAM while Niblit runs in proot-Ubuntu.
+
+```
+┌─────────────────────────────────────────────┐
+│  Termux Session 1 (normal Termux)           │
+│  llama-server --host 127.0.0.1 --port 8080  │
+│  (Qwen 0.5B loaded, waiting for requests)   │
+└─────────────────────────────────────────────┘
+             ↕  HTTP  127.0.0.1:8080
+┌─────────────────────────────────────────────┐
+│  Termux Session 2 (proot-Ubuntu)            │
+│  python main.py   (Niblit AI + ALE cycle)   │
+│  NIBLIT_GGUF_BACKEND=http                   │
+│  NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8080│
+└─────────────────────────────────────────────┘
+```
+
+### Step-by-step
+
+**Session 1 — Start Qwen server (normal Termux):**
+
+```bash
+# Open a new Termux session (swipe right from left edge → New Session)
+# This stays running in the background
+
+~/llama.cpp/build/bin/llama-server \
+    -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    --host 127.0.0.1 --port 8080 \
+    -c 4096 --threads 4 --n-predict 512
+
+# You will see: "llama server listening at http://127.0.0.1:8080"
+# Leave this session running.
+```
+
+**Session 2 — Run Niblit in proot-Ubuntu:**
+
+```bash
+# Open a second Termux session
+proot-distro login ubuntu --user user
+
+# Inside Ubuntu:
+cd ~/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit  # or your clone path
+source .venv/bin/activate
+
+# Point Niblit at the Termux-side llama-server
+export NIBLIT_GGUF_BACKEND=http
+export NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8080
+
+# Start Niblit
+python main.py
+```
+
+**Or add to `.env` permanently inside Ubuntu:**
+
+```dotenv
+NIBLIT_GGUF_BACKEND=http
+NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8080
+NIBLIT_LOCAL_MODEL=~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+```
+
+### Termux wake-lock (keep sessions alive)
+
+```bash
+# In any Termux session — prevents Android from killing the process
+termux-wake-lock
+
+# Or add to ~/.bashrc:
+echo "termux-wake-lock" >> ~/.bashrc
+```
+
+### Aliases for quick startup
+
+Add to `~/.bashrc` in **normal Termux** (Session 1):
+
+```bash
+alias qwen-server='~/llama.cpp/build/bin/llama-server \
+    -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    --host 127.0.0.1 --port 8080 -c 4096 --threads 4'
+```
+
+Add to `~/.bashrc` in **proot-Ubuntu** (Session 2):
+
+```bash
+alias niblit='cd ~/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit && \
+    source .venv/bin/activate && \
+    NIBLIT_GGUF_BACKEND=http \
+    NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8080 \
+    python main.py'
+```
+
+Then simply:
+```bash
+# Session 1:  qwen-server
+# Session 2 (proot):  proot-distro login ubuntu -- bash -lc niblit
+```
+
+### Memory + performance tips
+
+| Setting | Effect |
+|---------|--------|
+| `--threads 4` | Use 4 CPU threads (A07 has 8 cores, but 4 is stable) |
+| `-c 2048` | Smaller context if RAM is tight (< 3 GB free) |
+| `NIBLIT_LOCAL_MAX_NEW=256` | Limit Qwen reply length for faster KB audits |
+| `NIBLIT_GGUF_N_CTX=2048` | Match context window to server `-c` value |
+| `NIBLIT_ALE_INTER_PHASE_SLEEP=2` | Slow ALE a little to free CPU for Qwen |
 
 ---
 
