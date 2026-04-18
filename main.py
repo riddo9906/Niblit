@@ -364,6 +364,22 @@ def boot():
     core = NiblitCore()
     io.out(f"{timestamp()} 🔷 Phase 0 (fast-start) complete — CORE READY")
 
+    # ── Sidecar socket server — start immediately after Phase 0 ─────────────
+    # This lets niblit_ctl.py connect and queue commands RIGHT NOW, even while
+    # the model is still loading in another terminal session (Session 1 of the
+    # two-session Termux setup).  The sidecar blocks each incoming command
+    # until mark_ready() is called below (after Phase-1 init finishes).
+    try:
+        from modules.niblit_sidecar import start_sidecar as _start_sidecar
+        _sidecar = _start_sidecar(core_getter=lambda: core)
+        io.out(
+            f"{timestamp()} 🔌 Sidecar socket ready — connect from another terminal:\n"
+            f"          python tools/niblit_ctl.py"
+        )
+    except Exception as _sc_exc:
+        _sidecar = None
+        io.out(f"{timestamp()} ⚪ Sidecar socket: not available ({_sc_exc})")
+
     # Report wake-lock status so the user knows whether the background loops
     # will keep running while the screen is off / Termux is in the background.
     if hasattr(core, "wakelock") and core.wakelock is not None:
@@ -592,6 +608,16 @@ def run_shell(core, io):
         ),
 
         "threads": lambda: list_threads(),
+
+        # ── Sidecar status (additive) ──────────────────────────────────────
+        "sidecar status": lambda: (
+            __import__("modules.niblit_sidecar", fromlist=["get_sidecar"])
+            .get_sidecar()
+            .status_line()
+            if __import__("modules.niblit_sidecar", fromlist=["get_sidecar"])
+            .get_sidecar() is not None
+            else "Sidecar not running."
+        ),
 
         # ── Background management (additive) ──────────────────────────────
         "notifications": lambda: _cmd_show_notifications(core, io),
@@ -869,6 +895,16 @@ if __name__ == "__main__":
             except Exception:
                 io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
 
+            # Unblock sidecar clients that connected while the model was loading
+            try:
+                from modules.niblit_sidecar import get_sidecar as _get_sidecar
+                _sc = _get_sidecar()
+                if _sc is not None:
+                    _sc.mark_ready()
+                    io.out(f"{timestamp()} 🔌 Sidecar: READY — niblit_ctl.py can now run commands")
+            except Exception:
+                pass
+
             # Show the unified-loop verification result (written by
             # _verify_unified_loop into the init-progress queue).
             _uls = getattr(core, "_unified_loop_status", None)
@@ -890,6 +926,14 @@ if __name__ == "__main__":
                 f"{timestamp()} ⚠️  Background init did not complete cleanly "
                 f"(phase={_phase}) — some features may be unavailable"
             )
+            # Still mark sidecar ready so queued commands are not lost
+            try:
+                from modules.niblit_sidecar import get_sidecar as _get_sidecar
+                _sc = _get_sidecar()
+                if _sc is not None:
+                    _sc.mark_ready()
+            except Exception:
+                pass
 
     # ── One-shot mode: run a single command then exit ─────────────────────────
     if _args.one_shot is not None:
@@ -929,3 +973,9 @@ if __name__ == "__main__":
                 _active_core.shutdown()
             except Exception:
                 pass
+        # Clean up the sidecar socket so it doesn't leave a stale file
+        try:
+            from modules.niblit_sidecar import stop_sidecar as _stop_sidecar
+            _stop_sidecar()
+        except Exception:
+            pass

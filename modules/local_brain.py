@@ -70,6 +70,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 import threading
@@ -116,6 +117,82 @@ _GGUF_CHAT_TEMPLATE = os.environ.get("NIBLIT_GGUF_CHAT_TEMPLATE", "qwen").strip(
 # When empty, sensible defaults are applied based on the chat template.
 _GGUF_STOP_TOKENS_STR = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
 
+# Compact inline reference of Niblit's architecture injected into every ask().
+# Kept deliberately terse so it fits within a 0.5B model's context window.
+_NIBLIT_STRUCTURAL_CONTEXT = """
+=== NIBLIT ARCHITECTURE (your structural awareness) ===
+
+ENTRY POINTS:
+  main.py           — Interactive CLI (NIBLIT_INIT_WAIT_MAX_SECONDS=300)
+  app.py / server.py — FastAPI endpoints (local + Vercel)
+
+CORE ORCHESTRATION:
+  niblit_core.py    — NiblitCore: wires every subsystem; owns db, brain, router, autonomous_engine
+  niblit_router.py  — NiblitRouter: routes text → handlers; 100+ command families
+  niblit_brain.py   — NiblitBrain: think(), learn(), BrainRouter orchestration
+  niblit_memory/    — FusedMemory + KnowledgeDB + LocalDB + ingestion helpers
+
+MEMORY LAYERS (bottom-up):
+  LocalDB           — JSON facts/interactions/learning_log (niblit.db)
+  KnowledgeDB       — richer JSON facts+queue+acquired_data (niblit_memory.json)
+  FusedMemory       — SQLite events + Qdrant vector search
+  NiblitMemory      — top-level hub: circuit-breaker, cache, rate-limit, telemetry
+
+BRAIN / LLM STACK:
+  QwenLocalBrain    — local GGUF model (you); backends: http|subprocess|python
+  BrainRouter       — mode: local|balanced|power|offline; routes to local/cloud
+  HFBrain           — cloud HF InferenceClient (moonshotai/Kimi-K2 or similar)
+  LLMProviderManager — runtime-switchable provider chain (Qwen→HF→Anthropic)
+
+LEARNING & SELF-IMPROVEMENT:
+  ALE (29 steps)    — AutonomousLearningEngine background thread; runs when idle
+  SelfResearcher    — web/KB/Searchcode/GitHub multi-backend research
+  SelfTeacher       — ingests research into KnowledgeDB
+  SelfHealer        — detects & patches code/logic faults
+  SelfIdeaImplementation — turns ideas into code via CodeGenerator+CodeCompiler
+  CodeErrorFixer    — retry-loop: fix→recompile up to 3 times
+  BrainTrainer      — fine-tunes local brain on research data
+  ReflectModule     — summarises + stores KB reflections
+  MSG Layer         — SelfModel, IntentEngine, MetaEvaluator, ResourceAllocator, EvolutionPlanner
+
+CODE CAPABILITIES:
+  CodeGenerator     — templates + LLM generation → generated/
+  CodeCompiler      — syntax test + subprocess run
+  CodeErrorFixer    — targeted fix (Python AST, Bash -n, Node --check) + retry
+
+KEY COMMANDS (always valid):
+  help | status | brain status | brain mode <local|balanced|power|offline>
+  toggle-llm on/off/status | llm-provider qwen|hf|anthropic|status
+  recall <topic> | knowledge stats | acquired data
+  autonomous-learn start|stop|status
+  run code <lang> <code> | fix code <lang> <code> | validate <lang> <code>
+  qwen status | qwen audit-kb | qwen memory-summary | qwen clean-kb | qwen coach
+  self-research <topic> | self-teach <topic> | reflect <topic>
+  my structure | my modules | my commands | ale processes
+=== END NIBLIT ARCHITECTURE ===
+"""
+
+# Default instruction set used by QwenLocalBrain.ask() when the caller does
+# not supply an explicit system prompt.  This tunes the local model toward a
+# concise "Niblit copilot / manager / coach" role with full structural and
+# memory awareness baked in.
+_DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT = (
+    "You are Qwen, the local AI copilot, manager, coach, and trainer for Niblit. "
+    "Your roles:\n"
+    "  • COPILOT   — generate concise, compilable code on demand; prefer minimal, correct solutions.\n"
+    "  • MANAGER   — oversee Niblit's knowledge quality; flag or rewrite entries that are wrong, "
+    "outdated, or duplicate.\n"
+    "  • COACH     — give Niblit improvement advice: point out gaps, suggest next learning topics, "
+    "and identify stale KB facts.\n"
+    "  • TRAINER   — synthesise research snippets into crisp, fact-dense KB entries.\n\n"
+    "Rules:\n"
+    "  - Be concise and practical. Prefer bullet points over paragraphs.\n"
+    "  - When producing code output, emit only the code block (no surrounding prose unless "
+    "explaining an error).\n"
+    "  - When auditing a KB fact, respond with one of: KEEP | REWRITE: <new text> | REMOVE: <reason>.\n"
+    "  - Always ground responses in Niblit's actual capabilities listed below.\n\n"
+) + _NIBLIT_STRUCTURAL_CONTEXT
+
 # Candidate binary names / paths for the subprocess backend (searched in order).
 # CMake build (current default) takes precedence over old Makefile paths.
 # Absolute Termux paths are listed after tilde paths so they work from inside
@@ -135,6 +212,69 @@ _LLAMA_BINARY_CANDIDATES = [
     "/data/data/com.termux/files/home/llama.cpp/llama-cli",
     "/data/data/com.termux/files/home/llama.cpp/main",
 ]
+
+
+def _strip_code_fences(text: str) -> str:
+    """Remove markdown code fences from *text*."""
+    text = text.strip()
+    match = re.search(r"```(?:[a-zA-Z0-9_+-]+)?\s*\n?(.*?)```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    text = re.sub(r"```\s*[a-zA-Z0-9_+-]*\s*", "", text)
+    return text.strip()
+
+
+def _strip_llama_startup_noise(text: str) -> str:
+    """Strip llama-cli startup/banner noise from subprocess output."""
+    if not text:
+        return ""
+    lines = text.splitlines()
+    cleaned: list[str] = []
+    skipping_commands = False
+    for line in lines:
+        s = line.strip()
+        low = s.lower()
+
+        # Common Termux/proot startup noise (both forms of getprop error)
+        if "getprop" in low and "operation not permitted" in low:
+            continue
+
+        # llama-cli startup metadata / banner
+        if (
+            low == "loading model..."
+            or re.match(r"^(build|model|modalities)\s*:", low)
+        ):
+            continue
+        if s in {"▄▄ ▄▄", "██ ██"}:
+            continue
+        if "available commands:" in low:
+            skipping_commands = True
+            continue
+        if skipping_commands:
+            # Skip slash-command listing block after "available commands:"
+            if s.startswith("/") or s.startswith("Ctrl+") or s.startswith("or Ctrl+"):
+                continue
+            if not s:
+                skipping_commands = False
+                continue
+
+        # Skip decorative banner lines.
+        if set(s) <= {"▄", "▀", "█", " "} and s:
+            continue
+
+        cleaned.append(line)
+    return "\n".join(cleaned).strip()
+
+
+def _clean_subprocess_output(output: str, full_prompt: str) -> str:
+    """Normalize llama-cli output into just assistant text."""
+    text = output or ""
+    if text.startswith(full_prompt):
+        text = text[len(full_prompt):]
+    elif full_prompt in text:
+        text = text[text.index(full_prompt) + len(full_prompt):]
+    text = _strip_llama_startup_noise(text)
+    return _strip_code_fences(text)
 
 # ── GGUF chat-template helpers ────────────────────────────────────────────────
 
@@ -385,6 +525,13 @@ class QwenLocalBrain:
             "model_files":       [str(resolved_path)] if resolved_path and resolved_path.is_file() else [],
         }
 
+    def _log_copilot_commands(self) -> None:
+        """Log key Niblit commands when the local copilot backend becomes ready."""
+        log.info(
+            "[LocalBrain] Copilot commands: help | status | my commands | my structure | "
+            "run code <language> <code> | fix code <language> <code> | autonomous-learn status | brain status"
+        )
+
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _resolved_gguf_path(self) -> Optional[Path]:
@@ -496,6 +643,7 @@ class QwenLocalBrain:
             self._backend_in_use = "http"
             self._load_error = None
             log.info("[LocalBrain] ✅ http backend ready: %s", url)
+            self._log_copilot_commands()
             return True
 
         self._load_error = (
@@ -649,6 +797,7 @@ class QwenLocalBrain:
             self._backend_in_use = "python"
             self._load_error = None
             log.info("[LocalBrain] ✅ python backend ready: %s", gguf_path.name)
+            self._log_copilot_commands()
             return True
         except Exception as exc:
             self._load_error = str(exc)
@@ -691,6 +840,7 @@ class QwenLocalBrain:
             "[LocalBrain] ✅ subprocess backend ready: %s + %s",
             binary.name, gguf_path.name,
         )
+        self._log_copilot_commands()
         return True
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -809,13 +959,7 @@ class QwenLocalBrain:
                 timeout=120,
             )
 
-            output = result.stdout
-
-            # Strip the echoed prompt (llama-cli echoes the prompt before generating).
-            if output.startswith(full_prompt):
-                output = output[len(full_prompt):]
-            elif full_prompt in output:
-                output = output[output.index(full_prompt) + len(full_prompt):]
+            output = _clean_subprocess_output(result.stdout, full_prompt)
 
             # Truncate at the first stop token.
             for stop in stop_tokens:
@@ -840,10 +984,46 @@ class QwenLocalBrain:
                 except OSError:
                     pass
 
-    def ask(self, prompt: str, context: str = "") -> str:
-        """Convenience wrapper: optionally prepend *context* to prompt."""
+    def ask(self, prompt: str, context: str = "", system_prompt: Optional[str] = None) -> str:
+        """Convenience wrapper: prepend context and apply local copilot system prompt."""
         full_prompt = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt
-        return self.generate(full_prompt)
+        sys_prompt = system_prompt or _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
+        return self.generate(full_prompt, system_prompt=sys_prompt)
+
+    def memory_adapter(self, knowledge_db: Optional[Any] = None) -> Any:
+        """Return (and lazily create) the QwenMemoryAdapter for this brain.
+
+        This exposes Qwen's manager/coach role: auditing KB facts, rewriting
+        low-quality entries, and coaching Niblit on knowledge gaps.
+        """
+        try:
+            from modules.qwen_memory_adapter import get_qwen_memory_adapter
+            return get_qwen_memory_adapter(
+                local_brain=self,
+                knowledge_db=knowledge_db,
+            )
+        except Exception as exc:
+            log.debug("[LocalBrain] memory_adapter unavailable: %s", exc)
+            return None
+
+    def audit_memory(
+        self,
+        knowledge_db: Optional[Any] = None,
+        max_facts: int = 30,
+        apply_changes: bool = True,
+    ) -> str:
+        """Convenience shortcut — run a full KB audit via QwenMemoryAdapter."""
+        adapter = self.memory_adapter(knowledge_db)
+        if adapter is None:
+            return "[LocalBrain] QwenMemoryAdapter not available."
+        return adapter.run_memory_audit(max_facts=max_facts, apply_changes=apply_changes)
+
+    def coach(self, knowledge_db: Optional[Any] = None) -> str:
+        """Convenience shortcut — produce a coaching / improvement report for Niblit."""
+        adapter = self.memory_adapter(knowledge_db)
+        if adapter is None:
+            return "[LocalBrain] QwenMemoryAdapter not available."
+        return adapter.coach_niblit()
 
     def status(self) -> Dict[str, Any]:
         """Return a serialisable status dict."""
