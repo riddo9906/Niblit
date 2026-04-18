@@ -104,6 +104,18 @@ _BROAD_TOPIC_SUFFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
+_CODE_BLOCK_RE = re.compile(r"```(?:[a-zA-Z0-9_+-]+)?\n(.*?)```", re.DOTALL)
+
+
+def _extract_code_candidate(text: str) -> str:
+    """Extract a likely code payload from an LLM response."""
+    if not text:
+        return ""
+    match = _CODE_BLOCK_RE.search(text)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
 # Lazy singleton for TopicConstructor — imported on first use to avoid
 # circular import if this module is loaded before modules/ is on sys.path.
 _TOPIC_CONSTRUCTOR = None
@@ -1566,6 +1578,65 @@ class AutonomousLearningEngine:
             self.llm = getattr(self.core, "llm", None)
         return self.llm
 
+    def _get_local_copilot(self):
+        """Lazily resolve Qwen local copilot from core."""
+        if self.core:
+            lb = getattr(self.core, "local_brain", None)
+            if lb:
+                return lb
+            br = getattr(self.core, "brain_router", None)
+            if br:
+                return getattr(br, "local_brain", None)
+        return None
+
+    def _qwen_code_brief(self, lang: str, topic: str, snippets: List[str]) -> str:
+        """Ask local Qwen copilot for a concise coding brief from gathered snippets."""
+        copilot = self._get_local_copilot()
+        if not copilot:
+            return ""
+        try:
+            brief_prompt = (
+                f"Language: {lang}\n"
+                f"Topic: {topic}\n\n"
+                "Create a concise coding brief for Niblit in up to 8 bullets. "
+                "Focus on practical implementation guidance, common pitfalls, and compile-time safety. "
+                "If relevant, mention how to validate and fix syntax/runtime errors quickly.\n\n"
+                "Research snippets:\n"
+                + "\n\n---\n\n".join(snippets[:3])
+            )
+            brief = copilot.ask(brief_prompt)
+            return str(brief or "").strip()[:1200]
+        except Exception as exc:
+            log.debug("Qwen copilot brief failed: %s", exc)
+            return ""
+
+    def _qwen_fix_syntax(self, lang: str, code: str, syntax_err: str, code_compiler) -> Tuple[str, bool, str]:
+        """Use local Qwen copilot as a fallback syntax fixer."""
+        copilot = self._get_local_copilot()
+        if not copilot:
+            return code, False, "Qwen local copilot unavailable"
+        try:
+            prompt = (
+                f"Fix this {lang} code so it passes syntax validation.\n"
+                f"Syntax error: {syntax_err}\n\n"
+                "Return only fixed code.\n\n"
+                f"{code}"
+            )
+            raw = copilot.ask(prompt)
+            candidate = _extract_code_candidate(str(raw or ""))
+            if not candidate.strip():
+                return code, False, "Qwen returned no fix candidate"
+            syntax_result = (
+                code_compiler.syntax_test(lang, candidate)
+                if hasattr(code_compiler, "syntax_test")
+                else {"valid": True, "error": None}
+            )
+            if syntax_result.get("valid", True):
+                return candidate, True, "Qwen local copilot fixed syntax"
+            return code, False, f"Qwen syntax fix invalid: {syntax_result.get('error', 'syntax error')}"
+        except Exception as exc:
+            return code, False, f"Qwen syntax fix error: {exc}"
+
     def _get_github_code_search(self):
         """Lazily resolve GitHubCodeSearch from core."""
         if not self.github_code_search and self.core:
@@ -2547,8 +2618,21 @@ class AutonomousLearningEngine:
         if not snippets:
             return f"[No code research results for {lang}/{topic}]"
 
+        qwen_brief = self._qwen_code_brief(lang, topic, snippets)
+        if qwen_brief and self.knowledge_db:
+            try:
+                self.knowledge_db.add_fact(
+                    f"ale_qwen_code_brief:{lang}:{topic}:{int(time.time())}",
+                    qwen_brief,
+                    tags=["code", "research", "qwen", "copilot", lang],
+                )
+            except Exception:
+                pass
+
         # Persist combined findings
         combined = "\n---\n".join(snippets[:3])
+        if qwen_brief:
+            combined = f"{combined}\n\n[Qwen concise brief]\n{qwen_brief}"
         if self.knowledge_db:
             try:
                 self.knowledge_db.add_fact(
@@ -2572,6 +2656,8 @@ class AutonomousLearningEngine:
             active_sources.append("StackOverflow")
         if lang == "python" and self._get_pypi_search():
             active_sources.append("PyPI")
+        if qwen_brief:
+            active_sources.append("Qwen")
         sources = ", ".join(active_sources) if active_sources else "researcher"
         log.info(f"✅ [CODE RESEARCH] {lang}/{topic}: {len(snippets)} snippet(s) collected")
         return f"Code research: {lang}/{topic} — {len(snippets)} snippet(s) via {sources}"
@@ -2815,6 +2901,19 @@ class AutonomousLearningEngine:
                         log.warning(f"🔧 [AUTO-FIX] {lang}/{topic}: fix failed — {fix_explanation}")
                 except Exception as fix_exc:
                     log.debug(f"CodeErrorFixer unavailable: {fix_exc}")
+
+                # ── Fallback auto-fix via local Qwen copilot ──────────────────
+                if not fix_applied:
+                    qwen_fixed_code, qwen_ok, qwen_msg = self._qwen_fix_syntax(
+                        lang, code, syntax_err, code_compiler
+                    )
+                    if qwen_ok:
+                        code = qwen_fixed_code
+                        fix_applied = True
+                        fix_explanation = qwen_msg
+                        log.info(f"🧠 [QWEN AUTO-FIX] {lang}/{topic}: fixed — {qwen_msg}")
+                    else:
+                        log.debug(f"🧠 [QWEN AUTO-FIX] {lang}/{topic}: {qwen_msg}")
 
                 if not fix_applied:
                     failed_record = {

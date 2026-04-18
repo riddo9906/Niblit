@@ -11,6 +11,7 @@ the tests run without any real services or network access.
 
 import time
 import pytest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from modules.autonomous_learning_engine import (
@@ -390,6 +391,71 @@ class TestSerpexResearchStep:
         result = ale._get_serpex_agent()
         # Should be None (no key) or a ResearchAgent (key found) — never raise.
         assert result is None or hasattr(result, "search_web")
+
+
+class TestQwenCopilotIntegration:
+    def test_code_research_adds_qwen_brief_when_local_copilot_available(self, core):
+        researcher = MagicMock()
+        researcher.research_code_and_feed_generator.return_value = "Use context managers for file safety."
+
+        local_brain = MagicMock()
+        local_brain.ask.return_value = "• Keep functions short\n• Validate inputs"
+        core.local_brain = local_brain
+
+        kb = MagicMock()
+        engine = AutonomousLearningEngine(
+            core=core,
+            researcher=researcher,
+            knowledge_db=kb,
+            poll_interval=9999,
+        )
+        engine.code_research_topics = [("python", "file io")]
+
+        result = engine._autonomous_code_research()
+        assert "Qwen" in result
+        assert any(
+            str(call.args[0]).startswith("ale_qwen_code_brief:")
+            for call in kb.add_fact.call_args_list
+            if call.args
+        )
+
+    def test_code_compilation_uses_qwen_fallback_syntax_fix(self, core, monkeypatch):
+        class _NoFixer:
+            def __init__(self, db=None):
+                self.db = db
+
+            def fix_syntax_errors(self, language, code, error_msg, compiler):  # noqa: ARG002
+                return code, False, "no built-in fix"
+
+        monkeypatch.setattr("modules.code_error_fixer.CodeErrorFixer", _NoFixer)
+
+        class _Compiler:
+            def syntax_test(self, language, code):  # noqa: ARG002
+                ok = "print('ok')" in code
+                return {"valid": ok, "error": None if ok else "SyntaxError: bad syntax"}
+
+            def run(self, language, code):  # noqa: ARG002
+                return SimpleNamespace(success=True, stdout="ok", stderr="", error="")
+
+        local_brain = MagicMock()
+        local_brain.ask.return_value = "```python\nprint('ok')\n```"
+        core.local_brain = local_brain
+
+        engine = AutonomousLearningEngine(
+            core=core,
+            code_compiler=_Compiler(),
+            poll_interval=9999,
+        )
+        engine._pending_compiled = [{
+            "language": "python",
+            "code": "print(",
+            "topic": "syntax_test",
+        }]
+
+        result = engine._autonomous_code_compilation()
+        assert "✅ success" in result
+        assert local_brain.ask.called
+        assert engine._compiled_for_reflection[-1]["success"] is True
 
 
 if __name__ == "__main__":

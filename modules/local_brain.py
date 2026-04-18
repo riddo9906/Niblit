@@ -70,6 +70,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 import threading
@@ -116,6 +117,17 @@ _GGUF_CHAT_TEMPLATE = os.environ.get("NIBLIT_GGUF_CHAT_TEMPLATE", "qwen").strip(
 # When empty, sensible defaults are applied based on the chat template.
 _GGUF_STOP_TOKENS_STR = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
 
+_DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT = (
+    "You are Qwen, the local copilot for Niblit. "
+    "Be concise, practical, and code-first when coding is requested. "
+    "Prefer minimal, correct, compilable code and short explanations. "
+    "Use Niblit's internal capabilities when relevant: code research, code compilation, and code error fixing. "
+    "Maintain structural awareness of Niblit components and command routing. "
+    "If the user asks for commands, include key commands such as: "
+    "help, status, my commands, my structure, my modules, run code <language> <code>, "
+    "fix code <language> <code>, validate <language> <code>, autonomous-learn status, brain status."
+)
+
 # Candidate binary names / paths for the subprocess backend (searched in order).
 # CMake build (current default) takes precedence over old Makefile paths.
 # Absolute Termux paths are listed after tilde paths so they work from inside
@@ -135,6 +147,69 @@ _LLAMA_BINARY_CANDIDATES = [
     "/data/data/com.termux/files/home/llama.cpp/llama-cli",
     "/data/data/com.termux/files/home/llama.cpp/main",
 ]
+
+
+def _strip_code_fences(text: str) -> str:
+    """Remove markdown code fences from *text*."""
+    text = text.strip()
+    text = re.sub(r"^```[a-zA-Z0-9_+-]*\n?", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^```\s*$", "", text, flags=re.MULTILINE)
+    return text.strip()
+
+
+def _strip_llama_startup_noise(text: str) -> str:
+    """Strip llama-cli startup/banner noise from subprocess output."""
+    if not text:
+        return ""
+    lines = text.splitlines()
+    cleaned: list[str] = []
+    skipping_commands = False
+    for line in lines:
+        s = line.strip()
+        low = s.lower()
+
+        # Common Termux/proot startup noise
+        if "/system/bin/getprop: operation not permitted" in low:
+            continue
+        if "getprop" in low and "operation not permitted" in low:
+            continue
+
+        # llama-cli startup metadata / banner
+        if (
+            low == "loading model..."
+            or re.match(r"^(build|model|modalities)\s*:", low)
+        ):
+            continue
+        if s in {"▄▄ ▄▄", "██ ██"}:
+            continue
+        if "available commands:" in low:
+            skipping_commands = True
+            continue
+        if skipping_commands:
+            # Skip slash-command listing block after "available commands:"
+            if s.startswith("/") or s.startswith("Ctrl+") or s.startswith("or Ctrl+"):
+                continue
+            if not s:
+                skipping_commands = False
+                continue
+
+        # Skip decorative banner lines.
+        if set(s) <= {"▄", "▀", "█", " "} and s:
+            continue
+
+        cleaned.append(line)
+    return "\n".join(cleaned).strip()
+
+
+def _clean_subprocess_output(output: str, full_prompt: str) -> str:
+    """Normalize llama-cli output into just assistant text."""
+    text = output or ""
+    if text.startswith(full_prompt):
+        text = text[len(full_prompt):]
+    elif full_prompt in text:
+        text = text[text.index(full_prompt) + len(full_prompt):]
+    text = _strip_llama_startup_noise(text)
+    return _strip_code_fences(text)
 
 # ── GGUF chat-template helpers ────────────────────────────────────────────────
 
@@ -385,6 +460,13 @@ class QwenLocalBrain:
             "model_files":       [str(resolved_path)] if resolved_path and resolved_path.is_file() else [],
         }
 
+    def _log_copilot_commands(self) -> None:
+        """Log key Niblit commands when the local copilot backend becomes ready."""
+        log.info(
+            "[LocalBrain] Copilot commands: help | status | my commands | my structure | "
+            "run code <language> <code> | fix code <language> <code> | autonomous-learn status | brain status"
+        )
+
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _resolved_gguf_path(self) -> Optional[Path]:
@@ -496,6 +578,7 @@ class QwenLocalBrain:
             self._backend_in_use = "http"
             self._load_error = None
             log.info("[LocalBrain] ✅ http backend ready: %s", url)
+            self._log_copilot_commands()
             return True
 
         self._load_error = (
@@ -649,6 +732,7 @@ class QwenLocalBrain:
             self._backend_in_use = "python"
             self._load_error = None
             log.info("[LocalBrain] ✅ python backend ready: %s", gguf_path.name)
+            self._log_copilot_commands()
             return True
         except Exception as exc:
             self._load_error = str(exc)
@@ -691,6 +775,7 @@ class QwenLocalBrain:
             "[LocalBrain] ✅ subprocess backend ready: %s + %s",
             binary.name, gguf_path.name,
         )
+        self._log_copilot_commands()
         return True
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -809,13 +894,7 @@ class QwenLocalBrain:
                 timeout=120,
             )
 
-            output = result.stdout
-
-            # Strip the echoed prompt (llama-cli echoes the prompt before generating).
-            if output.startswith(full_prompt):
-                output = output[len(full_prompt):]
-            elif full_prompt in output:
-                output = output[output.index(full_prompt) + len(full_prompt):]
+            output = _clean_subprocess_output(result.stdout, full_prompt)
 
             # Truncate at the first stop token.
             for stop in stop_tokens:
@@ -840,10 +919,11 @@ class QwenLocalBrain:
                 except OSError:
                     pass
 
-    def ask(self, prompt: str, context: str = "") -> str:
-        """Convenience wrapper: optionally prepend *context* to prompt."""
+    def ask(self, prompt: str, context: str = "", system_prompt: Optional[str] = None) -> str:
+        """Convenience wrapper: prepend context and apply local copilot system prompt."""
         full_prompt = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt
-        return self.generate(full_prompt)
+        sys_prompt = system_prompt or _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
+        return self.generate(full_prompt, system_prompt=sys_prompt)
 
     def status(self) -> Dict[str, Any]:
         """Return a serialisable status dict."""
