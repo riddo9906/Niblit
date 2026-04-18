@@ -256,6 +256,8 @@ class NiblitRouter:
     COMMAND_PREFIXES = (
         "toggle-llm", "llm-provider", "hf-status", "hf-enable", "hf-disable", "hf-ask",
         "chat-memory", "llm-train",
+        # Local brain / brain-router control — must come before brain.think() dispatch
+        "qwen", "brain",
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
