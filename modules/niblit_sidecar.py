@@ -60,6 +60,10 @@ log = logging.getLogger("Niblit.Sidecar")
 
 _DEFAULT_SOCKET = os.environ.get("NIBLIT_CTL_SOCKET", "/tmp/niblit-ctl.sock").strip()
 
+# How long (seconds) the sidecar waits for Phase-1 init before timing out
+# and returning an error to the waiting client.  Override with env var.
+_SIDECAR_INIT_TIMEOUT = float(os.environ.get("NIBLIT_SIDECAR_INIT_TIMEOUT", "600"))
+
 # Max concurrent clients (usually one or two sidecar sessions)
 _BACKLOG = 4
 
@@ -250,8 +254,8 @@ class NiblitSidecar:
                 "status": "init",
                 "message": "Niblit is still initialising — your command will run as soon as ready...",
             })
-            # Wait up to 10 minutes for core to become ready
-            self._ready.wait(timeout=600)
+            # Wait up to NIBLIT_SIDECAR_INIT_TIMEOUT seconds for core to become ready
+            self._ready.wait(timeout=_SIDECAR_INIT_TIMEOUT)
             if not self._ready.is_set():
                 return {
                     "id": req_id,
