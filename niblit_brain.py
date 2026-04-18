@@ -1473,18 +1473,24 @@ class NiblitBrain:
             # ChatCompletions engine that normally injects LLMChatMemory turns.
             # Load the last few conversation turns here so Qwen has continuity
             # without sending the full (possibly large) history.
+            # 300 chars per message keeps the injected prefix under ~2 KB even
+            # for 6 messages, well within the 2048-token context window.
+            _HISTORY_MSG_LIMIT = 6           # 3 user-assistant exchanges
+            _HISTORY_CONTENT_CHARS = 300     # per-message content truncation
             _chat_history_prefix = ""
             try:
                 from modules.llm_chat_memory import get_llm_chat_memory
                 _chat_mem_br = get_llm_chat_memory()
-                _recent_msgs = _chat_mem_br.load_messages(limit=6)  # last 3 exchanges
+                _recent_msgs = _chat_mem_br.load_messages(limit=_HISTORY_MSG_LIMIT)
                 if _recent_msgs:
                     _hist_lines = []
                     for _m in _recent_msgs:
                         _role = _m.get("role", "")
                         _content = _m.get("content", "")
                         if _role and _content:
-                            _hist_lines.append(f"{_role.capitalize()}: {_content[:300]}")
+                            _hist_lines.append(
+                                f"{_role.capitalize()}: {_content[:_HISTORY_CONTENT_CHARS]}"
+                            )
                     if _hist_lines:
                         _chat_history_prefix = (
                             "Recent conversation:\n"
