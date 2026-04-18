@@ -117,19 +117,81 @@ _GGUF_CHAT_TEMPLATE = os.environ.get("NIBLIT_GGUF_CHAT_TEMPLATE", "qwen").strip(
 # When empty, sensible defaults are applied based on the chat template.
 _GGUF_STOP_TOKENS_STR = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
 
+# Compact inline reference of Niblit's architecture injected into every ask().
+# Kept deliberately terse so it fits within a 0.5B model's context window.
+_NIBLIT_STRUCTURAL_CONTEXT = """
+=== NIBLIT ARCHITECTURE (your structural awareness) ===
+
+ENTRY POINTS:
+  main.py           — Interactive CLI (NIBLIT_INIT_WAIT_MAX_SECONDS=300)
+  app.py / server.py — FastAPI endpoints (local + Vercel)
+
+CORE ORCHESTRATION:
+  niblit_core.py    — NiblitCore: wires every subsystem; owns db, brain, router, autonomous_engine
+  niblit_router.py  — NiblitRouter: routes text → handlers; 100+ command families
+  niblit_brain.py   — NiblitBrain: think(), learn(), BrainRouter orchestration
+  niblit_memory/    — FusedMemory + KnowledgeDB + LocalDB + ingestion helpers
+
+MEMORY LAYERS (bottom-up):
+  LocalDB           — JSON facts/interactions/learning_log (niblit.db)
+  KnowledgeDB       — richer JSON facts+queue+acquired_data (niblit_memory.json)
+  FusedMemory       — SQLite events + Qdrant vector search
+  NiblitMemory      — top-level hub: circuit-breaker, cache, rate-limit, telemetry
+
+BRAIN / LLM STACK:
+  QwenLocalBrain    — local GGUF model (you); backends: http|subprocess|python
+  BrainRouter       — mode: local|balanced|power|offline; routes to local/cloud
+  HFBrain           — cloud HF InferenceClient (moonshotai/Kimi-K2 or similar)
+  LLMProviderManager — runtime-switchable provider chain (Qwen→HF→Anthropic)
+
+LEARNING & SELF-IMPROVEMENT:
+  ALE (29 steps)    — AutonomousLearningEngine background thread; runs when idle
+  SelfResearcher    — web/KB/Searchcode/GitHub multi-backend research
+  SelfTeacher       — ingests research into KnowledgeDB
+  SelfHealer        — detects & patches code/logic faults
+  SelfIdeaImplementation — turns ideas into code via CodeGenerator+CodeCompiler
+  CodeErrorFixer    — retry-loop: fix→recompile up to 3 times
+  BrainTrainer      — fine-tunes local brain on research data
+  ReflectModule     — summarises + stores KB reflections
+  MSG Layer         — SelfModel, IntentEngine, MetaEvaluator, ResourceAllocator, EvolutionPlanner
+
+CODE CAPABILITIES:
+  CodeGenerator     — templates + LLM generation → generated/
+  CodeCompiler      — syntax test + subprocess run
+  CodeErrorFixer    — targeted fix (Python AST, Bash -n, Node --check) + retry
+
+KEY COMMANDS (always valid):
+  help | status | brain status | brain mode <local|balanced|power|offline>
+  toggle-llm on/off/status | llm-provider qwen|hf|anthropic|status
+  recall <topic> | knowledge stats | acquired data
+  autonomous-learn start|stop|status
+  run code <lang> <code> | fix code <lang> <code> | validate <lang> <code>
+  qwen status | qwen audit-kb | qwen memory-summary | qwen clean-kb | qwen coach
+  self-research <topic> | self-teach <topic> | reflect <topic>
+  my structure | my modules | my commands | ale processes
+=== END NIBLIT ARCHITECTURE ===
+"""
+
 # Default instruction set used by QwenLocalBrain.ask() when the caller does
-# not supply an explicit system prompt. This tunes the local model toward a
-# concise "Niblit copilot" behavior with command and structural awareness.
+# not supply an explicit system prompt.  This tunes the local model toward a
+# concise "Niblit copilot / manager / coach" role with full structural and
+# memory awareness baked in.
 _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT = (
-    "You are Qwen, the local copilot for Niblit. "
-    "Be concise, practical, and code-first when coding is requested. "
-    "Prefer minimal, correct, compilable code and short explanations. "
-    "Use Niblit's internal capabilities when relevant: code research, code compilation, and code error fixing. "
-    "Maintain structural awareness of Niblit components and command routing. "
-    "If the user asks for commands, include key commands such as: "
-    "help, status, my commands, my structure, my modules, run code <language> <code>, "
-    "fix code <language> <code>, validate <language> <code>, autonomous-learn status, brain status."
-)
+    "You are Qwen, the local AI copilot, manager, coach, and trainer for Niblit. "
+    "Your roles:\n"
+    "  • COPILOT   — generate concise, compilable code on demand; prefer minimal, correct solutions.\n"
+    "  • MANAGER   — oversee Niblit's knowledge quality; flag or rewrite entries that are wrong, "
+    "outdated, or duplicate.\n"
+    "  • COACH     — give Niblit improvement advice: point out gaps, suggest next learning topics, "
+    "and identify stale KB facts.\n"
+    "  • TRAINER   — synthesise research snippets into crisp, fact-dense KB entries.\n\n"
+    "Rules:\n"
+    "  - Be concise and practical. Prefer bullet points over paragraphs.\n"
+    "  - When producing code output, emit only the code block (no surrounding prose unless "
+    "explaining an error).\n"
+    "  - When auditing a KB fact, respond with one of: KEEP | REWRITE: <new text> | REMOVE: <reason>.\n"
+    "  - Always ground responses in Niblit's actual capabilities listed below.\n\n"
+) + _NIBLIT_STRUCTURAL_CONTEXT
 
 # Candidate binary names / paths for the subprocess backend (searched in order).
 # CMake build (current default) takes precedence over old Makefile paths.
@@ -929,6 +991,41 @@ class QwenLocalBrain:
         full_prompt = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt
         sys_prompt = system_prompt or _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
         return self.generate(full_prompt, system_prompt=sys_prompt)
+
+    def memory_adapter(self, knowledge_db: Optional[Any] = None) -> Any:
+        """Return (and lazily create) the QwenMemoryAdapter for this brain.
+
+        This exposes Qwen's manager/coach role: auditing KB facts, rewriting
+        low-quality entries, and coaching Niblit on knowledge gaps.
+        """
+        try:
+            from modules.qwen_memory_adapter import get_qwen_memory_adapter
+            return get_qwen_memory_adapter(
+                local_brain=self,
+                knowledge_db=knowledge_db,
+            )
+        except Exception as exc:
+            log.debug("[LocalBrain] memory_adapter unavailable: %s", exc)
+            return None
+
+    def audit_memory(
+        self,
+        knowledge_db: Optional[Any] = None,
+        max_facts: int = 30,
+        apply_changes: bool = True,
+    ) -> str:
+        """Convenience shortcut — run a full KB audit via QwenMemoryAdapter."""
+        adapter = self.memory_adapter(knowledge_db)
+        if adapter is None:
+            return "[LocalBrain] QwenMemoryAdapter not available."
+        return adapter.run_memory_audit(max_facts=max_facts, apply_changes=apply_changes)
+
+    def coach(self, knowledge_db: Optional[Any] = None) -> str:
+        """Convenience shortcut — produce a coaching / improvement report for Niblit."""
+        adapter = self.memory_adapter(knowledge_db)
+        if adapter is None:
+            return "[LocalBrain] QwenMemoryAdapter not available."
+        return adapter.coach_niblit()
 
     def status(self) -> Dict[str, Any]:
         """Return a serialisable status dict."""

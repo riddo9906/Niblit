@@ -3395,6 +3395,126 @@ Ask me about:
             lines.append(f"  Load error    : {lb_info['load_error']}")
         return "\n".join(lines)
 
+    def _handle_qwen(self, cmd: str) -> str:
+        """Handle 'qwen <sub-command>' — Qwen local copilot, memory manager, and coach.
+
+        Sub-commands::
+
+            qwen                  — show Qwen brain + memory adapter status
+            qwen status           — same as above
+            qwen memory-summary   — compact snapshot of what Niblit currently knows
+            qwen audit-kb         — full KB audit (Qwen reviews every fact)
+            qwen audit-kb dry     — audit report without applying changes
+            qwen clean-kb         — alias for audit-kb (applies changes)
+            qwen coach            — Qwen coaching + improvement report
+            qwen ask <prompt>     — ask Qwen directly (structural-aware)
+        """
+        lower = cmd.strip().lower()
+        # Strip prefix
+        for prefix in ("qwen",):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                orig_sub = cmd.strip()[len(prefix):].strip()
+                break
+        else:
+            sub = ""
+            orig_sub = ""
+
+        # Resolve local brain
+        lb = getattr(self.core, "local_brain", None) if self.core else None
+        if lb is None:
+            try:
+                from modules.local_brain import get_local_brain
+                lb = get_local_brain()
+            except Exception:
+                lb = None
+
+        if sub in ("", "status"):
+            if lb is None:
+                return "⚠️  Qwen local brain not available (model not loaded)."
+            st = lb.status()
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                adapter_stats = adapter.get_stats()
+                stats_str = (
+                    f"  Audits run    : {adapter_stats['audits_run']}\n"
+                    f"  Facts reviewed: {adapter_stats['facts_reviewed']}\n"
+                    f"  Facts rewritten: {adapter_stats['facts_rewritten']}\n"
+                    f"  Facts removed  : {adapter_stats['facts_removed']}\n"
+                    f"  Coach runs     : {adapter_stats['coach_runs']}"
+                )
+            except Exception:
+                stats_str = "  Memory adapter: not initialised"
+            return (
+                "🧠 Qwen Local Copilot\n"
+                f"  Model         : {st.get('model_name', '?')}\n"
+                f"  Backend       : {st.get('backend_in_use', 'none')}\n"
+                f"  Loaded        : {'✅' if st.get('loaded') else '⏳ (lazy)'}\n"
+                f"  Context       : {st.get('gguf_n_ctx', '?')} tokens\n"
+                f"  Roles         : copilot · manager · coach · trainer\n"
+                "\n📊 Memory Adapter Stats:\n" + stats_str
+            )
+
+        if sub == "memory-summary":
+            if lb is None:
+                return "⚠️  Qwen local brain not available."
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                return adapter.get_memory_summary(limit=25)
+            except Exception as exc:
+                return f"[qwen memory-summary] Error: {exc}"
+
+        if sub in ("audit-kb", "clean-kb"):
+            if lb is None:
+                return "⚠️  Qwen local brain not available — cannot audit KB."
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                return adapter.run_memory_audit(max_facts=30, apply_changes=True)
+            except Exception as exc:
+                return f"[qwen audit-kb] Error: {exc}"
+
+        if sub == "audit-kb dry":
+            if lb is None:
+                return "⚠️  Qwen local brain not available — cannot audit KB."
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                return adapter.run_memory_audit(max_facts=30, apply_changes=False)
+            except Exception as exc:
+                return f"[qwen audit-kb dry] Error: {exc}"
+
+        if sub == "coach":
+            if lb is None:
+                return "⚠️  Qwen local brain not available — cannot coach."
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                return adapter.coach_niblit()
+            except Exception as exc:
+                return f"[qwen coach] Error: {exc}"
+
+        if sub.startswith("ask "):
+            prompt_text = orig_sub[len("ask "):].strip()
+            if not prompt_text:
+                return "Usage: qwen ask <your prompt>"
+            if lb is None:
+                return "⚠️  Qwen local brain not available."
+            return lb.ask(prompt_text)
+
+        return (
+            "Unknown qwen sub-command. Try:\n"
+            "  qwen status         — brain + adapter stats\n"
+            "  qwen memory-summary — what Niblit currently knows\n"
+            "  qwen audit-kb       — Qwen reviews and fixes all KB facts\n"
+            "  qwen audit-kb dry   — audit report (no changes applied)\n"
+            "  qwen clean-kb       — alias for audit-kb\n"
+            "  qwen coach          — Qwen coaching + improvement report\n"
+            "  qwen ask <prompt>   — ask Qwen anything"
+        )
+
     def _handle_self_monitor(self, text: str) -> str:
         """Handle 'self-monitor <sub>' commands."""
         sub = text[len("self-monitor"):].strip()
@@ -5814,6 +5934,10 @@ Ask me about:
                 lower.startswith("brain mode ") or lower.startswith("brain-mode "):
             return self._handle_brain(cmd)
 
+        # QWEN — local copilot / memory manager / coach (additive)
+        if lower == "qwen" or lower.startswith("qwen "):
+            return self._handle_qwen(cmd)
+
         # KERNEL — NiblitKernel cognitive dashboard (additive)
         if lower == "kernel" or lower.startswith("kernel "):
             return self._handle_kernel(cmd)
@@ -6270,6 +6394,18 @@ Ask me about:
             "                      binary file parser, chat-completion client, data processor",
             "  ALE usage: Step 21 uses binary parser; Steps 22/23 use NLP enrichment;",
             "             Step 29 runs all scripts and seeds NLP keywords as research topics.",
+            "",
+            "=== QWEN — LOCAL COPILOT / MANAGER / COACH / TRAINER ===",
+            "qwen                     — Show Qwen brain status + memory adapter stats",
+            "qwen status              — Same as above",
+            "qwen memory-summary      — Compact snapshot of what Niblit currently knows",
+            "qwen audit-kb            — Qwen reviews all KB facts (rewrites/removes bad ones)",
+            "qwen audit-kb dry        — Audit report only — no changes applied",
+            "qwen clean-kb            — Alias for audit-kb (applies all fixes)",
+            "qwen coach               — Qwen coaching report: gaps, stale facts, next steps",
+            "qwen ask <prompt>        — Ask Qwen anything (full structural-aware context)",
+            "  Qwen roles: COPILOT (code gen), MANAGER (KB quality), COACH (gaps + advice),",
+            "              TRAINER (research synthesis)",
             "",
             "=== SELF-IMPROVEMENTS ===",
             "show improvements            — View 10 improvement modules",
