@@ -64,8 +64,8 @@ def test_check_server_url_falls_back_when_health_missing(monkeypatch):
         ) -> bool:
             return False
 
-    def _fake_urlopen(req, timeout=5):  # noqa: ARG001
-        url = req.full_url
+    def _fake_urlopen(request, timeout=5):  # noqa: ARG001
+        url = request.full_url
         called.append(url)
         if url.endswith("/health"):
             raise urllib.error.HTTPError(url, 404, "Not Found", hdrs=None, fp=None)

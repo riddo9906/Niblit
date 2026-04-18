@@ -637,8 +637,9 @@ class QwenLocalBrain:
             except urllib.error.HTTPError as exc:
                 # These probe-safe codes mean "this endpoint variant is not
                 # usable here" but do not prove the server is down:
-                # 404=missing route, 405=method mismatch, 501=not implemented,
-                # 400/401/403=route exists but request rejected.
+                # 404=missing route, 405=method mismatch, 501=not implemented.
+                # 400/401/403 still prove a live HTTP server is responding, but
+                # this probe URL/method/payload is rejected on that build.
                 if exc.code in {400, 401, 403, 404, 405, 501}:
                     continue
                 return False
