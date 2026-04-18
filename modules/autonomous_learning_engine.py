@@ -105,6 +105,9 @@ _BROAD_TOPIC_SUFFIX_RE = re.compile(
 )
 
 _CODE_BLOCK_RE = re.compile(r"```(?:[a-zA-Z0-9_+-]+)?\n(.*?)```", re.DOTALL)
+# Max chars to persist from Qwen's concise research brief.
+# Kept bounded so KB facts remain compact and retrieval-friendly.
+_QWEN_BRIEF_MAX_CHARS: int = 1200
 
 
 def _extract_code_candidate(text: str) -> str:
@@ -1605,7 +1608,7 @@ class AutonomousLearningEngine:
                 + "\n\n---\n\n".join(snippets[:3])
             )
             brief = copilot.ask(brief_prompt)
-            return str(brief or "").strip()[:1200]
+            return str(brief or "").strip()[:_QWEN_BRIEF_MAX_CHARS]
         except Exception as exc:
             log.debug("Qwen copilot brief failed: %s", exc)
             return ""

@@ -424,7 +424,7 @@ class TestQwenCopilotIntegration:
             def __init__(self, db=None):
                 self.db = db
 
-            def fix_syntax_errors(self, language, code, error_msg, compiler):  # noqa: ARG002
+            def fix_syntax_errors(self, _language, code, _error_msg, _compiler):
                 return code, False, "no built-in fix"
 
         monkeypatch.setattr("modules.code_error_fixer.CodeErrorFixer", _NoFixer)
