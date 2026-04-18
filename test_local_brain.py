@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Unit tests for modules/local_brain.py."""
 
+import urllib.error
+
 from modules.local_brain import (
     _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT,
     QwenLocalBrain,
@@ -40,3 +42,33 @@ def test_ask_uses_default_local_copilot_system_prompt():
     assert out == "ok"
     assert captured["prompt"] == "write concise python code"
     assert captured["system_prompt"] == _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
+
+
+def test_check_server_url_falls_back_when_health_missing(monkeypatch):
+    brain = QwenLocalBrain(gguf_backend="auto")
+    called = []
+
+    class _FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
+            return False
+
+    def _fake_urlopen(req, timeout=5):  # noqa: ARG001
+        url = req.full_url
+        called.append(url)
+        if url.endswith("/health"):
+            raise urllib.error.HTTPError(url, 404, "Not Found", hdrs=None, fp=None)
+        if url.endswith("/v1/models"):
+            return _FakeResponse()
+        raise AssertionError(f"Unexpected probe URL: {url}")
+
+    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
+    assert brain._check_server_url("http://127.0.0.1:8080") is True
+    assert called == [
+        "http://127.0.0.1:8080/health",
+        "http://127.0.0.1:8080/v1/models",
+    ]

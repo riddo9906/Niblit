@@ -622,14 +622,27 @@ class QwenLocalBrain:
         )
 
     def _check_server_url(self, url: str) -> bool:
-        """Return True if a llama-server health endpoint responds at *url*."""
-        health_url = url + "/health"
-        try:
-            req = urllib.request.Request(health_url, method="GET")
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                return resp.status == 200
-        except Exception:
-            return False
+        """Return True if a llama-server endpoint responds at *url*."""
+        probe_urls = (
+            url + "/health",     # newer llama-server builds
+            url + "/v1/models",  # OpenAI-compatible endpoint
+            url + "/props",      # older llama-server builds
+        )
+        for probe_url in probe_urls:
+            try:
+                req = urllib.request.Request(probe_url, method="GET")
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    if 200 <= resp.status < 400:
+                        return True
+            except urllib.error.HTTPError as exc:
+                # Endpoint exists but this method/status is not accepted for
+                # probing on this build; try the next known endpoint.
+                if exc.code in {400, 401, 403, 404, 405, 501}:
+                    continue
+                return False
+            except Exception:
+                continue
+        return False
 
     def _load_http_backend(self) -> bool:
         """Check that llama-server is reachable at NIBLIT_LLAMA_SERVER_URL."""
@@ -690,7 +703,7 @@ class QwenLocalBrain:
             "messages": messages,
             "max_tokens": max_new_tokens,
             "temperature": 0.7,
-            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop_tokens", [])),
+            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop", [])),
         }
 
         body = json.dumps(payload).encode("utf-8")
@@ -735,7 +748,7 @@ class QwenLocalBrain:
             "prompt": full_prompt,
             "n_predict": max_new_tokens,
             "temperature": 0.7,
-            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop_tokens", [])),
+            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop", [])),
         }
         body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
