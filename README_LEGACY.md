@@ -247,6 +247,31 @@ export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
 export ANDROID_NDK_HOME=~/.buildozer/android/platform/android-ndk-r25b
 ```
 
+### APK build fails in Termux/proot: `build-tools;37.0.0` missing `aidl`
+
+`buildozer.spec` now pins `android.build_tools = 34.0.0`, but if your SDK
+already has 37.0.0 installed, clean it up once:
+
+```bash
+export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
+
+# Use sdkmanager from the cmdline-tools package installed by Buildozer
+SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+
+# Ensure the pinned toolchain is present
+yes | "$SDKMANAGER" "platform-tools" "platforms;android-33" "build-tools;34.0.0"
+
+# Remove the problematic build-tools version if present
+yes | "$SDKMANAGER" --uninstall "build-tools;37.0.0" || true
+```
+
+Then rebuild:
+
+```bash
+buildozer android clean
+buildozer android debug
+```
+
 ### APK build fails: Java version
 
 Buildozer requires Java 11 or 17. Check with:

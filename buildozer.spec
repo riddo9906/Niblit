@@ -102,6 +102,11 @@ android.minapi = 21
 # (int) Android SDK version to use
 android.sdk = 33
 
+# (str) Android build-tools version to use.
+# Pin this to avoid auto-selecting build-tools 37.0.0 on some Termux/proot
+# setups, where `aidl` may be missing and APK builds fail.
+android.build_tools = 34.0.0
+
 # (str) Android NDK version to use
 android.ndk = 25b
 
@@ -199,4 +204,3 @@ warn_on_root = 1
 
 # (str) Path to build output (i.e. .apk, .aab, .ipa) storage
 # bin_dir = ./bin
-
