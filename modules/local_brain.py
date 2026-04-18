@@ -103,7 +103,7 @@ _LLAMA_BINARY = os.environ.get("NIBLIT_LLAMA_BINARY", "").strip()
 # NIBLIT_LLAMA_SERVER_URL — base URL of a running llama-server instance.
 # NIBLIT_LLAMA_SERVER_TIMEOUT — per-request timeout in seconds.
 _LLAMA_SERVER_URL = os.environ.get("NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8080").rstrip("/")
-_LLAMA_SERVER_TIMEOUT = int(os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "120"))
+_LLAMA_SERVER_TIMEOUT = int(os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "600"))
 
 # GGUF chat template style.  Supported values:
 #   qwen   — Qwen2.5 / ChatML style (default; also used for generic ChatML models)
