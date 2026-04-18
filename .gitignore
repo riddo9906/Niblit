@@ -75,3 +75,5 @@ niblit_memory_graph.pkl.backup
 niblit-lean-algos/algorithms
 niblit-lean-algos/scripts
 niblit-lean-algos/niblit_bridge/
+.tmp
+niblit_deployment_bridge.json.tmp
