@@ -16,6 +16,7 @@ including your Android phone via Termux.
 - [🆕 NiblitOS — Niblit IS the Operating System](#niblitos--niblit-is-the-operating-system)
 - [🆕 Running Qwen Locally on Termux](#running-qwen-locally-on-termux)
 - [🆕 Two-Session Setup: Niblit in proot + Qwen in Termux](#two-session-setup-niblit-in-proot--qwen-in-termux)
+- [🆕 Niblit Sidecar Control Terminal](#-niblit-sidecar-control-terminal)
 - [Architecture: The LLM Engineer's Pipeline](#architecture-the-llm-engineers-pipeline)
 - [Architecture: The Trading AI Engineer's Pipeline](#architecture-the-trading-ai-engineers-pipeline)
 - [Quick Start](#quick-start)
@@ -606,6 +607,111 @@ Then simply:
 | `NIBLIT_LOCAL_MAX_NEW=256` | Limit Qwen reply length for faster KB audits |
 | `NIBLIT_GGUF_N_CTX=2048` | Match context window to server `-c` value |
 | `NIBLIT_ALE_INTER_PHASE_SLEEP=2` | Slow ALE a little to free CPU for Qwen |
+
+---
+
+## 🆕 Niblit Sidecar Control Terminal
+
+**Files:** `modules/niblit_sidecar.py` + `tools/niblit_ctl.py`
+
+When the Qwen model loads in Termux (Session 1), its startup output floods
+the terminal.  Even after loading, you may want to send Niblit commands from
+a **different terminal window** without switching proot sessions.
+
+The **Niblit Sidecar** is a UNIX socket server that starts inside the main
+Niblit process (`python main.py`) right at boot — *before* Phase-1 init
+completes.  Any terminal can connect and send commands at any time, even
+while the model is loading.
+
+### How it works
+
+```
+Session 1 (normal Termux)          Session 2 (proot-Ubuntu)
+────────────────────────────────   ─────────────────────────
+llama-server                        python main.py
+[model loading output]               │
+                                     │ Sidecar starts listening on
+                                     │ /tmp/niblit-ctl.sock
+                                     │ (accepts commands immediately)
+                                     │ Phase-1 init running in background
+                                     │ [model loads in Session 1]
+                                     ▼
+Session 3 (any new Termux tab)
+────────────────────────────────
+python tools/niblit_ctl.py
+  ⏳ Niblit still initialising... (queued)
+  [sends any Niblit command]
+  [gets result when init finishes]
+```
+
+### Usage
+
+```bash
+# Check if Niblit sidecar is running
+python tools/niblit_ctl.py --ping
+
+# Open interactive control terminal (full command access)
+python tools/niblit_ctl.py
+
+# Wait for init to finish, then open shell
+python tools/niblit_ctl.py --wait
+
+# One-shot command (great for scripts)
+python tools/niblit_ctl.py -c "brain status"
+python tools/niblit_ctl.py -c "recall python"
+python tools/niblit_ctl.py -c "qwen status"
+python tools/niblit_ctl.py -c "autonomous-learn status"
+
+# JSON output (for scripts / piping)
+python tools/niblit_ctl.py -c "status" --json
+
+# Use a custom socket path (if NIBLIT_CTL_SOCKET is set)
+python tools/niblit_ctl.py --socket /tmp/my-niblit.sock
+```
+
+### Inside the control terminal
+
+All Niblit commands work exactly as in the main shell:
+
+```
+Niblit-ctl > brain status
+Niblit-ctl > recall python
+Niblit-ctl > toggle-llm status
+Niblit-ctl > autonomous-learn start
+Niblit-ctl > qwen ask What are my knowledge gaps?
+Niblit-ctl > help
+Niblit-ctl > sidecar status        ← check socket health from main shell
+Niblit-ctl > !status               ← check from niblit_ctl
+Niblit-ctl > !ping                 ← quick alive check
+Niblit-ctl > exit                  ← closes control terminal; Niblit keeps running
+```
+
+### Environment variable
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `NIBLIT_CTL_SOCKET` | `/tmp/niblit-ctl.sock` | Path to the UNIX domain socket |
+
+### Three-terminal setup (complete flow)
+
+```bash
+# Session 1 — normal Termux:
+~/llama.cpp/build/bin/llama-server \
+    -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    --host 127.0.0.1 --port 8080
+
+# Session 2 — proot-Ubuntu:
+proot-distro login ubuntu
+cd ~/Niblit && source .venv/bin/activate
+NIBLIT_GGUF_BACKEND=http NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8080 python main.py
+# → Model loads in Session 1, Niblit init runs here
+# → Sidecar socket: 🔌 /tmp/niblit-ctl.sock
+
+# Session 3 — any new Termux tab (while model still loading):
+python tools/niblit_ctl.py --wait
+# → Waits for init, then opens interactive shell
+# → Full Niblit access: brain status, recall, qwen ask, etc.
+```
 
 ---
 
