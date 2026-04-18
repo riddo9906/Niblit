@@ -635,8 +635,10 @@ class QwenLocalBrain:
                     if 200 <= resp.status < 400:
                         return True
             except urllib.error.HTTPError as exc:
-                # Endpoint exists but this method/status is not accepted for
-                # probing on this build; try the next known endpoint.
+                # These probe-safe codes mean "this endpoint variant is not
+                # usable here" but do not prove the server is down:
+                # 404=missing route, 405=method mismatch, 501=not implemented,
+                # 400/401/403=route exists but request rejected.
                 if exc.code in {400, 401, 403, 404, 405, 501}:
                     continue
                 return False

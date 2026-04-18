@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Unit tests for modules/local_brain.py."""
 
+from types import TracebackType
+from typing import Optional, Type
 import urllib.error
 
 from modules.local_brain import (
@@ -54,7 +56,12 @@ def test_check_server_url_falls_back_when_health_missing(monkeypatch):
         def __enter__(self):
             return self
 
-        def __exit__(self, exc_type, exc, tb):  # noqa: ANN001
+        def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc: Optional[BaseException],
+            tb: Optional[TracebackType],
+        ) -> bool:
             return False
 
     def _fake_urlopen(req, timeout=5):  # noqa: ARG001
