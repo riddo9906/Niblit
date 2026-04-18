@@ -2,6 +2,7 @@
 """Unit tests for modules/local_brain.py."""
 
 from modules.local_brain import (
+    _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT,
     QwenLocalBrain,
     _clean_subprocess_output,
 )
@@ -38,4 +39,4 @@ def test_ask_uses_default_local_copilot_system_prompt():
     out = brain.ask("write concise python code")
     assert out == "ok"
     assert captured["prompt"] == "write concise python code"
-    assert "local copilot for Niblit" in (captured["system_prompt"] or "")
+    assert captured["system_prompt"] == _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT

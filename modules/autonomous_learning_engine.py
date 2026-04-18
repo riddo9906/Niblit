@@ -104,7 +104,7 @@ _BROAD_TOPIC_SUFFIX_RE = re.compile(
     re.IGNORECASE,
 )
 
-_CODE_BLOCK_RE = re.compile(r"```(?:[a-zA-Z0-9_+-]+)?\n(.*?)```", re.DOTALL)
+_CODE_BLOCK_RE = re.compile(r"```(?:[a-zA-Z0-9_+-]+)?\s*\n?(.*?)```", re.DOTALL)
 # Max chars to persist from Qwen's concise research brief.
 # Kept bounded so KB facts remain compact and retrieval-friendly.
 _QWEN_BRIEF_MAX_CHARS: int = 1200
@@ -118,6 +118,17 @@ def _extract_code_candidate(text: str) -> str:
     if match:
         return match.group(1).strip()
     return text.strip()
+
+
+def _truncate_at_word_boundary(text: str, limit: int) -> str:
+    """Truncate *text* without cutting through a word when possible."""
+    if len(text) <= limit:
+        return text
+    truncated = text[:limit].rstrip()
+    last_space = truncated.rfind(" ")
+    if last_space > int(limit * 0.7):
+        truncated = truncated[:last_space].rstrip()
+    return truncated.rstrip() + "…"
 
 # Lazy singleton for TopicConstructor — imported on first use to avoid
 # circular import if this module is loaded before modules/ is on sys.path.
@@ -1608,7 +1619,8 @@ class AutonomousLearningEngine:
                 + "\n\n---\n\n".join(snippets[:3])
             )
             brief = copilot.ask(brief_prompt)
-            return str(brief or "").strip()[:_QWEN_BRIEF_MAX_CHARS]
+            brief_text = brief if isinstance(brief, str) else str(brief or "")
+            return _truncate_at_word_boundary(brief_text.strip(), _QWEN_BRIEF_MAX_CHARS)
         except Exception as exc:
             log.debug("Qwen copilot brief failed: %s", exc)
             return ""
@@ -1626,7 +1638,8 @@ class AutonomousLearningEngine:
                 f"{code}"
             )
             raw = copilot.ask(prompt)
-            candidate = _extract_code_candidate(str(raw or ""))
+            raw_text = raw if isinstance(raw, str) else str(raw or "")
+            candidate = _extract_code_candidate(raw_text)
             if not candidate.strip():
                 return code, False, "Qwen returned no fix candidate"
             syntax_result = (

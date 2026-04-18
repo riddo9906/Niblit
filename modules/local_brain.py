@@ -117,6 +117,9 @@ _GGUF_CHAT_TEMPLATE = os.environ.get("NIBLIT_GGUF_CHAT_TEMPLATE", "qwen").strip(
 # When empty, sensible defaults are applied based on the chat template.
 _GGUF_STOP_TOKENS_STR = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
 
+# Default instruction set used by QwenLocalBrain.ask() when the caller does
+# not supply an explicit system prompt. This tunes the local model toward a
+# concise "Niblit copilot" behavior with command and structural awareness.
 _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT = (
     "You are Qwen, the local copilot for Niblit. "
     "Be concise, practical, and code-first when coding is requested. "
@@ -152,8 +155,10 @@ _LLAMA_BINARY_CANDIDATES = [
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences from *text*."""
     text = text.strip()
-    text = re.sub(r"^```[a-zA-Z0-9_+-]*\n?", "", text, flags=re.MULTILINE)
-    text = re.sub(r"^```\s*$", "", text, flags=re.MULTILINE)
+    match = re.search(r"```(?:[a-zA-Z0-9_+-]+)?\s*\n?(.*?)```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    text = re.sub(r"```\s*[a-zA-Z0-9_+-]*\s*", "", text)
     return text.strip()
 
 
