@@ -48,6 +48,14 @@ _KB_TEXT_MAX_CHARS = int(os.environ.get("NIBLIT_KB_TEXT_MAX_CHARS", "512"))
 # + response in a 2048-token context window.
 _CONTEXT_MAX_CHARS = int(os.environ.get("NIBLIT_BRAIN_CONTEXT_MAX_CHARS", "1500"))
 
+# Chat-history injection into the local-brain (brain_router) path.
+# How many recent messages to inject (one user message + one assistant reply =
+# one exchange, so 6 messages = 3 exchanges).
+_CHAT_HISTORY_MSG_LIMIT: int = 6
+# Per-message character cap for history injection.  Keeps the total prefix
+# under ~2 KB even with 6 messages, safely within a 2048-token context.
+_CHAT_HISTORY_CONTENT_CHARS: int = 300
+
 # Control characters that corrupt GGUF tokenisers when injected into prompts.
 # We keep \t (0x09) and \n (0x0a) which are meaningful for formatting.
 _CONTROL_CHARS_RE = re.compile(
@@ -1473,23 +1481,21 @@ class NiblitBrain:
             # ChatCompletions engine that normally injects LLMChatMemory turns.
             # Load the last few conversation turns here so Qwen has continuity
             # without sending the full (possibly large) history.
-            # 300 chars per message keeps the injected prefix under ~2 KB even
-            # for 6 messages, well within the 2048-token context window.
-            _HISTORY_MSG_LIMIT = 6           # 3 user-assistant exchanges
-            _HISTORY_CONTENT_CHARS = 300     # per-message content truncation
             _chat_history_prefix = ""
             try:
                 from modules.llm_chat_memory import get_llm_chat_memory
                 _chat_mem_br = get_llm_chat_memory()
-                _recent_msgs = _chat_mem_br.load_messages(limit=_HISTORY_MSG_LIMIT)
+                _recent_msgs = _chat_mem_br.load_messages(limit=_CHAT_HISTORY_MSG_LIMIT)
                 if _recent_msgs:
                     _hist_lines = []
                     for _m in _recent_msgs:
                         _role = _m.get("role", "")
                         _content = _m.get("content", "")
                         if _role and _content:
+                            _truncated = _content[:_CHAT_HISTORY_CONTENT_CHARS]
+                            _suffix = "…" if len(_content) > _CHAT_HISTORY_CONTENT_CHARS else ""
                             _hist_lines.append(
-                                f"{_role.capitalize()}: {_content[:_HISTORY_CONTENT_CHARS]}"
+                                f"{_role.capitalize()}: {_truncated}{_suffix}"
                             )
                     if _hist_lines:
                         _chat_history_prefix = (
