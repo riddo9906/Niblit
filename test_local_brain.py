@@ -7,6 +7,7 @@ import urllib.error
 
 from modules.local_brain import (
     _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT,
+    _SHORT_CHAT_SYSTEM_PROMPT,
     QwenLocalBrain,
     _clean_subprocess_output,
 )
@@ -44,6 +45,26 @@ def test_ask_uses_default_local_copilot_system_prompt():
     assert out == "ok"
     assert captured["prompt"] == "write concise python code"
     assert captured["system_prompt"] == _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
+
+
+def test_chat_uses_short_system_prompt():
+    """chat() must use _SHORT_CHAT_SYSTEM_PROMPT, not the full copilot prompt."""
+    brain = QwenLocalBrain(gguf_backend="subprocess")
+    captured = {}
+
+    def _fake_generate(prompt, max_new_tokens=None, system_prompt=None):  # noqa: ARG001
+        captured["prompt"] = prompt
+        captured["system_prompt"] = system_prompt
+        return "hi there"
+
+    brain.generate = _fake_generate  # type: ignore[method-assign]
+
+    out = brain.chat("hey")
+    assert out == "hi there"
+    assert captured["system_prompt"] == _SHORT_CHAT_SYSTEM_PROMPT
+    # Must NOT inject the heavy structural context
+    assert captured["system_prompt"] != _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
+    assert len(captured["system_prompt"]) < len(_DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT)
 
 
 def test_check_server_url_falls_back_when_health_missing(monkeypatch):

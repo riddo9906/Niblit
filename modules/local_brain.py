@@ -193,6 +193,14 @@ _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT = (
     "  - Always ground responses in Niblit's actual capabilities listed below.\n\n"
 ) + _NIBLIT_STRUCTURAL_CONTEXT
 
+# Lightweight system prompt for casual / conversational queries.
+# Intentionally tiny (~20 tokens) so it does not eat context budget on 0.5B models.
+# Used by QwenLocalBrain.chat() instead of the full copilot prompt.
+_SHORT_CHAT_SYSTEM_PROMPT = (
+    "You are Niblit, a helpful and friendly AI assistant. "
+    "Reply concisely and naturally."
+)
+
 # Candidate binary names / paths for the subprocess backend (searched in order).
 # CMake build (current default) takes precedence over old Makefile paths.
 # Absolute Termux paths are listed after tilde paths so they work from inside
@@ -972,7 +980,7 @@ class QwenLocalBrain:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=self.llama_server_timeout,
             )
 
             output = _clean_subprocess_output(result.stdout, full_prompt)
@@ -988,8 +996,8 @@ class QwenLocalBrain:
             return output.strip() or "[LocalBrain: empty response]"
 
         except subprocess.TimeoutExpired:
-            log.debug("[LocalBrain] subprocess timed out")
-            return "[LocalBrain subprocess: timeout after 120 s]"
+            log.debug("[LocalBrain] subprocess timed out after %d s", self.llama_server_timeout)
+            return f"[LocalBrain subprocess: timeout after {self.llama_server_timeout} s]"
         except Exception as exc:
             log.debug("[LocalBrain] subprocess generate error: %s", exc)
             return f"[LocalBrain subprocess error: {exc}]"
@@ -1005,6 +1013,16 @@ class QwenLocalBrain:
         full_prompt = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt
         sys_prompt = system_prompt or _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
         return self.generate(full_prompt, system_prompt=sys_prompt)
+
+    def chat(self, prompt: str) -> str:
+        """Lightweight chat wrapper using the short system prompt.
+
+        Intended for casual / conversational messages where the full copilot
+        system prompt (≈900 tokens) would dominate the 0.5B model's context
+        window.  Uses ``_SHORT_CHAT_SYSTEM_PROMPT`` (≈20 tokens) instead,
+        leaving far more room for the model's actual reply.
+        """
+        return self.generate(prompt.strip(), system_prompt=_SHORT_CHAT_SYSTEM_PROMPT)
 
     def memory_adapter(self, knowledge_db: Optional[Any] = None) -> Any:
         """Return (and lazily create) the QwenMemoryAdapter for this brain.
