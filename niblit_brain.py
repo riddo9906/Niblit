@@ -1468,13 +1468,40 @@ class NiblitBrain:
 
             response = None
 
+            # ── Chat history injection for local brain ──────────────────────
+            # When brain_router routes to QwenLocalBrain, it bypasses the
+            # ChatCompletions engine that normally injects LLMChatMemory turns.
+            # Load the last few conversation turns here so Qwen has continuity
+            # without sending the full (possibly large) history.
+            _chat_history_prefix = ""
+            try:
+                from modules.llm_chat_memory import get_llm_chat_memory
+                _chat_mem_br = get_llm_chat_memory()
+                _recent_msgs = _chat_mem_br.load_messages(limit=6)  # last 3 exchanges
+                if _recent_msgs:
+                    _hist_lines = []
+                    for _m in _recent_msgs:
+                        _role = _m.get("role", "")
+                        _content = _m.get("content", "")
+                        if _role and _content:
+                            _hist_lines.append(f"{_role.capitalize()}: {_content[:300]}")
+                    if _hist_lines:
+                        _chat_history_prefix = (
+                            "Recent conversation:\n"
+                            + "\n".join(_hist_lines)
+                            + "\n\n"
+                        )
+            except Exception as _ch_err:
+                log.debug("[BRAIN] Chat history injection skipped: %s", _ch_err)
+
             # ── BrainRouter: intelligent multi-brain routing ──────────────────
             # Replaces the direct LLMProviderManager call with a routed strategy
             # that picks the best intelligence source (local/memory/cloud/hybrid)
             # based on prompt complexity and the active NIBLIT_BRAIN_MODE.
-            # The context already assembled above (SECA/RAG/Graph-RAG) is passed
-            # as the memory context so the router can use it for local calls.
-            _extra_context_stripped = context.strip()
+            # The context already assembled above (SECA/RAG/Graph-RAG) plus the
+            # recent conversation history prefix are passed as memory context so
+            # the local brain has both knowledge and conversation continuity.
+            _extra_context_stripped = (_chat_history_prefix + context).strip()
             if getattr(self, "brain_router", None):
                 try:
                     _br_response = self.brain_router.route(
@@ -1487,6 +1514,17 @@ class NiblitBrain:
                         response = _br_response
                         log.debug("[BRAIN] BrainRouter response (mode=%s)",
                                   self.brain_router.mode)
+                        # Persist this exchange to LLMChatMemory so future requests
+                        # see it as part of conversation history.  ChatCompletions is
+                        # skipped when brain_router produces a result, so we persist
+                        # here to keep chat history consistent.
+                        try:
+                            from modules.llm_chat_memory import get_llm_chat_memory
+                            _cm_persist = get_llm_chat_memory()
+                            _cm_persist.add("user", user_input)
+                            _cm_persist.add("assistant", _br_response)
+                        except Exception as _cm_err:
+                            log.debug("[BRAIN] Chat memory persist skipped: %s", _cm_err)
                 except Exception as _br_err:
                     log.debug("[BRAIN] BrainRouter.route failed: %s", _br_err)
 
