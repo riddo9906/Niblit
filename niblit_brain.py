@@ -519,10 +519,11 @@ class BrainTrainer:
         # Apply total context budget: truncate at a line boundary to avoid
         # sending a partial line that could confuse the tokeniser.
         if len(result) > _CONTEXT_MAX_CHARS:
+            _JOINER_LEN = 1  # one "\n" character inserted between lines by str.join
             truncated_lines: List[str] = []
             budget = _CONTEXT_MAX_CHARS
             for line in lines:
-                needed = len(line) + 1  # +1 for the joining newline
+                needed = len(line) + _JOINER_LEN
                 if budget - needed < 0:
                     break
                 truncated_lines.append(line)
