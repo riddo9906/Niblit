@@ -1594,14 +1594,13 @@ class AutonomousLearningEngine:
 
     def _get_local_copilot(self):
         """Lazily resolve Qwen local copilot from core."""
-        if self.core:
-            lb = getattr(self.core, "local_brain", None)
-            if lb:
-                return lb
-            br = getattr(self.core, "brain_router", None)
-            if br:
-                return getattr(br, "local_brain", None)
-        return None
+        if not self.core:
+            return None
+        lb = getattr(self.core, "local_brain", None)
+        if lb:
+            return lb
+        br = getattr(self.core, "brain_router", None)
+        return getattr(br, "local_brain", None) if br else None
 
     def _qwen_code_brief(self, lang: str, topic: str, snippets: List[str]) -> str:
         """Ask local Qwen copilot for a concise coding brief from gathered research snippets.

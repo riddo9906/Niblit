@@ -78,7 +78,7 @@ def test_internal_fact_by_key():
     ("keep", "keep"),
     ("REWRITE: Use list comprehensions for clarity.", "rewrite"),
     ("REMOVE: duplicate entry", "remove"),
-    ("some random text", "keep"),   # unrecognised → keep (safe default)
+    ("some random text", "keep"),   # unrecognized → keep (safe default)
     ("", "keep"),
 ])
 def test_parse_audit_decision_action(response, expected_action):

@@ -347,7 +347,9 @@ class QwenMemoryAdapter:
                     if apply_changes:
                         self._remove_fact(kb, key)
 
-                # Note: facts_reviewed stat is updated by audit_batch() above.
+                # Note: self._stats are updated by audit_batch() above.
+                # kept_count / rewrite_count / remove_count are local-only
+                # counters used to compose the per-run text report.
 
         report_lines.append(
             f"\n📊 **Audit Summary**: "

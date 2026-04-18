@@ -235,9 +235,7 @@ def _strip_llama_startup_noise(text: str) -> str:
         s = line.strip()
         low = s.lower()
 
-        # Common Termux/proot startup noise
-        if "/system/bin/getprop: operation not permitted" in low:
-            continue
+        # Common Termux/proot startup noise (both forms of getprop error)
         if "getprop" in low and "operation not permitted" in low:
             continue
 
