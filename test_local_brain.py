@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Unit tests for modules/local_brain.py."""
 
+from types import TracebackType
+from typing import Optional, Type
+import urllib.error
+
 from modules.local_brain import (
     _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT,
+    _SHORT_CHAT_SYSTEM_PROMPT,
     QwenLocalBrain,
     _clean_subprocess_output,
 )
@@ -40,3 +45,58 @@ def test_ask_uses_default_local_copilot_system_prompt():
     assert out == "ok"
     assert captured["prompt"] == "write concise python code"
     assert captured["system_prompt"] == _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
+
+
+def test_chat_uses_short_system_prompt():
+    """chat() must use _SHORT_CHAT_SYSTEM_PROMPT, not the full copilot prompt."""
+    brain = QwenLocalBrain(gguf_backend="subprocess")
+    captured = {}
+
+    def _fake_generate(prompt, max_new_tokens=None, system_prompt=None):  # noqa: ARG001
+        captured["prompt"] = prompt
+        captured["system_prompt"] = system_prompt
+        return "hi there"
+
+    brain.generate = _fake_generate  # type: ignore[method-assign]
+
+    out = brain.chat("hey")
+    assert out == "hi there"
+    assert captured["system_prompt"] == _SHORT_CHAT_SYSTEM_PROMPT
+    # Must NOT inject the heavy structural context
+    assert captured["system_prompt"] != _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
+    assert len(captured["system_prompt"]) < len(_DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT)
+
+
+def test_check_server_url_falls_back_when_health_missing(monkeypatch):
+    brain = QwenLocalBrain(gguf_backend="auto")
+    called = []
+
+    class _FakeResponse:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(
+            self,
+            exc_type: Optional[Type[BaseException]],
+            exc: Optional[BaseException],
+            tb: Optional[TracebackType],
+        ) -> bool:
+            return False
+
+    def _fake_urlopen(request, timeout=5):  # noqa: ARG001
+        url = request.full_url
+        called.append(url)
+        if url.endswith("/health"):
+            raise urllib.error.HTTPError(url, 404, "Not Found", hdrs=None, fp=None)
+        if url.endswith("/v1/models"):
+            return _FakeResponse()
+        raise AssertionError(f"Unexpected probe URL: {url}")
+
+    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
+    assert brain._check_server_url("http://127.0.0.1:8080") is True
+    assert called == [
+        "http://127.0.0.1:8080/health",
+        "http://127.0.0.1:8080/v1/models",
+    ]

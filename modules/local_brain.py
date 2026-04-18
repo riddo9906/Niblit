@@ -193,6 +193,14 @@ _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT = (
     "  - Always ground responses in Niblit's actual capabilities listed below.\n\n"
 ) + _NIBLIT_STRUCTURAL_CONTEXT
 
+# Lightweight system prompt for casual / conversational queries.
+# Intentionally tiny (~20 tokens) so it does not eat context budget on 0.5B models.
+# Used by QwenLocalBrain.chat() instead of the full copilot prompt.
+_SHORT_CHAT_SYSTEM_PROMPT = (
+    "You are Niblit, a helpful and friendly AI assistant. "
+    "Reply concisely and naturally."
+)
+
 # Candidate binary names / paths for the subprocess backend (searched in order).
 # CMake build (current default) takes precedence over old Makefile paths.
 # Absolute Termux paths are listed after tilde paths so they work from inside
@@ -622,14 +630,30 @@ class QwenLocalBrain:
         )
 
     def _check_server_url(self, url: str) -> bool:
-        """Return True if a llama-server health endpoint responds at *url*."""
-        health_url = url + "/health"
-        try:
-            req = urllib.request.Request(health_url, method="GET")
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                return resp.status == 200
-        except Exception:
-            return False
+        """Return True if a llama-server endpoint responds at *url*."""
+        probe_urls = (
+            url + "/health",     # newer llama-server builds
+            url + "/v1/models",  # OpenAI-compatible endpoint
+            url + "/props",      # older llama-server builds
+        )
+        for probe_url in probe_urls:
+            try:
+                req = urllib.request.Request(probe_url, method="GET")
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    if 200 <= resp.status < 400:
+                        return True
+            except urllib.error.HTTPError as exc:
+                # These probe-safe codes mean "this endpoint variant is not
+                # usable here" but do not prove the server is down:
+                # 404=missing route, 405=method mismatch, 501=not implemented.
+                # 400/401/403 still prove a live HTTP server is responding, but
+                # this probe URL/method/payload is rejected on that build.
+                if exc.code in {400, 401, 403, 404, 405, 501}:
+                    continue
+                return False
+            except Exception:
+                continue
+        return False
 
     def _load_http_backend(self) -> bool:
         """Check that llama-server is reachable at NIBLIT_LLAMA_SERVER_URL."""
@@ -690,7 +714,7 @@ class QwenLocalBrain:
             "messages": messages,
             "max_tokens": max_new_tokens,
             "temperature": 0.7,
-            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop_tokens", [])),
+            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop", [])),
         }
 
         body = json.dumps(payload).encode("utf-8")
@@ -735,7 +759,7 @@ class QwenLocalBrain:
             "prompt": full_prompt,
             "n_predict": max_new_tokens,
             "temperature": 0.7,
-            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop_tokens", [])),
+            "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop", [])),
         }
         body = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
@@ -956,7 +980,7 @@ class QwenLocalBrain:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=self.llama_server_timeout,
             )
 
             output = _clean_subprocess_output(result.stdout, full_prompt)
@@ -972,8 +996,8 @@ class QwenLocalBrain:
             return output.strip() or "[LocalBrain: empty response]"
 
         except subprocess.TimeoutExpired:
-            log.debug("[LocalBrain] subprocess timed out")
-            return "[LocalBrain subprocess: timeout after 120 s]"
+            log.debug("[LocalBrain] subprocess timed out after %d s", self.llama_server_timeout)
+            return f"[LocalBrain subprocess: timeout after {self.llama_server_timeout} s]"
         except Exception as exc:
             log.debug("[LocalBrain] subprocess generate error: %s", exc)
             return f"[LocalBrain subprocess error: {exc}]"
@@ -989,6 +1013,16 @@ class QwenLocalBrain:
         full_prompt = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt
         sys_prompt = system_prompt or _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
         return self.generate(full_prompt, system_prompt=sys_prompt)
+
+    def chat(self, prompt: str) -> str:
+        """Lightweight chat wrapper using the short system prompt.
+
+        Intended for casual / conversational messages where the full copilot
+        system prompt (≈900 tokens) would dominate the 0.5B model's context
+        window.  Uses ``_SHORT_CHAT_SYSTEM_PROMPT`` (≈20 tokens) instead,
+        leaving far more room for the model's actual reply.
+        """
+        return self.generate(prompt.strip(), system_prompt=_SHORT_CHAT_SYSTEM_PROMPT)
 
     def memory_adapter(self, knowledge_db: Optional[Any] = None) -> Any:
         """Return (and lazily create) the QwenMemoryAdapter for this brain.

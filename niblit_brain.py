@@ -20,6 +20,7 @@ Enhancements:
 
 __all__ = ["NiblitBrain", "BrainTrainer", "hf_query"]
 
+import re
 import sys
 import os
 import contextlib
@@ -35,6 +36,74 @@ if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
 
 log = logging.getLogger("NiblitBrain")
+
+# ── KB text safety ────────────────────────────────────────────────────────────
+
+# Maximum character length of a single KB text snippet injected into a prompt.
+# Keeps individual facts well within the context window of small (0.5B) models.
+_KB_TEXT_MAX_CHARS = int(os.environ.get("NIBLIT_KB_TEXT_MAX_CHARS", "512"))
+
+# Maximum total characters of KB context prepended to each think() prompt.
+# 1500 chars ≈ 375 tokens; leaves room for the system prompt + user message
+# + response in a 2048-token context window.
+_CONTEXT_MAX_CHARS = int(os.environ.get("NIBLIT_BRAIN_CONTEXT_MAX_CHARS", "1500"))
+
+# Control characters that corrupt GGUF tokenisers when injected into prompts.
+# We keep \t (0x09) and \n (0x0a) which are meaningful for formatting.
+_CONTROL_CHARS_RE = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x80-\x9f]"
+)
+
+
+def _sanitize_text(text: str, max_chars: int = _KB_TEXT_MAX_CHARS) -> str:
+    """Strip control characters and truncate *text* to *max_chars*.
+
+    Removes characters in the ranges 0x00–0x08, 0x0B–0x0C, 0x0E–0x1F, 0x7F,
+    and 0x80–0x9F (C1 controls).  Horizontal tab (0x09) and newline (0x0A)
+    are preserved as they carry formatting value.
+
+    This prevents tokeniser collapse on small GGUF models when KB facts
+    contain backspace characters (``\\x7f``) or other binary noise.
+    """
+    cleaned = _CONTROL_CHARS_RE.sub("", text or "")
+    if len(cleaned) > max_chars:
+        cleaned = cleaned[:max_chars]
+    return cleaned
+
+
+# ── Casual-input detection ────────────────────────────────────────────────────
+
+# Keywords that make a message non-casual even if it is short.
+_NON_CASUAL_KEYWORDS = frozenset({
+    "run", "fix", "recall", "learn", "search", "code", "status",
+    "help", "teach", "research", "define", "explain", "calculate",
+    "what", "why", "when", "where", "which", "how",
+    "generate", "write", "build", "create", "find", "show",
+    "autonomous", "brain", "memory", "toggle", "knowledge",
+})
+
+
+def _is_casual_input(text: str) -> bool:
+    """Return True when *text* looks like a casual greeting or short chat opener.
+
+    A message is casual when:
+    - It contains ≤ 6 words, AND
+    - It contains no question mark (``?``), AND
+    - None of its words are command / question keywords.
+
+    Casual messages skip the full KB/RAG/SECA pipeline in ``think()`` and are
+    answered directly by the local brain's lightweight chat prompt — avoiding
+    ~900-token system-prompt overhead for simple greetings.
+    """
+    stripped = text.strip()
+    if "?" in stripped:
+        return False
+    words = stripped.lower().split()
+    if len(words) > 6:
+        return False
+    if any(w in _NON_CASUAL_KEYWORDS for w in words):
+        return False
+    return True
 
 # ───────── Improvement Imports ─────────
 # pylint: disable=invalid-name
@@ -301,9 +370,11 @@ class BrainTrainer:
 
     def ingest_research(self, topic: str, text: str):
         """Ingest a research snippet from autonomous_learning into training data."""
+        # Sanitize: strip control chars and cap length so KB noise never
+        # corrupts GGUF tokeniser input downstream.
         fact = {
-            "topic": str(topic)[:120],
-            "text": str(text)[:600],
+            "topic": _sanitize_text(str(topic), max_chars=120),
+            "text": _sanitize_text(str(text), max_chars=_KB_TEXT_MAX_CHARS),
             "ts": datetime.datetime.utcnow().isoformat(),
         }
         with self._lock:
@@ -378,7 +449,8 @@ class BrainTrainer:
                 return []
             lines = ["[Cognitive knowledge]"]
             for domain, entry in matches:
-                lines.append(f"- {domain}: {entry.get('data', '')[:200]}")
+                data = _sanitize_text(entry.get("data", ""), max_chars=200)
+                lines.append(f"- {domain}: {data}")
             lines.append("")
             return lines
         except Exception:
@@ -399,7 +471,9 @@ class BrainTrainer:
                 return []
             lines = ["[Learned knowledge]"]
             for f in relevant:
-                lines.append(f"- {f.get('topic','')}: {f.get('text','')[:200]}")
+                topic = _sanitize_text(f.get("topic", ""), max_chars=80)
+                text = _sanitize_text(f.get("text", ""), max_chars=200)
+                lines.append(f"- {topic}: {text}")
             lines.append("")
             return lines
         except Exception:
@@ -414,8 +488,10 @@ class BrainTrainer:
                 return []
             lines = ["[Recent conversations]"]
             for p in recent:
-                lines.append(f"User: {p.get('prompt','')}")
-                lines.append(f"Assistant: {p.get('response','')}")
+                prompt = _sanitize_text(p.get("prompt", ""), max_chars=200)
+                response = _sanitize_text(p.get("response", ""), max_chars=200)
+                lines.append(f"User: {prompt}")
+                lines.append(f"Assistant: {response}")
             lines.append("")
             return lines
         except Exception:
@@ -427,13 +503,33 @@ class BrainTrainer:
 
         Includes relevant knowledge facts, cognitive domain data, and recent
         conversation exchanges.  Returns an empty string when no data matches.
+
+        The total output is capped at ``_CONTEXT_MAX_CHARS`` characters so that
+        small GGUF models (0.5B) are never given more context than their context
+        window can accommodate alongside the system prompt and user message.
         """
         q_lower = query.lower()
         lines: List[str] = []
         lines.extend(self._get_cognitive_context_lines(q_lower))
         lines.extend(self._get_facts_context_lines(q_lower))
         lines.extend(self._get_pairs_context_lines())
-        return "\n".join(lines) if lines else ""
+        if not lines:
+            return ""
+        result = "\n".join(lines)
+        # Apply total context budget: truncate at a line boundary to avoid
+        # sending a partial line that could confuse the tokeniser.
+        if len(result) > _CONTEXT_MAX_CHARS:
+            _JOINER_LEN = 1  # one "\n" character inserted between lines by str.join
+            truncated_lines: List[str] = []
+            budget = _CONTEXT_MAX_CHARS
+            for line in lines:
+                needed = len(line) + _JOINER_LEN
+                if budget - needed < 0:
+                    break
+                truncated_lines.append(line)
+                budget -= needed
+            result = "\n".join(truncated_lines)
+        return result
 
     def get_llm_data_summary(self) -> dict:
         """Return a summary of the accumulated LLM training data."""
@@ -1183,6 +1279,42 @@ class NiblitBrain:
                             return cached
                 except Exception as e:
                     log.debug(f"Cache lookup failed: {e}")
+
+            # ── Casual shortcut: skip KB/RAG/SECA for short chat openers ─────────
+            # Short messages with no question mark and no command keywords
+            # (e.g. "hi", "hello there", "hey") are answered directly by the
+            # local brain using the minimal chat system prompt.  This avoids
+            # injecting ~900 tokens of copilot system prompt + KB context for
+            # a simple greeting, which would overflow a 0.5B model's context.
+            if _is_casual_input(user_input):
+                log.debug("[BRAIN] Casual input detected — skipping KB pipeline")
+                # Prefer local brain with the compact chat prompt
+                _casual_lb = getattr(self, "local_brain", None)
+                if _casual_lb is None and getattr(self, "brain_router", None):
+                    _casual_lb = getattr(self.brain_router, "local_brain", None)
+                if _casual_lb is not None and _casual_lb.is_available():
+                    try:
+                        _casual_resp = _casual_lb.chat(user_input)
+                        if _casual_resp and not _casual_resp.startswith("[LocalBrain"):
+                            _exit_stack.close()
+                            return _casual_resp
+                    except Exception as _casual_err:
+                        log.debug("[BRAIN] Casual local brain failed: %s", _casual_err)
+                # Fallback: personality / static chat response (no LLM needed)
+                try:
+                    from modules.niblit_personality import NiblitPersonality
+                    _cp = NiblitPersonality(brain=self)
+                    _st_cat = _cp.classify_small_talk(user_input)
+                    if _st_cat:
+                        _st_resp = _cp.respond_to_small_talk(_st_cat)
+                        if _st_resp:
+                            _exit_stack.close()
+                            return _st_resp
+                except Exception:
+                    pass
+                # Last resort: continue through normal path
+                log.debug("[BRAIN] Casual shortcut: no fast-path available, continuing")
+            # ─────────────────────────────────────────────────────────────────────
 
             self.learn(user_input)
             context = ""
