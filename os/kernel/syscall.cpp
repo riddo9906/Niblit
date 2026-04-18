@@ -135,8 +135,13 @@ static uint32_t sys_exec(const char* path, const char* name) {
 // should use SYS_NIBLIT_SPAWN_REASONER (205) instead.
 static uint32_t sys_fork() {
     Process::Task* t = Process::current();
-    Serial::log("[SYSCALL] fork() from '");
-    if (t) { Serial::writeln(Serial::COM1, t->name); }
+    if (t) {
+        Serial::log("[SYSCALL] fork() from '");
+        Serial::log(t->name);
+        Serial::logln("' (stub)");
+    } else {
+        Serial::logln("[SYSCALL] fork() (no current task, stub)");
+    }
     // Return 0 so caller treats itself as the child (stub behaviour).
     return 0;
 }
