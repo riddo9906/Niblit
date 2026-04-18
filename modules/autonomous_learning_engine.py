@@ -1604,7 +1604,23 @@ class AutonomousLearningEngine:
         return None
 
     def _qwen_code_brief(self, lang: str, topic: str, snippets: List[str]) -> str:
-        """Ask local Qwen copilot for a concise coding brief from gathered snippets."""
+        """Ask local Qwen copilot for a concise coding brief from gathered research snippets.
+
+        Parameters
+        ----------
+        lang:
+            Programming language being researched (e.g. "python", "rust").
+        topic:
+            The code topic being researched (e.g. "async patterns").
+        snippets:
+            Raw research snippets gathered by the code-research pipeline.
+            At most the first 3 snippets are used to keep the prompt short.
+
+        Returns
+        -------
+        A concise bullet-point coding brief (up to _QWEN_BRIEF_MAX_CHARS chars),
+        or an empty string if the copilot is unavailable or fails.
+        """
         copilot = self._get_local_copilot()
         if not copilot:
             return ""
@@ -1626,7 +1642,28 @@ class AutonomousLearningEngine:
             return ""
 
     def _qwen_fix_syntax(self, lang: str, code: str, syntax_err: str, code_compiler) -> Tuple[str, bool, str]:
-        """Use local Qwen copilot as a fallback syntax fixer."""
+        """Use local Qwen copilot as a fallback syntax fixer after built-in CodeErrorFixer fails.
+
+        Parameters
+        ----------
+        lang:
+            Programming language of the code (e.g. "python", "javascript").
+        code:
+            The source code that failed syntax validation.
+        syntax_err:
+            The error message reported by the code compiler's syntax_test().
+        code_compiler:
+            A code-compiler object with an optional ``syntax_test(lang, code)``
+            method returning ``{"valid": bool, "error": str|None}``.  If the
+            method is absent, the Qwen-produced candidate is accepted as-is.
+
+        Returns
+        -------
+        Tuple of ``(fixed_code, success, message)``:
+          * ``fixed_code`` — the corrected code (or the original if unsuccessful)
+          * ``success``    — True when the fixed code passes syntax validation
+          * ``message``    — short explanation of the outcome
+        """
         copilot = self._get_local_copilot()
         if not copilot:
             return code, False, "Qwen local copilot unavailable"

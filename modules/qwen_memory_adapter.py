@@ -242,16 +242,34 @@ class QwenMemoryAdapter:
     # ── Batch audit ───────────────────────────────────────────────────────────
 
     def audit_batch(self, facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Review a batch of facts and return a list of audit decisions."""
+        """Review a batch of facts and return a list of audit decisions.
+
+        Parameters
+        ----------
+        facts:
+            List of KnowledgeDB fact dicts (each with 'key', 'value', 'tags').
+
+        Returns
+        -------
+        List of decision dicts, each containing:
+            ``action``        — "keep" | "rewrite" | "remove"
+            ``new_value``     — replacement text (when action == "rewrite")
+            ``reason``        — short explanation
+            ``original_fact`` — the input fact dict
+        """
         results = []
         for fact in facts:
             decision = self.review_fact(fact)
             decision["original_fact"] = fact
             results.append(decision)
             self._stats["facts_reviewed"] += 1
-            self._stats[f"facts_{decision['action']}d"] = (
-                self._stats.get(f"facts_{decision['action']}d", 0) + 1
-            )
+            action = decision["action"]
+            if action == "keep":
+                self._stats["facts_kept"] += 1
+            elif action == "rewrite":
+                self._stats["facts_rewritten"] += 1
+            elif action == "remove":
+                self._stats["facts_removed"] += 1
         return results
 
     # ── Full KB audit (read-only report mode) ─────────────────────────────────
@@ -329,7 +347,7 @@ class QwenMemoryAdapter:
                     if apply_changes:
                         self._remove_fact(kb, key)
 
-                self._stats["facts_reviewed"] += 1
+                # Note: facts_reviewed stat is updated by audit_batch() above.
 
         report_lines.append(
             f"\n📊 **Audit Summary**: "

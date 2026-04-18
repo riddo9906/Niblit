@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tests/test_qwen_memory_adapter.py — Unit tests for QwenMemoryAdapter."""
+"""test_qwen_memory_adapter.py — Unit tests for QwenMemoryAdapter."""
 import json
 import time
 import pytest
