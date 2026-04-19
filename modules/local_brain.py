@@ -224,6 +224,36 @@ _LLAMA_BINARY_CANDIDATES = [
     "/data/data/com.termux/files/home/llama.cpp/main",
 ]
 
+_LLAMA_CLI_FLAG_SUPPORT_CACHE: Dict[str, set[str]] = {}
+
+
+def _llama_cli_supported_flags(binary: Optional[Path]) -> set[str]:
+    """Return cached set of supported llama-cli flags for *binary*."""
+    if binary is None:
+        return set()
+    key = str(binary)
+    cached = _LLAMA_CLI_FLAG_SUPPORT_CACHE.get(key)
+    if cached is not None:
+        return cached
+    try:
+        probe = subprocess.run(
+            [key, "--help"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            stdin=subprocess.DEVNULL,
+        )
+        help_text = f"{probe.stdout}\n{probe.stderr}"
+    except Exception:
+        _LLAMA_CLI_FLAG_SUPPORT_CACHE[key] = set()
+        return set()
+    supported = {
+        flag for flag in ("--simple-io", "--no-display-prompt", "--silent-prompt")
+        if flag in help_text
+    }
+    _LLAMA_CLI_FLAG_SUPPORT_CACHE[key] = supported
+    return supported
+
 
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences from *text*."""
@@ -976,6 +1006,10 @@ class QwenLocalBrain:
                 "-c", str(self.gguf_n_ctx),
                 "--log-disable",   # suppress verbose log (llama.cpp >= b1.x)
             ]
+            supported_flags = _llama_cli_supported_flags(binary)
+            for flag in ("--simple-io", "--no-display-prompt", "--silent-prompt"):
+                if flag in supported_flags:
+                    cmd.append(flag)
             if self.gguf_n_threads is not None:
                 cmd += ["-t", str(self.gguf_n_threads)]
 
@@ -984,6 +1018,7 @@ class QwenLocalBrain:
                 capture_output=True,
                 text=True,
                 timeout=self.llama_server_timeout,
+                stdin=subprocess.DEVNULL,
             )
 
             output = _clean_subprocess_output(result.stdout, full_prompt)
