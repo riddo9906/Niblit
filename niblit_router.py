@@ -3820,7 +3820,10 @@ Ask me about:
             orig_sub = ""
 
         try:
-            from modules.local_brain import NIBLIT_ALL_TOOLS, NIBLIT_KB_TOOLS, _TOOL_CALL_SYSTEM_PROMPT
+            from modules.local_brain import (
+                NIBLIT_ALL_TOOLS, NIBLIT_KB_TOOLS, NIBLIT_SLIM_TOOLS,
+                _TOOL_CALL_SYSTEM_PROMPT, _SLIM_SYSTEM_PROMPT,
+            )
             from modules.niblit_tool_executor import NiblitToolExecutor
         except Exception as exc:
             return f"⚠️  Tool suite unavailable: {exc}"
@@ -3868,17 +3871,22 @@ Ask me about:
             has_tool_calling = backend == "http"
             return (
                 f"🔧 Tool Suite Status\n"
-                f"  Total tools    : {len(NIBLIT_ALL_TOOLS)}\n"
-                f"  KB tools only  : {len(NIBLIT_KB_TOOLS)}\n"
-                f"  Local backend  : {backend}\n"
-                f"  Tool calling   : {'✅ available (HTTP)' if has_tool_calling else '⚠️  HTTP backend required'}\n"
-                f"  Executor       : NiblitToolExecutor ({'core wired' if self.core else 'no core'})\n"
-                "  Tip: 'tools run niblit_status' to test without generate_with_tools"
+                f"  Slim tools (1B)  : {len(NIBLIT_SLIM_TOOLS)} (niblit_structural_info + niblit_run_command)\n"
+                f"  Full tools (8B+) : {len(NIBLIT_ALL_TOOLS)}\n"
+                f"  KB tools         : {len(NIBLIT_KB_TOOLS)}\n"
+                f"  Local backend    : {backend}\n"
+                f"  Tool calling     : {'✅ available (HTTP)' if has_tool_calling else '⚠️  HTTP backend required'}\n"
+                f"  Executor         : NiblitToolExecutor ({'core wired' if self.core else 'no core'})\n"
+                "  Use: NIBLIT_SLIM_TOOLS for Llama 1B, NIBLIT_ALL_TOOLS for 8B+\n"
+                "  Tip: 'tools run niblit_structural_info' to test slim mapping"
             )
 
         # ── prompt ────────────────────────────────────────────────────────────
         if sub == "prompt":
             return f"Tool-calling system prompt ({len(_TOOL_CALL_SYSTEM_PROMPT)} chars):\n\n{_TOOL_CALL_SYSTEM_PROMPT}"
+
+        if sub == "slim-prompt":
+            return f"Slim system prompt for Llama 1B ({len(_SLIM_SYSTEM_PROMPT)} chars):\n\n{_SLIM_SYSTEM_PROMPT}"
 
         # ── run <tool_name> [JSON] ─────────────────────────────────────────────
         if sub.startswith("run "):
@@ -3896,6 +3904,15 @@ Ask me about:
                 knowledge_db=getattr(self.core, "knowledge_db", None) if self.core else None,
                 local_brain=getattr(self.core, "local_brain", None) if self.core else None,
             )
+            # Route slim tools through execute_slim_tool_calls for correctness
+            slim_names = {t["function"]["name"] for t in NIBLIT_SLIM_TOOLS}
+            if tool_name in slim_names:
+                fake_calls = [{"function": {"name": tool_name, "arguments": _json.dumps(tool_args)}}]
+                slim_results = executor.execute_slim_tool_calls(fake_calls)
+                entry = slim_results[0] if slim_results else {}
+                if "error" in entry:
+                    return f"❌ {tool_name}: {entry['error']}"
+                return f"✅ {tool_name}:\n{_json.dumps(entry.get('result', {}), indent=2, ensure_ascii=False)[:800]}"
             try:
                 result = executor._dispatch(tool_name, tool_args)
                 return f"✅ {tool_name}:\n{_json.dumps(result, indent=2, ensure_ascii=False)[:800]}"
@@ -3904,11 +3921,12 @@ Ask me about:
 
         return (
             "Unknown tools sub-command. Try:\n"
-            "  tools list            — all available tools\n"
-            "  tools status          — tool suite health\n"
-            "  tools prompt          — view tool-calling system prompt\n"
-            "  tools run <name>      — invoke tool (no args)\n"
-            '  tools run <name> {...} — invoke tool with JSON args'
+            "  tools list              — all available tools\n"
+            "  tools status            — tool suite health + slim vs full mode\n"
+            "  tools prompt            — full system prompt (8B+)\n"
+            "  tools slim-prompt       — slim system prompt (Llama 1B)\n"
+            "  tools run <name>        — invoke tool (no args)\n"
+            '  tools run <name> {...}  — invoke tool with JSON args'
         )
 
     def _handle_knowledge(self, cmd: str) -> str:

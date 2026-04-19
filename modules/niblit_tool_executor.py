@@ -8,7 +8,20 @@ The executor routes most tools through ``core.process(command)`` (the same path
 used by the interactive shell), ensuring that all existing router/core logic is
 reused without duplication.
 
-Usage::
+**Slim 2-tool API (Llama 3.2 1B, 2048-token context)**::
+
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    from modules.local_brain import NIBLIT_SLIM_TOOLS, _SLIM_SYSTEM_PROMPT
+
+    executor = NiblitToolExecutor(core=core_instance)
+    text, tool_calls = lb.generate_with_tools(
+        prompt,
+        system_prompt=_SLIM_SYSTEM_PROMPT,
+        tools=NIBLIT_SLIM_TOOLS,
+    )
+    results = executor.execute_slim_tool_calls(tool_calls)
+
+**Full 21-tool API (Llama-3.1-8B or larger)**::
 
     from modules.niblit_tool_executor import NiblitToolExecutor
     from modules.local_brain import NIBLIT_ALL_TOOLS, _TOOL_CALL_SYSTEM_PROMPT
@@ -25,6 +38,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any, Callable, Dict, List, Optional
 
 from modules.kb_tool_executor import KBToolExecutor
@@ -32,7 +46,13 @@ from modules.kb_tool_executor import KBToolExecutor
 log = logging.getLogger("Niblit.NiblitToolExecutor")
 
 # Maximum characters to return from niblit_exec output (prevent context overflow).
-_EXEC_MAX_CHARS = int(__import__("os").environ.get("NIBLIT_TOOL_EXEC_MAX_CHARS", "800"))
+_EXEC_MAX_CHARS = int(os.environ.get("NIBLIT_TOOL_EXEC_MAX_CHARS", "800"))
+
+# Maximum tool calls allowed per turn for slim-mode (prevents infinite loops).
+_MAX_TOOL_CALLS_PER_TURN = int(os.environ.get("NIBLIT_MAX_TOOL_CALLS", "5"))
+
+# Commands the slim executor will refuse unless confirm_mode is True.
+_DESTRUCTIVE_COMMANDS = frozenset({"shutdown", "exit", "quit"})
 
 
 class NiblitToolExecutor(KBToolExecutor):
@@ -65,9 +85,12 @@ class NiblitToolExecutor(KBToolExecutor):
         core: Optional[Any] = None,
         knowledge_db: Optional[Any] = None,
         local_brain: Optional[Any] = None,
+        confirm_mode: bool = False,
     ) -> None:
         super().__init__(knowledge_db=knowledge_db, local_brain=local_brain)
         self._core = core
+        # When True, destructive commands (shutdown/exit/quit) are permitted.
+        self.confirm_mode = confirm_mode
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -388,3 +411,248 @@ class NiblitToolExecutor(KBToolExecutor):
         arg_str = " ".join(str(v) for v in args.values())
         fallback_cmd = f"{name.replace('_', '-')} {arg_str}".strip()
         return self.niblit_exec(command=fallback_cmd)
+
+    # ── Slim tool implementations (Llama 3.2 1B) ─────────────────────────────
+
+    def get_structural_info(self, section: str = "all") -> Dict[str, Any]:
+        """Build a compact structural snapshot for the ``niblit_structural_info`` tool.
+
+        Returns only the requested *section* to keep token count under 400.
+
+        Sections
+        --------
+        all      Full snapshot (commands + modules + state).
+        commands COMMAND_PREFIXES list only.
+        memory   KB + FusedMemory stats.
+        brain    LLM stack + routing mode.
+        ale      ALE step/status.
+        kernel   Cognitive Graph Kernel info.
+        """
+        section = (section or "all").strip().lower()
+
+        # ── Live state helpers ─────────────────────────────────────────────────
+        def _kb_health() -> str:
+            try:
+                db = self._get_db()
+                facts = db.list_facts(limit=5000)
+                total = len(facts)
+                empty = sum(1 for f in facts if not str(f.get("value", "")).strip())
+                pct = round(100 * (1 - empty / max(total, 1)), 1)
+                return f"{pct}% ({total} facts, {empty} empty)"
+            except Exception:
+                return "unavailable"
+
+        def _ale_info() -> Dict[str, Any]:
+            core = self._get_core()
+            ae = getattr(core, "autonomous_engine", None) if core else None
+            if ae is None:
+                return {"running": False, "step": "unknown"}
+            return {
+                "running": getattr(ae, "_running", False),
+                "step": str(getattr(ae, "_current_step", "?")),
+            }
+
+        def _brain_info() -> Dict[str, Any]:
+            core = self._get_core()
+            lb = getattr(core, "local_brain", None) if core else None
+            backend = getattr(lb, "_backend_in_use", "none") if lb else "not loaded"
+            model = getattr(lb, "model_name", "?") if lb else "?"
+            try:
+                from modules.brain_router import get_brain_router
+                mode = get_brain_router().mode
+            except Exception:
+                mode = "unknown"
+            return {"mode": mode, "local_backend": backend, "local_model": model}
+
+        # ── Commands snapshot ──────────────────────────────────────────────────
+        def _commands_snapshot() -> List[str]:
+            try:
+                from niblit_router import NiblitRouter
+                prefixes = getattr(NiblitRouter, "COMMAND_PREFIXES", None)
+                if prefixes:
+                    return list(prefixes)
+            except Exception:
+                pass
+            # Fallback: read the constant from the router instance
+            router = self._get_router()
+            prefixes = getattr(router, "COMMAND_PREFIXES", None)
+            if prefixes:
+                return list(prefixes)
+            return ["status", "help", "brain", "qwen", "ale", "heal", "tools", "..."]
+
+        # ── Build section ─────────────────────────────────────────────────────
+        if section == "commands":
+            cmds = _commands_snapshot()
+            return {
+                "section": "commands",
+                "commands": cmds,
+                "tip": "Use niblit_run_command with any of these prefixes.",
+            }
+
+        if section == "memory":
+            kb_health = _kb_health()
+            return {
+                "section": "memory",
+                "layers": {
+                    "LocalDB": "niblit.db — JSON facts/interactions/learning_log",
+                    "KnowledgeDB": "niblit_memory.json — facts + queue + acquired_data",
+                    "FusedMemory": "SQLite events + Qdrant vector search",
+                    "NiblitMemory": "top-level hub with circuit-breaker + caching",
+                },
+                "kb_health": kb_health,
+            }
+
+        if section == "brain":
+            return {"section": "brain", **_brain_info()}
+
+        if section == "ale":
+            ale = _ale_info()
+            return {
+                "section": "ale",
+                "ale_running": ale["running"],
+                "current_step": ale["step"],
+                "description": "29-step cycle: research→learn→reflect→ideate→implement→heal",
+                "tip": "niblit_run_command('autonomous-learn start') to resume",
+            }
+
+        if section == "kernel":
+            out = self._exec("kernel status")
+            return {"section": "kernel", "kernel_status": out[:400]}
+
+        # ── Full snapshot (section == "all" or unknown) ────────────────────────
+        return {
+            "section": "all",
+            "modules": {
+                "core":        "niblit_core.py — orchestrator, owns db/brain/router/ae",
+                "brain":       "niblit_brain.py — HFBrain + RAG + BrainRouter",
+                "router":      "niblit_router.py — routes COMMAND_PREFIXES to handlers",
+                "memory":      "LocalDB, KnowledgeDB, FusedMemory, NiblitMemory",
+                "ale":         "29-step cycle: research→learn→reflect→ideate→implement→heal",
+                "self_healer": "modules/self_healer.py — prunes corrupt KB entries",
+                "kernel":      "Cognitive Graph Kernel v1.0 — event bus",
+                "qwen":        "QwenLocalBrain — local GGUF; backends: http|subprocess|python",
+            },
+            "state": {
+                "kb_health":    _kb_health(),
+                "ale":          _ale_info(),
+                "brain":        _brain_info(),
+            },
+            "commands_tip": "Call niblit_structural_info(section='commands') for full list.",
+        }
+
+    def execute_niblit_run_command(
+        self, command: str, reason: str
+    ) -> Dict[str, Any]:
+        """Execute *command* through the router with safety guards.
+
+        Parameters
+        ----------
+        command:
+            Full command string as typed in the shell.
+        reason:
+            Why the local brain is running this command (audit log).
+
+        Returns
+        -------
+        dict with ``output`` key (truncated to 600 chars) or ``error`` key.
+        """
+        if not command or not command.strip():
+            return {"error": "command must be a non-empty string"}
+
+        cmd_lower = command.strip().lower().split()[0]
+
+        # Block destructive commands unless confirm_mode is set
+        if cmd_lower in _DESTRUCTIVE_COMMANDS and not self.confirm_mode:
+            log.warning(
+                "[NiblitToolExecutor] Destructive command blocked: %r | reason: %s",
+                command, reason,
+            )
+            return {
+                "error": (
+                    f"Destructive command {cmd_lower!r} blocked. "
+                    "Ask the user to confirm before running shutdown/exit/quit commands."
+                )
+            }
+
+        log.info(
+            "[NiblitToolExecutor] niblit_run_command: %r | reason: %s",
+            command, reason,
+        )
+        output = self._exec(command.strip())
+        return {"command": command, "reason": reason, "output": output[:600]}
+
+    def execute_slim_tool_calls(
+        self,
+        tool_calls: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Execute ``NIBLIT_SLIM_TOOLS`` calls with a per-turn call-count guard.
+
+        Handles exactly two tool names:
+        - ``niblit_structural_info`` → :meth:`get_structural_info`
+        - ``niblit_run_command``      → :meth:`execute_niblit_run_command`
+
+        Unknown tool names are forwarded to :meth:`_exec` as plain commands.
+
+        The method enforces ``NIBLIT_MAX_TOOL_CALLS`` (default 5) per call to
+        prevent infinite loops.  When the limit is reached, remaining calls are
+        appended as ``{"tool": name, "error": "max_tool_calls limit reached"}``.
+
+        Parameters
+        ----------
+        tool_calls:
+            Normalised tool call list from :meth:`QwenLocalBrain.generate_with_tools`.
+
+        Returns
+        -------
+        List of result dicts, one per call, in the same order.
+        """
+        results: List[Dict[str, Any]] = []
+        calls_made = 0
+
+        for call in tool_calls:
+            fn = call.get("function", {})
+            name: str = fn.get("name", "")
+            args_str: str = fn.get("arguments", "{}")
+
+            if calls_made >= _MAX_TOOL_CALLS_PER_TURN:
+                log.warning(
+                    "[NiblitToolExecutor] max_tool_calls=%d reached, skipping %r",
+                    _MAX_TOOL_CALLS_PER_TURN, name,
+                )
+                results.append({
+                    "tool": name,
+                    "error": (
+                        f"max_tool_calls limit ({_MAX_TOOL_CALLS_PER_TURN}) reached. "
+                        "Stop and report results to the user."
+                    ),
+                })
+                continue
+
+            try:
+                args: Dict[str, Any] = json.loads(args_str) if args_str else {}
+            except json.JSONDecodeError as exc:
+                results.append({"tool": name, "error": f"invalid arguments JSON: {exc}"})
+                continue
+
+            try:
+                if name == "niblit_structural_info":
+                    result = self.get_structural_info(section=args.get("section", "all"))
+                elif name == "niblit_run_command":
+                    result = self.execute_niblit_run_command(
+                        command=args.get("command", ""),
+                        reason=args.get("reason", ""),
+                    )
+                else:
+                    log.debug(
+                        "[NiblitToolExecutor] Slim: unknown tool %r — proxying via _exec",
+                        name,
+                    )
+                    result = {"output": self._exec(name.replace("_", "-"))[:600]}
+                results.append({"tool": name, "result": result})
+                calls_made += 1
+            except Exception as exc:
+                log.debug("[NiblitToolExecutor] slim %s error: %s", name, exc)
+                results.append({"tool": name, "error": str(exc)})
+                calls_made += 1
+
+        return results

@@ -876,6 +876,94 @@ NIBLIT_ALL_TOOLS: list = [
         },
     },
 ]
+
+# ── Slim 2-tool suite for Llama 3.2 1B (2048-token context window) ────────────
+# Rationale: 21 schemas blow the 1B context budget mid-call.
+# Instead: 1 map tool + 1 run-anything tool = ~120 tokens, leaves 1900+ for
+# conversation + tool results.  NIBLIT_ALL_TOOLS is retained for 8B+ models.
+#
+# Tool names must stay in sync with NiblitToolExecutor.execute_slim_tool_calls()
+# in modules/niblit_tool_executor.py.
+NIBLIT_SLIM_TOOLS: list = [
+    {
+        "type": "function",
+        "function": {
+            "name": "niblit_structural_info",
+            "description": (
+                "Returns the full map of NiblitOS: modules, available commands, "
+                "current state, KB health, active engines.  "
+                "Call this first if unsure what Niblit can do or what commands exist."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "section": {
+                        "type": "string",
+                        "description": (
+                            "Which section to return. "
+                            "all=full snapshot (default), "
+                            "commands=COMMAND_PREFIXES list, "
+                            "memory=KB+FusedMemory stats, "
+                            "brain=LLM stack + routing mode, "
+                            "ale=ALE step/status, "
+                            "kernel=Cognitive Graph Kernel info"
+                        ),
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "niblit_run_command",
+            "description": (
+                "Execute any Niblit command exactly as a user would type it in the shell. "
+                "Examples: 'status', 'self-heal', 'recall rust', 'autonomous-learn start', "
+                "'brain mode local', 'qwen audit-kb', 'reflect python'. "
+                "Check niblit_structural_info first if unsure whether a command exists. "
+                "Destructive commands (shutdown/exit/quit) are blocked unless the user explicitly confirmed."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": (
+                            "Full command string exactly as typed. "
+                            "Ex: 'status', 'self-heal', 'recall rust', 'autonomous-learn start'"
+                        ),
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why you are running this command (logged for audit).",
+                    },
+                },
+                "required": ["command", "reason"],
+            },
+        },
+    },
+]
+
+# ── Compact system prompt for Llama 3.2 1B tool-calling sessions ──────────────
+# Designed to consume ≤500 tokens so the 2048-ctx model has ≥1300 tokens for
+# conversation + tool results.
+# Identity framing: the local model is Niblit's *device driver*, not Niblit itself.
+_SLIM_SYSTEM_PROMPT = (
+    "You are the local brain of NiblitOS — you are its /dev/llm0 device driver, "
+    "not Niblit itself. Niblit runs the shell, filesystem, and all subsystems. "
+    "You make requests via tools.\n\n"
+    "You have exactly 2 tools:\n"
+    "  1. niblit_structural_info(section?) — call this FIRST to see what Niblit can do.\n"
+    "  2. niblit_run_command(command, reason) — execute any Niblit shell command.\n\n"
+    "Rules:\n"
+    "  - NEVER say 'you should run X'. ALWAYS call niblit_run_command instead.\n"
+    "  - For multi-step tasks: plan first, then run one command at a time.\n"
+    "  - Keep responses brief — Niblit handles the UI.\n"
+    "  - Never invent command names. Call niblit_structural_info(section='commands') first.\n"
+    "  - Destructive commands (shutdown/exit/quit) are blocked — tell the user to confirm.\n"
+    "  - You have at most 5 tool calls per turn. Stop and report after reaching that limit.\n"
+)
 # CMake build (current default) takes precedence over old Makefile paths.
 # Absolute Termux paths are listed after tilde paths so they work from inside
 # proot (where ~ resolves to the proot home, not the real Termux home).

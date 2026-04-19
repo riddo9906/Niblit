@@ -12,9 +12,11 @@ from modules.local_brain import (
     _LOCAL_MODEL_PRESETS,
     _NIBLIT_FULL_STRUCTURAL_CONTEXT,
     _SHORT_CHAT_SYSTEM_PROMPT,
+    _SLIM_SYSTEM_PROMPT,
     _TOOL_CALL_SYSTEM_PROMPT,
     NIBLIT_ALL_TOOLS,
     NIBLIT_KB_TOOLS,
+    NIBLIT_SLIM_TOOLS,
     QwenLocalBrain,
     _build_gguf_prompt,
     _clean_subprocess_output,
@@ -413,4 +415,193 @@ def test_niblit_tool_executor_execute_tool_calls_returns_list():
     assert isinstance(results, list)
     assert len(results) == 1
     assert results[0]["tool"] == "niblit_status"
+
+
+# ── NIBLIT_SLIM_TOOLS / slim 2-tool suite tests ───────────────────────────────
+
+def test_niblit_slim_tools_has_exactly_two_tools():
+    """NIBLIT_SLIM_TOOLS must contain exactly 2 tool schemas."""
+    assert len(NIBLIT_SLIM_TOOLS) == 2
+    names = [t["function"]["name"] for t in NIBLIT_SLIM_TOOLS]
+    assert "niblit_structural_info" in names
+    assert "niblit_run_command" in names
+
+
+def test_niblit_slim_tools_required_fields():
+    """Every slim tool must have type, function, name, description, parameters."""
+    for tool in NIBLIT_SLIM_TOOLS:
+        assert tool["type"] == "function"
+        fn = tool["function"]
+        assert "name" in fn
+        assert "description" in fn
+        assert "parameters" in fn
+        assert isinstance(fn["description"], str) and fn["description"]
+
+
+def test_niblit_run_command_requires_command_and_reason():
+    """niblit_run_command must require both 'command' and 'reason' parameters."""
+    tool = next(t for t in NIBLIT_SLIM_TOOLS if t["function"]["name"] == "niblit_run_command")
+    params = tool["function"]["parameters"]
+    assert "command" in params["properties"]
+    assert "reason" in params["properties"]
+    required = params.get("required", [])
+    assert "command" in required
+    assert "reason" in required
+
+
+def test_niblit_structural_info_section_enum():
+    """niblit_structural_info section param must mention expected sections."""
+    tool = next(t for t in NIBLIT_SLIM_TOOLS if t["function"]["name"] == "niblit_structural_info")
+    section_desc = tool["function"]["parameters"]["properties"]["section"]["description"]
+    for expected in ("all", "commands", "memory", "brain", "ale", "kernel"):
+        assert expected in section_desc, f"Section {expected!r} missing from niblit_structural_info description"
+
+
+def test_slim_system_prompt_token_budget():
+    """_SLIM_SYSTEM_PROMPT should be < 1000 chars to leave room for context."""
+    assert len(_SLIM_SYSTEM_PROMPT) < 1000, (
+        f"_SLIM_SYSTEM_PROMPT is {len(_SLIM_SYSTEM_PROMPT)} chars; "
+        "should be <1000 for Llama 1B context budget"
+    )
+
+
+def test_slim_system_prompt_mentions_both_tools():
+    """_SLIM_SYSTEM_PROMPT must reference both slim tool names."""
+    assert "niblit_structural_info" in _SLIM_SYSTEM_PROMPT
+    assert "niblit_run_command" in _SLIM_SYSTEM_PROMPT
+
+
+def test_slim_system_prompt_mentions_max_tool_calls():
+    """_SLIM_SYSTEM_PROMPT must mention the 5-call turn limit."""
+    assert "5" in _SLIM_SYSTEM_PROMPT
+
+
+# ── NiblitToolExecutor slim execution tests ───────────────────────────────────
+
+def test_execute_slim_tool_calls_structural_info(monkeypatch):
+    """execute_slim_tool_calls with niblit_structural_info must call get_structural_info."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    calls = []
+
+    def _fake_structural(section="all"):
+        calls.append(section)
+        return {"section": section, "modules": {}, "state": {}}
+
+    monkeypatch.setattr(executor, "get_structural_info", _fake_structural)
+    tool_calls = [
+        {"function": {"name": "niblit_structural_info", "arguments": '{"section": "commands"}'}},
+    ]
+    results = executor.execute_slim_tool_calls(tool_calls)
+    assert results[0]["tool"] == "niblit_structural_info"
+    assert "result" in results[0]
+    assert calls == ["commands"]
+
+
+def test_execute_slim_tool_calls_run_command(monkeypatch):
+    """execute_slim_tool_calls with niblit_run_command must call execute_niblit_run_command."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    calls = []
+
+    def _fake_run(command, reason):
+        calls.append((command, reason))
+        return {"command": command, "reason": reason, "output": "ok"}
+
+    monkeypatch.setattr(executor, "execute_niblit_run_command", _fake_run)
+    tool_calls = [
+        {"function": {
+            "name": "niblit_run_command",
+            "arguments": '{"command": "status", "reason": "health check"}',
+        }},
+    ]
+    results = executor.execute_slim_tool_calls(tool_calls)
+    assert results[0]["tool"] == "niblit_run_command"
+    assert calls == [("status", "health check")]
+
+
+def test_execute_slim_tool_calls_max_tool_calls():
+    """execute_slim_tool_calls must enforce NIBLIT_MAX_TOOL_CALLS limit."""
+    from modules.niblit_tool_executor import NiblitToolExecutor, _MAX_TOOL_CALLS_PER_TURN
+    executor = NiblitToolExecutor(core=None)
+    # Patch run_command so it doesn't need a real core
+    executor._core = type("FakeCore", (), {"process": lambda self, cmd: "ok"})()
+
+    # Submit MAX+2 calls
+    n = _MAX_TOOL_CALLS_PER_TURN + 2
+    tool_calls = [
+        {"function": {
+            "name": "niblit_run_command",
+            "arguments": json.dumps({"command": "status", "reason": "loop test"}),
+        }}
+    ] * n
+
+    results = executor.execute_slim_tool_calls(tool_calls)
+    assert len(results) == n
+    # First MAX calls succeed (have "result"), remainder have "error" about limit
+    limit_errors = [r for r in results if "error" in r and "max_tool_calls" in r.get("error", "")]
+    assert len(limit_errors) == 2
+
+
+def test_execute_niblit_run_command_blocks_destructive():
+    """execute_niblit_run_command must block shutdown/exit/quit without confirm_mode."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None, confirm_mode=False)
+    for cmd in ("shutdown", "exit", "quit"):
+        result = executor.execute_niblit_run_command(cmd, "test")
+        assert "error" in result, f"Destructive command {cmd!r} was not blocked"
+        assert "blocked" in result["error"].lower()
+
+
+def test_execute_niblit_run_command_allows_destructive_with_confirm():
+    """execute_niblit_run_command must allow destructive cmds when confirm_mode=True."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None, confirm_mode=True)
+    executor._core = type("FakeCore", (), {"process": lambda self, cmd: f"ran: {cmd}"})()
+    result = executor.execute_niblit_run_command("shutdown", "user confirmed")
+    assert "output" in result
+
+
+def test_execute_niblit_run_command_logs_reason(monkeypatch):
+    """execute_niblit_run_command must pass command to _exec."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    executed = []
+    monkeypatch.setattr(executor, "_exec", lambda cmd: executed.append(cmd) or "ok")
+    result = executor.execute_niblit_run_command("brain status", "health check")
+    assert executed == ["brain status"]
+    assert result["command"] == "brain status"
+    assert result["reason"] == "health check"
+
+
+def test_get_structural_info_all_section(monkeypatch):
+    """get_structural_info(section='all') must return modules, state, commands_tip keys."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    # Patch _exec to avoid core dependency
+    monkeypatch.setattr(executor, "_exec", lambda cmd: "mocked")
+    result = executor.get_structural_info("all")
+    assert result["section"] == "all"
+    assert "modules" in result
+    assert "state" in result
+    assert "commands_tip" in result
+
+
+def test_get_structural_info_brain_section():
+    """get_structural_info(section='brain') must return brain section."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    result = executor.get_structural_info("brain")
+    assert result["section"] == "brain"
+    assert "mode" in result or "local_backend" in result
+
+
+def test_get_structural_info_commands_section(monkeypatch):
+    """get_structural_info(section='commands') must return a commands list."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    result = executor.get_structural_info("commands")
+    assert result["section"] == "commands"
+    assert isinstance(result.get("commands"), list)
+    assert len(result["commands"]) > 0
 
