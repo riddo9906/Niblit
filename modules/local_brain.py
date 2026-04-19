@@ -224,6 +224,7 @@ _LLAMA_BINARY_CANDIDATES = [
     "/data/data/com.termux/files/home/llama.cpp/main",
 ]
 
+_LLAMA_CLI_SESSION_SAFETY_FLAGS = ("--simple-io", "--no-display-prompt", "--silent-prompt")
 _LLAMA_CLI_FLAG_SUPPORT_CACHE: Dict[str, set[str]] = {}
 
 
@@ -247,10 +248,7 @@ def _llama_cli_supported_flags(binary: Optional[Path]) -> set[str]:
     except Exception:
         _LLAMA_CLI_FLAG_SUPPORT_CACHE[key] = set()
         return set()
-    supported = {
-        flag for flag in ("--simple-io", "--no-display-prompt", "--silent-prompt")
-        if flag in help_text
-    }
+    supported = {flag for flag in _LLAMA_CLI_SESSION_SAFETY_FLAGS if flag in help_text}
     _LLAMA_CLI_FLAG_SUPPORT_CACHE[key] = supported
     return supported
 
@@ -1007,7 +1005,7 @@ class QwenLocalBrain:
                 "--log-disable",   # suppress verbose log (llama.cpp >= b1.x)
             ]
             supported_flags = _llama_cli_supported_flags(binary)
-            for flag in ("--simple-io", "--no-display-prompt", "--silent-prompt"):
+            for flag in _LLAMA_CLI_SESSION_SAFETY_FLAGS:
                 if flag in supported_flags:
                     cmd.append(flag)
             if self.gguf_n_threads is not None:
