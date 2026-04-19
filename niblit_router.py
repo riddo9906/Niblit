@@ -3532,10 +3532,8 @@ Ask me about:
             local-model switch <preset>       — swap to a different model (qwen | llama3)
         """
         lower = cmd.strip().lower()
-        for prefix in ("local-model",):
-            if lower.startswith(prefix):
-                sub = lower[len(prefix):].strip()
-                break
+        if lower.startswith("local-model"):
+            sub = lower[len("local-model"):].strip()
         else:
             sub = ""
 
@@ -3763,6 +3761,8 @@ Ask me about:
                 lines.append(f"    heal kb confirm {key}")
 
         return "\n".join(lines)
+
+    def _handle_self_monitor(self, text: str) -> str:
         """Handle 'self-monitor <sub>' commands."""
         sub = text[len("self-monitor"):].strip()
         sm = getattr(self.core, "self_monitor", None)
