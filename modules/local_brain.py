@@ -64,6 +64,15 @@ NIBLIT_LLAMA_SERVER_URL     Base URL of a running llama-server instance.
                             Default: ``http://127.0.0.1:8080``
 NIBLIT_LLAMA_SERVER_TIMEOUT HTTP timeout in seconds for llama-server calls.
                             Default: 120
+
+Model switching
+---------------
+NIBLIT_ACTIVE_LOCAL_MODEL   Active local model preset: ``qwen`` (default)
+                            or ``llama3``.  Used by ``swap_local_brain()``
+                            at startup; can be changed at runtime via the
+                            ``local-model switch <preset>`` command.
+NIBLIT_LLAMA3_MODEL_PATH    Path to the Llama 3.2 GGUF file.
+                            Default: ``~/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf``
 """
 from __future__ import annotations
 
@@ -203,6 +212,105 @@ _SHORT_CHAT_SYSTEM_PROMPT = (
     "You are Niblit, a helpful and friendly AI assistant. "
     "Reply concisely and naturally."
 )
+
+# ── Model presets ─────────────────────────────────────────────────────────────
+# A preset maps a human-friendly nickname to the model file path and the correct
+# chat template.  Use ``swap_local_brain("llama3")`` to switch at runtime; the
+# old singleton is discarded and a fresh, isolated instance is created so no
+# prompt-format state from the previous model leaks into the new one.
+_LOCAL_MODEL_PRESETS: Dict[str, Dict[str, str]] = {
+    "qwen": {
+        "model_path": os.environ.get(
+            "NIBLIT_QWEN_MODEL_PATH",
+            "~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+        ),
+        "chat_template": "qwen",
+        "description": "Qwen 2.5 0.5B Instruct (ChatML template)",
+    },
+    "llama3": {
+        "model_path": os.environ.get(
+            "NIBLIT_LLAMA3_MODEL_PATH",
+            "~/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+        ),
+        "chat_template": "llama3",
+        "description": "Llama 3.2 1B Instruct (Llama-3 template, supports function calling)",
+    },
+}
+
+# ── KB Tool schemas ───────────────────────────────────────────────────────────
+# Passed to generate_with_tools() so Llama 3.2 (and other function-calling
+# capable models) can inspect, clean, and complete Niblit's knowledge base.
+# All tool names must stay in sync with KBToolExecutor in modules/kb_tool_executor.py.
+NIBLIT_KB_TOOLS: list = [
+    {
+        "type": "function",
+        "function": {
+            "name": "list_kb_facts",
+            "description": "List KB facts (keys + short value snippet). Use to survey what is stored.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max facts to return (default 20)",
+                    },
+                    "tag": {
+                        "type": "string",
+                        "description": "Filter to only facts with this tag (optional)",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_kb_fact",
+            "description": "Read the full stored value of a KB fact by its key.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "Exact key of the fact to read"},
+                },
+                "required": ["key"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_kb_fact",
+            "description": (
+                "Delete a KB fact. ONLY use when the value is corrupt, empty, "
+                "or provably nonsensical. Requires user confirmation."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "Exact key of the fact to delete"},
+                },
+                "required": ["key"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "complete_slsa_artifact",
+            "description": (
+                "Synthesise a complete, fact-dense SLSA entry for a key that currently "
+                "has a partial or incomplete value."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "KB fact key to complete"},
+                },
+                "required": ["key"],
+            },
+        },
+    },
+]
 
 # Candidate binary names / paths for the subprocess backend (searched in order).
 # CMake build (current default) takes precedence over old Makefile paths.
@@ -353,6 +461,16 @@ _GGUF_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "user_end":     "",
         "assistant_start": "",
         "stop": ["</s>"],
+    },
+    # Llama 3 / Llama 3.2 instruct
+    # Uses the <|begin_of_text|> / <|start_header_id|> / <|eot_id|> vocabulary.
+    "llama3": {
+        "system_start": "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n",
+        "system_end":   "<|eot_id|>",
+        "user_start":   "<|start_header_id|>user<|end_header_id|>\n\n",
+        "user_end":     "<|eot_id|>",
+        "assistant_start": "<|start_header_id|>assistant<|end_header_id|>\n\n",
+        "stop": ["<|eot_id|>", "<|end_of_text|>"],
     },
 }
 
@@ -1060,6 +1178,109 @@ class QwenLocalBrain:
         """
         return self.generate(prompt.strip(), system_prompt=_SHORT_CHAT_SYSTEM_PROMPT)
 
+    def generate_with_tools(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        tools: Optional[list] = None,
+        max_new_tokens: Optional[int] = None,
+    ) -> "tuple[str, list]":
+        """Generate with optional tool-calling support (HTTP backend only).
+
+        Sends ``tools`` to ``POST /v1/chat/completions`` via the OpenAI-
+        compatible API.  When the model responds with ``tool_calls`` the raw
+        list is normalised and returned so the caller can execute them.
+
+        Returns
+        -------
+        ``(response_text, tool_calls)``
+            ``response_text`` — the model's text reply (may be empty when
+            tool_calls are present).
+            ``tool_calls`` — list of ``{"id": ..., "function": {"name": ...,
+            "arguments": <JSON string>}}`` dicts (empty list when none).
+
+        Non-HTTP backends do not support tool schemas; they fall back to a
+        plain :meth:`generate` call and return an empty tool_calls list.
+        """
+        if not self._ensure_loaded():
+            return (
+                f"[LocalBrain unavailable — {self._load_error or 'model not loaded'}]",
+                [],
+            )
+
+        if self._backend_in_use != "http":
+            log.debug(
+                "[LocalBrain] generate_with_tools: backend=%s does not support tools; "
+                "falling back to plain generate()",
+                self._backend_in_use,
+            )
+            return (self.generate(prompt, max_new_tokens=max_new_tokens, system_prompt=system_prompt), [])
+
+        url = self._server_url
+        if url is None:
+            return ("[LocalBrain http: server URL not set]", [])
+
+        if not self._check_server_url(url):
+            log.warning("[LocalBrain] llama-server at %s is no longer reachable.", url)
+            self._server_url = None
+            self._backend_in_use = ""
+            return ("[LocalBrain http: server unreachable — restart llama-server]", [])
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        n_tokens = max_new_tokens or self.max_new_tokens
+        payload: Dict[str, Any] = {
+            "model": "local",
+            "messages": messages,
+            "max_tokens": n_tokens,
+            "temperature": 0.7,
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url + "/v1/chat/completions",
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            choice = data["choices"][0]
+            message = choice.get("message", {})
+            text: str = message.get("content") or ""
+            raw_tool_calls: list = message.get("tool_calls") or []
+
+            # Normalise to {"id": ..., "function": {"name": ..., "arguments": <str>}}
+            tool_calls: list = []
+            for tc in raw_tool_calls:
+                fn = tc.get("function", {})
+                args = fn.get("arguments", "{}")
+                if isinstance(args, dict):
+                    args = json.dumps(args)
+                tool_calls.append({
+                    "id": tc.get("id", ""),
+                    "function": {
+                        "name": fn.get("name", ""),
+                        "arguments": args,
+                    },
+                })
+
+            log.debug(
+                "[LocalBrain] generate_with_tools: %d tool_calls, text[:60]=%r",
+                len(tool_calls), text[:60],
+            )
+            return (text.strip(), tool_calls)
+        except Exception as exc:
+            log.debug("[LocalBrain] generate_with_tools error: %s", exc)
+            return (f"[LocalBrain http error: {exc}]", [])
+
     def memory_adapter(self, knowledge_db: Optional[Any] = None) -> Any:
         """Return (and lazily create) the QwenMemoryAdapter for this brain.
 
@@ -1142,6 +1363,65 @@ def get_local_brain(
                     max_new_tokens=max_new_tokens,
                     gguf_model_path=gguf_model_path,
                 )
+    return _instance
+
+
+def reset_local_brain() -> None:
+    """Discard the current singleton so the next :func:`get_local_brain` call
+    creates a fully fresh, isolated :class:`QwenLocalBrain` instance.
+
+    This is the first half of a model switch.  Call :func:`swap_local_brain`
+    instead of calling this directly unless you need fine-grained control.
+    """
+    global _instance
+    with _inst_lock:
+        _instance = None
+    log.info("[LocalBrain] singleton reset — next call will load a fresh instance")
+
+
+def swap_local_brain(preset: str) -> QwenLocalBrain:
+    """Switch the active local model to a named *preset* with full isolation.
+
+    Each call discards the existing singleton (clearing all backend state,
+    loaded weights references, and cached server URLs) and creates a brand-new
+    :class:`QwenLocalBrain` configured for the chosen model.  This prevents
+    any prompt-format or session state from the previous model leaking into
+    the new one.
+
+    Parameters
+    ----------
+    preset:
+        One of the keys in ``_LOCAL_MODEL_PRESETS``.  Currently ``"qwen"``
+        (Qwen 2.5 0.5B, ChatML template) and ``"llama3"`` (Llama 3.2 1B,
+        Llama-3 template).
+
+    Returns
+    -------
+    The new :class:`QwenLocalBrain` singleton instance.
+
+    Raises
+    ------
+    ValueError
+        If *preset* is not recognised.
+    """
+    config = _LOCAL_MODEL_PRESETS.get(preset.strip().lower())
+    if config is None:
+        known = ", ".join(sorted(_LOCAL_MODEL_PRESETS))
+        raise ValueError(
+            f"Unknown local model preset {preset!r}. Known presets: {known}"
+        )
+    reset_local_brain()
+    global _instance
+    with _inst_lock:
+        _instance = QwenLocalBrain(
+            model_name=config["model_path"],
+            gguf_model_path=config["model_path"],
+            gguf_chat_template=config["chat_template"],
+        )
+    log.info(
+        "[LocalBrain] Switched to preset %r — model: %s, template: %s",
+        preset, config["model_path"], config["chat_template"],
+    )
     return _instance
 
 

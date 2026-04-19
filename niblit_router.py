@@ -393,6 +393,10 @@ class NiblitRouter:
         "chat",
         # Subject-structured academic study sessions
         "study",
+        # Local model management — switch between Qwen/Llama3, status, list presets
+        "local-model",
+        # KB healing with LLM tool-calling (Llama 3.2 1B required)
+        "heal",
     )
 
     CHAT_RESPONSES = {
@@ -3517,7 +3521,248 @@ Ask me about:
             "  qwen ask <prompt>   — ask Qwen anything"
         )
 
-    def _handle_self_monitor(self, text: str) -> str:
+    def _handle_local_model(self, cmd: str) -> str:
+        """Handle 'local-model' commands — switch between local model presets.
+
+        Sub-commands::
+
+            local-model                       — current model status
+            local-model status                — same as above
+            local-model list                  — list available presets
+            local-model switch <preset>       — swap to a different model (qwen | llama3)
+        """
+        lower = cmd.strip().lower()
+        for prefix in ("local-model",):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                break
+        else:
+            sub = ""
+
+        try:
+            from modules.local_brain import (
+                _LOCAL_MODEL_PRESETS,
+                get_local_brain,
+                swap_local_brain,
+            )
+        except Exception as exc:
+            return f"⚠️  local_brain module unavailable: {exc}"
+
+        if sub in ("", "status"):
+            lb = getattr(self.core, "local_brain", None) if self.core else None
+            if lb is None:
+                try:
+                    lb = get_local_brain()
+                except Exception:
+                    return "⚠️  No local brain loaded."
+            st = lb.status()
+            return (
+                "🤖 Local Model Status\n"
+                f"  Active model  : {st.get('model_name', '?')}\n"
+                f"  Chat template : {st.get('gguf_chat_template', '?')}\n"
+                f"  Backend       : {st.get('backend_in_use', 'none')}\n"
+                f"  Loaded        : {'✅' if st.get('loaded') else '⏳ (lazy)'}\n"
+                f"  Context       : {st.get('gguf_n_ctx', '?')} tokens\n"
+                "  Tip: 'local-model switch llama3' to switch to Llama 3.2 1B"
+            )
+
+        if sub == "list":
+            lines = ["Available local model presets:"]
+            for name, cfg in _LOCAL_MODEL_PRESETS.items():
+                lines.append(f"  {name:<10} — {cfg['description']}  (path: {cfg['model_path']})")
+            lines.append("\nUsage: local-model switch <preset>")
+            return "\n".join(lines)
+
+        if sub.startswith("switch "):
+            preset = sub[len("switch "):].strip()
+            if not preset:
+                return "Usage: local-model switch <preset>"
+            try:
+                new_lb = swap_local_brain(preset)
+                # Wire the new instance into core if available
+                if self.core is not None:
+                    self.core.local_brain = new_lb
+                    # Re-wire BrainRouter if present
+                    try:
+                        from modules.brain_router import get_brain_router
+                        br = get_brain_router()
+                        br.local_brain = new_lb
+                    except Exception:
+                        pass
+                st = new_lb.status()
+                return (
+                    f"🔄 Switched to preset '{preset}'\n"
+                    f"  Model path    : {st.get('model_name', '?')}\n"
+                    f"  Chat template : {st.get('gguf_chat_template', '?')}\n"
+                    "  ⚠️  If using HTTP backend, restart llama-server with the new model first.\n"
+                    "  Then run: local-model status"
+                )
+            except ValueError as exc:
+                return f"❌ {exc}"
+
+        return (
+            "Unknown local-model sub-command. Try:\n"
+            "  local-model status       — current model\n"
+            "  local-model list         — available presets\n"
+            "  local-model switch qwen  — switch to Qwen 2.5 0.5B\n"
+            "  local-model switch llama3 — switch to Llama 3.2 1B"
+        )
+
+    def _handle_heal_kb(self, cmd: str) -> str:
+        """Handle 'heal kb' commands — AI-driven KB health repair using tool calling.
+
+        Requires the HTTP backend with a function-calling capable model
+        (e.g. Llama 3.2 1B Instruct).
+
+        Sub-commands::
+
+            heal kb                    — scan KB and plan repairs (no changes)
+            heal kb run                — scan, plan, and execute non-destructive repairs
+            heal kb confirm <key>      — delete a previously flagged corrupt fact
+            heal kb complete <key>     — complete a partial SLSA artifact for <key>
+
+        Deletions always require explicit confirmation via 'heal kb confirm <key>'.
+        """
+        import json as _json
+
+        lower = cmd.strip().lower()
+        for prefix in ("heal kb", "heal-kb"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                orig_sub = cmd.strip()[len(prefix):].strip()
+                break
+        else:
+            sub = ""
+            orig_sub = ""
+
+        # Resolve brain and executor
+        lb = getattr(self.core, "local_brain", None) if self.core else None
+        if lb is None:
+            try:
+                from modules.local_brain import get_local_brain
+                lb = get_local_brain()
+            except Exception:
+                return "⚠️  Local brain not available."
+
+        try:
+            from modules.kb_tool_executor import KBToolExecutor
+            from modules.local_brain import NIBLIT_KB_TOOLS
+        except Exception as exc:
+            return f"⚠️  KB tool executor unavailable: {exc}"
+
+        executor = KBToolExecutor(
+            knowledge_db=getattr(self.core, "knowledge_db", None) if self.core else None,
+            local_brain=lb,
+        )
+
+        # ── confirm delete ────────────────────────────────────────────────────
+        if sub.startswith("confirm "):
+            key = orig_sub[len("confirm "):].strip()
+            if not key:
+                return "Usage: heal kb confirm <key>"
+            result = executor.delete_kb_fact(key, confirm_fn=lambda k: True)  # noqa: ARG005
+            if result.get("deleted"):
+                return f"🗑️  Deleted KB fact: {key}"
+            return f"⚠️  Could not delete '{key}': {result.get('reason', 'unknown')}"
+
+        # ── complete a specific artifact ──────────────────────────────────────
+        if sub.startswith("complete "):
+            key = orig_sub[len("complete "):].strip()
+            if not key:
+                return "Usage: heal kb complete <key>"
+            result = executor.complete_slsa_artifact(key)
+            if result.get("completed"):
+                snippet = str(result.get("value", ""))[:200]
+                return f"✅ Completed SLSA artifact for '{key}':\n{snippet}"
+            return f"⚠️  Could not complete '{key}': {result.get('reason', 'unknown')}"
+
+        # ── survey + optional execute ─────────────────────────────────────────
+        execute = (sub == "run")
+
+        system_prompt = (
+            "You are Niblit's KB healer. Your job is to audit the knowledge base and:\n"
+            "1. List all facts using list_kb_facts.\n"
+            "2. For any fact with empty, corrupt, or very short value, call delete_kb_fact.\n"
+            "3. For any fact tagged 'slsa' with incomplete content, call complete_slsa_artifact.\n"
+            "Report what you find and what actions you take. Be concise."
+        )
+        user_prompt = "Audit the knowledge base. Identify corrupt entries and incomplete SLSA artifacts. Then fix them."
+
+        if not lb.is_available():
+            lb.ensure_loaded()
+
+        if lb._backend_in_use != "http":
+            return (
+                "⚠️  heal kb requires the HTTP backend with a function-calling model.\n"
+                "  Start llama-server with Llama 3.2 1B and set NIBLIT_GGUF_BACKEND=http.\n"
+                f"  Current backend: {lb._backend_in_use or 'none'}"
+            )
+
+        text, tool_calls = lb.generate_with_tools(
+            user_prompt,
+            system_prompt=system_prompt,
+            tools=NIBLIT_KB_TOOLS,
+        )
+
+        if not tool_calls and not text:
+            return "⚠️  Model returned no response. Is llama-server running?"
+
+        lines = []
+        if text:
+            lines.append(f"🧠 Model analysis:\n{text}\n")
+
+        if not tool_calls:
+            lines.append("ℹ️  No tool calls requested. KB appears healthy or model needs retry.")
+            return "\n".join(lines)
+
+        lines.append(f"📋 Tool calls planned ({len(tool_calls)}):")
+        for tc in tool_calls:
+            fn = tc.get("function", {})
+            try:
+                args = _json.loads(fn.get("arguments", "{}"))
+            except Exception:
+                args = {}
+            lines.append(f"  • {fn.get('name', '?')}({_json.dumps(args)})")
+
+        if not execute:
+            # Separate delete calls for explicit confirmation
+            delete_keys = [
+                _json.loads(tc["function"].get("arguments", "{}")).get("key", "")
+                for tc in tool_calls
+                if tc.get("function", {}).get("name") == "delete_kb_fact"
+            ]
+            if delete_keys:
+                lines.append("\n⚠️  Deletions require confirmation:")
+                for k in delete_keys:
+                    lines.append(f"    heal kb confirm {k}")
+            lines.append("\nRun 'heal kb run' to execute non-destructive repairs.")
+            return "\n".join(lines)
+
+        # Execute — skip deletions (those need explicit confirm)
+        safe_calls = [
+            tc for tc in tool_calls
+            if tc.get("function", {}).get("name") != "delete_kb_fact"
+        ]
+        delete_calls = [
+            tc for tc in tool_calls
+            if tc.get("function", {}).get("name") == "delete_kb_fact"
+        ]
+
+        results = executor.execute_tool_calls(safe_calls, confirm_fn=None)
+        lines.append("\n✅ Executed (non-destructive):")
+        for r in results:
+            lines.append(f"  • {r['tool']}: {_json.dumps(r.get('result', r.get('error', '?')))[:120]}")
+
+        if delete_calls:
+            lines.append("\n⚠️  Deletions require explicit confirmation:")
+            for tc in delete_calls:
+                try:
+                    key = _json.loads(tc["function"].get("arguments", "{}")).get("key", "?")
+                except Exception:
+                    key = "?"
+                lines.append(f"    heal kb confirm {key}")
+
+        return "\n".join(lines)
         """Handle 'self-monitor <sub>' commands."""
         sub = text[len("self-monitor"):].strip()
         sm = getattr(self.core, "self_monitor", None)
@@ -5939,6 +6184,14 @@ Ask me about:
         # QWEN — local copilot / memory manager / coach (additive)
         if lower == "qwen" or lower.startswith("qwen "):
             return self._handle_qwen(cmd)
+
+        # LOCAL MODEL — switch between model presets (qwen / llama3) (additive)
+        if lower == "local-model" or lower.startswith("local-model "):
+            return self._handle_local_model(cmd)
+
+        # HEAL KB — AI-driven KB health repair with tool calling (additive)
+        if lower in ("heal kb", "heal-kb") or lower.startswith("heal kb ") or lower.startswith("heal-kb "):
+            return self._handle_heal_kb(cmd)
 
         # KERNEL — NiblitKernel cognitive dashboard (additive)
         if lower == "kernel" or lower.startswith("kernel "):

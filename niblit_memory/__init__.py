@@ -1172,6 +1172,27 @@ class KnowledgeDB:
             facts = list(self.data.get("facts", []))
         return sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)[:limit]
 
+    def delete_fact(self, key: str) -> bool:
+        """Remove the most-recent fact whose ``key`` matches *key*.
+
+        Returns ``True`` if a fact was removed, ``False`` if not found.
+        Persists the change immediately.
+        """
+        with self.lock:
+            facts = self.data.get("facts", [])
+            # Find the index of the most-recent matching entry (highest ts)
+            idx = None
+            for i, fact in enumerate(reversed(facts)):
+                if isinstance(fact, dict) and fact.get("key") == key:
+                    idx = len(facts) - 1 - i
+                    break
+            if idx is None:
+                return False
+            self.data["facts"].pop(idx)
+        self._save(blocking=False)
+        _kdb_log.info("KnowledgeDB: deleted fact key=%r", key)
+        return True
+
     def queue_learning(self, topic: str) -> None:
         with self.lock:
             self.data.setdefault("learning_queue", [])
