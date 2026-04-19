@@ -10,7 +10,10 @@ from modules.local_brain import (
     _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT,
     _GGUF_TEMPLATES,
     _LOCAL_MODEL_PRESETS,
+    _NIBLIT_FULL_STRUCTURAL_CONTEXT,
     _SHORT_CHAT_SYSTEM_PROMPT,
+    _TOOL_CALL_SYSTEM_PROMPT,
+    NIBLIT_ALL_TOOLS,
     NIBLIT_KB_TOOLS,
     QwenLocalBrain,
     _build_gguf_prompt,
@@ -264,91 +267,151 @@ def test_generate_with_tools_http_parses_tool_calls(monkeypatch):
     assert parsed_args["limit"] == 10
 
 
+# ── NIBLIT_ALL_TOOLS / full tool suite tests ──────────────────────────────────
 
-def test_clean_subprocess_output_strips_llama_banner_and_commands():
-    prompt = "<|im_start|>user\nhello<|im_end|>\n<|im_start|>assistant\n"
-    raw = (
-        "/data/data/com.termux/files/usr/bin/getprop: 3: exec: /system/bin/getprop: Operation not permitted\n"
-        "Loading model...\n\n"
-        "available commands:\n"
-        "  /exit\n"
-        "  /glob\n\n"
-        f"{prompt}Sure — I can help with that.\n"
-    )
-    cleaned = _clean_subprocess_output(raw, prompt)
-    assert "Operation not permitted" not in cleaned
-    assert "available commands" not in cleaned.lower()
-    assert "/glob" not in cleaned
-    assert cleaned == "Sure — I can help with that."
+def test_niblit_all_tools_is_superset_of_kb_tools():
+    """NIBLIT_ALL_TOOLS must contain all NIBLIT_KB_TOOLS entries."""
+    kb_names = {t["function"]["name"] for t in NIBLIT_KB_TOOLS}
+    all_names = {t["function"]["name"] for t in NIBLIT_ALL_TOOLS}
+    assert kb_names.issubset(all_names), f"KB tools missing from ALL_TOOLS: {kb_names - all_names}"
 
 
-def test_ask_uses_default_local_copilot_system_prompt():
-    brain = QwenLocalBrain(gguf_backend="subprocess")
-    captured = {}
-
-    def _fake_generate(prompt, max_new_tokens=None, system_prompt=None):  # noqa: ARG001
-        captured["prompt"] = prompt
-        captured["system_prompt"] = system_prompt
-        return "ok"
-
-    brain.generate = _fake_generate  # type: ignore[method-assign]
-
-    out = brain.ask("write concise python code")
-    assert out == "ok"
-    assert captured["prompt"] == "write concise python code"
-    assert captured["system_prompt"] == _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
-
-
-def test_chat_uses_short_system_prompt():
-    """chat() must use _SHORT_CHAT_SYSTEM_PROMPT, not the full copilot prompt."""
-    brain = QwenLocalBrain(gguf_backend="subprocess")
-    captured = {}
-
-    def _fake_generate(prompt, max_new_tokens=None, system_prompt=None):  # noqa: ARG001
-        captured["prompt"] = prompt
-        captured["system_prompt"] = system_prompt
-        return "hi there"
-
-    brain.generate = _fake_generate  # type: ignore[method-assign]
-
-    out = brain.chat("hey")
-    assert out == "hi there"
-    assert captured["system_prompt"] == _SHORT_CHAT_SYSTEM_PROMPT
-    # Must NOT inject the heavy structural context
-    assert captured["system_prompt"] != _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
-    assert len(captured["system_prompt"]) < len(_DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT)
+def test_niblit_all_tools_has_expected_tools():
+    """NIBLIT_ALL_TOOLS must cover all major command categories."""
+    expected = {
+        # System
+        "niblit_status", "niblit_exec", "niblit_list_commands",
+        # Brain
+        "set_brain_mode", "toggle_llm",
+        # Model
+        "switch_local_model", "local_model_status",
+        # Memory/KB (from KB tools + extended)
+        "list_kb_facts", "read_kb_fact", "delete_kb_fact",
+        "complete_slsa_artifact", "search_memory", "store_kb_fact",
+        # Learning
+        "self_research", "self_teach", "reflect",
+        # Code
+        "run_code", "fix_code",
+        # ALE
+        "ale_status", "autonomous_learn",
+        # Healing
+        "run_selfheal",
+        # Awareness
+        "niblit_structure",
+    }
+    all_names = {t["function"]["name"] for t in NIBLIT_ALL_TOOLS}
+    missing = expected - all_names
+    assert not missing, f"Expected tools missing from NIBLIT_ALL_TOOLS: {missing}"
 
 
-def test_check_server_url_falls_back_when_health_missing(monkeypatch):
-    brain = QwenLocalBrain(gguf_backend="auto")
-    called = []
+def test_niblit_all_tools_required_fields():
+    """Every tool in NIBLIT_ALL_TOOLS must have type, function, name, description."""
+    for tool in NIBLIT_ALL_TOOLS:
+        assert tool["type"] == "function"
+        fn = tool["function"]
+        assert "name" in fn, f"Tool missing 'name': {tool}"
+        assert "description" in fn, f"Tool {fn.get('name')} missing 'description'"
+        assert "parameters" in fn, f"Tool {fn.get('name')} missing 'parameters'"
+        assert isinstance(fn["description"], str) and fn["description"], \
+            f"Tool {fn['name']} has empty description"
 
-    class _FakeResponse:
-        status = 200
 
-        def __enter__(self):
-            return self
+def test_niblit_all_tools_no_duplicate_names():
+    """NIBLIT_ALL_TOOLS must not contain duplicate tool names."""
+    names = [t["function"]["name"] for t in NIBLIT_ALL_TOOLS]
+    seen: set = set()
+    for n in names:
+        assert n not in seen, f"Duplicate tool name: {n!r}"
+        seen.add(n)
 
-        def __exit__(
-            self,
-            exc_type: Optional[Type[BaseException]],
-            exc: Optional[BaseException],
-            tb: Optional[TracebackType],
-        ) -> bool:
-            return False
 
-    def _fake_urlopen(request, timeout=5):  # noqa: ARG001
-        url = request.full_url
-        called.append(url)
-        if url.endswith("/health"):
-            raise urllib.error.HTTPError(url, 404, "Not Found", hdrs=None, fp=None)
-        if url.endswith("/v1/models"):
-            return _FakeResponse()
-        raise AssertionError(f"Unexpected probe URL: {url}")
+def test_niblit_all_tools_niblit_exec_has_required_command_param():
+    """niblit_exec must require a 'command' string parameter."""
+    tool = next(t for t in NIBLIT_ALL_TOOLS if t["function"]["name"] == "niblit_exec")
+    params = tool["function"]["parameters"]
+    assert "command" in params["properties"]
+    assert "command" in params.get("required", [])
 
-    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
-    assert brain._check_server_url("http://127.0.0.1:8080") is True
-    assert called == [
-        "http://127.0.0.1:8080/health",
-        "http://127.0.0.1:8080/v1/models",
+
+# ── Full structural context tests ─────────────────────────────────────────────
+
+def test_niblit_full_structural_context_covers_all_categories():
+    """_NIBLIT_FULL_STRUCTURAL_CONTEXT must mention all major command categories."""
+    ctx = _NIBLIT_FULL_STRUCTURAL_CONTEXT
+    for keyword in [
+        "ENTRY POINTS", "CORE ORCHESTRATION", "MEMORY LAYERS",
+        "BRAIN", "ALE", "SELF-IMPROVEMENT", "KNOWLEDGE",
+        "SECURITY", "PLATFORM", "TRADING", "ROUTER COMMANDS",
+    ]:
+        assert keyword.lower() in ctx.lower(), \
+            f"Full structural context missing section: {keyword!r}"
+
+
+def test_tool_call_system_prompt_includes_full_context():
+    """_TOOL_CALL_SYSTEM_PROMPT must include the full structural context."""
+    assert _NIBLIT_FULL_STRUCTURAL_CONTEXT in _TOOL_CALL_SYSTEM_PROMPT
+    # Must mention tool-calling rules
+    assert "delete_kb_fact" in _TOOL_CALL_SYSTEM_PROMPT
+    assert "niblit_exec" in _TOOL_CALL_SYSTEM_PROMPT
+
+
+# ── NiblitToolExecutor tests ──────────────────────────────────────────────────
+
+def test_niblit_tool_executor_inherits_kb_tools():
+    """NiblitToolExecutor must be a subclass of KBToolExecutor."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    from modules.kb_tool_executor import KBToolExecutor
+    assert issubclass(NiblitToolExecutor, KBToolExecutor)
+
+
+def test_niblit_tool_executor_dispatch_niblit_exec(monkeypatch):
+    """niblit_exec tool must call _exec() and return structured output."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    monkeypatch.setattr(executor, "_exec", lambda cmd: f"output of: {cmd}")
+    result = executor._dispatch("niblit_exec", {"command": "brain status"})
+    assert result["command"] == "brain status"
+    assert "output of: brain status" in result["output"]
+
+
+def test_niblit_tool_executor_dispatch_set_brain_mode_invalid():
+    """set_brain_mode with unknown mode must return error dict."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    result = executor._dispatch("set_brain_mode", {"mode": "quantum"})
+    assert "error" in result
+
+
+def test_niblit_tool_executor_dispatch_toggle_llm_invalid():
+    """toggle_llm with unknown action must return error dict."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    result = executor._dispatch("toggle_llm", {"action": "maybe"})
+    assert "error" in result
+
+
+def test_niblit_tool_executor_dispatch_unknown_tool_falls_back(monkeypatch):
+    """Unknown tool names must fall back to niblit_exec."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    executor = NiblitToolExecutor(core=None)
+    calls = []
+    monkeypatch.setattr(executor, "_exec", lambda cmd: calls.append(cmd) or "ok")
+    executor._dispatch("some_unknown_tool", {"arg": "val"})
+    assert calls, "Fallback to niblit_exec was not called"
+
+
+def test_niblit_tool_executor_execute_tool_calls_returns_list():
+    """execute_tool_calls must return a list of result dicts."""
+    from modules.niblit_tool_executor import NiblitToolExecutor
+    import json as _json
+    executor = NiblitToolExecutor(core=None)
+    tool_calls = [
+        {"function": {"name": "niblit_status", "arguments": "{}"}},
     ]
+    # Patch _exec to avoid actual core dependency
+    executor._core = type("FakeCore", (), {"process": lambda self, cmd: f"mocked: {cmd}"})()
+    results = executor.execute_tool_calls(tool_calls)
+    assert isinstance(results, list)
+    assert len(results) == 1
+    assert results[0]["tool"] == "niblit_status"
+

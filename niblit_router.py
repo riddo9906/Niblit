@@ -397,6 +397,8 @@ class NiblitRouter:
         "local-model",
         # KB healing with LLM tool-calling (Llama 3.2 1B required)
         "heal",
+        # Tool introspection — list/inspect/test all AI-callable tools
+        "tools",
     )
 
     CHAT_RESPONSES = {
@@ -3788,7 +3790,126 @@ Ask me about:
             return json.dumps(sm.get_experience_summary(), indent=2)
         return f"Unknown self-monitor command: {sub}\nUsage: self-monitor [status|trends|recommendations|summary]"
 
-    def _handle_knowledge(self, cmd: str) -> str:
+    def _handle_tools(self, cmd: str) -> str:
+        """Handle 'tools <sub>' — introspect and test the Niblit AI tool suite.
+
+        Sub-commands::
+
+            tools                   — list all available AI-callable tools
+            tools list              — same
+            tools status            — show how many tools are defined + executor health
+            tools run <tool> [args] — invoke a tool manually for testing
+                                      (args as JSON object string)
+            tools prompt            — print the tool-calling system prompt
+
+        Examples::
+
+            tools list
+            tools run niblit_status
+            tools run niblit_exec {"command": "brain status"}
+            tools run search_memory {"query": "python", "limit": 5}
+        """
+        import json as _json
+
+        lower = cmd.strip().lower()
+        if lower.startswith("tools"):
+            sub = lower[len("tools"):].strip()
+            orig_sub = cmd.strip()[len("tools"):].strip()
+        else:
+            sub = ""
+            orig_sub = ""
+
+        try:
+            from modules.local_brain import NIBLIT_ALL_TOOLS, NIBLIT_KB_TOOLS, _TOOL_CALL_SYSTEM_PROMPT
+            from modules.niblit_tool_executor import NiblitToolExecutor
+        except Exception as exc:
+            return f"⚠️  Tool suite unavailable: {exc}"
+
+        # ── list ──────────────────────────────────────────────────────────────
+        if sub in ("", "list"):
+            categories = {
+                "System":    ["niblit_status", "niblit_exec", "niblit_list_commands"],
+                "Brain/LLM": ["set_brain_mode", "toggle_llm"],
+                "Model":     ["switch_local_model", "local_model_status"],
+                "Memory/KB": [
+                    "list_kb_facts", "read_kb_fact", "delete_kb_fact",
+                    "complete_slsa_artifact", "search_memory", "store_kb_fact",
+                ],
+                "Learning":  ["self_research", "self_teach", "reflect"],
+                "Code":      ["run_code", "fix_code"],
+                "ALE":       ["ale_status", "autonomous_learn"],
+                "Healing":   ["run_selfheal"],
+                "Awareness": ["niblit_structure"],
+            }
+            all_names = {t["function"]["name"] for t in NIBLIT_ALL_TOOLS}
+            lines = [f"🔧 Niblit AI Tools ({len(NIBLIT_ALL_TOOLS)} total)\n"]
+            for cat, names in categories.items():
+                registered = [n for n in names if n in all_names]
+                lines.append(f"  {cat}:")
+                for n in registered:
+                    # Find description
+                    desc = next(
+                        (t["function"]["description"][:60] for t in NIBLIT_ALL_TOOLS
+                         if t["function"]["name"] == n),
+                        "",
+                    )
+                    lines.append(f"    • {n:<30} {desc}…")
+            lines.append("\nUsage: tools run <tool_name> [JSON args]")
+            return "\n".join(lines)
+
+        # ── status ────────────────────────────────────────────────────────────
+        if sub == "status":
+            executor = NiblitToolExecutor(
+                core=getattr(self.core, None, None) if self.core else None,
+                knowledge_db=getattr(self.core, "knowledge_db", None) if self.core else None,
+            )
+            lb = getattr(self.core, "local_brain", None) if self.core else None
+            backend = getattr(lb, "_backend_in_use", "unknown") if lb else "not loaded"
+            has_tool_calling = backend == "http"
+            return (
+                f"🔧 Tool Suite Status\n"
+                f"  Total tools    : {len(NIBLIT_ALL_TOOLS)}\n"
+                f"  KB tools only  : {len(NIBLIT_KB_TOOLS)}\n"
+                f"  Local backend  : {backend}\n"
+                f"  Tool calling   : {'✅ available (HTTP)' if has_tool_calling else '⚠️  HTTP backend required'}\n"
+                f"  Executor       : NiblitToolExecutor ({'core wired' if self.core else 'no core'})\n"
+                "  Tip: 'tools run niblit_status' to test without generate_with_tools"
+            )
+
+        # ── prompt ────────────────────────────────────────────────────────────
+        if sub == "prompt":
+            return f"Tool-calling system prompt ({len(_TOOL_CALL_SYSTEM_PROMPT)} chars):\n\n{_TOOL_CALL_SYSTEM_PROMPT}"
+
+        # ── run <tool_name> [JSON] ─────────────────────────────────────────────
+        if sub.startswith("run "):
+            rest = orig_sub[len("run "):].strip()
+            parts = rest.split(None, 1)
+            tool_name = parts[0]
+            args_str = parts[1] if len(parts) > 1 else "{}"
+            try:
+                tool_args = _json.loads(args_str)
+            except _json.JSONDecodeError as exc:
+                return f"❌ Invalid JSON args: {exc}\nUsage: tools run <name> {{\"key\": \"value\"}}"
+
+            executor = NiblitToolExecutor(
+                core=self.core,
+                knowledge_db=getattr(self.core, "knowledge_db", None) if self.core else None,
+                local_brain=getattr(self.core, "local_brain", None) if self.core else None,
+            )
+            try:
+                result = executor._dispatch(tool_name, tool_args)
+                return f"✅ {tool_name}:\n{_json.dumps(result, indent=2, ensure_ascii=False)[:800]}"
+            except Exception as exc:
+                return f"❌ {tool_name} failed: {exc}"
+
+        return (
+            "Unknown tools sub-command. Try:\n"
+            "  tools list            — all available tools\n"
+            "  tools status          — tool suite health\n"
+            "  tools prompt          — view tool-calling system prompt\n"
+            "  tools run <name>      — invoke tool (no args)\n"
+            '  tools run <name> {...} — invoke tool with JSON args'
+        )
         """Handle 'knowledge <topic>' — query the Tiered Knowledge System.
 
         Usage::
@@ -6192,6 +6313,10 @@ Ask me about:
         # HEAL KB — AI-driven KB health repair with tool calling (additive)
         if lower in ("heal kb", "heal-kb") or lower.startswith("heal kb ") or lower.startswith("heal-kb "):
             return self._handle_heal_kb(cmd)
+
+        # TOOLS — AI tool suite introspection + manual invocation (additive)
+        if lower == "tools" or lower.startswith("tools "):
+            return self._handle_tools(cmd)
 
         # KERNEL — NiblitKernel cognitive dashboard (additive)
         if lower == "kernel" or lower.startswith("kernel "):

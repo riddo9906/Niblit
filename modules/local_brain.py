@@ -178,7 +178,147 @@ KEY COMMANDS (always valid):
   qwen status | qwen audit-kb | qwen memory-summary | qwen clean-kb | qwen coach
   self-research <topic> | self-teach <topic> | reflect <topic>
   my structure | my modules | my commands | ale processes
+  local-model status | local-model switch <qwen|llama3>
+  heal kb | heal kb run | heal kb confirm <key>
+  tools list | tools status
 === END NIBLIT ARCHITECTURE ===
+"""
+
+# Full structural context for tool-calling system prompts (Llama 3.2 1B+).
+# More detailed than _NIBLIT_STRUCTURAL_CONTEXT but still fits 2048-token context.
+_NIBLIT_FULL_STRUCTURAL_CONTEXT = """
+=== NIBLIT FULL ARCHITECTURE ===
+
+You are Niblit, an autonomous AI operating system running on device.
+You have function-calling tools to inspect and control every subsystem.
+
+─── ENTRY POINTS ───
+  main.py          CLI shell (interactive)
+  app.py           FastAPI REST API  (GET /status, POST /chat, POST /process)
+  server.py        Same API, Vercel-compatible
+
+─── CORE ORCHESTRATION ───
+  niblit_core.py   NiblitCore — master controller.
+                   Public: process(text), status(), shutdown(), local_brain, brain_router
+  niblit_router.py NiblitRouter — text → 100+ handler families
+                   process(cmd) dispatches to all handlers below.
+  niblit_brain.py  NiblitBrain — think(), learn(), BrainTrainer integration
+  niblit_memory/   Memory hub: KnowledgeDB, LocalDB, FusedMemory, NiblitMemory
+
+─── MEMORY LAYERS ───
+  LocalDB          niblit.db         — facts / interactions / learning_log (JSON)
+  KnowledgeDB      niblit_memory.json — facts + queue + acquired_data + events
+  FusedMemory      SQLite + Qdrant vector store (semantic search)
+  NiblitMemory     Top-level hub with circuit-breaker, caching, rate-limiting
+
+─── BRAIN / LLM STACK ───
+  QwenLocalBrain       GGUF local model; backends: http|subprocess|python
+                       Template: qwen (ChatML) or llama3 (Llama-3 headers)
+                       generate_with_tools() → HTTP function-calling
+  BrainRouter          Modes: local|balanced|power|offline
+                       Routes to local / cloud / memory brain
+  HFBrain              HuggingFace cloud inference (moonshotai/Kimi-K2)
+  LLMProviderManager   Runtime-switchable chain: Qwen→HF→Anthropic→OpenAI
+  LLMChatMemory        Sliding-window chat history for conversational context
+
+─── AUTONOMOUS LEARNING ENGINE (ALE — 29 steps) ───
+  Step 1-5   Research       — SelfResearcher: web+KB+Searchcode+GitHub+Wikipedia
+  Step 6-10  Teaching       — SelfTeacher: ingests research into KnowledgeDB
+  Step 11-15 Reflection     — ReflectModule: summarise + store KB reflections
+  Step 16-20 Ideation       — SelfIdeaGenerator: generate improvement proposals
+  Step 21-25 Implementation — SelfIdeaImplementation: CodeGenerator + CodeCompiler
+  Step 26-29 Healing/Audit  — SelfHealer + QwenMemoryAdapter KB audit
+  Background: runs when user is idle; ale status | ale stop | ale start
+
+─── SELF-IMPROVEMENT MODULES ───
+  SelfResearcher       Multi-backend research (DuckDuckGo, SerpAPI, GitHub, SO)
+  SelfTeacher          Ingest research → KnowledgeDB facts
+  SelfHealer           Detect & patch Python/JS faults autonomously
+  SelfIdeaGenerator    Generate evolution proposals from KB gaps
+  SelfIdeaImplementation  Turn proposals → runnable code
+  CodeGenerator        Template + LLM-driven code generation
+  CodeCompiler         Syntax test + subprocess execution
+  CodeErrorFixer       Retry loop: fix → recompile (up to 3×)
+  BrainTrainer         Fine-tune local brain on curated research data
+  ReflectModule        Summarise KB + store reflection entries
+  MSG Layer            Meta-Cognitive Self-Governance: SelfModel, IntentEngine,
+                       MetaEvaluator, ResourceAllocator, EvolutionPlanner
+  SelfMonitor          Experience tracking, trend analysis, recommendations
+  ImprovementIntegrator Hot-reload improvements without restart
+
+─── KNOWLEDGE & REASONING ───
+  KnowledgeDB          Primary fact store (add_fact, delete_fact, list_facts, search)
+  SLSAGenerator        Structured Live Sense Artifacts — enriched KB entries
+  GraphRAG             3-tier graph-based retrieval-augmented generation
+  TieredKnowledgeSystem Query → local KB → graph → cloud fallback
+  ReasoningEngine      Multi-step logical reasoning pipeline
+  ConceptSynthesizer   Combine concepts into new knowledge artifacts
+  KnowledgeFilter      Whitelist/compress facts before storage
+
+─── SECURITY & EVOLUTION ───
+  NiblitCyberMembrane  Adaptive intrusion detection + honeypot
+  SecurityHardening    Dependency + code-level hardening
+  NiblitDefensiveEvolutionLoop  Autonomous vulnerability patching cycle
+  EvolutionQueue       Pending evolution proposals queue
+  ModuleAutonomy       Per-module self-governance framework
+
+─── PLATFORM INTEGRATION ───
+  OSIntegration        Linux/Android sysfs, proc, udev
+  HardwareScanner      CPU, RAM, GPU, storage profiling
+  BIOSIntegration      UEFI/BIOS detection
+  KernelIntegration    sysctl, /proc, dmesg, kernel modules
+  DeviceControl        Sandboxed shell execution + serial/G-code
+  DeviceMesh           LAN discovery + peer-to-peer spread
+  PlatformBootstrap    Cross-platform env setup (Termux/proot/Docker/Vercel)
+
+─── TRADING & MARKET ───
+  TradingBrain         Autonomous trading cycle (LEAN + Binance)
+  MarketDataProviders  Multi-provider free market data
+  RealTimeStream       Binance WebSocket live stream
+  LEANEngine           QuantConnect backtesting + live trade deployment
+  TradingSwingV3       FilteredSwingTraderV3 trend re-entry model
+  TradingStudy         Trading metacognition + study sessions
+
+─── NETWORKING & DISTRIBUTED ───
+  AutonomousNetwork    LAN node discovery + peer communication
+  DeploymentBridge     Cross-environment checkpoint/restore
+  GithubSync           Push Niblit's own source to GitHub
+  GithubDeepResearch   Trending-repo scanner + PR/issue tracking
+  NiblitSidecar        UNIX socket control server (/tmp/niblit-ctl.sock)
+
+─── ALL ROUTER COMMANDS ───
+  System:      status | health | version | help | commands | time
+  Brain:       brain status | brain mode <local|balanced|power|offline>
+               toggle-llm on|off|status | llm-provider qwen|hf|anthropic|status
+  Local Model: local-model status | local-model list | local-model switch <preset>
+  Memory/KB:   recall <topic> | knowledge stats | acquired data | kb stats
+               qwen status | qwen audit-kb | qwen clean-kb | qwen memory-summary
+               qwen coach | qwen ask <prompt>
+               heal kb | heal kb run | heal kb confirm <key>
+  Learning:    self-research <topic> | self-teach <topic>
+               reflect <topic> | auto-reflect | autonomous-learn start|stop|status
+  Ideas:       ideas | self-idea | self-implement | idea-implement
+  Code:        run code <lang> <code> | fix code <lang> <code>
+               fix-code <lang> | validate <lang> <code>
+  ALE:         ale status | ale start | ale stop | ale processes
+               ale checkpoint | ale resume | ale backtrack | ale anchor
+  Healing:     run-selfheal | self-heal | run_selfheal
+  SLSA:        start_slsa | stop_slsa | restart_slsa | slsa-status
+  Research:    search <query> | summary <url> | github-deep | github deep
+  Awareness:   my structure | my modules | my commands | my threads
+               sa-structure | sa-dashboard | sa-flow | sa-resources
+               dashboard | struct | reasoning
+  Trading:     trading | trading study | trading swing | market | market data
+               stream | lean | lean deploy | lean algo
+  Platform:    hardware | os | platform | bios | krnl | kernel
+               ctrl | cmd exec | mesh | net | autonomous-network
+  Security:    security | cyber | cyber-membrane | membrane | evolution | evo
+  Env:         env-state | env-adapter | niblit-runtime | nrt
+  Misc:        graph-rag | knowledge | curriculum | civilization | civ
+               game | file | builds | agents | trainer | confidence
+               self-monitor | hybrid-search | self-enhance | autonomy
+               tools list | tools status
+=== END NIBLIT FULL ARCHITECTURE ===
 """
 
 # Default instruction set used by QwenLocalBrain.ask() when the caller does
@@ -204,6 +344,21 @@ _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT = (
     "explaining an error).\n"
     "  - Always ground responses in the context and knowledge provided to you.\n\n"
 ) + _NIBLIT_STRUCTURAL_CONTEXT
+
+# Extended system prompt for tool-calling sessions (Llama 3.2 1B+).
+# Uses the full structural context so the model understands every module and
+# command family.  Not injected into regular ask() paths to avoid ballooning
+# the 0.5B model's 800-token effective context.
+_TOOL_CALL_SYSTEM_PROMPT = (
+    "You are Niblit, an autonomous AI operating system with function-calling tools.\n"
+    "Use the provided tools to inspect and control Niblit's subsystems.\n"
+    "Rules:\n"
+    "  1. Always call tools to fetch live data — never guess system state.\n"
+    "  2. Before deleting anything, call list_kb_facts or read_kb_fact first.\n"
+    "  3. delete_kb_fact requires explicit user confirmation — do not call it autonomously.\n"
+    "  4. Prefer niblit_exec for commands not covered by a specific tool.\n"
+    "  5. Be concise: report only what changed or what you found.\n\n"
+) + _NIBLIT_FULL_STRUCTURAL_CONTEXT
 
 # Lightweight system prompt for casual / conversational queries.
 # Intentionally tiny (~20 tokens) so it does not eat context budget on 0.5B models.
@@ -312,7 +467,415 @@ NIBLIT_KB_TOOLS: list = [
     },
 ]
 
-# Candidate binary names / paths for the subprocess backend (searched in order).
+# ── Comprehensive Niblit tool suite ───────────────────────────────────────────
+# Covers all major command families (system, brain, memory, learning, code,
+# ALE/healing, trading, platform).  Used with generate_with_tools() to give
+# Llama 3.2 1B (and any other function-calling model) full control over Niblit.
+#
+# Tool names must stay in sync with NiblitToolExecutor in
+# modules/niblit_tool_executor.py.  NIBLIT_KB_TOOLS is a strict subset of
+# this list; both remain importable for backward compatibility.
+NIBLIT_ALL_TOOLS: list = [
+    # ── System / core ─────────────────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "niblit_status",
+            "description": (
+                "Return a compact snapshot of Niblit's runtime status: loaded modules, "
+                "brain mode, ALE state, memory stats, local model info."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "niblit_exec",
+            "description": (
+                "Execute ANY Niblit command string exactly as you would type it in the "
+                "shell.  Examples: 'brain status', 'ale status', 'recall python', "
+                "'self-research quantum computing', 'autonomous-learn start'.  "
+                "Use this as a general-purpose fallback when no specific tool fits."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "Full command string to execute (e.g. 'brain mode local')",
+                    },
+                },
+                "required": ["command"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "niblit_list_commands",
+            "description": (
+                "List all available Niblit commands, grouped by category.  "
+                "Use when you need to discover what commands exist."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    # ── Brain / LLM routing ───────────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "set_brain_mode",
+            "description": (
+                "Change BrainRouter mode.  "
+                "local = always use local model only (fastest, offline). "
+                "balanced = smart routing, default. "
+                "power = local draft + cloud refinement. "
+                "offline = local + memory, no cloud."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "mode": {
+                        "type": "string",
+                        "description": "One of: local | balanced | power | offline",
+                    },
+                },
+                "required": ["mode"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "toggle_llm",
+            "description": (
+                "Enable or disable cloud LLM calls.  "
+                "action='on' resumes cloud LLM (BrainRouter→balanced).  "
+                "action='off' pauses cloud calls (BrainRouter→local).  "
+                "action='status' returns current state."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "One of: on | off | status",
+                    },
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    # ── Local model management ────────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "switch_local_model",
+            "description": (
+                "Hot-swap the local GGUF model to a different preset. "
+                "preset='qwen' → Qwen 2.5 0.5B (ChatML, fast). "
+                "preset='llama3' → Llama 3.2 1B (function calling, better reasoning). "
+                "NOTE: restart llama-server with the new model file first."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "preset": {
+                        "type": "string",
+                        "description": "One of: qwen | llama3",
+                    },
+                },
+                "required": ["preset"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "local_model_status",
+            "description": "Return the active local model name, chat template, backend, and load status.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    # ── Memory / Knowledge Base ───────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "list_kb_facts",
+            "description": "List KB facts (keys + short value snippet). Use to survey what is stored.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max facts to return (default 20)",
+                    },
+                    "tag": {
+                        "type": "string",
+                        "description": "Filter to only facts with this tag (optional)",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_kb_fact",
+            "description": "Read the full stored value of a KB fact by its key.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "Exact key of the fact to read"},
+                },
+                "required": ["key"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_kb_fact",
+            "description": (
+                "Delete a KB fact. ONLY use when the value is corrupt, empty, "
+                "or provably nonsensical. Requires user confirmation."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "Exact key of the fact to delete"},
+                },
+                "required": ["key"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_memory",
+            "description": "Search the knowledge base for facts matching a query string.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural language or keyword query",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max results to return (default 10)",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "store_kb_fact",
+            "description": "Store a new fact in the knowledge base.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "Unique key for this fact (e.g. 'python:list_comprehension')",
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Fact content to store",
+                    },
+                    "tags": {
+                        "type": "string",
+                        "description": "Comma-separated tags (e.g. 'python,tutorial')",
+                    },
+                },
+                "required": ["key", "value"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "complete_slsa_artifact",
+            "description": (
+                "Synthesise a complete, fact-dense SLSA entry for a key that currently "
+                "has a partial or incomplete value."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string", "description": "KB fact key to complete"},
+                },
+                "required": ["key"],
+            },
+        },
+    },
+    # ── Learning / research ───────────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "self_research",
+            "description": (
+                "Research a topic using Niblit's multi-backend engine "
+                "(DuckDuckGo, Wikipedia, GitHub, StackOverflow) and store findings in KB."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic or question to research",
+                    },
+                },
+                "required": ["topic"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "self_teach",
+            "description": "Research a topic AND ingest results as structured KB entries (deeper than self_research).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic to research and learn",
+                    },
+                },
+                "required": ["topic"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "reflect",
+            "description": "Reflect on a topic: summarise relevant KB facts and produce an insight entry.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic to reflect on",
+                    },
+                },
+                "required": ["topic"],
+            },
+        },
+    },
+    # ── Code execution ────────────────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "run_code",
+            "description": "Run a code snippet in a given language (python, bash, javascript).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "language": {
+                        "type": "string",
+                        "description": "Language: python | bash | javascript",
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "Code to execute",
+                    },
+                },
+                "required": ["language", "code"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fix_code",
+            "description": "Attempt to fix a broken code snippet using CodeErrorFixer (up to 3 retry cycles).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "language": {
+                        "type": "string",
+                        "description": "Language: python | bash | javascript",
+                    },
+                    "code": {
+                        "type": "string",
+                        "description": "Broken code to fix",
+                    },
+                },
+                "required": ["language", "code"],
+            },
+        },
+    },
+    # ── ALE / autonomous engine ───────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "ale_status",
+            "description": (
+                "Get Autonomous Learning Engine (ALE) status: "
+                "current step, running/paused, last completed step, stats."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "autonomous_learn",
+            "description": "Start, stop, or query the Autonomous Learning Engine background loop.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "One of: start | stop | status",
+                    },
+                },
+                "required": ["action"],
+            },
+        },
+    },
+    # ── Self-healing ──────────────────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "run_selfheal",
+            "description": (
+                "Trigger SelfHealer: scan Niblit's own source for faults, "
+                "patch broken imports, fix syntax errors, and report what was changed."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    # ── Structural awareness ──────────────────────────────────────────────────
+    {
+        "type": "function",
+        "function": {
+            "name": "niblit_structure",
+            "description": (
+                "Return Niblit's live structural snapshot: loaded modules, active threads, "
+                "ALE loops, memory stats, brain routing configuration."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "section": {
+                        "type": "string",
+                        "description": (
+                            "Optional section: modules | threads | loops | commands | "
+                            "resources | dashboard | flow (default: full snapshot)"
+                        ),
+                    },
+                },
+            },
+        },
+    },
+]
 # CMake build (current default) takes precedence over old Makefile paths.
 # Absolute Termux paths are listed after tilde paths so they work from inside
 # proot (where ~ resolves to the proot home, not the real Termux home).
