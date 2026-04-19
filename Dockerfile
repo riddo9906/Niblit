@@ -6,7 +6,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Use the official Python 3.12 slim image as the base
-FROM python:3.14-slim
+FROM python:3.12-slim
 
 # ── System dependencies ───────────────────────────────────────────────────────
 # Build tools needed for some Python packages (numpy, faiss-cpu, etc.)
@@ -24,15 +24,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # ── Python dependencies ───────────────────────────────────────────────────────
-# Copy requirements first so Docker can cache the pip install layer
-COPY requirements.txt .
+# Use requirements-fly.txt for the Fly.io build.
+# This lean set omits heavy ML packages (torch, sentence-transformers, etc.)
+# that would OOM-kill a 512 MB Fly Machine before uvicorn can bind to port 8080.
+# All omitted packages are guarded by try/except in niblit_core.py so the app
+# runs in "cloud mode" (web API + KB + router) without them.
+# For full ML features install requirements.txt locally (Termux / GPU server).
+COPY requirements-fly.txt .
 
 # Install Python packages
 # --no-cache-dir keeps the image lean
-# torch / sentence-transformers can be large; they are included to keep Niblit
-# fully functional. If image size is a concern, comment out heavy ML deps.
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements-fly.txt
 
 # ── Application source ────────────────────────────────────────────────────────
 COPY . .
