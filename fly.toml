@@ -67,6 +67,18 @@ swap_size_mb = 512
     hard_limit = 50
     soft_limit = 25
 
+  # Fly.io routes traffic only after this check passes, preventing 503s during
+  # startup. grace_period gives the process time to import Python modules and
+  # bind to the port before the first check runs.
+  [[http_service.checks]]
+    grace_period  = "20s"    # wait this long after process starts before checking
+    interval      = "15s"    # check every 15 seconds
+    timeout       = "10s"    # mark unhealthy if no response within 10 s
+    type          = "http"
+    method        = "GET"
+    path          = "/health"
+    protocol      = "http"
+
 # ── Health checks ─────────────────────────────────────────────────────────────
 [[vm]]
   size   = "shared-cpu-1x"   # 256 MB base RAM; overridden to 512 MB below

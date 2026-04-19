@@ -1,0 +1,63 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# requirements-fly.txt  —  Fly.io deployment (web-only, no heavy ML)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Used by the Dockerfile for fly.io builds.
+# Heavy ML packages (torch, transformers, sentence-transformers) are intentionally
+# excluded: they consume 800 MB+ of RAM at import time and OOM-kill the 512 MB
+# Fly Machine before uvicorn can bind to port 8080.
+#
+# All omitted packages are guarded by try/except in niblit_core.py so Niblit
+# runs in "cloud mode" (web API + KB + router) without them.
+#
+# For local/Termux full-featured installs use requirements.txt instead.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+python-multipart>=0.0.9
+
+# ── Runtime essentials ────────────────────────────────────────────────────────
+requests>=2.28.0
+python-dotenv>=1.0.0
+PyYAML>=6.0.0
+pygments>=2.17.0
+
+# ── Memory / KB ───────────────────────────────────────────────────────────────
+numpy>=1.24.0
+# qdrant-client pulls in grpcio which adds ~150 MB; keep it for vector search
+qdrant-client>=1.7.0
+
+# ── Knowledge / research ──────────────────────────────────────────────────────
+beautifulsoup4>=4.12.0
+duckduckgo-search>=6.1.0
+
+# ── Data / trading ────────────────────────────────────────────────────────────
+pandas>=2.0.0
+ta>=0.11.0
+yfinance>=0.2.61
+
+# ── Observability ─────────────────────────────────────────────────────────────
+prometheus-client>=0.19.0
+
+# ── Document parsing ──────────────────────────────────────────────────────────
+pdfplumber>=0.10.0
+python-docx>=1.1.0
+openpyxl>=3.1.0
+Pillow>=10.0.0
+
+# ── MCP / LLM integrations ────────────────────────────────────────────────────
+mcp>=1.0.0
+huggingface-hub>=0.20.0   # lightweight — only downloads model files, no torch
+
+# ── NOT included (would OOM a 512 MB machine) ─────────────────────────────────
+# torch / sentence-transformers / transformers / accelerate / sentencepiece
+#   → guarded by try/except in niblit_core.py; Niblit runs without them
+# pygame     → no display server on fly.io
+# scrapy     → heavy crawler not needed for web API
+# faiss-cpu  → needs libopenblas not present in slim images; use qdrant instead
+# scikit-learn → large; only needed for advanced ML features
+# lean       → requires Lean4 theorem prover binary
+# docker     → requires Docker daemon socket not available in fly containers
+# pytest / pylint / mypy / black / ruff / pre-commit → dev-only tools

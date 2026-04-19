@@ -152,7 +152,7 @@ ruff>=0.4.0
 pre-commit>=3.5.0
 
 # ── Game Engine (optional — headless by default, display requires NIBLIT_GAME_DISPLAY=1) ───
-pygame>=2.5.0
+# pygame>=2.5.0        # no display server on fly.io / headless servers; enable locally
 
 # ── Universal File Manager — optional format support ─────────────────────────
 # Install whichever formats you need; Niblit degrades gracefully if absent.
