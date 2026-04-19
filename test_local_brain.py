@@ -521,14 +521,14 @@ def test_execute_slim_tool_calls_run_command(monkeypatch):
 
 
 def test_execute_slim_tool_calls_max_tool_calls():
-    """execute_slim_tool_calls must enforce NIBLIT_MAX_TOOL_CALLS limit."""
-    from modules.niblit_tool_executor import NiblitToolExecutor, _MAX_TOOL_CALLS_PER_TURN
+    """execute_slim_tool_calls must enforce MAX_TOOL_CALLS_PER_TURN limit."""
+    from modules.niblit_tool_executor import NiblitToolExecutor, MAX_TOOL_CALLS_PER_TURN
     executor = NiblitToolExecutor(core=None)
     # Patch run_command so it doesn't need a real core
     executor._core = type("FakeCore", (), {"process": lambda self, cmd: "ok"})()
 
     # Submit MAX+2 calls
-    n = _MAX_TOOL_CALLS_PER_TURN + 2
+    n = MAX_TOOL_CALLS_PER_TURN + 2
     tool_calls = [
         {"function": {
             "name": "niblit_run_command",

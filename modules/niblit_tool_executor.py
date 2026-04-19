@@ -49,7 +49,10 @@ log = logging.getLogger("Niblit.NiblitToolExecutor")
 _EXEC_MAX_CHARS = int(os.environ.get("NIBLIT_TOOL_EXEC_MAX_CHARS", "800"))
 
 # Maximum tool calls allowed per turn for slim-mode (prevents infinite loops).
-_MAX_TOOL_CALLS_PER_TURN = int(os.environ.get("NIBLIT_MAX_TOOL_CALLS", "5"))
+# Exported without leading underscore so tests and callers can reference it.
+MAX_TOOL_CALLS_PER_TURN = int(os.environ.get("NIBLIT_MAX_TOOL_CALLS", "5"))
+# Internal alias kept for backward compatibility within this module.
+_MAX_TOOL_CALLS_PER_TURN = MAX_TOOL_CALLS_PER_TURN
 
 # Commands the slim executor will refuse unless confirm_mode is True.
 _DESTRUCTIVE_COMMANDS = frozenset({"shutdown", "exit", "quit"})
