@@ -403,7 +403,6 @@ def test_niblit_tool_executor_dispatch_unknown_tool_falls_back(monkeypatch):
 def test_niblit_tool_executor_execute_tool_calls_returns_list():
     """execute_tool_calls must return a list of result dicts."""
     from modules.niblit_tool_executor import NiblitToolExecutor
-    import json as _json
     executor = NiblitToolExecutor(core=None)
     tool_calls = [
         {"function": {"name": "niblit_status", "arguments": "{}"}},

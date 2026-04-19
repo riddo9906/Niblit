@@ -3860,7 +3860,7 @@ Ask me about:
         # ── status ────────────────────────────────────────────────────────────
         if sub == "status":
             executor = NiblitToolExecutor(
-                core=getattr(self.core, None, None) if self.core else None,
+                core=self.core,
                 knowledge_db=getattr(self.core, "knowledge_db", None) if self.core else None,
             )
             lb = getattr(self.core, "local_brain", None) if self.core else None
@@ -3910,6 +3910,8 @@ Ask me about:
             "  tools run <name>      — invoke tool (no args)\n"
             '  tools run <name> {...} — invoke tool with JSON args'
         )
+
+    def _handle_knowledge(self, cmd: str) -> str:
         """Handle 'knowledge <topic>' — query the Tiered Knowledge System.
 
         Usage::
