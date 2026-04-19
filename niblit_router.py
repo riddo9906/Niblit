@@ -2593,11 +2593,12 @@ Ask me about:
     # ── LLM Provider Switch handler ───────────────────────────────────────────
 
     def _handle_llm_provider(self, cmd: str) -> str:
-        """Route ``llm-provider hf|anthropic|qwen|status`` commands.
+        """Route ``llm-provider ...`` commands.
 
         Subcommands::
 
             llm-provider qwen       — set local Qwen brain as primary (default)
+            llm-provider llama3     — switch local preset to Llama 3.2 and keep local provider active
             llm-provider anthropic  — set Anthropic Claude as primary
             llm-provider hf         — set HuggingFace as primary
             llm-provider status     — show active provider and availability
@@ -2628,19 +2629,64 @@ Ask me about:
             hf_active = "← active" if s["active"] == "hf" else ""
             ant_active = "← active" if s["active"] == "anthropic" else ""
             qwen_active = "← active" if s["active"] == "qwen" else ""
+            local_hint = ""
+            try:
+                lb = getattr(self.core, "local_brain", None) if self.core else None
+                if lb is not None and hasattr(lb, "status"):
+                    st = lb.status()
+                    tmpl = str(st.get("gguf_chat_template", "")).strip().lower()
+                    local_hint = "llama3" if tmpl == "llama3" else "qwen"
+            except Exception:
+                local_hint = ""
+            local_line = (
+                f"• Local preset: **{local_hint}** "
+                f"(switch: `llm-provider llama3` or `local-model switch qwen|llama3`)\n"
+                if local_hint
+                else "• Local preset: use `local-model status` "
+                     "(switch: `llm-provider llama3` or `local-model switch qwen|llama3`)\n"
+            )
             return (
                 f"**LLM Provider Status**\n"
                 f"• Active provider: **{s['active']}**\n"
                 f"• HuggingFace  {hf_flag}  (model: {s['hf_model']}) {hf_active}\n"
                 f"• Anthropic    {ant_flag}  (model: {s['anthropic_model']}) {ant_active}\n"
                 f"• Qwen Local   {qwen_flag}  (model: {s['qwen_model']}) {qwen_active}\n"
-                f"\nSwitch: `llm-provider hf`, `llm-provider anthropic`, or `llm-provider qwen`"
+                f"{local_line}"
+                f"\nSwitch provider: `llm-provider hf`, `llm-provider anthropic`, or `llm-provider qwen`\n"
+                f"Switch local model: `llm-provider llama3` or `local-model switch qwen|llama3`"
             )
+
+        if arg in ("llama3", "llama"):
+            try:
+                from modules.local_brain import swap_local_brain
+                new_lb = swap_local_brain("llama3")
+                if self.core is not None:
+                    self.core.local_brain = new_lb
+                    brain = getattr(self.core, "brain", None)
+                    if brain is not None:
+                        brain.local_brain = new_lb
+                    try:
+                        from modules.brain_router import get_brain_router
+                        br = get_brain_router()
+                        br.local_brain = new_lb
+                    except Exception:
+                        pass
+                mgr.wire(local_brain=new_lb)
+                mgr.switch("qwen")
+                st = new_lb.status()
+                return (
+                    "✅ Local provider switched to Llama 3.2 preset (`llama3`).\n"
+                    f"• Model path: {st.get('model_name', '?')}\n"
+                    f"• Chat template: {st.get('gguf_chat_template', '?')}\n"
+                    "⚠️ If using HTTP backend, restart llama-server with the Llama model first."
+                )
+            except Exception as exc:
+                return f"❌ Failed to switch local preset to llama3: {exc}"
 
         if arg in ("hf", "anthropic", "qwen"):
             return mgr.switch(arg)
 
-        return "Usage: llm-provider hf|anthropic|qwen|status"
+        return "Usage: llm-provider hf|anthropic|qwen|llama3|status"
 
     # ── Chat Memory handler (LLM inference provider memory) ───────────────────
 
@@ -6816,10 +6862,15 @@ Ask me about:
             "toggle-llm off               — Pause LLM (chat history preserved)",
             "toggle-llm on                — Resume LLM (full history reloaded)",
             "toggle-llm status            — Show LLM session & chat memory status",
-            "llm-provider qwen            — Set local Qwen brain as primary LLM (default)",
+            "llm-provider qwen            — Set local provider as primary LLM (keeps current local preset)",
+            "llm-provider llama3          — Switch local preset to Llama 3.2 and use local provider",
             "llm-provider anthropic       — Set Anthropic Claude as primary LLM",
             "llm-provider hf              — Set HuggingFace as primary LLM",
             "llm-provider status          — Show active provider & availability",
+            "local-model status           — Show current local model preset + backend details",
+            "local-model list             — List local presets and configured model paths",
+            "local-model switch qwen      — Switch local preset to Qwen 2.5 0.5B",
+            "local-model switch llama3    — Switch local preset to Llama 3.2 1B",
             "status, health               — System status",
             "time                         — Current time",
             "",

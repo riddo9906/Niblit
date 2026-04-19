@@ -11,7 +11,6 @@ Run with::
     pytest test_niblit_router.py -v
 """
 
-import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -218,6 +217,25 @@ class TestNiblitRouterProcess:
             result = router.process("llm-provider status")
         assert "qwen" in result.lower()
         assert "active provider: **qwen**" in result.lower()
+        assert "local-model switch qwen|llama3" in result.lower()
+
+    def test_llm_provider_llama3_switch_alias(self):
+        router, _, _, core = _make_router()
+        mock_mgr = MagicMock()
+        mock_mgr.switch.return_value = "✅ LLM provider switched to **qwen**."
+        mock_lb = MagicMock()
+        mock_lb.status.return_value = {
+            "model_name": "~/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+            "gguf_chat_template": "llama3",
+        }
+        with (
+            patch("modules.llm_provider_manager.get_llm_provider_manager", return_value=mock_mgr),
+            patch("modules.local_brain.swap_local_brain", return_value=mock_lb),
+        ):
+            result = router.process("llm-provider llama3")
+        assert "llama 3.2" in result.lower()
+        mock_mgr.switch.assert_called_once_with("qwen")
+        assert core.local_brain == mock_lb
 
 
 # ---------------------------------------------------------------------------
