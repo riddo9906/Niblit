@@ -2635,8 +2635,14 @@ Ask me about:
                 if lb is not None and hasattr(lb, "status"):
                     st = lb.status()
                     tmpl = str(st.get("gguf_chat_template", "")).strip().lower()
-                    local_hint = "llama3" if tmpl == "llama3" else "qwen"
-            except Exception:
+                    if tmpl == "llama3":
+                        local_hint = "llama3"
+                    elif tmpl == "qwen":
+                        local_hint = "qwen"
+                    elif tmpl:
+                        local_hint = f"{tmpl} (custom)"
+            except Exception as exc:
+                log.debug("[LLMProvider] local preset probe failed: %s", exc)
                 local_hint = ""
             local_line = (
                 f"• Local preset: **{local_hint}** "
@@ -2669,8 +2675,8 @@ Ask me about:
                         from modules.brain_router import get_brain_router
                         br = get_brain_router()
                         br.local_brain = new_lb
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        log.debug("[LLMProvider] BrainRouter local_brain rewire skipped: %s", exc)
                 mgr.wire(local_brain=new_lb)
                 mgr.switch("qwen")
                 st = new_lb.status()
@@ -2681,7 +2687,8 @@ Ask me about:
                     "⚠️ If using HTTP backend, restart llama-server with the Llama model first."
                 )
             except Exception as exc:
-                return f"❌ Failed to switch local preset to llama3: {exc}"
+                log.exception("[LLMProvider] Failed llama3 preset switch: %s", exc)
+                return "❌ Failed to switch local preset to llama3."
 
         if arg in ("hf", "anthropic", "qwen"):
             return mgr.switch(arg)
