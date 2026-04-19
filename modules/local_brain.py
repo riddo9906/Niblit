@@ -238,7 +238,7 @@ def _llama_cli_supported_flags(binary: Optional[Path]) -> set[str]:
         return cached
     try:
         probe = subprocess.run(
-            [key, "--help"],
+            [str(binary), "--help"],
             capture_output=True,
             text=True,
             timeout=5,
