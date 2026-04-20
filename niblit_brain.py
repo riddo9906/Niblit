@@ -85,10 +85,13 @@ def _sanitize_text(text: str, max_chars: int = _KB_TEXT_MAX_CHARS) -> str:
 _NON_CASUAL_KEYWORDS = frozenset({
     "run", "fix", "recall", "learn", "search", "code", "status",
     "help", "teach", "research", "define", "explain", "calculate",
-    "what", "why", "when", "where", "which", "how",
+    "what", "why", "when", "where", "which",
     "generate", "write", "build", "create", "find", "show",
     "autonomous", "brain", "memory", "toggle", "knowledge",
 })
+
+# Compiled once at module level to avoid repeated re.compile() overhead.
+_HOW_QUERY_RE = re.compile(r"\bhow\s+(do|does|to|can|could|should|would|is)\b")
 
 
 def _is_casual_input(text: str) -> bool:
@@ -106,8 +109,11 @@ def _is_casual_input(text: str) -> bool:
     stripped = text.strip()
     if "?" in stripped:
         return False
-    words = stripped.lower().split()
+    lowered = stripped.lower()
+    words = lowered.split()
     if len(words) > 6:
+        return False
+    if _HOW_QUERY_RE.search(lowered):
         return False
     if any(w in _NON_CASUAL_KEYWORDS for w in words):
         return False

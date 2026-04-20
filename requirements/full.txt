@@ -1,0 +1,47 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# requirements/full.txt  —  PC / full local ML profile
+# ═══════════════════════════════════════════════════════════════════════════════
+# Extends core.txt with the full ML stack.  Use on a PC with at least 4 GB RAM.
+#
+# Install:
+#   pip install -r requirements/full.txt
+#   export NIBLIT_PROFILE=full
+#
+# Note: torch is intentionally NOT included because the correct wheel differs
+# per platform (CPU / CUDA / ROCm / Apple MPS).  Install it separately:
+#   pip install torch                    # CPU
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121  # CUDA 12.1
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Everything from android (which inherits core)
+-r android.txt
+
+# ── ML / Embedding stack ─────────────────────────────────────────────────────
+sentence-transformers>=2.2.2
+faiss-cpu>=1.7.4
+scikit-learn>=1.3.0
+
+# ── HuggingFace transformers + local brain backends ──────────────────────────
+transformers>=4.40.0
+accelerate>=0.29.0
+sentencepiece>=0.2.0
+safetensors>=0.4.3
+
+# ── Vector database (full semantic search) ────────────────────────────────────
+qdrant-client>=1.7.0
+
+# ── Crawler ───────────────────────────────────────────────────────────────────
+scrapy>=2.11.0
+
+# ── Container-based sandbox ────────────────────────────────────────────────────
+docker>=6.0.0
+
+# ── QuantConnect LEAN CLI ────────────────────────────────────────────────────
+lean>=1.0.0
+
+# ── Optional fine-tuning stack (uncomment to enable QLoRA fine-tuning) ───────
+# trl>=0.8.6
+# peft>=0.10.0
+# bitsandbytes>=0.43.0
+# datasets>=2.18.0
+# evaluate>=0.4.1

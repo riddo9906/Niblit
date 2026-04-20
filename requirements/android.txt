@@ -1,0 +1,43 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# requirements/android.txt  —  Android / proot-Ubuntu profile
+# ═══════════════════════════════════════════════════════════════════════════════
+# A strict subset of core.txt that avoids packages known to fail on ARM proot:
+#
+#   ✗  faiss-cpu          — requires libopenblas; painful to build on ARM
+#   ✗  sentence-transformers — pulls torch (800 MB+)
+#   ✗  transformers        — large; needed only for local Qwen training
+#   ✗  accelerate          — training/GPU harness; not needed on Android
+#   ✗  sentencepiece       — native extension, often fails in proot
+#   ✗  safetensors         — needed only with transformers backend
+#   ✗  scrapy              — heavy crawler; prefer requests+bs4 path
+#   ✗  docker              — no daemon available in proot
+#   ✗  lean / QuantConnect CLI — requires Lean4 binary
+#   ✗  scikit-learn        — large; only needed for advanced clustering
+#
+# Niblit will start with NIBLIT_PROFILE=android and use:
+#   • numpy cosine-similarity as vector backend  (NIBLIT_VECTOR_BACKEND=numpy)
+#   • remote embeddings or "none"                 (NIBLIT_EMBEDDINGS_BACKEND=none)
+#
+# Install:
+#   pip install -r requirements/android.txt
+#   export NIBLIT_PROFILE=android
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Inherit core packages
+-r core.txt
+
+# ── Android-safe additions ────────────────────────────────────────────────────
+# MCP (pure Python, no native extensions)
+mcp>=1.0.0
+
+# Binance market data (public endpoints work without API key)
+python-binance>=1.0.17
+
+# Extra market data providers (all pure-Python)
+twelvedata>=1.2.0
+oandapyV20>=0.7.2
+alpaca-py>=0.26.0
+
+# Google search (optional, may rate-limit on heavy use)
+googlesearch-python>=1.2.3
+google-search-results>=2.4.2

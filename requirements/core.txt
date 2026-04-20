@@ -1,0 +1,50 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# requirements/core.txt  —  Niblit core runtime (platform-neutral)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Packages that install cleanly on Linux/proot (Android) and on PC.
+# No FAISS / sentence-transformers / torch / transformers.
+#
+# Install:  pip install -r requirements/core.txt
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+python-multipart>=0.0.9
+
+# ── Runtime essentials ────────────────────────────────────────────────────────
+requests>=2.28.0
+python-dotenv>=1.0.0
+PyYAML>=6.0.0
+pygments>=2.17.0
+
+# ── Numerics ─────────────────────────────────────────────────────────────────
+numpy>=1.24.0
+
+# ── Vector / KB (lightweight) ────────────────────────────────────────────────
+# qdrant-client is optional; Niblit uses in-memory linear scan when absent.
+# Uncomment to enable Qdrant:
+# qdrant-client>=1.7.0
+
+# ── HuggingFace Hub (model file downloads — no torch needed) ─────────────────
+huggingface-hub>=0.20.0
+
+# ── Web search / research ─────────────────────────────────────────────────────
+beautifulsoup4>=4.12.0
+duckduckgo-search>=6.1.0
+
+# ── Data / trading ────────────────────────────────────────────────────────────
+pandas>=2.0.0
+ta>=0.11.0
+yfinance>=0.2.61
+ccxt>=4.3.0
+
+# ── Document parsing (optional — gracefully absent) ──────────────────────────
+pdfplumber>=0.10.0
+python-docx>=1.1.0
+openpyxl>=3.1.0
+Pillow>=10.0.0
+
+# ── Observability ─────────────────────────────────────────────────────────────
+prometheus-client>=0.19.0

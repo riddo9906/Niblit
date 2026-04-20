@@ -1,19 +1,29 @@
 """
-niblit_bridge — Niblit ↔ LEAN signal bridge package.
+niblit_bridge — Niblit ↔ LEAN / Freqtrade signal bridge package.
 
-Provides the NiblitBridge class used by every algorithm in this repo
-to optionally read trading signals from Niblit's TradingBrain without
-importing any Niblit Python modules (which are not available on
-QuantConnect Cloud).
+Provides two integration modes:
 
-Integration is purely file-based:
+1. **File-based** (``NiblitBridge``) — reads signals from a shared JSON
+   sidecar file written by Niblit's ``modules/lean_algo_manager.py``.
+   Works inside QuantConnect Cloud where no network calls are possible.
 
-    Niblit writes → /tmp/niblit_lean_signal.json
-    LEAN reads   ← NiblitBridge.get_signal()
+2. **HTTP-based** (``NiblitHTTPAdapter``) — calls Niblit's
+   ``POST /trade/signal`` endpoint over localhost.  Used by Freqtrade
+   strategies running in a local venv (``niblit-py311``).
+
+Quick start (Freqtrade)::
+
+    from niblit_bridge.freqtrade_adapter import NiblitHTTPAdapter
+
+    adapter = NiblitHTTPAdapter()   # reads NIBLIT_API_URL env var
+    signal = adapter.get_signal("BTC/USDT", dataframe)
+    # signal is "buy" | "sell" | "hold"
 """
 
 from .connector import NiblitBridge
+from .freqtrade_adapter import NiblitHTTPAdapter
 
-__all__ = ["NiblitBridge"]
+__all__ = ["NiblitBridge", "NiblitHTTPAdapter"]
+
 if __name__ == "__main__":
-    print('Running __init__.py')
+    print("Running __init__.py")

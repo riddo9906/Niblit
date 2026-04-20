@@ -86,6 +86,37 @@ _MAX_STORED_ITEMS = 10_000   # in-memory/FAISS safety cap
 # document payload size limits on typical cloud configurations.
 _QDRANT_TEXT_MAX_CHARS = int(os.getenv("QDRANT_TEXT_MAX_CHARS", "6000"))
 
+# ── Profile / backend selection ───────────────────────────────────────────────
+# NIBLIT_PROFILE:              android | core | full  (default: core)
+# NIBLIT_EMBEDDINGS_BACKEND:   sentence_transformers | remote | none  (default: auto)
+# NIBLIT_VECTOR_BACKEND:       numpy | faiss | qdrant  (default: auto)
+_NIBLIT_PROFILE = os.getenv("NIBLIT_PROFILE", "core").lower()
+_NIBLIT_EMBEDDINGS_BACKEND = os.getenv("NIBLIT_EMBEDDINGS_BACKEND", "auto").lower()
+_NIBLIT_VECTOR_BACKEND = os.getenv("NIBLIT_VECTOR_BACKEND", "auto").lower()
+
+# Emit a one-time startup banner so operators know which backends are active.
+def _log_backend_selection() -> None:
+    """Log which vector / embedding backends are active at process startup."""
+    if not _ST_AVAILABLE:
+        log.info(
+            "[VectorStore] sentence-transformers not installed; using %s embeddings backend "
+            "(set NIBLIT_EMBEDDINGS_BACKEND=remote to use a remote HTTP endpoint, "
+            "or install sentence-transformers for local embeddings)",
+            "remote" if _NIBLIT_EMBEDDINGS_BACKEND == "remote" else "none",
+        )
+    else:
+        log.info("[VectorStore] sentence-transformers available (local embeddings enabled)")
+
+    if not _FAISS_AVAILABLE:
+        log.info("[VectorStore] FAISS not installed; using numpy cosine-similarity backend")
+    else:
+        log.info("[VectorStore] FAISS available (local ANN index enabled)")
+
+    log.info("[VectorStore] NIBLIT_PROFILE=%s", _NIBLIT_PROFILE)
+
+
+_log_backend_selection()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Embedding helper — singleton model cache
