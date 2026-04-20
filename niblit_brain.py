@@ -85,7 +85,7 @@ def _sanitize_text(text: str, max_chars: int = _KB_TEXT_MAX_CHARS) -> str:
 _NON_CASUAL_KEYWORDS = frozenset({
     "run", "fix", "recall", "learn", "search", "code", "status",
     "help", "teach", "research", "define", "explain", "calculate",
-    "what", "why", "when", "where", "which", "how",
+    "what", "why", "when", "where", "which",
     "generate", "write", "build", "create", "find", "show",
     "autonomous", "brain", "memory", "toggle", "knowledge",
 })
