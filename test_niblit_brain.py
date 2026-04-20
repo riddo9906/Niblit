@@ -377,6 +377,7 @@ class TestIsCasualInput:
         assert _is_casual_input("run the tests") is False
         assert _is_casual_input("recall python") is False
         assert _is_casual_input("status check") is False
+        assert _is_casual_input("how do i fix this") is False
 
     def test_six_words_no_keywords_is_casual(self):
         assert _is_casual_input("good morning how are you doing") is True

@@ -109,6 +109,8 @@ def _is_casual_input(text: str) -> bool:
     words = stripped.lower().split()
     if len(words) > 6:
         return False
+    if re.search(r"\bhow\s+(do|does|to|can|could|should|would|is)\b", stripped.lower()):
+        return False
     if any(w in _NON_CASUAL_KEYWORDS for w in words):
         return False
     return True
