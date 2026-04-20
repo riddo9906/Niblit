@@ -16,6 +16,7 @@ import threading
 import time
 import logging
 import os
+from typing import Dict, List, Optional
 
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
 # platform injects env vars directly, so this is a no-op in those environments.
@@ -1874,6 +1875,169 @@ async def api_env_capabilities(request: Request):
     except Exception as exc:
         logging.getLogger("NiblitApp").error("api_env_capabilities error: %s", exc)
         return JSONResponse(content={"error": "capabilities update failed — see server logs"}, status_code=500)
+
+# ══════════════════════════════════════════════════════════════
+# TRADE SIGNAL API  — Freqtrade / external strategy integration
+#
+# These endpoints work under any NIBLIT_PROFILE (including android).
+# They do NOT require FAISS or sentence-transformers.
+#
+# POST /trade/signal
+#   Freqtrade (or any strategy) sends current market state and receives
+#   a buy / sell / hold recommendation.
+#
+# POST /trade/feedback
+#   Freqtrade sends the outcome of an executed trade so Niblit can
+#   learn from it (stored in knowledge DB for future research).
+# ══════════════════════════════════════════════════════════════
+
+import random as _random
+
+
+class TradeSignalRequest(BaseModel):
+    """Market state payload sent by an external strategy."""
+    pair: str                                          # e.g. "BTC/USDT"
+    timeframe: str = "1h"
+    ohlcv: Optional[List[List[float]]] = None          # [[ts,o,h,l,c,v], …]
+    last_candle: Optional[Dict[str, float]] = None     # last candle + indicator dict
+    features: Optional[Dict[str, float]] = None        # additional feature dict
+
+
+class TradeSignalResponse(BaseModel):
+    """Signal response returned to the calling strategy."""
+    action: str        # "buy" | "sell" | "hold"
+    confidence: float  # 0.0 – 1.0
+    metadata: Dict[str, str]
+
+
+class TradeFeedbackRequest(BaseModel):
+    """Trade outcome sent back by the strategy so Niblit can learn."""
+    pair: str
+    action: str               # action that was executed
+    outcome: str              # "profit" | "loss" | "neutral"
+    pnl_pct: Optional[float] = None
+    features: Optional[Dict[str, float]] = None
+
+
+_trade_log: logging.Logger = logging.getLogger("NiblitTrade")
+
+
+def _niblit_trade_signal(pair: str, features: Optional[Dict[str, float]]) -> Dict[str, object]:
+    """Ask NiblitBrain / TradingBrain for a signal.
+
+    Falls back to a 'hold' response if the brain or trading module is not
+    available (safe for android profile without ML deps).
+    """
+    # Try TradingBrain first (niblit_core exposes it)
+    try:
+        core = get_core()
+        trading_brain = getattr(core, "trading_brain", None) if core else None
+        if trading_brain is not None and hasattr(trading_brain, "decide_action"):
+            action_raw = trading_brain.decide_action(pair)
+            action_map = {"BUY": "buy", "SELL": "sell", "HOLD": "hold"}
+            action = action_map.get(str(action_raw).upper(), "hold")
+            return {"action": action, "confidence": 0.65, "source": "trading_brain"}
+    except Exception as exc:
+        _trade_log.debug("TradingBrain.decide_action failed: %s", exc)
+
+    # Try NiblitBrain think() as a second opinion
+    try:
+        core = get_core()
+        brain = getattr(core, "brain", None) if core else None
+        if brain is not None and hasattr(brain, "think"):
+            prompt = (
+                f"Given current market data for {pair} with indicators "
+                f"{features or {}}, reply with exactly one word: BUY, SELL, or HOLD."
+            )
+            answer = str(brain.think(prompt)).strip().upper().split()[0] if hasattr(brain, "think") else "HOLD"
+            action_map = {"BUY": "buy", "SELL": "sell", "HOLD": "hold"}
+            action = action_map.get(answer, "hold")
+            return {"action": action, "confidence": 0.55, "source": "niblit_brain"}
+    except Exception as exc:
+        _trade_log.debug("NiblitBrain.think failed: %s", exc)
+
+    return {"action": "hold", "confidence": 0.5, "source": "fallback"}
+
+
+@app.post("/trade/signal", response_model=TradeSignalResponse)
+def trade_signal(request: Request, body: TradeSignalRequest):
+    """Return a trading signal for the given pair and market state.
+
+    Works in every profile (android, core, full).  When the full ML stack is
+    unavailable the endpoint returns a safe 'hold' signal with low confidence.
+
+    Request body:
+        pair        — trading pair, e.g. "BTC/USDT"
+        timeframe   — candle timeframe, e.g. "1h"
+        ohlcv       — list of [timestamp, open, high, low, close, volume] arrays (optional)
+        last_candle — dict of last candle values + indicator values (optional)
+        features    — additional feature dict (optional)
+
+    Response:
+        action      — "buy" | "sell" | "hold"
+        confidence  — float 0..1
+        metadata    — dict with source, pair, profile, timeframe
+    """
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+
+    features: Dict[str, float] = {}
+    if body.features:
+        features.update(body.features)
+    if body.last_candle:
+        features.update(body.last_candle)
+
+    try:
+        result = _niblit_trade_signal(body.pair, features)
+    except Exception as exc:
+        _trade_log.error("trade_signal error: %s", exc)
+        result = {"action": "hold", "confidence": 0.5, "source": "error_fallback"}
+
+    profile = os.environ.get("NIBLIT_PROFILE", "core")
+    return JSONResponse(content={
+        "action": str(result.get("action", "hold")),
+        "confidence": float(result.get("confidence", 0.5)),
+        "metadata": {
+            "source": str(result.get("source", "unknown")),
+            "pair": body.pair,
+            "timeframe": body.timeframe,
+            "profile": profile,
+        },
+    })
+
+
+@app.post("/trade/feedback")
+def trade_feedback(request: Request, body: TradeFeedbackRequest):
+    """Accept trade outcome feedback so Niblit can learn from it.
+
+    The outcome is stored as a knowledge-base entry so future signal requests
+    can benefit from past performance.  Works in every profile.
+    """
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+
+    note = (
+        f"Trade feedback: {body.pair} | action={body.action} | outcome={body.outcome}"
+        + (f" | pnl={body.pnl_pct:.2f}%" if body.pnl_pct is not None else "")
+    )
+    _trade_log.info(note)
+
+    stored = False
+    try:
+        core = get_core()
+        if core and hasattr(core, "db") and core.db:
+            core.db.store(
+                key=f"trade_feedback_{body.pair}_{body.action}",
+                value=note,
+                category="trade_feedback",
+            )
+            stored = True
+    except Exception as exc:
+        _trade_log.debug("trade_feedback store error: %s", exc)
+
+    return JSONResponse(content={"status": "accepted", "stored": stored})
+
+
 # Register /mcp (JSON-RPC POST) and /mcp/sse (SSE notifications).
 # Any MCP-compatible client (Claude Desktop, VS Code Copilot, Cursor …)
 # can connect to Niblit through these endpoints.
