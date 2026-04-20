@@ -1891,8 +1891,6 @@ async def api_env_capabilities(request: Request):
 #   learn from it (stored in knowledge DB for future research).
 # ══════════════════════════════════════════════════════════════
 
-import random as _random
-
 
 class TradeSignalRequest(BaseModel):
     """Market state payload sent by an external strategy."""
@@ -1949,7 +1947,9 @@ def _niblit_trade_signal(pair: str, features: Optional[Dict[str, float]]) -> Dic
                 f"Given current market data for {pair} with indicators "
                 f"{features or {}}, reply with exactly one word: BUY, SELL, or HOLD."
             )
-            answer = str(brain.think(prompt)).strip().upper().split()[0] if hasattr(brain, "think") else "HOLD"
+            raw_answer = str(brain.think(prompt)).strip().upper()
+            parts = raw_answer.split()
+            answer = parts[0] if parts else "HOLD"
             action_map = {"BUY": "buy", "SELL": "sell", "HOLD": "hold"}
             action = action_map.get(answer, "hold")
             return {"action": action, "confidence": 0.55, "source": "niblit_brain"}
@@ -1981,14 +1981,14 @@ def trade_signal(request: Request, body: TradeSignalRequest):
     if rate_limited(request):
         return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
 
-    features: Dict[str, float] = {}
+    combined_features: Dict[str, float] = {}
     if body.features:
-        features.update(body.features)
+        combined_features.update(body.features)
     if body.last_candle:
-        features.update(body.last_candle)
+        combined_features.update(body.last_candle)
 
     try:
-        result = _niblit_trade_signal(body.pair, features)
+        result = _niblit_trade_signal(body.pair, combined_features)
     except Exception as exc:
         _trade_log.error("trade_signal error: %s", exc)
         result = {"action": "hold", "confidence": 0.5, "source": "error_fallback"}

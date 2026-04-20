@@ -90,6 +90,9 @@ _NON_CASUAL_KEYWORDS = frozenset({
     "autonomous", "brain", "memory", "toggle", "knowledge",
 })
 
+# Compiled once at module level to avoid repeated re.compile() overhead.
+_HOW_QUERY_RE = re.compile(r"\bhow\s+(do|does|to|can|could|should|would|is)\b")
+
 
 def _is_casual_input(text: str) -> bool:
     """Return True when *text* looks like a casual greeting or short chat opener.
@@ -110,7 +113,7 @@ def _is_casual_input(text: str) -> bool:
     words = lowered.split()
     if len(words) > 6:
         return False
-    if re.search(r"\bhow\s+(do|does|to|can|could|should|would|is)\b", lowered):
+    if _HOW_QUERY_RE.search(lowered):
         return False
     if any(w in _NON_CASUAL_KEYWORDS for w in words):
         return False
