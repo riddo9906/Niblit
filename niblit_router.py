@@ -5612,6 +5612,10 @@ Ask me about:
         """Internal routing logic — called by process() with ALE already paused."""
         cmd_word = lower.split(" ", 1)[0]
 
+        # Fast-path explicit version command to always return a plain string.
+        if lower == "version":
+            return "Niblit v1.0.0 — autonomous AI system"
+
         if cmd_word in self.COMMAND_PREFIXES or any(lower.startswith(prefix) for prefix in ["show improvements", "run improvement", "improvement-status"]):
             resp = self.handle_command(cleaned)
             self._collect(cleaned, resp, "command")
