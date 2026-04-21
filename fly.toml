@@ -39,9 +39,6 @@ swap_size_mb = 512
   APP_ENV             = "production"
   PORT                = "8080"
   PYTHON_VERSION      = "3.12"
-  NIBLIT_GGUF_BACKEND = "http"
-  NIBLIT_LLAMA_SERVER_URL = "http://127.0.0.1:8080"
-  NIBLIT_LLAMA_SERVER_TIMEOUT = "120"
 
   # ── Persistent storage paths (all land on /data) ──────────────────────────
   NIBLIT_MEMORY_PATH    = "/data/niblit_memory.json"
