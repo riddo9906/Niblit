@@ -153,7 +153,7 @@ def memory():
 
 def run_server():
     import uvicorn
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     print(f"Starting Niblit HTTP server on http://0.0.0.0:{port}")
     uvicorn.run("server:app", host="0.0.0.0", port=port)
 
