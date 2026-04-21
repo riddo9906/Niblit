@@ -89,4 +89,4 @@ swap_size_mb = 512
 # Worker count is kept at 1 because Niblit uses in-process singleton state
 # (NiblitMemory, ALE, TradingBrain, etc.) that must NOT be forked.
 [processes]
-  web = "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1 --log-level info"
+  web = "uvicorn app:app --host 0.0.0.0 --port $PORT --workers 1 --log-level info"
