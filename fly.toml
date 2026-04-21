@@ -39,6 +39,9 @@ swap_size_mb = 512
   APP_ENV             = "production"
   PORT                = "8080"
   PYTHON_VERSION      = "3.12"
+  NIBLIT_GGUF_BACKEND = "http"
+  NIBLIT_LLAMA_SERVER_URL = "http://127.0.0.1:8080"
+  NIBLIT_LLAMA_SERVER_TIMEOUT = "120"
 
   # ── Persistent storage paths (all land on /data) ──────────────────────────
   NIBLIT_MEMORY_PATH    = "/data/niblit_memory.json"
@@ -89,4 +92,4 @@ swap_size_mb = 512
 # Worker count is kept at 1 because Niblit uses in-process singleton state
 # (NiblitMemory, ALE, TradingBrain, etc.) that must NOT be forked.
 [processes]
-  web = "uvicorn app:app --host 0.0.0.0 --port 8080 --workers 1 --log-level info"
+  web = "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8080} --workers 1 --log-level info"
