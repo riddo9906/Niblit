@@ -2056,7 +2056,7 @@ except Exception as _mcp_exc:
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 5000))
-    print(f"Starting Niblit Web AI on http://0.0.0.0:{port}")
-    uvicorn.run("app:app", host="0.0.0.0", port=port,
+    print(f"Starting Niblit Web AI on http://0.0.0.0:8080")
+    uvicorn.run("app:app", host="0.0.0.0", port="8080",
                 reload=os.environ.get("APP_DEBUG", "0") == "1")
 
