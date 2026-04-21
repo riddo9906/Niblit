@@ -47,5 +47,3 @@ def get_hal() -> BaseHAL:
 
 
 __all__ = ["get_hal"]
-if __name__ == "__main__":
-    print('Running __init__.py')

@@ -659,7 +659,3 @@ class NiblitToolExecutor(KBToolExecutor):
                 calls_made += 1
 
         return results
-
-
-if __name__ == "__main__":
-    print('Running niblit_tool_executor.py')

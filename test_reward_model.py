@@ -49,7 +49,3 @@ def test_get_pipeline_failure_falls_back_to_none():
     with patch.object(reward_model._AutoTokenizer, "from_pretrained", side_effect=RuntimeError("boom")):
         rm = reward_model.RewardModel(model_name="broken-model")
         assert rm._get_pipeline() is None
-
-
-if __name__ == "__main__":
-    print('Running test_reward_model.py')

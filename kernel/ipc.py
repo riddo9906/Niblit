@@ -169,7 +169,3 @@ class IPCBus:
             self._channels.clear()
             self._subscribers.clear()
         log.debug("[IPC] Bus shut down.")
-
-
-if __name__ == "__main__":
-    print('Running ipc.py')

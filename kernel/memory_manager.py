@@ -142,7 +142,3 @@ class MemoryManager:
                     alloc.released = True
                     alloc.released_at = time.time()
         log.debug("[MM] All allocations released on shutdown.")
-
-
-if __name__ == "__main__":
-    print('Running memory_manager.py')

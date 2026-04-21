@@ -252,7 +252,3 @@ class SyscallDispatcher:
     def shutdown(self) -> None:
         self._syscalls.clear()
         log.debug("[Syscall] SyscallDispatcher shut down.")
-
-
-if __name__ == "__main__":
-    print('Running syscall_dispatcher.py')

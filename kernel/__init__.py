@@ -145,5 +145,3 @@ def get_os_kernel() -> NiblitOSKernel:
                 _kernel_instance = NiblitOSKernel()
                 _kernel_instance.boot()
     return _kernel_instance
-if __name__ == "__main__":
-    print('Running __init__.py')

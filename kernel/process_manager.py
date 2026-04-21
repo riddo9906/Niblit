@@ -196,7 +196,3 @@ class ProcessManager:
                 self.stop(pid)
             except Exception as exc:
                 log.warning("[PM] shutdown stop error for %s: %s", pid, exc)
-
-
-if __name__ == "__main__":
-    print('Running process_manager.py')

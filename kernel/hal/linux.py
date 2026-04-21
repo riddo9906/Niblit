@@ -39,7 +39,3 @@ class LinuxHAL(BaseHAL):
 
     def root_path(self) -> str:
         return "/"
-
-
-if __name__ == "__main__":
-    print('Running linux.py')
