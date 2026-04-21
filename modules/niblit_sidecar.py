@@ -323,3 +323,7 @@ def stop_sidecar() -> None:
         if _sidecar is not None:
             _sidecar.stop()
             _sidecar = None
+
+
+if __name__ == "__main__":
+    print('Running niblit_sidecar.py')

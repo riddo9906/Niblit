@@ -184,3 +184,7 @@ class DeviceManager:
 
     def shutdown(self) -> None:
         log.debug("[DM] DeviceManager shut down.")
+
+
+if __name__ == "__main__":
+    print('Running device_manager.py')
