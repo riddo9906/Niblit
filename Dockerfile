@@ -10,12 +10,14 @@ FROM python:3.12-slim
 
 # ── System dependencies ───────────────────────────────────────────────────────
 # Build tools needed for some Python packages (numpy, faiss-cpu, etc.)
+# unzip is needed by tools/install_llama_server.sh (installs llama-server binary)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         gcc \
         g++ \
         git \
         curl \
+        unzip \
         libsqlite3-dev \
         libssl-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -47,8 +49,12 @@ COPY . .
 RUN mkdir -p /data
 
 # ── Environment defaults ──────────────────────────────────────────────────────
+# These are baked into the image and can be overridden by fly.toml [env] or
+# `fly secrets set`.  They mirror the fly.toml [env] defaults so that
+# `docker run` without --env-file also produces a sensible configuration.
 ENV APP_ENV=production \
     PORT=8080 \
+    NIBLIT_DATA_DIR=/data \
     NIBLIT_MEMORY_PATH=/data/niblit_memory.json \
     NIBLIT_DB_PATH=/data/niblit.db \
     FUSED_MEMORY_DB_PATH=/data/niblit_fused.sqlite \
@@ -56,6 +62,13 @@ ENV APP_ENV=production \
     NIBLIT_GAME_LOG_PATH=/data/niblit_game_log.jsonl \
     NIBLIT_GAME_STATE_PATH=/data/niblit_game_state.json \
     LEAN_WORKSPACE=/data/lean_workspace \
+    NIBLIT_LLM_PROVIDER=qwen \
+    NIBLIT_BRAIN_MODE=balanced \
+    NIBLIT_LLM_MODEL=moonshotai/Kimi-K2-Instruct-0905 \
+    NIBLIT_GGUF_BACKEND=http \
+    NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8081 \
+    NIBLIT_LLAMA_SERVER_PORT=8081 \
+    NIBLIT_GGUF_MODEL_PATH=/data/model.gguf \
     OANDA_ENVIRONMENT=practice \
     ALPACA_PAPER=true \
     PYTHONUNBUFFERED=1 \
@@ -71,7 +84,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
-# Workers=1 is mandatory: Niblit uses in-process singletons (NiblitMemory,
-# ALE, TradingBrain, etc.) that must not be forked across multiple workers.
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080", \
-     "--workers", "1", "--log-level", "info"]
+# start.sh optionally starts llama-server (when binary + model are present),
+# then starts uvicorn.  See start.sh for the full startup logic.
+RUN chmod +x /app/start.sh /app/tools/install_llama_server.sh \
+             /app/tools/termux_inference_server.sh
+CMD ["/app/start.sh"]
