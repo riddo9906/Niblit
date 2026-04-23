@@ -136,6 +136,8 @@ class AIOSRuntime:
         self.layer_registry: Optional[Any] = None
         # MSG — Meta-Self-Governance (top-level feedback control)
         self.msg_layer: Optional[Any] = None
+        # USM — Unified Self-Modules (closed autonomous feedback loop)
+        self.unified_self_modules: Optional[Any] = None
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -213,6 +215,7 @@ class AIOSRuntime:
             "security_membrane_available": self.security_membrane is not None,
             "layer_registry_available": self.layer_registry is not None,
             "msg_layer_available": self.msg_layer is not None,
+            "unified_self_modules_available": self.unified_self_modules is not None,
         }
 
     # ── Phase implementations ─────────────────────────────────────────────────
@@ -327,8 +330,8 @@ class AIOSRuntime:
     def _phase_5_learning(self) -> None:
         """Phase 5 — LEARNING: start ALE / self-improvement engine and MSG layer."""
         try:
-            from modules.autonomous_learning_engine import get_autonomous_learning_engine
-            self.ale = get_autonomous_learning_engine()
+            from modules.autonomous_learning_engine import get_autonomous_engine
+            self.ale = get_autonomous_engine()
             log.debug("AIOSRuntime[5/LEARNING]: ALE ready")
         except Exception as exc:
             log.debug("AIOSRuntime[5/LEARNING]: ALE unavailable — %s", exc)
@@ -340,6 +343,21 @@ class AIOSRuntime:
             log.debug("AIOSRuntime[5/LEARNING]: MSGLayer ready")
         except Exception as exc:
             log.debug("AIOSRuntime[5/LEARNING]: MSGLayer unavailable — %s", exc)
+
+        # USM — Unified Self-Modules: closes the autonomous improvement loop
+        try:
+            from modules.unified_self_modules import get_unified_self_modules
+            self.unified_self_modules = get_unified_self_modules()
+            # Wire all available subsystems into the feedback controller.
+            self.unified_self_modules.wire(
+                ale=self.ale,
+                msg_layer=self.msg_layer,
+                niblit_runtime=self.niblit_runtime,
+            )
+            self.unified_self_modules.start()
+            log.debug("AIOSRuntime[5/LEARNING]: UnifiedSelfModules started")
+        except Exception as exc:
+            log.debug("AIOSRuntime[5/LEARNING]: UnifiedSelfModules unavailable — %s", exc)
 
         if self.scheduler is not None:
             try:

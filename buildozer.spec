@@ -1,7 +1,7 @@
 [app]
 
 # (str) Title of your application
-title = Niblit AI
+title = Niblit AIOS
 
 # (str) Package name
 package.name = niblit
@@ -13,7 +13,7 @@ package.domain = org.niblit
 source.dir = .
 
 # (list) Source files to include (let empty to include all the files)
-source.include_exts = py,png,jpg,kv,atlas
+source.include_exts = py,png,jpg,kv,atlas,sh,json
 
 # (list) Source files to exclude
 source.exclude_exts = spec
@@ -22,10 +22,13 @@ source.exclude_exts = spec
 source.exclude_dirs = tests, bin, .git, __pycache__, .github, chat_logs, ProjectOne
 
 # (str) Application versioning (method 1)
-version = 1.0.0
+version = 2.0.0
 
 # (list) Application requirements
-# kivy, requests, python-dotenv are the minimal runtime requirements
+# ─────────────────────────────────────────────────────────────────────────────
+# Runtime requirements for the Kivy APK.
+# Heavy AI/ML packages (torch, transformers, etc.) are NOT bundled here —
+# they are pip-installed inside the proot rootfs on first launch.
 requirements =
     python3,
     kivy==2.3.0,
@@ -36,8 +39,8 @@ requirements =
     charset-normalizer,
     idna
 
-# (str) Custom source folders for requirements
-# (see https://python-for-android.readthedocs.io/en/latest/recipes.html)
+# (list) Garden requirements
+#garden_requirements =
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/data/presplash.png
@@ -72,18 +75,23 @@ osx.kivy_version = 2.3.0
 fullscreen = 0
 
 # (string) Presplash background color (for android toolchain)
-# Supported formats are: #RRGGBB #AARRGGBB or one of the following names:
-# red, blue, green, black, white, gray, cyan, magenta, yellow, lightgray,
-# darkgray, grey, lightgrey, darkgrey, aqua, fuchsia, lime, maroon, navy,
-# olive, purple, silver, teal.
-android.presplash_color = #1b1b1b
+android.presplash_color = #0d0d10
 
 # (str) Adaptive icon of the application (used if Android API level is 26+ at runtime)
 #android.adaptive_icon_fg = %(source.dir)s/data/icon_fg.png
 #android.adaptive_icon_bg = %(source.dir)s/data/icon_bg.png
 
 # (list) Permissions
-android.permissions = INTERNET,ACCESS_NETWORK_STATE
+# INTERNET + network state for API/download mode.
+# READ/WRITE_EXTERNAL_STORAGE to read/write the rootfs on external storage
+# if the user opts for that.
+# REQUEST_INSTALL_PACKAGES is needed to allow Niblit's proot to install apks
+# inside its own userland (advanced).
+android.permissions =
+    INTERNET,
+    ACCESS_NETWORK_STATE,
+    READ_EXTERNAL_STORAGE,
+    WRITE_EXTERNAL_STORAGE
 
 # (int) Target Android API, should be as high as possible.
 android.api = 33
@@ -94,13 +102,24 @@ android.minapi = 21
 # (int) Android SDK version to use
 android.sdk = 33
 
+# (str) Android build-tools version to use.
+# Pin this to avoid auto-selecting build-tools 37.0.0 on some Termux/proot
+# setups, where `aidl` may be missing and APK builds fail.
+android.build_tools = 34.0.0
+
 # (str) Android NDK version to use
 android.ndk = 25b
 
-# (int) Android NDK API to use. This is the minimum API your app will support, it should usually match android.minapi.
+# (int) Android NDK API to use.  Should usually match android.minapi.
 android.ndk_api = 21
 
+# (list) Architectures to build for.
+# arm64-v8a  — modern 64-bit Android devices (primary target)
+# armeabi-v7a — older 32-bit ARM devices (compatibility)
+android.archs = arm64-v8a, armeabi-v7a
+
 # (bool) Use --private data storage (True) or --dir public storage (False)
+# Must be True so the rootfs lives in the app-private sandbox.
 android.private_storage = True
 
 # (str) Android logcat filters to use
@@ -115,6 +134,36 @@ android.release_artifact = apk
 # (str) The format used to package the app for debug mode (apk or aar).
 android.debug_artifact = apk
 
+# (list) Add additional jar/aar archives into the libs directory
+#android.add_jars = foo.jar,bar.jar,...
+
+# (list) Add additional src/java directories to the build
+#android.add_src =
+
+# (list) Assets to include in the APK.
+# The setup_niblit.sh script is bundled so the proot setup can run it
+# at first launch without any network access.
+# Prebuilt static proot binaries should be placed in assets/ — the
+# APKBootstrap / ProotEnvironment will look for them there.
+#
+# To bundle a rootfs tarball (highly recommended for offline-first usage):
+#   1. Download the Alpine minirootfs:
+#        https://dl-cdn.alpinelinux.org/alpine/v3.19/releases/aarch64/alpine-minirootfs-3.19.1-aarch64.tar.gz
+#   2. Rename it to  assets/alpine-rootfs.tar.gz
+#   3. Uncomment the line below.
+#
+#android.add_assets = assets/setup_niblit.sh:assets/setup_niblit.sh,assets/alpine-rootfs.tar.gz:assets/alpine-rootfs.tar.gz
+
+# For now ship only the setup script; the rootfs is downloaded on demand.
+android.add_assets = assets/setup_niblit.sh:assets/setup_niblit.sh
+
+# (str) python-for-android bootstrap
+# sdl2 is the standard Kivy bootstrap
+p4a.bootstrap = sdl2
+
+# (bool) Use --private data storage
+# android.private_storage = True
+
 #
 # Python for android (p4a) specific
 #
@@ -128,15 +177,6 @@ android.debug_artifact = apk
 # (str) Filename to the hook for p4a
 #p4a.hook =
 
-# (str) Bootstrap to use for android builds
-# p4a.bootstrap = sdl2
-
-# (int) port number to specify an explicit --port= p4a argument (eg. 8100)
-#p4a.port =
-
-# Control running the bootstrap's build.py automatically
-#p4a.setup_template_src_link = True
-
 #
 # iOS specific
 #
@@ -146,7 +186,6 @@ android.debug_artifact = apk
 #ios.kivy_ios_tag = master
 
 # (str) Name of the certificate to use for signing the debug version
-# Get a list of available identities: buildozer ios list_identities
 #ios.codesign.debug = "iPhone Developer: <lastname> <firstname> (<hexstring>)"
 
 # (str) Name of the certificate to use for signing the release version
@@ -165,12 +204,3 @@ warn_on_root = 1
 
 # (str) Path to build output (i.e. .apk, .aab, .ipa) storage
 # bin_dir = ./bin
-
-#    -----------------------------------------------------------------------------
-#    List as sections
-#
-#    You can define all the "list" as below
-#    [section]
-#    key = value1
-#         value2
-#         value3

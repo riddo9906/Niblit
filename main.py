@@ -15,6 +15,7 @@ longer print to the terminal mid-typing.
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -23,6 +24,7 @@ import traceback
 import difflib
 import datetime
 import threading
+import time
 
 # ── Centralised logging configuration ──────────────────────────────────────
 # Set up the root logger ONCE here, before any module imports.  Individual
@@ -46,6 +48,9 @@ except ImportError:
 from niblit_core import NiblitCore
 from niblit_io import NiblitIO
 from niblit_router import safe_call
+
+DEFAULT_INIT_WAIT_MAX_SECONDS = 600.0
+TOOL_NO_OUTPUT_MESSAGE = "[Tool returned no output]"
 
 # ── Non-blocking background notification queue (additive) ──────────────────
 # Import the shared notification queue so we can surface background output
@@ -158,6 +163,9 @@ def parse_args(argv=None):
             "  niblit                          Start the interactive shell\n"
             "  niblit -c 'status'              Run one command and exit\n"
             "  niblit -c 'learn about python'  Learn a topic, then exit\n"
+            "  niblit --list-tools             List registered function-calling tools\n"
+            "  niblit --tool-call my_tool --tool-arguments '{\"x\":1}'\n"
+            "                                  Run a registered tool and exit\n"
             "  niblit --quiet                  Start shell without startup banners\n"
             "  niblit --version                Show version information\n"
         ),
@@ -185,7 +193,79 @@ def parse_args(argv=None):
         action="version",
         version=f"Niblit AIOS {_version}",
     )
+    p.add_argument(
+        "--list-tools",
+        action="store_true",
+        default=False,
+        help="List registered tool-use / function-calling tools and exit",
+    )
+    p.add_argument(
+        "--tool-call",
+        metavar="TOOL",
+        default=None,
+        help="Execute a registered tool by name and exit",
+    )
+    p.add_argument(
+        "--tool-arguments",
+        metavar="JSON",
+        default="{}",
+        help="JSON object arguments for --tool-call (default: '{}')",
+    )
     return p.parse_args(argv)
+
+
+def _parse_tool_arguments(raw: str) -> dict:
+    """Parse ``--tool-arguments`` into a JSON-object dict."""
+    text = (raw or "").strip()
+    if not text:
+        return {}
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid --tool-arguments JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("--tool-arguments must decode to a JSON object")
+    return payload
+
+
+def _run_tool_cli_mode(args, io=None) -> int:
+    """Handle ``--list-tools`` / ``--tool-call`` mode. Return process exit code."""
+    if not (getattr(args, "list_tools", False) or getattr(args, "tool_call", None)):
+        return -1
+
+    from niblit_tools.tool_registry import get_registry
+    registry = get_registry()
+    if io is not None and hasattr(io, "out") and hasattr(io, "error"):
+        out = io.out
+        err = io.error
+    else:
+        out = print
+
+        def err(msg):
+            print(msg, file=sys.stderr)
+
+    if getattr(args, "list_tools", False):
+        defs = registry.list_tools()
+        if not defs:
+            out("No tools registered.")
+        else:
+            lines = ["🔧 Registered tools:"]
+            for d in defs:
+                name = d.get("name", "<unnamed>")
+                desc = (d.get("description") or "").strip() or "No description"
+                lines.append(f"  - {name}: {desc}")
+            out("\n".join(lines))
+        if not getattr(args, "tool_call", None):
+            return 0
+
+    try:
+        tool_args = _parse_tool_arguments(getattr(args, "tool_arguments", "{}"))
+        result = registry.run(args.tool_call, tool_args)
+        out(TOOL_NO_OUTPUT_MESSAGE if result is None else str(result))
+        return 0
+    except Exception as exc:
+        err(f"[TOOL-CALL ERROR] {exc}")
+        return 2
 
 # ─────────────────────────────
 # DEBUG PRINT
@@ -270,7 +350,9 @@ def print_notifications(core=None, io=None):
 # ─────────────────────────────
 def boot():
     io = NiblitIO()
-    io.out(f"{timestamp()} TRUE AUTONOMOUS NIBLIT BOOT")
+    io.out(f"{timestamp()} ═══════════════════════════════════════════")
+    io.out(f"{timestamp()} ✨  TRUE AUTONOMOUS NIBLIT AIOS BOOT")
+    io.out(f"{timestamp()} ═══════════════════════════════════════════")
 
     # Print service status table so the user immediately knows which keys are set.
     try:
@@ -280,7 +362,23 @@ def boot():
         pass
 
     core = NiblitCore()
-    io.out(f"{timestamp()} CORE READY")
+    io.out(f"{timestamp()} 🔷 Phase 0 (fast-start) complete — CORE READY")
+
+    # ── Sidecar socket server — start immediately after Phase 0 ─────────────
+    # This lets niblit_ctl.py connect and queue commands RIGHT NOW, even while
+    # the model is still loading in another terminal session (Session 1 of the
+    # two-session Termux setup).  The sidecar blocks each incoming command
+    # until mark_ready() is called below (after Phase-1 init finishes).
+    try:
+        from modules.niblit_sidecar import start_sidecar as _start_sidecar
+        _sidecar = _start_sidecar(core_getter=lambda: core)
+        io.out(
+            f"{timestamp()} 🔌 Sidecar socket ready — connect from another terminal:\n"
+            f"          python tools/niblit_ctl.py"
+        )
+    except Exception as _sc_exc:
+        _sidecar = None
+        io.out(f"{timestamp()} ⚪ Sidecar socket: not available ({_sc_exc})")
 
     # Report wake-lock status so the user knows whether the background loops
     # will keep running while the screen is off / Termux is in the background.
@@ -332,15 +430,152 @@ def _cmd_show_notifications(core=None, io=None):
 
     if not msgs:
         return "No pending notifications."
-    return "Background notifications:\n" + "\n".join(f"  > {m}" for m in msgs)
+
+    # Deduplicate repeated identical messages (e.g. repeated serpapi warnings)
+    # preserving chronological first-occurrence order.
+    _seen_dedup: "dict[str, int]" = {}
+    for m in msgs:
+        _seen_dedup[m] = _seen_dedup.get(m, 0) + 1
+    deduped: "list[str]" = []
+    _already_added: "set[str]" = set()
+    for m in msgs:
+        if m not in _already_added:
+            count = _seen_dedup[m]
+            deduped.append(f"{m} (×{count})" if count > 1 else m)
+            _already_added.add(m)
+
+    return "Background notifications:\n" + "\n".join(f"  > {m}" for m in deduped)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LONG-RESPONSE PAGING (long response chunking)
+# Responses longer than RESPONSE_PAGE_SIZE characters are automatically split
+# into pages so the user can scroll through them at their own pace.
+# ─────────────────────────────────────────────────────────────────────────────
+
+RESPONSE_PAGE_SIZE = 2000  # characters per page
+
+
+def _paged_out(io, response: str) -> None:
+    """Print *response* to the terminal, paginating if it exceeds RESPONSE_PAGE_SIZE.
+
+    Each page is followed by a '[-- more: X/Y --]' indicator.  If the terminal
+    is not interactive (e.g. piped output) the full response is printed at once.
+    """
+    if not response or len(response) <= RESPONSE_PAGE_SIZE:
+        io.out(response)
+        return
+
+    # Split on newlines to avoid cutting mid-word
+    lines = response.splitlines(keepends=True)
+    pages: list = []
+    current: list = []
+    current_len = 0
+
+    for line in lines:
+        if current_len + len(line) > RESPONSE_PAGE_SIZE and current:
+            pages.append("".join(current))
+            current = [line]
+            current_len = len(line)
+        else:
+            current.append(line)
+            current_len += len(line)
+    if current:
+        pages.append("".join(current))
+
+    total = len(pages)
+    for idx, page in enumerate(pages, 1):
+        io.out(page.rstrip())
+        if idx < total:
+            try:
+                cont = input(f"\n[-- more: {idx}/{total} — press Enter to continue, 'q' to stop --] ")
+                if cont.strip().lower() == "q":
+                    io.out(f"[Stopped at page {idx}/{total}]")
+                    break
+            except (EOFError, KeyboardInterrupt):
+                break
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NOTIFICATION HISTORY (Enhancement 3 — replay/exportable notification history)
+# A fixed-size ring buffer persists up to NOTIF_HISTORY_LIMIT past notifications
+# so that 'notifications history' can replay them at any time.
+# ─────────────────────────────────────────────────────────────────────────────
+
+NOTIF_HISTORY_LIMIT = 200
+_notif_history: "list[str]" = []  # global ring buffer
+
+
+def _record_notifications(msgs: "list[str]") -> None:
+    """Append *msgs* to the notification history ring buffer."""
+    _notif_history.extend(msgs)
+    # Trim to limit (keep most recent)
+    if len(_notif_history) > NOTIF_HISTORY_LIMIT:
+        del _notif_history[: len(_notif_history) - NOTIF_HISTORY_LIMIT]
+
+
+NOTIF_DISPLAY_LIMIT = 50  # how many recent notifications to show in 'notifications history'
+
+
+def _cmd_notifications_history() -> str:
+    """Return a human-readable replay of the notification history."""
+    if not _notif_history:
+        return "Notification history is empty."
+    lines = ["📋 Notification history (most recent last):"]
+    for idx, m in enumerate(_notif_history[-NOTIF_DISPLAY_LIMIT:], 1):
+        lines.append(f"  {idx:3}. {m}")
+    if len(_notif_history) > NOTIF_DISPLAY_LIMIT:
+        lines.append(
+            f"  … and {len(_notif_history) - NOTIF_DISPLAY_LIMIT} earlier entries "
+            f"(total {len(_notif_history)})"
+        )
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SESSION SUMMARY (session summary/export)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_session_history: "list[tuple[str, str]]" = []  # [(user_input, niblit_response)]
+# SESSION_START is set when run_shell() opens so the timestamp reflects when the
+# interactive session actually began rather than when the module was imported.
+SESSION_START: str = ""
+
+
+def _record_exchange(user_input: str, response: str) -> None:
+    """Record one user↔Niblit exchange for the session summary."""
+    _session_history.append((user_input, response))
+
+
+def _cmd_session_summary(export_path: str = "") -> str:
+    """Return a summary of this session's commands and responses."""
+    if not _session_history:
+        return "No session history yet."
+    lines = [f"📝 Session summary (started {SESSION_START}):"]
+    lines.append(f"   {len(_session_history)} exchange(s) recorded\n")
+    for idx, (inp, resp) in enumerate(_session_history, 1):
+        lines.append(f"  [{idx}] You: {inp[:120]}")
+        resp_preview = (resp[:200] + "…") if len(resp) > 200 else resp
+        lines.append(f"       Niblit: {resp_preview}")
+        lines.append("")
+    summary = "\n".join(lines)
+    if export_path:
+        try:
+            with open(export_path, "w", encoding="utf-8") as fh:
+                fh.write(summary)
+            summary += f"\n✅ Exported to: {export_path}"
+        except OSError as exc:
+            summary += f"\n❌ Export failed: {exc}"
+    return summary
 
 
 # ─────────────────────────────
 # COMMAND SHELL
 # ─────────────────────────────
 def run_shell(core, io):
-    global DEBUG_MODE, _active_core
+    global DEBUG_MODE, _active_core, SESSION_START
     _active_core = core  # expose to signal handlers
+    SESSION_START = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     io.out(f"{timestamp()} READY\n")
 
@@ -374,30 +609,50 @@ def run_shell(core, io):
 
         "threads": lambda: list_threads(),
 
-        # ── New commands: background management (additive) ─────────────────
-        # 'notifications' — drain and display the background notification queue
-        "notifications": lambda: _cmd_show_notifications(core, io),
+        # ── Sidecar status (additive) ──────────────────────────────────────
+        "sidecar status": lambda: (
+            __import__("modules.niblit_sidecar", fromlist=["get_sidecar"])
+            .get_sidecar()
+            .status_line()
+            if __import__("modules.niblit_sidecar", fromlist=["get_sidecar"])
+            .get_sidecar() is not None
+            else "Sidecar not running."
+        ),
 
-        # 'reload_params' — on-demand parameter manager reload
+        # ── Background management (additive) ──────────────────────────────
+        "notifications": lambda: _cmd_show_notifications(core, io),
+        "notifications history": lambda: _cmd_notifications_history(),
+
+        # ── Session management (Enhancement 5) ────────────────────────────
+        "session summary": lambda: _cmd_session_summary(),
+
+        # ── Param reload / self-heal ───────────────────────────────────────
         "reload_params": lambda: (
             core._cmd_reload_params()
             if hasattr(core, "_cmd_reload_params")
             else "[reload_params not available]"
         ),
 
-        # 'run_selfheal' — explicit self-heal trigger with notification output
         "run_selfheal": lambda: (
             core._cmd_run_selfheal()
             if hasattr(core, "_cmd_run_selfheal")
             else "[run_selfheal not available]"
         ),
+
+        # ── Unified loop status (additive) ────────────────────────────────
+        "unified status": lambda: (
+            "\n".join([
+                "🔗 Unified feedback-loop status:",
+                f"  Layers ready  : {core._unified_loop_status.get('ready', '?')}/{core._unified_loop_status.get('total', '?')}",
+                f"  Verified      : {'✅ Yes' if core._unified_loop_status.get('verified') else '⚠️  No — some layers degraded'}",
+                f"  Degraded      : {', '.join(core._unified_loop_status.get('warnings', [])) or 'none'}",
+            ]) if hasattr(core, "_unified_loop_status")
+            else "[Unified-loop status not yet available — boot may still be in progress]"
+        ),
     }
 
     while True:
         try:
-            # Show any background notifications accumulated since last prompt
-            print_notifications(core, io)
-
             user_input = input("Niblit > ").strip()
 
             if not user_input:
@@ -425,10 +680,23 @@ def run_shell(core, io):
                 io.out("Debug mode disabled.")
                 continue
 
-            # DIRECT COMMANDS
-            if cmd in DIRECT_COMMANDS:
-                output = log_command(io, cmd, DIRECT_COMMANDS[cmd])
-                io.out(output)
+            # SESSION EXPORT (accepts optional path argument)
+            if cmd.startswith("session summary"):
+                rest = user_input[len("session summary"):].strip()
+                output = _cmd_session_summary(rest)
+                _paged_out(io, output)
+                continue
+
+            # DIRECT COMMANDS (check multi-word commands first)
+            _matched_direct = None
+            for _key in sorted(DIRECT_COMMANDS.keys(), key=len, reverse=True):
+                if cmd == _key or cmd.startswith(_key + " "):
+                    _matched_direct = _key
+                    break
+            if _matched_direct is not None:
+                output = log_command(io, _matched_direct, DIRECT_COMMANDS[_matched_direct])
+                _record_exchange(user_input, output)
+                _paged_out(io, output)
                 continue
 
             # ROUTED COMMANDS
@@ -441,13 +709,15 @@ def run_shell(core, io):
                     resp = core.handle(user_input)
 
                 debug(io, "ROUTER RESULT RETURNED")
-                io.out(resp)
+                _record_exchange(user_input, resp)
+                _paged_out(io, resp)
                 continue
 
             # FINAL TRACE
             debug(io, "Passing to core.handle()")
             response = core.handle(user_input)
-            io.out(response)
+            _record_exchange(user_input, response)
+            _paged_out(io, response)
 
             # Suggestion engine
             sug = suggest_command(cmd)
@@ -492,6 +762,11 @@ if __name__ == "__main__":
     if _args.quiet:
         NiblitIO._quiet = True
 
+    # Tool registry CLI mode (LangChain-style function calling)
+    _tool_mode_exit = _run_tool_cli_mode(_args)
+    if _tool_mode_exit >= 0:
+        sys.exit(_tool_mode_exit)
+
     # Register OS-level signal handlers so that SIGTERM (system kill) and
     # SIGHUP (Termux session close) also trigger a clean shutdown instead
     # of an abrupt process death that loses autonomous-growth data.
@@ -523,10 +798,32 @@ if __name__ == "__main__":
     # continues; some features degrade gracefully until it finishes).
     _skip_wait = os.getenv("NIBLIT_SKIP_INIT_WAIT", "0").strip() in ("1", "true", "yes")
     if not _skip_wait and hasattr(core, "wait_for_ready"):
+        _max_wait_s = DEFAULT_INIT_WAIT_MAX_SECONDS
+        _timeout_disabled = False
+        _init_wait_cfg_warning = ""
+        _max_wait_raw = os.getenv("NIBLIT_INIT_WAIT_MAX_SECONDS", "").strip()
+        if _max_wait_raw:
+            try:
+                _max_wait_s = float(_max_wait_raw)
+            except ValueError:
+                _max_wait_s = DEFAULT_INIT_WAIT_MAX_SECONDS
+                _init_wait_cfg_warning = (
+                    f"⚠️ Invalid NIBLIT_INIT_WAIT_MAX_SECONDS='{_max_wait_raw}' "
+                    f"— using default {int(DEFAULT_INIT_WAIT_MAX_SECONDS)}s"
+                )
+        if _max_wait_s <= 0:
+            _timeout_disabled = True
+            _init_wait_cfg_warning = (
+                "ℹ️ NIBLIT_INIT_WAIT_MAX_SECONDS<=0 — init wait timeout disabled "
+                "(waits until ready, failed, or Ctrl+C)"
+            )
+        _wait_started_at = time.monotonic()
         io.out(
             f"{timestamp()} ⏳ Niblit initialising — please wait until fully booted\n"
             f"          (Ctrl+C to skip to CLI now, or set NIBLIT_SKIP_INIT_WAIT=1)"
         )
+        if _init_wait_cfg_warning:
+            io.out(f"{timestamp()} {_init_wait_cfg_warning}")
         _init_pq = getattr(core, "_init_progress_queue", None)
         _heartbeat_ticks = 0
         try:
@@ -547,6 +844,14 @@ if __name__ == "__main__":
                             break
 
                 if _phase in ("complete", "failed"):
+                    break
+
+                # Safety valve: avoid waiting forever if deferred init gets stuck.
+                if not _timeout_disabled and (time.monotonic() - _wait_started_at) >= _max_wait_s:
+                    io.out(
+                        f"{timestamp()} ⚠️ Init wait timeout reached ({int(_max_wait_s)}s) — "
+                        "opening CLI while remaining modules continue in background"
+                    )
                     break
 
                 # Show a periodic heartbeat if nothing arrived this tick so
@@ -589,11 +894,46 @@ if __name__ == "__main__":
                     io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
             except Exception:
                 io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
+
+            # Unblock sidecar clients that connected while the model was loading
+            try:
+                from modules.niblit_sidecar import get_sidecar as _get_sidecar
+                _sc = _get_sidecar()
+                if _sc is not None:
+                    _sc.mark_ready()
+                    io.out(f"{timestamp()} 🔌 Sidecar: READY — niblit_ctl.py can now run commands")
+            except Exception:
+                pass
+
+            # Show the unified-loop verification result (written by
+            # _verify_unified_loop into the init-progress queue).
+            _uls = getattr(core, "_unified_loop_status", None)
+            if _uls:
+                if _uls.get("verified"):
+                    io.out(
+                        f"{timestamp()} 🔗 Unified feedback loop CONFIRMED — "
+                        f"all {_uls['ready']}/{_uls['total']} layers wired and active"
+                    )
+                else:
+                    _warns = ", ".join(_uls.get("warnings", []))
+                    io.out(
+                        f"{timestamp()} ⚡ Feedback loop PARTIALLY unified — "
+                        f"{_uls['ready']}/{_uls['total']} layers active "
+                        f"(degraded: {_warns})"
+                    )
         else:
             io.out(
                 f"{timestamp()} ⚠️  Background init did not complete cleanly "
                 f"(phase={_phase}) — some features may be unavailable"
             )
+            # Still mark sidecar ready so queued commands are not lost
+            try:
+                from modules.niblit_sidecar import get_sidecar as _get_sidecar
+                _sc = _get_sidecar()
+                if _sc is not None:
+                    _sc.mark_ready()
+            except Exception:
+                pass
 
     # ── One-shot mode: run a single command then exit ─────────────────────────
     if _args.one_shot is not None:
@@ -633,3 +973,9 @@ if __name__ == "__main__":
                 _active_core.shutdown()
             except Exception:
                 pass
+        # Clean up the sidecar socket so it doesn't leave a stale file
+        try:
+            from modules.niblit_sidecar import stop_sidecar as _stop_sidecar
+            _stop_sidecar()
+        except Exception:
+            pass

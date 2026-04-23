@@ -229,6 +229,23 @@ def phase_boot():
 def phase_direct_commands(core, io) -> list:
     from niblit_router import safe_call as router_safe_call
 
+    def _tool_registry_smoke() -> str:
+        from niblit_tools.tool_registry import get_registry
+        reg = get_registry()
+
+        def _live_tester_echo(text: str) -> str:
+            return text
+
+        reg.register(
+            _live_tester_echo,
+            name="__live_tester_echo",
+            description="Internal smoke-test tool for live_command_tester",
+        )
+        result = reg.dispatch_tool_call(
+            {"name": "__live_tester_echo", "arguments": {"text": "ok"}}
+        )
+        return f"tool-registry ok (tools={len(reg.list_tools())}, dispatch={result!r})"
+
     probes = [
         (
             "help",
@@ -286,6 +303,10 @@ def phase_direct_commands(core, io) -> list:
         (
             "run-diagnostics",
             lambda: core.handle("run-diagnostics"),
+        ),
+        (
+            "tool-registry",
+            _tool_registry_smoke,
         ),
     ]
 

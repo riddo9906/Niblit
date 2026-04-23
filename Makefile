@@ -110,3 +110,34 @@ clean:
 	find . -name "*.pyo" -delete 2>/dev/null || true
 	rm -rf build/ dist/ *.egg-info/ .mypy_cache/ .ruff_cache/ htmlcov/ .coverage
 	@echo "Cleaned up build artifacts and caches."
+
+# ── NiblitOS C++ kernel ────────────────────────────────────────────────────────
+
+## boot-kernel: Build the NiblitOS C++ kernel ELF (requires i686-elf cross-compiler)
+boot-kernel:
+	$(MAKE) -C os all
+
+## boot-kernel-iso: Build bootable ISO image for NiblitOS
+boot-kernel-iso:
+	$(MAKE) -C os iso
+
+## run-os: Boot NiblitOS in QEMU (requires make boot-kernel-iso first)
+run-os:
+	$(MAKE) -C os run
+
+## run-os-elf: Boot NiblitOS ELF directly in QEMU (faster, no ISO)
+run-os-elf:
+	$(MAKE) -C os run-elf
+
+## niblit-shell: Build the NiblitOS userland shell binary (gcc, no cross-compiler needed)
+niblit-shell:
+	$(MAKE) -C os shell
+
+## niblit-shell-run: Launch the interactive NiblitOS shell on the host
+niblit-shell-run:
+	$(MAKE) -C os shell-run
+
+## kernel-shell: Start the Python kernel/ interactive shell
+kernel-shell:
+	python3 -m kernel.shell
+

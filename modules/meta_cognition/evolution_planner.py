@@ -224,3 +224,7 @@ def get_evolution_planner() -> EvolutionPlanner:
             if _instance is None:
                 _instance = EvolutionPlanner()
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running evolution_planner.py')

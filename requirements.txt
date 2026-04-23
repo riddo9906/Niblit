@@ -1,14 +1,24 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Niblit — Unified Requirements
+# Niblit — Unified Requirements  (reference / PC full install)
 # ══════════════════════════════════════════════════════════════════════════════
-# This single file replaces the three separate requirements files:
-#   requirements.txt          (core runtime)
-#   requirements-dev.txt      (dev / testing tools)
-#   requirements-pipeline.txt (advanced pipeline / optional extras)
+# ── Installation Profiles ────────────────────────────────────────────────────
 #
-# Install everything:          pip install -r requirements.txt
-# Install core only:           pip install -r requirements.txt --no-deps (see notes below)
-# ──────────────────────────────────────────────────────────────────────────────
+#  Android / proot-Ubuntu (no FAISS / torch / sentence-transformers):
+#    pip install -r requirements/android.txt
+#    export NIBLIT_PROFILE=android
+#
+#  PC full install (all ML features enabled):
+#    pip install -r requirements/full.txt
+#    export NIBLIT_PROFILE=full
+#    # install torch separately for your platform:
+#    pip install torch          # CPU
+#    # or:  pip install torch --index-url https://download.pytorch.org/whl/cu121
+#
+#  Development / testing tools only:
+#    pip install -r requirements/dev.txt
+#
+#  This unified file: pip install -r requirements.txt  (all packages, PC)
+# ─────────────────────────────────────────────────────────────────────────────
 
 # ── Core Runtime ─────────────────────────────────────────────────────────────
 fastapi>=0.110.0
@@ -152,7 +162,7 @@ ruff>=0.4.0
 pre-commit>=3.5.0
 
 # ── Game Engine (optional — headless by default, display requires NIBLIT_GAME_DISPLAY=1) ───
-pygame>=2.5.0
+# pygame>=2.5.0        # no display server on fly.io / headless servers; enable locally
 
 # ── Universal File Manager — optional format support ─────────────────────────
 # Install whichever formats you need; Niblit degrades gracefully if absent.

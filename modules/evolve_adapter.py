@@ -182,3 +182,7 @@ def apply_change(
             "detail": str(exc)[:300],
             "item_id": change.item_id,
         }
+
+
+if __name__ == "__main__":
+    print('Running evolve_adapter.py')

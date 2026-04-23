@@ -19,7 +19,7 @@ import pytest
 # ---------------------------------------------------------------------------
 
 try:
-    from niblit_brain import NiblitBrain, BrainTrainer, hf_query
+    from niblit_brain import NiblitBrain, BrainTrainer, hf_query, _sanitize_text, _is_casual_input
     _BRAIN_AVAILABLE = True
 except ImportError:
     _BRAIN_AVAILABLE = False
@@ -299,6 +299,92 @@ class TestBrainTrainer:
         trainer, _ = self._make_trainer()
         result = trainer.run_training_cycle()
         assert isinstance(result, str)
+
+    def test_ingest_research_strips_control_chars(self):
+        """Backspace / null bytes must be removed at ingestion time."""
+        trainer, _ = self._make_trainer()
+        noisy_text = "valid start\x7f\x00bad\x01middle\x08end"
+        trainer.ingest_research(topic="test", text=noisy_text)
+        stored = trainer._facts[-1]["text"]
+        assert "\x7f" not in stored
+        assert "\x00" not in stored
+        assert "\x01" not in stored
+        assert "validstartbadmiddleend" == stored.replace(" ", "")
+
+    def test_get_context_for_respects_budget(self):
+        """Total context returned must not exceed _CONTEXT_MAX_CHARS."""
+        import niblit_brain as nb
+        trainer, _ = self._make_trainer()
+        # Inject enough facts to exceed the default 1500-char budget
+        for i in range(20):
+            trainer._facts.append({
+                "topic": f"topic{i}",
+                "text": "x" * 200,
+                "ts": "2024-01-01",
+            })
+        ctx = trainer.get_context_for("topic1")
+        assert len(ctx) <= nb._CONTEXT_MAX_CHARS
+
+
+class TestSanitizeText:
+    """Tests for the _sanitize_text helper."""
+
+    def test_strips_backspace(self):
+        assert "\x7f" not in _sanitize_text("hello\x7fworld")
+
+    def test_strips_null_byte(self):
+        assert "\x00" not in _sanitize_text("a\x00b")
+
+    def test_preserves_newline_and_tab(self):
+        text = "line1\nline2\ttabbed"
+        assert _sanitize_text(text) == text
+
+    def test_truncates_to_max_chars(self):
+        long_text = "a" * 1000
+        result = _sanitize_text(long_text, max_chars=100)
+        assert len(result) == 100
+
+    def test_empty_string(self):
+        assert _sanitize_text("") == ""
+
+    def test_clean_text_unchanged(self):
+        text = "Neural networks are great for pattern recognition."
+        assert _sanitize_text(text) == text
+
+    def test_strips_c1_controls(self):
+        text = "a\x80\x9fb"
+        result = _sanitize_text(text)
+        assert "\x80" not in result
+        assert "\x9f" not in result
+        assert "ab" in result
+
+
+class TestIsCasualInput:
+    """Tests for the _is_casual_input helper."""
+
+    def test_greeting_is_casual(self):
+        assert _is_casual_input("hi") is True
+        assert _is_casual_input("hello there") is True
+        assert _is_casual_input("hey") is True
+
+    def test_question_mark_not_casual(self):
+        assert _is_casual_input("how are you?") is False
+
+    def test_too_many_words_not_casual(self):
+        assert _is_casual_input("this is a message with more than six words total") is False
+
+    def test_command_keyword_not_casual(self):
+        assert _is_casual_input("run the tests") is False
+        assert _is_casual_input("recall python") is False
+        assert _is_casual_input("status check") is False
+        assert _is_casual_input("how do i fix this") is False
+
+    def test_six_words_no_keywords_is_casual(self):
+        assert _is_casual_input("good morning how are you doing") is True
+
+    def test_empty_is_casual(self):
+        # Edge case: empty string has 0 words
+        assert _is_casual_input("") is True
 
 
 if __name__ == "__main__":

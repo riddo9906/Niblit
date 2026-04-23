@@ -1,9 +1,5 @@
 /*
- * ale_c_systems_programming_and_pointers — systems programming and pointers: Learn in this tutorial about
----
-Learn everything about
----
-are a fundamental concept in
+ * ale_c_systems_programming_and_pointers_1776631 — systems programming and pointers 1776631630: LearnpointersinCprogrammingincludingpointerdeclaration, initialization, dereferencing,pointerarithmetic, andpracticalexa
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,9 +17,5 @@ int main(int argc, char *argv[]) {
 }
 
 void run(void) {
-    printf("ale_c_systems_programming_and_pointers: systems programming and pointers: Learn in this tutorial about
----
-Learn everything about
----
-are a fundamental concept in\n");
+    printf("ale_c_systems_programming_and_pointers_1776631: systems programming and pointers 1776631630: LearnpointersinCprogrammingincludingpointerdeclaration, initialization, dereferencing,pointerarithmetic, andpracticalexa\n");
 }

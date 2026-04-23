@@ -1,20 +1,20 @@
-package ale_java_object_oriented_design_patterns_17752538;
+package ale_java_object_oriented_patterns_1776642122;
 
 /**
- * AleJavaObjectOrientedDesignPatterns17752538 — object-oriented design patterns 1775253898: A software design pattern describes a reusable solution to a commonly needed behavior in software. A design pattern is n
+ * AleJavaObjectOrientedPatterns1776642122 — object-oriented patterns 1776642122: 1. IntroductionObject-OrientedDesignPatternscame out from software engineers recognizing recurring problems and formaliz
  */
-public class AleJavaObjectOrientedDesignPatterns17752538 {
+public class AleJavaObjectOrientedPatterns1776642122 {
 
-    public AleJavaObjectOrientedDesignPatterns17752538() {
+    public AleJavaObjectOrientedPatterns1776642122() {
         // constructor
     }
 
     public void run() {
-        System.out.println("ale_java_object_oriented_design_patterns_17752538 running");
+        System.out.println("ale_java_object_oriented_patterns_1776642122 running");
     }
 
     public static void main(String[] args) {
-        AleJavaObjectOrientedDesignPatterns17752538 obj = new AleJavaObjectOrientedDesignPatterns17752538();
+        AleJavaObjectOrientedPatterns1776642122 obj = new AleJavaObjectOrientedPatterns1776642122();
         obj.run();
     }
 }

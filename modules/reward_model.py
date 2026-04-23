@@ -17,9 +17,9 @@ Four lightweight signals combined into a quality score ∈ [0, 1]:
 
 Optional DistilBERT classifier (when ``transformers`` is installed)
 -------------------------------------------------------------------
-A ``distilbert-base-uncased`` model fine-tuned on (query, answer, context)
-triples with binary quality labels.  When not yet fine-tuned it falls back
-to the heuristic scorer automatically.
+Uses a sequence-classification DistilBERT checkpoint so classifier head
+weights are present at load-time (avoiding mismatched/missing head warnings).
+When unavailable it falls back to the heuristic scorer automatically.
 
 Public API
 ----------
@@ -37,19 +37,22 @@ Design
 from __future__ import annotations
 
 import logging
-import math
 import re
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("RewardModel")
 
 # ── optional transformers ─────────────────────────────────────────────────────
 try:
+    from transformers import (
+        AutoModelForSequenceClassification as _AutoModelForSeqClass,
+    )
+    from transformers import (
+        AutoTokenizer as _AutoTokenizer,
+    )
     from transformers import (  # type: ignore[import]
         pipeline as _hf_pipeline,
-        AutoTokenizer as _AutoTokenizer,
-        AutoModelForSequenceClassification as _AutoModelForSeqClass,
     )
     _TRANSFORMERS_AVAILABLE = True
 except ImportError:
@@ -84,9 +87,10 @@ _STOP_WORDS: frozenset = frozenset({
 })
 
 _TOKEN_RE = re.compile(r"[a-z]{2,}")
+_DEFAULT_CLASSIFIER_MODEL = "distilbert-base-uncased-finetuned-sst-2-english"
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     return [w for w in _TOKEN_RE.findall(text.lower()) if w not in _STOP_WORDS]
 
 
@@ -97,8 +101,8 @@ def _tokenize(text: str) -> List[str]:
 def _heuristic_score(
     query: str,
     answer: str,
-    snippets: List[str],
-) -> Dict[str, float]:
+    snippets: list[str],
+) -> dict[str, float]:
     """Compute the four heuristic signals and return a breakdown dict.
 
     Returns
@@ -189,9 +193,9 @@ class RewardModel:
     heuristic scorer is used exclusively.
     """
 
-    def __init__(self, model_name: str = "distilbert-base-uncased") -> None:
+    def __init__(self, model_name: str = _DEFAULT_CLASSIFIER_MODEL) -> None:
         self._model_name = model_name
-        self._pipeline: Optional[Any] = None
+        self._pipeline: Any | None = None
         self._pipeline_lock = threading.Lock()
         self._pipeline_tried = False
 
@@ -201,7 +205,7 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: Optional[List[str]] = None,
+        snippets: list[str] | None = None,
     ) -> float:
         """Return a quality score ∈ [0, 1].  Never raises."""
         try:
@@ -213,8 +217,8 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        snippets: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Return a full quality breakdown dict.
 
         Keys: ``score``, ``method``, ``heuristic`` (sub-breakdown), and
@@ -233,10 +237,10 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: List[str],
-        node_ids: Optional[List[str]] = None,
-        is_good: Optional[bool] = None,
-        memory_graph: Optional[Any] = None,
+        snippets: list[str],
+        node_ids: list[str] | None = None,
+        is_good: bool | None = None,
+        memory_graph: Any | None = None,
     ) -> None:
         """Evaluate an answer and propagate score deltas back to the MemoryGraph.
 
@@ -275,14 +279,14 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: List[str],
-    ) -> Dict[str, Any]:
+        snippets: list[str],
+    ) -> dict[str, Any]:
         heuristic = _heuristic_score(query, answer, snippets)
         base_score = heuristic["total"]
         method = "heuristic"
 
         # Try classifier if transformers available and pipeline loaded
-        model_score: Optional[float] = None
+        model_score: float | None = None
         if _TRANSFORMERS_AVAILABLE:
             model_score = self._classifier_score(query, answer, snippets)
             if model_score is not None:
@@ -301,8 +305,8 @@ class RewardModel:
         self,
         query: str,
         answer: str,
-        snippets: List[str],
-    ) -> Optional[float]:
+        snippets: list[str],
+    ) -> float | None:
         """Run the DistilBERT classifier.  Returns None on any failure."""
         pipe = self._get_pipeline()
         if pipe is None:
@@ -326,15 +330,11 @@ class RewardModel:
             log.debug("[RewardModel] classifier error: %s", exc)
         return None
 
-    def _get_pipeline(self) -> Optional[Any]:
+    def _get_pipeline(self) -> Any | None:
         """Lazy-load the HF classifier pipeline (once per process).
 
-        stdout/stderr are captured during model construction so that the
-        safetensors "LOAD REPORT" table (UNEXPECTED/MISSING keys) and tqdm
-        progress bars never appear on the console — they are benign artefacts
-        of loading a base checkpoint for a different task head.
-        ``ignore_mismatched_sizes=True`` is passed so that transformers does
-        not raise when the checkpoint has different head dimensions.
+        stdout/stderr are captured during model construction so noisy download
+        progress bars never appear on the console.
         """
         if self._pipeline_tried:
             return self._pipeline
@@ -351,18 +351,30 @@ class RewardModel:
             captured_out = io.StringIO()
             captured_err = io.StringIO()
             old_out, old_err = sys.stdout, sys.stderr
-            _load_exc: Optional[Exception] = None
+            _load_exc: Exception | None = None
             try:
                 sys.stdout = captured_out
                 sys.stderr = captured_err
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore")
-                    self._pipeline = _hf_pipeline(
-                        "text-classification",
-                        model=self._model_name,
-                        device=-1,  # CPU
-                        model_kwargs={"ignore_mismatched_sizes": True},
-                    )
+                    hf_log = logging.getLogger("transformers")
+                    st_log = logging.getLogger("safetensors")
+                    prev_hf_level = hf_log.level
+                    prev_st_level = st_log.level
+                    hf_log.setLevel(logging.ERROR)
+                    st_log.setLevel(logging.ERROR)
+                    try:
+                        tokenizer = _AutoTokenizer.from_pretrained(self._model_name)
+                        model = _AutoModelForSeqClass.from_pretrained(self._model_name)
+                        self._pipeline = _hf_pipeline(
+                            "text-classification",
+                            model=model,
+                            tokenizer=tokenizer,
+                            device=-1,  # CPU
+                        )
+                    finally:
+                        hf_log.setLevel(prev_hf_level)
+                        st_log.setLevel(prev_st_level)
             except Exception as exc:
                 _load_exc = exc
             finally:
@@ -386,11 +398,11 @@ class RewardModel:
 # Singleton
 # ─────────────────────────────────────────────────────────────────────────────
 
-_reward_singleton: Optional[RewardModel] = None
+_reward_singleton: RewardModel | None = None
 _reward_lock = threading.Lock()
 
 
-def get_reward_model(model_name: str = "distilbert-base-uncased") -> RewardModel:
+def get_reward_model(model_name: str = _DEFAULT_CLASSIFIER_MODEL) -> RewardModel:
     """Return the global :class:`RewardModel` singleton.  Thread-safe."""
     global _reward_singleton
     with _reward_lock:

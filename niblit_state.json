@@ -324,12 +324,27 @@
   "recent_inputs": [],
   "msg_self_model": {
     "capabilities": {},
-    "limitations": {},
+    "limitations": {
+      "security": 0.65,
+      "memory": 0.65
+    },
     "active_domains": [
-      "artificial intelligence"
+      "artificial intelligence",
+      "machine learning"
     ],
-    "confidence_map": {},
-    "cycle_count": 10,
+    "confidence_map": {
+      "ale": 0.5,
+      "kernel": 0.5,
+      "trading": 0.5,
+      "security": 0.455,
+      "memory": 0.455,
+      "language": 0.5,
+      "research": 0.5,
+      "reasoning": 0.5,
+      "evolution": 0.5,
+      "civilization": 0.5
+    },
+    "cycle_count": 5,
     "evolution_history": []
   }
 }

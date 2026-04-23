@@ -163,3 +163,7 @@ def get_resource_allocator() -> ResourceAllocator:
             if _instance is None:
                 _instance = ResourceAllocator()
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running resource_allocator.py')

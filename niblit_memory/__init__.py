@@ -409,7 +409,7 @@ class FusedMemory:
                 if source or title:
                     prefix = " | ".join(filter(None, [source, title]))
                     enriched = f"[{prefix}] {text}"
-            vs.add(doc_id, enriched[:1000])
+            vs.add(doc_id, enriched[:6000])
             return True
         except Exception as exc:
             _fused_log.debug("[FusedMemory] add_embedding failed: %s", exc)
@@ -577,7 +577,7 @@ class FusedMemoryPrimary(FusedMemory):
             try:
                 text_repr = metadata.get("source", "") or metadata.get("title", "") or str(metadata)[:200]
                 doc_id = metadata.get("id", f"rv-{int(time.time()*1000)}")
-                vs.add(str(doc_id), text_repr[:500])
+                vs.add(str(doc_id), text_repr[:6000])
                 return True
             except Exception as exc:
                 _fused_primary_log.debug("[FusedMemoryPrimary] VectorStore upsert failed: %s", exc)
@@ -1172,6 +1172,27 @@ class KnowledgeDB:
             facts = list(self.data.get("facts", []))
         return sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)[:limit]
 
+    def delete_fact(self, key: str) -> bool:
+        """Remove the most-recent fact whose ``key`` matches *key*.
+
+        Returns ``True`` if a fact was removed, ``False`` if not found.
+        Persists the change immediately.
+        """
+        with self.lock:
+            facts = self.data.get("facts", [])
+            # Find the index of the most-recent matching entry (highest ts)
+            idx = None
+            for i, fact in enumerate(reversed(facts)):
+                if isinstance(fact, dict) and fact.get("key") == key:
+                    idx = len(facts) - 1 - i
+                    break
+            if idx is None:
+                return False
+            self.data["facts"].pop(idx)
+        self._save(blocking=False)
+        _kdb_log.info("KnowledgeDB: deleted fact key=%r", key)
+        return True
+
     def queue_learning(self, topic: str) -> None:
         with self.lock:
             self.data.setdefault("learning_queue", [])
@@ -1747,7 +1768,7 @@ class KnowledgeStore:
             return
         for row in rows:
             try:
-                vs.add(row["key"], row["text"][:500])
+                vs.add(row["key"], row["text"][:6000])
             except Exception as exc:
                 _ks_log.debug("KnowledgeStore: Qdrant upsert failed: %s", exc)
 
@@ -2165,7 +2186,7 @@ class NiblitMemory:
                 try:
                     key = f"learning:{id(data)}"
                     value = data if isinstance(data, str) else str(data)
-                    self.fused_memory.store_knowledge(key, value[:1000], source="learning_log")
+                    self.fused_memory.store_knowledge(key, value[:4000], source="learning_log")
                 except Exception as _e:
                     log.debug("[MEMORY] fused_memory.store_knowledge failed: %s", _e)
         except Exception as e:
@@ -2459,8 +2480,8 @@ class NiblitMemory:
             _kf = _gkf()
             if not _kf.should_store(key, value, tags):
                 return
-            if isinstance(value, str) and len(value) > 600:
-                value = _kf.compress(value, max_len=600)
+            if isinstance(value, str) and len(value) > 4000:
+                value = _kf.compress(value, max_len=4000)
         except ImportError:
             pass
         # ── Original storage logic ─────────────────────────────────────────────
@@ -2484,7 +2505,7 @@ class NiblitMemory:
         if self.fused_memory is not None:
             try:
                 self.fused_memory.store_knowledge(
-                    key, str(value)[:500], source="fact"
+                    key, str(value)[:2000], source="fact"
                 )
             except Exception as exc:
                 log.debug("[MEMORY] fused add_fact mirror failed: %s", exc)

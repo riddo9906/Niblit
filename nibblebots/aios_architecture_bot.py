@@ -78,6 +78,7 @@ _LAYER_KEYWORDS: Dict[str, List[str]] = {
         "evolution_planner", "self_monitor", "self_improvement_orchestrator",
         "gap_analyzer", "metrics_observability", "meta_adapter",
         "monitoring_alerting", "self_governance", "msg_layer",
+        "unified_self_modules", "self_healer", "self_maintenance", "healer_full",
     ],
     "Kernel": [
         "runtime", "kernel", "bootloader", "bios", "firmware",
@@ -88,12 +89,17 @@ _LAYER_KEYWORDS: Dict[str, List[str]] = {
         "niblit_core_kernel", "aios_runtime", "aios_scheduler",
         "structural_awareness", "background_jobs", "async_first",
         "structured_logging", "module_autonomy", "niblit_kernel",
+        "aios_layer_registry", "layered_architecture", "plugin_architecture",
+        "orphan_imports", "batch_processing", "parameter_manager",
+        "live_updater", "builds_integrator", "niblit_core_full",
+        "niblit_core_refactor_full", "config",
     ],
     "HAL": [
         "device_control", "device_manager", "device_mesh",
         "hardware_scanner", "termux", "env_adapter", "os_integration",
         "terminal_tools", "binary_tools", "env_state",
         "filesystem_manager", "universal_file_manager", "aios_hal",
+        "proot_env", "apk_bootstrap", "niblit_env", "niblit_sensors",
     ],
     "Memory": [
         "memory", "vector_store", "knowledge_db", "knowledge_engine",
@@ -101,7 +107,8 @@ _LAYER_KEYWORDS: Dict[str, List[str]] = {
         "llm_chat_memory", "knowledge_digest", "knowledge_filter",
         "knowledge_synthesizer", "ingestion", "graph_rag",
         "rag_pipeline", "tiered_knowledge", "multi_level_caching",
-        "hybrid_qdrant", "sqlite_researcher",
+        "hybrid_qdrant", "sqlite_researcher", "qdrant_tools",
+        "memory_optimizer",
     ],
     "Intelligence": [
         "brain", "hf_brain", "llm", "openai", "anthropic",
@@ -113,7 +120,12 @@ _LAYER_KEYWORDS: Dict[str, List[str]] = {
         "cognition_core", "concept_synthesizer", "agentic_workflows",
         "github_deep_research", "github_models_client",
         "llm_provider_manager", "local_llm_adapter", "local_brain",
-        "brain_router",
+        "brain_router", "language_module", "llm_architect_engine",
+        "market_researcher", "trading_swing", "position_sizer",
+        "stackoverflow_search", "github_code_search", "pypi_search",
+        "searchcode_search", "topic_constructor", "dynamic_topic_manager",
+        "background_topic_refresh", "build_scanner", "code_quality_checker",
+        "global_code_intelligence", "ai_dev_lab",
     ],
     "Learning": [
         "learning", "ale", "curriculum", "self_researcher",
@@ -124,6 +136,9 @@ _LAYER_KEYWORDS: Dict[str, List[str]] = {
         "tokenizer_trainer", "reward_model", "improvement_integrator",
         "universe_registry", "evolution_queue", "evolve_adapter",
         "defensive_evolution", "goal_engine", "knowledge_comprehension",
+        "knowledge_adapter", "civilization_adapter", "rl_trading",
+        "trading_study", "academic_study", "niblit_full_upgrade",
+        "collector_full", "generator_full",
     ],
     "Network": [
         "network", "distributed", "mesh", "net", "api_gateway",
@@ -131,6 +146,7 @@ _LAYER_KEYWORDS: Dict[str, List[str]] = {
         "autonomous_network", "sync_engine", "github_sync",
         "rate_limiting", "deployment_bridge", "lean_deploy",
         "lean_engine", "mcp_server", "event_sourcing",
+        "lean_algo_manager", "market_data_providers", "niblit_bridge",
     ],
     "Security": [
         "security", "membrane", "guard", "slsa", "permission",
@@ -143,6 +159,9 @@ _LAYER_KEYWORDS: Dict[str, List[str]] = {
         "game_engine", "niblit_personality", "notification",
         "kivy", "server", "app", "api", "niblit_core",
         "niblit_identity", "orchestrator", "niblit_orchestrator",
+        "niblit_actions", "niblit_io", "niblit_tasks", "niblit_manager",
+        "niblit_dashboard", "live_command_tester", "run_realtime",
+        "run_trading_brain", "run_diagnostics", "enterprise_utility",
     ],
 }
 

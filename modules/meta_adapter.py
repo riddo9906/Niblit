@@ -231,3 +231,7 @@ def _from_nibblebot(limit: int) -> List[Dict[str, Any]]:
         return result
     except Exception:  # noqa: BLE001
         return []
+
+
+if __name__ == "__main__":
+    print('Running meta_adapter.py')

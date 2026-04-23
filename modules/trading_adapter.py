@@ -122,3 +122,7 @@ def execute_trading_plan(
             "elapsed_secs": round(time.time() - start, 2),
             "error": str(exc)[:200],
         }
+
+
+if __name__ == "__main__":
+    print('Running trading_adapter.py')

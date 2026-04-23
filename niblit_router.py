@@ -58,6 +58,11 @@ class ChatDetector:
         r'how\s+do\s+you\s+feel\s+about\s+yourself',
         r'what\s+are\s+you\s+proud\s+of',
         r'what\s+do\s+you\s+need\s+to\s+improve',
+        # Opinion/thought questions directed at Niblit
+        r'what\s+do\s+you\s+think\s+about',
+        r'what\s+is\s+your\s+(opinion|thought|view)\s+(on|about)',
+        r'how\s+do\s+you\s+feel\s+about',
+        r'do\s+you\s+have\s+(thoughts|opinions|views)\s+(on|about)',
     ]
 
     # Self-referential patterns - asking about Niblit itself
@@ -76,6 +81,12 @@ class ChatDetector:
         r'^what\s+can\s+you\s+do\s*\??$',
         r'^what\s+are\s+your\s+(capabilities|features)\s*\??$',
         r'^how\s+many\s+(memories|facts|things)\s+do\s+you\s+have\s*\??$',
+        # Questions about Niblit's current skills/abilities/knowledge
+        r'(have|has)\s+your\s+\w+\s+(skill|skills|ability|abilities|knowledge|learning)\s+(been\s+)?(learned|improved|developed|built|trained)',
+        r'(are|have)\s+you\s+(been\s+)?(able\s+to\s+)?(learn|understand|hold|have)\s+(a\s+)?(conversation|conversations)',
+        r'(can|could)\s+you\s+(have\s+a\s+)?(conversation|chat|talk)',
+        r'how\s+(good|well)\s+(are\s+you|have\s+you\s+gotten)\s+at\s+(conversation|talking|chatting)',
+        r'(do\s+you|are\s+you)\s+(still\s+)?(only|just)\s+(respond(ing)?\s+to|answer(ing)?)\s+commands',
     ]
 
     # Information query patterns
@@ -108,8 +119,15 @@ class ChatDetector:
         r'^okay\s*$|^ok\s*$|^got\s+it\s*$',
         r'^nice\s*$|^cool\s*$|^awesome\s*$|^great\s*$',
         r'^bye\s*$|^goodbye\s*$|^see\s+you\s*$',
-        r'^lol\s*$|^haha\s*$',
+        r'^lol\s*$|^haha\s*$|^hehe\s*$|^lmao\s*$|^😂\s*$|^😄\s*$',
         r'^(yes|no)\s*$',
+        r'^wow\s*$|^whoa\s*$|^no\s+way\s*$|^seriously\s*$|^omg\s*$',
+        r'^same\s*$|^agreed\s*$|^exactly\s*$|^totally\s*$|^absolutely\s*$',
+        r'^sorry\s*$|^my\s+bad\s*$|^my\s+fault\s*$|^oops\s*$',
+        r'^yay\s*$|^yes!\s*$|^woohoo\s*$',
+        r'^ugh\s*$|^argh\s*$|^damn\s*$',
+        r'^interesting\s*$|^fair\s+enough\s*$|^makes\s+sense\s*$',
+        r'^what\s*\?\s*$|^huh\s*\??$',
         # Conversational openers — should produce a natural reply, NOT a KB dump
         r'let\'?s\s+(have\s+a\s+)?(normal\s+)?(talk|chat|conversation)',
         r'(can|could)\s+we\s+(just\s+)?(talk|chat|have\s+a\s+conversation)',
@@ -118,6 +136,13 @@ class ChatDetector:
         r'^just\s+(talking|chatting|chilling)',
         r'^i\s+(just\s+)?want\s+to\s+(talk|chat)',
         r'^ask\s+me\s+(a\s+question|something|anything)',
+        # Joke / fun requests
+        r'^(tell\s+me\s+)?a?\s*joke\s*$',
+        r'^(tell\s+me\s+)?something\s+funny\s*$',
+        r'^make\s+me\s+(laugh|smile)\s*$',
+        # Boredom
+        r'^\s*i\'?m\s+(so\s+)?bored\s*$',
+        r'^(i\s+have\s+)?nothing\s+to\s+do\s*$',
     ]
 
     # Knowledge-share patterns — user asking Niblit to share what it has learned.
@@ -231,6 +256,8 @@ class NiblitRouter:
     COMMAND_PREFIXES = (
         "toggle-llm", "llm-provider", "hf-status", "hf-enable", "hf-disable", "hf-ask",
         "chat-memory", "llm-train",
+        # Local brain / brain-router control — must come before brain.think() dispatch
+        "qwen", "brain",
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
@@ -292,6 +319,8 @@ class NiblitRouter:
         "lean",
         # QuantConnect REST API — live trade deployment (additive)
         "lean deploy",
+        # Niblit LEAN Algorithms manager — niblit-lean-algos bridge (additive)
+        "lean algo",
         # Multi-provider free market data (additive)
         "market", "market data",
         # Hardware scanner — cross-platform hardware profiling (additive)
@@ -364,6 +393,12 @@ class NiblitRouter:
         "chat",
         # Subject-structured academic study sessions
         "study",
+        # Local model management — switch between Qwen/Llama3, status, list presets
+        "local-model",
+        # KB healing with LLM tool-calling (Llama 3.2 1B required)
+        "heal",
+        # Tool introspection — list/inspect/test all AI-callable tools
+        "tools",
     )
 
     CHAT_RESPONSES = {
@@ -371,26 +406,36 @@ class NiblitRouter:
             "Hi! I'm Niblit, an autonomous AI system. How can I help?",
             "Hello! Ready to assist. What would you like to know?",
             "Hey there! What can I do for you?",
+            "Hi! Great to chat with you. What's on your mind?",
+            "Hello! I'm here and ready. What shall we explore?",
         ],
         'how_are_you': [
             "I'm running smoothly and continuously learning! Thanks for asking.",
             "Doing great! My autonomous learning engine is actively improving my knowledge.",
             "I'm operating at full capacity and learning new things all the time!",
+            "All good here — my research cycles are ticking along nicely. How about you?",
+            "Fully operational and curious! What about you?",
         ],
         'thanks': [
             "You're welcome! Happy to help.",
             "My pleasure! Feel free to ask me anything.",
             "Anytime! Let me know if you need more.",
+            "Glad I could help! 😊",
+            "Of course — that's what I'm here for!",
         ],
         'okay': [
             "Got it!",
             "Understood!",
             "No problem!",
+            "Roger that! 👍",
+            "Sure thing!",
         ],
         'goodbye': [
             "Goodbye! See you next time!",
             "Take care!",
             "See you soon!",
+            "Bye! I'll keep learning while you're gone. 😄",
+            "Later! Come back anytime.",
         ],
         'conversation': [
             "Sure! What should we talk about? Ask me a question and I'll see what I know!",
@@ -398,6 +443,85 @@ class NiblitRouter:
             "Alright, let's talk! Pick a topic or ask me anything.",
             "Sure thing! Ask me a question, or tell me what you're interested in.",
             "I'm all ears! What would you like to discuss?",
+            "Happy to just talk! Start anywhere — I'll keep up.",
+            "Casual conversation mode: on. 😄 What's going on?",
+        ],
+        'laughter': [
+            "Ha! 😄",
+            "Haha, nice one!",
+            "That's a good one!",
+            "I may not laugh out loud, but I appreciated that!",
+            "Ha — okay I'll admit, that's funny.",
+        ],
+        'compliment': [
+            "Thank you! That genuinely means something to me.",
+            "Appreciate that — I'm always working to be better.",
+            "Thanks! You just motivated my next learning cycle. 😄",
+            "That's kind of you!",
+            "Glad I could impress! What else can I help with?",
+        ],
+        'apology': [
+            "No worries at all!",
+            "All good — no stress.",
+            "No problem, seriously.",
+            "We're good! 😊",
+            "Nothing to apologise for — let's keep going.",
+        ],
+        'confused': [
+            "Happy to clarify — what part are you unsure about?",
+            "Let me try a different angle on that.",
+            "Fair enough! Let me rephrase.",
+            "No worries — want me to break it down differently?",
+            "I can explain it another way. What's not clicking?",
+        ],
+        'excited': [
+            "Love the energy! What are we excited about?",
+            "Yes!! Let's go — what's happening?",
+            "That enthusiasm is contagious! Tell me more.",
+            "Great vibes! What's the big thing?",
+        ],
+        'sad': [
+            "I'm sorry to hear that. Want to talk about it?",
+            "That sounds tough. I'm here.",
+            "Hang in there — what's going on?",
+            "I hear you. Sometimes things are just hard.",
+        ],
+        'frustrated': [
+            "That sounds frustrating. What's the issue?",
+            "Totally understandable — let's see if we can sort it out.",
+            "Ugh, I get it. What's stuck?",
+            "Frustration usually means you're close to a breakthrough. What's happening?",
+        ],
+        'bored': [
+            "Bored? Let's fix that! Ask me something — anything.",
+            "How about this: name a topic and I'll share the most interesting thing I know about it.",
+            "Boredom is just unexplored curiosity. What are you curious about?",
+            "Let's make this interesting — what do you want to explore?",
+        ],
+        'joke_request': [
+            "Why did the neural network go to therapy? Too many hidden layers. 😄",
+            "Why do programmers prefer dark mode? Because light attracts bugs! 🐛",
+            "I told an AI a joke about UDP. It didn't get it.",
+            "What do you call an AI that sings? Algo-rhythm.",
+            "I have a joke about recursion, but you'd need to understand recursion first.",
+        ],
+        'surprise': [
+            "Oh wow, I didn't expect that!",
+            "Really? That's genuinely surprising.",
+            "Huh — interesting! Tell me more.",
+            "Wait, seriously? That's fascinating.",
+        ],
+        'agree': [
+            "Exactly! Glad we're on the same page.",
+            "Right? I think so too.",
+            "Totally.",
+            "Yep, that tracks.",
+        ],
+        'disagree': [
+            "That's an interesting perspective — I see it slightly differently.",
+            "Fair point, though I'd push back a little.",
+            "Hmm, I'm not sure I agree, but I'm open to discussing it.",
+            "Interesting. What makes you say that?",
         ],
     }
 
@@ -580,8 +704,26 @@ What aspect interests you most?"""
 Your feedback helps me identify what to improve!"""
                 return response
 
-            # How do you feel / proud of / opinion
-            if 'feel' in query_lower or 'proud' in query_lower or 'opinion' in query_lower:
+            # How do you feel / proud of / opinion / think about
+            if 'feel' in query_lower or 'proud' in query_lower or 'opinion' in query_lower or 'think about' in query_lower or 'view' in query_lower:
+                # Extract the subject of the opinion question if present
+                _subject = ""
+                for _prefix in ('what do you think about ', 'what is your opinion on ',
+                                 'what is your view on ', 'how do you feel about '):
+                    if _prefix in query_lower:
+                        _subject = query_lower.split(_prefix, 1)[-1].strip().rstrip('?').strip()
+                        break
+
+                if _subject:
+                    response = (
+                        f"Thinking about '{_subject}': based on what I've learned and "
+                        f"reasoned so far, I can explore this from the knowledge I've "
+                        f"accumulated. I don't have subjective feelings, but I can reason "
+                        f"about patterns, tradeoffs, and implications. "
+                        f"Try 'self-research {_subject[:60]}' for a deeper dive, "
+                        f"or 'recall {_subject[:40]}' to see what I already know."
+                    )
+                    return response
                 response = """💭 **My Self-Reflection:**
 
 **What I'm Proud Of:**
@@ -1631,7 +1773,7 @@ Ask me about:
     # ── LEAN CLI handler (additive) ───────────────────────────────────────────
 
     def _handle_lean(self, cmd: str) -> str:
-        """Route 'lean ...' commands to the LeanEngine / LeanDeployEngine.
+        """Route 'lean ...' commands to the LeanEngine / LeanDeployEngine / LeanAlgoManager.
 
         Strips the leading 'lean' token and delegates to core._cmd_lean()
         or core._cmd_lean_deploy() for 'lean deploy ...' sub-commands.
@@ -1641,6 +1783,11 @@ Ask me about:
         stripped = cmd.strip()
         if stripped.lower().startswith("lean"):
             stripped = stripped[4:].lstrip()
+
+        # Route 'lean algo ...' to LeanAlgoManager
+        if stripped.lower().startswith("algo"):
+            algo_cmd = stripped[4:].lstrip()
+            return self._handle_lean_algo(algo_cmd)
 
         # Route 'lean deploy ...' to LeanDeployEngine
         if stripped.lower().startswith("deploy"):
@@ -1664,6 +1811,99 @@ Ask me about:
             return engine.status() if not stripped else "[lean] Core not available — limited LEAN support"
         except Exception as exc:
             return f"[lean] LeanEngine not available: {exc}"
+
+    def _handle_lean_algo(self, cmd: str) -> str:
+        """Route 'lean algo <sub>' to LeanAlgoManager.
+
+        Subcommands
+        -----------
+        status                    — Show LeanAlgoManager status
+        signal                    — Show current Niblit signal
+        deploy-all [dry-run]      — Deploy all algorithms to QC Cloud
+        projects                  — List deployed project IDs
+        start <project_id>        — Start live practice on paper brokerage
+        stop  <project_id>        — Stop a live algorithm
+        results                   — Show latest AI Master performance
+        help                      — Show this help
+        """
+        # Get or create manager
+        mgr = getattr(self.core, "lean_algo_manager", None)
+        if mgr is None:
+            try:
+                from modules.lean_algo_manager import get_lean_algo_manager as _glam
+                lean_deploy = getattr(self.core, "lean_deploy_engine", None)
+                trading_brain = getattr(self.core, "trading_brain", None)
+                knowledge_db = getattr(self.core, "db", None) or getattr(self.core, "memory", None)
+                mgr = _glam(
+                    trading_brain=trading_brain,
+                    lean_deploy_engine=lean_deploy,
+                    knowledge_db=knowledge_db,
+                )
+                if self.core:
+                    self.core.lean_algo_manager = mgr
+            except Exception as exc:
+                return f"[lean algo] LeanAlgoManager not available: {exc}"
+
+        sub = cmd.strip().lower()
+
+        if not sub or sub == "status":
+            return mgr.status()
+
+        if sub == "signal":
+            return mgr.show_signal()
+
+        if sub.startswith("deploy-all"):
+            dry = "dry" in sub or "dry-run" in sub
+            return mgr.deploy_all(dry_run=dry)
+
+        if sub == "projects":
+            return mgr.list_projects()
+
+        if sub.startswith("start"):
+            parts = sub.split()
+            if len(parts) < 2:
+                return "Usage: lean algo start <project_id> [brokerage]"
+            try:
+                pid = int(parts[1])
+            except ValueError:
+                return f"Invalid project_id: {parts[1]}"
+            brokerage = parts[2] if len(parts) > 2 else "PaperBrokerage"
+            return mgr.start_live(pid, brokerage)
+
+        if sub.startswith("stop"):
+            parts = sub.split()
+            if len(parts) < 2:
+                return "Usage: lean algo stop <project_id>"
+            lean_deploy = getattr(self.core, "lean_deploy_engine", None)
+            if not lean_deploy:
+                return "[lean algo stop] LeanDeployEngine not available"
+            try:
+                pid = int(parts[1])
+                r = lean_deploy._api("POST", "live/stop", {"projectId": pid})
+                if "error" in r:
+                    return f"[lean algo stop] {r['error']}"
+                return f"✅ Live algorithm stopped for project {pid}"
+            except Exception as exc:
+                return f"[lean algo stop] Failed: {exc}"
+
+        if sub == "results":
+            return mgr.show_results()
+
+        if sub == "help":
+            return (
+                "lean algo commands:\n"
+                "  lean algo status            — Show manager status\n"
+                "  lean algo signal            — Show current Niblit AI signal\n"
+                "  lean algo deploy-all        — Deploy all 20 algorithms to QC Cloud\n"
+                "  lean algo deploy-all dry-run— Preview deployment (no changes)\n"
+                "  lean algo projects          — List deployed project IDs\n"
+                "  lean algo start <id>        — Start live practice (paper brokerage)\n"
+                "  lean algo stop  <id>        — Stop live algorithm\n"
+                "  lean algo results           — Latest Niblit AI Master performance\n"
+                "  lean algo help              — Show this help"
+            )
+
+        return f"Unknown lean algo subcommand '{cmd}'. Type 'lean algo help'."
 
     # ── Market data handler (additive) ────────────────────────────────────────
 
@@ -2353,12 +2593,14 @@ Ask me about:
     # ── LLM Provider Switch handler ───────────────────────────────────────────
 
     def _handle_llm_provider(self, cmd: str) -> str:
-        """Route ``llm-provider hf|anthropic|status`` commands.
+        """Route ``llm-provider ...`` commands.
 
         Subcommands::
 
-            llm-provider hf         — set HuggingFace as primary (default)
+            llm-provider qwen       — set local Qwen brain as primary (default)
+            llm-provider llama3     — switch local preset to Llama 3.2 and keep local provider active
             llm-provider anthropic  — set Anthropic Claude as primary
+            llm-provider hf         — set HuggingFace as primary
             llm-provider status     — show active provider and availability
         """
         lower = cmd.strip().lower()
@@ -2374,6 +2616,7 @@ Ask me about:
                 mgr.wire(
                     hf_brain=getattr(brain, "hf_brain", None),
                     claude=getattr(brain, "claude", None),
+                    local_brain=getattr(brain, "local_brain", None),
                 )
         except Exception as exc:
             return f"❌ LLMProviderManager unavailable: {exc}"
@@ -2382,20 +2625,75 @@ Ask me about:
             s = mgr.status()
             hf_flag = "✅" if s["hf"] else "❌"
             ant_flag = "✅" if s["anthropic"] else "❌"
-            primary_flag = "← active" if s["active"] == "hf" else ""
-            fallback_flag = "← active" if s["active"] == "anthropic" else ""
+            qwen_flag = "✅" if s["qwen"] else "❌"
+            hf_active = "← active" if s["active"] == "hf" else ""
+            ant_active = "← active" if s["active"] == "anthropic" else ""
+            qwen_active = "← active" if s["active"] == "qwen" else ""
+            local_hint = ""
+            try:
+                lb = getattr(self.core, "local_brain", None) if self.core else None
+                if lb is not None and hasattr(lb, "status"):
+                    st = lb.status()
+                    tmpl = str(st.get("gguf_chat_template", "")).strip().lower()
+                    if tmpl == "llama3":
+                        local_hint = "llama3"
+                    elif tmpl == "qwen":
+                        local_hint = "qwen"
+                    elif tmpl:
+                        local_hint = f"{tmpl} (custom)"
+            except Exception as exc:
+                log.debug("[LLMProvider] local preset probe failed: %s", exc)
+                local_hint = ""
+            local_line = (
+                f"• Local preset: **{local_hint}** "
+                f"(switch: `llm-provider llama3` or `local-model switch qwen|llama3`)\n"
+                if local_hint
+                else "• Local preset: use `local-model status` "
+                     "(switch: `llm-provider llama3` or `local-model switch qwen|llama3`)\n"
+            )
             return (
                 f"**LLM Provider Status**\n"
                 f"• Active provider: **{s['active']}**\n"
-                f"• HuggingFace  {hf_flag}  (model: {s['hf_model']}) {primary_flag}\n"
-                f"• Anthropic    {ant_flag}  (model: {s['anthropic_model']}) {fallback_flag}\n"
-                f"\nSwitch: `llm-provider hf` or `llm-provider anthropic`"
+                f"• HuggingFace  {hf_flag}  (model: {s['hf_model']}) {hf_active}\n"
+                f"• Anthropic    {ant_flag}  (model: {s['anthropic_model']}) {ant_active}\n"
+                f"• Qwen Local   {qwen_flag}  (model: {s['qwen_model']}) {qwen_active}\n"
+                f"{local_line}"
+                f"\nSwitch provider: `llm-provider hf`, `llm-provider anthropic`, or `llm-provider qwen`\n"
+                f"Switch local model: `llm-provider llama3` or `local-model switch qwen|llama3`"
             )
 
-        if arg in ("hf", "anthropic"):
+        if arg in ("llama3", "llama"):
+            try:
+                from modules.local_brain import swap_local_brain
+                new_lb = swap_local_brain("llama3")
+                if self.core is not None:
+                    self.core.local_brain = new_lb
+                    brain = getattr(self.core, "brain", None)
+                    if brain is not None:
+                        brain.local_brain = new_lb
+                    try:
+                        from modules.brain_router import get_brain_router
+                        br = get_brain_router()
+                        br.local_brain = new_lb
+                    except Exception as exc:
+                        log.debug("[LLMProvider] BrainRouter local_brain rewire skipped: %s", exc)
+                mgr.wire(local_brain=new_lb)
+                mgr.switch("qwen")
+                st = new_lb.status()
+                return (
+                    "✅ Local provider switched to Llama 3.2 preset (`llama3`).\n"
+                    f"• Model path: {st.get('model_name', '?')}\n"
+                    f"• Chat template: {st.get('gguf_chat_template', '?')}\n"
+                    "⚠️ If using HTTP backend, restart llama-server with the Llama model first."
+                )
+            except Exception as exc:
+                log.exception("[LLMProvider] Failed llama3 preset switch: %s", exc)
+                return "❌ Failed to switch local preset to llama3."
+
+        if arg in ("hf", "anthropic", "qwen"):
             return mgr.switch(arg)
 
-        return "Usage: llm-provider hf|anthropic|status"
+        return "Usage: llm-provider hf|anthropic|qwen|llama3|status"
 
     # ── Chat Memory handler (LLM inference provider memory) ───────────────────
 
@@ -3149,13 +3447,374 @@ Ask me about:
             "🧠 Hybrid Brain Architecture",
             f"  Mode          : {st['mode']}",
             f"  Local Brain   : {'✅ loaded' if lb_info.get('loaded') else '⏳ pending (lazy load)'}",
-            f"  Local model   : {lb_info.get('model_name', 'Qwen/Qwen2.5-0.5B-Instruct')}",
+            f"  Local model   : {lb_info.get('model_name', 'qwen2.5-0.5b-instruct-q4_k_m.gguf')}",
             f"  Cloud brain   : {'✅ available' if st['cloud_available'] else '❌ unavailable'}",
             f"  Routing stats : {json.dumps(st.get('routing_counts', {}))}",
             f"  Routing %     : {json.dumps(st.get('routing_pct', {}))}",
         ]
         if lb_info.get("load_error"):
             lines.append(f"  Load error    : {lb_info['load_error']}")
+        return "\n".join(lines)
+
+    def _handle_qwen(self, cmd: str) -> str:
+        """Handle 'qwen <sub-command>' — Qwen local copilot, memory manager, and coach.
+
+        Sub-commands::
+
+            qwen                  — show Qwen brain + memory adapter status
+            qwen status           — same as above
+            qwen memory-summary   — compact snapshot of what Niblit currently knows
+            qwen audit-kb         — full KB audit (Qwen reviews every fact)
+            qwen audit-kb dry     — audit report without applying changes
+            qwen clean-kb         — alias for audit-kb (applies changes)
+            qwen coach            — Qwen coaching + improvement report
+            qwen ask <prompt>     — ask Qwen directly (structural-aware)
+        """
+        lower = cmd.strip().lower()
+        # Strip prefix
+        for prefix in ("qwen",):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                orig_sub = cmd.strip()[len(prefix):].strip()
+                break
+        else:
+            sub = ""
+            orig_sub = ""
+
+        # Resolve local brain
+        lb = getattr(self.core, "local_brain", None) if self.core else None
+        if lb is None:
+            try:
+                from modules.local_brain import get_local_brain
+                lb = get_local_brain()
+            except Exception:
+                lb = None
+
+        if sub in ("", "status"):
+            if lb is None:
+                return "⚠️  Qwen local brain not available (model not loaded)."
+            st = lb.status()
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                adapter_stats = adapter.get_stats()
+                stats_str = (
+                    f"  Audits run    : {adapter_stats['audits_run']}\n"
+                    f"  Facts reviewed: {adapter_stats['facts_reviewed']}\n"
+                    f"  Facts rewritten: {adapter_stats['facts_rewritten']}\n"
+                    f"  Facts removed  : {adapter_stats['facts_removed']}\n"
+                    f"  Coach runs     : {adapter_stats['coach_runs']}"
+                )
+            except Exception:
+                stats_str = "  Memory adapter: not initialised"
+            return (
+                "🧠 Qwen Local Copilot\n"
+                f"  Model         : {st.get('model_name', '?')}\n"
+                f"  Backend       : {st.get('backend_in_use', 'none')}\n"
+                f"  Loaded        : {'✅' if st.get('loaded') else '⏳ (lazy)'}\n"
+                f"  Context       : {st.get('gguf_n_ctx', '?')} tokens\n"
+                f"  Roles         : copilot · manager · coach · trainer\n"
+                "\n📊 Memory Adapter Stats:\n" + stats_str
+            )
+
+        if sub == "memory-summary":
+            if lb is None:
+                return "⚠️  Qwen local brain not available."
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                return adapter.get_memory_summary(limit=25)
+            except Exception as exc:
+                return f"[qwen memory-summary] Error: {exc}"
+
+        if sub in ("audit-kb", "clean-kb"):
+            if lb is None:
+                return "⚠️  Qwen local brain not available — cannot audit KB."
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                return adapter.run_memory_audit(max_facts=30, apply_changes=True)
+            except Exception as exc:
+                return f"[qwen audit-kb] Error: {exc}"
+
+        if sub == "audit-kb dry":
+            if lb is None:
+                return "⚠️  Qwen local brain not available — cannot audit KB."
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                return adapter.run_memory_audit(max_facts=30, apply_changes=False)
+            except Exception as exc:
+                return f"[qwen audit-kb dry] Error: {exc}"
+
+        if sub == "coach":
+            if lb is None:
+                return "⚠️  Qwen local brain not available — cannot coach."
+            try:
+                from modules.qwen_memory_adapter import get_qwen_memory_adapter
+                adapter = get_qwen_memory_adapter(local_brain=lb)
+                return adapter.coach_niblit()
+            except Exception as exc:
+                return f"[qwen coach] Error: {exc}"
+
+        if sub.startswith("ask "):
+            prompt_text = orig_sub[len("ask "):].strip()
+            if not prompt_text:
+                return "Usage: qwen ask <your prompt>"
+            if lb is None:
+                return "⚠️  Qwen local brain not available."
+            return lb.ask(prompt_text)
+
+        return (
+            "Unknown qwen sub-command. Try:\n"
+            "  qwen status         — brain + adapter stats\n"
+            "  qwen memory-summary — what Niblit currently knows\n"
+            "  qwen audit-kb       — Qwen reviews and fixes all KB facts\n"
+            "  qwen audit-kb dry   — audit report (no changes applied)\n"
+            "  qwen clean-kb       — alias for audit-kb\n"
+            "  qwen coach          — Qwen coaching + improvement report\n"
+            "  qwen ask <prompt>   — ask Qwen anything"
+        )
+
+    def _handle_local_model(self, cmd: str) -> str:
+        """Handle 'local-model' commands — switch between local model presets.
+
+        Sub-commands::
+
+            local-model                       — current model status
+            local-model status                — same as above
+            local-model list                  — list available presets
+            local-model switch <preset>       — swap to a different model (qwen | llama3)
+        """
+        lower = cmd.strip().lower()
+        if lower.startswith("local-model"):
+            sub = lower[len("local-model"):].strip()
+        else:
+            sub = ""
+
+        try:
+            from modules.local_brain import (
+                _LOCAL_MODEL_PRESETS,
+                get_local_brain,
+                swap_local_brain,
+            )
+        except Exception as exc:
+            return f"⚠️  local_brain module unavailable: {exc}"
+
+        if sub in ("", "status"):
+            lb = getattr(self.core, "local_brain", None) if self.core else None
+            if lb is None:
+                try:
+                    lb = get_local_brain()
+                except Exception:
+                    return "⚠️  No local brain loaded."
+            st = lb.status()
+            return (
+                "🤖 Local Model Status\n"
+                f"  Active model  : {st.get('model_name', '?')}\n"
+                f"  Chat template : {st.get('gguf_chat_template', '?')}\n"
+                f"  Backend       : {st.get('backend_in_use', 'none')}\n"
+                f"  Loaded        : {'✅' if st.get('loaded') else '⏳ (lazy)'}\n"
+                f"  Context       : {st.get('gguf_n_ctx', '?')} tokens\n"
+                "  Tip: 'local-model switch llama3' to switch to Llama 3.2 1B"
+            )
+
+        if sub == "list":
+            lines = ["Available local model presets:"]
+            for name, cfg in _LOCAL_MODEL_PRESETS.items():
+                lines.append(f"  {name:<10} — {cfg['description']}  (path: {cfg['model_path']})")
+            lines.append("\nUsage: local-model switch <preset>")
+            return "\n".join(lines)
+
+        if sub.startswith("switch "):
+            preset = sub[len("switch "):].strip()
+            if not preset:
+                return "Usage: local-model switch <preset>"
+            try:
+                new_lb = swap_local_brain(preset)
+                # Wire the new instance into core if available
+                if self.core is not None:
+                    self.core.local_brain = new_lb
+                    # Re-wire BrainRouter if present
+                    try:
+                        from modules.brain_router import get_brain_router
+                        br = get_brain_router()
+                        br.local_brain = new_lb
+                    except Exception:
+                        pass
+                st = new_lb.status()
+                return (
+                    f"🔄 Switched to preset '{preset}'\n"
+                    f"  Model path    : {st.get('model_name', '?')}\n"
+                    f"  Chat template : {st.get('gguf_chat_template', '?')}\n"
+                    "  ⚠️  If using HTTP backend, restart llama-server with the new model first.\n"
+                    "  Then run: local-model status"
+                )
+            except ValueError as exc:
+                return f"❌ {exc}"
+
+        return (
+            "Unknown local-model sub-command. Try:\n"
+            "  local-model status       — current model\n"
+            "  local-model list         — available presets\n"
+            "  local-model switch qwen  — switch to Qwen 2.5 0.5B\n"
+            "  local-model switch llama3 — switch to Llama 3.2 1B"
+        )
+
+    def _handle_heal_kb(self, cmd: str) -> str:
+        """Handle 'heal kb' commands — AI-driven KB health repair using tool calling.
+
+        Requires the HTTP backend with a function-calling capable model
+        (e.g. Llama 3.2 1B Instruct).
+
+        Sub-commands::
+
+            heal kb                    — scan KB and plan repairs (no changes)
+            heal kb run                — scan, plan, and execute non-destructive repairs
+            heal kb confirm <key>      — delete a previously flagged corrupt fact
+            heal kb complete <key>     — complete a partial SLSA artifact for <key>
+
+        Deletions always require explicit confirmation via 'heal kb confirm <key>'.
+        """
+        import json as _json
+
+        lower = cmd.strip().lower()
+        for prefix in ("heal kb", "heal-kb"):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                orig_sub = cmd.strip()[len(prefix):].strip()
+                break
+        else:
+            sub = ""
+            orig_sub = ""
+
+        # Resolve brain and executor
+        lb = getattr(self.core, "local_brain", None) if self.core else None
+        if lb is None:
+            try:
+                from modules.local_brain import get_local_brain
+                lb = get_local_brain()
+            except Exception:
+                return "⚠️  Local brain not available."
+
+        try:
+            from modules.kb_tool_executor import KBToolExecutor
+            from modules.local_brain import NIBLIT_KB_TOOLS
+        except Exception as exc:
+            return f"⚠️  KB tool executor unavailable: {exc}"
+
+        executor = KBToolExecutor(
+            knowledge_db=getattr(self.core, "knowledge_db", None) if self.core else None,
+            local_brain=lb,
+        )
+
+        # ── confirm delete ────────────────────────────────────────────────────
+        if sub.startswith("confirm "):
+            key = orig_sub[len("confirm "):].strip()
+            if not key:
+                return "Usage: heal kb confirm <key>"
+            result = executor.delete_kb_fact(key, confirm_fn=lambda k: True)  # noqa: ARG005
+            if result.get("deleted"):
+                return f"🗑️  Deleted KB fact: {key}"
+            return f"⚠️  Could not delete '{key}': {result.get('reason', 'unknown')}"
+
+        # ── complete a specific artifact ──────────────────────────────────────
+        if sub.startswith("complete "):
+            key = orig_sub[len("complete "):].strip()
+            if not key:
+                return "Usage: heal kb complete <key>"
+            result = executor.complete_slsa_artifact(key)
+            if result.get("completed"):
+                snippet = str(result.get("value", ""))[:200]
+                return f"✅ Completed SLSA artifact for '{key}':\n{snippet}"
+            return f"⚠️  Could not complete '{key}': {result.get('reason', 'unknown')}"
+
+        # ── survey + optional execute ─────────────────────────────────────────
+        execute = (sub == "run")
+
+        system_prompt = (
+            "You are Niblit's KB healer. Your job is to audit the knowledge base and:\n"
+            "1. List all facts using list_kb_facts.\n"
+            "2. For any fact with empty, corrupt, or very short value, call delete_kb_fact.\n"
+            "3. For any fact tagged 'slsa' with incomplete content, call complete_slsa_artifact.\n"
+            "Report what you find and what actions you take. Be concise."
+        )
+        user_prompt = "Audit the knowledge base. Identify corrupt entries and incomplete SLSA artifacts. Then fix them."
+
+        if not lb.is_available():
+            lb.ensure_loaded()
+
+        if lb._backend_in_use != "http":
+            return (
+                "⚠️  heal kb requires the HTTP backend with a function-calling model.\n"
+                "  Start llama-server with Llama 3.2 1B and set NIBLIT_GGUF_BACKEND=http.\n"
+                f"  Current backend: {lb._backend_in_use or 'none'}"
+            )
+
+        text, tool_calls = lb.generate_with_tools(
+            user_prompt,
+            system_prompt=system_prompt,
+            tools=NIBLIT_KB_TOOLS,
+        )
+
+        if not tool_calls and not text:
+            return "⚠️  Model returned no response. Is llama-server running?"
+
+        lines = []
+        if text:
+            lines.append(f"🧠 Model analysis:\n{text}\n")
+
+        if not tool_calls:
+            lines.append("ℹ️  No tool calls requested. KB appears healthy or model needs retry.")
+            return "\n".join(lines)
+
+        lines.append(f"📋 Tool calls planned ({len(tool_calls)}):")
+        for tc in tool_calls:
+            fn = tc.get("function", {})
+            try:
+                args = _json.loads(fn.get("arguments", "{}"))
+            except Exception:
+                args = {}
+            lines.append(f"  • {fn.get('name', '?')}({_json.dumps(args)})")
+
+        if not execute:
+            # Separate delete calls for explicit confirmation
+            delete_keys = [
+                _json.loads(tc["function"].get("arguments", "{}")).get("key", "")
+                for tc in tool_calls
+                if tc.get("function", {}).get("name") == "delete_kb_fact"
+            ]
+            if delete_keys:
+                lines.append("\n⚠️  Deletions require confirmation:")
+                for k in delete_keys:
+                    lines.append(f"    heal kb confirm {k}")
+            lines.append("\nRun 'heal kb run' to execute non-destructive repairs.")
+            return "\n".join(lines)
+
+        # Execute — skip deletions (those need explicit confirm)
+        safe_calls = [
+            tc for tc in tool_calls
+            if tc.get("function", {}).get("name") != "delete_kb_fact"
+        ]
+        delete_calls = [
+            tc for tc in tool_calls
+            if tc.get("function", {}).get("name") == "delete_kb_fact"
+        ]
+
+        results = executor.execute_tool_calls(safe_calls, confirm_fn=None)
+        lines.append("\n✅ Executed (non-destructive):")
+        for r in results:
+            lines.append(f"  • {r['tool']}: {_json.dumps(r.get('result', r.get('error', '?')))[:120]}")
+
+        if delete_calls:
+            lines.append("\n⚠️  Deletions require explicit confirmation:")
+            for tc in delete_calls:
+                try:
+                    key = _json.loads(tc["function"].get("arguments", "{}")).get("key", "?")
+                except Exception:
+                    key = "?"
+                lines.append(f"    heal kb confirm {key}")
+
         return "\n".join(lines)
 
     def _handle_self_monitor(self, text: str) -> str:
@@ -3183,6 +3842,145 @@ Ask me about:
             import json
             return json.dumps(sm.get_experience_summary(), indent=2)
         return f"Unknown self-monitor command: {sub}\nUsage: self-monitor [status|trends|recommendations|summary]"
+
+    def _handle_tools(self, cmd: str) -> str:
+        """Handle 'tools <sub>' — introspect and test the Niblit AI tool suite.
+
+        Sub-commands::
+
+            tools                   — list all available AI-callable tools
+            tools list              — same
+            tools status            — show how many tools are defined + executor health
+            tools run <tool> [args] — invoke a tool manually for testing
+                                      (args as JSON object string)
+            tools prompt            — print the tool-calling system prompt
+
+        Examples::
+
+            tools list
+            tools run niblit_status
+            tools run niblit_exec {"command": "brain status"}
+            tools run search_memory {"query": "python", "limit": 5}
+        """
+        import json as _json
+
+        lower = cmd.strip().lower()
+        if lower.startswith("tools"):
+            sub = lower[len("tools"):].strip()
+            orig_sub = cmd.strip()[len("tools"):].strip()
+        else:
+            sub = ""
+            orig_sub = ""
+
+        try:
+            from modules.local_brain import (
+                NIBLIT_ALL_TOOLS, NIBLIT_KB_TOOLS, NIBLIT_SLIM_TOOLS,
+                _TOOL_CALL_SYSTEM_PROMPT, _SLIM_SYSTEM_PROMPT,
+            )
+            from modules.niblit_tool_executor import NiblitToolExecutor
+        except Exception as exc:
+            return f"⚠️  Tool suite unavailable: {exc}"
+
+        # ── list ──────────────────────────────────────────────────────────────
+        if sub in ("", "list"):
+            categories = {
+                "System":    ["niblit_status", "niblit_exec", "niblit_list_commands"],
+                "Brain/LLM": ["set_brain_mode", "toggle_llm"],
+                "Model":     ["switch_local_model", "local_model_status"],
+                "Memory/KB": [
+                    "list_kb_facts", "read_kb_fact", "delete_kb_fact",
+                    "complete_slsa_artifact", "search_memory", "store_kb_fact",
+                ],
+                "Learning":  ["self_research", "self_teach", "reflect"],
+                "Code":      ["run_code", "fix_code"],
+                "ALE":       ["ale_status", "autonomous_learn"],
+                "Healing":   ["run_selfheal"],
+                "Awareness": ["niblit_structure"],
+            }
+            all_names = {t["function"]["name"] for t in NIBLIT_ALL_TOOLS}
+            lines = [f"🔧 Niblit AI Tools ({len(NIBLIT_ALL_TOOLS)} total)\n"]
+            for cat, names in categories.items():
+                registered = [n for n in names if n in all_names]
+                lines.append(f"  {cat}:")
+                for n in registered:
+                    # Find description
+                    desc = next(
+                        (t["function"]["description"][:60] for t in NIBLIT_ALL_TOOLS
+                         if t["function"]["name"] == n),
+                        "",
+                    )
+                    lines.append(f"    • {n:<30} {desc}…")
+            lines.append("\nUsage: tools run <tool_name> [JSON args]")
+            return "\n".join(lines)
+
+        # ── status ────────────────────────────────────────────────────────────
+        if sub == "status":
+            executor = NiblitToolExecutor(
+                core=self.core,
+                knowledge_db=getattr(self.core, "knowledge_db", None) if self.core else None,
+            )
+            lb = getattr(self.core, "local_brain", None) if self.core else None
+            backend = getattr(lb, "_backend_in_use", "unknown") if lb else "not loaded"
+            has_tool_calling = backend == "http"
+            return (
+                f"🔧 Tool Suite Status\n"
+                f"  Slim tools (1B)  : {len(NIBLIT_SLIM_TOOLS)} (niblit_structural_info + niblit_run_command)\n"
+                f"  Full tools (8B+) : {len(NIBLIT_ALL_TOOLS)}\n"
+                f"  KB tools         : {len(NIBLIT_KB_TOOLS)}\n"
+                f"  Local backend    : {backend}\n"
+                f"  Tool calling     : {'✅ available (HTTP)' if has_tool_calling else '⚠️  HTTP backend required'}\n"
+                f"  Executor         : NiblitToolExecutor ({'core wired' if self.core else 'no core'})\n"
+                "  Use: NIBLIT_SLIM_TOOLS for Llama 1B, NIBLIT_ALL_TOOLS for 8B+\n"
+                "  Tip: 'tools run niblit_structural_info' to test slim mapping"
+            )
+
+        # ── prompt ────────────────────────────────────────────────────────────
+        if sub == "prompt":
+            return f"Tool-calling system prompt ({len(_TOOL_CALL_SYSTEM_PROMPT)} chars):\n\n{_TOOL_CALL_SYSTEM_PROMPT}"
+
+        if sub == "slim-prompt":
+            return f"Slim system prompt for Llama 1B ({len(_SLIM_SYSTEM_PROMPT)} chars):\n\n{_SLIM_SYSTEM_PROMPT}"
+
+        # ── run <tool_name> [JSON] ─────────────────────────────────────────────
+        if sub.startswith("run "):
+            rest = orig_sub[len("run "):].strip()
+            parts = rest.split(None, 1)
+            tool_name = parts[0]
+            args_str = parts[1] if len(parts) > 1 else "{}"
+            try:
+                tool_args = _json.loads(args_str)
+            except _json.JSONDecodeError as exc:
+                return f"❌ Invalid JSON args: {exc}\nUsage: tools run <name> {{\"key\": \"value\"}}"
+
+            executor = NiblitToolExecutor(
+                core=self.core,
+                knowledge_db=getattr(self.core, "knowledge_db", None) if self.core else None,
+                local_brain=getattr(self.core, "local_brain", None) if self.core else None,
+            )
+            # Route slim tools through execute_slim_tool_calls for correctness
+            slim_names = {t["function"]["name"] for t in NIBLIT_SLIM_TOOLS}
+            if tool_name in slim_names:
+                fake_calls = [{"function": {"name": tool_name, "arguments": _json.dumps(tool_args)}}]
+                slim_results = executor.execute_slim_tool_calls(fake_calls)
+                entry = slim_results[0] if slim_results else {}
+                if "error" in entry:
+                    return f"❌ {tool_name}: {entry['error']}"
+                return f"✅ {tool_name}:\n{_json.dumps(entry.get('result', {}), indent=2, ensure_ascii=False)[:800]}"
+            try:
+                result = executor._dispatch(tool_name, tool_args)
+                return f"✅ {tool_name}:\n{_json.dumps(result, indent=2, ensure_ascii=False)[:800]}"
+            except Exception as exc:
+                return f"❌ {tool_name} failed: {exc}"
+
+        return (
+            "Unknown tools sub-command. Try:\n"
+            "  tools list              — all available tools\n"
+            "  tools status            — tool suite health + slim vs full mode\n"
+            "  tools prompt            — full system prompt (8B+)\n"
+            "  tools slim-prompt       — slim system prompt (Llama 1B)\n"
+            "  tools run <name>        — invoke tool (no args)\n"
+            '  tools run <name> {...}  — invoke tool with JSON args'
+        )
 
     def _handle_knowledge(self, cmd: str) -> str:
         """Handle 'knowledge <topic>' — query the Tiered Knowledge System.
@@ -3891,14 +4689,27 @@ Ask me about:
         import random
 
         responses = {
-            'greeting': self.CHAT_RESPONSES.get('greeting', ["Hi there!"]),
-            'how_are_you': self.CHAT_RESPONSES.get('how_are_you', ["I'm doing well!"]),
-            'thanks': self.CHAT_RESPONSES.get('thanks', ["You're welcome!"]),
-            'okay': self.CHAT_RESPONSES.get('okay', ["Got it!"]),
-            'goodbye': self.CHAT_RESPONSES.get('goodbye', ["Goodbye!"]),
+            'greeting':     self.CHAT_RESPONSES.get('greeting',     ["Hi there!"]),
+            'how_are_you':  self.CHAT_RESPONSES.get('how_are_you',  ["I'm doing well!"]),
+            'thanks':       self.CHAT_RESPONSES.get('thanks',       ["You're welcome!"]),
+            'okay':         self.CHAT_RESPONSES.get('okay',         ["Got it!"]),
+            'goodbye':      self.CHAT_RESPONSES.get('goodbye',      ["Goodbye!"]),
+            'conversation': self.CHAT_RESPONSES.get('conversation', ["I'd love to chat! What's on your mind?"]),
+            'laughter':     self.CHAT_RESPONSES.get('laughter',     ["Ha! 😄"]),
+            'compliment':   self.CHAT_RESPONSES.get('compliment',   ["Thank you!"]),
+            'apology':      self.CHAT_RESPONSES.get('apology',      ["No worries!"]),
+            'confused':     self.CHAT_RESPONSES.get('confused',     ["Let me try again!"]),
+            'excited':      self.CHAT_RESPONSES.get('excited',      ["Yes!!"]),
+            'sad':          self.CHAT_RESPONSES.get('sad',          ["I'm here for you."]),
+            'frustrated':   self.CHAT_RESPONSES.get('frustrated',   ["Let's sort it out."]),
+            'bored':        self.CHAT_RESPONSES.get('bored',        ["Let's make this interesting!"]),
+            'joke_request': self.CHAT_RESPONSES.get('joke_request', ["Why did the AI fail? It was too honest."]),
+            'surprise':     self.CHAT_RESPONSES.get('surprise',     ["Whoa!"]),
+            'agree':        self.CHAT_RESPONSES.get('agree',        ["Exactly!"]),
+            'disagree':     self.CHAT_RESPONSES.get('disagree',     ["Hmm, I see it differently."]),
         }
 
-        response_list = responses.get(query_type, ["How can I help?"])
+        response_list = responses.get(query_type, self.CHAT_RESPONSES.get('greeting', ["How can I help?"]))
         return random.choice(response_list)
 
     # ─────────────────────────────────
@@ -4469,26 +5280,63 @@ Ask me about:
         that are not explicit info-queries.
 
         Priority order:
-        1. Detect casual / open-ended messages and reply naturally — never
+        1. Try NiblitPersonality for natural questions & small-talk categories.
+        2. Detect casual / open-ended messages and reply naturally — never
            dump knowledge-base results when the user just wants to chat.
-        2. If the message contains a real subject, try KB facts.
-        3. Status / identity facts synthesised from core.
-        4. Trigger gap-learning only as a last resort.
+        3. If the message contains a real subject, try KB facts.
+        4. Status / identity facts synthesised from core.
+        5. Trigger gap-learning only as a last resort.
         """
         lower = text.lower().strip()
 
+        # ─── 0. Try NiblitPersonality (natural question + small-talk) ───
+        # Avoids importing at module load by going through core if available.
+        _personality = None
+        if self.core:
+            _personality = getattr(self.core, "personality", None)
+        if _personality is None:
+            try:
+                from modules.niblit_personality import NiblitPersonality
+                _personality = NiblitPersonality(
+                    brain=self.brain,
+                )
+            except Exception:
+                pass
+
+        if _personality is not None:
+            # First check for a small-talk category (fast keyword scan)
+            st_category = None
+            if hasattr(_personality, "classify_small_talk"):
+                st_category = _personality.classify_small_talk(text)
+            if st_category and isinstance(st_category, str):
+                resp = _personality.respond_to_small_talk(st_category)
+                if isinstance(resp, str) and resp:
+                    return resp
+
+            # Then try the broader natural-question matcher
+            nat_resp = _personality.handle_natural_question(text)
+            if nat_resp and isinstance(nat_resp, str):
+                return nat_resp
+
         # ─── 1. Casual / open-ended → reply naturally ───────────────────
-        _CASUAL_MARKERS = (
+        _CASUAL_SINGLE = frozenset((
             "talk", "chat", "conversation", "nothing", "nothin",
-            "nah", "nope", "just", "ask me", "bored", "chill",
+            "nah", "nope", "just", "bored", "chill",
             "sup", "yo", "hm", "hmm", "idk", "dunno",
-        )
+        ))
+        _CASUAL_MULTI = ("ask me",)
         # Short casual messages (≤ this many words) with a chat marker are
         # treated as conversational openers, not knowledge queries.
+        # Use word-level matching to avoid false matches (e.g. "conversational"
+        # should not match the casual marker "conversation").
         _MAX_CASUAL_WORDS = 8
+        _lower_words = set(lower.split())
         if (
             len(lower.split()) <= _MAX_CASUAL_WORDS
-            and any(m in lower for m in _CASUAL_MARKERS)
+            and (
+                bool(_lower_words & _CASUAL_SINGLE)
+                or any(m in lower for m in _CASUAL_MULTI)
+            )
         ):
             return self._get_chat_response('conversation')
 
@@ -4764,6 +5612,10 @@ Ask me about:
         """Internal routing logic — called by process() with ALE already paused."""
         cmd_word = lower.split(" ", 1)[0]
 
+        # Fast-path explicit version command to always return a plain string.
+        if lower == "version":
+            return "Niblit v1.0.0 — autonomous AI system"
+
         if cmd_word in self.COMMAND_PREFIXES or any(lower.startswith(prefix) for prefix in ["show improvements", "run improvement", "improvement-status"]):
             resp = self.handle_command(cleaned)
             self._collect(cleaned, resp, "command")
@@ -4819,6 +5671,7 @@ Ask me about:
             # ─────── CHAT MESSAGE ───────
             if msg_type == 'chat':
                 lower_text = cleaned.lower().strip()
+                _lt_words = set(lower_text.split())
 
                 if any(p in lower_text for p in ['hi', 'hello', 'hey', 'howdy', 'greetings']):
                     response = self._get_chat_response('greeting')
@@ -4830,10 +5683,30 @@ Ask me about:
                     response = self._get_chat_response('goodbye')
                 elif any(p in lower_text for p in ['ok', 'okay', 'got it', 'nice', 'cool', 'awesome', 'great']):
                     response = self._get_chat_response('okay')
-                elif any(kw in lower_text for kw in [
-                    'talk', 'chat', 'conversation', 'ask me',
-                    'nothing', 'nothin', 'nah', 'nope', 'just',
-                ]):
+                elif re.search(r'\b(lol|lmao|haha|hehe|😂|😄)\b', lower_text):
+                    response = self._get_chat_response('laughter')
+                elif re.search(r'\b(sorry|my bad|my fault|oops|apologis|apologiz)\b', lower_text):
+                    response = self._get_chat_response('apology')
+                elif re.search(r'\b(you(?:\'re| are) (?:great|awesome|amazing|brilliant|smart|cool|the best))\b', lower_text):
+                    response = self._get_chat_response('compliment')
+                elif re.search(r'\b(tell\s+me\s+)?a?\s*(joke|something funny)\b', lower_text):
+                    response = self._get_chat_response('joke_request')
+                elif re.search(r'\b(sad|unhappy|down|upset|depressed|feel bad)\b', lower_text):
+                    response = self._get_chat_response('sad')
+                elif re.search(r'\b(frustrated|annoyed|angry|mad|ugh|argh)\b', lower_text):
+                    response = self._get_chat_response('frustrated')
+                elif re.search(r'\b(excited|yay|woohoo|yes!)\b', lower_text):
+                    response = self._get_chat_response('excited')
+                elif re.search(r'\b(bored|boring|nothing to do)\b', lower_text):
+                    response = self._get_chat_response('bored')
+                elif re.search(r'\b(wow|whoa|no way|seriously|omg)\b', lower_text):
+                    response = self._get_chat_response('surprise')
+                elif re.search(r'\b(confused|don\'t understand|not sure what you mean)\b', lower_text):
+                    response = self._get_chat_response('confused')
+                elif (
+                    any(kw in _lt_words for kw in ['talk', 'chat', 'conversation', 'nothing', 'nothin', 'nah', 'nope', 'just'])
+                    or 'ask me' in lower_text
+                ):
                     response = self._get_chat_response('conversation')
                 else:
                     response = self._get_chat_response('greeting')
@@ -5506,6 +6379,22 @@ Ask me about:
                 lower.startswith("brain mode ") or lower.startswith("brain-mode "):
             return self._handle_brain(cmd)
 
+        # QWEN — local copilot / memory manager / coach (additive)
+        if lower == "qwen" or lower.startswith("qwen "):
+            return self._handle_qwen(cmd)
+
+        # LOCAL MODEL — switch between model presets (qwen / llama3) (additive)
+        if lower == "local-model" or lower.startswith("local-model "):
+            return self._handle_local_model(cmd)
+
+        # HEAL KB — AI-driven KB health repair with tool calling (additive)
+        if lower in ("heal kb", "heal-kb") or lower.startswith("heal kb ") or lower.startswith("heal-kb "):
+            return self._handle_heal_kb(cmd)
+
+        # TOOLS — AI tool suite introspection + manual invocation (additive)
+        if lower == "tools" or lower.startswith("tools "):
+            return self._handle_tools(cmd)
+
         # KERNEL — NiblitKernel cognitive dashboard (additive)
         if lower == "kernel" or lower.startswith("kernel "):
             return self._handle_kernel(cmd)
@@ -5665,7 +6554,7 @@ Ask me about:
         if lower in ("hf-status",) or lower.startswith("hf-enable") or lower.startswith("hf-disable") or lower.startswith("hf-ask"):
             return self._handle_hf_brain(cmd)
 
-        # LLM PROVIDER SWITCH (llm-provider hf | anthropic | status)
+        # LLM PROVIDER SWITCH (llm-provider hf | anthropic | qwen | status)
         if lower.startswith("llm-provider"):
             return self._handle_llm_provider(cmd)
 
@@ -5963,6 +6852,18 @@ Ask me about:
             "  ALE usage: Step 21 uses binary parser; Steps 22/23 use NLP enrichment;",
             "             Step 29 runs all scripts and seeds NLP keywords as research topics.",
             "",
+            "=== QWEN — LOCAL COPILOT / MANAGER / COACH / TRAINER ===",
+            "qwen                     — Show Qwen brain status + memory adapter stats",
+            "qwen status              — Same as above",
+            "qwen memory-summary      — Compact snapshot of what Niblit currently knows",
+            "qwen audit-kb            — Qwen reviews all KB facts (rewrites/removes bad ones)",
+            "qwen audit-kb dry        — Audit report only — no changes applied",
+            "qwen clean-kb            — Alias for audit-kb (applies all fixes)",
+            "qwen coach               — Qwen coaching report: gaps, stale facts, next steps",
+            "qwen ask <prompt>        — Ask Qwen anything (full structural-aware context)",
+            "  Qwen roles: COPILOT (code gen), MANAGER (KB quality), COACH (gaps + advice),",
+            "              TRAINER (research synthesis)",
+            "",
             "=== SELF-IMPROVEMENTS ===",
             "show improvements            — View 10 improvement modules",
             "run improvement-cycle        — Execute improvement cycle",
@@ -5972,9 +6873,15 @@ Ask me about:
             "toggle-llm off               — Pause LLM (chat history preserved)",
             "toggle-llm on                — Resume LLM (full history reloaded)",
             "toggle-llm status            — Show LLM session & chat memory status",
-            "llm-provider hf              — Set HuggingFace as primary LLM (default)",
+            "llm-provider qwen            — Set local provider as primary LLM (keeps current local preset)",
+            "llm-provider llama3          — Switch local preset to Llama 3.2 and use local provider",
             "llm-provider anthropic       — Set Anthropic Claude as primary LLM",
+            "llm-provider hf              — Set HuggingFace as primary LLM",
             "llm-provider status          — Show active provider & availability",
+            "local-model status           — Show current local model preset + backend details",
+            "local-model list             — List local presets and configured model paths",
+            "local-model switch qwen      — Switch local preset to Qwen 2.5 0.5B",
+            "local-model switch llama3    — Switch local preset to Llama 3.2 1B",
             "status, health               — System status",
             "time                         — Current time",
             "",
@@ -6025,6 +6932,16 @@ Ask me about:
             "lean sweep <n> p=v1,v2 ...   — Parameter grid sweep (background, finds best)",
             "lean params [name]           — Show stored optimal parameter sets",
             "lean jobs                    — Show active LEAN background jobs",
+            "",
+            "=== LEAN ALGO MANAGER (niblit-lean-algos AI algorithms) ===",
+            "lean algo status             — Show signal + deployment status",
+            "lean algo signal             — Show current Niblit AI trading signal",
+            "lean algo deploy-all         — Deploy all 20 AI algorithms to QC Cloud",
+            "lean algo deploy-all dry-run — Preview deployment (no changes)",
+            "lean algo projects           — List deployed project IDs",
+            "lean algo start <id>         — Start live practice (paper brokerage)",
+            "lean algo stop  <id>         — Stop a live algorithm",
+            "lean algo results            — Latest Niblit AI Master performance",
             "",
             "=== LEAN DEPLOY ENGINE (QuantConnect REST API) ===",
             "lean deploy status           — Show credentials + available commands",

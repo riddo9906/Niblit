@@ -174,3 +174,7 @@ def get_intent_engine() -> IntentEngine:
             if _instance is None:
                 _instance = IntentEngine()
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running intent_engine.py')

@@ -188,3 +188,7 @@ def get_self_model() -> SelfModel:
             if _instance is None:
                 _instance = SelfModel()
     return _instance
+
+
+if __name__ == "__main__":
+    print('Running self_model.py')

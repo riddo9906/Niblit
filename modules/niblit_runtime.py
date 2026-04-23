@@ -340,10 +340,12 @@ class NiblitRuntime:
         """
         Determine how much to grow this cycle based on what Niblit has learned.
 
-        Currently uses a simple heuristic:
+        Signals considered (all optional, degrade gracefully):
         * Base increment always applied.
         * +bonus if new environment capabilities were discovered.
         * +bonus if knowledge_db has grown since last check.
+        * ×scale factor from MetaEvaluator average score (real quality signal):
+          avg=1.0 → 2× base; avg=0.5 → 1× base; avg<0.5 → 0.5× base.
         """
         delta = _LEVEL_INCREMENT
         if self._env_adapter:
@@ -364,6 +366,21 @@ class NiblitRuntime:
                     delta += _LEVEL_INCREMENT * min(growth / 100, 1.0)
             except Exception:
                 pass
+        # MetaEvaluator quality multiplier — scales delta by real subsystem health.
+        try:
+            from modules.meta_cognition import get_msg_layer
+            scores = get_msg_layer().meta_evaluator.scores()
+            if scores:
+                avg = sum(scores.values()) / len(scores)
+                # avg=1.0 → factor 2.0; avg=0.5 → factor 1.0; avg<0.5 → floor 0.5
+                meta_factor = max(0.5, min(2.0, avg * 2.0))
+                delta = round(delta * meta_factor, 4)
+                log.debug(
+                    "NiblitRuntime: MetaEvaluator avg=%.3f → factor=%.2f delta=%.4f",
+                    avg, meta_factor, delta,
+                )
+        except Exception:
+            pass
         return round(delta, 4)
 
     def _rebuild_spec(self) -> None:

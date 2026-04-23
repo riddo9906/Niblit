@@ -103,16 +103,18 @@ class CommandRegistry:
             if ltext.startswith(prefix):
                 try:
                     log.debug(f"[COMMAND] {prefix} (priority: {metadata.priority})")
-                    
-                    # Call handler (support both sync and async)
-                    result = metadata.handler(text)
-                    
+
+                    # Strip the matched prefix so handlers receive only the
+                    # argument portion (e.g. "scan build mydir" → "mydir").
+                    remaining = text[len(prefix):].strip()
+                    result = metadata.handler(remaining)
+
                     # Update stats
                     self.stats["total_executed"] += 1
                     category = metadata.category
                     self.stats["by_category"][category] = \
                         self.stats["by_category"].get(category, 0) + 1
-                    
+
                     return result
                 except Exception as e:
                     log.error(f"Command execution failed: {e}", exc_info=True)

@@ -133,11 +133,14 @@ _KNOWLEDGE_TAGS: Tuple[str, ...] = (
 )
 
 # Maximum characters to store per fact value (prevents huge blobs)
-_MAX_FACT_VALUE_LEN = 600
+# Raised from 600 to 4000 so that full LLM responses are retained and
+# Niblit never replies with truncated answers.
+_MAX_FACT_VALUE_LEN = 4000
 # Maximum characters to store per research summary
-_MAX_SUMMARY_LEN = 400
+# Raised from 400 to 2000 to preserve meaningful research context.
+_MAX_SUMMARY_LEN = 2000
 # How many sentences to keep in a plain-text summary
-_MAX_SENTENCES = 4
+_MAX_SENTENCES = 8
 
 # ─────────────────────────────────────────────────────────────────────────────
 # KnowledgeFilter

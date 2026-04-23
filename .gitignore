@@ -65,3 +65,15 @@ niblit_net_state.json
 
 # Buildozer (Android build system)
 .buildozer/
+
+niblit-lean-algos/
+.venv/
+.backup
+.json
+serpapi_usage.json
+niblit_memory_graph.pkl.backup
+niblit-lean-algos/algorithms
+niblit-lean-algos/scripts
+niblit-lean-algos/niblit_bridge/
+.tmp
+niblit_deployment_bridge.json.tmp

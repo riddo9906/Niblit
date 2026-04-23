@@ -1069,6 +1069,15 @@ except Exception as _lde:
     _get_lean_deploy_engine = None  # type: ignore[assignment]
     _LEAN_DEPLOY_AVAILABLE = False
 
+# Niblit LEAN Algorithms manager — bridges TradingBrain with niblit-lean-algos.
+try:
+    from modules.lean_algo_manager import get_lean_algo_manager as _get_lean_algo_manager
+    _LEAN_ALGO_MANAGER_AVAILABLE = True
+except Exception as _lam:
+    log.debug(f"lean_algo_manager not available: {_lam}")
+    _get_lean_algo_manager = None  # type: ignore[assignment]
+    _LEAN_ALGO_MANAGER_AVAILABLE = False
+
 # ── MarketDataProviders (additive) ────────────────────────────────────────────
 # Unified gateway for free market data: yfinance, CCXT, TwelveData, OANDA, Alpaca.
 try:
@@ -1324,6 +1333,15 @@ except Exception as _e:
     log.debug(f"NiblitKernel not available: {_e}")
     _get_kernel = None  # type: ignore[assignment]
     _NIBLIT_KERNEL_AVAILABLE = False
+
+# ── NiblitOSKernel (OS abstraction layer) ────────────────────────────────────
+try:
+    from kernel import get_os_kernel as _get_os_kernel
+    _NIBLIT_OS_KERNEL_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"NiblitOSKernel not available: {_e}")
+    _get_os_kernel = None  # type: ignore[assignment]
+    _NIBLIT_OS_KERNEL_AVAILABLE = False
 
 # ── ResilienceWrapper (additive) ──────────────────────────────────────────────
 try:
@@ -1666,12 +1684,16 @@ class NiblitCore:
         self.self_monitor: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: NiblitKernel ───────────────────────────────────────
         self.kernel: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: NiblitOSKernel (OS abstraction layer) ─────────────
+        self.os_kernel: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: KnowledgeDigest ────────────────────────────────────
         self.knowledge_digest: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: KnowledgeFilter ────────────────────────────────────
         self.knowledge_filter: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: LeanDeployEngine (QuantConnect REST API) ────────────
         self.lean_deploy_engine: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: LeanAlgoManager (niblit-lean-algos bridge) ───────────
+        self.lean_algo_manager: Optional[Any] = None   # initialised in _init_optional_services
         # ── Additive: MarketDataProviders (multi-provider free data) ──────
         self.market_data_providers: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: TradingStudy (study/reflect/metacognition) ──────────
@@ -2418,7 +2440,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
 
-        topic = text[len("autonomous-learn add-topic"):].strip()
+        topic = text[len("autonomous-learn add-topic"):].strip() if text.lower().startswith("autonomous-learn add-topic") else text.strip()
         if not topic:
             return "Usage: autonomous-learn add-topic <topic>"
 
@@ -5516,7 +5538,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_slsa_start(self, text: str) -> str:
         """SLSA start command."""
-        rest = text[len("start_slsa"):].strip()
+        rest = text[len("start_slsa"):].strip() if text.lower().startswith("start_slsa") else text.strip()
         topics = rest.split() if rest else None
         return self._start_slsa_engine(topics)
 
@@ -5526,13 +5548,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_slsa_restart(self, text: str) -> str:
         """SLSA restart command."""
-        rest = text[len("restart_slsa"):].strip()
+        rest = text[len("restart_slsa"):].strip() if text.lower().startswith("restart_slsa") else text.strip()
         topics = rest.split() if rest else None
         return self._restart_slsa_engine(topics)
 
     def _cmd_self_research(self, text: str) -> str:
         """Self-research command — uses self_researcher + internet directly, NOT LLM."""
-        topic = text[len("self-research"):].strip() or "general"
+        topic = (text[len("self-research"):].strip() if text.lower().startswith("self-research") else text.strip()) or "general"
         # Direct module path: use researcher directly
         if self.researcher and hasattr(self.researcher, "search"):
             try:
@@ -5563,7 +5585,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_self_idea(self, text: str) -> str:
         """Self-idea command — uses SelfIdeaImplementation directly, NOT LLM."""
-        prompt = text[len("self-idea"):].strip() or "system improvement"
+        prompt = (text[len("self-idea"):].strip() if text.lower().startswith("self-idea") else text.strip()) or "system improvement"
         # Direct module path: use idea_implementation
         if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
             try:
@@ -5588,7 +5610,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_reflect(self, _text: str) -> str:
         """Reflect command — uses ReflectModule directly, NOT LLM."""
-        topic = _text[len("reflect"):].strip() or ""
+        topic = (_text[len("reflect"):].strip() if _text.lower().startswith("reflect") else _text.strip()) or ""
         # Direct module path: use reflect directly
         if self.reflect and hasattr(self.reflect, "reflect_on_research"):
             # When a short topic is given, research first so the stored reflection
@@ -5631,7 +5653,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_self_implement(self, text: str) -> str:
         """Self-implement command — uses SelfImplementer directly."""
-        plan = text[len("self-implement"):].strip() or ""
+        plan = (text[len("self-implement"):].strip() if text.lower().startswith("self-implement") else text.strip()) or ""
         # Direct module path: enqueue to self_implementer
         if self.self_implementer and hasattr(self.self_implementer, "enqueue_plan"):
             try:
@@ -5904,43 +5926,140 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.startup_report.add("market_researcher", "unavailable", str(e))
 
     def _initialize_modules(self):
-        """Initialize all modules with dependency management."""
+        """Initialize all modules with dependency management.
+
+        Niblit boots in five named architectural layers.  Each layer is logged
+        individually so the user can see exactly which part of the system is
+        coming online.  After all layers finish a :meth:`_verify_unified_loop`
+        check confirms that the core cognitive feedback-loop is intact.
+        """
         with self.logger.context("initialize_modules"):
-            # Phase 1/5: Shared infrastructure (VectorStore / Qdrant)
+            # ── Layer 1 / 5 : Memory & Storage ────────────────────────────────
             self._push_init_progress(
-                "🔄 [1/5] Loading shared infrastructure (VectorStore, FusedMemory, SemanticAgent)..."
+                "🧱 [Layer 1/5] Memory & Storage — VectorStore, FusedMemory, SemanticAgent…"
             )
             self._init_vector_store()
-            self._push_init_progress("✅ [1/5] Shared infrastructure ready")
+            self._push_init_progress("✅ [Layer 1/5] Memory & Storage ready")
 
-            # Phase 2/5: Foundation modules (LLM, HFBrain, SelfTeacher, etc.)
+            # ── Layer 2 / 5 : AI Adapters ─────────────────────────────────────
             self._push_init_progress(
-                "🔄 [2/5] Loading AI adapters (LLM adapter, HFBrain, SelfTeacher, SelfImplementer)..."
+                "🤖 [Layer 2/5] AI Adapters — LLM, HFBrain, SelfTeacher, SelfImplementer…"
             )
             self._init_ai_adapters()
-            self._push_init_progress("✅ [2/5] AI adapters ready")
+            self._push_init_progress("✅ [Layer 2/5] AI Adapters ready")
 
-            # Phase 3/5: Intelligent systems (Brain, Router, Learning)
+            # ── Layer 3 / 5 : Cognitive Core ──────────────────────────────────
             self._push_init_progress(
-                "🔄 [3/5] Loading Brain, Router, and Learning systems (NiblitBrain, NiblitRouter, ALE learning)..."
+                "🧠 [Layer 3/5] Cognitive Core — NiblitBrain, NiblitRouter, ALE learning…"
             )
             self._init_brain_and_router()
             self._init_learning_systems()
-            self._push_init_progress("✅ [3/5] Brain, Router, and Learning systems ready")
+            self._push_init_progress("✅ [Layer 3/5] Cognitive Core ready")
 
-            # Phase 4/5: System services (Network, Sensors, Voice, Actions)
+            # ── Layer 4 / 5 : System Services ─────────────────────────────────
             self._push_init_progress(
-                "🔄 [4/5] Loading system services (Network, Sensors, Voice, Actions)..."
+                "⚙️  [Layer 4/5] System Services — Network, Sensors, Voice, Actions…"
             )
             self._init_system_services()
-            self._push_init_progress("✅ [4/5] System services ready")
+            self._push_init_progress("✅ [Layer 4/5] System Services ready")
 
-            # Phase 5/5: Optional heavy modules (ALE, Trading, Civilization, 60+)
+            # ── Layer 5 / 5 : Optional & Extended Services ────────────────────
             self._push_init_progress(
-                "🔄 [5/5] Loading optional services (ALE, TradingBrain, CivilizationController, 60+ modules)..."
+                "🔌 [Layer 5/5] Extended Services — ALE, TradingBrain, CivilizationController, 60+ modules…"
             )
             self._init_optional_services()
-            self._push_init_progress("✅ [5/5] All optional services loaded — Niblit is fully booted")
+            self._push_init_progress("✅ [Layer 5/5] Extended Services ready")
+
+            # ── Unification check ─────────────────────────────────────────────
+            # Confirm that all five layers are wired into a single coherent
+            # feedback loop before declaring Niblit fully operational.
+            self._verify_unified_loop()
+
+    def _verify_unified_loop(self) -> None:
+        """Verify that all layers are connected into one unified feedback loop.
+
+        Checks that the critical cognitive pipeline is intact:
+          Input → CommandRegistry/Router → Brain → Memory → ALE (loop)
+
+        Pushes a success or warning summary to the init-progress queue so the
+        user sees the result immediately after boot.
+        """
+        checks: list = []
+
+        def _ok(name: str) -> None:
+            checks.append(("✅ ", name))
+
+        def _warn(name: str, detail: str = "") -> None:
+            checks.append(("⚠️ ", f"{name}" + (f" ({detail})" if detail else "")))
+
+        # 1. Input layer — CommandRegistry
+        if getattr(self, "command_registry", None):
+            _ok("CommandRegistry (input dispatch)")
+        else:
+            _warn("CommandRegistry", "not available — commands use fallback dispatcher")
+
+        # 2. Routing layer — NiblitRouter
+        if getattr(self, "router", None):
+            _ok("NiblitRouter (routing layer)")
+        else:
+            _warn("NiblitRouter", "not initialised — falling back to core.handle()")
+
+        # 3. Cognitive layer — NiblitBrain
+        if getattr(self, "brain", None):
+            _ok("NiblitBrain (cognitive layer)")
+        else:
+            _warn("NiblitBrain", "not initialised — LLM responses unavailable")
+
+        # 4. Memory layer — KnowledgeDB
+        if getattr(self, "db", None):
+            _ok("KnowledgeDB (memory layer)")
+        else:
+            _warn("KnowledgeDB", "not initialised — knowledge will not persist")
+
+        # 5. Learning layer — ALE
+        if getattr(self, "autonomous_engine", None):
+            _ok("AutonomousLearningEngine (learning loop)")
+        else:
+            _warn("AutonomousLearningEngine", "not initialised — background learning disabled")
+
+        # 6. Optional advanced layers
+        if getattr(self, "kernel_v3", None):
+            _ok("CognitiveKernelV3 (advanced reasoning)")
+        if getattr(self, "msg_layer", None):
+            _ok("MSGLayer (meta-cognition)")
+        if getattr(self, "cognitive_graph_kernel", None):
+            _ok("CognitiveGraphKernel (graph reasoning)")
+
+        warnings = [c for c in checks if c[0].startswith("⚠️")]
+        ready = [c for c in checks if c[0].startswith("✅")]
+
+        lines = ["🔗 Unified feedback-loop verification:"]
+        for icon, name in checks:
+            lines.append(f"   {icon}{name}")
+
+        if warnings:
+            lines.append(
+                f"⚡ Loop status: {len(ready)}/{len(checks)} subsystems unified "
+                f"— {len(warnings)} layer(s) degraded (Niblit will still operate)"
+            )
+            summary = "\n".join(lines)
+            log.warning("[UNIFIED-LOOP] %s", summary)
+        else:
+            lines.append(
+                f"✅ Unified loop CONFIRMED — all {len(ready)} subsystems active "
+                "and wired into one coherent feedback loop"
+            )
+            summary = "\n".join(lines)
+            log.info("[UNIFIED-LOOP] %s", summary)
+
+        self._push_init_progress(summary)
+        # Store the unification status for later inspection
+        self._unified_loop_status: dict = {
+            "ready": len(ready),
+            "total": len(checks),
+            "warnings": [n for _, n in warnings],
+            "verified": len(warnings) == 0,
+        }
 
     def _init_vector_store(self) -> None:
         """
@@ -6372,11 +6491,30 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as e:
                     log.debug(f"LifecycleEngine failed to start: {e}")
 
+            # module_loader can execute many optional module imports that may
+            # be slow (or occasionally block on constrained Termux/proot
+            # environments). Keep it off the DeferredInitThread critical path
+            # so Phase-1 readiness can complete and the CLI can open.
             if load_modules:
+                def _run_module_loader() -> None:
+                    try:
+                        load_modules()
+                        log.info("✅ module_loader background load complete")
+                    except Exception as e:
+                        log.debug(f"load_modules failed: {e}")
+
                 try:
-                    load_modules()
+                    _ml_thread = threading.Thread(
+                        target=_run_module_loader,
+                        daemon=True,
+                        name="ModuleLoaderThread",
+                    )
+                    _ml_thread.start()
+                    log.info("⏳ module_loader started in background thread (non-blocking)")
+                    self.startup_report.add("module_loader", "background")
                 except Exception as e:
-                    log.debug(f"load_modules failed: {e}")
+                    log.debug(f"module_loader background start failed: {e}")
+                    self.startup_report.add("module_loader", "degraded", str(e))
 
             # ============================
             # INITIALIZE 10 SELF-IMPROVEMENTS
@@ -7168,6 +7306,21 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.debug("[INIT] LeanDeployEngine init failed: %s", _ldee)
                 self.startup_report.add("lean_deploy_engine", "degraded", str(_ldee))
 
+        # ── LeanAlgoManager (additive) ────────────────────────────────────────
+        # Bridges TradingBrain with the niblit-lean-algos repo and QC Cloud.
+        if _LEAN_ALGO_MANAGER_AVAILABLE and _get_lean_algo_manager is not None:
+            try:
+                self.lean_algo_manager = _get_lean_algo_manager(
+                    trading_brain=getattr(self, "trading_brain", None),
+                    lean_deploy_engine=self.lean_deploy_engine,
+                    knowledge_db=self.db,
+                )
+                log.info("✅ LeanAlgoManager initialised")
+                self.startup_report.add("lean_algo_manager", "ready")
+            except Exception as _lame:
+                log.debug("[INIT] LeanAlgoManager init failed: %s", _lame)
+                self.startup_report.add("lean_algo_manager", "degraded", str(_lame))
+
         # ── TradingStudy (additive) ───────────────────────────────────────────
         # Study/reflect/metacognition engine for trading improvement.
         if _TRADING_STUDY_AVAILABLE and _get_trading_study is not None:
@@ -7467,6 +7620,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
         else:
             self.kernel = None
 
+        # ── NiblitOSKernel (OS abstraction layer) ────────────────────────────
+        if _NIBLIT_OS_KERNEL_AVAILABLE and _get_os_kernel:
+            try:
+                self.os_kernel = _get_os_kernel()
+                log.info("[Core] NiblitOSKernel ready (v%s)", self.os_kernel.VERSION)
+            except Exception as _e:
+                log.debug(f"[Core] NiblitOSKernel init failed: {_e}")
+                self.os_kernel = None
+        else:
+            self.os_kernel = None
+
         # ============================
         # DEPLOYMENT BRIDGE
         # ============================
@@ -7599,6 +7763,34 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.local_brain = get_local_brain()
             log.info("✅ QwenLocalBrain registered (lazy-loads Qwen2.5-0.5B on first generate)")
             self.startup_report.add("local_brain", "ready")
+            try:
+                _lb_status = self.local_brain.status()
+                _model_files = _lb_status.get("model_files", [])
+                if _lb_status.get("installed_locally"):
+                    if _model_files:
+                        _first_model_file = _model_files[0]
+                        log.info(
+                            "✅ Local Qwen model detected in cache (%d files): %s",
+                            len(_model_files),
+                            _first_model_file,
+                        )
+                        self.startup_report.add("local_brain_model", "ready", _first_model_file)
+                    else:
+                        _msg = "Local Qwen model marked installed but no model files were listed."
+                        log.warning("[Core] %s", _msg)
+                        self.startup_report.add("local_brain_model", "degraded", _msg)
+                else:
+                    _repo_cache_dir = _lb_status.get("repo_cache_dir", "unknown")
+                    _msg = (
+                        f"Local Qwen model files not found in cache ({_repo_cache_dir}). "
+                        "Run: python tools/install_local_qwen_model.py"
+                    )
+                    log.warning("[Core] %s", _msg)
+                    self.startup_report.add("local_brain_model", "degraded", _msg)
+            except Exception as _lb_status_err:
+                _msg = f"Local brain cache-status check failed: {_lb_status_err}"
+                log.warning("[Core] %s", _msg)
+                self.startup_report.add("local_brain_model", "degraded", _msg)
         except Exception as _lb_err:
             log.warning("[Core] QwenLocalBrain init failed (degraded): %s", _lb_err)
             self.startup_report.add("local_brain", "degraded", str(_lb_err))
