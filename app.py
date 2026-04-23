@@ -1817,9 +1817,9 @@ def chat(request: Request, body: ChatBody):
     text_raw = body.text
     try:
         from modules.security_membrane import get_security_membrane
-        _core_ref = get_core()
+        core_ref = get_core()
         membrane = get_security_membrane(
-            knowledge_db=getattr(_core_ref, "db", None) if _core_ref else None
+            knowledge_db=getattr(core_ref, "db", None) if core_ref else None
         )
         result_sm = membrane.inspect(ip=client_ip, payload=text_raw, command=text_raw)
         if not result_sm.allowed:
@@ -1836,12 +1836,12 @@ def chat(request: Request, body: ChatBody):
     # IntegrityMonitor → AdaptiveFirewall → OutputGuard (MembraneOrchestrator)
     # Identical protection to what Termux receives via niblit_core.cyber_membrane.
     try:
-        from modules.niblit_cyber_membrane import get_cyber_membrane as _get_cm
-        _core_ref2 = get_core()
-        _cm = getattr(_core_ref2, "cyber_membrane", None)
+        from modules.niblit_cyber_membrane import get_cyber_membrane
+        core_ref = get_core()
+        _cm = getattr(core_ref, "cyber_membrane", None)
         if _cm is None:
-            _cm = _get_cm(
-                knowledge_db=getattr(_core_ref2, "db", None) if _core_ref2 else None
+            _cm = get_cyber_membrane(
+                knowledge_db=getattr(core_ref, "db", None) if core_ref else None
             )
         # Stable session id: prefer API key or X-Session-Id header, fall back to IP
         _session_id = (
@@ -1883,8 +1883,8 @@ def chat(request: Request, body: ChatBody):
         if isinstance(_reply, str):
             _cm_out = getattr(core, "cyber_membrane", None)
             if _cm_out is None:
-                from modules.niblit_cyber_membrane import get_cyber_membrane as _get_cm3
-                _cm_out = _get_cm3()
+                from modules.niblit_cyber_membrane import get_cyber_membrane
+                _cm_out = get_cyber_membrane()
             _clean_reply, _redacted = _cm_out.inspect_output(_reply)
             if _redacted:
                 logging.getLogger("NiblitApp").debug(
