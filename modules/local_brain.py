@@ -1458,7 +1458,7 @@ class QwenLocalBrain:
 
     def _canonical_server_base_url(self, url: str) -> str:
         """Return a normalised server base URL with known API suffixes stripped."""
-        base = (url or "").strip().rstrip("/")
+        base = url.strip().rstrip("/") if url else ""
         if not base:
             return base
         known_suffixes = (
@@ -1625,7 +1625,7 @@ class QwenLocalBrain:
             "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop", [])),
         }
         body = json.dumps(payload).encode("utf-8")
-        last_error: Optional[Exception] = None
+        last_404_error: Optional[Exception] = None
         for completion_url in self._completion_urls(url):
             req = urllib.request.Request(
                 completion_url,
@@ -1640,15 +1640,15 @@ class QwenLocalBrain:
                 return text.strip() or "[LocalBrain: empty response]"
             except urllib.error.HTTPError as exc:
                 if exc.code == 404:
-                    last_error = exc
+                    last_404_error = exc
                     continue
                 log.debug("[LocalBrain] http legacy generate error: %s", exc)
                 return f"[LocalBrain http legacy error: {exc}]"
             except Exception as exc:
                 log.debug("[LocalBrain] http legacy generate error: %s", exc)
                 return f"[LocalBrain http legacy error: {exc}]"
-        if last_error is not None:
-            return f"[LocalBrain http legacy error: {last_error}]"
+        if last_404_error is not None:
+            return f"[LocalBrain http legacy error: {last_404_error}]"
         return "[LocalBrain http legacy error: no completion endpoint available]"
 
     def _load_python_backend(self) -> bool:
