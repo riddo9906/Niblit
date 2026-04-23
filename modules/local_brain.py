@@ -1648,8 +1648,91 @@ class QwenLocalBrain:
                 log.debug("[LocalBrain] http legacy generate error: %s", exc)
                 return f"[LocalBrain http legacy error: {exc}]"
         if last_404_error is not None:
-            return f"[LocalBrain http legacy error: {last_404_error}]"
+            # All standard llama-server completion endpoints returned 404.
+            # Fall back to niblit-cloud-server /chat endpoint (Niblit API format).
+            log.debug(
+                "[LocalBrain] All completion endpoints returned 404; "
+                "trying niblit-cloud /chat fallback"
+            )
+            return self._generate_niblit_cloud(prompt, max_new_tokens, system_prompt)
         return "[LocalBrain http legacy error: no completion endpoint available]"
+
+    def _generate_niblit_cloud(
+        self,
+        prompt: str,
+        max_new_tokens: int,
+        system_prompt: Optional[str],
+    ) -> str:
+        """Generate via the niblit-cloud-server ``POST /chat`` endpoint.
+
+        Called as a final fallback when all standard llama-server endpoints
+        (``/v1/chat/completions``, ``/chat/completions``, ``/completion``,
+        ``/v1/completions``) return 404.  The niblit-cloud-server runs as a
+        dedicated Niblit deployment that exposes the Niblit HTTP API
+        (``POST /chat`` with ``{"text": "..."}``) instead of the llama-server
+        OpenAI-compatible API.
+
+        Tries ``POST /v1/chat/completions`` first (in case the remote server
+        does expose an OpenAI-compatible endpoint at that exact path but with
+        a slightly different base URL handling), then falls back to
+        ``POST /chat`` (Niblit native format).
+
+        Environment variables used
+        --------------------------
+        NIBLIT_API_KEY
+            Optional API key forwarded as ``X-API-Key`` header.
+        """
+        url = self._server_url
+        if not url:
+            return "[LocalBrain niblit-cloud: server URL not set]"
+
+        api_key = os.environ.get("NIBLIT_API_KEY", "")
+        headers: Dict[str, str] = {"Content-Type": "application/json"}
+        if api_key:
+            headers["X-API-Key"] = api_key
+
+        # 1. Try Niblit /chat endpoint (primary for niblit-cloud-server)
+        text_input = (system_prompt + "\n\n" + prompt) if system_prompt else prompt
+        niblit_payload = json.dumps({"text": text_input}).encode("utf-8")
+        chat_url = url.rstrip("/") + "/chat"
+        req = urllib.request.Request(
+            chat_url,
+            data=niblit_payload,
+            method="POST",
+            headers=headers,
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            reply = (
+                data.get("reply")
+                or data.get("response")
+                or data.get("content")
+                or data.get("text")
+                or ""
+            )
+            if reply:
+                log.debug(
+                    "[LocalBrain] niblit-cloud generated response for prompt[:60]=%r",
+                    prompt[:60],
+                )
+                return reply.strip()
+            return "[LocalBrain niblit-cloud: empty reply]"
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                log.debug("[LocalBrain] niblit-cloud /chat error: %s", exc)
+                return f"[LocalBrain niblit-cloud error: {exc}]"
+        except Exception as exc:
+            log.debug("[LocalBrain] niblit-cloud /chat error: %s", exc)
+            return f"[LocalBrain niblit-cloud error: {exc}]"
+
+        # 2. /chat returned 404 — server is not a Niblit instance either
+        return (
+            "[LocalBrain niblit-cloud: server reachable but no compatible "
+            "inference endpoint found (tried /v1/chat/completions, /chat/completions, "
+            "/completion, /v1/completions, /chat). "
+            "Ensure the remote server exposes one of these endpoints.]"
+        )
 
     def _load_python_backend(self) -> bool:
         """Load model via llama-cpp-python."""

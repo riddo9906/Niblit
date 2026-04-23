@@ -52,7 +52,7 @@ echo "[start.sh] ─────────────────────
 # ── Helper: detect whether a URL targets this machine ─────────────────────────
 _is_local_url() {
     case "$1" in
-        *"127.0.0.1"* | *"localhost"*) return 0 ;;
+        *"127.0.0.1"* | *"localhost"* | *"0.0.0.0"*) return 0 ;;
         *) return 1 ;;
     esac
 }
