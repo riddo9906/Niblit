@@ -1,97 +1,71 @@
-# fly.toml — Niblit Fly.io deployment configuration
-# ──────────────────────────────────────────────────────────────────────────────
-# Deploy with:   fly deploy
-# Logs:          fly logs
-# Shell:         fly ssh console
-# Volumes:       fly volumes list
-# Secrets:       fly secrets set HF_TOKEN=<your-token>
-# ──────────────────────────────────────────────────────────────────────────────
+# fly.toml app configuration file generated for niblit on 2026-04-23T16:11:32Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app            = "niblit-9hm41w"
-primary_region = "iad"
-kill_signal    = "SIGTERM"
-kill_timeout   = 60
-
-# ── Swap: helps avoid OOM on memory spikes (e.g. sentence-transformers load) ──
+app = 'niblit'
+primary_region = 'iad'
+kill_signal = 'SIGTERM'
+kill_timeout = '1m0s'
 swap_size_mb = 512
 
-# ── Build ─────────────────────────────────────────────────────────────────────
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
-# ── Deploy strategy ───────────────────────────────────────────────────────────
 [deploy]
-  strategy = "rolling"
+  strategy = 'rolling'
 
-# ── Persistent Volume ─────────────────────────────────────────────────────────
-# Free tier includes up to 3 GB of persistent volume storage.
-# All runtime state files (memory, DB, LEAN workspace, etc.) land here so they
-# survive restarts and new deploys.
-# IMPORTANT: Create the volume BEFORE first deploy:
-#   fly volumes create niblit_data --size 3 --region iad
-[mounts]
-  source      = "niblit_data"
-  destination = "/data"
-
-# ── Environment variables ─────────────────────────────────────────────────────
-# Non-sensitive configuration only.  Use `fly secrets set KEY=VALUE` for tokens.
 [env]
-  APP_ENV             = "production"
-  PORT                = "8080"
-  PYTHON_VERSION      = "3.12"
+  ALE_CHECKPOINT_PATH = '/data/ale_state.json'
+  ALPACA_PAPER = 'true'
+  APP_ENV = 'production'
+  FUSED_MEMORY_DB_PATH = '/data/niblit_fused.sqlite'
+  LEAN_WORKSPACE = '/data/lean_workspace'
+  NIBLIT_BRAIN_MODE = 'balanced'
+  NIBLIT_DATA_DIR = '/data'
+  NIBLIT_DB_PATH = '/data/niblit.db'
+  NIBLIT_GAME_LOG_PATH = '/data/niblit_game_log.jsonl'
+  NIBLIT_GAME_STATE_PATH = '/data/niblit_game_state.json'
+  NIBLIT_GGUF_BACKEND = 'http'
+  NIBLIT_GGUF_MODEL_PATH = '/data/model.gguf'
+  NIBLIT_LLAMA_SERVER_PORT = '8000'
+  NIBLIT_LLAMA_SERVER_TIMEOUT = '300'
+  NIBLIT_LLAMA_SERVER_URL = 'http://0.0.0.0:8000'
+  NIBLIT_LLM_MODEL = 'moonshotai/Kimi-K2-Instruct-0905'
+  NIBLIT_LLM_PROVIDER = 'qwen'
+  NIBLIT_MEMORY_PATH = '/data/niblit_memory.json'
+  OANDA_ENVIRONMENT = 'practice'
+  PORT = '8080'
+  PYTHON_VERSION = '3.12'
 
-  # ── Persistent storage paths (all land on /data) ──────────────────────────
-  NIBLIT_DATA_DIR        = "/data"
-  NIBLIT_MEMORY_PATH     = "/data/niblit_memory.json"
-  NIBLIT_DB_PATH         = "/data/niblit.db"
-  FUSED_MEMORY_DB_PATH   = "/data/niblit_fused.sqlite"
-  ALE_CHECKPOINT_PATH    = "/data/ale_state.json"
-  NIBLIT_GAME_LOG_PATH   = "/data/niblit_game_log.jsonl"
-  NIBLIT_GAME_STATE_PATH = "/data/niblit_game_state.json"
-  LEAN_WORKSPACE         = "/data/lean_workspace"
+[processes]
+  web = '/app/start.sh'
 
-  # ── Brain / LLM routing ───────────────────────────────────────────────────
-  NIBLIT_LLM_PROVIDER    = "qwen"
-  NIBLIT_BRAIN_MODE      = "balanced"
-  NIBLIT_LLM_MODEL       = "moonshotai/Kimi-K2-Instruct-0905"
+[[mounts]]
+  source = 'niblit_data'
+  destination = '/data'
 
-  # ── niblit-cloud-server endpoint ──────────────────────────────────────────
-  NIBLIT_GGUF_BACKEND        = "http"
-  NIBLIT_LLAMA_SERVER_URL    = "http://0.0.0.0:8000"
-  NIBLIT_LLAMA_SERVER_PORT   = "8000"
-  NIBLIT_LLAMA_SERVER_TIMEOUT = "300"
-  NIBLIT_GGUF_MODEL_PATH     = "/data/model.gguf"
-
-  # ── OANDA environment (change to 'live' only after thorough paper testing) ─
-  OANDA_ENVIRONMENT    = "practice"
-  ALPACA_PAPER         = "true"
-
-# ── HTTP service ──────────────────────────────────────────────────────────────
 [http_service]
-  internal_port        = 8080
-  force_https          = true
-  auto_stop_machines   = false
-  auto_start_machines  = true
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = true
   min_machines_running = 1
-  processes            = ["web"]
+  processes = ['web']
 
   [http_service.concurrency]
-    type       = "requests"
+    type = 'requests'
     hard_limit = 50
     soft_limit = 25
 
   [[http_service.checks]]
-    grace_period  = "20s"
-    interval      = "15s"
-    timeout       = "10s"
-    type          = "http"
-    method        = "GET"
-    path          = "/health"
-    protocol      = "http"
+    interval = '15s'
+    timeout = '10s'
+    grace_period = '20s'
+    method = 'GET'
+    path = '/health'
+    protocol = 'http'
 
 [[vm]]
-  size   = "shared-cpu-1x"
-  memory = "512mb"
-
-[processes]
-  web = "/app/start.sh"
+  size = 'shared-cpu-1x'
+  memory = '512mb'
