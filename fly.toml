@@ -65,7 +65,7 @@ swap_size_mb = 512
   # ── Local brain / llama-server ────────────────────────────────────────────
   # QwenLocalBrain connects to a llama-server instance at this URL.
   #
-  # TWO supported setups (choose one):
+  # THREE supported setups (choose one):
   #
   # (A) LOCAL  — llama-server binary + GGUF model on the Fly volume.
   #     Port 8081 is used (not 8080) because uvicorn already binds 8080.
@@ -73,12 +73,15 @@ swap_size_mb = 512
   #     Install binary:  fly ssh console → bash /app/tools/install_llama_server.sh
   #     Upload model:    fly sftp shell  → put model.gguf /data/model.gguf
   #
-  # (B) REMOTE — Termux device (or any server) running llama-server.
+  # (B) CLOUD — niblit-cloud-server deployment (recommended for Fly).
+  #     Uses a dedicated remote inference service for /v1/chat/completions.
+  #
+  # (C) REMOTE — Termux device (or any server) running llama-server.
   #     Run on Termux:   bash tools/termux_inference_server.sh
   #     Then override:   fly secrets set NIBLIT_LLAMA_SERVER_URL=https://your-tunnel-url
   #
   NIBLIT_GGUF_BACKEND       = "http"
-  NIBLIT_LLAMA_SERVER_URL   = "http://127.0.0.1:8081"
+  NIBLIT_LLAMA_SERVER_URL   = "https://niblit-cloud-server.fly.dev"
   NIBLIT_LLAMA_SERVER_PORT  = "8081"
   NIBLIT_GGUF_MODEL_PATH    = "/data/model.gguf"
 

@@ -1431,10 +1431,11 @@ class QwenLocalBrain:
 
     def _check_server_url(self, url: str) -> bool:
         """Return True if a llama-server endpoint responds at *url*."""
+        base_url = self._canonical_server_base_url(url)
         probe_urls = (
-            url + "/health",     # newer llama-server builds
-            url + "/v1/models",  # OpenAI-compatible endpoint
-            url + "/props",      # older llama-server builds
+            base_url + "/health",     # newer llama-server builds
+            base_url + "/v1/models",  # OpenAI-compatible endpoint
+            base_url + "/props",      # older llama-server builds
         )
         for probe_url in probe_urls:
             try:
@@ -1455,6 +1456,67 @@ class QwenLocalBrain:
                 continue
         return False
 
+    def _canonical_server_base_url(self, url: str) -> str:
+        """Return a normalised server base URL with known API suffixes stripped."""
+        base = (url or "").strip().rstrip("/")
+        if not base:
+            return base
+        known_suffixes = (
+            "/v1/chat/completions",
+            "/chat/completions",
+            "/v1/completions",
+            "/completion",
+            "/v1/models",
+            "/health",
+            "/props",
+        )
+        changed = True
+        while changed:
+            changed = False
+            for suffix in known_suffixes:
+                if base.endswith(suffix):
+                    base = base[: -len(suffix)].rstrip("/")
+                    changed = True
+        return base
+
+    def _chat_completion_urls(self, url: str) -> list[str]:
+        """Return candidate OpenAI-compatible chat completion endpoints."""
+        raw = (url or "").strip().rstrip("/")
+        base = self._canonical_server_base_url(raw)
+        candidates: list[str] = []
+        if raw.endswith("/v1/chat/completions") or raw.endswith("/chat/completions"):
+            candidates.append(raw)
+        elif raw.endswith("/v1"):
+            candidates.append(raw + "/chat/completions")
+        if base:
+            candidates.append(base + "/v1/chat/completions")
+            candidates.append(base + "/chat/completions")
+        seen = set()
+        unique: list[str] = []
+        for candidate in candidates:
+            if candidate and candidate not in seen:
+                unique.append(candidate)
+                seen.add(candidate)
+        return unique
+
+    def _completion_urls(self, url: str) -> list[str]:
+        """Return candidate legacy completion endpoints."""
+        raw = (url or "").strip().rstrip("/")
+        base = self._canonical_server_base_url(raw)
+        candidates: list[str] = []
+        if raw.endswith("/completion") or raw.endswith("/v1/completions"):
+            candidates.append(raw)
+        if base:
+            candidates.append(base + "/completion")
+            candidates.append(base + "/v1/completions")
+        seen = set()
+        unique: list[str] = []
+        for candidate in candidates:
+            if candidate and candidate not in seen:
+                unique.append(candidate)
+                seen.add(candidate)
+        return unique
+
     def _load_http_backend(self) -> bool:
         """Check that llama-server is reachable at NIBLIT_LLAMA_SERVER_URL."""
         url = self.llama_server_url
@@ -1463,10 +1525,10 @@ class QwenLocalBrain:
             return False
 
         if self._check_server_url(url):
-            self._server_url = url
+            self._server_url = self._canonical_server_base_url(url)
             self._backend_in_use = "http"
             self._load_error = None
-            log.info("[LocalBrain] ✅ http backend ready: %s", url)
+            log.info("[LocalBrain] ✅ http backend ready: %s", self._server_url)
             self._log_copilot_commands()
             return True
 
@@ -1518,30 +1580,38 @@ class QwenLocalBrain:
         }
 
         body = json.dumps(payload).encode("utf-8")
-        chat_url = url + "/v1/chat/completions"
-        req = urllib.request.Request(
-            chat_url,
-            data=body,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            text: str = data["choices"][0]["message"]["content"]
-            log.debug(
-                "[LocalBrain] http generated response for prompt[:60]=%r", prompt[:60]
+        last_http_error: Optional[urllib.error.HTTPError] = None
+        for chat_url in self._chat_completion_urls(url):
+            req = urllib.request.Request(
+                chat_url,
+                data=body,
+                method="POST",
+                headers={"Content-Type": "application/json"},
             )
-            return text.strip() or "[LocalBrain: empty response]"
-        except urllib.error.HTTPError as exc:
-            # Fall back to legacy /completion endpoint if chat endpoint not supported.
-            if exc.code == 404:
-                return self._generate_http_legacy(prompt, max_new_tokens, system_prompt)
-            log.debug("[LocalBrain] http generate HTTPError: %s", exc)
-            return f"[LocalBrain http error: {exc}]"
-        except Exception as exc:
-            log.debug("[LocalBrain] http generate error: %s", exc)
-            return f"[LocalBrain http error: {exc}]"
+            try:
+                with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                text: str = data["choices"][0]["message"]["content"]
+                log.debug(
+                    "[LocalBrain] http generated response for prompt[:60]=%r", prompt[:60]
+                )
+                return text.strip() or "[LocalBrain: empty response]"
+            except urllib.error.HTTPError as exc:
+                # Keep trying URL variants on 404; endpoint shape differs by server.
+                if exc.code == 404:
+                    last_http_error = exc
+                    continue
+                log.debug("[LocalBrain] http generate HTTPError: %s", exc)
+                return f"[LocalBrain http error: {exc}]"
+            except Exception as exc:
+                log.debug("[LocalBrain] http generate error: %s", exc)
+                return f"[LocalBrain http error: {exc}]"
+
+        # Fall back to legacy completion endpoints if chat completion routes are absent.
+        legacy_text = self._generate_http_legacy(prompt, max_new_tokens, system_prompt)
+        if legacy_text.startswith("[LocalBrain http legacy error:") and last_http_error is not None:
+            return f"[LocalBrain http error: {last_http_error}]"
+        return legacy_text
 
     def _generate_http_legacy(
         self,
@@ -1562,20 +1632,31 @@ class QwenLocalBrain:
             "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop", [])),
         }
         body = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url + "/completion",
-            data=body,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            text = data.get("content", "")
-            return text.strip() or "[LocalBrain: empty response]"
-        except Exception as exc:
-            log.debug("[LocalBrain] http legacy generate error: %s", exc)
-            return f"[LocalBrain http legacy error: {exc}]"
+        last_error: Optional[Exception] = None
+        for completion_url in self._completion_urls(url):
+            req = urllib.request.Request(
+                completion_url,
+                data=body,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                text = data.get("content", "")
+                return text.strip() or "[LocalBrain: empty response]"
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    last_error = exc
+                    continue
+                log.debug("[LocalBrain] http legacy generate error: %s", exc)
+                return f"[LocalBrain http legacy error: {exc}]"
+            except Exception as exc:
+                log.debug("[LocalBrain] http legacy generate error: %s", exc)
+                return f"[LocalBrain http legacy error: {exc}]"
+        if last_error is not None:
+            return f"[LocalBrain http legacy error: {last_error}]"
+        return "[LocalBrain http legacy error: no completion endpoint available]"
 
     def _load_python_backend(self) -> bool:
         """Load model via llama-cpp-python."""
@@ -1894,43 +1975,57 @@ class QwenLocalBrain:
             payload["tool_choice"] = "auto"
 
         body = json.dumps(payload).encode("utf-8")
-        req = urllib.request.Request(
-            url + "/v1/chat/completions",
-            data=body,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            choice = data["choices"][0]
-            message = choice.get("message", {})
-            text: str = message.get("content") or ""
-            raw_tool_calls: list = message.get("tool_calls") or []
-
-            # Normalise to {"id": ..., "function": {"name": ..., "arguments": <str>}}
-            tool_calls: list = []
-            for tc in raw_tool_calls:
-                fn = tc.get("function", {})
-                args = fn.get("arguments", "{}")
-                if isinstance(args, dict):
-                    args = json.dumps(args)
-                tool_calls.append({
-                    "id": tc.get("id", ""),
-                    "function": {
-                        "name": fn.get("name", ""),
-                        "arguments": args,
-                    },
-                })
-
-            log.debug(
-                "[LocalBrain] generate_with_tools: %d tool_calls, text[:60]=%r",
-                len(tool_calls), text[:60],
+        last_http_error: Optional[urllib.error.HTTPError] = None
+        for chat_url in self._chat_completion_urls(url):
+            req = urllib.request.Request(
+                chat_url,
+                data=body,
+                method="POST",
+                headers={"Content-Type": "application/json"},
             )
-            return (text.strip(), tool_calls)
-        except Exception as exc:
-            log.debug("[LocalBrain] generate_with_tools error: %s", exc)
-            return (f"[LocalBrain http error: {exc}]", [])
+            try:
+                with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                choice = data["choices"][0]
+                message = choice.get("message", {})
+                text: str = message.get("content") or ""
+                raw_tool_calls: list = message.get("tool_calls") or []
+
+                # Normalise to {"id": ..., "function": {"name": ..., "arguments": <str>}}
+                tool_calls: list = []
+                for tc in raw_tool_calls:
+                    fn = tc.get("function", {})
+                    args = fn.get("arguments", "{}")
+                    if isinstance(args, dict):
+                        args = json.dumps(args)
+                    tool_calls.append({
+                        "id": tc.get("id", ""),
+                        "function": {
+                            "name": fn.get("name", ""),
+                            "arguments": args,
+                        },
+                    })
+
+                log.debug(
+                    "[LocalBrain] generate_with_tools: %d tool_calls, text[:60]=%r",
+                    len(tool_calls), text[:60],
+                )
+                return (text.strip(), tool_calls)
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    last_http_error = exc
+                    continue
+                log.debug("[LocalBrain] generate_with_tools HTTPError: %s", exc)
+                return (f"[LocalBrain http error: {exc}]", [])
+            except Exception as exc:
+                log.debug("[LocalBrain] generate_with_tools error: %s", exc)
+                return (f"[LocalBrain http error: {exc}]", [])
+
+        # Remote endpoints may not support tool calls; fall back to plain generation.
+        text = self._generate_http(prompt, n_tokens, system_prompt)
+        if text.startswith("[LocalBrain http") and last_http_error is not None:
+            return (f"[LocalBrain http error: {last_http_error}]", [])
+        return (text, [])
 
     def memory_adapter(self, knowledge_db: Optional[Any] = None) -> Any:
         """Return (and lazily create) the QwenMemoryAdapter for this brain.
