@@ -2285,8 +2285,7 @@ def set_backend_url(url: str, backend: str = "http") -> QwenLocalBrain:
 
     reset_local_brain()
     with _inst_lock:
-        # Preserve current model/template from existing singleton (if any).
-        old = _instance  # still None after reset_local_brain
+        # Preserve current model/template from existing preset configuration.
         preset_cfg = next(iter(_LOCAL_MODEL_PRESETS.values()))  # default preset
         _instance = QwenLocalBrain(
             model_name=preset_cfg["model_path"],

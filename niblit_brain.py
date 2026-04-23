@@ -18,7 +18,7 @@ Enhancements:
 7. Structured logging with correlation IDs
 """
 
-__all__ = ["NiblitBrain", "BrainTrainer", "NiblitCloudBrain", "get_niblit_cloud_brain", "hf_query"]
+__all__ = ["NiblitBrain", "BrainTrainer", "NiblitCloudBrain", "get_niblit_cloud_brain", "set_cloud_brain_url", "hf_query"]
 
 import re
 import sys
