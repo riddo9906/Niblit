@@ -460,6 +460,40 @@ def get_niblit_cloud_brain() -> NiblitCloudBrain:
     return _cloud_brain_instance
 
 
+def set_cloud_brain_url(url: str) -> NiblitCloudBrain:
+    """Switch the cloud-brain server URL at runtime.
+
+    Updates ``NIBLIT_LLAMA_SERVER_URL`` in the environment and re-points
+    (or recreates) the :class:`NiblitCloudBrain` singleton to *url*.
+    The new URL is also written to the environment so that any child
+    processes inherit it.
+
+    Parameters
+    ----------
+    url:
+        Base URL of the target server (e.g. ``"http://127.0.0.1:8080"``).
+
+    Returns
+    -------
+    The updated :class:`NiblitCloudBrain` singleton.
+    """
+    import os as _os
+    global _cloud_brain_instance
+
+    url = url.strip().rstrip("/")
+    _os.environ["NIBLIT_LLAMA_SERVER_URL"] = url
+
+    with _cloud_brain_lock:
+        if _cloud_brain_instance is None:
+            _cloud_brain_instance = NiblitCloudBrain(base_url=url)
+        else:
+            _cloud_brain_instance.base_url = url
+            _cloud_brain_instance.reset_probe()
+
+    log.info("[NiblitCloudBrain] server URL updated to %s", url)
+    return _cloud_brain_instance
+
+
 # ───────── BrainTrainer ─────────
 class BrainTrainer:
     # pylint: disable=too-many-instance-attributes

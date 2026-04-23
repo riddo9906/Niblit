@@ -2241,5 +2241,78 @@ def swap_local_brain(preset: str) -> QwenLocalBrain:
     return _instance
 
 
+# ── Backend URL toggle helpers ────────────────────────────────────────────────
+
+#: Known named backends: label → URL. Populated from env at import time and
+#: updated whenever :func:`set_backend_url` is called.
+_NAMED_BACKENDS: Dict[str, str] = {
+    "local": "http://127.0.0.1:8080",
+    "cloud": os.environ.get(
+        "NIBLIT_CLOUD_SERVER_URL",
+        "https://niblit-cloud-server.fly.dev",
+    ),
+}
+
+
+def set_backend_url(url: str, backend: str = "http") -> QwenLocalBrain:
+    """Switch the llama-server URL at runtime without reloading model weights.
+
+    Updates the module-level ``_LLAMA_SERVER_URL`` constant and resets the
+    singleton so the next :func:`get_local_brain` call creates a fresh
+    :class:`QwenLocalBrain` pointed at *url*.
+
+    Parameters
+    ----------
+    url:
+        The new llama-server base URL (e.g. ``"http://127.0.0.1:8080"``).
+    backend:
+        GGUF backend type — ``"http"`` (default) or ``"auto"``.
+
+    Returns
+    -------
+    The new :class:`QwenLocalBrain` singleton.
+    """
+    global _LLAMA_SERVER_URL, _GGUF_BACKEND, _instance
+
+    url = url.strip().rstrip("/")
+    backend = backend.strip().lower() or "http"
+
+    _LLAMA_SERVER_URL = url
+    _GGUF_BACKEND = backend
+    # Also propagate to env so sub-processes pick up the new value.
+    os.environ["NIBLIT_LLAMA_SERVER_URL"] = url
+    os.environ["NIBLIT_GGUF_BACKEND"] = backend
+
+    reset_local_brain()
+    with _inst_lock:
+        # Preserve current model/template from existing singleton (if any).
+        old = _instance  # still None after reset_local_brain
+        preset_cfg = next(iter(_LOCAL_MODEL_PRESETS.values()))  # default preset
+        _instance = QwenLocalBrain(
+            model_name=preset_cfg["model_path"],
+            gguf_model_path=preset_cfg["model_path"],
+            gguf_chat_template=preset_cfg["chat_template"],
+            gguf_backend=backend,
+            llama_server_url=url,
+        )
+
+    log.info("[LocalBrain] backend URL switched to %s (backend=%s)", url, backend)
+    return _instance
+
+
+def get_backend_info() -> Dict[str, str]:
+    """Return a snapshot of the current backend configuration.
+
+    Keys: ``url``, ``backend``, ``named_backends``.
+    """
+    return {
+        "url": _LLAMA_SERVER_URL,
+        "backend": _GGUF_BACKEND,
+        "named_backends": ", ".join(
+            f"{k}={v}" for k, v in _NAMED_BACKENDS.items()
+        ),
+    }
+
+
 if __name__ == "__main__":
     print('Running local_brain.py')
