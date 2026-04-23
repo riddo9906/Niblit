@@ -1586,6 +1586,30 @@ async def _lifespan(application: "FastAPI"):
     else:
         _log.warning("[lifespan] ⚠️  NiblitCore failed to initialise — running in degraded mode")
 
+    # ── Apply env-configured backend URL to both inference singletons ─────
+    # This ensures the effective NIBLIT_LLAMA_SERVER_URL and NIBLIT_GGUF_BACKEND
+    # values (set in fly.toml or via `fly secrets set`) are honoured even if
+    # the Python singletons were constructed before the env was fully applied.
+    _llama_url = os.environ.get("NIBLIT_LLAMA_SERVER_URL", "").strip()
+    _backend_mode = os.environ.get("NIBLIT_BACKEND_MODE",
+                     os.environ.get("NIBLIT_GGUF_BACKEND", "http")).strip().lower()
+    if _llama_url:
+        try:
+            from modules.local_brain import set_backend_url as _set_backend_url
+            _set_backend_url(_llama_url, _backend_mode)
+            _log.info("[lifespan] ✅ LocalBrain backend wired → %s (mode=%s)", _llama_url, _backend_mode)
+        except Exception as _lbe:
+            _log.debug("[lifespan] set_backend_url skipped: %s", _lbe)
+
+    _cloud_url = os.environ.get("NIBLIT_CLOUD_SERVER_URL", "").strip()
+    if _cloud_url:
+        try:
+            from niblit_brain import set_cloud_brain_url as _set_cloud_brain_url
+            _set_cloud_brain_url(_cloud_url)
+            _log.info("[lifespan] ✅ CloudBrain URL wired → %s", _cloud_url)
+        except Exception as _cbe:
+            _log.debug("[lifespan] set_cloud_brain_url skipped: %s", _cbe)
+
     yield  # application is running
 
     # ── Graceful shutdown ────────────────────────────────────────────────
