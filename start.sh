@@ -46,13 +46,15 @@ echo "[start.sh] ═════════════════════
 echo "[start.sh] DATA_DIR             = ${NIBLIT_DATA_DIR:-/data}"
 echo "[start.sh] NIBLIT_LLM_PROVIDER  = ${NIBLIT_LLM_PROVIDER:-qwen}"
 echo "[start.sh] NIBLIT_GGUF_BACKEND  = ${NIBLIT_GGUF_BACKEND:-http}"
+echo "[start.sh] NIBLIT_BACKEND_MODE  = ${NIBLIT_BACKEND_MODE:-http}"
 echo "[start.sh] LLAMA_SERVER_URL     = ${LLAMA_URL}"
+echo "[start.sh] NIBLIT_CLOUD_SERVER  = ${NIBLIT_CLOUD_SERVER_URL:-https://niblit-cloud-server.fly.dev}"
 echo "[start.sh] ────────────────────────────────────────────"
 
 # ── Helper: detect whether a URL targets this machine ─────────────────────────
 _is_local_url() {
     case "$1" in
-        *"127.0.0.1"* | *"localhost"*) return 0 ;;
+        *"127.0.0.1"* | *"localhost"* | *"0.0.0.0"*) return 0 ;;
         *) return 1 ;;
     esac
 }

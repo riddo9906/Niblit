@@ -1354,6 +1354,112 @@ except Exception as _e:
     _wrap_module = None  # type: ignore[assignment]
     _RESILIENCE_AVAILABLE = False
 
+# ── AIDevLab (additive) ───────────────────────────────────────────────────────
+# Self-Evolving AI Development Lab: hypothesis → research → arch → code → bench.
+try:
+    from modules.ai_dev_lab.lab_controller import AIDevLab as _AIDevLab
+    _AI_DEV_LAB_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"AIDevLab not available: {_e}")
+    _AIDevLab = None  # type: ignore[assignment,misc]
+    _AI_DEV_LAB_AVAILABLE = False
+
+# ── Observability: AnomalyDetector, MetricsCollector, LogAggregator ──────────
+try:
+    from distributed_niblit.observability.anomaly_detector import AnomalyDetector as _AnomalyDetector
+    _ANOMALY_DETECTOR_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"AnomalyDetector not available: {_e}")
+    _AnomalyDetector = None  # type: ignore[assignment,misc]
+    _ANOMALY_DETECTOR_AVAILABLE = False
+
+try:
+    from distributed_niblit.observability.metrics_collector import MetricsCollector as _MetricsCollector
+    _METRICS_COLLECTOR_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"MetricsCollector not available: {_e}")
+    _MetricsCollector = None  # type: ignore[assignment,misc]
+    _METRICS_COLLECTOR_AVAILABLE = False
+
+try:
+    from distributed_niblit.observability.log_aggregator import LogAggregator as _LogAggregator
+    _LOG_AGGREGATOR_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"LogAggregator not available: {_e}")
+    _LogAggregator = None  # type: ignore[assignment,misc]
+    _LOG_AGGREGATOR_AVAILABLE = False
+
+# ── AIOSScheduler (additive) ──────────────────────────────────────────────────
+# Priority-queue wrapper around LifecycleEngine; user tasks preempt background ALE.
+try:
+    from aios_scheduler import AIOSScheduler as _AIOSScheduler, get_aios_scheduler as _get_aios_scheduler
+    _AIOS_SCHEDULER_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"AIOSScheduler not available: {_e}")
+    _AIOSScheduler = None  # type: ignore[assignment,misc]
+    _get_aios_scheduler = None  # type: ignore[assignment]
+    _AIOS_SCHEDULER_AVAILABLE = False
+
+# ── AIOS HAL (additive) ───────────────────────────────────────────────────────
+# Unified hardware abstraction layer (bios + hardware_scanner + platform_bootstrap).
+try:
+    from aios_hal import get_aios_hal as _get_aios_hal
+    _AIOS_HAL_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"aios_hal not available: {_e}")
+    _get_aios_hal = None  # type: ignore[assignment]
+    _AIOS_HAL_AVAILABLE = False
+
+# ── Global Code Intelligence (additive) ──────────────────────────────────────
+try:
+    from modules.global_code_intelligence.pattern_graph_builder import PatternGraphBuilder as _PatternGraphBuilder
+    _PATTERN_GRAPH_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"PatternGraphBuilder not available: {_e}")
+    _PatternGraphBuilder = None  # type: ignore[assignment,misc]
+    _PATTERN_GRAPH_AVAILABLE = False
+
+try:
+    from modules.global_code_intelligence.knowledge_reasoner import KnowledgeReasoner as _KnowledgeReasoner
+    _KNOWLEDGE_REASONER_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"KnowledgeReasoner not available: {_e}")
+    _KnowledgeReasoner = None  # type: ignore[assignment,misc]
+    _KNOWLEDGE_REASONER_AVAILABLE = False
+
+try:
+    from modules.global_code_intelligence.architecture_detector import ArchitectureDetector as _ArchitectureDetector
+    _ARCH_DETECTOR_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"ArchitectureDetector not available: {_e}")
+    _ArchitectureDetector = None  # type: ignore[assignment,misc]
+    _ARCH_DETECTOR_AVAILABLE = False
+
+# ── Knowledge Engine (additive) ───────────────────────────────────────────────
+try:
+    from modules.knowledge_engine.knowledge_graph_builder import KnowledgeGraphBuilder as _KnowledgeGraphBuilder
+    _KNOWLEDGE_GRAPH_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"KnowledgeGraphBuilder not available: {_e}")
+    _KnowledgeGraphBuilder = None  # type: ignore[assignment,misc]
+    _KNOWLEDGE_GRAPH_AVAILABLE = False
+
+try:
+    from modules.knowledge_engine.repo_scanner import RepoScanner as _RepoScanner
+    _REPO_SCANNER_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"RepoScanner not available: {_e}")
+    _RepoScanner = None  # type: ignore[assignment,misc]
+    _REPO_SCANNER_AVAILABLE = False
+
+try:
+    from modules.knowledge_engine.embedding_pipeline import EmbeddingPipeline as _EmbeddingPipeline
+    _EMBEDDING_PIPELINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"EmbeddingPipeline not available: {_e}")
+    _EmbeddingPipeline = None  # type: ignore[assignment,misc]
+    _EMBEDDING_PIPELINE_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -6490,6 +6596,155 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     self.lifecycle = LifecycleEngine()
                 except Exception as e:
                     log.debug(f"LifecycleEngine failed to start: {e}")
+
+            # ============================
+            # AIOS SCHEDULER (priority queue wrapper around LifecycleEngine)
+            # ============================
+            self.aios_scheduler = None
+            if _AIOS_SCHEDULER_AVAILABLE and _AIOSScheduler:
+                try:
+                    self.aios_scheduler = _get_aios_scheduler()
+                    self.aios_scheduler.start()
+                    log.info("✅ AIOSScheduler initialized (priority task queues active)")
+                    self.startup_report.add("aios_scheduler", "ready")
+                except Exception as _ase:
+                    log.debug("AIOSScheduler init failed: %s", _ase)
+                    self.startup_report.add("aios_scheduler", "degraded", str(_ase))
+
+            # ============================
+            # AIOS HAL (unified hardware abstraction)
+            # ============================
+            self.aios_hal = None
+            if _AIOS_HAL_AVAILABLE and _get_aios_hal:
+                try:
+                    self.aios_hal = _get_aios_hal()
+                    log.info("✅ AIOS HAL initialized (hardware profile ready)")
+                    self.startup_report.add("aios_hal", "ready")
+                except Exception as _hale:
+                    log.debug("AIOS HAL init failed: %s", _hale)
+                    self.startup_report.add("aios_hal", "degraded", str(_hale))
+
+            # ============================
+            # OBSERVABILITY (AnomalyDetector + MetricsCollector + LogAggregator)
+            # ============================
+            self.anomaly_detector = None
+            if _ANOMALY_DETECTOR_AVAILABLE and _AnomalyDetector:
+                try:
+                    self.anomaly_detector = _AnomalyDetector()
+                    # Seed sensible thresholds for known system metrics
+                    self.anomaly_detector.set_threshold("ale_cycle_s", mean=30.0, stddev=15.0)
+                    self.anomaly_detector.set_threshold("memory_mb", mean=200.0, stddev=80.0)
+                    log.info("✅ AnomalyDetector initialized")
+                    self.startup_report.add("anomaly_detector", "ready")
+                except Exception as _ade:
+                    log.debug("AnomalyDetector init failed: %s", _ade)
+
+            self.metrics_collector = None
+            if _METRICS_COLLECTOR_AVAILABLE and _MetricsCollector:
+                try:
+                    self.metrics_collector = _MetricsCollector()
+                    log.info("✅ MetricsCollector initialized")
+                    self.startup_report.add("metrics_collector", "ready")
+                except Exception as _mce:
+                    log.debug("MetricsCollector init failed: %s", _mce)
+
+            self.log_aggregator = None
+            if _LOG_AGGREGATOR_AVAILABLE and _LogAggregator:
+                try:
+                    self.log_aggregator = _LogAggregator()
+                    log.info("✅ LogAggregator initialized")
+                    self.startup_report.add("log_aggregator", "ready")
+                except Exception as _lage:
+                    log.debug("LogAggregator init failed: %s", _lage)
+
+            # ============================
+            # GLOBAL CODE INTELLIGENCE
+            # ============================
+            self.pattern_graph = None
+            if _PATTERN_GRAPH_AVAILABLE and _PatternGraphBuilder:
+                try:
+                    self.pattern_graph = _PatternGraphBuilder()
+                    self.pattern_graph.seed_world_model()
+                    log.info("✅ PatternGraphBuilder initialized (world model seeded)")
+                    self.startup_report.add("pattern_graph", "ready")
+                except Exception as _pge:
+                    log.debug("PatternGraphBuilder init failed: %s", _pge)
+
+            self.knowledge_reasoner = None
+            if _KNOWLEDGE_REASONER_AVAILABLE and _KnowledgeReasoner:
+                try:
+                    self.knowledge_reasoner = _KnowledgeReasoner(
+                        graph=getattr(self, "pattern_graph", None),
+                    )
+                    log.info("✅ KnowledgeReasoner initialized")
+                    self.startup_report.add("knowledge_reasoner", "ready")
+                except Exception as _kre:
+                    log.debug("KnowledgeReasoner init failed: %s", _kre)
+
+            self.architecture_detector = None
+            if _ARCH_DETECTOR_AVAILABLE and _ArchitectureDetector:
+                try:
+                    self.architecture_detector = _ArchitectureDetector()
+                    log.info("✅ ArchitectureDetector initialized")
+                    self.startup_report.add("architecture_detector", "ready")
+                except Exception as _arce:
+                    log.debug("ArchitectureDetector init failed: %s", _arce)
+
+            # ============================
+            # KNOWLEDGE ENGINE
+            # ============================
+            self.knowledge_graph = None
+            if _KNOWLEDGE_GRAPH_AVAILABLE and _KnowledgeGraphBuilder:
+                try:
+                    self.knowledge_graph = _KnowledgeGraphBuilder()
+                    log.info("✅ KnowledgeGraphBuilder initialized")
+                    self.startup_report.add("knowledge_graph", "ready")
+                except Exception as _kge:
+                    log.debug("KnowledgeGraphBuilder init failed: %s", _kge)
+
+            self.repo_scanner = None
+            if _REPO_SCANNER_AVAILABLE and _RepoScanner:
+                try:
+                    self.repo_scanner = _RepoScanner()
+                    log.info("✅ RepoScanner initialized (GitHub repo discovery ready)")
+                    self.startup_report.add("repo_scanner", "ready")
+                except Exception as _rse:
+                    log.debug("RepoScanner init failed: %s", _rse)
+
+            self.embedding_pipeline = None
+            if _EMBEDDING_PIPELINE_AVAILABLE and _EmbeddingPipeline:
+                try:
+                    self.embedding_pipeline = _EmbeddingPipeline(
+                        vector_store=getattr(self, "vector_store", None),
+                    )
+                    log.info("✅ EmbeddingPipeline initialized")
+                    self.startup_report.add("embedding_pipeline", "ready")
+                except Exception as _epe:
+                    log.debug("EmbeddingPipeline init failed: %s", _epe)
+
+            # ============================
+            # AI DEV LAB (SEADL)
+            # ============================
+            self.ai_dev_lab = None
+            if _AI_DEV_LAB_AVAILABLE and _AIDevLab:
+                try:
+                    self.ai_dev_lab = _AIDevLab(
+                        llm=getattr(self, "llm", None),
+                        graph=getattr(self, "pattern_graph", None),
+                    )
+                    log.info("✅ AIDevLab (SEADL) initialized — autonomous experiment lab ready")
+                    self.startup_report.add("ai_dev_lab", "ready")
+                    # Inject into ALE as lab_controller if ALE supports it
+                    if hasattr(self, "autonomous_engine") and self.autonomous_engine:
+                        if not hasattr(self.autonomous_engine, "lab_controller"):
+                            try:
+                                self.autonomous_engine.lab_controller = self.ai_dev_lab
+                                log.info("✅ AIDevLab wired into AutonomousLearningEngine")
+                            except Exception:
+                                pass
+                except Exception as _laberr:
+                    log.debug("AIDevLab init failed: %s", _laberr)
+                    self.startup_report.add("ai_dev_lab", "degraded", str(_laberr))
 
             # module_loader can execute many optional module imports that may
             # be slow (or occasionally block on constrained Termux/proot

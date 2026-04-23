@@ -71,11 +71,29 @@ game logs) are stored here at `/data` and survive restarts and new deploys.
 fly secrets set HF_TOKEN=<your-huggingface-token>
 ```
 
-**Recommended for local brain on Fly (remote inference):**
+**Recommended — niblit-cloud-server inference backend:**
+
+The main Niblit Fly app delegates LLM inference to a dedicated
+niblit-cloud-server deployment.  Set these three secrets so Niblit can
+reach the inference backend:
+
 ```bash
+fly secrets set NIBLIT_LLAMA_SERVER_URL=http://0.0.0.0:8000
 fly secrets set NIBLIT_GGUF_BACKEND=http
-fly secrets set NIBLIT_LLAMA_SERVER_URL=https://niblit-cloud-server.fly.dev
+fly secrets set NIBLIT_LLAMA_SERVER_TIMEOUT=300
 ```
+
+> **How it works:**
+> `QwenLocalBrain` (`NIBLIT_GGUF_BACKEND=http`) calls
+> `POST $NIBLIT_LLAMA_SERVER_URL/v1/chat/completions` for inference.
+> If that endpoint returns 404 it also tries `/chat/completions`,
+> then `/completion`, and finally the Niblit-native `POST /chat`
+> endpoint — so any Niblit deployment can serve as the cloud server.
+>
+> For a remote niblit-cloud-server Fly app use:
+> ```bash
+> fly secrets set NIBLIT_LLAMA_SERVER_URL=https://niblit-cloud-server.fly.dev
+> ```
 
 **Optional — unlock more features:**
 ```bash
@@ -251,20 +269,24 @@ To speed up rebuilds, Fly.io caches Docker layers — the first build is slow
 See `fly.toml` `[env]` section for non-sensitive defaults.
 Set sensitive values with `fly secrets set`.
 
-| Variable | Required | Source |
-|---|---|---|
-| `HF_TOKEN` | **Yes** | `fly secrets set` |
-| `QC_USER_ID` | For LEAN cloud | `fly secrets set` |
-| `QC_API_TOKEN` | For LEAN cloud | `fly secrets set` |
-| `TWELVE_DATA_API_KEY` | For Twelve Data | `fly secrets set` |
-| `OANDA_API_KEY` | For OANDA | `fly secrets set` |
-| `OANDA_ACCOUNT_ID` | For OANDA | `fly secrets set` |
-| `ALPACA_API_KEY` | For Alpaca | `fly secrets set` |
-| `ALPACA_API_SECRET` | For Alpaca | `fly secrets set` |
-| `OPENAI_API_KEY` | Optional | `fly secrets set` |
-| `ANTHROPIC_API_KEY` | Optional | `fly secrets set` |
-| `QDRANT_URL` | Optional | `fly secrets set` |
-| `NIBLIT_API_KEY` | Optional | `fly secrets set` |
-| `APP_ENV` | Auto | `fly.toml [env]` |
-| `NIBLIT_MEMORY_PATH` | Auto | `fly.toml [env]` |
-| `LEAN_WORKSPACE` | Auto | `fly.toml [env]` |
+| Variable | Required | Source | Notes |
+|---|---|---|---|
+| `HF_TOKEN` | **Yes** | `fly secrets set` | HuggingFace token for model downloads |
+| `NIBLIT_LLAMA_SERVER_URL` | Recommended | `fly secrets set` | Cloud server URL (default `http://0.0.0.0:8000`) |
+| `NIBLIT_GGUF_BACKEND` | Recommended | `fly secrets set` | Set to `http` for cloud inference |
+| `NIBLIT_LLAMA_SERVER_TIMEOUT` | Recommended | `fly secrets set` | Inference timeout in seconds (default `300`) |
+| `QC_USER_ID` | For LEAN cloud | `fly secrets set` | |
+| `QC_API_TOKEN` | For LEAN cloud | `fly secrets set` | |
+| `TWELVE_DATA_API_KEY` | For Twelve Data | `fly secrets set` | |
+| `OANDA_API_KEY` | For OANDA | `fly secrets set` | |
+| `OANDA_ACCOUNT_ID` | For OANDA | `fly secrets set` | |
+| `ALPACA_API_KEY` | For Alpaca | `fly secrets set` | |
+| `ALPACA_API_SECRET` | For Alpaca | `fly secrets set` | |
+| `OPENAI_API_KEY` | Optional | `fly secrets set` | |
+| `ANTHROPIC_API_KEY` | Optional | `fly secrets set` | |
+| `QDRANT_URL` | Optional | `fly secrets set` | |
+| `NIBLIT_API_KEY` | Optional | `fly secrets set` | Protects `/chat` and inference endpoints |
+| `APP_ENV` | Auto | `fly.toml [env]` | |
+| `NIBLIT_MEMORY_PATH` | Auto | `fly.toml [env]` | |
+| `LEAN_WORKSPACE` | Auto | `fly.toml [env]` | |
+

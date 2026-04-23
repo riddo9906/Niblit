@@ -1586,6 +1586,30 @@ async def _lifespan(application: "FastAPI"):
     else:
         _log.warning("[lifespan] ⚠️  NiblitCore failed to initialise — running in degraded mode")
 
+    # ── Apply env-configured backend URL to both inference singletons ─────
+    # This ensures the effective NIBLIT_LLAMA_SERVER_URL and NIBLIT_GGUF_BACKEND
+    # values (set in fly.toml or via `fly secrets set`) are honoured even if
+    # the Python singletons were constructed before the env was fully applied.
+    _llama_url = os.environ.get("NIBLIT_LLAMA_SERVER_URL", "").strip()
+    _backend_mode = os.environ.get("NIBLIT_BACKEND_MODE",
+                     os.environ.get("NIBLIT_GGUF_BACKEND", "http")).strip().lower()
+    if _llama_url:
+        try:
+            from modules.local_brain import set_backend_url as _set_backend_url
+            _set_backend_url(_llama_url, _backend_mode)
+            _log.info("[lifespan] ✅ LocalBrain backend wired → %s (mode=%s)", _llama_url, _backend_mode)
+        except Exception as _lbe:
+            _log.debug("[lifespan] set_backend_url skipped: %s", _lbe)
+
+    _cloud_url = os.environ.get("NIBLIT_CLOUD_SERVER_URL", "").strip()
+    if _cloud_url:
+        try:
+            from niblit_brain import set_cloud_brain_url as _set_cloud_brain_url
+            _set_cloud_brain_url(_cloud_url)
+            _log.info("[lifespan] ✅ CloudBrain URL wired → %s", _cloud_url)
+        except Exception as _cbe:
+            _log.debug("[lifespan] set_cloud_brain_url skipped: %s", _cbe)
+
     yield  # application is running
 
     # ── Graceful shutdown ────────────────────────────────────────────────
@@ -1634,6 +1658,27 @@ class SearchBody(BaseModel):
     text: str = ""
 
 
+class OpenAIMessage(BaseModel):
+    role: str
+    content: str
+
+
+class OpenAIChatRequest(BaseModel):
+    """OpenAI-compatible chat completion request.
+
+    Accepted by ``POST /v1/chat/completions`` so this Niblit deployment can
+    act as the niblit-cloud-server inference backend for other Niblit
+    instances (e.g. the main Niblit Fly.io app calling
+    ``NIBLIT_LLAMA_SERVER_URL``).
+    """
+
+    model: str = "niblit"
+    messages: List[OpenAIMessage] = []
+    max_tokens: int = 200
+    temperature: float = 0.7
+    stream: bool = False
+
+
 # ── Liveness probe ──────────────────────────────────────
 @app.get("/health")
 def health(request: Request):
@@ -1641,7 +1686,90 @@ def health(request: Request):
     return render_response(request, {"status": "ok", "service": "niblit"})
 
 
-# ── Dashboard / root ────────────────────────────────────
+# ── OpenAI-compatible inference endpoint ────────────────
+@app.post("/v1/chat/completions")
+def openai_chat_completions(request: Request, body: OpenAIChatRequest):
+    """OpenAI-compatible chat completions endpoint.
+
+    Makes this Niblit deployment act as the inference backend for other
+    Niblit instances (niblit-cloud-server).  ``QwenLocalBrain``'s HTTP
+    backend calls ``POST /v1/chat/completions`` when
+    ``NIBLIT_GGUF_BACKEND=http`` and ``NIBLIT_LLAMA_SERVER_URL`` points here.
+
+    Messages are processed through the local brain when available; the
+    full Niblit router (``core.handle()``) is used as a fallback so the
+    cloud-server always returns a meaningful response.
+    """
+    if not require_key(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    if rate_limited(request):
+        return JSONResponse({"error": "rate limit reached"}, status_code=429)
+
+    # Extract system prompt and last user message from the messages list.
+    system_prompt: Optional[str] = None
+    user_message: str = ""
+    for msg in body.messages:
+        if msg.role == "system":
+            system_prompt = msg.content
+        elif msg.role == "user":
+            user_message = msg.content  # keep overwriting to get the last user turn
+
+    if not user_message:
+        return JSONResponse({"error": "no user message in messages"}, status_code=400)
+
+    reply = ""
+    core = get_core()
+
+    # Prefer the local brain's raw generation (bypasses the command router so
+    # raw LLM prompts are not misinterpreted as Niblit commands).
+    local_brain = getattr(core, "local_brain", None) if core else None
+    if local_brain is not None:
+        try:
+            if system_prompt:
+                reply = local_brain.ask(user_message, system_prompt=system_prompt)
+            else:
+                reply = local_brain.chat(user_message)
+        except Exception as exc:
+            log.warning("openai_chat_completions local_brain error: %s", exc)
+            reply = ""
+
+    # Fall back to brain_router (cloud / HF) if local brain is unavailable.
+    if not reply:
+        brain_router = getattr(core, "brain_router", None) if core else None
+        if brain_router is not None:
+            try:
+                reply = brain_router.route(user_message) or ""
+            except Exception as exc:
+                log.warning("openai_chat_completions brain_router error: %s", exc)
+                reply = ""
+
+    # Last resort: full Niblit command handler.
+    if not reply and core is not None:
+        try:
+            reply = str(core.handle(user_message))
+        except Exception as exc:
+            log.warning("openai_chat_completions core.handle error: %s", exc)
+            reply = "[NiblitCloud error: inference unavailable]"
+
+    if not reply:
+        reply = "[NiblitCloud: no inference backend available]"
+
+    return JSONResponse({
+        "id": f"niblit-{int(time.time())}",
+        "object": "chat.completion",
+        "created": int(time.time()),
+        "model": body.model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": reply},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    })
+
+
 @app.get("/")
 def dashboard(request: Request):
     accept = request.headers.get("accept", "")

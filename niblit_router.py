@@ -399,6 +399,8 @@ class NiblitRouter:
         "heal",
         # Tool introspection — list/inspect/test all AI-callable tools
         "tools",
+        # Backend server toggle — switch between cloud and local llama-server
+        "backend",
     )
 
     CHAT_RESPONSES = {
@@ -3661,6 +3663,112 @@ Ask me about:
             "  local-model switch llama3 — switch to Llama 3.2 1B"
         )
 
+    def _handle_backend(self, cmd: str) -> str:
+        """Handle 'backend' commands — toggle the active llama-server URL at runtime.
+
+        Sub-commands::
+
+            backend                    — show current backend URL and status
+            backend status             — same as above
+            backend local              — switch to http://127.0.0.1:8080
+            backend cloud              — switch to the configured cloud server URL
+            backend set <url>          — switch to any custom URL
+            backend list               — list all named backends
+        """
+        lower = cmd.strip().lower()
+        sub = lower[len("backend"):].strip() if lower.startswith("backend") else ""
+
+        # Import helpers (lazy — keeps boot fast)
+        try:
+            from modules.local_brain import (
+                set_backend_url,
+                get_backend_info,
+                _NAMED_BACKENDS,
+            )
+            _lb_ok = True
+        except Exception as _e:
+            _lb_ok = False
+            _lb_err = str(_e)
+
+        try:
+            from niblit_brain import set_cloud_brain_url
+            _cb_ok = True
+        except Exception:
+            _cb_ok = False
+
+        # ── status ──────────────────────────────────────────────────────────
+        if sub in ("", "status"):
+            if not _lb_ok:
+                return f"⚠️  local_brain module unavailable: {_lb_err}"
+            info = get_backend_info()
+            lines = [
+                "🔌 Backend Server Status",
+                f"  Active URL : {info['url']}",
+                f"  Mode       : {info['backend']}",
+                f"  Named URLs : {info['named_backends']}",
+                "",
+                "  backend local    — switch to 127.0.0.1:8080",
+                "  backend cloud    — switch to cloud server",
+                "  backend set <url> — use any custom URL",
+            ]
+            return "\n".join(lines)
+
+        # ── list ─────────────────────────────────────────────────────────────
+        if sub == "list":
+            if not _lb_ok:
+                return f"⚠️  local_brain module unavailable: {_lb_err}"
+            lines = ["Named backends:"]
+            for name, url in _NAMED_BACKENDS.items():
+                lines.append(f"  {name:<10} → {url}")
+            lines.append("\nUsage: backend <local|cloud|set <url>>")
+            return "\n".join(lines)
+
+        # ── switch to named backend ──────────────────────────────────────────
+        if sub in ("local", "cloud"):
+            if not _lb_ok:
+                return f"⚠️  local_brain module unavailable: {_lb_err}"
+            target_url = _NAMED_BACKENDS.get(sub, "")
+            if not target_url:
+                return f"❌ Named backend '{sub}' has no configured URL."
+            try:
+                set_backend_url(target_url)
+                if _cb_ok:
+                    set_cloud_brain_url(target_url)
+                return (
+                    f"🔄 Backend switched to '{sub}'\n"
+                    f"  URL: {target_url}\n"
+                    "  ⚠️  Ensure llama-server is running at this address."
+                )
+            except Exception as exc:
+                return f"❌ Backend switch failed: {exc}"
+
+        # ── set <url> ────────────────────────────────────────────────────────
+        if sub.startswith("set "):
+            custom_url = cmd.strip()[len("backend set"):].strip()
+            if not custom_url:
+                return "Usage: backend set <url>"
+            if not _lb_ok:
+                return f"⚠️  local_brain module unavailable: {_lb_err}"
+            try:
+                set_backend_url(custom_url)
+                if _cb_ok:
+                    set_cloud_brain_url(custom_url)
+                return (
+                    f"🔄 Backend URL set to '{custom_url}'\n"
+                    "  ⚠️  Ensure llama-server is running at this address."
+                )
+            except Exception as exc:
+                return f"❌ backend set failed: {exc}"
+
+        return (
+            "Unknown backend sub-command. Try:\n"
+            "  backend status     — show current URL\n"
+            "  backend local      — switch to http://127.0.0.1:8080\n"
+            "  backend cloud      — switch to cloud server URL\n"
+            "  backend set <url>  — switch to any URL\n"
+            "  backend list       — list named backends"
+        )
+
     def _handle_heal_kb(self, cmd: str) -> str:
         """Handle 'heal kb' commands — AI-driven KB health repair using tool calling.
 
@@ -6387,6 +6495,10 @@ Ask me about:
         if lower == "local-model" or lower.startswith("local-model "):
             return self._handle_local_model(cmd)
 
+        # BACKEND — toggle llama-server URL between local / cloud / custom (additive)
+        if lower == "backend" or lower.startswith("backend "):
+            return self._handle_backend(cmd)
+
         # HEAL KB — AI-driven KB health repair with tool calling (additive)
         if lower in ("heal kb", "heal-kb") or lower.startswith("heal kb ") or lower.startswith("heal-kb "):
             return self._handle_heal_kb(cmd)
@@ -6882,6 +6994,11 @@ Ask me about:
             "local-model list             — List local presets and configured model paths",
             "local-model switch qwen      — Switch local preset to Qwen 2.5 0.5B",
             "local-model switch llama3    — Switch local preset to Llama 3.2 1B",
+            "backend status               — Show active llama-server URL and mode",
+            "backend local                — Switch to local llama-server (127.0.0.1:8080)",
+            "backend cloud                — Switch to cloud server URL",
+            "backend set <url>            — Switch to any custom llama-server URL",
+            "backend list                 — List all named backend URLs",
             "status, health               — System status",
             "time                         — Current time",
             "",

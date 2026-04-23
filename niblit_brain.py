@@ -18,7 +18,7 @@ Enhancements:
 7. Structured logging with correlation IDs
 """
 
-__all__ = ["NiblitBrain", "BrainTrainer", "hf_query"]
+__all__ = ["NiblitBrain", "BrainTrainer", "NiblitCloudBrain", "get_niblit_cloud_brain", "set_cloud_brain_url", "hf_query"]
 
 import re
 import sys
@@ -276,6 +276,222 @@ class _DBMemoryAdapter:
         if hasattr(self._memory, "store_preferences"):
             return self._memory.store_preferences(prefs)
         return None
+
+
+# ───────── NiblitCloudBrain ─────────
+
+class NiblitCloudBrain:
+    """Wrapper for a remote Niblit cloud-server inference endpoint.
+
+    Connects to a niblit-cloud-server instance (a dedicated Niblit deployment
+    configured for inference) and proxies LLM generation requests to it.
+
+    The wrapper tries endpoints in this order for each request:
+
+    1. ``POST /v1/chat/completions`` — OpenAI-compatible format (returned by
+       the ``/v1/chat/completions`` route added to ``app.py``).
+    2. ``POST /chat/completions`` — alternate OpenAI path.
+    3. ``POST /chat`` — Niblit native API (``{"text": "..."}`` →
+       ``{"reply": "..."}``) exposed by all Niblit deployments.
+
+    Designed for Fly.io deployments where:
+    - Main Niblit app runs on port 8080 (uvicorn / ``app.py``).
+    - niblit-cloud-server provides inference at ``NIBLIT_LLAMA_SERVER_URL``
+      (default ``http://0.0.0.0:8000``).
+
+    Environment variables
+    ---------------------
+    NIBLIT_LLAMA_SERVER_URL
+        Base URL of the cloud server.
+        Default: ``http://127.0.0.1:8000``
+    NIBLIT_LLAMA_SERVER_TIMEOUT
+        Per-request HTTP timeout in seconds.
+        Default: ``300``
+    NIBLIT_API_KEY
+        Optional API key forwarded as ``X-API-Key`` header.
+    """
+
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        timeout: Optional[int] = None,
+        api_key: Optional[str] = None,
+    ) -> None:
+        import urllib.request as _ur  # noqa: F401 — ensure available in methods
+
+        self.base_url = (
+            base_url
+            or os.environ.get("NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8000")
+        ).rstrip("/")
+        self.timeout = int(
+            timeout
+            if timeout is not None
+            else os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "300")
+        )
+        self.api_key = api_key or os.environ.get("NIBLIT_API_KEY", "")
+        self._available: Optional[bool] = None
+
+    # ── Connectivity ──────────────────────────────────────────────────────────
+
+    def is_available(self) -> bool:
+        """Return ``True`` if the cloud server is reachable at ``/health``."""
+        if self._available is None:
+            self._available = self._probe()
+        return bool(self._available)
+
+    def reset_probe(self) -> None:
+        """Force re-probe on the next :meth:`is_available` call."""
+        self._available = None
+
+    def _probe(self) -> bool:
+        import urllib.request
+        try:
+            req = urllib.request.Request(self.base_url + "/health", method="GET")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return 200 <= resp.status < 400
+        except Exception:
+            return False
+
+    # ── Headers ───────────────────────────────────────────────────────────────
+
+    def _headers(self) -> Dict[str, str]:
+        h: Dict[str, str] = {"Content-Type": "application/json"}
+        if self.api_key:
+            h["X-API-Key"] = self.api_key
+        return h
+
+    # ── Generation ───────────────────────────────────────────────────────────
+
+    def chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        max_tokens: int = 200,
+    ) -> str:
+        """Send a generation request to the cloud server and return the text.
+
+        Tries ``POST /v1/chat/completions`` (OpenAI format), then
+        ``POST /chat/completions``, then ``POST /chat`` (Niblit native).
+        Returns an error string on failure — never raises.
+        """
+        import json as _json
+        import urllib.error
+        import urllib.request
+
+        messages: list = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        openai_payload = _json.dumps(
+            {"model": "niblit", "messages": messages, "max_tokens": max_tokens}
+        ).encode("utf-8")
+
+        for path in ("/v1/chat/completions", "/chat/completions"):
+            req = urllib.request.Request(
+                self.base_url + path,
+                data=openai_payload,
+                method="POST",
+                headers=self._headers(),
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    data = _json.loads(resp.read().decode("utf-8"))
+                content = data["choices"][0]["message"]["content"]
+                log.debug("[NiblitCloudBrain] %s → %r", path, content[:60])
+                return content.strip() or "[NiblitCloudBrain: empty response]"
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    continue
+                log.debug("[NiblitCloudBrain] %s HTTPError: %s", path, exc)
+                return "[NiblitCloudBrain error: HTTP error on inference endpoint]"
+            except Exception:
+                pass
+
+        # Niblit native /chat fallback
+        text_input = (system_prompt + "\n\n" + prompt) if system_prompt else prompt
+        niblit_payload = _json.dumps({"text": text_input}).encode("utf-8")
+        req = urllib.request.Request(
+            self.base_url + "/chat",
+            data=niblit_payload,
+            method="POST",
+            headers=self._headers(),
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                data = _json.loads(resp.read().decode("utf-8"))
+            reply = (
+                data.get("reply")
+                or data.get("response")
+                or data.get("content")
+                or data.get("text")
+                or ""
+            )
+            log.debug("[NiblitCloudBrain] /chat → %r", reply[:60])
+            return reply.strip() or "[NiblitCloudBrain: empty reply]"
+        except Exception as exc:
+            log.debug("[NiblitCloudBrain] /chat error: %s", exc)
+            return "[NiblitCloudBrain error: unexpected error calling /chat]"
+
+    def ask(
+        self,
+        prompt: str,
+        context: str = "",
+        system_prompt: Optional[str] = None,
+        max_tokens: int = 200,
+    ) -> str:
+        """Convenience wrapper: prepend *context* then call :meth:`chat`."""
+        full = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt
+        return self.chat(full, system_prompt=system_prompt, max_tokens=max_tokens)
+
+
+# Lazily initialised singleton for callers that import NiblitCloudBrain.
+_cloud_brain_instance: Optional[NiblitCloudBrain] = None
+_cloud_brain_lock = threading.Lock()
+
+
+def get_niblit_cloud_brain() -> NiblitCloudBrain:
+    """Return the process-wide :class:`NiblitCloudBrain` singleton."""
+    global _cloud_brain_instance
+    if _cloud_brain_instance is None:
+        with _cloud_brain_lock:
+            if _cloud_brain_instance is None:
+                _cloud_brain_instance = NiblitCloudBrain()
+    return _cloud_brain_instance
+
+
+def set_cloud_brain_url(url: str) -> NiblitCloudBrain:
+    """Switch the cloud-brain server URL at runtime.
+
+    Updates ``NIBLIT_LLAMA_SERVER_URL`` in the environment and re-points
+    (or recreates) the :class:`NiblitCloudBrain` singleton to *url*.
+    The new URL is also written to the environment so that any child
+    processes inherit it.
+
+    Parameters
+    ----------
+    url:
+        Base URL of the target server (e.g. ``"http://127.0.0.1:8080"``).
+
+    Returns
+    -------
+    The updated :class:`NiblitCloudBrain` singleton.
+    """
+    import os as _os
+    global _cloud_brain_instance
+
+    url = url.strip().rstrip("/")
+    _os.environ["NIBLIT_LLAMA_SERVER_URL"] = url
+
+    with _cloud_brain_lock:
+        if _cloud_brain_instance is None:
+            _cloud_brain_instance = NiblitCloudBrain(base_url=url)
+        else:
+            _cloud_brain_instance.base_url = url
+            _cloud_brain_instance.reset_probe()
+
+    log.info("[NiblitCloudBrain] server URL updated to %s", url)
+    return _cloud_brain_instance
 
 
 # ───────── BrainTrainer ─────────
