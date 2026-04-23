@@ -1491,13 +1491,7 @@ class QwenLocalBrain:
         if base:
             candidates.append(base + "/v1/chat/completions")
             candidates.append(base + "/chat/completions")
-        seen = set()
-        unique: list[str] = []
-        for candidate in candidates:
-            if candidate and candidate not in seen:
-                unique.append(candidate)
-                seen.add(candidate)
-        return unique
+        return self._deduplicate_urls(candidates)
 
     def _completion_urls(self, url: str) -> list[str]:
         """Return candidate legacy completion endpoints."""
@@ -1509,6 +1503,10 @@ class QwenLocalBrain:
         if base:
             candidates.append(base + "/completion")
             candidates.append(base + "/v1/completions")
+        return self._deduplicate_urls(candidates)
+
+    def _deduplicate_urls(self, candidates: list[str]) -> list[str]:
+        """Return URLs in first-seen order with empty values removed."""
         seen = set()
         unique: list[str] = []
         for candidate in candidates:
@@ -1580,7 +1578,6 @@ class QwenLocalBrain:
         }
 
         body = json.dumps(payload).encode("utf-8")
-        last_http_error: Optional[urllib.error.HTTPError] = None
         for chat_url in self._chat_completion_urls(url):
             req = urllib.request.Request(
                 chat_url,
@@ -1599,7 +1596,6 @@ class QwenLocalBrain:
             except urllib.error.HTTPError as exc:
                 # Keep trying URL variants on 404; endpoint shape differs by server.
                 if exc.code == 404:
-                    last_http_error = exc
                     continue
                 log.debug("[LocalBrain] http generate HTTPError: %s", exc)
                 return f"[LocalBrain http error: {exc}]"
@@ -1608,10 +1604,7 @@ class QwenLocalBrain:
                 return f"[LocalBrain http error: {exc}]"
 
         # Fall back to legacy completion endpoints if chat completion routes are absent.
-        legacy_text = self._generate_http_legacy(prompt, max_new_tokens, system_prompt)
-        if legacy_text.startswith("[LocalBrain http legacy error:") and last_http_error is not None:
-            return f"[LocalBrain http error: {last_http_error}]"
-        return legacy_text
+        return self._generate_http_legacy(prompt, max_new_tokens, system_prompt)
 
     def _generate_http_legacy(
         self,
@@ -1975,7 +1968,6 @@ class QwenLocalBrain:
             payload["tool_choice"] = "auto"
 
         body = json.dumps(payload).encode("utf-8")
-        last_http_error: Optional[urllib.error.HTTPError] = None
         for chat_url in self._chat_completion_urls(url):
             req = urllib.request.Request(
                 chat_url,
@@ -2013,7 +2005,6 @@ class QwenLocalBrain:
                 return (text.strip(), tool_calls)
             except urllib.error.HTTPError as exc:
                 if exc.code == 404:
-                    last_http_error = exc
                     continue
                 log.debug("[LocalBrain] generate_with_tools HTTPError: %s", exc)
                 return (f"[LocalBrain http error: {exc}]", [])
@@ -2022,10 +2013,7 @@ class QwenLocalBrain:
                 return (f"[LocalBrain http error: {exc}]", [])
 
         # Remote endpoints may not support tool calls; fall back to plain generation.
-        text = self._generate_http(prompt, n_tokens, system_prompt)
-        if text.startswith("[LocalBrain http") and last_http_error is not None:
-            return (f"[LocalBrain http error: {last_http_error}]", [])
-        return (text, [])
+        return (self._generate_http(prompt, n_tokens, system_prompt), [])
 
     def memory_adapter(self, knowledge_db: Optional[Any] = None) -> Any:
         """Return (and lazily create) the QwenMemoryAdapter for this brain.
