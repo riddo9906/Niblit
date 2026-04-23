@@ -71,6 +71,12 @@ game logs) are stored here at `/data` and survive restarts and new deploys.
 fly secrets set HF_TOKEN=<your-huggingface-token>
 ```
 
+**Recommended for local brain on Fly (remote inference):**
+```bash
+fly secrets set NIBLIT_GGUF_BACKEND=http
+fly secrets set NIBLIT_LLAMA_SERVER_URL=https://niblit-cloud-server.fly.dev
+```
+
 **Optional — unlock more features:**
 ```bash
 # QuantConnect / LEAN cloud live trading

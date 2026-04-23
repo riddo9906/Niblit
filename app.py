@@ -16,6 +16,7 @@ import threading
 import time
 import logging
 import os
+from contextlib import asynccontextmanager
 from typing import Dict, List, Optional
 
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
@@ -1546,7 +1547,51 @@ def _build_dashboard():
 # FASTAPI APPLICATION
 # ══════════════════════════════════════════════════════════════
 
-app = FastAPI(title="Niblit AIOS", docs_url=None, redoc_url=None)
+@asynccontextmanager
+async def _lifespan(application: "FastAPI"):
+    """
+    FastAPI lifespan — mirrors the boot() sequence in main.py so Fly.io
+    starts up with all 8 initialization layers running before the first
+    user request arrives (identical to Termux behaviour).
+
+    Phase 0 (NiblitCore.__init__) runs synchronously here; it completes in
+    < 1 s and starts the DeferredInitThread that covers Layers 1-5 in the
+    background — no blocking of uvicorn startup.
+    """
+    _log = logging.getLogger("NiblitApp")
+
+    # ── Install the notification-queue log handler (same as main.py) ─────
+    try:
+        from core.notification_queue import NotificationQueueHandler as _NQH
+        _nqh = _NQH()
+        _nqh.setLevel(logging.INFO)
+        logging.getLogger().addHandler(_nqh)
+        _log.debug("[lifespan] NotificationQueueHandler installed")
+    except Exception as _e:
+        _log.debug("[lifespan] NotificationQueueHandler unavailable: %s", _e)
+
+    # ── Pre-warm NiblitCore (Phase 0 — fast, < 1 s) ───────────────────────
+    # Phase 1 (heavy modules) starts automatically in a background daemon
+    # thread inside NiblitCore.__init__, so this call never blocks uvicorn.
+    _log.info("[lifespan] Pre-warming NiblitCore (Phase 0)…")
+    _core_ref = get_core()
+    if _core_ref is not None:
+        _log.info("[lifespan] ✅ NiblitCore Phase 0 ready — background init running")
+    else:
+        _log.warning("[lifespan] ⚠️  NiblitCore failed to initialise — running in degraded mode")
+
+    yield  # application is running
+
+    # ── Graceful shutdown ────────────────────────────────────────────────
+    if _core_ref is not None:
+        try:
+            _core_ref.running = False
+            _log.info("[lifespan] NiblitCore shutdown flag set")
+        except Exception:
+            pass
+
+
+app = FastAPI(title="Niblit AIOS", docs_url=None, redoc_url=None, lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -1767,15 +1812,15 @@ def chat(request: Request, body: ChatBody):
     if rate_limited(request):
         return render_response(request, {"error": "rate limit reached"}, status=429)
 
-    # SecurityMembrane: inspect and sanitize the incoming request
+    # ── Layer A: basic SecurityMembrane (fast, always-on) ────────────────
+    client_ip = request.client.host if request.client else "unknown"
+    text_raw = body.text
     try:
         from modules.security_membrane import get_security_membrane
         core_ref = get_core()
         membrane = get_security_membrane(
             knowledge_db=getattr(core_ref, "db", None) if core_ref else None
         )
-        client_ip = request.client.host if request.client else "unknown"
-        text_raw = body.text
         result_sm = membrane.inspect(ip=client_ip, payload=text_raw, command=text_raw)
         if not result_sm.allowed:
             return render_response(
@@ -1784,7 +1829,40 @@ def chat(request: Request, body: ChatBody):
         # Sanitize the input
         text_sanitized = membrane.sanitize(text_raw)
     except Exception:
-        text_sanitized = body.text  # graceful fallback
+        text_sanitized = text_raw  # graceful fallback
+
+    # ── Layer B: CyberMembrane — all 8 adaptive security layers ──────────
+    # InputGuard → SessionWarden → StealthDetector → TrackerSensor →
+    # IntegrityMonitor → AdaptiveFirewall → OutputGuard (MembraneOrchestrator)
+    # Identical protection to what Termux receives via niblit_core.cyber_membrane.
+    try:
+        from modules.niblit_cyber_membrane import get_cyber_membrane
+        core_ref = get_core()
+        _cm = getattr(core_ref, "cyber_membrane", None)
+        if _cm is None:
+            _cm = get_cyber_membrane(
+                knowledge_db=getattr(core_ref, "db", None) if core_ref else None
+            )
+        # Stable session id: prefer API key or X-Session-Id header, fall back to IP
+        _session_id = (
+            request.headers.get("X-API-Key", "")
+            or request.headers.get("X-Session-Id", "")
+            or client_ip
+        )
+        _cm_result = _cm.inspect_input(
+            ip=client_ip,
+            session_id=_session_id,
+            command=text_sanitized,
+            payload=text_sanitized,
+        )
+        if not _cm_result.allowed:
+            return render_response(
+                request,
+                {"error": f"Request blocked by security layer: {_cm_result.reason}"},
+                status=429,
+            )
+    except Exception:
+        pass  # CyberMembrane unavailable — degrade gracefully
 
     core = get_core()
     if not core:
@@ -1798,6 +1876,25 @@ def chat(request: Request, body: ChatBody):
         logging.getLogger("NiblitApp").error("_shell_process error: %s", exc)
         result = {"reply": "[error] request failed — see server logs", "suggestion": None,
                   "ts": _ts(), "debug_lines": []}
+
+    # ── Layer C: OutputGuard — scrub API keys / PII from outbound reply ───
+    try:
+        _reply = result.get("reply", "")
+        if isinstance(_reply, str):
+            _cm_out = getattr(core, "cyber_membrane", None)
+            if _cm_out is None:
+                from modules.niblit_cyber_membrane import get_cyber_membrane
+                _cm_out = get_cyber_membrane()
+            _clean_reply, _redacted = _cm_out.inspect_output(_reply)
+            if _redacted:
+                logging.getLogger("NiblitApp").debug(
+                    "[OutputGuard] Redacted from reply: %s", _redacted
+                )
+            result = dict(result)
+            result["reply"] = _clean_reply
+    except Exception:
+        pass  # OutputGuard unavailable — send reply as-is
+
     return render_response(request, result)
 
 

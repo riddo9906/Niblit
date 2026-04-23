@@ -10,9 +10,9 @@
 #    NOTE: port 8080 is intentionally avoided because uvicorn binds 8080
 #    for Fly's HTTP routing; llama-server therefore uses 8081.
 #
-# 2. If NIBLIT_LLAMA_SERVER_URL is a REMOTE URL (e.g. a Cloudflare/ngrok
-#    tunnel to a Termux device or another Fly machine), uvicorn starts
-#    immediately. QwenLocalBrain._check_server_url() will probe the remote
+# 2. If NIBLIT_LLAMA_SERVER_URL is a REMOTE URL (e.g. niblit-cloud-server,
+#    a Cloudflare/ngrok tunnel to a Termux device, or another Fly machine),
+#    uvicorn starts immediately. QwenLocalBrain._check_server_url() will probe the remote
 #    endpoint at startup; if it is unreachable, Niblit falls back to the
 #    HF cloud LLM (HF_TOKEN required).
 #
