@@ -1157,7 +1157,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 // DATA
 // ════════════════════════════════════════════════════════
 const GROUPS = __JSON_GROUPS__;
-const _API_KEY = __API_KEY__;
+const NIBLIT_KEY = __API_KEY__;
 const ALL_CMDS = [];
 GROUPS.forEach(g => g.commands.forEach(c => ALL_CMDS.push({...c, group:g.group, icon:g.icon})));
 
@@ -1454,7 +1454,7 @@ async function sendText(text){
   try {
     const resp = await fetch('/chat', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json', ...(_API_KEY ? {'X-API-Key': _API_KEY} : {})},
+      headers: {'Content-Type': 'application/json', ...(NIBLIT_KEY ? {'X-API-Key': NIBLIT_KEY} : {})},
       body: JSON.stringify({text})
     });
     const j = await resp.json();
