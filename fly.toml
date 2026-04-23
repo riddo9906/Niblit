@@ -7,10 +7,10 @@
 # Secrets:       fly secrets set HF_TOKEN=<your-token>
 # ──────────────────────────────────────────────────────────────────────────────
 
-app            = "niblit"
-primary_region = "lax"          # Los Angeles — change to your preferred region
+app            = "niblit-9hm41w"
+primary_region = "iad"
 kill_signal    = "SIGTERM"
-kill_timeout   = 60             # 60 s for Niblit's daemon threads to wind down
+kill_timeout   = 60
 
 # ── Swap: helps avoid OOM on memory spikes (e.g. sentence-transformers load) ──
 swap_size_mb = 512
@@ -28,7 +28,7 @@ swap_size_mb = 512
 # All runtime state files (memory, DB, LEAN workspace, etc.) land here so they
 # survive restarts and new deploys.
 # IMPORTANT: Create the volume BEFORE first deploy:
-#   fly volumes create niblit_data --size 3 --region lax
+#   fly volumes create niblit_data --size 3 --region iad
 [mounts]
   source      = "niblit_data"
   destination = "/data"
@@ -41,89 +41,57 @@ swap_size_mb = 512
   PYTHON_VERSION      = "3.12"
 
   # ── Persistent storage paths (all land on /data) ──────────────────────────
-  NIBLIT_DATA_DIR       = "/data"
-  NIBLIT_MEMORY_PATH    = "/data/niblit_memory.json"
-  NIBLIT_DB_PATH        = "/data/niblit.db"
-  FUSED_MEMORY_DB_PATH  = "/data/niblit_fused.sqlite"
-  ALE_CHECKPOINT_PATH   = "/data/ale_state.json"
-  NIBLIT_GAME_LOG_PATH  = "/data/niblit_game_log.jsonl"
-  NIBLIT_GAME_STATE_PATH= "/data/niblit_game_state.json"
-  LEAN_WORKSPACE        = "/data/lean_workspace"
+  NIBLIT_DATA_DIR        = "/data"
+  NIBLIT_MEMORY_PATH     = "/data/niblit_memory.json"
+  NIBLIT_DB_PATH         = "/data/niblit.db"
+  FUSED_MEMORY_DB_PATH   = "/data/niblit_fused.sqlite"
+  ALE_CHECKPOINT_PATH    = "/data/ale_state.json"
+  NIBLIT_GAME_LOG_PATH   = "/data/niblit_game_log.jsonl"
+  NIBLIT_GAME_STATE_PATH = "/data/niblit_game_state.json"
+  LEAN_WORKSPACE         = "/data/lean_workspace"
 
   # ── Brain / LLM routing ───────────────────────────────────────────────────
-  # Primary provider is "qwen" (local brain via llama-server HTTP bridge).
-  # Falls back to HF cloud LLM when llama-server is unreachable.
-  # Override per-deployment:  fly secrets set NIBLIT_LLM_PROVIDER=hf
-  NIBLIT_LLM_PROVIDER   = "qwen"
-  NIBLIT_BRAIN_MODE     = "balanced"
-  # Model used when the HF cloud LLM path is active.
-  # "moonshotai/Kimi-K2-Instruct-0905" is served via the HF Router
-  # (https://router.huggingface.co) — not a direct HuggingFace Hub model.
-  # Override:  fly secrets set NIBLIT_LLM_MODEL=your-hf-model-id
-  NIBLIT_LLM_MODEL      = "moonshotai/Kimi-K2-Instruct-0905"
+  NIBLIT_LLM_PROVIDER    = "qwen"
+  NIBLIT_BRAIN_MODE      = "balanced"
+  NIBLIT_LLM_MODEL       = "moonshotai/Kimi-K2-Instruct-0905"
 
-  # ── Local brain / llama-server ────────────────────────────────────────────
-  # QwenLocalBrain connects to a llama-server instance at this URL.
-  #
-  # THREE supported setups (choose one):
-  #
-  # (A) LOCAL  — llama-server binary + GGUF model on the Fly volume.
-  #     Port 8081 is used (not 8080) because uvicorn already binds 8080.
-  #     start.sh launches llama-server before uvicorn when both are present.
-  #     Install binary:  fly ssh console → bash /app/tools/install_llama_server.sh
-  #     Upload model:    fly sftp shell  → put model.gguf /data/model.gguf
-  #
-  # (B) CLOUD — niblit-cloud-server deployment (recommended for Fly).
-  #     Uses a dedicated remote inference service for /v1/chat/completions.
-  #
-  # (C) REMOTE — Termux device (or any server) running llama-server.
-  #     Run on Termux:   bash tools/termux_inference_server.sh
-  #     Then override:   fly secrets set NIBLIT_LLAMA_SERVER_URL=https://your-tunnel-url
-  #
-  NIBLIT_GGUF_BACKEND       = "http"
-  NIBLIT_LLAMA_SERVER_URL   = "https://niblit-cloud-server.fly.dev"
-  NIBLIT_LLAMA_SERVER_PORT  = "8081"
-  NIBLIT_GGUF_MODEL_PATH    = "/data/model.gguf"
+  # ── niblit-cloud-server endpoint ──────────────────────────────────────────
+  NIBLIT_GGUF_BACKEND        = "http"
+  NIBLIT_LLAMA_SERVER_URL    = "http://0.0.0.0:8000"
+  NIBLIT_LLAMA_SERVER_PORT   = "8000"
+  NIBLIT_LLAMA_SERVER_TIMEOUT = "300"
+  NIBLIT_GGUF_MODEL_PATH     = "/data/model.gguf"
 
   # ── OANDA environment (change to 'live' only after thorough paper testing) ─
-  OANDA_ENVIRONMENT   = "practice"
-  ALPACA_PAPER        = "true"
+  OANDA_ENVIRONMENT    = "practice"
+  ALPACA_PAPER         = "true"
 
 # ── HTTP service ──────────────────────────────────────────────────────────────
 [http_service]
-  internal_port       = 8080
-  force_https         = true
-  auto_stop_machines  = false   # Keep alive — Niblit has background daemon threads
-  auto_start_machines = true
+  internal_port        = 8080
+  force_https          = true
+  auto_stop_machines   = false
+  auto_start_machines  = true
   min_machines_running = 1
-  processes           = ["web"] # Must match the process name defined in [processes]
+  processes            = ["web"]
 
   [http_service.concurrency]
     type       = "requests"
     hard_limit = 50
     soft_limit = 25
 
-  # Fly.io routes traffic only after this check passes, preventing 503s during
-  # startup. grace_period gives the process time to import Python modules and
-  # bind to the port before the first check runs.
   [[http_service.checks]]
-    grace_period  = "20s"    # wait this long after process starts before checking
-    interval      = "15s"    # check every 15 seconds
-    timeout       = "10s"    # mark unhealthy if no response within 10 s
+    grace_period  = "20s"
+    interval      = "15s"
+    timeout       = "10s"
     type          = "http"
     method        = "GET"
     path          = "/health"
     protocol      = "http"
 
-# ── Health checks ─────────────────────────────────────────────────────────────
 [[vm]]
-  size   = "shared-cpu-1x"   # 256 MB base RAM; overridden to 512 MB below
-  memory = "512mb"           # Upgrade to 1024mb if loading sentence-transformers
+  size   = "shared-cpu-1x"
+  memory = "512mb"
 
-# ── Process ───────────────────────────────────────────────────────────────────
-# start.sh is the container entrypoint.  It optionally starts llama-server
-# (when binary + model are present), then hands off to uvicorn.
-# Worker count is kept at 1 because Niblit uses in-process singleton state
-# (NiblitMemory, ALE, TradingBrain, etc.) that must NOT be forked.
 [processes]
   web = "/app/start.sh"
