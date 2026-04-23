@@ -1721,17 +1721,16 @@ class QwenLocalBrain:
         except urllib.error.HTTPError as exc:
             if exc.code != 404:
                 log.debug("[LocalBrain] niblit-cloud /chat error: %s", exc)
-                return f"[LocalBrain niblit-cloud error: {exc}]"
+                return "[LocalBrain niblit-cloud error: HTTP error calling /chat]"
         except Exception as exc:
             log.debug("[LocalBrain] niblit-cloud /chat error: %s", exc)
-            return f"[LocalBrain niblit-cloud error: {exc}]"
+            return "[LocalBrain niblit-cloud error: unexpected error calling /chat]"
 
         # 2. /chat returned 404 — server is not a Niblit instance either
         return (
-            "[LocalBrain niblit-cloud: server reachable but no compatible "
-            "inference endpoint found (tried /v1/chat/completions, /chat/completions, "
-            "/completion, /v1/completions, /chat). "
-            "Ensure the remote server exposes one of these endpoints.]"
+            "[LocalBrain niblit-cloud: server reachable but /chat endpoint "
+            "returned 404. Ensure the remote server exposes POST /chat "
+            "(Niblit API) or POST /v1/chat/completions (OpenAI API).]"
         )
 
     def _load_python_backend(self) -> bool:

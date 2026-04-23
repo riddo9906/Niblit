@@ -404,7 +404,7 @@ class NiblitCloudBrain:
                 if exc.code == 404:
                     continue
                 log.debug("[NiblitCloudBrain] %s HTTPError: %s", path, exc)
-                return f"[NiblitCloudBrain error: {exc}]"
+                return "[NiblitCloudBrain error: HTTP error on inference endpoint]"
             except Exception:
                 pass
 
@@ -431,7 +431,7 @@ class NiblitCloudBrain:
             return reply.strip() or "[NiblitCloudBrain: empty reply]"
         except Exception as exc:
             log.debug("[NiblitCloudBrain] /chat error: %s", exc)
-            return f"[NiblitCloudBrain error: {exc}]"
+            return "[NiblitCloudBrain error: unexpected error calling /chat]"
 
     def ask(
         self,

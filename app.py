@@ -1725,7 +1725,7 @@ def openai_chat_completions(request: Request, body: OpenAIChatRequest):
             reply = str(core.handle(user_message))
         except Exception as exc:
             log.warning("openai_chat_completions core.handle error: %s", exc)
-            reply = f"[NiblitCloud error: {exc}]"
+            reply = "[NiblitCloud error: inference unavailable]"
 
     if not reply:
         reply = "[NiblitCloud: no inference backend available]"
@@ -1744,7 +1744,6 @@ def openai_chat_completions(request: Request, body: OpenAIChatRequest):
         ],
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
     })
-
 
 
 @app.get("/")

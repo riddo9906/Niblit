@@ -272,9 +272,9 @@ Set sensitive values with `fly secrets set`.
 | Variable | Required | Source | Notes |
 |---|---|---|---|
 | `HF_TOKEN` | **Yes** | `fly secrets set` | HuggingFace token for model downloads |
-| `NIBLIT_LLAMA_SERVER_URL` | **Yes** | `fly secrets set` | Cloud server URL (default `http://0.0.0.0:8000`) |
-| `NIBLIT_GGUF_BACKEND` | **Yes** | `fly secrets set` | Set to `http` for cloud inference |
-| `NIBLIT_LLAMA_SERVER_TIMEOUT` | **Yes** | `fly secrets set` | Inference timeout in seconds (default `300`) |
+| `NIBLIT_LLAMA_SERVER_URL` | Recommended | `fly secrets set` | Cloud server URL (default `http://0.0.0.0:8000`) |
+| `NIBLIT_GGUF_BACKEND` | Recommended | `fly secrets set` | Set to `http` for cloud inference |
+| `NIBLIT_LLAMA_SERVER_TIMEOUT` | Recommended | `fly secrets set` | Inference timeout in seconds (default `300`) |
 | `QC_USER_ID` | For LEAN cloud | `fly secrets set` | |
 | `QC_API_TOKEN` | For LEAN cloud | `fly secrets set` | |
 | `TWELVE_DATA_API_KEY` | For Twelve Data | `fly secrets set` | |
