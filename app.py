@@ -1157,6 +1157,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 // DATA
 // ════════════════════════════════════════════════════════
 const GROUPS = __JSON_GROUPS__;
+const NIBLIT_KEY = __API_KEY__;
 const ALL_CMDS = [];
 GROUPS.forEach(g => g.commands.forEach(c => ALL_CMDS.push({...c, group:g.group, icon:g.icon})));
 
@@ -1453,7 +1454,7 @@ async function sendText(text){
   try {
     const resp = await fetch('/chat', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', ...(NIBLIT_KEY ? {'X-API-Key': NIBLIT_KEY} : {})},
       body: JSON.stringify({text})
     });
     const j = await resp.json();
@@ -1537,9 +1538,14 @@ runBoot();
 
 
 def _build_dashboard():
-    """Inject Python-side data (COMMAND_GROUPS) into the dashboard HTML template."""
+    """Inject Python-side data (COMMAND_GROUPS, API_KEY) into the dashboard HTML template."""
     groups_json = _json.dumps(COMMAND_GROUPS)
-    return DASHBOARD_HTML.replace("__JSON_GROUPS__", groups_json)
+    api_key_json = _json.dumps(API_KEY or "")
+    return (
+        DASHBOARD_HTML
+        .replace("__JSON_GROUPS__", groups_json)
+        .replace("__API_KEY__", api_key_json)
+    )
 # FLASK ROUTES
 # ══════════════════════════════════════════════════════════════
 
