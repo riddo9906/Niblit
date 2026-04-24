@@ -126,6 +126,7 @@ fly secrets set QDRANT_API_KEY=<your-key>
 
 # Security
 fly secrets set NIBLIT_API_KEY=<random-string>
+fly secrets set AUTH_KEY_HASH_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 ```
 
 ### Step 5 — Deploy

@@ -565,7 +565,7 @@ class BrainTrainer:
         try:
             if self.memory and hasattr(self.memory, "store_learning"):
                 self.memory.store_learning({
-                    "time": datetime.datetime.utcnow().isoformat(),
+                    "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "input": self._TRAINING_KEY,
                     "value": pair,
                     "source": "brain_trainer",
@@ -579,7 +579,7 @@ class BrainTrainer:
         pair = {
             "prompt": str(user_prompt)[:500],
             "response": str(assistant_response)[:500],
-            "ts": datetime.datetime.utcnow().isoformat(),
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         with self._lock:
             self._pairs.append(pair)
@@ -605,7 +605,7 @@ class BrainTrainer:
         fact = {
             "topic": _sanitize_text(str(topic), max_chars=120),
             "text": _sanitize_text(str(text), max_chars=_KB_TEXT_MAX_CHARS),
-            "ts": datetime.datetime.utcnow().isoformat(),
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         with self._lock:
             self._facts.append(fact)
@@ -614,7 +614,7 @@ class BrainTrainer:
         try:
             if self.memory and hasattr(self.memory, "store_learning"):
                 self.memory.store_learning({
-                    "time": datetime.datetime.utcnow().isoformat(),
+                    "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "input": f"brain_trainer:fact:{topic}",
                     "value": fact,
                     "source": "brain_trainer:research",
@@ -791,7 +791,7 @@ class BrainTrainer:
         entry = {
             "domain": domain,
             "data": str(data)[:600],
-            "ts": datetime.datetime.utcnow().isoformat(),
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         with self._lock:
             if domain not in self._cognitive:
@@ -808,7 +808,7 @@ class BrainTrainer:
         try:
             if self.memory and hasattr(self.memory, "store_learning"):
                 self.memory.store_learning({
-                    "time": datetime.datetime.utcnow().isoformat(),
+                    "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "input": f"brain_trainer:cognitive:{domain}",
                     "value": entry,
                     "source": "brain_trainer:cognitive",
@@ -1392,7 +1392,7 @@ class NiblitBrain:
                                 # Handle mixed types (dict or string)
                                 if isinstance(res, dict):
                                     learning_entry = {
-                                        "time": datetime.datetime.utcnow().isoformat(),
+                                        "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                                         "input": res.get("text", ""),
                                         "source": res.get("source", ""),
                                         "url": res.get("url", "")
@@ -1400,7 +1400,7 @@ class NiblitBrain:
                                 else:
                                     # Fallback for string results
                                     learning_entry = {
-                                        "time": datetime.datetime.utcnow().isoformat(),
+                                        "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                                         "input": str(res),
                                         "source": "search"
                                     }
@@ -1423,7 +1423,7 @@ class NiblitBrain:
                 else:
                     # Regular string input
                     learning_entry = {
-                        "time": datetime.datetime.utcnow().isoformat(),
+                        "time": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                         "input": str(user_input) if not isinstance(user_input, str) else user_input
                     }
                     if hasattr(self, 'learning_batcher') and self.learning_batcher:
@@ -1446,7 +1446,7 @@ class NiblitBrain:
             if hasattr(self, 'event_store') and self.event_store and EventType and Event:
                 import uuid as _uuid
                 evt = Event(
-                    timestamp=datetime.datetime.utcnow().timestamp(),
+                    timestamp=datetime.datetime.now(datetime.timezone.utc).timestamp(),
                     event_type=EventType.LEARNING_TRIGGERED,
                     source="NiblitBrain.learn",
                     data={"input_type": type(user_input).__name__},

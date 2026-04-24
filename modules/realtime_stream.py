@@ -50,7 +50,7 @@ Dependencies
 import asyncio
 import logging
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Deque, Dict, List, Optional
 
 log = logging.getLogger("RealtimeStream")
@@ -164,7 +164,7 @@ class RealtimeStream:
         self._candle_buffer.append(candle)
         self._close_count += 1
         self._last_price = candle["close"]
-        self._last_ts = datetime.utcnow().isoformat()
+        self._last_ts = datetime.now(timezone.utc).isoformat()
 
         # Need at least a few candles to compute indicators
         if len(self._candle_buffer) < 5:

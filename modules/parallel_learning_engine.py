@@ -7,7 +7,7 @@ Improvement #1: Faster Learning
 
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -35,7 +35,7 @@ class ParallelLearningEngine:
             "topics_failed": 0,
             "average_time_per_topic": 0.0,
             "parallel_speedup": 1.0,
-            "start_time": datetime.utcnow().isoformat()
+            "start_time": datetime.now(timezone.utc).isoformat()
         }
         
         log.info("✅ ParallelLearningEngine initialized")
@@ -83,7 +83,7 @@ class ParallelLearningEngine:
                 self.running_tasks[topic]["result"] = result
                 self.completed_tasks.append({
                     "topic": topic,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "result": result
                 })
                 completed += 1
@@ -94,7 +94,7 @@ class ParallelLearningEngine:
                 self.running_tasks[topic]["error"] = str(e)
                 self.failed_tasks.append({
                     "topic": topic,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "error": str(e)
                 })
                 failed += 1

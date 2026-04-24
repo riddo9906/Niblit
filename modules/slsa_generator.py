@@ -31,7 +31,7 @@ import logging
 import re
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("Niblit.SLSAGenerator")
@@ -230,7 +230,7 @@ class SLSAGenerator:
             "evolution": None,
             "context": None,
             "research_snippets": [],
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # ── Extract semantic fields from Wikipedia text ──────────────────────
@@ -345,7 +345,7 @@ class SLSAGenerator:
                 try:
                     self.db.add_fact(
                         f"slsa:{topic}",
-                        {"concept": topic, "status": "pending", "timestamp": datetime.utcnow().isoformat()},
+                        {"concept": topic, "status": "pending", "timestamp": datetime.now(timezone.utc).isoformat()},
                         tags=["slsa", "pending"],
                     )
                 except Exception:

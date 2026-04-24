@@ -1,7 +1,7 @@
 # collector_full.py
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger("Collector")
 
@@ -25,7 +25,7 @@ class Collector:
     def capture(self, user_input, response, source="brain", meta=None):
 
         entry = {
-            "time": datetime.utcnow().isoformat(),
+            "time": datetime.now(timezone.utc).isoformat(),
             "input": user_input,
             "response": response,
             "source": source,

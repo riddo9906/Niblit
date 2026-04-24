@@ -4,7 +4,7 @@
 from typing import List
 from modules.self_researcher import SelfResearcher
 from modules.self_implementer import SelfImplementer  # ✅ import queue engine
-from datetime import datetime
+from datetime import datetime, timezone
 import threading
 import time
 import logging
@@ -162,7 +162,7 @@ class SelfIdeaImplementation:
         # -----------------------------
         plan_lines = [
             f"Implementation plan for '{idea_prompt}':",
-            f"Generated: {datetime.utcnow().isoformat()}",
+            f"Generated: {datetime.now(timezone.utc).isoformat()}",
             ""
         ]
 

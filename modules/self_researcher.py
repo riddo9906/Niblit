@@ -16,7 +16,7 @@ Auto-research can be paused/resumed via ``stop_auto_research()`` /
 CLI commands.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import math
 import html
@@ -508,7 +508,7 @@ class SelfResearcher:
 
     # ─────────────────────────────────────────────
     def _update_history(self, query, results):
-        timestamp = datetime.utcnow().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         embedding = self.llm.embed(query) if self.llm and hasattr(self.llm, "embed") else None
 
         entry = {

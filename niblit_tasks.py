@@ -2,7 +2,7 @@
 import threading
 import time
 import queue
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class NiblitTasks:
@@ -43,7 +43,7 @@ class NiblitTasks:
 
         if len(logs) % 5 == 0 and logs:
             thought = {
-                "time": datetime.utcnow().isoformat(),
+                "time": datetime.now(timezone.utc).isoformat(),
                 "thought": "Reflecting on recent interactions."
             }
             self.memory.log_event("Autonomous reflection triggered.")
@@ -56,7 +56,7 @@ class NiblitTasks:
         task = {
             "type": task_type,
             "payload": payload,
-            "created": datetime.utcnow().isoformat()
+            "created": datetime.now(timezone.utc).isoformat()
         }
         self.task_queue.put(task)
         self.memory.log_event(f"Task queued: {task_type}")

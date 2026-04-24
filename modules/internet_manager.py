@@ -79,13 +79,13 @@ try:
 except ImportError:
     GOOGLE_ENABLED = False
 
-# Optional: pip install ddgs  (formerly duckduckgo-search; package renamed)
+# Optional: pip install ddgs
 try:
-    from ddgs import DDGS  # new package name (ddgs)
+    from ddgs import DDGS
     DDGS_ENABLED = True
 except ImportError:
     try:
-        from duckduckgo_search import DDGS  # legacy fallback
+        from duckduckgo_search import DDGS  # legacy fallback (pre-rename)
         DDGS_ENABLED = True
     except ImportError:
         DDGS = None  # type: ignore[assignment,misc]

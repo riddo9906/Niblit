@@ -1,7 +1,7 @@
 # self_idea_generator.py
 
 import threading, time, logging, re
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger("SelfIdeaGenerator")
 
@@ -23,7 +23,7 @@ class SelfIdeaGenerator:
         if idea_text and re.search(r"No data found for\b", idea_text, re.IGNORECASE):
             log.debug("[Generator] Skipping 'No data found' placeholder idea")
             return None
-        plan = f"Implementation plan for '{idea_text}' - {datetime.utcnow().isoformat()}"
+        plan = f"Implementation plan for '{idea_text}' - {datetime.now(timezone.utc).isoformat()}"
         if self.db:
             try:
                 self.db.add_fact(f"impl:{idea_text}", plan, tags=['auto_generated'])

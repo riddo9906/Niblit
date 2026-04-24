@@ -21,7 +21,7 @@ import tempfile
 import time
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 
 # --- config ---
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -36,7 +36,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 def log(msg):
-    ts = datetime.utcnow().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
     with open(LOG_PATH, "a") as f:
         f.write(f"[{ts}] {msg}\n")
     print(msg)
@@ -62,7 +62,8 @@ def find_py_files(root):
 
 def file_has_main(path):
     try:
-        src = open(path, "r", encoding="utf-8").read()
+        with open(path, "r", encoding="utf-8") as _f:
+            src = _f.read()
         tree = ast.parse(src, filename=path)
     except Exception:
         return False
@@ -94,7 +95,8 @@ def add_main_block(path):
 
 def replace_in_file(path, old, new):
     try:
-        src = open(path, "r", encoding="utf-8").read()
+        with open(path, "r", encoding="utf-8") as _f:
+            src = _f.read()
     except Exception:
         return False
     if old not in src:
@@ -116,7 +118,8 @@ def smart_import_fix(path, repo_root):
     """
     changed = False
     try:
-        src = open(path, "r", encoding="utf-8").read()
+        with open(path, "r", encoding="utf-8") as _f:
+            src = _f.read()
     except Exception:
         return False
     new_src = src
@@ -205,7 +208,8 @@ def ensure_import_in_core(repo_root):
     core = os.path.join(repo_root, "niblit_core.py")
     marker = "import modules.orphan_imports"
     try:
-        src = open(core, "r", encoding="utf-8").read()
+        with open(core, "r", encoding="utf-8") as _f:
+            src = _f.read()
     except Exception:
         log("niblit_core.py not found or unreadable")
         return False
