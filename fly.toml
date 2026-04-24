@@ -69,5 +69,5 @@ swap_size_mb = 512
     protocol = 'http'
 
 [[vm]]
-  size = 'shared-cpu-1x'
-  memory = '512mb'
+  size = 'shared-cpu-2x'
+  memory = '2048mb'
