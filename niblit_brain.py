@@ -301,9 +301,9 @@ class NiblitCloudBrain:
 
     Environment variables
     ---------------------
-    NIBLIT_LLAMA_SERVER_URL
+    NIBLIT_CLOUD_SERVER_URL
         Base URL of the cloud server.
-        Default: ``http://127.0.0.1:8000``
+        Default: ``https://niblit-cloud-server.fly.dev``
     NIBLIT_LLAMA_SERVER_TIMEOUT
         Per-request HTTP timeout in seconds.
         Default: ``300``
@@ -321,7 +321,10 @@ class NiblitCloudBrain:
 
         self.base_url = (
             base_url
-            or os.environ.get("NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8000")
+            or os.environ.get(
+                "NIBLIT_CLOUD_SERVER_URL",
+                os.environ.get("NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8000"),
+            )
         ).rstrip("/")
         self.timeout = int(
             timeout
@@ -463,7 +466,7 @@ def get_niblit_cloud_brain() -> NiblitCloudBrain:
 def set_cloud_brain_url(url: str) -> NiblitCloudBrain:
     """Switch the cloud-brain server URL at runtime.
 
-    Updates ``NIBLIT_LLAMA_SERVER_URL`` in the environment and re-points
+    Updates ``NIBLIT_CLOUD_SERVER_URL`` in the environment and re-points
     (or recreates) the :class:`NiblitCloudBrain` singleton to *url*.
     The new URL is also written to the environment so that any child
     processes inherit it.
@@ -471,7 +474,7 @@ def set_cloud_brain_url(url: str) -> NiblitCloudBrain:
     Parameters
     ----------
     url:
-        Base URL of the target server (e.g. ``"http://127.0.0.1:8080"``).
+        Base URL of the target server (e.g. ``"https://niblit-cloud-server.fly.dev"``).
 
     Returns
     -------
@@ -481,7 +484,7 @@ def set_cloud_brain_url(url: str) -> NiblitCloudBrain:
     global _cloud_brain_instance
 
     url = url.strip().rstrip("/")
-    _os.environ["NIBLIT_LLAMA_SERVER_URL"] = url
+    _os.environ["NIBLIT_CLOUD_SERVER_URL"] = url
 
     with _cloud_brain_lock:
         if _cloud_brain_instance is None:
@@ -1161,6 +1164,15 @@ class NiblitBrain:
                         return _hfb.ask_single(p) or ""
                     except Exception:
                         pass
+                # NiblitCloudBrain: forward to niblit-cloud-server if configured.
+                try:
+                    _ncb = get_niblit_cloud_brain()
+                    if _ncb.is_available():
+                        result = _ncb.chat(p)
+                        if result and not result.startswith("[NiblitCloudBrain"):
+                            return result
+                except Exception:
+                    pass
                 return ""
 
             def _memory_fn(q: str) -> str:

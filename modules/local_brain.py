@@ -1670,7 +1670,7 @@ class QwenLocalBrain:
         max_new_tokens: int,
         system_prompt: Optional[str],
     ) -> str:
-        """Generate via the niblit-cloud-server ``POST /chat`` endpoint.
+        """Generate via the niblit-cloud-server inference endpoints.
 
         Called as a final fallback when all standard llama-server endpoints
         (``/v1/chat/completions``, ``/chat/completions``, ``/completion``,
@@ -1679,10 +1679,8 @@ class QwenLocalBrain:
         (``POST /chat`` with ``{"text": "..."}``) instead of the llama-server
         OpenAI-compatible API.
 
-        Tries ``POST /v1/chat/completions`` first (in case the remote server
-        does expose an OpenAI-compatible endpoint at that exact path but with
-        a slightly different base URL handling), then falls back to
-        ``POST /chat`` (Niblit native format).
+        Tries ``POST /v1/chat/completions`` (OpenAI-compatible format) first,
+        then falls back to ``POST /chat`` (Niblit native format).
 
         Environment variables used
         --------------------------
@@ -1698,12 +1696,46 @@ class QwenLocalBrain:
         if api_key:
             headers["X-API-Key"] = api_key
 
-        # 1. Try Niblit /chat endpoint (primary for niblit-cloud-server)
+        base = url.rstrip("/")
+
+        # 1. Try POST /v1/chat/completions (OpenAI-compatible format).
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        openai_payload = json.dumps(
+            {"model": "niblit", "messages": messages, "max_tokens": max_new_tokens}
+        ).encode("utf-8")
+        for oai_path in ("/v1/chat/completions", "/chat/completions"):
+            req = urllib.request.Request(
+                base + oai_path,
+                data=openai_payload,
+                method="POST",
+                headers=headers,
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                content = data["choices"][0]["message"]["content"]
+                if content and not content.startswith("[LocalBrain"):
+                    log.debug(
+                        "[LocalBrain] niblit-cloud %s generated response for prompt[:60]=%r",
+                        oai_path, prompt[:60],
+                    )
+                    return content.strip() or "[LocalBrain niblit-cloud: empty response]"
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    continue
+                log.debug("[LocalBrain] niblit-cloud %s error: %s", oai_path, exc)
+                return f"[LocalBrain niblit-cloud error: HTTP {exc.code} on {oai_path}]"
+            except Exception:
+                pass
+
+        # 2. Try Niblit native POST /chat endpoint.
         text_input = (system_prompt + "\n\n" + prompt) if system_prompt else prompt
         niblit_payload = json.dumps({"text": text_input}).encode("utf-8")
-        chat_url = url.rstrip("/") + "/chat"
         req = urllib.request.Request(
-            chat_url,
+            base + "/chat",
             data=niblit_payload,
             method="POST",
             headers=headers,
@@ -1720,7 +1752,7 @@ class QwenLocalBrain:
             )
             if reply:
                 log.debug(
-                    "[LocalBrain] niblit-cloud generated response for prompt[:60]=%r",
+                    "[LocalBrain] niblit-cloud /chat generated response for prompt[:60]=%r",
                     prompt[:60],
                 )
                 return reply.strip()
@@ -1733,11 +1765,10 @@ class QwenLocalBrain:
             log.debug("[LocalBrain] niblit-cloud /chat error: %s", exc)
             return "[LocalBrain niblit-cloud error: unexpected error calling /chat]"
 
-        # 2. /chat returned 404 — server is not a Niblit instance either
         return (
-            "[LocalBrain niblit-cloud: server reachable but /chat endpoint "
-            "returned 404. Ensure the remote server exposes POST /chat "
-            "(Niblit API) or POST /v1/chat/completions (OpenAI API).]"
+            "[LocalBrain niblit-cloud: server reachable but no supported endpoint "
+            "responded. Ensure the remote server exposes POST /v1/chat/completions "
+            "(OpenAI API) or POST /chat (Niblit API).]"
         )
 
     def _load_python_backend(self) -> bool:
