@@ -18,7 +18,7 @@ import logging
 from typing import Dict, Any, List
 from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger("Observability")
 
@@ -72,6 +72,10 @@ class TelemetryCollector:
         if name not in self.histograms:
             self.histograms[name] = []
         self.histograms[name].append(value)
+
+    def record_timing(self, name: str, value: float):
+        """Record a timing value (alias for record_histogram)."""
+        self.record_histogram(name, value)
     
     @asynccontextmanager
     async def observe(self, operation: str, **labels):
@@ -159,7 +163,7 @@ class TelemetryCollector:
                 for name in self.histograms
             },
             "traces": len(self.traces),
-            "snapshot_at": datetime.utcnow().isoformat() + "Z",
+            "snapshot_at": datetime.now(timezone.utc).isoformat() + "Z",
         }
 
 # Example usage

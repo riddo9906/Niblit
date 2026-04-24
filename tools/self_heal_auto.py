@@ -62,7 +62,8 @@ def find_py_files(root):
 
 def file_has_main(path):
     try:
-        src = open(path, "r", encoding="utf-8").read()
+        with open(path, "r", encoding="utf-8") as _f:
+            src = _f.read()
         tree = ast.parse(src, filename=path)
     except Exception:
         return False
@@ -94,7 +95,8 @@ def add_main_block(path):
 
 def replace_in_file(path, old, new):
     try:
-        src = open(path, "r", encoding="utf-8").read()
+        with open(path, "r", encoding="utf-8") as _f:
+            src = _f.read()
     except Exception:
         return False
     if old not in src:
@@ -116,7 +118,8 @@ def smart_import_fix(path, repo_root):
     """
     changed = False
     try:
-        src = open(path, "r", encoding="utf-8").read()
+        with open(path, "r", encoding="utf-8") as _f:
+            src = _f.read()
     except Exception:
         return False
     new_src = src

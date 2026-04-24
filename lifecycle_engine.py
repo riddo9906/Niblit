@@ -28,7 +28,7 @@ import threading
 import time
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
 log = logging.getLogger("LifecycleEngine")
@@ -314,7 +314,7 @@ class LifecycleEngine:
             if self.event_store:
                 try:
                     self.event_store.append_event({
-                        "timestamp": datetime.utcnow().timestamp(),
+                        "timestamp": datetime.now(timezone.utc).timestamp(),
                         "event_type": "phase_advance",
                         "phase": self.phase,
                     })
@@ -380,7 +380,7 @@ class LifecycleEngine:
                 log.info("[LIFECYCLE] OPTIMIZE: Optimizing preferences...")
                 prefs = self.memory.get_preferences()
                 prefs["tone"] = "adaptive"
-                prefs["optimization_timestamp"] = datetime.utcnow().isoformat()
+                prefs["optimization_timestamp"] = datetime.now(timezone.utc).isoformat()
                 self.memory.store_preferences(prefs)
                 self.memory.log_event("[Lifecycle] Preferences optimized.")
 
@@ -419,7 +419,7 @@ class LifecycleEngine:
         """Main heartbeat loop."""
         while self.running:
             try:
-                log.debug(f"[Heartbeat] Current Phase: {self.phase} | Time: {datetime.utcnow().isoformat()}")
+                log.debug(f"[Heartbeat] Current Phase: {self.phase} | Time: {datetime.now(timezone.utc).isoformat()}")
                 
                 # Execute current phase
                 self._execute_phase(self.phase)
