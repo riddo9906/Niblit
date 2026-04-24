@@ -1677,6 +1677,30 @@ class OpenAIChatRequest(BaseModel):
     max_tokens: int = 200
     temperature: float = 0.7
     stream: bool = False
+    stop: Optional[List[str]] = None
+
+
+# ── OpenAI-compatible models list ───────────────────────────────────────
+@app.get("/v1/models")
+def v1_models():
+    """OpenAI-compatible model list endpoint.
+
+    Enables this Niblit deployment to act as a drop-in inference backend
+    for other Niblit instances.  ``QwenLocalBrain._check_server_url()``
+    probes ``GET /v1/models`` to confirm server availability, so exposing
+    this endpoint prevents spurious 404 failures during health checks.
+    """
+    return JSONResponse({
+        "object": "list",
+        "data": [
+            {
+                "id": "niblit",
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "niblit",
+            }
+        ],
+    })
 
 
 # ── Liveness probe ──────────────────────────────────────
@@ -1778,7 +1802,8 @@ def dashboard(request: Request):
     return render_response(request, {"service": "niblit", "status": "ok",
                             "endpoints": ["/api/boot", "/api/commands", "/api/search",
                                           "/api/status", "/api/suggest", "/api/threads",
-                                          "/ping", "/chat", "/memory"]})
+                                          "/ping", "/chat", "/memory",
+                                          "/v1/models", "/v1/chat/completions", "/health"]})
 
 
 # ── Ping / personality ──────────────────────────────────

@@ -1595,7 +1595,10 @@ class QwenLocalBrain:
                 return text.strip() or "[LocalBrain: empty response]"
             except urllib.error.HTTPError as exc:
                 # Keep trying URL variants on 404; endpoint shape differs by server.
-                if exc.code == 404:
+                # Also continue on 400/405: the format was rejected (not the endpoint
+                # absent) — fall through to _generate_http_legacy() which tries the
+                # older /completion format that some servers prefer.
+                if exc.code in {400, 404, 405}:
                     continue
                 log.debug("[LocalBrain] http generate HTTPError: %s", exc)
                 return f"[LocalBrain http error: {exc}]"

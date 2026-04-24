@@ -59,15 +59,68 @@ TUNNEL_TOOL="${NIBLIT_TUNNEL_TOOL:-}"
 FLY_APP="${FLY_APP_NAME:-niblit}"
 
 # ── Locate llama-server binary ────────────────────────────────────────────────
+# Helper: return true if a binary looks like the HTTP server (not llama-cli).
+# llama-server supports --host; llama-cli does not.
+_is_server_binary() {
+    local bin="$1"
+    local name
+    name=$(basename "$bin")
+    # Accept binaries whose filename contains "server" …
+    if echo "$name" | grep -qi "server"; then
+        return 0
+    fi
+    # … or that advertise --host in their help output.
+    if "$bin" --help 2>&1 | grep -q -- "--host"; then
+        return 0
+    fi
+    return 1
+}
+
+# Helper: given the directory of any found llama binary, return the path of
+# llama-server in that same directory (if it exists and is executable).
+_find_server_in_dir() {
+    local dir="$1"
+    if [ -x "$dir/llama-server" ]; then
+        echo "$dir/llama-server"
+    fi
+}
+
+LLAMA_BIN=""
 if [ -n "${NIBLIT_LLAMA_BINARY:-}" ] && [ -x "$NIBLIT_LLAMA_BINARY" ]; then
     LLAMA_BIN="$NIBLIT_LLAMA_BINARY"
-elif command -v llama-server &>/dev/null; then
-    LLAMA_BIN=$(command -v llama-server)
+    # If the explicitly set binary is llama-cli (wrong), look for llama-server beside it.
+    if ! _is_server_binary "$LLAMA_BIN"; then
+        _nearby=$(_find_server_in_dir "$(dirname "$LLAMA_BIN")")
+        if [ -n "$_nearby" ]; then
+            echo "⚠️  NIBLIT_LLAMA_BINARY='$(basename "$NIBLIT_LLAMA_BINARY")' is not the HTTP server binary."
+            echo "   Auto-correcting to: $_nearby"
+            LLAMA_BIN="$_nearby"
+        else
+            echo "❌ NIBLIT_LLAMA_BINARY='$NIBLIT_LLAMA_BINARY' is llama-cli, not llama-server."
+            echo "   llama-server (the HTTP inference server) is required."
+            echo "   Set NIBLIT_LLAMA_BINARY to the llama-server binary, or unset it to auto-detect."
+            exit 1
+        fi
+    fi
 elif [ -x "$HOME/llama.cpp/build/bin/llama-server" ]; then
     LLAMA_BIN="$HOME/llama.cpp/build/bin/llama-server"
 elif [ -x "/data/data/com.termux/files/home/llama.cpp/build/bin/llama-server" ]; then
     LLAMA_BIN="/data/data/com.termux/files/home/llama.cpp/build/bin/llama-server"
-else
+elif command -v llama-server &>/dev/null; then
+    _candidate=$(command -v llama-server)
+    if _is_server_binary "$_candidate"; then
+        LLAMA_BIN="$_candidate"
+    else
+        # PATH has a 'llama-server' that is actually llama-cli; try sibling binary.
+        _nearby=$(_find_server_in_dir "$(dirname "$_candidate")")
+        if [ -n "$_nearby" ]; then
+            echo "⚠️  PATH llama-server is not the HTTP server binary; using: $_nearby"
+            LLAMA_BIN="$_nearby"
+        fi
+    fi
+fi
+
+if [ -z "$LLAMA_BIN" ]; then
     echo "❌ llama-server binary not found."
     echo ""
     echo "   Build it from source in Termux:"
