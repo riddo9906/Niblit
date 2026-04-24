@@ -92,7 +92,7 @@ if [ -n "${NIBLIT_LLAMA_BINARY:-}" ] && [ -x "$NIBLIT_LLAMA_BINARY" ]; then
     if ! _is_server_binary "$LLAMA_BIN"; then
         _nearby=$(_find_server_in_dir "$(dirname "$LLAMA_BIN")")
         if [ -n "$_nearby" ]; then
-            echo "⚠️  NIBLIT_LLAMA_BINARY='$(basename "$LLAMA_BIN")' is not the HTTP server binary."
+            echo "⚠️  NIBLIT_LLAMA_BINARY='$(basename "$NIBLIT_LLAMA_BINARY")' is not the HTTP server binary."
             echo "   Auto-correcting to: $_nearby"
             LLAMA_BIN="$_nearby"
         else

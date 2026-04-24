@@ -1682,7 +1682,7 @@ class OpenAIChatRequest(BaseModel):
 
 # ── OpenAI-compatible models list ───────────────────────────────────────
 @app.get("/v1/models")
-def v1_models(request: Request):
+def v1_models():
     """OpenAI-compatible model list endpoint.
 
     Enables this Niblit deployment to act as a drop-in inference backend
