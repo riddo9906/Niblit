@@ -3957,6 +3957,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         """Show evolution status."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
+        self.evolve_engine.refresh_from_core()
         status = self.evolve_engine.get_status()
         lines = [
             "🧬 **EvolveEngine Status:**",
@@ -7234,6 +7235,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         slsa=getattr(self, "slsa_engine", None),
                         autonomous_engine=getattr(self, "autonomous_engine", None),
                         semantic_agent=getattr(self, "semantic_agent", None),
+                        live_updater=getattr(self, "live_updater", None),
+                        file_manager=getattr(self, "file_manager", None),
                         sub_step_timeout=300,  # increased from 30 s — avoids premature skips
                     )
                     # Back-wire autonomous_engine → evolve_engine once both are available
