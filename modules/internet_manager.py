@@ -91,6 +91,13 @@ except ImportError:
         DDGS = None  # type: ignore[assignment,misc]
         DDGS_ENABLED = False
 
+if DDGS_ENABLED:
+    # Suppress expected INFO-level "Error in engine duckduckgo: TimeoutException" messages
+    # that the ddgs library emits when cloud IPs are blocked by DuckDuckGo's HTML endpoint.
+    # These timeouts are handled gracefully by the caller; the log noise is not useful.
+    import logging as _logging
+    _logging.getLogger("ddgs").setLevel(_logging.WARNING)
+
 # Optional: pip install google-search-results
 try:
     from serpapi import GoogleSearch as SerpApiGoogleSearch
@@ -313,7 +320,7 @@ class InternetManager:
             # Prefer duckduckgo-search package (returns real multi-result search)
             if DDGS_ENABLED:
                 try:
-                    with DDGS() as ddgs:
+                    with DDGS(timeout=10) as ddgs:
                         ddg_hits = ddgs.text(query, max_results=max_results)
                     for hit in (ddg_hits or []):
                         # duckduckgo-search ≥6 returns 'body'; older versions
