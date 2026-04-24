@@ -1628,7 +1628,7 @@ class QwenLocalBrain:
             "stop": list(_GGUF_TEMPLATES.get(self.gguf_chat_template, {}).get("stop", [])),
         }
         body = json.dumps(payload).encode("utf-8")
-        last_404_error: Optional[Exception] = None
+        last_soft_error: Optional[Exception] = None
         for completion_url in self._completion_urls(url):
             req = urllib.request.Request(
                 completion_url,
@@ -1642,20 +1642,24 @@ class QwenLocalBrain:
                 text = data.get("content", "")
                 return text.strip() or "[LocalBrain: empty response]"
             except urllib.error.HTTPError as exc:
-                if exc.code == 404:
-                    last_404_error = exc
+                # 404: endpoint absent; 400/405: payload format rejected by this
+                # endpoint — both mean we should try the next URL variant rather
+                # than giving up immediately.
+                if exc.code in {400, 404, 405}:
+                    last_soft_error = exc
                     continue
                 log.debug("[LocalBrain] http legacy generate error: %s", exc)
                 return f"[LocalBrain http legacy error: {exc}]"
             except Exception as exc:
                 log.debug("[LocalBrain] http legacy generate error: %s", exc)
                 return f"[LocalBrain http legacy error: {exc}]"
-        if last_404_error is not None:
-            # All standard llama-server completion endpoints returned 404.
+        if last_soft_error is not None:
+            # All standard llama-server completion endpoints returned 400/404/405.
             # Fall back to niblit-cloud-server /chat endpoint (Niblit API format).
             log.debug(
-                "[LocalBrain] All completion endpoints returned 404; "
-                "trying niblit-cloud /chat fallback"
+                "[LocalBrain] All completion endpoints returned %s; "
+                "trying niblit-cloud /chat fallback",
+                getattr(last_soft_error, "code", "error"),
             )
             return self._generate_niblit_cloud(prompt, max_new_tokens, system_prompt)
         return "[LocalBrain http legacy error: no completion endpoint available]"
