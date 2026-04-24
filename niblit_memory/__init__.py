@@ -2139,6 +2139,7 @@ class NiblitMemory:
                 self.state.setdefault("events", [])
                 self.state["events"].append({
                     "time": datetime.now(timezone.utc).isoformat(),
+                    "event": text,
                 })
             log.info(f"[Event] {text}")
             self.save()
@@ -2147,6 +2148,7 @@ class NiblitMemory:
                 try:
                     self.event_store.append_event({
                         "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "event_type": "memory_event",
                         "text": text,
                     })
                 except Exception as e:
