@@ -1747,7 +1747,7 @@ def openai_chat_completions(request: Request, body: OpenAIChatRequest):
     # Prefer the local brain's raw generation (bypasses the command router so
     # raw LLM prompts are not misinterpreted as Niblit commands).
     local_brain = getattr(core, "local_brain", None) if core else None
-    if local_brain is not None:
+    if local_brain is not None and local_brain.is_available():
         try:
             if system_prompt:
                 reply = local_brain.ask(user_message, system_prompt=system_prompt)
@@ -1755,6 +1755,9 @@ def openai_chat_completions(request: Request, body: OpenAIChatRequest):
                 reply = local_brain.chat(user_message)
         except Exception as exc:
             log.warning("openai_chat_completions local_brain error: %s", exc)
+            reply = ""
+        # Treat LocalBrain error strings as empty so fallbacks can handle them.
+        if isinstance(reply, str) and reply.startswith("[LocalBrain"):
             reply = ""
 
     # Fall back to brain_router (cloud / HF) if local brain is unavailable.

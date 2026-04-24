@@ -5901,6 +5901,32 @@ Ask me about:
             if self.core and hasattr(self.core, "handle"):
                 response = safe_call(self.core.handle, cleaned)
 
+        # When the brain/LLM returned an error string (all inference backends
+        # unavailable), degrade gracefully to static chat responses so that
+        # simple greetings like "hi" never show raw error text to the user.
+        _llm_error_prefixes = (
+            "[HFBrain offline", "[LocalBrain", "[BrainRouter",
+            "[NiblitCloud", "[ChatCompletion",
+        )
+        if isinstance(response, str) and any(response.startswith(p) for p in _llm_error_prefixes):
+            _fb_type, _ = self.chat_detector.classify(cleaned)
+            if _fb_type == 'chat':
+                lower_text = cleaned.lower().strip()
+                if any(p in lower_text for p in ['hi', 'hello', 'hey', 'howdy', 'greetings']):
+                    response = self._get_chat_response('greeting')
+                elif 'how are you' in lower_text or "how's it" in lower_text or "what's up" in lower_text:
+                    response = self._get_chat_response('how_are_you')
+                elif 'thank' in lower_text or 'appreciate' in lower_text:
+                    response = self._get_chat_response('thanks')
+                elif any(p in lower_text for p in ['bye', 'goodbye', 'see you']):
+                    response = self._get_chat_response('goodbye')
+                elif re.search(r'\b(lol|lmao|haha|hehe|😂|😄)\b', lower_text):
+                    response = self._get_chat_response('laughter')
+                elif re.search(r'\b(sorry|my bad|oops|apologis|apologiz)\b', lower_text):
+                    response = self._get_chat_response('apology')
+                else:
+                    response = self._get_chat_response('conversation')
+
         log.debug(f"[ROUTER RESPONSE] {str(response)[:100]}")
         self._collect(cleaned, response, "brain")
         return response
