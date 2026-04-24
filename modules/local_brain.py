@@ -1716,7 +1716,12 @@ class QwenLocalBrain:
             try:
                 with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
-                content = data["choices"][0]["message"]["content"]
+                choices = data.get("choices") or []
+                content = (
+                    choices[0].get("message", {}).get("content", "")
+                    if choices
+                    else ""
+                )
                 if content and not content.startswith("[LocalBrain"):
                     log.debug(
                         "[LocalBrain] niblit-cloud %s generated response for prompt[:60]=%r",
