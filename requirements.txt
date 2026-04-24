@@ -48,7 +48,7 @@ scrapy>=2.11.0
 beautifulsoup4>=4.12.0
 # DuckDuckGo search — free, no API key, rate-limit-tolerant. Used by
 # InternetManager when no paid API key (SerpEx / SerpAPI) is available.
-duckduckgo-search>=6.1.0
+ddgs>=6.1.0
 # Google search via public web — optional, may rate-limit on heavy use.
 googlesearch-python>=1.2.3
 # SerpAPI — production-grade Google/Bing/Yahoo results. Requires SERPAPI_API_KEY.
