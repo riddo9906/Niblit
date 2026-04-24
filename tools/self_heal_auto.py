@@ -21,7 +21,7 @@ import tempfile
 import time
 import shutil
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 
 # --- config ---
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -36,7 +36,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 def log(msg):
-    ts = datetime.utcnow().isoformat()
+    ts = datetime.now(timezone.utc).isoformat()
     with open(LOG_PATH, "a") as f:
         f.write(f"[{ts}] {msg}\n")
     print(msg)
@@ -208,7 +208,8 @@ def ensure_import_in_core(repo_root):
     core = os.path.join(repo_root, "niblit_core.py")
     marker = "import modules.orphan_imports"
     try:
-        src = open(core, "r", encoding="utf-8").read()
+        with open(core, "r", encoding="utf-8") as _f:
+            src = _f.read()
     except Exception:
         log("niblit_core.py not found or unreadable")
         return False

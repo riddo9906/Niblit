@@ -1049,7 +1049,7 @@ class KnowledgeDB:
         with self.lock:
             self.data.setdefault("events", [])
             self.data["events"].append({
-                "time": datetime.utcnow().isoformat(),
+                "time": datetime.now(timezone.utc).isoformat(),
                 "event": text,
             })
         _kdb_log.info("[Event] %s", text)
@@ -1254,7 +1254,7 @@ class KnowledgeDB:
         source: str = "unknown",
         data: Any = None,
     ) -> Dict[str, Any]:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         record: Dict[str, Any] = {
             "time": now, "speaker": "unknown",
             "input": None, "response": response,
@@ -1557,7 +1557,7 @@ class KnowledgeDB:
             records[record_id] = {
                 "data": data,
                 "vector": vector,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
             }
         _kdb_log.debug("[KnowledgeDB] save_record %s", record_id)
         self._save(blocking=False)
@@ -1844,7 +1844,7 @@ class NiblitMemory:
             "facts": [],
             "interactions": [],
             "meta": {
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "version": "1.0.0",
             }
         }
@@ -1959,7 +1959,7 @@ class NiblitMemory:
 
     def _canonicalize(self, raw_input=None, response=None, source="unknown", data=None):
         """Convert various input formats into canonical memory record format."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         record = {
             "time": now,
             "speaker": "unknown",

@@ -64,7 +64,7 @@ import time
 import logging
 import random
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 
@@ -349,7 +349,7 @@ class AutonomousLearningEngine:
         self.poll_interval = poll_interval
 
         self.running = False
-        self.last_user_interaction = datetime.utcnow()
+        self.last_user_interaction = datetime.now(timezone.utc)
         self.learning_thread = None
         # Event used to wake up the inter-cycle sleep early (e.g. on stop())
         self._stop_event = threading.Event()
@@ -448,7 +448,7 @@ class AutonomousLearningEngine:
             "last_reasoning_inferences": 0,
             "last_metacognition_confidence": None,
             "learning_rate": 0.0,
-            "start_time": datetime.utcnow().isoformat()
+            "start_time": datetime.now(timezone.utc).isoformat()
         }
 
         # Internal cycle counter used for step throttling (e.g. ImprovementCycle).
@@ -658,7 +658,7 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
     def is_idle(self) -> bool:
         """Check if system is idle (no recent user interaction)"""
-        time_since_interaction = (datetime.utcnow() - self.last_user_interaction).total_seconds()
+        time_since_interaction = (datetime.now(timezone.utc) - self.last_user_interaction).total_seconds()
         is_idle = time_since_interaction > self.idle_threshold
         if is_idle:
             log.debug(f"[IDLE] System idle for {time_since_interaction:.0f}s (threshold: {self.idle_threshold}s)")
@@ -667,7 +667,7 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
     def update_last_interaction(self):
         """Called when user interacts with system"""
-        self.last_user_interaction = datetime.utcnow()
+        self.last_user_interaction = datetime.now(timezone.utc)
         if self.running:
             log.debug("[INTERACTION] User activity detected - resetting idle timer")
 
@@ -5861,7 +5861,10 @@ class AutonomousLearningEngine:
         log.info("=" * 70)
 
         # Update learning rate — count every discrete learning action
-        elapsed = (datetime.utcnow() - datetime.fromisoformat(self.learning_history["start_time"])).total_seconds()
+        _start = datetime.fromisoformat(self.learning_history["start_time"])
+        if _start.tzinfo is None:
+            _start = _start.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - _start).total_seconds()
         total_actions = sum(self.learning_history.get(k, 0) for k in (
             "research_completed", "ideas_generated", "ideas_implemented",
             "reflections_conducted", "slsa_runs", "evolve_steps",
@@ -6014,7 +6017,9 @@ class AutonomousLearningEngine:
         if start_time_str:
             try:
                 start_dt = datetime.fromisoformat(start_time_str)
-                uptime = int((datetime.utcnow() - start_dt).total_seconds())
+                if start_dt.tzinfo is None:
+                    start_dt = start_dt.replace(tzinfo=timezone.utc)
+                uptime = int((datetime.now(timezone.utc) - start_dt).total_seconds())
             except Exception:
                 uptime = 0
         return {
