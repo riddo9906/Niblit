@@ -2326,7 +2326,7 @@ def trade_signal(request: Request, body: TradeSignalRequest):
             "profile": profile,
             "reason": str(result.get("reason", "")),
             "win_rate": result.get("win_rate"),
-            "sample_size": int(result.get("sample_size", 0)),
+            "sample_size": int(result.get("sample_size") or 0),
         },
     })
 
@@ -2456,7 +2456,7 @@ def kb_think(request: Request, topic: str = ""):
         return JSONResponse(content={"topic": topic, "synthesis": answer})
     except Exception as exc:
         logging.getLogger("NiblitApp").error("kb_think error: %s", exc)
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return JSONResponse(content={"error": "synthesis failed — see server logs"}, status_code=500)
 
 
 @app.get("/kb/health")
@@ -2477,7 +2477,7 @@ def kb_health(request: Request, topic: str = ""):
         return JSONResponse(content={"topic": topic or "all", **health})
     except Exception as exc:
         logging.getLogger("NiblitApp").error("kb_health error: %s", exc)
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return JSONResponse(content={"error": "health check failed — see server logs"}, status_code=500)
 
 
 @app.post("/kb/consolidate")
@@ -2494,7 +2494,7 @@ def kb_consolidate(request: Request, dry_run: bool = False):
         return JSONResponse(content=report)
     except Exception as exc:
         logging.getLogger("NiblitApp").error("kb_consolidate error: %s", exc)
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return JSONResponse(content={"error": "consolidation failed — see server logs"}, status_code=500)
 
 
 # Register /mcp (JSON-RPC POST) and /mcp/sse (SSE notifications).

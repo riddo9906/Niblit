@@ -1239,6 +1239,8 @@ class KnowledgeDB:
                 age_days = (now - last_touched) / 86400.0
                 if age_days < 1.0:
                     continue
+                # Exponential decay: conf *= exp(-ln(2) * age / half_life)
+                # Results in a 50% confidence reduction every half_life_days.
                 decay = math.exp(-math.log(2) * age_days / half_life_days)
                 new_conf = max(min_confidence, conf * decay)
                 if new_conf < conf - 0.001:

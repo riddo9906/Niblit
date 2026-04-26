@@ -4185,7 +4185,8 @@ Ask me about:
 
         # kb contradictions [topic]
         if lower_sub.startswith("kb contradict"):
-            topic = sub.split(None, 2)[-1].strip() if len(sub.split()) > 2 else ""
+            _sub_parts = sub.split(None, 2)
+            topic = _sub_parts[-1].strip() if len(_sub_parts) > 2 else ""
             if not db:
                 return "[KB] Core DB not available"
             try:

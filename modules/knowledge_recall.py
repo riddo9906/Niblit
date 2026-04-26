@@ -479,8 +479,11 @@ class SmartRecall:
                     if f is not best:
                         try:
                             self._db.delete_fact(key)
-                        except Exception:
-                            pass
+                        except Exception as _del_exc:
+                            log.debug(
+                                "[SmartRecall.consolidate] delete_fact(%r) failed: %s",
+                                key, _del_exc,
+                            )
                         merged += 1
 
             return {
