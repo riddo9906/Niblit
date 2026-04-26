@@ -1,8 +1,9 @@
 """
 algorithms/21_niblit_freqtrade/NiblitSignalStrategy.py
 ——————————————————————————————————————————————————————
-A minimal Freqtrade strategy that delegates entry/exit decisions to Niblit's
-HTTP signal API (POST /trade/signal).
+A Freqtrade strategy that delegates entry/exit decisions to Niblit's
+HTTP signal API (POST /trade/signal) and feeds outcomes back so Niblit
+can learn from each closed trade (POST /trade/feedback).
 
 Setup
 -----
@@ -54,6 +55,15 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+# Indicator columns forwarded to Niblit — richer set improves KB learning.
+_INDICATOR_COLS = (
+    "open", "high", "low", "close", "volume",
+    "rsi", "macd", "macdsignal", "macdhist",
+    "ema_fast", "ema_slow", "ema_200",
+    "atr", "bb_upper", "bb_lower", "bb_mid",
+    "adx", "cci", "stoch_k", "stoch_d",
+)
+
 
 class NiblitSignalStrategy(IStrategy):
     """Freqtrade strategy that uses Niblit's /trade/signal endpoint.
@@ -64,10 +74,19 @@ class NiblitSignalStrategy(IStrategy):
         NIBLIT_SIGNAL_TIMEOUT   — HTTP timeout in seconds (default: 5)
         NIBLIT_SIGNAL_RETRIES   — retry count on failure (default: 2)
         NIBLIT_MIN_CONFIDENCE   — minimum confidence to act on (default: 0.55)
+        NIBLIT_FEEDBACK_ON_EXIT — send feedback with indicators on exit (default: 1)
 
     Fallback behaviour:
         When Niblit is unreachable ALL signals default to "hold" so no trades
         are entered or exited.  A warning is logged on each failure.
+
+    Learning loop:
+        After every confirmed trade exit, the strategy sends:
+          POST /trade/feedback  { pair, action, outcome, pnl_pct, timeframe, features }
+        Niblit stores the indicator pattern + outcome in the KB so the next
+        /trade/signal for the same conditions returns a KB-enriched confidence.
+        Over time, Niblit learns which indicator combinations lead to profitable
+        trades and adjusts its recommendations accordingly.
     """
 
     # ── Freqtrade required settings ───────────────────────────────────────────
@@ -79,6 +98,7 @@ class NiblitSignalStrategy(IStrategy):
     trailing_stop = False
 
     _min_confidence: float = float(os.environ.get("NIBLIT_MIN_CONFIDENCE", "0.55"))
+    _feedback_on_exit: bool = os.environ.get("NIBLIT_FEEDBACK_ON_EXIT", "1") != "0"
 
     def __init__(self, config: Dict) -> None:
         super().__init__(config)
@@ -98,17 +118,34 @@ class NiblitSignalStrategy(IStrategy):
     # ── Indicators ────────────────────────────────────────────────────────────
 
     def populate_indicators(self, dataframe: DataFrame, metadata: Dict) -> DataFrame:
-        """Add basic indicators so Niblit gets richer market context."""
+        """Add technical indicators so Niblit gets richer market context."""
         try:
             import pandas_ta as ta  # type: ignore[import]
             dataframe["rsi"] = ta.rsi(dataframe["close"], length=14)
             macd = ta.macd(dataframe["close"])
             if macd is not None:
-                dataframe["macd"] = macd["MACD_12_26_9"]
-                dataframe["macdsignal"] = macd["MACDs_12_26_9"]
+                dataframe["macd"] = macd.get("MACD_12_26_9", 0.0)
+                dataframe["macdsignal"] = macd.get("MACDs_12_26_9", 0.0)
+                dataframe["macdhist"] = macd.get("MACDh_12_26_9", 0.0)
             dataframe["ema_fast"] = ta.ema(dataframe["close"], length=9)
             dataframe["ema_slow"] = ta.ema(dataframe["close"], length=21)
+            dataframe["ema_200"] = ta.ema(dataframe["close"], length=200)
             dataframe["atr"] = ta.atr(dataframe["high"], dataframe["low"], dataframe["close"])
+            bb = ta.bbands(dataframe["close"])
+            if bb is not None:
+                dataframe["bb_upper"] = bb.get("BBU_5_2.0", None)
+                dataframe["bb_lower"] = bb.get("BBL_5_2.0", None)
+                dataframe["bb_mid"]   = bb.get("BBM_5_2.0", None)
+            adx_df = ta.adx(dataframe["high"], dataframe["low"], dataframe["close"])
+            if adx_df is not None:
+                dataframe["adx"] = adx_df.get("ADX_14", None)
+            stoch = ta.stoch(dataframe["high"], dataframe["low"], dataframe["close"])
+            if stoch is not None:
+                dataframe["stoch_k"] = stoch.get("STOCHk_14_3_3", None)
+                dataframe["stoch_d"] = stoch.get("STOCHd_14_3_3", None)
+            cci_s = ta.cci(dataframe["high"], dataframe["low"], dataframe["close"])
+            if cci_s is not None:
+                dataframe["cci"] = cci_s
         except ImportError:
             # pandas_ta not installed — Niblit will receive raw OHLCV only
             pass
@@ -154,7 +191,7 @@ class NiblitSignalStrategy(IStrategy):
             )
         return dataframe
 
-    # ── Feedback hook (optional — call after trade close) ─────────────────────
+    # ── Feedback hook (sends outcome + indicator snapshot so Niblit can learn) ──
 
     def confirm_trade_exit(
         self,
@@ -168,19 +205,42 @@ class NiblitSignalStrategy(IStrategy):
         current_time: object,
         **kwargs,
     ) -> bool:
-        """Send trade outcome feedback to Niblit after a trade closes."""
-        if self._niblit is not None:
+        """Send trade outcome + indicator snapshot to Niblit after a trade closes.
+
+        Niblit stores the pattern in the KB so future signals for the same
+        indicator conditions have KB-informed confidence.
+        """
+        if self._niblit is not None and self._feedback_on_exit:
             pnl_pct: Optional[float] = None
             try:
                 pnl_pct = float(getattr(trade, "profit_ratio", 0.0)) * 100
             except Exception:
                 pass
             outcome = "profit" if (pnl_pct or 0) >= 0 else "loss"
+
+            # Gather the most recent indicator snapshot from the live dataframe
+            # if it is available in the trade object (Freqtrade >= 2023.7).
+            features: Dict[str, float] = {}
+            try:
+                df = getattr(trade, "dataframe", None) or getattr(trade, "_candle_cache", None)
+                if df is not None and hasattr(df, "iloc") and len(df) > 0:
+                    last = df.iloc[-1]
+                    for col in _INDICATOR_COLS:
+                        if col in last.index:
+                            try:
+                                features[col] = float(last[col])
+                            except (TypeError, ValueError):
+                                pass
+            except Exception:
+                pass
+
             self._niblit.send_feedback(
                 pair=pair,
                 action="sell",
                 outcome=outcome,
                 pnl_pct=pnl_pct,
+                features=features or None,
+                timeframe=self.timeframe,
             )
         return True  # allow the exit
 
@@ -191,40 +251,19 @@ class NiblitSignalStrategy(IStrategy):
         if self._niblit is None:
             return "hold", 0.5
         try:
-            # NiblitHTTPAdapter.get_signal returns just the action string.
-            # We call the lower-level _call_signal to also get confidence.
-            payload = {
-                "pair": pair,
-                "timeframe": self.timeframe,
-            }
-            try:
-                last = dataframe.iloc[-1]
-                candle = {}
-                for col in ("open", "high", "low", "close", "volume",
-                            "rsi", "macd", "macdsignal", "ema_fast", "ema_slow", "atr"):
-                    if col in last.index:
-                        try:
-                            candle[col] = float(last[col])
-                        except (TypeError, ValueError):
-                            pass
-                if candle:
-                    payload["last_candle"] = candle
-            except Exception:
-                pass
-
-            import json
-            import urllib.request
-            body = json.dumps(payload).encode("utf-8")
-            headers = {"Content-Type": "application/json"}
-            if self._niblit.api_key:
-                headers["X-API-Key"] = self._niblit.api_key
-            req = urllib.request.Request(
-                self._niblit._signal_url, data=body, headers=headers, method="POST"
+            result = self._niblit.get_signal_with_meta(
+                pair=pair,
+                dataframe=dataframe,
+                timeframe=self.timeframe,
             )
-            with urllib.request.urlopen(req, timeout=self._niblit.timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            action = data.get("action", "hold")
-            confidence = float(data.get("confidence", 0.5))
+            action = result.get("action", "hold")
+            confidence = float(result.get("confidence", 0.5))
+            meta = result.get("metadata", {})
+            if meta.get("reason"):
+                log.debug(
+                    "[NiblitSignalStrategy] %s reason: %s",
+                    pair, meta["reason"],
+                )
             return action, confidence
         except Exception as exc:
             log.warning("[NiblitSignalStrategy] signal request failed: %s", exc)

@@ -26,16 +26,19 @@ _GAP_FACT_MAX_LEN = 500
 _ISO_TIMESTAMP_RE = re.compile(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}')
 
 # ─────────────────────────────────
-def timestamp():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+try:
+    from modules.utils import timestamp, safe_call
+except Exception:
+    def timestamp():
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def safe_call(fn, *a, **kw):
-    try:
-        return fn(*a, **kw)
-    except Exception:
-        name = getattr(fn, "__name__", repr(fn))
-        log.debug("safe_call suppressed exception for %s", name, exc_info=True)
-        return f"[ERROR::{name}]"
+    def safe_call(fn, *a, **kw):
+        try:
+            return fn(*a, **kw)
+        except Exception:
+            name = getattr(fn, "__name__", repr(fn))
+            log.debug("safe_call suppressed exception for %s", name, exc_info=True)
+            return f"[ERROR::{name}]"
 
 # ─────────────────────────────────
 class ChatDetector:
@@ -185,6 +188,16 @@ class ChatDetector:
         r'^uptime\s*\??$',
     ]
 
+    # ── Pre-compiled versions for fast classify() ────────────────────────────
+    # These are compiled once at class definition time so re.search() does not
+    # re-compile the pattern string on every message.
+    _COMPILED_SELF_INTROSPECTION = [re.compile(p) for p in SELF_INTROSPECTION_PATTERNS]
+    _COMPILED_SELF_REFERENTIAL   = [re.compile(p) for p in SELF_REFERENTIAL_PATTERNS]
+    _COMPILED_KNOWLEDGE_SHARE    = [re.compile(p) for p in KNOWLEDGE_SHARE_PATTERNS]
+    _COMPILED_SYSTEM_QUERY       = [re.compile(p) for p in SYSTEM_QUERY_PATTERNS]
+    _COMPILED_CHAT               = [re.compile(p) for p in CHAT_PATTERNS]
+    _COMPILED_INFO_QUERY         = [re.compile(p) for p in INFO_QUERY_PATTERNS]
+
     @staticmethod
     def classify(text):
         """
@@ -199,34 +212,34 @@ class ChatDetector:
         lower = text.lower().strip()
 
         # Check self-introspection patterns FIRST (highest priority for reflection)
-        for pattern in ChatDetector.SELF_INTROSPECTION_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_SELF_INTROSPECTION:
+            if r.search(lower):
                 return 'self_introspection', None
 
         # Check self-referential patterns
-        for pattern in ChatDetector.SELF_REFERENTIAL_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_SELF_REFERENTIAL:
+            if r.search(lower):
                 return 'self_referential', None
 
         # Check knowledge-share patterns (user wants Niblit to share what it learned)
         # Priority: above system + chat, below self_referential (which is more specific).
-        for pattern in ChatDetector.KNOWLEDGE_SHARE_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_KNOWLEDGE_SHARE:
+            if r.search(lower):
                 return 'knowledge_share', None
 
         # Check system queries
-        for pattern in ChatDetector.SYSTEM_QUERY_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_SYSTEM_QUERY:
+            if r.search(lower):
                 return 'system', None
 
         # Check chat patterns
-        for pattern in ChatDetector.CHAT_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_CHAT:
+            if r.search(lower):
                 return 'chat', None
 
         # Check info query patterns
-        for pattern in ChatDetector.INFO_QUERY_PATTERNS:
-            match = re.search(pattern, lower)
+        for r in ChatDetector._COMPILED_INFO_QUERY:
+            match = r.search(lower)
             if match:
                 subject = lower[match.end():].strip().rstrip('?').strip()
                 # Strip leading articles so the subject is a clean noun phrase
@@ -401,6 +414,13 @@ class NiblitRouter:
         "tools",
         # Backend server toggle — switch between cloud and local llama-server
         "backend",
+    )
+
+    # frozenset of first-word tokens from COMMAND_PREFIXES for O(1) dispatch.
+    # Multi-word prefixes (e.g. "lean deploy") also contribute their first word
+    # so that "cmd_word in _COMMAND_PREFIX_WORDS" is a safe pre-filter.
+    _COMMAND_PREFIX_WORDS: frozenset = frozenset(
+        p.split()[0] for p in COMMAND_PREFIXES if p.split()
     )
 
     CHAT_RESPONSES = {
@@ -1506,6 +1526,19 @@ Ask me about:
                 msg += f"\n  {restart_note}"
             return msg
 
+        if action.startswith("learn") or action.startswith("patterns") or action.startswith("analyze"):
+            pair_filter = ""
+            parts = action.split(None, 1)
+            if len(parts) > 1:
+                pair_filter = parts[1].strip().upper()
+            try:
+                from modules.trade_kb_learner import TradeKBLearner
+                kb = getattr(self.core, "db", None)
+                learner = TradeKBLearner(knowledge_db=kb)
+                return learner.summarize(pair=pair_filter or None)
+            except Exception as exc:
+                return f"[Trading patterns] error: {exc}"
+
         return (
             "Usage:\n"
             "  trading start              — Start autonomous trading cycle\n"
@@ -1513,7 +1546,9 @@ Ask me about:
             "  trading status             — Show trading brain state\n"
             "  trading cycle              — Run a single cycle now (manual trigger)\n"
             "  trading pair <SYMBOL>      — Switch to a different trading pair (e.g. ETHUSDT)\n"
-            "  trading pair <SYMBOL> <IV> — Switch pair and interval  (e.g. SOLUSDT 5m)"
+            "  trading pair <SYMBOL> <IV> — Switch pair and interval  (e.g. SOLUSDT 5m)\n"
+            "  trading patterns [PAIR]    — Show learned trading patterns from KB history\n"
+            "  trading learn              — Alias for 'trading patterns'"
         )
 
     # ─────────────────────────────────
@@ -5724,7 +5759,7 @@ Ask me about:
         if lower == "version":
             return "Niblit v1.0.0 — autonomous AI system"
 
-        if cmd_word in self.COMMAND_PREFIXES or any(lower.startswith(prefix) for prefix in ["show improvements", "run improvement", "improvement-status"]):
+        if cmd_word in self._COMMAND_PREFIX_WORDS or any(lower.startswith(prefix) for prefix in ["show improvements", "run improvement", "improvement-status"]):
             resp = self.handle_command(cleaned)
             self._collect(cleaned, resp, "command")
             return resp

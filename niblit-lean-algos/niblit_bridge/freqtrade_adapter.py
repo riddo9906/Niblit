@@ -137,6 +137,25 @@ class NiblitHTTPAdapter:
             ``"buy"``, ``"sell"``, or ``"hold"``.  Always returns ``"hold"``
             on any error so the calling strategy can proceed safely.
         """
+        result = self.get_signal_with_meta(pair, dataframe, timeframe, features)
+        return result.get("action", "hold")
+
+    def get_signal_with_meta(
+        self,
+        pair: str,
+        dataframe: Any = None,
+        timeframe: str = "1h",
+        features: Optional[Dict[str, float]] = None,
+    ) -> Dict[str, Any]:
+        """Return Niblit's full signal response including confidence and reasoning.
+
+        This is the richer version of :meth:`get_signal` that exposes the full
+        JSON response from ``POST /trade/signal``, including ``confidence``,
+        ``metadata.reason``, ``metadata.win_rate``, and ``metadata.sample_size``.
+
+        Returns a dict with at least ``action`` (``"buy"``/``"sell"``/``"hold"``)
+        and ``confidence`` (float 0–1).  Returns a safe fallback dict on any error.
+        """
         payload: Dict[str, Any] = {
             "pair": pair,
             "timeframe": timeframe,
@@ -165,7 +184,31 @@ class NiblitHTTPAdapter:
         if features:
             payload["features"] = features
 
-        return self._call_signal(payload)
+        for attempt in range(max(1, self.retries)):
+            try:
+                resp = self._post(self._signal_url, payload)
+                action = resp.get("action", "hold")
+                if action not in ("buy", "sell", "hold"):
+                    action = "hold"
+                confidence = float(resp.get("confidence", 0.5))
+                log.info(
+                    "[NiblitHTTPAdapter] signal for %s: %s (confidence=%.2f, n=%d)",
+                    pair, action, confidence,
+                    resp.get("metadata", {}).get("sample_size", 0) if isinstance(resp.get("metadata"), dict) else 0,
+                )
+                return {"action": action, "confidence": confidence, "metadata": resp.get("metadata", {})}
+            except Exception as exc:
+                log.warning(
+                    "[NiblitHTTPAdapter] /trade/signal attempt %d/%d failed: %s",
+                    attempt + 1, self.retries, exc,
+                )
+                if attempt < self.retries - 1:
+                    time.sleep(0.5)
+
+        log.warning(
+            "[NiblitHTTPAdapter] All retries exhausted for %s — falling back to 'hold'", pair
+        )
+        return {"action": "hold", "confidence": 0.5, "metadata": {}}
 
     def send_feedback(
         self,
@@ -174,6 +217,7 @@ class NiblitHTTPAdapter:
         outcome: str,
         pnl_pct: Optional[float] = None,
         features: Optional[Dict[str, float]] = None,
+        timeframe: str = "1h",
     ) -> bool:
         """Send trade outcome feedback to Niblit's /trade/feedback endpoint.
 
@@ -188,7 +232,10 @@ class NiblitHTTPAdapter:
         pnl_pct:
             Optional percentage P&L (e.g. ``2.5`` for +2.5%).
         features:
-            Optional snapshot of indicator values at trade time.
+            Optional snapshot of indicator values at trade time.  When provided,
+            these are stored in the KB so Niblit can learn from the pattern.
+        timeframe:
+            Candle timeframe for KB pattern bucketing.
 
         Returns
         -------
@@ -199,6 +246,7 @@ class NiblitHTTPAdapter:
             "pair": pair,
             "action": action,
             "outcome": outcome,
+            "timeframe": timeframe,
         }
         if pnl_pct is not None:
             payload["pnl_pct"] = pnl_pct
@@ -221,33 +269,6 @@ class NiblitHTTPAdapter:
             return False
 
     # ── internal helpers ──────────────────────────────────────────────────────
-
-    def _call_signal(self, payload: Dict[str, Any]) -> str:
-        """POST to /trade/signal with retries; return action string."""
-        for attempt in range(max(1, self.retries)):
-            try:
-                resp = self._post(self._signal_url, payload)
-                action = resp.get("action", "hold")
-                if action not in ("buy", "sell", "hold"):
-                    action = "hold"
-                confidence = float(resp.get("confidence", 0.5))
-                log.info(
-                    "[NiblitHTTPAdapter] signal for %s: %s (confidence=%.2f)",
-                    payload.get("pair"), action, confidence,
-                )
-                return action
-            except Exception as exc:
-                log.warning(
-                    "[NiblitHTTPAdapter] /trade/signal attempt %d/%d failed: %s",
-                    attempt + 1, self.retries, exc,
-                )
-                if attempt < self.retries - 1:
-                    time.sleep(0.5)
-        log.warning(
-            "[NiblitHTTPAdapter] All retries exhausted for %s — falling back to 'hold'",
-            payload.get("pair"),
-        )
-        return "hold"
 
     def _call_feedback(self, payload: Dict[str, Any]) -> bool:
         """POST to /trade/feedback; return True on success."""

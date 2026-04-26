@@ -1,4 +1,3 @@
-import modules.orphan_imports  # auto-added by self_heal_auto
 #!/usr/bin/env python3
 """
 niblit_core.py — NiblitCore: Production-Grade Autonomous AI Runtime with Full Self-Improvement
@@ -40,6 +39,7 @@ Compatible with main.py, server.py, and app.py.
 # ============================================================
 import os
 import sys
+import re
 import tempfile
 import time
 import asyncio
@@ -71,6 +71,13 @@ try:
 except ImportError:
     pass  # python-dotenv not installed — rely on os.environ
 
+# Side-effect import kept at module level so orphan symbol stubs are available
+# (moved here from line 1 so it runs after stdlib/dotenv setup).
+try:
+    import modules.orphan_imports  # auto-added by self_heal_auto
+except Exception:
+    pass
+
 # ============================================================
 # PATH SETUP
 # ============================================================
@@ -90,6 +97,33 @@ chat_log = logging.getLogger("NiblitChat")
 
 # Context variable for correlation ID
 correlation_id_var = contextvars.ContextVar('correlation_id', default=None)
+
+# ============================================================
+# _try_import HELPER
+# Centralises the repeated try/except import pattern used throughout this
+# module.  Returns (object_or_None, available_bool).
+# Usage:
+#   MyClass, _MY_AVAILABLE = _try_import("modules.my_module", "MyClass")
+# ============================================================
+import traceback as _traceback  # imported here for use in LoopTracer.record
+
+def _try_import(dotted_path: str, attr: Optional[str] = None):
+    """Attempt to import *attr* from *dotted_path*.
+
+    Returns ``(value, True)`` on success and ``(None, False)`` on any error,
+    logging the failure at DEBUG level.  This replaces the repetitive
+    try/except import blocks that appear throughout niblit_core.py.
+    """
+    try:
+        mod = importlib.util.find_spec(dotted_path)  # avoid AttributeError on None
+        import importlib as _il
+        m = _il.import_module(dotted_path)
+        result = getattr(m, attr) if attr else m
+        return result, True
+    except Exception as _e:
+        log.debug("Optional import %s%s failed: %s", dotted_path,
+                  f".{attr}" if attr else "", _e)
+        return None, False
 
 # ============================================================
 # IMPROVEMENT IMPORTS (from modules/)
@@ -405,7 +439,8 @@ except Exception as _e:
 # ============================================================
 # GLOBAL FLAGS & COMMAND LIST
 # ============================================================
-DEBUG_MODE = True
+# Derive from environment so NIBLIT_DEBUG=false works at runtime.
+DEBUG_MODE = os.getenv("NIBLIT_DEBUG", "true").lower() in ("true", "1")
 COMMANDS = [
     "help", "status", "memory", "search", "summary",
     "learn about", "self-heal", "self-teach", "self-research",
@@ -451,8 +486,9 @@ class NiblitConfig:
     @classmethod
     def from_env(cls) -> "NiblitConfig":
         """Load configuration from environment variables."""
+        _mp = os.getenv("NIBLIT_MEMORY_PATH", "").strip()
         return cls(
-            memory_path=Path(_mp) if (_mp := os.getenv("NIBLIT_MEMORY_PATH", "").strip()) else None,
+            memory_path=Path(_mp) if _mp else None,
             debug_mode=os.getenv("NIBLIT_DEBUG", "true").lower() in ("true", "1"),
             log_level=os.getenv("NIBLIT_LOG_LEVEL", "INFO"),
             enable_orchestrator=os.getenv("NIBLIT_ORCHESTRATOR", "true").lower() in ("true", "1"),
@@ -502,7 +538,7 @@ class HealthCheckResult:
 @dataclass
 class PerformanceMetrics:
     """Track performance metrics for all operations."""
-    operation_times: Dict[str, List[float]] = field(default_factory=lambda: defaultdict(list))
+    operation_times: Dict[str, Any] = field(default_factory=lambda: defaultdict(lambda: collections.deque(maxlen=1000)))
     operation_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
     error_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
@@ -515,7 +551,7 @@ class PerformanceMetrics:
 
     def get_stats(self, name: str) -> Dict[str, float]:
         """Get statistics for an operation."""
-        times = self.operation_times.get(name, [])
+        times = list(self.operation_times.get(name, []))
         if not times:
             return {}
         return {
@@ -561,21 +597,24 @@ class CachedOperation:
         self.cache: Dict[str, Any] = {}
         self.ttl = ttl_seconds
         self.timestamps: Dict[str, float] = {}
+        self._lock = threading.Lock()
 
     def get(self, key: str) -> Optional[Any]:
         """Get cached value if not expired."""
-        if key not in self.cache:
-            return None
-        if time.time() - self.timestamps[key] > self.ttl:
-            del self.cache[key]
-            del self.timestamps[key]
-            return None
-        return self.cache[key]
+        with self._lock:
+            if key not in self.cache:
+                return None
+            if time.time() - self.timestamps[key] > self.ttl:
+                del self.cache[key]
+                del self.timestamps[key]
+                return None
+            return self.cache[key]
 
     def set(self, key: str, value: Any):
         """Set cached value with timestamp."""
-        self.cache[key] = value
-        self.timestamps[key] = time.time()
+        with self._lock:
+            self.cache[key] = value
+            self.timestamps[key] = time.time()
 
     @staticmethod
     def cache_key(*args, **kwargs) -> str:
@@ -586,13 +625,14 @@ class CachedOperation:
     def clear_expired(self):
         """Remove all expired entries."""
         current_time = time.time()
-        expired_keys = [
-            k for k, ts in self.timestamps.items()
-            if current_time - ts > self.ttl
-        ]
-        for k in expired_keys:
-            del self.cache[k]
-            del self.timestamps[k]
+        with self._lock:
+            expired_keys = [
+                k for k, ts in self.timestamps.items()
+                if current_time - ts > self.ttl
+            ]
+            for k in expired_keys:
+                del self.cache[k]
+                del self.timestamps[k]
 
 
 class ModuleRegistry:
@@ -644,13 +684,16 @@ class ModuleRegistry:
 # UTILITY FUNCTIONS
 # ============================================================
 
-def safe_call(fn: Callable, *a, **kw) -> Optional[Any]:
-    """Call fn(*a, **kw) safely, logging and returning None on failure."""
-    try:
-        return fn(*a, **kw)
-    except Exception as e:
-        log.debug(f"safe_call failed for {fn}: {e}")
-        return None
+try:
+    from modules.utils import safe_call as safe_call  # noqa: F401
+except Exception:
+    def safe_call(fn: Callable, *a, **kw) -> Optional[Any]:  # type: ignore[misc]
+        """Call fn(*a, **kw) safely, logging and returning None on failure."""
+        try:
+            return fn(*a, **kw)
+        except Exception as e:
+            log.debug(f"safe_call failed for {fn}: {e}")
+            return None
 
 
 class _noop_lock:
@@ -713,12 +756,26 @@ class _FallbackDB:
         return lambda *a, **kw: None
 
 
-def safe_import(name: str, default=None):
-    """Import a class from the modules/ package, returning default on failure."""
+def safe_import(name: str, default=None, attr: Optional[str] = None):
+    """Import a class from the modules/ package, returning default on failure.
+
+    Parameters
+    ----------
+    name:
+        Module sub-name within ``modules/`` (e.g. ``"self_researcher"``).
+    default:
+        Value returned when the import fails (defaults to :class:`Stub`).
+    attr:
+        Explicit attribute name to retrieve from the module.  When omitted
+        the class name is guessed by title-casing each word in *name*
+        (e.g. ``"self_researcher"`` → ``"SelfResearcher"``).  Provide
+        *attr* explicitly for names where the guess would be wrong, such as
+        ``"llm_adapter"`` → ``attr="LLMAdapter"``.
+    """
     try:
         mod = __import__(f"modules.{name}", fromlist=[name])
-        cls = "".join(x.capitalize() for x in name.split("_"))
-        return getattr(mod, cls, default)
+        cls_name = attr if attr else "".join(x.capitalize() for x in name.split("_"))
+        return getattr(mod, cls_name, default)
     except Exception as e:
         log.debug(f"Module {name} not available: {e}")
         return default or Stub
@@ -1510,17 +1567,19 @@ class LoopTracer:
 
     def __init__(self):
         self._lock = threading.Lock()
-        self._errors: List[Dict] = []
+        self._errors: collections.deque = collections.deque(maxlen=500)
 
     # ----------------------------------------------------------
+    # Pre-compiled pattern used in _parse_frames — avoids re-importing
+    # `re` and re-compiling the pattern on every call.
+    _FRAME_RE = re.compile(r'File "([^"]+)",\s+line\s+(\d+),\s+in\s+(\S+)')
+
     @staticmethod
     def _parse_frames(tb_str: str) -> List[Dict]:
-        import re
         frames = []
-        pattern = re.compile(r'File "([^"]+)",\s+line\s+(\d+),\s+in\s+(\S+)')
         lines = tb_str.splitlines()
         for i, line in enumerate(lines):
-            m = pattern.search(line)
+            m = LoopTracer._FRAME_RE.search(line)
             if m:
                 code = lines[i + 1].strip() if i + 1 < len(lines) else ""
                 frames.append({
@@ -1534,8 +1593,7 @@ class LoopTracer:
     # ----------------------------------------------------------
     def record(self, loop_name: str, exc: Exception) -> None:
         """Record a loop error.  Safe to call from any thread."""
-        import traceback as _tb
-        tb_str = _tb.format_exc()
+        tb_str = _traceback.format_exc()
         frames = self._parse_frames(tb_str)
         # Use the first (outermost) frame — that is the loop-owner file,
         # e.g. niblit_core.py, niblit_memory.py, lifecycle_engine.py.
@@ -8379,6 +8437,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
     def _start_background_loop(self, target: Callable, name: str):
         """Start a background thread and track it."""
         try:
+            # Prune finished threads before adding a new one so the list
+            # does not grow without bound over the process lifetime.
+            self._background_threads = [t for t in self._background_threads if t.is_alive()]
             thread = threading.Thread(target=target, name=name, daemon=True)
             self._background_threads.append(thread)
             thread.start()

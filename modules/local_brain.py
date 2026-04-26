@@ -91,40 +91,67 @@ from typing import Any, Dict, Optional
 log = logging.getLogger("Niblit.LocalBrain")
 
 # ── Configuration ─────────────────────────────────────────────────────────────
+# These variables are read at import time from environment variables.
+# Use ``set_backend_url()`` (or ``_local_brain_cfg``) to patch them at runtime
+# *after* import, e.g. from tests or fly.toml secrets loaded late.
 _MODEL_NAME      = os.environ.get("NIBLIT_LOCAL_MODEL", "~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf")
 _GGUF_MODEL_PATH = os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
-_MAX_NEW_TOKENS  = int(os.environ.get("NIBLIT_LOCAL_MAX_NEW", "200"))
-_GGUF_N_CTX      = int(os.environ.get("NIBLIT_GGUF_N_CTX", "2048"))
 _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
 
-# Backend selector: 'auto' | 'http' | 'subprocess' | 'python'
-# Default is 'http': llama-server loads the model once and keeps it in RAM;
-# each Niblit call is a lightweight HTTP request.  The subprocess backend
-# reloads the model from disk on every call (CPU/RAM heavy) and should only
-# be used when llama-server is not running.
-_GGUF_BACKEND = os.environ.get("NIBLIT_GGUF_BACKEND", "http").strip().lower()
 
-# Path to the llama.cpp CLI binary (llama-cli / main).
-# When empty, common locations are searched automatically.
-_LLAMA_BINARY = os.environ.get("NIBLIT_LLAMA_BINARY", "").strip()
+class _LocalBrainConfig:
+    """Mutable configuration holder for local-brain settings.
 
-# llama-server HTTP bridge configuration.
-# NIBLIT_LLAMA_SERVER_URL — base URL of a running llama-server instance.
-# NIBLIT_LLAMA_SERVER_TIMEOUT — per-request timeout in seconds.
-_LLAMA_SERVER_URL = os.environ.get("NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8080").rstrip("/")
-_LLAMA_SERVER_TIMEOUT = int(os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "600"))
+    Centralises the values that were previously only module-level constants.
+    Code that needs a config value should call ``_local_brain_cfg.<name>``
+    (or the ``_cfg()`` helper) rather than reading the module-level constant
+    directly, so that changes made after import (e.g. fly.toml secrets, tests,
+    ``set_backend_url()``) are always picked up.
+    """
 
-# GGUF chat template style.  Supported values:
-#   qwen   — Qwen2.5 / ChatML style (default; also used for generic ChatML models)
-#   llama2 — Llama-2 [INST] format
-#   alpaca — Alpaca instruction format
-#   raw    — No template; prompt is sent as-is
-_GGUF_CHAT_TEMPLATE = os.environ.get("NIBLIT_GGUF_CHAT_TEMPLATE", "qwen").strip().lower()
+    def __init__(self) -> None:
+        self.max_new_tokens: int = int(os.environ.get("NIBLIT_LOCAL_MAX_NEW", "200"))
+        self.gguf_n_ctx: int = int(os.environ.get("NIBLIT_GGUF_N_CTX", "2048"))
+        # Backend selector: 'auto' | 'http' | 'subprocess' | 'python'
+        self.gguf_backend: str = os.environ.get("NIBLIT_GGUF_BACKEND", "http").strip().lower()
+        # Path to the llama.cpp CLI binary (llama-cli / main).
+        self.llama_binary: str = os.environ.get("NIBLIT_LLAMA_BINARY", "").strip()
+        # llama-server HTTP bridge configuration.
+        self.llama_server_url: str = os.environ.get(
+            "NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8080"
+        ).rstrip("/")
+        self.llama_server_timeout: int = int(os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "600"))
+        # GGUF chat template style.
+        self.gguf_chat_template: str = os.environ.get(
+            "NIBLIT_GGUF_CHAT_TEMPLATE", "qwen"
+        ).strip().lower()
+        # Comma-separated stop tokens.
+        self.gguf_stop_tokens_str: str = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
 
-# Comma-separated stop tokens for the GGUF backend.
-# When empty, sensible defaults are applied based on the chat template.
-_GGUF_STOP_TOKENS_STR = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
+
+#: Singleton mutable config object.  Mutate this (or call ``set_backend_url()``)
+#: to change settings at runtime.  Module-level aliases below are kept for
+#: backwards compatibility but delegate to this object.
+_local_brain_cfg = _LocalBrainConfig()
+
+
+def _cfg() -> _LocalBrainConfig:
+    """Return the singleton :class:`_LocalBrainConfig` instance."""
+    return _local_brain_cfg
+
+
+# Backwards-compatible module-level aliases (read-only shims that are kept for
+# existing callers that do ``from modules.local_brain import _LLAMA_SERVER_URL``).
+# Prefer going through ``_cfg()`` for new code.
+_MAX_NEW_TOKENS: int = _local_brain_cfg.max_new_tokens
+_GGUF_N_CTX: int = _local_brain_cfg.gguf_n_ctx
+_GGUF_BACKEND: str = _local_brain_cfg.gguf_backend
+_LLAMA_BINARY: str = _local_brain_cfg.llama_binary
+_LLAMA_SERVER_URL: str = _local_brain_cfg.llama_server_url
+_LLAMA_SERVER_TIMEOUT: int = _local_brain_cfg.llama_server_timeout
+_GGUF_CHAT_TEMPLATE: str = _local_brain_cfg.gguf_chat_template
+_GGUF_STOP_TOKENS_STR: str = _local_brain_cfg.gguf_stop_tokens_str
 
 # Compact inline reference of Niblit's architecture injected into every ask().
 # Kept deliberately terse so it fits within a 0.5B model's context window.
@@ -2322,6 +2349,9 @@ def set_backend_url(url: str, backend: str = "http") -> QwenLocalBrain:
 
     _LLAMA_SERVER_URL = url
     _GGUF_BACKEND = backend
+    # Also update the mutable config object so runtime code using _cfg() sees the change.
+    _local_brain_cfg.llama_server_url = url
+    _local_brain_cfg.gguf_backend = backend
     # Also propagate to env so sub-processes pick up the new value.
     os.environ["NIBLIT_LLAMA_SERVER_URL"] = url
     os.environ["NIBLIT_GGUF_BACKEND"] = backend
