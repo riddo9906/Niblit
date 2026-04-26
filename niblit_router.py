@@ -400,6 +400,9 @@ class NiblitRouter:
         "civilization", "civ",
         # Tiered knowledge recall — structured KB lookup by topic (additive)
         "knowledge",
+        # Smart KB sub-commands: think, health, contradictions, prune, consolidate
+        "kb think", "kb health", "kb contradict", "kb prune", "kb consolidate",
+        "think about",
         # 3-Tiered deterministic Graph-RAG (additive)
         "graph-rag", "graph_rag",
         # Conversational chat completions (Graph-RAG + LLMChatMemory + LLM)
@@ -4133,8 +4136,110 @@ Ask me about:
             knowledge transformers          # recall stored facts for a topic
             knowledge status                # show current tier and confidence
             knowledge report                # full tier-by-tier report
+
+            kb think <topic>                # synthesise what Niblit knows
+            kb health [topic]               # knowledge health & coverage
+            kb contradictions [topic]       # surface conflicting facts
+            kb prune                        # decay stale-confidence facts
+            kb consolidate                  # deduplicate same-key facts
+            kb consolidate dry              # preview deduplication only
         """
-        sub = cmd[len("knowledge"):].strip()
+        sub = cmd.strip()
+        lower_sub = sub.lower()
+
+        # ── NEW: KB smart-recall sub-commands ─────────────────────────────────
+        db = getattr(self.core, "db", None)
+
+        # kb think <topic>
+        if lower_sub.startswith("kb think ") or lower_sub.startswith("think about "):
+            topic = sub.split(None, 2)[-1].strip()
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                return db.think_about(topic)
+            except Exception as exc:
+                return f"[KB think error: {exc}]"
+
+        # kb health [topic]
+        if lower_sub.startswith("kb health"):
+            topic = sub[len("kb health"):].strip()
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                h = db.knowledge_health(topic)
+                verdict = h.get("verdict", "unknown")
+                icon = {"strong": "✅", "moderate": "🟡", "sparse": "🔶", "unknown": "❓"}.get(verdict, "ℹ️")
+                lines = [
+                    f"{icon} Knowledge health{f' for «{topic}»' if topic else ''}:",
+                    f"  Facts found      : {h.get('fact_count', 0)}",
+                    f"  Avg confidence   : {h.get('avg_confidence', 0):.0%}",
+                    f"  Freshness        : {h.get('freshness', 0):.0%}",
+                    f"  Coverage score   : {h.get('coverage_score', 0):.0%}",
+                    f"  Verdict          : {verdict.upper()}",
+                ]
+                if verdict in ("sparse", "unknown"):
+                    lines.append(f"  Tip: run 'self-teach {topic or 'topic'}' to learn more.")
+                return "\n".join(lines)
+            except Exception as exc:
+                return f"[KB health error: {exc}]"
+
+        # kb contradictions [topic]
+        if lower_sub.startswith("kb contradict"):
+            topic = sub.split(None, 2)[-1].strip() if len(sub.split()) > 2 else ""
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                from modules.knowledge_recall import SmartRecall
+                conflicts = SmartRecall(db).find_contradictions(topic, max_pairs=5)
+                if not conflicts:
+                    return (
+                        f"✅ No contradictions found"
+                        + (f" for «{topic}»" if topic else "")
+                        + "."
+                    )
+                lines = [
+                    f"⚠️  {len(conflicts)} potential contradiction(s)"
+                    + (f" for «{topic}»" if topic else "") + ":"
+                ]
+                for fa, fb, score in conflicts:
+                    lines.append(
+                        f"  • [{fa.get('key','?')[:50]}]"
+                        f" ↔ [{fb.get('key','?')[:50]}]"
+                        f"  conflict={score:.2f}"
+                    )
+                return "\n".join(lines)
+            except Exception as exc:
+                return f"[KB contradictions error: {exc}]"
+
+        # kb prune  — decay stale confidence
+        if lower_sub.strip() in ("kb prune",):
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                n = db.decay_stale_confidence()
+                return f"✅ Confidence decay applied to {n} stale fact(s)."
+            except Exception as exc:
+                return f"[KB prune error: {exc}]"
+
+        # kb consolidate [dry]
+        if lower_sub.startswith("kb consolidate"):
+            dry = "dry" in lower_sub
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                report = db.consolidate_facts(dry_run=dry)
+                mode = "DRY RUN" if dry else "applied"
+                return (
+                    f"{'🔍' if dry else '✅'} KB consolidate ({mode}):\n"
+                    f"  Duplicate groups  : {report.get('duplicate_groups', 0)}\n"
+                    f"  Facts merged      : {report.get('facts_merged', 0)}\n"
+                    f"  Facts pruned      : {report.get('facts_pruned', 0)}"
+                )
+            except Exception as exc:
+                return f"[KB consolidate error: {exc}]"
+
+        # ── Original TKS routing ───────────────────────────────────────────────
+        sub = cmd[len("knowledge"):].strip() if lower_sub.startswith("knowledge") else sub
 
         ale = getattr(self.core, "autonomous_engine", None)
         tks = getattr(ale, "tiered_knowledge", None) if ale else None
@@ -4180,6 +4285,7 @@ Ask me about:
             f"Run 'self-teach {sub}' or wait for the autonomous learning engine "
             f"to research this topic."
         )
+
 
     def _handle_graph_rag(self, cmd: str) -> str:
         """Handle 'graph-rag <sub>' commands — 3-Tiered Graph-RAG pipeline.
@@ -6574,6 +6680,17 @@ Ask me about:
 
         # KNOWLEDGE — tiered KB recall (additive)
         if lower == "knowledge" or lower.startswith("knowledge "):
+            return self._handle_knowledge(cmd)
+
+        # SMART KB COMMANDS — think / health / contradictions / prune / consolidate
+        if (
+            lower.startswith("kb think ")
+            or lower.startswith("kb health")
+            or lower.startswith("kb contradict")
+            or lower in ("kb prune",)
+            or lower.startswith("kb consolidate")
+            or lower.startswith("think about ")
+        ):
             return self._handle_knowledge(cmd)
 
         # GRAPH-RAG — 3-tiered deterministic Graph-RAG (additive)

@@ -469,6 +469,9 @@ class KnowledgeComprehension:
         # 7. SECA — trigger memory compression when graph has grown enough
         self._maybe_compress()
 
+        # 8. Surface potential contradictions (non-blocking, best-effort)
+        self._detect_and_log_contradictions(topic)
+
         n_concepts = len(concepts)
         n_questions = sum(len(qs) for _, qs in all_questions)
         graph_suffix = f", {n_embedded} embedded" if n_embedded else ""
@@ -557,7 +560,11 @@ class KnowledgeComprehension:
         concepts: List[Dict[str, Any]],
         ts: int,
     ) -> None:
-        """Write / overwrite the ``topic_knowledge:<topic>`` ledger entry."""
+        """Write / overwrite the ``topic_knowledge:<topic>`` ledger entry.
+
+        After writing, reinforces any existing facts about this topic so their
+        confidence rises (they have been re-confirmed by this research cycle).
+        """
         if not self.knowledge_db:
             return
         try:
@@ -570,6 +577,68 @@ class KnowledgeComprehension:
             log.debug("[Comprehension] ledger written for %r (%d chars)", topic, len(text))
         except Exception as exc:
             log.debug("[Comprehension] ledger write failed: %s", exc)
+
+        # Reinforce any pre-existing facts about this topic
+        self._reinforce_related(topic)
+
+    def _reinforce_related(self, topic: str) -> None:
+        """Boost confidence of facts already stored about *topic*.
+
+        When a new research cycle confirms knowledge about a topic, previously
+        stored facts about the same subject gain confidence — mirroring how
+        repeated exposure strengthens memory in cognitive models.
+        """
+        if not self.knowledge_db or not hasattr(self.knowledge_db, "reinforce"):
+            return
+        try:
+            # Retrieve related facts via smart recall (falls back to keyword)
+            if hasattr(self.knowledge_db, "smart_recall"):
+                related = self.knowledge_db.smart_recall(topic, limit=10)
+            else:
+                related = self.knowledge_db.recall(topic, limit=10)
+            for fact in related:
+                if isinstance(fact, dict) and fact.get("key"):
+                    self.knowledge_db.reinforce(fact["key"], amount=0.05)
+        except Exception as exc:
+            log.debug("[Comprehension] _reinforce_related error: %s", exc)
+
+    def _detect_and_log_contradictions(self, topic: str) -> None:
+        """Surface potential contradictions after learning and log them.
+
+        When two facts about the same topic conflict, a warning is written to
+        the KB so Niblit's metacognition layer can schedule re-verification.
+        Does nothing when SmartRecall is unavailable.
+        """
+        if not self.knowledge_db:
+            return
+        try:
+            from modules.knowledge_recall import SmartRecall
+            sr = SmartRecall(self.knowledge_db)
+            conflicts = sr.find_contradictions(topic, max_pairs=3)
+            if not conflicts:
+                return
+            for fa, fb, score in conflicts:
+                ka = str(fa.get("key", ""))[:60]
+                kb_ = str(fb.get("key", ""))[:60]
+                log.info(
+                    "[Comprehension] Potential contradiction (score=%.2f): "
+                    "'%s' ↔ '%s'",
+                    score, ka, kb_,
+                )
+                # Store a flag so metacognition can act on it
+                self.knowledge_db.add_fact(
+                    f"contradiction_flag:{topic}:{int(time.time())}",
+                    {
+                        "topic": topic,
+                        "fact_a_key": ka,
+                        "fact_b_key": kb_,
+                        "conflict_score": score,
+                        "step": "comprehension",
+                    },
+                    tags=["contradiction", "comprehension", "metacognition"],
+                )
+        except Exception as exc:
+            log.debug("[Comprehension] _detect_and_log_contradictions error: %s", exc)
 
     def _store_concept_facts(
         self,

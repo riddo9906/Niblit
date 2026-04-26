@@ -1124,6 +1124,9 @@ class KnowledgeDB:
         except ImportError:
             pass  # filter not yet available — store as-is
         # ── Original storage logic ────────────────────────────────────────────
+        # Every fact is stored with an initial confidence of 1.0 and an
+        # access_count of 0.  call reinforce(key) to increase confidence when
+        # the same fact is re-confirmed by a separate source.
         with self.lock:
             self.data.setdefault("facts", [])
             self.data["facts"].append({
@@ -1131,8 +1134,120 @@ class KnowledgeDB:
                 "value": value,
                 "tags": tags or [],
                 "ts": int(time.time()),
+                "confidence": 1.0,
+                "access_count": 0,
             })
         self._save(blocking=False)
+
+    def reinforce(self, key: str, amount: float = 0.1) -> bool:
+        """Boost the confidence of an existing fact when re-confirmed.
+
+        Finds the most-recent fact whose ``key`` matches and increases its
+        ``confidence`` by *amount*, capped at 1.0.  Returns ``True`` when a
+        matching fact was found.
+
+        This mirrors how repeated observations of the same pattern raise
+        certainty in a cognitive / Bayesian model.
+        """
+        amount = min(max(float(amount), 0.0), 1.0)
+        found = False
+        with self.lock:
+            facts = self.data.get("facts", [])
+            for fact in reversed(facts):
+                if isinstance(fact, dict) and fact.get("key") == key:
+                    old_conf = float(fact.get("confidence", 1.0))
+                    fact["confidence"] = min(1.0, old_conf + amount)
+                    fact["access_count"] = fact.get("access_count", 0) + 1
+                    found = True
+                    break
+        if found:
+            self._save(blocking=False)
+        return found
+
+    def smart_recall(
+        self,
+        query: str,
+        limit: int = 10,
+    ) -> List[Any]:
+        """TF-IDF ranked recall — more relevant results than keyword-any-match.
+
+        Delegates to :class:`modules.knowledge_recall.SmartRecall` when
+        available, falling back to the original keyword recall.
+        """
+        try:
+            from modules.knowledge_recall import SmartRecall
+            sr = SmartRecall(self)
+            return sr.recall(query, limit=limit)
+        except Exception:
+            return self.recall(query, limit=limit)
+
+    def think_about(self, topic: str) -> str:
+        """Synthesise a human-readable summary of what is known about *topic*.
+
+        Uses TF-IDF retrieval + grouping to present a structured answer,
+        mirroring how a modern AI synthesises retrieved context.
+        """
+        try:
+            from modules.knowledge_recall import SmartRecall
+            return SmartRecall(self).think_about(topic)
+        except Exception as exc:
+            return f"[think_about unavailable: {exc}]"
+
+    def knowledge_health(self, topic: str = "") -> Dict[str, Any]:
+        """Return a health report dict for *topic* (or the whole KB)."""
+        try:
+            from modules.knowledge_recall import SmartRecall
+            return SmartRecall(self).knowledge_health(topic)
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    def consolidate_facts(self, dry_run: bool = False) -> Dict[str, Any]:
+        """Merge duplicate facts (same key) and return a report.
+
+        When *dry_run* is ``False``, duplicate entries are removed and the
+        best (highest-confidence) version is kept with merged tags.
+        """
+        try:
+            from modules.knowledge_recall import SmartRecall
+            return SmartRecall(self).consolidate(dry_run=dry_run)
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    def decay_stale_confidence(
+        self,
+        half_life_days: float = 30.0,
+        min_confidence: float = 0.1,
+    ) -> int:
+        """Decay confidence of facts that have not been accessed recently.
+
+        Uses an exponential decay model:  ``conf *= exp(-ln2 * age / half_life)``
+
+        Facts already at *min_confidence* or below are left unchanged to
+        prevent endless re-decay.  Returns the number of facts updated.
+        """
+        now = time.time()
+        updated = 0
+        with self.lock:
+            for fact in self.data.get("facts", []):
+                if not isinstance(fact, dict):
+                    continue
+                conf = float(fact.get("confidence", 1.0))
+                if conf <= min_confidence:
+                    continue
+                # Use last_accessed if available, else fall back to ts
+                last_touched = float(fact.get("last_accessed", fact.get("ts", now)))
+                age_days = (now - last_touched) / 86400.0
+                if age_days < 1.0:
+                    continue
+                decay = math.exp(-math.log(2) * age_days / half_life_days)
+                new_conf = max(min_confidence, conf * decay)
+                if new_conf < conf - 0.001:
+                    fact["confidence"] = round(new_conf, 4)
+                    updated += 1
+        if updated:
+            self._save(blocking=False)
+        _kdb_log.debug("[KnowledgeDB] decay_stale_confidence: %d facts updated", updated)
+        return updated
 
     def store_research(
         self,

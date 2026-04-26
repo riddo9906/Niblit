@@ -2434,6 +2434,69 @@ def trade_analyze(request: Request, pair: str = "", limit: int = 20):
         return JSONResponse(content={"error": "analysis failed — see server logs"}, status_code=500)
 
 
+# ── Knowledge recall API endpoints ────────────────────────────────────────────
+
+@app.get("/kb/think")
+def kb_think(request: Request, topic: str = ""):
+    """Synthesise what Niblit knows about *topic* (TF-IDF ranked retrieval).
+
+    Query params:
+        topic — the subject to synthesise knowledge about (required)
+    """
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+    if not topic:
+        return JSONResponse(content={"error": "topic query parameter required"}, status_code=400)
+    try:
+        core = get_core()
+        db = getattr(core, "db", None) if core else None
+        if db is None:
+            return JSONResponse(content={"error": "KB not available"}, status_code=503)
+        answer = db.think_about(topic)
+        return JSONResponse(content={"topic": topic, "synthesis": answer})
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("kb_think error: %s", exc)
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@app.get("/kb/health")
+def kb_health(request: Request, topic: str = ""):
+    """Return knowledge health metrics for *topic* (or the whole KB).
+
+    Query params:
+        topic — optional filter topic
+    """
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+    try:
+        core = get_core()
+        db = getattr(core, "db", None) if core else None
+        if db is None:
+            return JSONResponse(content={"error": "KB not available"}, status_code=503)
+        health = db.knowledge_health(topic)
+        return JSONResponse(content={"topic": topic or "all", **health})
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("kb_health error: %s", exc)
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@app.post("/kb/consolidate")
+def kb_consolidate(request: Request, dry_run: bool = False):
+    """Merge duplicate KB facts (same key) — call with ?dry_run=true to preview."""
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+    try:
+        core = get_core()
+        db = getattr(core, "db", None) if core else None
+        if db is None:
+            return JSONResponse(content={"error": "KB not available"}, status_code=503)
+        report = db.consolidate_facts(dry_run=dry_run)
+        return JSONResponse(content=report)
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("kb_consolidate error: %s", exc)
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 # Register /mcp (JSON-RPC POST) and /mcp/sse (SSE notifications).
 # Any MCP-compatible client (Claude Desktop, VS Code Copilot, Cursor …)
 # can connect to Niblit through these endpoints.
