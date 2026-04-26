@@ -115,7 +115,6 @@ def _try_import(dotted_path: str, attr: Optional[str] = None):
     try/except import blocks that appear throughout niblit_core.py.
     """
     try:
-        mod = importlib.util.find_spec(dotted_path)  # avoid AttributeError on None
         import importlib as _il
         m = _il.import_module(dotted_path)
         result = getattr(m, attr) if attr else m

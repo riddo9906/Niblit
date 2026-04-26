@@ -174,7 +174,9 @@ API_KEY = os.environ.get("NIBLIT_API_KEY", None)
 def require_key(request: Request) -> bool:
     if not API_KEY:
         return True
-    req_key = request.headers.get("X-API-Key") or ""
+    req_key = request.headers.get("X-API-Key")
+    if req_key is None:
+        return False
     # Use constant-time comparison to prevent timing-based key enumeration.
     return hmac.compare_digest(req_key, API_KEY)
 
@@ -2371,7 +2373,7 @@ def trade_feedback(request: Request, body: TradeFeedbackRequest):
         features: Dict[str, float] = dict(body.features or {})
         learner.record_outcome(
             pair=body.pair,
-            timeframe=getattr(body, "timeframe", "1h"),
+            timeframe=body.timeframe,
             features=features,
             action=body.action,
             outcome=body.outcome,

@@ -1171,8 +1171,9 @@ def _build_gguf_prompt(
     parts.append(tmpl["assistant_start"])
 
     # Override stop tokens from env if provided
-    if _GGUF_STOP_TOKENS_STR:
-        stop = [t.strip() for t in _GGUF_STOP_TOKENS_STR.split(",") if t.strip()]
+    stop_tokens_str = _cfg().gguf_stop_tokens_str
+    if stop_tokens_str:
+        stop = [t.strip() for t in stop_tokens_str.split(",") if t.strip()]
     else:
         stop = list(tmpl["stop"])
 
@@ -2378,8 +2379,8 @@ def get_backend_info() -> Dict[str, str]:
     Keys: ``url``, ``backend``, ``named_backends``.
     """
     return {
-        "url": _LLAMA_SERVER_URL,
-        "backend": _GGUF_BACKEND,
+        "url": _cfg().llama_server_url,
+        "backend": _cfg().gguf_backend,
         "named_backends": ", ".join(
             f"{k}={v}" for k, v in _NAMED_BACKENDS.items()
         ),
