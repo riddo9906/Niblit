@@ -472,6 +472,13 @@ class KnowledgeComprehension:
         # 8. Surface potential contradictions (non-blocking, best-effort)
         self._detect_and_log_contradictions(topic)
 
+        # 9. Quality feedback — score the comprehension ledger against the source
+        # snippets and propagate quality deltas to the underlying KB facts.
+        # A high-quality comprehension summary reinforces the facts it was built
+        # from; a low-quality one (sparse, incoherent) decays them slightly so
+        # the ALE re-researches the topic sooner.
+        self._apply_quality_feedback(topic, ledger_body, snippets)
+
         n_concepts = len(concepts)
         n_questions = sum(len(qs) for _, qs in all_questions)
         graph_suffix = f", {n_embedded} embedded" if n_embedded else ""
@@ -484,6 +491,31 @@ class KnowledgeComprehension:
             f"{n_concepts} concept(s), {n_questions} question(s), "
             f"{scheduled} review(s) scheduled{graph_suffix}"
         )
+
+    def _apply_quality_feedback(
+        self,
+        topic: str,
+        ledger_body: str,
+        snippets: List[str],
+    ) -> None:
+        """Score the comprehension summary and propagate quality to KB facts.
+
+        Uses :mod:`modules.quality_feedback` to reinforce well-supported facts
+        or schedule re-research for sparse ones.
+        """
+        if not self.knowledge_db:
+            return
+        try:
+            from modules.quality_feedback import get_quality_feedback
+            qf = get_quality_feedback(reward_model=self.reward_model)
+            qf.record_answer_quality(
+                query=topic,
+                answer=ledger_body,
+                knowledge_db=self.knowledge_db,
+                snippets=snippets[:5],  # use first 5 as context window
+            )
+        except Exception as exc:
+            log.debug("[Comprehension] quality feedback skipped: %s", exc)
 
     # ── SECA helpers ──────────────────────────────────────────────────────────
 

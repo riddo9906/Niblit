@@ -1251,19 +1251,46 @@ class KnowledgeDB:
         _kdb_log.debug("[KnowledgeDB] decay_stale_confidence: %d facts updated", updated)
         return updated
 
+    # Source-based initial confidence weights.  Lower means "believe it less
+    # until confirmed by a second source or user feedback".
+    _SOURCE_CONFIDENCE: Dict[str, float] = {
+        "user_confirmed": 1.0,
+        "research_verified": 0.9,
+        "web_search": 0.8,
+        "self_researcher": 0.8,
+        "serpex": 0.8,
+        "scrapy": 0.75,
+        "searchcode": 0.75,
+        "stackoverflow": 0.75,
+        "github": 0.75,
+        "sqlite_researcher": 0.7,
+        "llm_free_response": 0.5,
+        "llm_synthesis": 0.6,
+        "research": 0.8,         # generic "research" label
+    }
+
     def store_research(
         self,
         key: str,
         text: str,
         tags: Optional[List[str]] = None,
         source: str = "research",
+        confidence: Optional[float] = None,
     ) -> None:
         """Preferred entry-point for persisting research & learning content.
 
         Unlike ``add_fact()``, this method:
         * Always passes the knowledge filter (``research`` tag is whitelisted).
         * Summarizes long text before storage so the KB stays readable.
-        * Includes ``source`` in the stored record for provenance.
+        * Includes ``source`` and ``confidence`` in the stored record.
+
+        Parameters
+        ----------
+        confidence:
+            Quality score ∈ [0, 1] for this specific piece of text as judged
+            by the caller (e.g. RewardModel).  When ``None``, the source-based
+            default from ``_SOURCE_CONFIDENCE`` is used so that unverified LLM
+            generations start at 0.5 while validated web results start at 0.8.
         """
         tags = list(tags or [])
         if "research" not in tags:
@@ -1273,6 +1300,12 @@ class KnowledgeDB:
             summary = _gkf().summarize_for_storage(key, text, tags)
         except ImportError:
             summary = str(text)[:600]
+
+        # Resolve initial confidence: explicit > source-based default > 0.8
+        if confidence is None:
+            confidence = self._SOURCE_CONFIDENCE.get(source, 0.8)
+        confidence = max(0.0, min(1.0, float(confidence)))
+
         with self.lock:
             self.data.setdefault("facts", [])
             self.data["facts"].append({
@@ -1281,6 +1314,8 @@ class KnowledgeDB:
                 "tags": tags,
                 "source": source,
                 "ts": int(time.time()),
+                "confidence": confidence,
+                "access_count": 0,
             })
         self._save(blocking=False)
 
