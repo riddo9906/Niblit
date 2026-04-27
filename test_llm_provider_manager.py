@@ -51,3 +51,7 @@ class TestLLMProviderManagerQwen:
         mgr.switch("qwen")
 
         assert mgr.ask("hello") == "hf fallback answer"
+
+
+if __name__ == "__main__":
+    print('Running test_llm_provider_manager.py')

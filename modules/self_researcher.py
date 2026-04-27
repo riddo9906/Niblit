@@ -657,13 +657,38 @@ class SelfResearcher:
         return " ".join(_rtext(r) for r in results[:2])
 
     # ─────────────────────────────────────────────
+    # Minimum RewardModel score required to store a research result.  Results
+    # scoring below this threshold are discarded — they add noise, not signal.
+    # 0.30 is intentionally permissive: the BM25-based RewardModel scores
+    # genuine off-topic content (cookie banners, empty pages, navigation menus)
+    # at ≈0.05–0.20, while even loosely relevant snippets typically score ≥0.30.
+    _STORE_QUALITY_THRESHOLD: float = 0.30
+
     def _store_research_in_knowledge_db(self, query, results):
-        """Store research results in knowledge database"""
+        """Store research results in knowledge database.
+
+        Quality gate (additive): each result is scored by the RewardModel
+        before storage.  Results with a quality score below
+        ``_STORE_QUALITY_THRESHOLD`` are discarded so only genuinely useful
+        snippets enter the knowledge base.  The quality score is passed as the
+        initial ``confidence`` value so the KB can later reinforce or decay
+        facts based on their proven usefulness.
+        """
         if not self.knowledge_db:
             return
 
+        # Lazy-load reward model (no heavy dependency)
+        _rm = None
+        try:
+            from modules.reward_model import get_reward_model
+            _rm = get_reward_model()
+        except Exception:
+            pass
+
         try:
             ts = int(time.time())
+            stored = 0
+            skipped = 0
             for i, result in enumerate(results):
                 # Normalise each result to a plain string so store_research()
                 # can produce a fully-structured record (key, value, tags,
@@ -680,6 +705,26 @@ class SelfResearcher:
                 else:
                     text = str(result)
 
+                # ── Quality gate ──────────────────────────────────────────────
+                # Score this snippet against the original query.  Skip storage
+                # when the snippet is too loosely related or appears to be
+                # boilerplate noise (e.g. cookie banners, empty pages).
+                quality_score: float = 0.8  # default when scorer unavailable
+                if _rm is not None:
+                    try:
+                        quality_score = float(_rm.score(query, text, []))
+                    except Exception:
+                        pass
+
+                if quality_score < self._STORE_QUALITY_THRESHOLD:
+                    skipped += 1
+                    log.debug(
+                        "[KnowledgeDB] Skipped low-quality snippet (score=%.2f < %.2f) "
+                        "for query %r",
+                        quality_score, self._STORE_QUALITY_THRESHOLD, query,
+                    )
+                    continue
+
                 # Include timestamp + index so each result gets its own unique
                 # key (avoids overwriting the single `research:{query}` entry).
                 self.knowledge_db.store_research(
@@ -687,14 +732,19 @@ class SelfResearcher:
                     text,
                     tags=["research", "web", "autonomous"],
                     source="self_researcher",
+                    confidence=quality_score,
                 )
+                stored += 1
 
             if hasattr(self.knowledge_db, "log_event"):
                 self.knowledge_db.log_event(
-                    f"Research completed: {query} ({len(results)} results)"
+                    f"Research completed: {query} ({stored} stored, {skipped} skipped)"
                 )
 
-            log.info(f"[KnowledgeDB] Stored {len(results)} results for query: {query}")
+            log.info(
+                "[KnowledgeDB] %d/%d results stored for query %r (quality gate: %.2f)",
+                stored, len(results), query, self._STORE_QUALITY_THRESHOLD,
+            )
         except Exception as e:
             log.debug(f"KnowledgeDB storage skipped: {e}")
 

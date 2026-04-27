@@ -30,13 +30,10 @@ from typing import Any, Dict, List
 logger = logging.getLogger("Niblit.SearchAPI")
 
 
-# ── ResearchAgent import — used by niblit_serpex_search ─────────────────────
-try:
-    from niblit_agents.research_agent import ResearchAgent as _ResearchAgent
-    _RESEARCH_AGENT_AVAILABLE = True
-except Exception:
-    _ResearchAgent = None  # type: ignore[assignment,misc]
-    _RESEARCH_AGENT_AVAILABLE = False
+# ── ResearchAgent import — resolved lazily inside niblit_serpex_search() to
+# avoid the module-level circular import:
+#   niblit_agents.research_agent → niblit_tools.serpex_api → niblit_agents.research_agent
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 # ── shared ScrapySearchEngine singleton ─────────────────────────────────────
@@ -154,7 +151,15 @@ def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, An
     Returns:
         List of ``{"title", "url", "snippet"}`` dicts, or an error dict.
     """
-    if _RESEARCH_AGENT_AVAILABLE and _ResearchAgent is not None:
+    # Lazy import breaks the circular dependency:
+    # niblit_agents.research_agent → niblit_tools.serpex_api → research_agent.
+    _ResearchAgent = None
+    try:
+        from niblit_agents.research_agent import ResearchAgent as _ResearchAgent  # noqa: PLC0415
+    except Exception as exc:
+        logger.debug("[niblit_serpex_search] ResearchAgent unavailable: %s", exc)
+
+    if _ResearchAgent is not None:
         try:
             agent = _ResearchAgent()
             if category == "news":

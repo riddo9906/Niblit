@@ -13,6 +13,7 @@ import json
 import random
 import threading
 import time
+from typing import List
 
 try:
     from niblit_memory import NiblitMemory as _NiblitMemory
@@ -23,6 +24,9 @@ except Exception:
 _REVIEW_QUEUE_KEY = "self_teacher:review_queue"
 _MAX_INTERVAL_DAYS = 30.0
 _SECONDS_PER_DAY = 86400.0
+# Minimum spaced-repetition interval: 6 hours. Below this, re-testing too
+# quickly yields no meaningful retention benefit.
+_MIN_REVIEW_INTERVAL_DAYS: float = 0.25
 
 
 class SelfTeacher:
@@ -390,6 +394,161 @@ class SelfTeacher:
         for t in due:
             results.append(self.teach_review(t))
         return results
+
+    # ── Self-test (active recall) ──────────────────────────────────────────
+
+    def self_test(self, max_items: int = 3) -> str:
+        """Execute active-recall tests for due quiz questions.
+
+        This closes the spaced-repetition loop: instead of only *storing*
+        quiz questions, Niblit now attempts to *answer* them by looking up
+        its own knowledge base and then scores the answer.
+
+        For each due quiz:
+        1. Retrieve the stored answer from the KB (``quiz:<question>`` fact).
+        2. Attempt an answer using ``think_about(question)`` (KB synthesis).
+        3. Score the attempted answer against the known correct answer using
+           the RewardModel.
+        4. If score ≥ 0.6  → mark reviewed (double the interval), reinforce
+           the underlying KB facts.
+        5. If score <  0.6  → shrink the review interval (re-test sooner),
+           queue the topic for re-research via quality_feedback.
+
+        Returns a short summary string for the ALE cycle log.
+        """
+        if not self.db:
+            return "[SelfTest] No knowledge DB — skipped."
+
+        due_questions = self.get_due_reviews(max_items=max_items)
+        if not due_questions:
+            return "[SelfTest] No questions due for review."
+
+        # Lazy-load helpers
+        _rm = None
+        try:
+            from modules.reward_model import get_reward_model
+            _rm = get_reward_model()
+        except Exception:
+            pass
+
+        _qf = None
+        try:
+            from modules.quality_feedback import get_quality_feedback
+            _qf = get_quality_feedback(reward_model=_rm)
+        except Exception:
+            pass
+
+        passed = 0
+        failed = 0
+        retried: List[str] = []
+
+        for question in due_questions:
+            try:
+                # 1. Look up the stored answer (from quiz generation)
+                known_answer = self._find_quiz_answer(question)
+
+                # 2. Attempt answer from KB synthesis
+                if hasattr(self.db, "think_about"):
+                    attempted = self.db.think_about(question)
+                elif hasattr(self.db, "smart_recall"):
+                    facts = self.db.smart_recall(question, limit=5) or []
+                    attempted = " ".join(
+                        str(f.get("value", "")) for f in facts if isinstance(f, dict)
+                    )[:600]
+                else:
+                    attempted = ""
+
+                if not attempted or attempted.startswith("["):
+                    # No KB knowledge to test against — re-queue immediately
+                    self._shorten_review_interval(question)
+                    failed += 1
+                    retried.append(question)
+                    continue
+
+                # 3. Score: use known_answer as the "gold" context when available
+                snippets = [known_answer] if known_answer else []
+                score = 0.5
+                if _rm is not None:
+                    try:
+                        score = float(_rm.score(question, attempted, snippets))
+                    except Exception:
+                        pass
+
+                # 4. Update intervals + propagate quality feedback
+                if score >= 0.60:
+                    self._mark_reviewed(question)
+                    if _qf is not None:
+                        _qf.record_answer_quality(
+                            query=question,
+                            answer=attempted,
+                            knowledge_db=self.db,
+                            snippets=snippets,
+                        )
+                    passed += 1
+                    log.debug(
+                        "[SelfTest] PASS (%.2f) %r — interval doubled",
+                        score, question[:60],
+                    )
+                else:
+                    self._shorten_review_interval(question)
+                    if _qf is not None:
+                        _qf.record_answer_quality(
+                            query=question,
+                            answer=attempted,
+                            knowledge_db=self.db,
+                            snippets=snippets,
+                        )
+                    failed += 1
+                    retried.append(question)
+                    log.debug(
+                        "[SelfTest] FAIL (%.2f) %r — interval halved, re-queued",
+                        score, question[:60],
+                    )
+
+            except Exception as exc:
+                log.debug("[SelfTest] error on %r: %s", question, exc)
+                failed += 1
+
+        summary = f"[SelfTest] {passed} passed, {failed} failed"
+        if retried:
+            summary += f" (re-queued: {retried[:3]})"
+        log.info("%s", summary)
+        return summary
+
+    def _find_quiz_answer(self, question: str) -> str:
+        """Look up the stored answer for a quiz question.
+
+        Returns the answer string or an empty string when not found.
+        """
+        if not self.db or not hasattr(self.db, "list_facts"):
+            return ""
+        try:
+            facts = self.db.list_facts(limit=500) or []
+            prefix = f"quiz:{question}:"
+            for fact in facts:
+                if not isinstance(fact, dict):
+                    continue
+                key = str(fact.get("key", ""))
+                if key.startswith(prefix) or key == f"quiz:{question}":
+                    value = fact.get("value")
+                    if isinstance(value, dict):
+                        return str(value.get("answer", ""))
+                    return str(value)[:400]
+        except Exception:
+            pass
+        return ""
+
+    def _shorten_review_interval(self, topic: str) -> None:
+        """Halve the review interval so a failed topic is retested sooner."""
+        now = time.time()
+        with self._queue_lock:
+            for entry in self._review_queue:
+                if entry.get("topic") == topic:
+                    old = float(entry.get("interval_days", 1.0))
+                    entry["interval_days"] = max(_MIN_REVIEW_INTERVAL_DAYS, old / 2.0)
+                    entry["next_review"] = now + entry["interval_days"] * _SECONDS_PER_DAY
+                    break
+        self._save_review_queue()
 
 
 if __name__ == "__main__":

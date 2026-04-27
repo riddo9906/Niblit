@@ -191,3 +191,7 @@ class FSManager:
     def shutdown(self) -> None:
         self._mounts.clear()
         log.debug("[FS] FSManager shut down.")
+
+
+if __name__ == "__main__":
+    print('Running fs_manager.py')

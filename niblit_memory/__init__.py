@@ -1124,6 +1124,9 @@ class KnowledgeDB:
         except ImportError:
             pass  # filter not yet available — store as-is
         # ── Original storage logic ────────────────────────────────────────────
+        # Every fact is stored with an initial confidence of 1.0 and an
+        # access_count of 0.  call reinforce(key) to increase confidence when
+        # the same fact is re-confirmed by a separate source.
         with self.lock:
             self.data.setdefault("facts", [])
             self.data["facts"].append({
@@ -1131,8 +1134,151 @@ class KnowledgeDB:
                 "value": value,
                 "tags": tags or [],
                 "ts": int(time.time()),
+                "confidence": 1.0,
+                "access_count": 0,
             })
         self._save(blocking=False)
+
+    def reinforce(self, key: str, amount: float = 0.1) -> bool:
+        """Boost the confidence of an existing fact when re-confirmed.
+
+        Finds the most-recent fact whose ``key`` matches and increases its
+        ``confidence`` by *amount*, capped at 1.0.  Returns ``True`` when a
+        matching fact was found.
+
+        This mirrors how repeated observations of the same pattern raise
+        certainty in a cognitive / Bayesian model.
+        """
+        amount = min(max(float(amount), 0.0), 1.0)
+        found = False
+        with self.lock:
+            facts = self.data.get("facts", [])
+            for fact in reversed(facts):
+                if isinstance(fact, dict) and fact.get("key") == key:
+                    old_conf = float(fact.get("confidence", 1.0))
+                    fact["confidence"] = min(1.0, old_conf + amount)
+                    fact["access_count"] = fact.get("access_count", 0) + 1
+                    found = True
+                    break
+        if found:
+            self._save(blocking=False)
+        return found
+
+    def smart_recall(
+        self,
+        query: str,
+        limit: int = 10,
+    ) -> List[Any]:
+        """TF-IDF ranked recall — more relevant results than keyword-any-match.
+
+        Delegates to :class:`modules.knowledge_recall.SmartRecall` when
+        available, falling back to the original keyword recall.
+        """
+        try:
+            from modules.knowledge_recall import SmartRecall
+            sr = SmartRecall(self)
+            return sr.recall(query, limit=limit)
+        except Exception:
+            return self.recall(query, limit=limit)
+
+    def think_about(self, topic: str) -> str:
+        """Synthesise a human-readable summary of what is known about *topic*.
+
+        Uses TF-IDF retrieval + grouping to present a structured answer,
+        mirroring how a modern AI synthesises retrieved context.
+        """
+        try:
+            from modules.knowledge_recall import SmartRecall
+            return SmartRecall(self).think_about(topic)
+        except Exception as exc:
+            return f"[think_about unavailable: {exc}]"
+
+    def knowledge_health(self, topic: str = "") -> Dict[str, Any]:
+        """Return a health report dict for *topic* (or the whole KB)."""
+        try:
+            from modules.knowledge_recall import SmartRecall
+            return SmartRecall(self).knowledge_health(topic)
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    def consolidate_facts(self, dry_run: bool = False) -> Dict[str, Any]:
+        """Merge duplicate facts (same key) and return a report.
+
+        When *dry_run* is ``False``, duplicate entries are removed and the
+        best (highest-confidence) version is kept with merged tags.
+        """
+        try:
+            from modules.knowledge_recall import SmartRecall
+            return SmartRecall(self).consolidate(dry_run=dry_run)
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    def decay_stale_confidence(
+        self,
+        half_life_days: float = 30.0,
+        min_confidence: float = 0.1,
+    ) -> int:
+        """Decay confidence of facts that have not been accessed recently.
+
+        Uses an exponential decay model:  ``conf *= exp(-ln2 * age / half_life)``
+
+        Facts already at *min_confidence* or below are left unchanged to
+        prevent endless re-decay.  Returns the number of facts updated.
+        """
+        now = time.time()
+        updated = 0
+        with self.lock:
+            for fact in self.data.get("facts", []):
+                if not isinstance(fact, dict):
+                    continue
+                conf = float(fact.get("confidence", 1.0))
+                if conf <= min_confidence:
+                    continue
+                # Use last_accessed if available, else fall back to ts
+                last_touched = float(fact.get("last_accessed", fact.get("ts", now)))
+                age_days = (now - last_touched) / 86400.0
+                if age_days < 1.0:
+                    continue
+                # Exponential decay: conf *= exp(-ln(2) * age / half_life)
+                # Results in a 50% confidence reduction every half_life_days.
+                decay = math.exp(-math.log(2) * age_days / half_life_days)
+                new_conf = max(min_confidence, conf * decay)
+                if new_conf < conf - 0.001:
+                    fact["confidence"] = round(new_conf, 4)
+                    updated += 1
+        if updated:
+            self._save(blocking=False)
+        _kdb_log.debug("[KnowledgeDB] decay_stale_confidence: %d facts updated", updated)
+        return updated
+
+    # Source-based initial confidence weights used when the caller does not
+    # supply an explicit confidence score.  The values reflect how trustworthy
+    # Niblit considers each source:
+    #   • User-confirmed facts start at 1.0 — the user is the ground truth.
+    #   • Verified research (cross-checked by the ALE) starts at 0.9.
+    #   • Web search / self_researcher / serpex start at 0.8 — generally
+    #     reliable but unverified.
+    #   • Scrapy/searchcode/SO/GitHub start at 0.75 — code content is often
+    #     correct but may be version-specific or opinionated.
+    #   • SQLite researcher starts at 0.7 — secondary extraction from local DB.
+    #   • LLM synthesis (model-generated knowledge) starts at 0.6 — plausible
+    #     but may hallucinate; needs reinforcement before being fully trusted.
+    #   • Free-form LLM responses start at 0.5 — lowest trust until confirmed.
+    _SOURCE_CONFIDENCE: Dict[str, float] = {
+        "user_confirmed": 1.0,
+        "research_verified": 0.9,
+        "web_search": 0.8,
+        "self_researcher": 0.8,
+        "serpex": 0.8,
+        "scrapy": 0.75,
+        "searchcode": 0.75,
+        "stackoverflow": 0.75,
+        "github": 0.75,
+        "sqlite_researcher": 0.7,
+        "llm_free_response": 0.5,
+        "llm_synthesis": 0.6,
+        "research": 0.8,         # generic "research" label
+    }
 
     def store_research(
         self,
@@ -1140,13 +1286,22 @@ class KnowledgeDB:
         text: str,
         tags: Optional[List[str]] = None,
         source: str = "research",
+        confidence: Optional[float] = None,
     ) -> None:
         """Preferred entry-point for persisting research & learning content.
 
         Unlike ``add_fact()``, this method:
         * Always passes the knowledge filter (``research`` tag is whitelisted).
         * Summarizes long text before storage so the KB stays readable.
-        * Includes ``source`` in the stored record for provenance.
+        * Includes ``source`` and ``confidence`` in the stored record.
+
+        Parameters
+        ----------
+        confidence:
+            Quality score ∈ [0, 1] for this specific piece of text as judged
+            by the caller (e.g. RewardModel).  When ``None``, the source-based
+            default from ``_SOURCE_CONFIDENCE`` is used so that unverified LLM
+            generations start at 0.5 while validated web results start at 0.8.
         """
         tags = list(tags or [])
         if "research" not in tags:
@@ -1156,6 +1311,12 @@ class KnowledgeDB:
             summary = _gkf().summarize_for_storage(key, text, tags)
         except ImportError:
             summary = str(text)[:600]
+
+        # Resolve initial confidence: explicit > source-based default > 0.8
+        if confidence is None:
+            confidence = self._SOURCE_CONFIDENCE.get(source, 0.8)
+        confidence = max(0.0, min(1.0, float(confidence)))
+
         with self.lock:
             self.data.setdefault("facts", [])
             self.data["facts"].append({
@@ -1164,6 +1325,8 @@ class KnowledgeDB:
                 "tags": tags,
                 "source": source,
                 "ts": int(time.time()),
+                "confidence": confidence,
+                "access_count": 0,
             })
         self._save(blocking=False)
 

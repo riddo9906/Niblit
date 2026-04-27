@@ -1230,7 +1230,7 @@ class AutonomousLearningEngine:
 
     # ─────────────────────────────────────────────
     def _autonomous_learning(self) -> str:
-        """Step 6: Feed learning to self-teacher with spaced review and richer logging"""
+        """Step 6: Feed learning to self-teacher with spaced review, active-recall test, and richer logging."""
         if not self.self_teacher:
             return "[Self-teacher unavailable]"
 
@@ -1247,7 +1247,18 @@ class AutonomousLearningEngine:
             reviews = self.self_teacher.spaced_review(count=1)
             outputs.extend(reviews)
 
-            # 3. Log BOTH results to knowledge base (as before, but now richer)
+            # 3. Active-recall self-test — attempt to answer due quiz questions
+            # and score the result so quality feedback reaches the KB facts.
+            test_summary = ""
+            if hasattr(self.self_teacher, "self_test"):
+                try:
+                    test_summary = self.self_teacher.self_test(max_items=3)
+                    log.info("🧪 [AUTONOMOUS LEARN] %s", test_summary)
+                    outputs.append(test_summary)
+                except Exception as exc:
+                    log.debug("[AUTONOMOUS LEARN] self_test failed: %s", exc)
+
+            # 4. Log BOTH results to knowledge base (as before, but now richer)
             if self.knowledge_db:
                 try:
                     # Log main teaching on new topic
@@ -1259,6 +1270,7 @@ class AutonomousLearningEngine:
                             "result": str(result or "")[:300],
                             "step": "step6_learning",
                             "spaced_reviewed": [str(r)[:150] for r in reviews],
+                            "self_test": str(test_summary)[:150],
                         },
                         tags=["ale_step6", "learning", "autonomous"],
                     )
@@ -3703,17 +3715,121 @@ class AutonomousLearningEngine:
     # METACOGNITION (step 17)
     # ─────────────────────────────────────────────
 
+    def _resolve_contradictions(self) -> str:
+        """Read stored contradiction flags and act on them.
+
+        For each ``contradiction_flag:*`` entry stored by KnowledgeComprehension:
+        1. Identify the two conflicting facts.
+        2. Lower the confidence of the lower-scored fact (mark as disputed).
+        3. Re-queue the topic for re-research so the ALE can reconcile it.
+        4. Remove the contradiction flag so it is only processed once.
+
+        Returns a summary string for the cycle log.
+        """
+        if not self.knowledge_db:
+            return "[ResolveContradictions] No KB — skipped."
+
+        resolved = 0
+        re_queued: List[str] = []
+
+        try:
+            facts = self.knowledge_db.list_facts(limit=500) or []
+            flag_facts = [
+                f for f in facts
+                if isinstance(f, dict)
+                and str(f.get("key", "")).startswith("contradiction_flag:")
+            ]
+        except Exception as exc:
+            return f"[ResolveContradictions] list_facts error: {exc}"
+
+        # Build a key-prefix → fact lookup once (O(n)) so per-flag lookups
+        # are O(1) instead of rescanning the full list for every flag (O(n²)).
+        fact_by_key: Dict[str, Dict[str, Any]] = {}
+        for f in reversed(facts):  # reversed so last write wins on duplicate prefix
+            if isinstance(f, dict):
+                k = str(f.get("key", ""))
+                if k:
+                    fact_by_key[k] = f
+
+        def _find_fact(prefix: str):
+            if prefix in fact_by_key:
+                return fact_by_key[prefix]
+            # Prefix-match fallback for keys that have a timestamp suffix
+            for k, v in fact_by_key.items():
+                if k.startswith(prefix):
+                    return v
+            return None
+
+        for flag in flag_facts:
+            try:
+                payload = flag.get("value") or {}
+                if not isinstance(payload, dict):
+                    continue
+
+                topic    = str(payload.get("topic", ""))
+                key_a    = str(payload.get("fact_a_key", ""))
+                key_b    = str(payload.get("fact_b_key", ""))
+                conf_sc  = float(payload.get("conflict_score", 0.5))
+
+                # Only act on significant conflicts
+                if conf_sc < 0.3:
+                    continue
+
+                fact_a = _find_fact(key_a)
+                fact_b = _find_fact(key_b)
+
+                # Decay the lower-confidence of the pair
+                if fact_a and fact_b:
+                    conf_a = float(fact_a.get("confidence", 0.8))
+                    conf_b = float(fact_b.get("confidence", 0.8))
+                    weaker_key = key_a if conf_a <= conf_b else key_b
+                    try:
+                        from modules.quality_feedback import _decay_fact_confidence
+                        _decay_fact_confidence(self.knowledge_db, weaker_key, amount=0.15)
+                    except Exception:
+                        pass
+
+                # Re-queue the topic so the ALE can research and reconcile it
+                if topic and topic not in re_queued:
+                    self.add_research_topic(topic, priority=True)
+                    re_queued.append(topic)
+
+                # Remove the flag (mark it as resolved by tagging + deleting)
+                try:
+                    self.knowledge_db.delete_fact(str(flag.get("key", "")))
+                except Exception:
+                    pass
+
+                resolved += 1
+
+            except Exception as exc:
+                log.debug("[ResolveContradictions] flag processing error: %s", exc)
+
+        summary = (
+            f"[ResolveContradictions] {resolved} contradiction(s) resolved; "
+            f"{len(re_queued)} topic(s) re-queued: {re_queued[:3]}"
+        )
+        if resolved:
+            log.info("🔧 %s", summary)
+        return summary
+
     def _autonomous_metacognition(self) -> str:
         """Step 17: Use Metacognition to evaluate Niblit's own knowledge,
         identify boundaries/gaps, and store the self-assessment in KB.
 
         The evaluation guides which topics future ALE cycles should prioritise.
+        Also resolves stored contradiction flags and uses knowledge_health() to
+        drive richer gap detection.
         """
         meta = self._get_metacognition()
         if not meta:
             return "[Metacognition skipped — Metacognition module not available]"
 
         log.info("🔮 [METACOGNITION] Starting self-knowledge evaluation...")
+
+        # ── Resolve pending contradiction flags first ─────────────────────
+        resolve_summary = self._resolve_contradictions()
+        log.info("🔧 [METACOGNITION] %s", resolve_summary)
 
         # Pull facts for metacognitive analysis
         facts: List[Dict] = []
@@ -3789,6 +3905,7 @@ class AutonomousLearningEngine:
                             "low_confidence": evaluation.get("low_confidence_facts", 0),
                             "unknown_topics": unknown_count,
                             "gaps_queued": poorly_understood[:3],
+                            "contradictions_resolved": resolve_summary[:120],
                             "step": "step17_metacognition",
                         },
                         tags=["ale_step17", "metacognition", "autonomous"],
@@ -6130,13 +6247,29 @@ class AutonomousLearningEngine:
                      len(added), added[0])
 
     # ─────────────────────────────────────────────
-    def detect_knowledge_gaps(self, max_gaps: int = 5) -> List[str]:
-        """Additive: scan the KnowledgeDB for under-covered topics.
+    # Coverage threshold below which a topic is always flagged as a gap,
+    # regardless of health score.
+    _GAP_COVERAGE_THRESHOLD: float = 0.40
 
-        Returns a list of research topic strings for which fewer than
-        :attr:`_MIN_COVERAGE_THRESHOLD` facts are stored.  These gaps are then
-        fed back into the research queue so the ALE self-completes its own
-        knowledge base autonomously.
+    def detect_knowledge_gaps(self, max_gaps: int = 5) -> List[str]:
+        """Scan the KnowledgeDB for under-covered topics using knowledge_health().
+
+        Each research topic is evaluated by :meth:`knowledge_health` which
+        returns a ``coverage_score`` (0–1) combining confidence and freshness
+        as well as a human-readable ``verdict``.  A topic is flagged as a gap
+        when:
+
+        * ``verdict`` is ``"unknown"`` (no facts stored at all), or
+        * ``verdict`` is ``"sparse"`` (too few facts), or
+        * ``coverage_score`` < :attr:`_GAP_COVERAGE_THRESHOLD` (0.40)
+          regardless of verdict.
+
+        This is richer than the old raw-fact-count check: a topic can have
+        several facts but still be a gap if those facts are stale or
+        low-confidence.
+
+        Falls back to the legacy fact-count check when ``knowledge_health``
+        is unavailable.
 
         Called automatically by :meth:`_run_autonomous_cycle` and can also be
         triggered manually via ``agents submit architecture_analysis``.
@@ -6144,17 +6277,41 @@ class AutonomousLearningEngine:
         gaps: List[str] = []
         if not self.knowledge_db or not self.research_topics:
             return gaps
+
+        # Prefer the richer knowledge_health() path.
+        health_fn = getattr(self.knowledge_db, "knowledge_health", None)
+
         for topic in self.research_topics[:30]:
             try:
-                # Try both search() and recall() APIs
-                results = None
-                for method in ("search", "recall"):
-                    fn = getattr(self.knowledge_db, method, None)
-                    if fn:
-                        results = fn(topic, limit=self._MIN_COVERAGE_THRESHOLD)
-                        break
-                count = len(results) if results else 0
-                if count < self._MIN_COVERAGE_THRESHOLD:
+                is_gap = False
+                if health_fn is not None:
+                    health = health_fn(topic)
+                    verdict = health.get("verdict", "unknown")
+                    coverage = float(health.get("coverage_score", 0.0))
+                    if verdict in ("unknown", "sparse"):
+                        is_gap = True
+                    elif coverage < self._GAP_COVERAGE_THRESHOLD:
+                        is_gap = True
+                    if is_gap:
+                        log.debug(
+                            "[ALE] Gap: %r — verdict=%s, coverage=%.2f, "
+                            "facts=%d, conf=%.2f",
+                            topic, verdict, coverage,
+                            health.get("fact_count", 0),
+                            health.get("avg_confidence", 0.0),
+                        )
+                else:
+                    # Legacy fallback: raw fact count
+                    results = None
+                    for method in ("search", "recall"):
+                        fn = getattr(self.knowledge_db, method, None)
+                        if fn:
+                            results = fn(topic, limit=self._MIN_COVERAGE_THRESHOLD)
+                            break
+                    count = len(results) if results else 0
+                    is_gap = count < self._MIN_COVERAGE_THRESHOLD
+
+                if is_gap:
                     gaps.append(topic)
                     if len(gaps) >= max_gaps:
                         break

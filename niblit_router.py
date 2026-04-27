@@ -26,16 +26,19 @@ _GAP_FACT_MAX_LEN = 500
 _ISO_TIMESTAMP_RE = re.compile(r'^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}')
 
 # ─────────────────────────────────
-def timestamp():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+try:
+    from modules.utils import timestamp, safe_call
+except Exception:
+    def timestamp():
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def safe_call(fn, *a, **kw):
-    try:
-        return fn(*a, **kw)
-    except Exception:
-        name = getattr(fn, "__name__", repr(fn))
-        log.debug("safe_call suppressed exception for %s", name, exc_info=True)
-        return f"[ERROR::{name}]"
+    def safe_call(fn, *a, **kw):
+        try:
+            return fn(*a, **kw)
+        except Exception:
+            name = getattr(fn, "__name__", repr(fn))
+            log.debug("safe_call suppressed exception for %s", name, exc_info=True)
+            return f"[ERROR::{name}]"
 
 # ─────────────────────────────────
 class ChatDetector:
@@ -185,6 +188,16 @@ class ChatDetector:
         r'^uptime\s*\??$',
     ]
 
+    # ── Pre-compiled versions for fast classify() ────────────────────────────
+    # These are compiled once at class definition time so re.search() does not
+    # re-compile the pattern string on every message.
+    _COMPILED_SELF_INTROSPECTION = [re.compile(p) for p in SELF_INTROSPECTION_PATTERNS]
+    _COMPILED_SELF_REFERENTIAL   = [re.compile(p) for p in SELF_REFERENTIAL_PATTERNS]
+    _COMPILED_KNOWLEDGE_SHARE    = [re.compile(p) for p in KNOWLEDGE_SHARE_PATTERNS]
+    _COMPILED_SYSTEM_QUERY       = [re.compile(p) for p in SYSTEM_QUERY_PATTERNS]
+    _COMPILED_CHAT               = [re.compile(p) for p in CHAT_PATTERNS]
+    _COMPILED_INFO_QUERY         = [re.compile(p) for p in INFO_QUERY_PATTERNS]
+
     @staticmethod
     def classify(text):
         """
@@ -199,34 +212,34 @@ class ChatDetector:
         lower = text.lower().strip()
 
         # Check self-introspection patterns FIRST (highest priority for reflection)
-        for pattern in ChatDetector.SELF_INTROSPECTION_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_SELF_INTROSPECTION:
+            if r.search(lower):
                 return 'self_introspection', None
 
         # Check self-referential patterns
-        for pattern in ChatDetector.SELF_REFERENTIAL_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_SELF_REFERENTIAL:
+            if r.search(lower):
                 return 'self_referential', None
 
         # Check knowledge-share patterns (user wants Niblit to share what it learned)
         # Priority: above system + chat, below self_referential (which is more specific).
-        for pattern in ChatDetector.KNOWLEDGE_SHARE_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_KNOWLEDGE_SHARE:
+            if r.search(lower):
                 return 'knowledge_share', None
 
         # Check system queries
-        for pattern in ChatDetector.SYSTEM_QUERY_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_SYSTEM_QUERY:
+            if r.search(lower):
                 return 'system', None
 
         # Check chat patterns
-        for pattern in ChatDetector.CHAT_PATTERNS:
-            if re.search(pattern, lower):
+        for r in ChatDetector._COMPILED_CHAT:
+            if r.search(lower):
                 return 'chat', None
 
         # Check info query patterns
-        for pattern in ChatDetector.INFO_QUERY_PATTERNS:
-            match = re.search(pattern, lower)
+        for r in ChatDetector._COMPILED_INFO_QUERY:
+            match = r.search(lower)
             if match:
                 subject = lower[match.end():].strip().rstrip('?').strip()
                 # Strip leading articles so the subject is a clean noun phrase
@@ -387,6 +400,9 @@ class NiblitRouter:
         "civilization", "civ",
         # Tiered knowledge recall — structured KB lookup by topic (additive)
         "knowledge",
+        # Smart KB sub-commands: think, health, contradictions, prune, consolidate
+        "kb think", "kb health", "kb contradict", "kb prune", "kb consolidate",
+        "think about",
         # 3-Tiered deterministic Graph-RAG (additive)
         "graph-rag", "graph_rag",
         # Conversational chat completions (Graph-RAG + LLMChatMemory + LLM)
@@ -401,6 +417,13 @@ class NiblitRouter:
         "tools",
         # Backend server toggle — switch between cloud and local llama-server
         "backend",
+    )
+
+    # frozenset of first-word tokens from COMMAND_PREFIXES for O(1) dispatch.
+    # Multi-word prefixes (e.g. "lean deploy") also contribute their first word
+    # so that "cmd_word in _COMMAND_PREFIX_WORDS" is a safe pre-filter.
+    _COMMAND_PREFIX_WORDS: frozenset = frozenset(
+        p.split()[0] for p in COMMAND_PREFIXES if p.split()
     )
 
     CHAT_RESPONSES = {
@@ -1506,6 +1529,19 @@ Ask me about:
                 msg += f"\n  {restart_note}"
             return msg
 
+        if action.startswith("learn") or action.startswith("patterns") or action.startswith("analyze"):
+            pair_filter = ""
+            parts = action.split(None, 1)
+            if len(parts) > 1:
+                pair_filter = parts[1].strip().upper()
+            try:
+                from modules.trade_kb_learner import TradeKBLearner
+                kb = getattr(self.core, "db", None)
+                learner = TradeKBLearner(knowledge_db=kb)
+                return learner.summarize(pair=pair_filter or None)
+            except Exception as exc:
+                return f"[Trading patterns] error: {exc}"
+
         return (
             "Usage:\n"
             "  trading start              — Start autonomous trading cycle\n"
@@ -1513,7 +1549,9 @@ Ask me about:
             "  trading status             — Show trading brain state\n"
             "  trading cycle              — Run a single cycle now (manual trigger)\n"
             "  trading pair <SYMBOL>      — Switch to a different trading pair (e.g. ETHUSDT)\n"
-            "  trading pair <SYMBOL> <IV> — Switch pair and interval  (e.g. SOLUSDT 5m)"
+            "  trading pair <SYMBOL> <IV> — Switch pair and interval  (e.g. SOLUSDT 5m)\n"
+            "  trading patterns [PAIR]    — Show learned trading patterns from KB history\n"
+            "  trading learn              — Alias for 'trading patterns'"
         )
 
     # ─────────────────────────────────
@@ -4098,8 +4136,111 @@ Ask me about:
             knowledge transformers          # recall stored facts for a topic
             knowledge status                # show current tier and confidence
             knowledge report                # full tier-by-tier report
+
+            kb think <topic>                # synthesise what Niblit knows
+            kb health [topic]               # knowledge health & coverage
+            kb contradictions [topic]       # surface conflicting facts
+            kb prune                        # decay stale-confidence facts
+            kb consolidate                  # deduplicate same-key facts
+            kb consolidate dry              # preview deduplication only
         """
-        sub = cmd[len("knowledge"):].strip()
+        sub = cmd.strip()
+        lower_sub = sub.lower()
+
+        # ── NEW: KB smart-recall sub-commands ─────────────────────────────────
+        db = getattr(self.core, "db", None)
+
+        # kb think <topic>
+        if lower_sub.startswith("kb think ") or lower_sub.startswith("think about "):
+            topic = sub.split(None, 2)[-1].strip()
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                return db.think_about(topic)
+            except Exception as exc:
+                return f"[KB think error: {exc}]"
+
+        # kb health [topic]
+        if lower_sub.startswith("kb health"):
+            topic = sub[len("kb health"):].strip()
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                h = db.knowledge_health(topic)
+                verdict = h.get("verdict", "unknown")
+                icon = {"strong": "✅", "moderate": "🟡", "sparse": "🔶", "unknown": "❓"}.get(verdict, "ℹ️")
+                lines = [
+                    f"{icon} Knowledge health{f' for «{topic}»' if topic else ''}:",
+                    f"  Facts found      : {h.get('fact_count', 0)}",
+                    f"  Avg confidence   : {h.get('avg_confidence', 0):.0%}",
+                    f"  Freshness        : {h.get('freshness', 0):.0%}",
+                    f"  Coverage score   : {h.get('coverage_score', 0):.0%}",
+                    f"  Verdict          : {verdict.upper()}",
+                ]
+                if verdict in ("sparse", "unknown"):
+                    lines.append(f"  Tip: run 'self-teach {topic or 'topic'}' to learn more.")
+                return "\n".join(lines)
+            except Exception as exc:
+                return f"[KB health error: {exc}]"
+
+        # kb contradictions [topic]
+        if lower_sub.startswith("kb contradict"):
+            _sub_parts = sub.split(None, 2)
+            topic = _sub_parts[-1].strip() if len(_sub_parts) > 2 else ""
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                from modules.knowledge_recall import SmartRecall
+                conflicts = SmartRecall(db).find_contradictions(topic, max_pairs=5)
+                if not conflicts:
+                    return (
+                        f"✅ No contradictions found"
+                        + (f" for «{topic}»" if topic else "")
+                        + "."
+                    )
+                lines = [
+                    f"⚠️  {len(conflicts)} potential contradiction(s)"
+                    + (f" for «{topic}»" if topic else "") + ":"
+                ]
+                for fa, fb, score in conflicts:
+                    lines.append(
+                        f"  • [{fa.get('key','?')[:50]}]"
+                        f" ↔ [{fb.get('key','?')[:50]}]"
+                        f"  conflict={score:.2f}"
+                    )
+                return "\n".join(lines)
+            except Exception as exc:
+                return f"[KB contradictions error: {exc}]"
+
+        # kb prune  — decay stale confidence
+        if lower_sub.strip() in ("kb prune",):
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                n = db.decay_stale_confidence()
+                return f"✅ Confidence decay applied to {n} stale fact(s)."
+            except Exception as exc:
+                return f"[KB prune error: {exc}]"
+
+        # kb consolidate [dry]
+        if lower_sub.startswith("kb consolidate"):
+            dry = "dry" in lower_sub
+            if not db:
+                return "[KB] Core DB not available"
+            try:
+                report = db.consolidate_facts(dry_run=dry)
+                mode = "DRY RUN" if dry else "applied"
+                return (
+                    f"{'🔍' if dry else '✅'} KB consolidate ({mode}):\n"
+                    f"  Duplicate groups  : {report.get('duplicate_groups', 0)}\n"
+                    f"  Facts merged      : {report.get('facts_merged', 0)}\n"
+                    f"  Facts pruned      : {report.get('facts_pruned', 0)}"
+                )
+            except Exception as exc:
+                return f"[KB consolidate error: {exc}]"
+
+        # ── Original TKS routing ───────────────────────────────────────────────
+        sub = cmd[len("knowledge"):].strip() if lower_sub.startswith("knowledge") else sub
 
         ale = getattr(self.core, "autonomous_engine", None)
         tks = getattr(ale, "tiered_knowledge", None) if ale else None
@@ -4145,6 +4286,7 @@ Ask me about:
             f"Run 'self-teach {sub}' or wait for the autonomous learning engine "
             f"to research this topic."
         )
+
 
     def _handle_graph_rag(self, cmd: str) -> str:
         """Handle 'graph-rag <sub>' commands — 3-Tiered Graph-RAG pipeline.
@@ -5724,7 +5866,7 @@ Ask me about:
         if lower == "version":
             return "Niblit v1.0.0 — autonomous AI system"
 
-        if cmd_word in self.COMMAND_PREFIXES or any(lower.startswith(prefix) for prefix in ["show improvements", "run improvement", "improvement-status"]):
+        if cmd_word in self._COMMAND_PREFIX_WORDS or any(lower.startswith(prefix) for prefix in ["show improvements", "run improvement", "improvement-status"]):
             resp = self.handle_command(cleaned)
             self._collect(cleaned, resp, "command")
             return resp
@@ -6539,6 +6681,17 @@ Ask me about:
 
         # KNOWLEDGE — tiered KB recall (additive)
         if lower == "knowledge" or lower.startswith("knowledge "):
+            return self._handle_knowledge(cmd)
+
+        # SMART KB COMMANDS — think / health / contradictions / prune / consolidate
+        if (
+            lower.startswith("kb think ")
+            or lower.startswith("kb health")
+            or lower.startswith("kb contradict")
+            or lower in ("kb prune",)
+            or lower.startswith("kb consolidate")
+            or lower.startswith("think about ")
+        ):
             return self._handle_knowledge(cmd)
 
         # GRAPH-RAG — 3-tiered deterministic Graph-RAG (additive)

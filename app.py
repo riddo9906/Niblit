@@ -11,6 +11,7 @@ the web experience is identical to running Niblit in a Termux terminal.
 
 import difflib
 import datetime
+import hmac
 import json as _json
 import threading
 import time
@@ -27,7 +28,7 @@ try:
 except ImportError:
     pass  # python-dotenv not installed — rely on os.environ
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -103,12 +104,47 @@ _DEFAULT_RENDERERS = [JSONRenderer(), BrowsableAPIRenderer()]
 
 
 def negotiate_renderer(request: Request, renderers=None):
-    """Pick the best renderer via Accept-header content negotiation."""
+    """Pick the best renderer via Accept-header content negotiation.
+
+    Parses quality values (``q=``) so that
+    ``Accept: text/html;q=0.1,application/json;q=0.9`` correctly picks the
+    JSON renderer over the HTML renderer.
+    """
     active = renderers if renderers is not None else _DEFAULT_RENDERERS
-    accept = request.headers.get("accept", "") if request is not None else ""
-    for r in active:
-        if r.media_type in accept:
-            return r
+    accept_header = request.headers.get("accept", "") if request is not None else ""
+    if not accept_header:
+        return active[0]
+
+    # Build a list of (quality, media_type) pairs from the Accept header.
+    accepted: List[tuple] = []
+    for part in accept_header.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        segments = [s.strip() for s in part.split(";")]
+        media_type = segments[0]
+        quality = 1.0
+        for seg in segments[1:]:
+            if seg.startswith("q="):
+                try:
+                    quality = float(seg[2:])
+                except ValueError:
+                    pass
+                break
+        accepted.append((quality, media_type))
+
+    # Sort by descending quality so highest-preference type is checked first.
+    accepted.sort(key=lambda x: x[0], reverse=True)
+
+    for _q, media_type in accepted:
+        for r in active:
+            if r.media_type == media_type or media_type == "*/*":
+                return r
+            # Wildcard sub-type match: e.g. "text/*" matches "text/html"
+            if "/" in media_type:
+                main, sub = media_type.split("/", 1)
+                if sub == "*" and r.media_type.startswith(f"{main}/"):
+                    return r
     return active[0]
 
 
@@ -135,11 +171,14 @@ def render_response(request: Request, data, status=200, renderers=None, headers=
 API_KEY = os.environ.get("NIBLIT_API_KEY", None)
 
 
-def require_key(request: Request):
+def require_key(request: Request) -> bool:
     if not API_KEY:
         return True
     req_key = request.headers.get("X-API-Key")
-    return req_key == API_KEY
+    if req_key is None:
+        return False
+    # Use constant-time comparison to prevent timing-based key enumeration.
+    return hmac.compare_digest(req_key, API_KEY)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -151,9 +190,12 @@ RATE_WINDOW = 60
 rate_store: dict = {}
 
 
-def rate_limited(request: Request):
+def rate_limited(request: Request) -> bool:
     ip = (request.client.host if request.client else None) or "unknown"
     now = time.time()
+    # Rough GC: keep the dict from growing unboundedly with unique IPs.
+    if len(rate_store) > 10_000:
+        rate_store.clear()
     entry = [t for t in rate_store.get(ip, []) if now - t < RATE_WINDOW]
     rate_store[ip] = entry
     if len(entry) >= RATE_LIMIT:
@@ -162,20 +204,31 @@ def rate_limited(request: Request):
     return False
 
 
+def _guard(request: Request) -> None:
+    """FastAPI dependency that enforces auth and rate-limiting together."""
+    if not require_key(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if rate_limited(request):
+        raise HTTPException(status_code=429, detail="Too many requests")
+
+
 # ══════════════════════════════════════════════════════════════
 # NIBLIT CORE LOADER (lazy — avoids cold-start penalty)
 # ══════════════════════════════════════════════════════════════
 
 _core = None
+_core_lock = threading.Lock()
 
 
 def get_core():
     global _core  # pylint: disable=global-statement
-    if _core is None and NiblitCore:
-        try:
-            _core = NiblitCore()
-        except Exception as exc:
-            logging.getLogger("NiblitApp").error("NiblitCore init error: %s", exc)
+    if _core is None:
+        with _core_lock:
+            if _core is None and NiblitCore:  # double-checked locking
+                try:
+                    _core = NiblitCore()
+                except Exception as exc:
+                    logging.getLogger("NiblitApp").error("NiblitCore init error: %s", exc)
     return _core
 
 
@@ -238,9 +291,14 @@ _SHELL_COMMANDS = list(_DIRECT_CMD_KEYS) + [
 ]
 
 
-def _ts():
-    """Return a timestamp string matching NiblitIO.timestamp() format (UTC)."""
-    return datetime.datetime.now(datetime.timezone.utc).strftime("[%Y-%m-%d %H:%M:%S]")
+try:
+    from modules.utils import timestamp as _ts_util  # shared utility
+    def _ts() -> str:
+        return _ts_util()
+except Exception:
+    def _ts() -> str:  # type: ignore[misc]
+        """Return a timestamp string matching NiblitIO.timestamp() format (UTC)."""
+        return datetime.datetime.now(datetime.timezone.utc).strftime("[%Y-%m-%d %H:%M:%S]")
 
 
 def suggest_command(user_input):
@@ -1711,7 +1769,7 @@ def health(request: Request):
 
 
 # ── OpenAI-compatible inference endpoint ────────────────
-@app.post("/v1/chat/completions")
+@app.post("/v1/chat/completions", dependencies=[Depends(_guard)])
 def openai_chat_completions(request: Request, body: OpenAIChatRequest):
     """OpenAI-compatible chat completions endpoint.
 
@@ -1724,10 +1782,6 @@ def openai_chat_completions(request: Request, body: OpenAIChatRequest):
     full Niblit router (``core.handle()``) is used as a fallback so the
     cloud-server always returns a meaningful response.
     """
-    if not require_key(request):
-        return JSONResponse({"error": "unauthorized"}, status_code=401)
-    if rate_limited(request):
-        return JSONResponse({"error": "rate limit reached"}, status_code=429)
 
     # Extract system prompt and last user message from the messages list.
     system_prompt: Optional[str] = None
@@ -1915,13 +1969,9 @@ def api_bg_status(request: Request):
 
 
 # ── API: search (GET or POST) ────────────────────────────
-@app.get("/api/search")
+@app.get("/api/search", dependencies=[Depends(_guard)])
 def api_search_get(request: Request, q: str = "", query: str = ""):
     """Dedicated search endpoint (GET) — wraps the 'search <query>' command."""
-    if not require_key(request):
-        return render_response(request, {"error": "unauthorized"}, status=401)
-    if rate_limited(request):
-        return render_response(request, {"error": "rate limit reached"}, status=429)
     search_q = (q or query).strip()
     if not search_q:
         return render_response(request,
@@ -1938,13 +1988,9 @@ def api_search_get(request: Request, q: str = "", query: str = ""):
     return render_response(request, {"query": search_q, "result": result})
 
 
-@app.post("/api/search")
+@app.post("/api/search", dependencies=[Depends(_guard)])
 def api_search_post(request: Request, body: SearchBody):
     """Dedicated search endpoint (POST) — wraps the 'search <query>' command."""
-    if not require_key(request):
-        return render_response(request, {"error": "unauthorized"}, status=401)
-    if rate_limited(request):
-        return render_response(request, {"error": "rate limit reached"}, status=429)
     search_q = (body.query or body.text).strip()
     if not search_q:
         return render_response(request,
@@ -1962,17 +2008,13 @@ def api_search_post(request: Request, body: SearchBody):
 
 
 # ── Chat (mirrors run_shell() from main.py) ─────────────
-@app.post("/chat")
+@app.post("/chat", dependencies=[Depends(_guard)])
 def chat(request: Request, body: ChatBody):
     """
     Process user input using the same logic as main.py run_shell():
     direct commands → router-routed commands → core.handle() catch-all
     + suggestion engine.  Returns reply, suggestion, ts, debug_lines.
     """
-    if not require_key(request):
-        return render_response(request, {"error": "unauthorized"}, status=401)
-    if rate_limited(request):
-        return render_response(request, {"error": "rate limit reached"}, status=429)
 
     # ── Layer A: basic SecurityMembrane (fast, always-on) ────────────────
     client_ip = request.client.host if request.client else "unknown"
@@ -2061,12 +2103,8 @@ def chat(request: Request, body: ChatBody):
 
 
 # ── Memory ──────────────────────────────────────────────
-@app.get("/memory")
+@app.get("/memory", dependencies=[Depends(_guard)])
 def memory(request: Request):
-    if not require_key(request):
-        return render_response(request, {"error": "unauthorized"}, status=401)
-    if rate_limited(request):
-        return render_response(request, {"error": "rate limit reached"}, status=429)
     core = get_core()
     facts = []
     if core:
@@ -2173,49 +2211,74 @@ class TradeFeedbackRequest(BaseModel):
     action: str               # action that was executed
     outcome: str              # "profit" | "loss" | "neutral"
     pnl_pct: Optional[float] = None
+    timeframe: str = "1h"
     features: Optional[Dict[str, float]] = None
 
 
 _trade_log: logging.Logger = logging.getLogger("NiblitTrade")
 
 
-def _niblit_trade_signal(pair: str, features: Optional[Dict[str, float]]) -> Dict[str, object]:
-    """Ask NiblitBrain / TradingBrain for a signal.
+def _niblit_trade_signal(pair: str, features: Optional[Dict[str, float]], timeframe: str = "1h") -> Dict[str, object]:
+    """Ask NiblitBrain / TradingBrain for a signal, then enrich with KB history.
 
     Falls back to a 'hold' response if the brain or trading module is not
     available (safe for android profile without ML deps).
     """
-    # Try TradingBrain first (niblit_core exposes it)
+    raw_action = "hold"
+    raw_confidence = 0.5
+
+    # ── 1. TradingBrain decision ──────────────────────────────────────────────
     try:
         core = get_core()
         trading_brain = getattr(core, "trading_brain", None) if core else None
         if trading_brain is not None and hasattr(trading_brain, "decide_action"):
             action_raw = trading_brain.decide_action(pair)
             action_map = {"BUY": "buy", "SELL": "sell", "HOLD": "hold"}
-            action = action_map.get(str(action_raw).upper(), "hold")
-            return {"action": action, "confidence": 0.65, "source": "trading_brain"}
+            raw_action = action_map.get(str(action_raw).upper(), "hold")
+            raw_confidence = 0.65
     except Exception as exc:
         _trade_log.debug("TradingBrain.decide_action failed: %s", exc)
 
-    # Try NiblitBrain think() as a second opinion
-    try:
-        core = get_core()
-        brain = getattr(core, "brain", None) if core else None
-        if brain is not None and hasattr(brain, "think"):
-            prompt = (
-                f"Given current market data for {pair} with indicators "
-                f"{features or {}}, reply with exactly one word: BUY, SELL, or HOLD."
-            )
-            raw_answer = str(brain.think(prompt)).strip().upper()
-            parts = raw_answer.split()
-            answer = parts[0] if parts else "HOLD"
-            action_map = {"BUY": "buy", "SELL": "sell", "HOLD": "hold"}
-            action = action_map.get(answer, "hold")
-            return {"action": action, "confidence": 0.55, "source": "niblit_brain"}
-    except Exception as exc:
-        _trade_log.debug("NiblitBrain.think failed: %s", exc)
+    # ── 2. NiblitBrain fallback ───────────────────────────────────────────────
+    if raw_action == "hold":
+        try:
+            core = get_core()
+            brain = getattr(core, "brain", None) if core else None
+            if brain is not None and hasattr(brain, "think"):
+                prompt = (
+                    f"Given current market data for {pair} with indicators "
+                    f"{features or {}}, reply with exactly one word: BUY, SELL, or HOLD."
+                )
+                raw_answer = str(brain.think(prompt)).strip().upper()
+                parts = raw_answer.split()
+                answer = parts[0] if parts else "HOLD"
+                action_map = {"BUY": "buy", "SELL": "sell", "HOLD": "hold"}
+                raw_action = action_map.get(answer, "hold")
+                raw_confidence = 0.55
+        except Exception as exc:
+            _trade_log.debug("NiblitBrain.think failed: %s", exc)
 
-    return {"action": "hold", "confidence": 0.5, "source": "fallback"}
+    # ── 3. Enrich with KB pattern history ────────────────────────────────────
+    try:
+        from modules.trade_kb_learner import TradeKBLearner
+        core = get_core()
+        kb_db = getattr(core, "db", None) if core else None
+        learner = TradeKBLearner(knowledge_db=kb_db)
+        enriched = learner.enrich_signal(
+            pair, timeframe, features or {}, raw_action, raw_confidence
+        )
+        return {
+            "action": enriched["action"],
+            "confidence": enriched["confidence"],
+            "source": enriched.get("source", "trade_kb_learner"),
+            "reason": enriched.get("reason", ""),
+            "win_rate": enriched.get("win_rate"),
+            "sample_size": enriched.get("sample_size", 0),
+        }
+    except Exception as exc:
+        _trade_log.debug("TradeKBLearner enrichment failed: %s", exc)
+
+    return {"action": raw_action, "confidence": raw_confidence, "source": "raw"}
 
 
 @app.post("/trade/signal", response_model=TradeSignalResponse)
@@ -2247,7 +2310,7 @@ def trade_signal(request: Request, body: TradeSignalRequest):
         combined_features.update(body.last_candle)
 
     try:
-        result = _niblit_trade_signal(body.pair, combined_features)
+        result = _niblit_trade_signal(body.pair, combined_features, timeframe=body.timeframe)
     except Exception as exc:
         _trade_log.error("trade_signal error: %s", exc)
         result = {"action": "hold", "confidence": 0.5, "source": "error_fallback"}
@@ -2261,6 +2324,9 @@ def trade_signal(request: Request, body: TradeSignalRequest):
             "pair": body.pair,
             "timeframe": body.timeframe,
             "profile": profile,
+            "reason": str(result.get("reason", "")),
+            "win_rate": result.get("win_rate"),
+            "sample_size": int(result.get("sample_size") or 0),
         },
     })
 
@@ -2269,8 +2335,11 @@ def trade_signal(request: Request, body: TradeSignalRequest):
 def trade_feedback(request: Request, body: TradeFeedbackRequest):
     """Accept trade outcome feedback so Niblit can learn from it.
 
-    The outcome is stored as a knowledge-base entry so future signal requests
-    can benefit from past performance.  Works in every profile.
+    The outcome is stored as a knowledge-base entry and fed to the
+    TradeKBLearner so future signal requests improve their accuracy over time.
+    When NIBLIT_RL_ENABLED=1 and the RL policy is wired in, the reward is
+    also propagated to the RL policy via TradingStudy.log_trade().
+    Works in every profile.
     """
     if rate_limited(request):
         return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
@@ -2294,7 +2363,138 @@ def trade_feedback(request: Request, body: TradeFeedbackRequest):
     except Exception as exc:
         _trade_log.debug("trade_feedback store error: %s", exc)
 
-    return JSONResponse(content={"status": "accepted", "stored": stored})
+    # ── Feed outcome to TradeKBLearner so pattern memory grows ───────────────
+    kb_learned = False
+    try:
+        from modules.trade_kb_learner import TradeKBLearner
+        core = get_core()
+        kb_db = getattr(core, "db", None) if core else None
+        learner = TradeKBLearner(knowledge_db=kb_db)
+        features: Dict[str, float] = dict(body.features or {})
+        learner.record_outcome(
+            pair=body.pair,
+            timeframe=body.timeframe,
+            features=features,
+            action=body.action,
+            outcome=body.outcome,
+            pnl_pct=body.pnl_pct,
+        )
+        kb_learned = True
+    except Exception as exc:
+        _trade_log.debug("TradeKBLearner record_outcome error: %s", exc)
+
+    # ── Propagate reward to TradingStudy / RL policy ─────────────────────────
+    rl_rewarded = False
+    try:
+        core = get_core()
+        ts = getattr(core, "trading_study", None) if core else None
+        if ts and hasattr(ts, "log_trade"):
+            pnl = body.pnl_pct or 0.0
+            ts.log_trade(
+                symbol=body.pair,
+                side=body.action,
+                price=0.0,
+                qty=0.0,
+                pnl=pnl,
+                source="freqtrade_feedback",
+            )
+            rl_rewarded = True
+    except Exception as exc:
+        _trade_log.debug("TradingStudy.log_trade error: %s", exc)
+
+    return JSONResponse(content={
+        "status": "accepted",
+        "stored": stored,
+        "kb_learned": kb_learned,
+        "rl_rewarded": rl_rewarded,
+    })
+
+
+# ── Trade pattern analysis endpoint ─────────────────────────────────────────
+
+@app.get("/trade/analyze")
+def trade_analyze(request: Request, pair: str = "", limit: int = 20):
+    """Return a human-readable summary of Niblit's learned trading patterns.
+
+    Query params:
+        pair  — filter by pair, e.g. ?pair=BTC/USDT  (optional)
+        limit — max pattern buckets to return (default 20)
+    """
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+    try:
+        from modules.trade_kb_learner import TradeKBLearner
+        core = get_core()
+        kb_db = getattr(core, "db", None) if core else None
+        learner = TradeKBLearner(knowledge_db=kb_db)
+        summary = learner.summarize(pair=pair or None, limit=max(1, min(limit, 100)))
+        return JSONResponse(content={"summary": summary, "pair_filter": pair or "all"})
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("trade_analyze error: %s", exc)
+        return JSONResponse(content={"error": "analysis failed — see server logs"}, status_code=500)
+
+
+# ── Knowledge recall API endpoints ────────────────────────────────────────────
+
+@app.get("/kb/think")
+def kb_think(request: Request, topic: str = ""):
+    """Synthesise what Niblit knows about *topic* (TF-IDF ranked retrieval).
+
+    Query params:
+        topic — the subject to synthesise knowledge about (required)
+    """
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+    if not topic:
+        return JSONResponse(content={"error": "topic query parameter required"}, status_code=400)
+    try:
+        core = get_core()
+        db = getattr(core, "db", None) if core else None
+        if db is None:
+            return JSONResponse(content={"error": "KB not available"}, status_code=503)
+        answer = db.think_about(topic)
+        return JSONResponse(content={"topic": topic, "synthesis": answer})
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("kb_think error: %s", exc)
+        return JSONResponse(content={"error": "synthesis failed — see server logs"}, status_code=500)
+
+
+@app.get("/kb/health")
+def kb_health(request: Request, topic: str = ""):
+    """Return knowledge health metrics for *topic* (or the whole KB).
+
+    Query params:
+        topic — optional filter topic
+    """
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+    try:
+        core = get_core()
+        db = getattr(core, "db", None) if core else None
+        if db is None:
+            return JSONResponse(content={"error": "KB not available"}, status_code=503)
+        health = db.knowledge_health(topic)
+        return JSONResponse(content={"topic": topic or "all", **health})
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("kb_health error: %s", exc)
+        return JSONResponse(content={"error": "health check failed — see server logs"}, status_code=500)
+
+
+@app.post("/kb/consolidate")
+def kb_consolidate(request: Request, dry_run: bool = False):
+    """Merge duplicate KB facts (same key) — call with ?dry_run=true to preview."""
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+    try:
+        core = get_core()
+        db = getattr(core, "db", None) if core else None
+        if db is None:
+            return JSONResponse(content={"error": "KB not available"}, status_code=503)
+        report = db.consolidate_facts(dry_run=dry_run)
+        return JSONResponse(content=report)
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("kb_consolidate error: %s", exc)
+        return JSONResponse(content={"error": "consolidation failed — see server logs"}, status_code=500)
 
 
 # Register /mcp (JSON-RPC POST) and /mcp/sse (SSE notifications).
