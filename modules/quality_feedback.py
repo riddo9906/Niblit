@@ -43,6 +43,11 @@ log = logging.getLogger("QualityFeedback")
 # ─────────────────────────────────────────────────────────────────────────────
 # Thresholds
 # ─────────────────────────────────────────────────────────────────────────────
+# These values are calibrated against the RewardModel's BM25-based score
+# distribution.  Typical answer scores span 0.2–0.9:
+#   • Well-grounded answers with direct KB evidence  →  0.6–0.9
+#   • Partially-relevant or vague answers            →  0.35–0.6
+#   • Off-topic, empty, or error-string responses    →  0.0–0.35
 
 # Answers scoring at or above this are "good" — reinforce the facts used.
 _GOOD_THRESHOLD: float = 0.60
@@ -267,7 +272,11 @@ class QualityFeedback:
 def _decay_fact_confidence(knowledge_db: Any, key: str, amount: float = 0.10) -> bool:
     """Lower the confidence of an existing KB fact.
 
-    Mirrors KnowledgeDB.reinforce() but in the negative direction.
+    Mirrors KnowledgeDB.reinforce() in the negative direction.  Kept as a
+    module-level helper here rather than a KnowledgeDB method so that the
+    quality-feedback module can be imported without circular-importing the
+    full niblit_memory package in every callsite.
+
     Returns True when a matching fact was found and updated.
     """
     try:

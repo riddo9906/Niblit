@@ -1251,8 +1251,19 @@ class KnowledgeDB:
         _kdb_log.debug("[KnowledgeDB] decay_stale_confidence: %d facts updated", updated)
         return updated
 
-    # Source-based initial confidence weights.  Lower means "believe it less
-    # until confirmed by a second source or user feedback".
+    # Source-based initial confidence weights used when the caller does not
+    # supply an explicit confidence score.  The values reflect how trustworthy
+    # Niblit considers each source:
+    #   • User-confirmed facts start at 1.0 — the user is the ground truth.
+    #   • Verified research (cross-checked by the ALE) starts at 0.9.
+    #   • Web search / self_researcher / serpex start at 0.8 — generally
+    #     reliable but unverified.
+    #   • Scrapy/searchcode/SO/GitHub start at 0.75 — code content is often
+    #     correct but may be version-specific or opinionated.
+    #   • SQLite researcher starts at 0.7 — secondary extraction from local DB.
+    #   • LLM synthesis (model-generated knowledge) starts at 0.6 — plausible
+    #     but may hallucinate; needs reinforcement before being fully trusted.
+    #   • Free-form LLM responses start at 0.5 — lowest trust until confirmed.
     _SOURCE_CONFIDENCE: Dict[str, float] = {
         "user_confirmed": 1.0,
         "research_verified": 0.9,

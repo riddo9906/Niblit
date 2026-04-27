@@ -3742,6 +3742,24 @@ class AutonomousLearningEngine:
         except Exception as exc:
             return f"[ResolveContradictions] list_facts error: {exc}"
 
+        # Build a key-prefix → fact lookup once (O(n)) so per-flag lookups
+        # are O(1) instead of rescanning the full list for every flag (O(n²)).
+        fact_by_key: dict = {}
+        for f in reversed(facts):  # reversed so last write wins on duplicate prefix
+            if isinstance(f, dict):
+                k = str(f.get("key", ""))
+                if k:
+                    fact_by_key[k] = f
+
+        def _find_fact(prefix: str):
+            if prefix in fact_by_key:
+                return fact_by_key[prefix]
+            # Prefix-match fallback for keys that have a timestamp suffix
+            for k, v in fact_by_key.items():
+                if k.startswith(prefix):
+                    return v
+            return None
+
         for flag in flag_facts:
             try:
                 payload = flag.get("value") or {}
@@ -3756,13 +3774,6 @@ class AutonomousLearningEngine:
                 # Only act on significant conflicts
                 if conf_sc < 0.3:
                     continue
-
-                # Find both facts in the KB (most-recent match)
-                def _find_fact(key: str):
-                    for f in reversed(facts):
-                        if isinstance(f, dict) and str(f.get("key", "")).startswith(key):
-                            return f
-                    return None
 
                 fact_a = _find_fact(key_a)
                 fact_b = _find_fact(key_b)

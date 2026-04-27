@@ -23,6 +23,9 @@ except Exception:
 _REVIEW_QUEUE_KEY = "self_teacher:review_queue"
 _MAX_INTERVAL_DAYS = 30.0
 _SECONDS_PER_DAY = 86400.0
+# Minimum spaced-repetition interval: 6 hours. Below this, re-testing too
+# quickly yields no meaningful retention benefit.
+_MIN_REVIEW_INTERVAL_DAYS: float = 0.25
 
 
 class SelfTeacher:
@@ -541,7 +544,7 @@ class SelfTeacher:
             for entry in self._review_queue:
                 if entry.get("topic") == topic:
                     old = float(entry.get("interval_days", 1.0))
-                    entry["interval_days"] = max(0.25, old / 2.0)
+                    entry["interval_days"] = max(_MIN_REVIEW_INTERVAL_DAYS, old / 2.0)
                     entry["next_review"] = now + entry["interval_days"] * _SECONDS_PER_DAY
                     break
         self._save_review_queue()

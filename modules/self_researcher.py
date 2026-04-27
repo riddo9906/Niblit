@@ -659,6 +659,9 @@ class SelfResearcher:
     # ─────────────────────────────────────────────
     # Minimum RewardModel score required to store a research result.  Results
     # scoring below this threshold are discarded — they add noise, not signal.
+    # 0.30 is intentionally permissive: the BM25-based RewardModel scores
+    # genuine off-topic content (cookie banners, empty pages, navigation menus)
+    # at ≈0.05–0.20, while even loosely relevant snippets typically score ≥0.30.
     _STORE_QUALITY_THRESHOLD: float = 0.30
 
     def _store_research_in_knowledge_db(self, query, results):
