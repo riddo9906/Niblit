@@ -6247,13 +6247,29 @@ class AutonomousLearningEngine:
                      len(added), added[0])
 
     # ─────────────────────────────────────────────
-    def detect_knowledge_gaps(self, max_gaps: int = 5) -> List[str]:
-        """Additive: scan the KnowledgeDB for under-covered topics.
+    # Coverage threshold below which a topic is always flagged as a gap,
+    # regardless of health score.
+    _GAP_COVERAGE_THRESHOLD: float = 0.40
 
-        Returns a list of research topic strings for which fewer than
-        :attr:`_MIN_COVERAGE_THRESHOLD` facts are stored.  These gaps are then
-        fed back into the research queue so the ALE self-completes its own
-        knowledge base autonomously.
+    def detect_knowledge_gaps(self, max_gaps: int = 5) -> List[str]:
+        """Scan the KnowledgeDB for under-covered topics using knowledge_health().
+
+        Each research topic is evaluated by :meth:`knowledge_health` which
+        returns a ``coverage_score`` (0–1) combining confidence and freshness
+        as well as a human-readable ``verdict``.  A topic is flagged as a gap
+        when:
+
+        * ``verdict`` is ``"unknown"`` (no facts stored at all), or
+        * ``verdict`` is ``"sparse"`` (too few facts), or
+        * ``coverage_score`` < :attr:`_GAP_COVERAGE_THRESHOLD` (0.40)
+          regardless of verdict.
+
+        This is richer than the old raw-fact-count check: a topic can have
+        several facts but still be a gap if those facts are stale or
+        low-confidence.
+
+        Falls back to the legacy fact-count check when ``knowledge_health``
+        is unavailable.
 
         Called automatically by :meth:`_run_autonomous_cycle` and can also be
         triggered manually via ``agents submit architecture_analysis``.
@@ -6261,17 +6277,41 @@ class AutonomousLearningEngine:
         gaps: List[str] = []
         if not self.knowledge_db or not self.research_topics:
             return gaps
+
+        # Prefer the richer knowledge_health() path.
+        health_fn = getattr(self.knowledge_db, "knowledge_health", None)
+
         for topic in self.research_topics[:30]:
             try:
-                # Try both search() and recall() APIs
-                results = None
-                for method in ("search", "recall"):
-                    fn = getattr(self.knowledge_db, method, None)
-                    if fn:
-                        results = fn(topic, limit=self._MIN_COVERAGE_THRESHOLD)
-                        break
-                count = len(results) if results else 0
-                if count < self._MIN_COVERAGE_THRESHOLD:
+                is_gap = False
+                if health_fn is not None:
+                    health = health_fn(topic)
+                    verdict = health.get("verdict", "unknown")
+                    coverage = float(health.get("coverage_score", 0.0))
+                    if verdict in ("unknown", "sparse"):
+                        is_gap = True
+                    elif coverage < self._GAP_COVERAGE_THRESHOLD:
+                        is_gap = True
+                    if is_gap:
+                        log.debug(
+                            "[ALE] Gap: %r — verdict=%s, coverage=%.2f, "
+                            "facts=%d, conf=%.2f",
+                            topic, verdict, coverage,
+                            health.get("fact_count", 0),
+                            health.get("avg_confidence", 0.0),
+                        )
+                else:
+                    # Legacy fallback: raw fact count
+                    results = None
+                    for method in ("search", "recall"):
+                        fn = getattr(self.knowledge_db, method, None)
+                        if fn:
+                            results = fn(topic, limit=self._MIN_COVERAGE_THRESHOLD)
+                            break
+                    count = len(results) if results else 0
+                    is_gap = count < self._MIN_COVERAGE_THRESHOLD
+
+                if is_gap:
                     gaps.append(topic)
                     if len(gaps) >= max_gaps:
                         break

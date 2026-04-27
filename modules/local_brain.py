@@ -1716,6 +1716,13 @@ class QwenLocalBrain:
             Optional API key forwarded as ``X-API-Key`` header.
         """
         url = self._server_url
+        # Prefer the dedicated NIBLIT_CLOUD_SERVER_URL when set — that is the
+        # Niblit deployment exposing /v1/chat/completions and /chat.  Fall back
+        # to self._server_url (the local llama-server URL) only when the cloud
+        # URL is not configured.
+        cloud_url = os.environ.get("NIBLIT_CLOUD_SERVER_URL", "").rstrip("/")
+        if cloud_url:
+            url = cloud_url
         if not url:
             return "[LocalBrain niblit-cloud: server URL not set]"
 
@@ -1757,7 +1764,9 @@ class QwenLocalBrain:
                     )
                     return content.strip() or "[LocalBrain niblit-cloud: empty response]"
             except urllib.error.HTTPError as exc:
-                if exc.code == 404:
+                # 404: route absent; 400/405: format not accepted on this variant.
+                # Both mean "try the next path" — not a fatal server error.
+                if exc.code in {400, 404, 405}:
                     continue
                 log.debug("[LocalBrain] niblit-cloud %s error: %s", oai_path, exc)
                 return f"[LocalBrain niblit-cloud error: HTTP {exc.code} on {oai_path}]"
@@ -1791,7 +1800,7 @@ class QwenLocalBrain:
                 return reply.strip()
             return "[LocalBrain niblit-cloud: empty reply]"
         except urllib.error.HTTPError as exc:
-            if exc.code != 404:
+            if exc.code not in {400, 404, 405}:
                 log.debug("[LocalBrain] niblit-cloud /chat error: %s", exc)
                 return "[LocalBrain niblit-cloud error: HTTP error calling /chat]"
         except Exception as exc:
