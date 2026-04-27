@@ -268,3 +268,7 @@ class NiblitSignalStrategy(IStrategy):
         except Exception as exc:
             log.warning("[NiblitSignalStrategy] signal request failed: %s", exc)
             return "hold", 0.5
+
+
+if __name__ == "__main__":
+    print('Running NiblitSignalStrategy.py')

@@ -478,3 +478,7 @@ def reset_qwen_memory_adapter() -> None:
     global _adapter_instance
     with _adapter_lock:
         _adapter_instance = None
+
+
+if __name__ == "__main__":
+    print('Running qwen_memory_adapter.py')

@@ -331,3 +331,7 @@ class TradeKBLearner:
             "sample_size": 0,
             "source": "raw",
         }
+
+
+if __name__ == "__main__":
+    print('Running trade_kb_learner.py')

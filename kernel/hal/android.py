@@ -113,3 +113,7 @@ class AndroidHAL(BaseHAL):
         except Exception as exc:  # noqa: BLE001
             log.warning("APKBootstrap unavailable: %s", exc)
             return False
+
+
+if __name__ == "__main__":
+    print('Running android.py')

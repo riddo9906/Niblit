@@ -43,3 +43,7 @@ class BaseHAL(abc.ABC):
             "root": self.root_path(),
             "capabilities": self.capabilities,
         }
+
+
+if __name__ == "__main__":
+    print('Running base.py')

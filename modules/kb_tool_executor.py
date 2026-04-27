@@ -228,3 +228,7 @@ class KBToolExecutor:
                 results.append({"tool": name, "error": str(exc)})
 
         return results
+
+
+if __name__ == "__main__":
+    print('Running kb_tool_executor.py')
