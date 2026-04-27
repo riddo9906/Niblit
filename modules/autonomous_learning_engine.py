@@ -3730,7 +3730,7 @@ class AutonomousLearningEngine:
             return "[ResolveContradictions] No KB — skipped."
 
         resolved = 0
-        re_queued: list = []
+        re_queued: List[str] = []
 
         try:
             facts = self.knowledge_db.list_facts(limit=500) or []
@@ -3744,7 +3744,7 @@ class AutonomousLearningEngine:
 
         # Build a key-prefix → fact lookup once (O(n)) so per-flag lookups
         # are O(1) instead of rescanning the full list for every flag (O(n²)).
-        fact_by_key: dict = {}
+        fact_by_key: Dict[str, Dict[str, Any]] = {}
         for f in reversed(facts):  # reversed so last write wins on duplicate prefix
             if isinstance(f, dict):
                 k = str(f.get("key", ""))

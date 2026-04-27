@@ -13,6 +13,7 @@ import json
 import random
 import threading
 import time
+from typing import List
 
 try:
     from niblit_memory import NiblitMemory as _NiblitMemory
@@ -439,7 +440,7 @@ class SelfTeacher:
 
         passed = 0
         failed = 0
-        retried: list = []
+        retried: List[str] = []
 
         for question in due_questions:
             try:

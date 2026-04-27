@@ -128,6 +128,11 @@ class _LocalBrainConfig:
         ).strip().lower()
         # Comma-separated stop tokens.
         self.gguf_stop_tokens_str: str = os.environ.get("NIBLIT_GGUF_STOP_TOKENS", "").strip()
+        # URL of the dedicated Niblit cloud server (used as a final fallback
+        # when all local llama-server endpoints are unreachable).
+        self.cloud_server_url: str = os.environ.get(
+            "NIBLIT_CLOUD_SERVER_URL", ""
+        ).rstrip("/")
 
 
 #: Singleton mutable config object.  Mutate this (or call ``set_backend_url()``)
@@ -1716,11 +1721,11 @@ class QwenLocalBrain:
             Optional API key forwarded as ``X-API-Key`` header.
         """
         url = self._server_url
-        # Prefer the dedicated NIBLIT_CLOUD_SERVER_URL when set — that is the
-        # Niblit deployment exposing /v1/chat/completions and /chat.  Fall back
-        # to self._server_url (the local llama-server URL) only when the cloud
-        # URL is not configured.
-        cloud_url = os.environ.get("NIBLIT_CLOUD_SERVER_URL", "").rstrip("/")
+        # Prefer the dedicated cloud_server_url (from NIBLIT_CLOUD_SERVER_URL)
+        # when configured — that is the Niblit deployment exposing
+        # /v1/chat/completions and /chat.  Fall back to self._server_url (the
+        # local llama-server URL) only when the cloud URL is not set.
+        cloud_url = _cfg().cloud_server_url
         if cloud_url:
             url = cloud_url
         if not url:
