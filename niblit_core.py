@@ -1516,6 +1516,85 @@ except Exception as _e:
     _EmbeddingPipeline = None  # type: ignore[assignment,misc]
     _EMBEDDING_PIPELINE_AVAILABLE = False
 
+# ── SDAL: NiblitState, EventBus, DecisionEngine ───────────────────────────────
+try:
+    from modules.niblit_state import NiblitState as _NiblitState, get_niblit_state as _get_niblit_state
+    _NIBLIT_STATE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"NiblitState not available: {_e}")
+    _NiblitState = None  # type: ignore[assignment,misc]
+    _get_niblit_state = None  # type: ignore[assignment]
+    _NIBLIT_STATE_AVAILABLE = False
+
+try:
+    from modules.event_bus import EventBus as _EventBus, get_event_bus as _get_sdal_event_bus
+    _SDAL_EVENT_BUS_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"SDAL EventBus not available: {_e}")
+    _EventBus = None  # type: ignore[assignment,misc]
+    _get_sdal_event_bus = None  # type: ignore[assignment]
+    _SDAL_EVENT_BUS_AVAILABLE = False
+
+try:
+    from modules.decision_engine import (
+        DecisionEngine as _DecisionEngine,
+        get_decision_engine as _get_decision_engine,
+    )
+    _DECISION_ENGINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"DecisionEngine not available: {_e}")
+    _DecisionEngine = None  # type: ignore[assignment,misc]
+    _get_decision_engine = None  # type: ignore[assignment]
+    _DECISION_ENGINE_AVAILABLE = False
+
+try:
+    from modules.evaluation_engine import (
+        EvaluationEngine as _EvaluationEngine,
+        get_evaluation_engine as _get_evaluation_engine,
+    )
+    _EVALUATION_ENGINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"EvaluationEngine not available: {_e}")
+    _EvaluationEngine = None  # type: ignore[assignment,misc]
+    _get_evaluation_engine = None  # type: ignore[assignment]
+    _EVALUATION_ENGINE_AVAILABLE = False
+
+try:
+    from modules.cognitive_identity import (
+        CognitiveIdentity as _CognitiveIdentity,
+        get_cognitive_identity as _get_cognitive_identity,
+    )
+    _COGNITIVE_IDENTITY_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"CognitiveIdentity not available: {_e}")
+    _CognitiveIdentity = None  # type: ignore[assignment,misc]
+    _get_cognitive_identity = None  # type: ignore[assignment]
+    _COGNITIVE_IDENTITY_AVAILABLE = False
+
+try:
+    from modules.meta_engine import (
+        MetaEngine as _MetaEngine,
+        get_meta_engine as _get_meta_engine,
+    )
+    _META_ENGINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"MetaEngine not available: {_e}")
+    _MetaEngine = None  # type: ignore[assignment,misc]
+    _get_meta_engine = None  # type: ignore[assignment]
+    _META_ENGINE_AVAILABLE = False
+
+try:
+    from modules.policy_optimizer import (
+        PolicyOptimizer as _PolicyOptimizer,
+        get_policy_optimizer as _get_policy_optimizer,
+    )
+    _POLICY_OPTIMIZER_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"PolicyOptimizer not available: {_e}")
+    _PolicyOptimizer = None  # type: ignore[assignment,misc]
+    _get_policy_optimizer = None  # type: ignore[assignment]
+    _POLICY_OPTIMIZER_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -1907,6 +1986,14 @@ class NiblitCore:
         self.kernel_v3: Optional[Any] = None  # initialised in _init_optional_services
         self.cognitive_graph_kernel: Optional[Any] = None  # initialised in _init_optional_services
         self.msg_layer: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: SDAL — NiblitState, EventBus, DecisionEngine ───────────
+        self.niblit_state: Optional[Any] = None    # initialised in _init_optional_services
+        self.sdal_event_bus: Optional[Any] = None  # initialised in _init_optional_services
+        self.decision_engine: Optional[Any] = None # initialised in _init_optional_services
+        self.evaluation_engine: Optional[Any] = None  # initialised in _init_optional_services
+        self.cognitive_identity: Optional[Any] = None  # initialised in _init_optional_services
+        self.meta_engine: Optional[Any] = None  # initialised in _init_optional_services
+        self.policy_optimizer: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -8145,6 +8232,111 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.warning("[Core] BrainRouter init failed (degraded): %s", _br_err)
             self.startup_report.add("brain_router", "degraded", str(_br_err))
 
+        # ============================
+        # SDAL: NiblitState + EventBus + CognitiveIdentity + EvaluationEngine + DecisionEngine
+        # ============================
+        if _NIBLIT_STATE_AVAILABLE and _get_niblit_state is not None:
+            try:
+                self.niblit_state = _get_niblit_state()
+                log.info("✅ NiblitState initialised (shared SDAL state active)")
+                self.startup_report.add("niblit_state", "ready")
+            except Exception as _nse:
+                log.debug("NiblitState init failed: %s", _nse)
+                self.startup_report.add("niblit_state", "degraded", str(_nse))
+
+        if _SDAL_EVENT_BUS_AVAILABLE and _get_sdal_event_bus is not None:
+            try:
+                self.sdal_event_bus = _get_sdal_event_bus()
+                log.info("✅ SDAL EventBus initialised (pub/sub wiring active)")
+                self.startup_report.add("sdal_event_bus", "ready")
+            except Exception as _ebe:
+                log.debug("SDAL EventBus init failed: %s", _ebe)
+                self.startup_report.add("sdal_event_bus", "degraded", str(_ebe))
+
+        if _COGNITIVE_IDENTITY_AVAILABLE and _get_cognitive_identity is not None:
+            try:
+                self.cognitive_identity = _get_cognitive_identity()
+                log.info(
+                    "✅ CognitiveIdentity initialised (style=%s risk=%.2f)",
+                    self.cognitive_identity.get_decision_style(),
+                    self.cognitive_identity.get_risk_tolerance(),
+                )
+                self.startup_report.add("cognitive_identity", "ready")
+                # Sync identity profile into shared NiblitState.
+                if self.niblit_state is not None:
+                    _profile = self.cognitive_identity.get_profile()
+                    self.niblit_state.update_identity(
+                        decision_style=_profile.decision_style,
+                        risk_tolerance=_profile.risk_tolerance,
+                        response_bias=dict(_profile.response_bias),
+                        total_decisions=_profile.total_decisions,
+                    )
+            except Exception as _cie:
+                log.debug("CognitiveIdentity init failed: %s", _cie)
+                self.startup_report.add("cognitive_identity", "degraded", str(_cie))
+
+        if _EVALUATION_ENGINE_AVAILABLE and _get_evaluation_engine is not None:
+            try:
+                self.evaluation_engine = _get_evaluation_engine(
+                    knowledge_db=getattr(self, "db", None),
+                    identity=self.cognitive_identity,
+                )
+                log.info("✅ EvaluationEngine initialised (adaptive weight loop active)")
+                self.startup_report.add("evaluation_engine", "ready")
+            except Exception as _eee:
+                log.debug("EvaluationEngine init failed: %s", _eee)
+                self.startup_report.add("evaluation_engine", "degraded", str(_eee))
+
+        if _DECISION_ENGINE_AVAILABLE and _get_decision_engine is not None:
+            try:
+                self.decision_engine = _get_decision_engine(
+                    knowledge_db=getattr(self, "db", None),
+                    evaluation_engine=self.evaluation_engine,
+                )
+                log.info("✅ DecisionEngine initialised (competitive SDAL gate active)")
+                self.startup_report.add("decision_engine", "ready")
+            except Exception as _dee:
+                log.debug("DecisionEngine init failed: %s", _dee)
+                self.startup_report.add("decision_engine", "degraded", str(_dee))
+
+        if _META_ENGINE_AVAILABLE and _get_meta_engine is not None:
+            try:
+                self.meta_engine = _get_meta_engine(
+                    evaluation_engine=self.evaluation_engine,
+                    niblit_state=self.niblit_state,
+                    cognitive_identity=self.cognitive_identity,
+                    # PolicyOptimizer is initialised after MetaEngine.
+                    # niblit_core back-wires meta_engine._policy_optimizer
+                    # once PolicyOptimizer is ready (see block below).
+                    policy_optimizer=None,
+                )
+                log.info("✅ MetaEngine initialised (meta-cognition active)")
+                self.startup_report.add("meta_engine", "ready")
+            except Exception as _mee:
+                log.debug("MetaEngine init failed: %s", _mee)
+                self.startup_report.add("meta_engine", "degraded", str(_mee))
+
+        if _POLICY_OPTIMIZER_AVAILABLE and _get_policy_optimizer is not None:
+            try:
+                self.policy_optimizer = _get_policy_optimizer(
+                    cognitive_identity=self.cognitive_identity,
+                )
+                log.info("✅ PolicyOptimizer initialised (context-aware policy learning active)")
+                self.startup_report.add("policy_optimizer", "ready")
+                # Back-wire to DecisionEngine so it can apply context overrides.
+                if self.decision_engine is not None and hasattr(
+                    self.decision_engine, "set_policy_optimizer"
+                ):
+                    self.decision_engine.set_policy_optimizer(self.policy_optimizer)
+                # Back-wire to MetaEngine so patterns feed the optimizer.
+                if self.meta_engine is not None and hasattr(
+                    self.meta_engine, "set_policy_optimizer"
+                ):
+                    self.meta_engine.set_policy_optimizer(self.policy_optimizer)
+            except Exception as _poe:
+                log.debug("PolicyOptimizer init failed: %s", _poe)
+                self.startup_report.add("policy_optimizer", "degraded", str(_poe))
+
         self._init_agents()
 
     def _init_agents(self) -> None:
@@ -9103,6 +9295,23 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _e:
                 log.debug(f"NiblitTasks.add_task failed: {_e}")
 
+        # ── Quality scoring → unified learning loop ───────────────────────────
+        # Score every response with QualityFeedback so KB facts are reinforced
+        # or decayed and the PolicyOptimizer accumulates an episode for this
+        # conversation turn.  Uses the DB attached to NiblitCore when available.
+        if user_input and response:
+            try:
+                from modules.quality_feedback import get_quality_feedback
+                qf = get_quality_feedback()
+                kb = getattr(self, "db", None)
+                qf.record_answer_quality(
+                    query=user_input,
+                    answer=response,
+                    knowledge_db=kb,
+                )
+            except Exception as _qf_err:
+                log.debug("_trigger_learning QualityFeedback failed: %s", _qf_err)
+
     def health_check(self) -> HealthCheckResult:
         """Comprehensive system health check."""
         components = {}
@@ -9671,19 +9880,141 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self._routing = False
 
         # ============================
-        # LAYER 12: GENERAL CONVERSATION (brain.think ONLY)
+        # LAYER 12: GENERAL CONVERSATION — routed through SDAL gate
         # ============================
-        log.debug("[BRAIN] General chat fallback - brain.think() only")
-        response = None
+        # All general chat passes through the DecisionEngine (competitive SDAL).
+        # All five advisors run independently; the highest effective_score wins.
+        # After the decision, EvaluationEngine.score_outcome() scores the
+        # response, updates adaptive advisor weights, and emits
+        # response.complete so ALE can trigger the next learning cycle.
+        # When the DecisionEngine is unavailable we fall back to brain.think().
+        # ============================
+        log.debug("[SDAL] General chat — routing through competitive DecisionEngine")
 
-        if self.brain:
+        response = None
+        _sdal_result = None
+
+        if self.decision_engine is not None:
+            try:
+                # Build the LLM callable from brain_router (preferred) or brain.think.
+                _llm_fn = None
+                _br = getattr(self, "brain_router", None)
+                if _br is not None and callable(getattr(_br, "route", None)):
+                    _llm_fn = _br.route
+                elif self.brain is not None and callable(getattr(self.brain, "think", None)):
+                    _llm_fn = self.brain.think
+
+                # Update shared state context before calling advisors.
+                _state = getattr(self, "niblit_state", None)
+                if _state is not None and hasattr(_state, "update_context"):
+                    _state.update_context(user_input=text, last_topic=text[:80])
+
+                _sdal_result = self.decision_engine.decide(
+                    state=_state,
+                    user_input=text,
+                    llm_fn=_llm_fn,
+                )
+                response = _sdal_result.action or None
+                log.debug(
+                    "[SDAL] Winner: advisor=%s eff=%.3f conf=%.2f",
+                    _sdal_result.chosen_advisor,
+                    next(
+                        (s.effective_score for s in _sdal_result.signals
+                         if s.name == _sdal_result.chosen_advisor),
+                        0.0,
+                    ),
+                    _sdal_result.confidence,
+                )
+            except Exception as _sdal_err:
+                log.debug("[SDAL] DecisionEngine.decide failed, falling back: %s", _sdal_err)
+
+        # Fallback: call brain.think directly if SDAL produced nothing.
+        if not response and self.brain:
             try:
                 response = safe_call(self.brain.think, text)
             except Exception as e:
-                log.debug(f"Brain.think failed: {e}")
+                log.debug("Brain.think fallback failed: %s", e)
 
         if not response:
             response = f"I hear you: {text}"
+
+        # ── Evaluation feedback loop ──────────────────────────────────────────
+        # Score the response, update adaptive weights, persist to identity.
+        if self.evaluation_engine is not None:
+            try:
+                self.evaluation_engine.score_outcome(
+                    user_input=text,
+                    response=response,
+                    decision_result=_sdal_result,
+                )
+                # Sync updated identity profile (including decision_policy)
+                # back into shared NiblitState so DecisionEngine reads it
+                # on the next call.
+                if self.cognitive_identity is not None and self.niblit_state is not None:
+                    _ci_profile = self.cognitive_identity.get_profile()
+                    self.niblit_state.update_identity(
+                        decision_style=_ci_profile.decision_style,
+                        risk_tolerance=_ci_profile.risk_tolerance,
+                        response_bias=dict(_ci_profile.response_bias),
+                        decision_policy=dict(_ci_profile.decision_policy),
+                        total_decisions=_ci_profile.total_decisions,
+                    )
+            except Exception as _eval_err:
+                log.debug("[SDAL] EvaluationEngine.score_outcome failed: %s", _eval_err)
+
+        # ── PolicyOptimizer episode recording ─────────────────────────────────
+        # Record the full (context, advisor, confidences, reward) tuple so the
+        # PolicyOptimizer can learn from longitudinal trajectories.
+        if self.policy_optimizer is not None and _sdal_result is not None:
+            try:
+                _ctx_type = (
+                    getattr(self.niblit_state, "context", {}).get("_context_type", "chat")
+                    if self.niblit_state is not None else "chat"
+                )
+                _advisor_confs = {
+                    s.name: s.confidence for s in _sdal_result.signals
+                } if _sdal_result.signals else {}
+                _outcome_score = (
+                    self.evaluation_engine.last_quality_score()
+                    if self.evaluation_engine is not None
+                    and hasattr(self.evaluation_engine, "last_quality_score")
+                    else _sdal_result.confidence
+                ) or _sdal_result.confidence
+                self.policy_optimizer.record_episode(
+                    context_type=_ctx_type,
+                    advisor_chosen=_sdal_result.chosen_advisor,
+                    advisor_confidences=_advisor_confs,
+                    outcome_score=float(_outcome_score),
+                )
+            except Exception as _po_err:
+                log.debug("[SDAL] PolicyOptimizer.record_episode failed: %s", _po_err)
+
+        # ── MSG Layer closed-loop governance tick ──────────────────────────────
+        # Runs every 20 _handle_impl calls to avoid overhead on every request.
+        # Syncs SelfModel confidence scores with MetaEvaluator, drives ALE with
+        # priority topics for weak subsystems, and feeds health scores into
+        # PolicyOptimizer so routing improves based on system-health signal.
+        if getattr(self, "msg_layer", None) is not None:
+            try:
+                _handle_calls = getattr(self.metrics, "operation_counts", {}).get("handle", 0)
+                if _handle_calls % 20 == 0:
+                    _msg_result = self.msg_layer.closed_loop_tick(
+                        ale=getattr(self, "autonomous_engine", None)
+                    )
+                    # Feed subsystem health scores into PolicyOptimizer
+                    if self.policy_optimizer is not None and isinstance(_msg_result, dict):
+                        for _subsys, _score in _msg_result.get("scores", {}).items():
+                            try:
+                                self.policy_optimizer.record_episode(
+                                    context_type="meta_governance",
+                                    advisor_chosen=f"msg_{_subsys}",
+                                    advisor_confidences={f"msg_{_subsys}": float(_score)},
+                                    outcome_score=float(_score),
+                                )
+                            except Exception:
+                                pass
+            except Exception as _msg_tick_err:
+                log.debug("[MSG] closed_loop_tick failed: %s", _msg_tick_err)
 
         self._trigger_learning(text, response)
         return response

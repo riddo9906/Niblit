@@ -1,0 +1,44 @@
+{
+  "decision_style": "balanced",
+  "risk_tolerance": 0.545,
+  "response_bias": {
+    "memory": 0.81,
+    "reasoning": 1.01,
+    "goal": 0.81,
+    "llm": 0.81,
+    "quality": 0.81
+  },
+  "decision_policy": {
+    "exploration_rate": 0.19,
+    "risk_preference": "balanced",
+    "priority_mode": "goal_first"
+  },
+  "total_decisions": 23,
+  "advisor_win_counts": {
+    "reasoning": 11,
+    "unknown": 12
+  },
+  "quality_history": [
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.0,
+    0.261,
+    0.261,
+    0.0,
+    0.261,
+    0.261,
+    0.0,
+    0.261,
+    0.261,
+    0.0,
+    0.261,
+    0.261
+  ],
+  "last_updated": 1777554339.8619258
+}

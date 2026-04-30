@@ -1012,6 +1012,21 @@ class NiblitCognitiveKernelV3:
                  "trace_id": message.trace_id},
                 importance=0.4,
             )
+            # ── Bridge kernel reward into PolicyOptimizer ─────────────────
+            # Each agent dispatch is a mini-decision: routing to a specific
+            # agent for an intent.  Recording these episodes lets
+            # PolicyOptimizer learn which intents are handled well over time.
+            try:
+                from modules.policy_optimizer import get_policy_optimizer
+                _po = get_policy_optimizer()
+                _po.record_episode(
+                    context_type=message.intent or "chat",
+                    advisor_chosen=f"kernel_{message.target}",
+                    advisor_confidences={f"kernel_{message.target}": reward},
+                    outcome_score=reward,
+                )
+            except Exception as _po_kv3_err:
+                log.debug("[KernelV3] PolicyOptimizer episode skipped: %s", _po_kv3_err)
 
         return result
 
@@ -1225,6 +1240,29 @@ class NiblitCognitiveKernelV3:
 
         # ── Phase 8: Sync engine feedback ────────────────────────────────────
         self._feedback_sync(result)
+
+        # ── Phase 9: EventBus notification ───────────────────────────────────
+        # Publish a kernel cycle event so MetaEngine and PolicyOptimizer can
+        # subscribe to kernel cycle completions without tight coupling.
+        try:
+            from modules.event_bus import get_event_bus, NiblitEvent, EVENT_POLICY_OPTIMIZED
+            mean_reward = (
+                sum(result.rewards.values()) / len(result.rewards)
+                if result.rewards else 0.5
+            )
+            get_event_bus().publish(NiblitEvent(
+                type=EVENT_POLICY_OPTIMIZED,
+                source="niblit_kernel_v3",
+                payload={
+                    "cycle": self._cycle_count,
+                    "decision": result.decision,
+                    "agents": list(result.agent_outputs.keys()),
+                    "mean_reward": round(mean_reward, 4),
+                    "latency_ms": round(result.latency_ms, 1),
+                },
+            ))
+        except Exception as _ev_err:
+            log.debug("[KernelV3] EventBus publish skipped: %s", _ev_err)
 
         result.latency_ms = (time.time() - t0) * 1000
         result.ts = int(time.time())

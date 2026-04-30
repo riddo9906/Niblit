@@ -18,7 +18,7 @@ import time
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
 # platform injects env vars directly, so this is a no-op in those environments.
@@ -2149,6 +2149,8 @@ async def api_state_post(request: Request):
     except Exception as exc:
         logging.getLogger("NiblitApp").error("api_state_post error: %s", exc)
         return JSONResponse(content={"error": "state merge failed — see server logs"}, status_code=500)
+
+@app.post("/api/env/capabilities")
 async def api_env_capabilities(request: Request):
     """Accept environment capability report from a foreign runtime node."""
     if rate_limited(request):
@@ -2213,6 +2215,22 @@ class TradeFeedbackRequest(BaseModel):
     pnl_pct: Optional[float] = None
     timeframe: str = "1h"
     features: Optional[Dict[str, float]] = None
+
+
+class FeedbackRequest(BaseModel):
+    """Explicit user thumbs-up/down on any Niblit response.
+
+    Fields
+    ------
+    score:      +1 (good), 0 (neutral), -1 (bad).
+    query:      The user message that prompted the response (optional).
+    response:   The Niblit response being rated (optional).
+    context:    Arbitrary caller-supplied context dict (optional).
+    """
+    score: int  # +1, 0, or -1
+    query: str = ""
+    response: str = ""
+    context: Optional[Dict[str, Any]] = None
 
 
 _trade_log: logging.Logger = logging.getLogger("NiblitTrade")
@@ -2402,11 +2420,93 @@ def trade_feedback(request: Request, body: TradeFeedbackRequest):
     except Exception as exc:
         _trade_log.debug("TradingStudy.log_trade error: %s", exc)
 
+    # ── Record trading episode into PolicyOptimizer ───────────────────────────
+    # Normalise PnL into [0,1] so the policy layer can learn which advisors
+    # perform best for trading-context decisions over time.
+    try:
+        from modules.policy_optimizer import get_policy_optimizer
+        _po = get_policy_optimizer()
+        _pnl = body.pnl_pct or 0.0
+        # map PnL % to outcome score: 0 pnl→0.5, +5%→0.75, -5%→0.25, clamped [0,1]
+        _outcome = max(0.0, min(1.0, 0.5 + _pnl / 20.0))
+        _po.record_episode(
+            context_type="trading",
+            advisor_chosen="memory",  # TradeKBLearner uses memory/historical patterns
+            advisor_confidences={"memory": _outcome},
+            outcome_score=_outcome,
+        )
+    except Exception as _po_exc:
+        _trade_log.debug("PolicyOptimizer trade episode error: %s", _po_exc)
+
     return JSONResponse(content={
         "status": "accepted",
         "stored": stored,
         "kb_learned": kb_learned,
         "rl_rewarded": rl_rewarded,
+    })
+
+
+@app.post("/feedback", dependencies=[Depends(_guard)])
+def user_feedback(request: Request, body: FeedbackRequest):
+    """Accept explicit user thumbs-up/down on any Niblit response.
+
+    ``score`` must be +1 (good), 0 (neutral), or -1 (bad).
+    The signal is injected into both the PolicyOptimizer (episode log) and
+    the EvaluationEngine (reinforce/decay adaptive weights) so the system
+    learns from direct human preference in addition to automatic quality scoring.
+    """
+    if rate_limited(request):
+        return JSONResponse(content={"error": "rate limit reached"}, status_code=429)
+
+    score = max(-1, min(1, int(body.score)))
+    # Normalise to [0, 1] for the learning layers: -1→0.0, 0→0.5, +1→1.0
+    outcome_score = (score + 1) / 2.0
+
+    _app_log = logging.getLogger("NiblitApp")
+    _app_log.info("[Feedback] score=%+d  query=%r", score, (body.query or "")[:80])
+
+    po_recorded = False
+    try:
+        from modules.policy_optimizer import get_policy_optimizer
+        po = get_policy_optimizer()
+        ctx_type = po.classify_context(body.query or "")
+        # explicit_user is a special advisor name that marks ground-truth feedback
+        po.record_episode(
+            context_type=ctx_type,
+            advisor_chosen="explicit_user",
+            advisor_confidences={"explicit_user": outcome_score},
+            outcome_score=outcome_score,
+        )
+        po_recorded = True
+    except Exception as _po_err:
+        _app_log.debug("[Feedback] PolicyOptimizer record_episode failed: %s", _po_err)
+
+    eval_adjusted = False
+    try:
+        core = get_core()
+        ee = getattr(core, "evaluation_engine", None) if core else None
+        if ee is not None and hasattr(ee, "reinforce"):
+            delta = 0.05 * score  # +0.05 on thumbs-up, -0.05 on thumbs-down
+            if body.query or body.response:
+                # Reinforce the advisor that was likely chosen for this response.
+                # We infer it from the most recent signal in NiblitState.
+                ns = getattr(core, "niblit_state", None)
+                last_decision = (
+                    getattr(ns, "signals", {}).get("decision", {}) if ns else {}
+                )
+                chosen_adv = last_decision.get("chosen_advisor", "llm")
+                if delta != 0:
+                    ee.reinforce(chosen_adv, delta)
+                    eval_adjusted = True
+    except Exception as _ee_err:
+        _app_log.debug("[Feedback] EvaluationEngine reinforce failed: %s", _ee_err)
+
+    return JSONResponse(content={
+        "status": "accepted",
+        "score": score,
+        "outcome_score": round(outcome_score, 2),
+        "po_recorded": po_recorded,
+        "eval_adjusted": eval_adjusted,
     })
 
 

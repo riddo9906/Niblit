@@ -171,6 +171,19 @@ class QualityFeedback:
         re_queued: List[str] = []
 
         if not facts_to_update or knowledge_db is None:
+            # Still feed the quality score into PolicyOptimizer even without KB facts.
+            try:
+                from modules.policy_optimizer import get_policy_optimizer
+                po = get_policy_optimizer()
+                ctx = po.classify_context(query)
+                po.record_episode(
+                    context_type=ctx,
+                    advisor_chosen="quality_no_kb",
+                    advisor_confidences={"quality_no_kb": quality},
+                    outcome_score=quality,
+                )
+            except Exception as _po_err:
+                log.debug("[QualityFeedback] PolicyOptimizer episode (early path) skipped: %s", _po_err)
             return {
                 "score": quality,
                 "method": method,
@@ -247,6 +260,23 @@ class QualityFeedback:
             "[QualityFeedback] score=%.3f  reinforced=%d  decayed=%d  re_queued=%d",
             quality, reinforced, decayed, len(re_queued),
         )
+
+        # ── Feed quality score into PolicyOptimizer as a decision episode ────
+        # This closes the loop between KB-level quality feedback and the policy
+        # learning layer so every scored answer improves routing over time.
+        try:
+            from modules.policy_optimizer import get_policy_optimizer
+            po = get_policy_optimizer()
+            ctx = po.classify_context(query)
+            po.record_episode(
+                context_type=ctx,
+                advisor_chosen="quality_with_kb",  # distinct from the no-KB path
+                advisor_confidences={"quality_with_kb": quality},
+                outcome_score=quality,
+            )
+        except Exception as _po_err:
+            log.debug("[QualityFeedback] PolicyOptimizer episode skipped: %s", _po_err)
+
         return {
             "score": quality,
             "method": method,
