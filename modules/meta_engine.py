@@ -532,10 +532,8 @@ if __name__ == "__main__":
     meta = get_meta_engine(evaluation_engine=eval_eng, cognitive_identity=ident)
 
     # Simulate 15 scoring cycles to fill history.
-    from modules.evaluation_engine import EvaluationRecord
-    import time as _t
     for i in range(15):
-        rec = eval_eng.score_outcome(
+        eval_eng.score_outcome(
             user_input="test query",
             response="A decent response about the topic." if i % 3 != 0 else "",
         )

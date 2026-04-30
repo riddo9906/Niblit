@@ -73,6 +73,7 @@ _IDENTITY_PATH = os.environ.get(
 )
 
 _HISTORY_LEN = 100  # rolling quality score buffer size
+_DISPLAY_HISTORY_LEN = 20  # entries included in serialised snapshots
 
 # ── Base starting weights (before identity bias is applied) ───────────────────
 _BASE_WEIGHTS: Dict[str, float] = {
@@ -137,7 +138,7 @@ class IdentityProfile:
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
-        d["quality_history"] = d["quality_history"][-20:]  # keep last 20 for readability
+        d["quality_history"] = d["quality_history"][-_DISPLAY_HISTORY_LEN:]
         return d
 
 
@@ -249,9 +250,10 @@ class CognitiveIdentity:
                 decision_style=self._profile.decision_style,
                 risk_tolerance=self._profile.risk_tolerance,
                 response_bias=dict(self._profile.response_bias),
+                decision_policy=dict(self._profile.decision_policy),
                 total_decisions=self._profile.total_decisions,
                 advisor_win_counts=dict(self._profile.advisor_win_counts),
-                quality_history=list(self._profile.quality_history[-20:]),
+                quality_history=list(self._profile.quality_history[-_DISPLAY_HISTORY_LEN:]),
                 last_updated=self._profile.last_updated,
             )
 
