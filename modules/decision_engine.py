@@ -3,53 +3,63 @@
 
 The DecisionEngine is the architectural "single gate" that all cognitive
 signals pass through before any output reaches the user or the execution
-layer.  No advisor writes directly to the user — all suggestions are
-aggregated here and a single, authoritative response is chosen.
+layer.  No advisor writes directly to the user — all signals are collected
+independently and the highest-scoring one is selected via true competition.
 
-Advisor pipeline (called per request)
---------------------------------------
+Competitive advisor model
+--------------------------
+All five advisors run **independently** and produce ``(suggestion,
+confidence)`` pairs.  The winner is chosen by maximum
+``effective_score = confidence × weight × identity_bias``.  This is
+real cognitive competition, not a sequential fallback pipeline.
+
+Advisors
+--------
 1. ``MemoryAdvisor``    — ``SmartRecall.think_about()`` + fact recall
 2. ``ReasoningAdvisor`` — ``ReasoningEngine.chain_of_thought()``
 3. ``GoalAdvisor``      — checks alignment with ``state.active_goal``
 4. ``LLMAdvisor``       — ``LocalBrain`` / ``NiblitCloudBrain`` inference
 5. ``QualityAdvisor``   — ``RewardModel.score()`` applied to LLM output
 
-Confidence aggregation
------------------------
-The final confidence is a weighted average of all advisor scores.  Default
-weights are::
+Goal enforcement
+-----------------
+When ``state.active_goal`` is set and a candidate response does not align
+with the active goal topic, its effective score is penalised by
+``_GOAL_PENALTY`` (default 0.5).  This ensures active goals shape every
+decision, not just appear as context.
 
-    Memory    : NIBLIT_SDAL_W_MEMORY    (0.20)
-    Reasoning : NIBLIT_SDAL_W_REASONING (0.20)
-    Goal      : NIBLIT_SDAL_W_GOAL      (0.10)
-    LLM       : NIBLIT_SDAL_W_LLM       (0.40)
-    Quality   : NIBLIT_SDAL_W_QUALITY   (0.10)
-
-Selection priority
--------------------
-``llm`` > ``reasoning`` > ``memory`` — the first advisor with a non-empty
-suggestion wins.  A bare fallback echo is used only when all advisors
-return empty strings.
+Adaptive weights
+-----------------
+Weights are no longer static env-vars.  On every call to ``decide()``,
+current weights are fetched from ``EvaluationEngine.get_weights()`` (if
+available) so they reflect the reinforcement feedback loop.  The env-var
+defaults ``NIBLIT_SDAL_W_*`` are used only as seeds on first initialisation.
 
 Public API
 ----------
+``AdvisorSignal``
+    Output of one advisor.  Carries ``name``, ``suggestion``,
+    ``confidence``, ``weight``, ``effective_score``, ``latency_ms``.
+
 ``DecisionResult``
-    Dataclass with ``action``, ``chosen_advisor``, ``confidence``,
-    ``rationale``, ``signals``, ``latency_ms``, ``ts``.
+    Carries ``action``, ``chosen_advisor``, ``confidence``, ``rationale``,
+    ``signals``, ``latency_ms``, ``ts``.
 
 ``DecisionEngine.decide(state, user_input, llm_fn) → DecisionResult``
-    Run the full advisor pipeline and return the selected action.
+    Run all advisors competitively and return the highest-scoring result.
 
 ``get_decision_engine(**kwargs) → DecisionEngine``
     Process-level singleton.
 
 Configuration (environment variables)::
 
-    NIBLIT_SDAL_W_MEMORY     — Memory advisor weight   (default 0.20)
-    NIBLIT_SDAL_W_REASONING  — Reasoning advisor weight (default 0.20)
-    NIBLIT_SDAL_W_GOAL       — Goal advisor weight      (default 0.10)
-    NIBLIT_SDAL_W_LLM        — LLM advisor weight       (default 0.40)
-    NIBLIT_SDAL_W_QUALITY    — Quality advisor weight   (default 0.10)
+    NIBLIT_SDAL_W_MEMORY     — Memory advisor seed weight   (default 0.20)
+    NIBLIT_SDAL_W_REASONING  — Reasoning advisor seed weight (default 0.20)
+    NIBLIT_SDAL_W_GOAL       — Goal advisor seed weight      (default 0.10)
+    NIBLIT_SDAL_W_LLM        — LLM advisor seed weight       (default 0.40)
+    NIBLIT_SDAL_W_QUALITY    — Quality advisor seed weight   (default 0.10)
+    NIBLIT_SDAL_GOAL_PENALTY — Confidence multiplier when misaligned with
+                               the active goal               (default 0.50)
 """
 
 from __future__ import annotations
@@ -63,13 +73,17 @@ from typing import Any, Callable, Dict, List, Optional
 
 log = logging.getLogger("DecisionEngine")
 
-# ── Advisor weights (tuneable via env) ────────────────────────────────────────
+# ── Seed weights (env-tuneable; overridden at runtime by EvaluationEngine) ────
 
 _W_MEMORY    = float(os.environ.get("NIBLIT_SDAL_W_MEMORY",    "0.20"))
 _W_REASONING = float(os.environ.get("NIBLIT_SDAL_W_REASONING", "0.20"))
 _W_GOAL      = float(os.environ.get("NIBLIT_SDAL_W_GOAL",      "0.10"))
 _W_LLM       = float(os.environ.get("NIBLIT_SDAL_W_LLM",       "0.40"))
 _W_QUALITY   = float(os.environ.get("NIBLIT_SDAL_W_QUALITY",   "0.10"))
+
+# Goal misalignment penalty — applied to effective_score when a response
+# does not align with the currently active goal topic.
+_GOAL_PENALTY = float(os.environ.get("NIBLIT_SDAL_GOAL_PENALTY", "0.50"))
 
 # ── Optional dependency imports (all gracefully degrade) ──────────────────────
 
@@ -118,12 +132,26 @@ except ImportError:
 
 @dataclass
 class AdvisorSignal:
-    """Output produced by a single advisor during one decide() call."""
+    """Output produced by a single advisor during one decide() call.
+
+    Attributes
+    ----------
+    name:            Advisor identifier (e.g. ``"memory"``, ``"llm"``).
+    suggestion:      The candidate response text.
+    confidence:      Raw confidence from the advisor [0, 1].
+    weight:          Adaptive weight used for scoring.
+    effective_score: ``confidence × weight`` — used for competitive selection.
+    goal_aligned:    ``True`` if the suggestion aligns with the active goal.
+                     ``False`` applies ``_GOAL_PENALTY`` to effective_score.
+    latency_ms:      Time taken to produce this signal in milliseconds.
+    """
 
     name: str
     suggestion: str
     confidence: float
     weight: float
+    effective_score: float = 0.0
+    goal_aligned: bool = True
     latency_ms: float = 0.0
 
 
@@ -161,6 +189,8 @@ class DecisionResult:
                     "name": s.name,
                     "confidence": round(s.confidence, 3),
                     "weight": round(s.weight, 3),
+                    "effective_score": round(s.effective_score, 3),
+                    "goal_aligned": s.goal_aligned,
                 }
                 for s in self.signals
             ],
@@ -173,10 +203,41 @@ class DecisionResult:
 # Individual advisor functions (module-private)
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _check_goal_alignment(suggestion: str, state: Any) -> bool:
+    """Return True if *suggestion* aligns with the active goal topic.
+
+    Alignment check: the active goal's topic keyword must appear in the
+    suggestion (case-insensitive).  When no active goal is set, all
+    suggestions are treated as aligned.
+    """
+    goal = getattr(state, "active_goal", None)
+    if goal is None:
+        return True
+    topic = getattr(goal, "topic", "")
+    if not topic or not suggestion:
+        return True
+    return topic.lower() in suggestion.lower()
+
+
+def _apply_goal_enforcement(signal: AdvisorSignal, state: Any) -> AdvisorSignal:
+    """Apply goal enforcement penalty to *signal.effective_score* if misaligned.
+
+    If the suggestion does not align with the active goal, the effective
+    score is multiplied by ``_GOAL_PENALTY`` (default 0.5), making the
+    advisor less likely to win the competitive selection.
+    """
+    aligned = _check_goal_alignment(signal.suggestion, state)
+    signal.goal_aligned = aligned
+    if not aligned:
+        signal.effective_score *= _GOAL_PENALTY
+    return signal
+
+
 def _run_memory_advisor(
     user_input: str,
     state: Any,
     knowledge_db: Optional[Any],
+    weight: float,
 ) -> AdvisorSignal:
     """MemoryAdvisor: recall relevant KB facts and synthesise a summary."""
     t0 = time.time()
@@ -212,19 +273,22 @@ def _run_memory_advisor(
     if hasattr(state, "set_signal"):
         state.set_signal("memory", suggestion, confidence)
 
-    return AdvisorSignal(
+    sig = AdvisorSignal(
         name="memory",
         suggestion=suggestion,
         confidence=confidence,
-        weight=_W_MEMORY,
+        weight=weight,
+        effective_score=confidence * weight,
         latency_ms=latency_ms,
     )
+    return _apply_goal_enforcement(sig, state)
 
 
 def _run_reasoning_advisor(
     user_input: str,
     state: Any,
     knowledge_db: Optional[Any],
+    weight: float,
 ) -> AdvisorSignal:
     """ReasoningAdvisor: chain-of-thought reasoning over KB facts."""
     t0 = time.time()
@@ -256,16 +320,18 @@ def _run_reasoning_advisor(
     if hasattr(state, "set_signal"):
         state.set_signal("reasoning", suggestion, confidence)
 
-    return AdvisorSignal(
+    sig = AdvisorSignal(
         name="reasoning",
         suggestion=suggestion,
         confidence=confidence,
-        weight=_W_REASONING,
+        weight=weight,
+        effective_score=confidence * weight,
         latency_ms=latency_ms,
     )
+    return _apply_goal_enforcement(sig, state)
 
 
-def _run_goal_advisor(user_input: str, state: Any) -> AdvisorSignal:
+def _run_goal_advisor(user_input: str, state: Any, weight: float) -> AdvisorSignal:
     """GoalAdvisor: check alignment with the current active learning goal."""
     t0 = time.time()
     suggestion = ""
@@ -283,11 +349,14 @@ def _run_goal_advisor(user_input: str, state: Any) -> AdvisorSignal:
     if hasattr(state, "set_signal"):
         state.set_signal("goal", suggestion, confidence)
 
+    # GoalAdvisor's suggestion is informational; it is always aligned.
     return AdvisorSignal(
         name="goal",
         suggestion=suggestion,
         confidence=confidence,
-        weight=_W_GOAL,
+        weight=weight,
+        effective_score=confidence * weight,
+        goal_aligned=True,
         latency_ms=latency_ms,
     )
 
@@ -295,6 +364,8 @@ def _run_goal_advisor(user_input: str, state: Any) -> AdvisorSignal:
 def _run_llm_advisor(
     user_input: str,
     llm_fn: Optional[Callable[[str], str]],
+    state: Any,
+    weight: float,
 ) -> AdvisorSignal:
     """LLMAdvisor: call the configured LLM backend (LocalBrain / Cloud)."""
     t0 = time.time()
@@ -312,16 +383,23 @@ def _run_llm_advisor(
 
     latency_ms = (time.time() - t0) * 1000
 
-    return AdvisorSignal(
+    sig = AdvisorSignal(
         name="llm",
         suggestion=suggestion,
         confidence=confidence,
-        weight=_W_LLM,
+        weight=weight,
+        effective_score=confidence * weight,
         latency_ms=latency_ms,
     )
+    return _apply_goal_enforcement(sig, state)
 
 
-def _run_quality_advisor(user_input: str, candidate: str) -> AdvisorSignal:
+def _run_quality_advisor(
+    user_input: str,
+    candidate: str,
+    state: Any,
+    weight: float,
+) -> AdvisorSignal:
     """QualityAdvisor: score the LLM candidate with the RewardModel."""
     t0 = time.time()
     confidence = 0.50  # neutral fallback
@@ -335,13 +413,15 @@ def _run_quality_advisor(user_input: str, candidate: str) -> AdvisorSignal:
 
     latency_ms = (time.time() - t0) * 1000
 
-    return AdvisorSignal(
+    sig = AdvisorSignal(
         name="quality",
         suggestion=candidate,
         confidence=confidence,
-        weight=_W_QUALITY,
+        weight=weight,
+        effective_score=confidence * weight,
         latency_ms=latency_ms,
     )
+    return _apply_goal_enforcement(sig, state)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -351,15 +431,24 @@ def _run_quality_advisor(user_input: str, candidate: str) -> AdvisorSignal:
 class DecisionEngine:
     """Single Decision Authority Layer (SDAL) for Niblit.
 
-    Runs all five advisors for each request and selects the highest-
-    quality response using weighted confidence aggregation.
+    Runs all five advisors **independently** for each request.  The winner
+    is selected by maximum ``effective_score = confidence × weight ×
+    identity_bias``, not by a fixed priority pipeline.  Weights are
+    pulled from ``EvaluationEngine.get_weights()`` on every call so they
+    reflect the live reinforcement feedback loop.
 
     Args:
-        knowledge_db: Optional KnowledgeDB instance used by advisors.
+        knowledge_db:     Optional KnowledgeDB instance used by advisors.
+        evaluation_engine: Optional EvaluationEngine for adaptive weights.
     """
 
-    def __init__(self, knowledge_db: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        knowledge_db: Optional[Any] = None,
+        evaluation_engine: Optional[Any] = None,
+    ) -> None:
         self.knowledge_db = knowledge_db
+        self._evaluation_engine = evaluation_engine
         self._lock = threading.Lock()
         self._stats: Dict[str, Any] = {
             "decide_calls": 0,
@@ -367,7 +456,7 @@ class DecisionEngine:
             "avg_confidence": 0.0,
             "total_confidence": 0.0,
         }
-        log.info("[DecisionEngine] Initialised — SDAL gate active")
+        log.info("[DecisionEngine] Initialised — competitive SDAL gate active")
 
     # ── Primary API ───────────────────────────────────────────────────────────
 
@@ -377,13 +466,14 @@ class DecisionEngine:
         user_input: str,
         llm_fn: Optional[Callable[[str], str]] = None,
     ) -> DecisionResult:
-        """Run all advisors and return the best response.
+        """Run all advisors competitively and return the highest-scoring result.
 
         Args:
             state:      :class:`~modules.niblit_state.NiblitState` instance.
             user_input: Raw user message string.
             llm_fn:     Callable ``(user_input: str) -> str`` for the LLM
-                        advisor.  When ``None`` the LLM advisor is skipped.
+                        advisor.  When ``None`` the LLM advisor produces an
+                        empty signal.
 
         Returns:
             :class:`DecisionResult` with the selected ``action`` and
@@ -397,50 +487,46 @@ class DecisionEngine:
         if hasattr(state, "clear_signals"):
             state.clear_signals()
 
-        # ── Gather advisor signals ────────────────────────────────────────────
+        # ── Fetch live adaptive weights ───────────────────────────────────────
+        weights = self._get_weights()
+
+        # ── Run all advisors independently ────────────────────────────────────
+        # All five advisors are invoked regardless of each other's output.
+        # This is the competitive model — no short-circuiting.
         signals: List[AdvisorSignal] = []
 
-        mem_sig = _run_memory_advisor(user_input, state, kb)
-        signals.append(mem_sig)
-
-        reason_sig = _run_reasoning_advisor(user_input, state, kb)
-        signals.append(reason_sig)
-
-        goal_sig = _run_goal_advisor(user_input, state)
-        signals.append(goal_sig)
-
-        # LLM runs before quality so quality can score the LLM output.
-        llm_sig = _run_llm_advisor(user_input, llm_fn)
+        signals.append(_run_memory_advisor(
+            user_input, state, kb, weights["memory"]))
+        signals.append(_run_reasoning_advisor(
+            user_input, state, kb, weights["reasoning"]))
+        signals.append(_run_goal_advisor(
+            user_input, state, weights["goal"]))
+        llm_sig = _run_llm_advisor(
+            user_input, llm_fn, state, weights["llm"])
         signals.append(llm_sig)
+        signals.append(_run_quality_advisor(
+            user_input, llm_sig.suggestion, state, weights["quality"]))
 
-        quality_sig = _run_quality_advisor(user_input, llm_sig.suggestion)
-        signals.append(quality_sig)
-
-        # ── Weighted confidence aggregation ───────────────────────────────────
-        total_weight = sum(s.weight for s in signals)
-        weighted_conf = (
-            sum(s.confidence * s.weight for s in signals) / total_weight
-            if total_weight > 0 else 0.0
-        )
-
-        # ── Select best action ────────────────────────────────────────────────
-        # Priority: llm (authoritative text) > reasoning (structured) > memory
-        chosen: Optional[AdvisorSignal] = None
-        for preferred in ("llm", "reasoning", "memory"):
-            sig = next(
-                (s for s in signals if s.name == preferred and s.suggestion), None
-            )
-            if sig:
-                chosen = sig
-                break
-
-        if chosen is None:
+        # ── Competitive selection: best effective_score wins ──────────────────
+        # Only signals that produced a non-empty suggestion are eligible.
+        candidates = [s for s in signals if s.suggestion]
+        if candidates:
+            chosen = max(candidates, key=lambda s: s.effective_score)
+        else:
             chosen = AdvisorSignal(
                 name="fallback",
                 suggestion=f"I hear you: {user_input}",
                 confidence=0.10,
                 weight=0.0,
+                effective_score=0.0,
             )
+
+        # ── Aggregate confidence (weighted mean across all advisors) ──────────
+        total_weight = sum(s.weight for s in signals)
+        weighted_conf = (
+            sum(s.confidence * s.weight for s in signals) / total_weight
+            if total_weight > 0 else 0.0
+        )
 
         latency_ms = (time.time() - t0) * 1000
 
@@ -449,8 +535,9 @@ class DecisionEngine:
             chosen_advisor=chosen.name,
             confidence=round(weighted_conf, 3),
             rationale=(
-                f"Selected '{chosen.name}' advisor "
-                f"(weighted confidence: {weighted_conf:.2f})"
+                f"Selected '{chosen.name}' via competitive scoring "
+                f"(effective_score={chosen.effective_score:.3f}, "
+                f"weighted_confidence={weighted_conf:.2f})"
             ),
             signals=signals,
             latency_ms=latency_ms,
@@ -483,8 +570,8 @@ class DecisionEngine:
             self._stats["avg_confidence"] = round(running_total / total, 3)
 
         log.debug(
-            "[DecisionEngine] decided: advisor=%s conf=%.2f latency=%.0fms",
-            chosen.name, weighted_conf, latency_ms,
+            "[DecisionEngine] winner=%s eff=%.3f agg_conf=%.2f latency=%.0fms",
+            chosen.name, chosen.effective_score, weighted_conf, latency_ms,
         )
         return result
 
@@ -494,10 +581,33 @@ class DecisionEngine:
         """Update the KnowledgeDB used by advisors at runtime."""
         self.knowledge_db = knowledge_db
 
+    def set_evaluation_engine(self, evaluation_engine: Any) -> None:
+        """Wire in an EvaluationEngine for live adaptive weights."""
+        self._evaluation_engine = evaluation_engine
+
     def status(self) -> Dict[str, Any]:
         """Return current engine statistics."""
         with self._lock:
-            return dict(self._stats)
+            return {**self._stats, "weights": self._get_weights()}
+
+    # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _get_weights(self) -> Dict[str, float]:
+        """Return current adaptive weights from EvaluationEngine or defaults."""
+        if self._evaluation_engine is not None and hasattr(
+            self._evaluation_engine, "get_weights"
+        ):
+            try:
+                return self._evaluation_engine.get_weights()
+            except Exception:
+                pass
+        return {
+            "memory":    _W_MEMORY,
+            "reasoning": _W_REASONING,
+            "goal":      _W_GOAL,
+            "llm":       _W_LLM,
+            "quality":   _W_QUALITY,
+        }
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
@@ -509,8 +619,9 @@ _engine_lock = threading.Lock()
 def get_decision_engine(**kwargs: Any) -> DecisionEngine:
     """Return the process-level :class:`DecisionEngine` singleton.
 
-    Note: kwargs are only applied on first call.  Subsequent calls return
-    the existing singleton regardless of kwargs provided.
+    Note: kwargs (``knowledge_db``, ``evaluation_engine``) are only applied
+    on the first call.  Subsequent calls return the existing singleton
+    regardless of kwargs provided.
     """
     global _engine  # pylint: disable=global-statement
     with _engine_lock:

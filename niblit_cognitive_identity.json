@@ -1,0 +1,29 @@
+{
+  "decision_style": "analytical",
+  "risk_tolerance": 0.535,
+  "response_bias": {
+    "memory": 0.93,
+    "reasoning": 0.93,
+    "goal": 0.93,
+    "llm": 0.93,
+    "quality": 0.93
+  },
+  "total_decisions": 11,
+  "advisor_win_counts": {
+    "reasoning": 11
+  },
+  "quality_history": [
+    0.705,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75,
+    0.75
+  ],
+  "last_updated": 1777542720.4848833
+}

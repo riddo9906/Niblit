@@ -1547,6 +1547,30 @@ except Exception as _e:
     _get_decision_engine = None  # type: ignore[assignment]
     _DECISION_ENGINE_AVAILABLE = False
 
+try:
+    from modules.evaluation_engine import (
+        EvaluationEngine as _EvaluationEngine,
+        get_evaluation_engine as _get_evaluation_engine,
+    )
+    _EVALUATION_ENGINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"EvaluationEngine not available: {_e}")
+    _EvaluationEngine = None  # type: ignore[assignment,misc]
+    _get_evaluation_engine = None  # type: ignore[assignment]
+    _EVALUATION_ENGINE_AVAILABLE = False
+
+try:
+    from modules.cognitive_identity import (
+        CognitiveIdentity as _CognitiveIdentity,
+        get_cognitive_identity as _get_cognitive_identity,
+    )
+    _COGNITIVE_IDENTITY_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"CognitiveIdentity not available: {_e}")
+    _CognitiveIdentity = None  # type: ignore[assignment,misc]
+    _get_cognitive_identity = None  # type: ignore[assignment]
+    _COGNITIVE_IDENTITY_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -1942,6 +1966,8 @@ class NiblitCore:
         self.niblit_state: Optional[Any] = None    # initialised in _init_optional_services
         self.sdal_event_bus: Optional[Any] = None  # initialised in _init_optional_services
         self.decision_engine: Optional[Any] = None # initialised in _init_optional_services
+        self.evaluation_engine: Optional[Any] = None  # initialised in _init_optional_services
+        self.cognitive_identity: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -8181,7 +8207,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self.startup_report.add("brain_router", "degraded", str(_br_err))
 
         # ============================
-        # SDAL: NiblitState + EventBus + DecisionEngine
+        # SDAL: NiblitState + EventBus + CognitiveIdentity + EvaluationEngine + DecisionEngine
         # ============================
         if _NIBLIT_STATE_AVAILABLE and _get_niblit_state is not None:
             try:
@@ -8201,12 +8227,47 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.debug("SDAL EventBus init failed: %s", _ebe)
                 self.startup_report.add("sdal_event_bus", "degraded", str(_ebe))
 
+        if _COGNITIVE_IDENTITY_AVAILABLE and _get_cognitive_identity is not None:
+            try:
+                self.cognitive_identity = _get_cognitive_identity()
+                log.info(
+                    "✅ CognitiveIdentity initialised (style=%s risk=%.2f)",
+                    self.cognitive_identity.get_decision_style(),
+                    self.cognitive_identity.get_risk_tolerance(),
+                )
+                self.startup_report.add("cognitive_identity", "ready")
+                # Sync identity profile into shared NiblitState.
+                if self.niblit_state is not None:
+                    _profile = self.cognitive_identity.get_profile()
+                    self.niblit_state.update_identity(
+                        decision_style=_profile.decision_style,
+                        risk_tolerance=_profile.risk_tolerance,
+                        response_bias=dict(_profile.response_bias),
+                        total_decisions=_profile.total_decisions,
+                    )
+            except Exception as _cie:
+                log.debug("CognitiveIdentity init failed: %s", _cie)
+                self.startup_report.add("cognitive_identity", "degraded", str(_cie))
+
+        if _EVALUATION_ENGINE_AVAILABLE and _get_evaluation_engine is not None:
+            try:
+                self.evaluation_engine = _get_evaluation_engine(
+                    knowledge_db=getattr(self, "db", None),
+                    identity=self.cognitive_identity,
+                )
+                log.info("✅ EvaluationEngine initialised (adaptive weight loop active)")
+                self.startup_report.add("evaluation_engine", "ready")
+            except Exception as _eee:
+                log.debug("EvaluationEngine init failed: %s", _eee)
+                self.startup_report.add("evaluation_engine", "degraded", str(_eee))
+
         if _DECISION_ENGINE_AVAILABLE and _get_decision_engine is not None:
             try:
                 self.decision_engine = _get_decision_engine(
                     knowledge_db=getattr(self, "db", None),
+                    evaluation_engine=self.evaluation_engine,
                 )
-                log.info("✅ DecisionEngine initialised (SDAL gate active)")
+                log.info("✅ DecisionEngine initialised (competitive SDAL gate active)")
                 self.startup_report.add("decision_engine", "ready")
             except Exception as _dee:
                 log.debug("DecisionEngine init failed: %s", _dee)
@@ -9740,15 +9801,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # ============================
         # LAYER 12: GENERAL CONVERSATION — routed through SDAL gate
         # ============================
-        # All general chat passes through the DecisionEngine (Single Decision
-        # Authority Layer).  Advisors (Memory, Reasoning, Goal, Quality, LLM)
-        # each contribute a (suggestion, confidence) pair; the engine selects
-        # the best response via weighted aggregation.
+        # All general chat passes through the DecisionEngine (competitive SDAL).
+        # All five advisors run independently; the highest effective_score wins.
+        # After the decision, EvaluationEngine.score_outcome() scores the
+        # response, updates adaptive advisor weights, and emits
+        # response.complete so ALE can trigger the next learning cycle.
         # When the DecisionEngine is unavailable we fall back to brain.think().
         # ============================
-        log.debug("[SDAL] General chat — routing through DecisionEngine")
+        log.debug("[SDAL] General chat — routing through competitive DecisionEngine")
 
         response = None
+        _sdal_result = None
 
         if self.decision_engine is not None:
             try:
@@ -9765,15 +9828,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 if _state is not None and hasattr(_state, "update_context"):
                     _state.update_context(user_input=text, last_topic=text[:80])
 
-                _result = self.decision_engine.decide(
+                _sdal_result = self.decision_engine.decide(
                     state=_state,
                     user_input=text,
                     llm_fn=_llm_fn,
                 )
-                response = _result.action or None
+                response = _sdal_result.action or None
                 log.debug(
-                    "[SDAL] Decision: advisor=%s conf=%.2f",
-                    _result.chosen_advisor, _result.confidence,
+                    "[SDAL] Winner: advisor=%s eff=%.3f conf=%.2f",
+                    _sdal_result.chosen_advisor,
+                    _sdal_result.confidence,
+                    _sdal_result.confidence,
                 )
             except Exception as _sdal_err:
                 log.debug("[SDAL] DecisionEngine.decide failed, falling back: %s", _sdal_err)
@@ -9787,6 +9852,27 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         if not response:
             response = f"I hear you: {text}"
+
+        # ── Evaluation feedback loop ──────────────────────────────────────────
+        # Score the response, update adaptive weights, persist to identity.
+        if self.evaluation_engine is not None:
+            try:
+                self.evaluation_engine.score_outcome(
+                    user_input=text,
+                    response=response,
+                    decision_result=_sdal_result,
+                )
+                # Sync updated identity profile back into shared state.
+                if self.cognitive_identity is not None and self.niblit_state is not None:
+                    _ci_profile = self.cognitive_identity.get_profile()
+                    self.niblit_state.update_identity(
+                        decision_style=_ci_profile.decision_style,
+                        risk_tolerance=_ci_profile.risk_tolerance,
+                        response_bias=dict(_ci_profile.response_bias),
+                        total_decisions=_ci_profile.total_decisions,
+                    )
+            except Exception as _eval_err:
+                log.debug("[SDAL] EvaluationEngine.score_outcome failed: %s", _eval_err)
 
         self._trigger_learning(text, response)
         return response

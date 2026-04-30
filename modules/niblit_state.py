@@ -65,6 +65,12 @@ class NiblitState:
     signals: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     constraints: Dict[str, Any] = field(default_factory=dict)
     active_goal: Optional[Any] = None
+    identity: Dict[str, Any] = field(default_factory=lambda: {
+        "decision_style": "balanced",
+        "risk_tolerance": 0.50,
+        "response_bias": {},
+        "total_decisions": 0,
+    })
 
     # Internal lock — not part of the public data model.
     _lock: threading.Lock = field(
@@ -102,6 +108,16 @@ class NiblitState:
         with self._lock:
             self.active_goal = goal
 
+    def update_identity(self, **kwargs: Any) -> None:
+        """Thread-safely merge *kwargs* into the identity dict.
+
+        Called by CognitiveIdentity to keep the shared state in sync with
+        the persisted profile (decision_style, risk_tolerance, response_bias,
+        total_decisions).
+        """
+        with self._lock:
+            self.identity.update(kwargs)
+
     def clear_signals(self) -> None:
         """Clear all advisor signals at the start of a new request cycle."""
         with self._lock:
@@ -128,6 +144,7 @@ class NiblitState:
                 "signals": {k: dict(v) for k, v in self.signals.items()},
                 "constraints": dict(self.constraints),
                 "active_goal": goal_repr,
+                "identity": dict(self.identity),
             }
 
 
