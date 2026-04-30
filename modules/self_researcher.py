@@ -107,6 +107,57 @@ def _is_code_query(query: str) -> bool:
     return bool(query_words & _CODE_QUERY_KEYWORDS)
 
 
+# Known single-word or hyphenated GitHub topic slugs.  These are the only
+# queries we allow through to GitHubDeepResearch.trending_summary(), because
+# GitHub's `topic:` search only works for registered topic slugs — arbitrary
+# multi-word phrases fall back to keyword matching and return irrelevant repos.
+_GITHUB_TOPIC_WORDS: frozenset = frozenset({
+    # AI / ML
+    "machine-learning", "deep-learning", "artificial-intelligence",
+    "neural-network", "nlp", "llm", "reinforcement-learning",
+    "computer-vision", "generative-ai", "transformers",
+    # Platforms / runtimes
+    "python", "javascript", "typescript", "rust", "golang", "java",
+    "kotlin", "swift", "ruby", "php", "cpp", "c",
+    # Frameworks / tools
+    "react", "angular", "vue", "django", "flask", "fastapi",
+    "spring", "rails", "laravel",
+    "docker", "kubernetes", "terraform", "ansible",
+    "pytorch", "tensorflow", "scikit-learn", "huggingface",
+    "langchain", "llamacpp", "ollama",
+    # Topics
+    "robotics", "iot", "embedded", "autonomous-agent",
+    "os-development", "networking", "security",
+    "blockchain", "quantum-computing",
+})
+
+
+def _is_github_topic_query(query: str) -> bool:
+    """Return True when *query* looks like a valid GitHub topic slug.
+
+    GitHub's ``topic:`` search only works for registered single-word or
+    hyphenated topic slugs.  Multi-word phrases like
+    "c advanced programming techniques" are NOT valid GitHub topics —
+    GitHub silently degrades them to broad keyword searches that return
+    unrelated repos.  This guard prevents that noise from entering the KB.
+
+    A query passes when:
+    1. It is ≤ 3 words long, AND
+    2. Its first word (lowercased, spaces→hyphens) appears in the known
+       GitHub topic vocabulary, OR the whole normalised query does.
+    """
+    stripped = query.strip().lower()
+    if not stripped:
+        return False
+    words = stripped.split()
+    # Reject long multi-word phrases — they are not GitHub topic slugs.
+    if len(words) > 3:
+        return False
+    # Check the first word and the full slug against known topics.
+    slug_full = "-".join(words)
+    return words[0] in _GITHUB_TOPIC_WORDS or slug_full in _GITHUB_TOPIC_WORDS
+
+
 class IntentAnalyzer:
     """Analyzes user queries to understand intent without LLM"""
 
@@ -886,7 +937,14 @@ class SelfResearcher:
                 log.debug("PyPI search failed: %s", exc)
 
         # 3d️⃣ GITHUB DEEP RESEARCH — trending repos, PRs, issues
-        if self._github_deep_research and hasattr(self._github_deep_research, "trending_summary"):
+        # Only run for queries that look like a technology topic (1-3 slug-like
+        # words whose first word is a known tech/framework name).  Generic
+        # multi-word phrases such as "c advanced programming techniques" must
+        # not be sent here — GitHub's topic: search would fall back to keyword
+        # matching and return irrelevant repos that end up polluting the KB.
+        if (self._github_deep_research
+                and hasattr(self._github_deep_research, "trending_summary")
+                and _is_github_topic_query(query)):
             try:
                 gdr_text = self._github_deep_research.trending_summary(topic=query[:60])
                 # Skip error/status messages (e.g. "No trending repos found for '...'")
@@ -1245,7 +1303,10 @@ class SelfResearcher:
                     combined,
                     tags=["code", "research", language, "searchcode"]
                 )
-                self.db.queue_learning(f"{language} {topic} programming patterns")
+                # Queue the specific (language, topic) pair so future research
+                # focuses on the exact sub-topic instead of a broad phrase that
+                # could be mis-routed by GitHub's topic: search.
+                self.db.queue_learning(f"{language} {topic}")
             except Exception as e:
                 log.debug(f"Code research store failed: {e}")
 
@@ -1285,11 +1346,13 @@ class SelfResearcher:
                     language, "internet_research", snippet, f"{language}_{topic}_{i}"
                 )
 
-        # Also queue for deep learning
+        # Also queue for deep learning — use the specific (lang, topic) pair so
+        # the research pipeline studies the exact sub-topic, not a broad phrase
+        # like "c advanced programming techniques" that would be mis-routed by
+        # GitHub topic search and return irrelevant repos.
         if self.db:
             try:
-                self.db.queue_learning(f"{language} advanced programming techniques")
-                self.db.queue_learning(f"{language} stdlib reference")
+                self.db.queue_learning(f"{language} {topic}")
             except Exception:
                 pass
 

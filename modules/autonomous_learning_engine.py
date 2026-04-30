@@ -2704,7 +2704,11 @@ class AutonomousLearningEngine:
                     combined,
                     tags=["code", "research", "autonomous", lang]
                 )
-                self.knowledge_db.queue_learning(f"{lang} {topic} advanced patterns")
+                # Queue the exact (lang, topic) pair so the next research cycle
+                # stays focused on this sub-topic.  Avoid appending generic
+                # suffixes like "advanced patterns" which produce multi-word
+                # phrases that GitHub's topic: search mis-handles.
+                self.knowledge_db.queue_learning(f"{lang} {topic}")
             except Exception as exc:
                 log.debug(f"DB store failed: {exc}")
 

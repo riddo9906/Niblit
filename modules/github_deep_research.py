@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -137,8 +138,30 @@ def _repo_issues(owner: str, repo: str, state: str = "open", per_page: int = 5) 
     return data if isinstance(data, list) else []
 
 
-def _repo_meta(owner: str, repo: str) -> Optional[Dict]:
-    return _gh_get(f"/repos/{owner}/{repo}")
+def _topic_to_gh_slug(topic: str) -> Optional[str]:
+    """Convert a free-text topic into a valid GitHub topic slug.
+
+    GitHub topic slugs must be lowercase, contain only letters, digits, and
+    hyphens, and must not start or end with a hyphen.  Multi-word phrases
+    are converted by replacing spaces with hyphens.  Slugs longer than
+    35 characters (GitHub's documented limit) are rejected.
+
+    Returns None when the topic cannot be represented as a valid slug —
+    the caller should fall back to keyword-only search in that case.
+    """
+    if not topic or not isinstance(topic, str):
+        return None
+    # Lowercase, replace spaces and underscores with hyphens
+    slug = topic.strip().lower()
+    slug = re.sub(r"[\s_]+", "-", slug)
+    # Remove characters not allowed in GitHub topic slugs
+    slug = re.sub(r"[^a-z0-9\-]", "", slug)
+    # Collapse multiple consecutive hyphens
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    if not slug or len(slug) > 35:
+        return None
+    return slug
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -173,11 +196,28 @@ class GitHubDeepResearch:
     # ── Public API ────────────────────────────────────────────────────────────
 
     def scan_trending(self, topic: Optional[str] = None, per_page: int = 10) -> List[Dict]:
-        """Return top trending repos for a topic (or all _TRENDING_TOPICS)."""
+        """Return top trending repos for a topic (or all _TRENDING_TOPICS).
+
+        Each topic is sanitized into a valid GitHub topic slug before use.
+        When a free-text topic cannot be reduced to a valid slug (e.g. a
+        multi-word phrase like "c advanced programming techniques") it is
+        tried as a keyword-only search (without the ``topic:`` prefix) so
+        we still get relevant repos without mis-using the GitHub topic API.
+        """
         topics = [topic] if topic else _TRENDING_TOPICS
         results = []
         for t in topics[:4]:  # limit to 4 topics per call to avoid rate limits
-            repos = _search_repos(f"topic:{t}", per_page=per_page)
+            slug = _topic_to_gh_slug(t)
+            if slug:
+                # Prefer topic: search for valid slugs (precise, topic-tagged results)
+                repos = _search_repos(f"topic:{slug}", per_page=per_page)
+                if not repos:
+                    # Fall back to keyword search if no topic-tagged repos found
+                    repos = _search_repos(slug, per_page=per_page)
+            else:
+                # Invalid slug (multi-word phrase, too long, etc.) — use keyword search
+                log.debug("[GHDeep] %r is not a valid GitHub topic slug; using keyword search", t)
+                repos = _search_repos(t, per_page=per_page)
             for r in repos:
                 entry = {
                     "topic": t,
