@@ -18,7 +18,7 @@ import time
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
 # platform injects env vars directly, so this is a no-op in those environments.
@@ -2149,6 +2149,8 @@ async def api_state_post(request: Request):
     except Exception as exc:
         logging.getLogger("NiblitApp").error("api_state_post error: %s", exc)
         return JSONResponse(content={"error": "state merge failed — see server logs"}, status_code=500)
+
+@app.post("/api/env/capabilities")
 async def api_env_capabilities(request: Request):
     """Accept environment capability report from a foreign runtime node."""
     if rate_limited(request):
