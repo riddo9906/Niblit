@@ -178,8 +178,8 @@ class QualityFeedback:
                 ctx = po.classify_context(query)
                 po.record_episode(
                     context_type=ctx,
-                    advisor_chosen="quality",
-                    advisor_confidences={"quality": quality},
+                    advisor_chosen="quality_no_kb",
+                    advisor_confidences={"quality_no_kb": quality},
                     outcome_score=quality,
                 )
             except Exception as _po_err:
@@ -270,8 +270,8 @@ class QualityFeedback:
             ctx = po.classify_context(query)
             po.record_episode(
                 context_type=ctx,
-                advisor_chosen="quality",  # quality scoring path always involves quality advisor
-                advisor_confidences={"quality": quality},
+                advisor_chosen="quality_with_kb",  # distinct from the no-KB path
+                advisor_confidences={"quality_with_kb": quality},
                 outcome_score=quality,
             )
         except Exception as _po_err:

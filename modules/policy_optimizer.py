@@ -300,7 +300,7 @@ class PolicyOptimizer:
 
             # Update uncertainty tracking for all advisors this cycle.
             for adv, conf in advisor_confidences.items():
-                self._update_uncertainty(adv, conf)
+                self.__update_uncertainty(adv, conf)
 
             # Trigger learning every _LEARN_EVERY episodes.
             should_learn = (self._total_episodes % _LEARN_EVERY == 0)
@@ -452,7 +452,7 @@ class PolicyOptimizer:
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
-    def _update_uncertainty(self, advisor: str, confidence: float) -> None:
+    def __update_uncertainty(self, advisor: str, confidence: float) -> None:
         """Update rolling variance for *advisor* using Welford's online algorithm.
 
         Uncertainty is the variance of the advisor's confidence stream.
@@ -466,7 +466,7 @@ class PolicyOptimizer:
         n = self._conf_count.get(advisor, 0) + 1
         self._conf_count[advisor] = n
         self._conf_sum[advisor] = self._conf_sum.get(advisor, 0.0) + confidence
-        self._conf_sq_sum[advisor] = self._conf_sq_sum.get(advisor, 0.0) + confidence ** 2
+        self._conf_sq_sum[advisor] = self._conf_sq_sum.get(advisor, 0.0) + confidence * confidence
 
         mean = self._conf_sum[advisor] / n
         # Population variance = E[X²] − E[X]²

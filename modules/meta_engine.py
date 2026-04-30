@@ -326,6 +326,10 @@ class MetaEngine:
         with self._lock:
             return self._last_insight
 
+    def set_policy_optimizer(self, policy_optimizer: Any) -> None:
+        """Wire in (or replace) the :class:`PolicyOptimizer` instance at runtime."""
+        self._policy_optimizer = policy_optimizer
+
     def status(self) -> Dict[str, Any]:
         """Return serialisable status for health/status endpoints."""
         with self._lock:

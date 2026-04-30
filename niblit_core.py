@@ -8329,8 +8329,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 ):
                     self.decision_engine.set_policy_optimizer(self.policy_optimizer)
                 # Back-wire to MetaEngine so patterns feed the optimizer.
-                if self.meta_engine is not None:
-                    self.meta_engine._policy_optimizer = self.policy_optimizer  # pylint: disable=protected-access
+                if self.meta_engine is not None and hasattr(
+                    self.meta_engine, "set_policy_optimizer"
+                ):
+                    self.meta_engine.set_policy_optimizer(self.policy_optimizer)
             except Exception as _poe:
                 log.debug("PolicyOptimizer init failed: %s", _poe)
                 self.startup_report.add("policy_optimizer", "degraded", str(_poe))
@@ -9972,13 +9974,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 _advisor_confs = {
                     s.name: s.confidence for s in _sdal_result.signals
                 } if _sdal_result.signals else {}
+                _history = getattr(self.evaluation_engine, "_history", None)  # pylint: disable=protected-access
                 _outcome_score = (
-                    getattr(self.evaluation_engine, "_history", [{}])[-1].quality_score
-                    if (
-                        self.evaluation_engine is not None
-                        and hasattr(self.evaluation_engine, "_history")
-                        and self.evaluation_engine._history  # pylint: disable=protected-access
-                    )
+                    _history[-1].quality_score
+                    if _history
                     else _sdal_result.confidence
                 )
                 self.policy_optimizer.record_episode(
