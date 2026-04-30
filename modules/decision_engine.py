@@ -507,7 +507,11 @@ _engine_lock = threading.Lock()
 
 
 def get_decision_engine(**kwargs: Any) -> DecisionEngine:
-    """Return the process-level :class:`DecisionEngine` singleton."""
+    """Return the process-level :class:`DecisionEngine` singleton.
+
+    Note: kwargs are only applied on first call.  Subsequent calls return
+    the existing singleton regardless of kwargs provided.
+    """
     global _engine  # pylint: disable=global-statement
     with _engine_lock:
         if _engine is None:

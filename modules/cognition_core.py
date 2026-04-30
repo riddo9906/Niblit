@@ -476,7 +476,7 @@ class CognitionCore:
                     type="goal.updated",
                     source="cognition_core",
                     payload={
-                        "topic": result.goals[0].to_dict() if hasattr(result.goals[0], "to_dict") else str(result.goals[0]),
+                        "active_goal": result.goals[0].to_dict() if hasattr(result.goals[0], "to_dict") else str(result.goals[0]),
                         "goals_count": len(result.goals),
                         "cycle_count": self._cycle_count + 1,
                     },

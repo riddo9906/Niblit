@@ -9783,7 +9783,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             try:
                 response = safe_call(self.brain.think, text)
             except Exception as e:
-                log.debug(f"Brain.think fallback failed: {e}")
+                log.debug("Brain.think fallback failed: %s", e)
 
         if not response:
             response = f"I hear you: {text}"
