@@ -61,6 +61,7 @@ EVENT_LEARNING_COMPLETE  = "learning.cycle.complete"
 EVENT_DECISION_MADE      = "decision.made"
 EVENT_RESPONSE_COMPLETE  = "response.complete"
 EVENT_META_ANALYSIS_COMPLETE = "meta.analysis.complete"
+EVENT_POLICY_OPTIMIZED   = "policy.optimized"
 
 
 @dataclass

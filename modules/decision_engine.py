@@ -447,9 +447,11 @@ class DecisionEngine:
         self,
         knowledge_db: Optional[Any] = None,
         evaluation_engine: Optional[Any] = None,
+        policy_optimizer: Optional[Any] = None,
     ) -> None:
         self.knowledge_db = knowledge_db
         self._evaluation_engine = evaluation_engine
+        self._policy_optimizer = policy_optimizer
         self._lock = threading.Lock()
         self._stats: Dict[str, Any] = {
             "decide_calls": 0,
@@ -491,14 +493,44 @@ class DecisionEngine:
         # ── Fetch live adaptive weights ───────────────────────────────────────
         weights = self._get_weights()
 
+        # ── Context classification + PolicyOptimizer capability overrides ─────
+        # When a PolicyOptimizer is wired in, classify the current task type and
+        # apply per-context capability multipliers on top of adaptive weights.
+        context_type = "chat"
+        if self._policy_optimizer is not None:
+            try:
+                context_type = self._policy_optimizer.classify_context(
+                    user_input, state
+                )
+                overrides = self._policy_optimizer.get_context_overrides(context_type)
+                for adv, mult in overrides.items():
+                    if adv in weights:
+                        weights[adv] = min(2.0, weights[adv] * mult)
+                # Store classified context type so Layer 12 can log it.
+                if state is not None and hasattr(state, "update_context"):
+                    state.update_context(_context_type=context_type)
+            except Exception as _po_err:
+                log.debug("[DecisionEngine] PolicyOptimizer overrides failed: %s", _po_err)
+
         # ── Apply decision_policy weight modifiers ────────────────────────────
         # The decision_policy is stored in CognitiveIdentity and written to
         # NiblitState.identity by niblit_core after each cycle.  We read it
         # from state so no direct CognitiveIdentity import is needed here.
-        policy = {}
+        # Also merge in the per-context learned policy from PolicyOptimizer.
+        policy: Dict[str, Any] = {}
         if state is not None:
             identity_snap = getattr(state, "identity", {}) or {}
-            policy = identity_snap.get("decision_policy", {})
+            policy = dict(identity_snap.get("decision_policy", {}))
+
+        # Learned per-context policy overrides from PolicyOptimizer take
+        # precedence over the identity-level policy so context-specific
+        # learning wins over general personality settings.
+        if self._policy_optimizer is not None:
+            try:
+                ctx_policy = self._policy_optimizer.get_context_policy(context_type)
+                policy.update(ctx_policy)
+            except Exception:
+                pass
 
         exploration_rate = float(policy.get("exploration_rate", 0.10))
         risk_preference  = str(policy.get("risk_preference",  "balanced"))
@@ -557,23 +589,40 @@ class DecisionEngine:
                 effective_score=0.0,
             )
 
-        # ── Epsilon-greedy exploration ────────────────────────────────────────
-        # When exploration_rate > 0, there is a small probability that a
-        # non-winner with a non-empty suggestion is randomly selected instead.
-        # This prevents the system from converging on a single advisor too
-        # quickly and injects diversity into the decision stream.
+        # ── Informed exploration ──────────────────────────────────────────────
+        # When exploration_rate > 0 and we fire an exploration step, prefer
+        # the advisor with the *highest uncertainty* (confidence variance) over
+        # a random pick — this maximises information gain per exploration.
+        # Falls back to random when PolicyOptimizer is unavailable.
         if (
             exploration_rate > 0.0
             and len(candidates) > 1
             and random.random() < exploration_rate
         ):
-            non_winners = [s for s in candidates if s.name != chosen.name]
-            if non_winners:
-                chosen = random.choice(non_winners)
-                log.debug(
-                    "[DecisionEngine] Exploration kick — switched to %s (rate=%.2f)",
-                    chosen.name, exploration_rate,
-                )
+            if self._policy_optimizer is not None:
+                try:
+                    ranked = self._policy_optimizer.get_exploration_candidates(
+                        signals, chosen.name
+                    )
+                    if ranked:
+                        chosen = ranked[0]  # highest uncertainty first
+                        log.debug(
+                            "[DecisionEngine] Informed exploration — switched to %s "
+                            "(uncertainty-ranked, rate=%.2f)",
+                            chosen.name, exploration_rate,
+                        )
+                except Exception:
+                    non_winners = [s for s in candidates if s.name != chosen.name]
+                    if non_winners:
+                        chosen = random.choice(non_winners)
+            else:
+                non_winners = [s for s in candidates if s.name != chosen.name]
+                if non_winners:
+                    chosen = random.choice(non_winners)
+                    log.debug(
+                        "[DecisionEngine] Random exploration — switched to %s (rate=%.2f)",
+                        chosen.name, exploration_rate,
+                    )
 
         # ── Aggregate confidence (weighted mean across all advisors) ──────────
         total_weight = sum(s.weight for s in signals)
@@ -638,6 +687,10 @@ class DecisionEngine:
     def set_evaluation_engine(self, evaluation_engine: Any) -> None:
         """Wire in an EvaluationEngine for live adaptive weights."""
         self._evaluation_engine = evaluation_engine
+
+    def set_policy_optimizer(self, policy_optimizer: Any) -> None:
+        """Wire in a PolicyOptimizer for context-aware + uncertainty-based decisions."""
+        self._policy_optimizer = policy_optimizer
 
     def status(self) -> Dict[str, Any]:
         """Return current engine statistics."""

@@ -10,8 +10,8 @@
   },
   "decision_policy": {
     "exploration_rate": 0.19,
-    "risk_preference": "bold",
-    "priority_mode": "balanced"
+    "risk_preference": "balanced",
+    "priority_mode": "goal_first"
   },
   "total_decisions": 23,
   "advisor_win_counts": {

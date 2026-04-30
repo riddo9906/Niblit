@@ -159,10 +159,12 @@ class MetaEngine:
         evaluation_engine: Optional[Any] = None,
         niblit_state: Optional[Any] = None,
         cognitive_identity: Optional[Any] = None,
+        policy_optimizer: Optional[Any] = None,
     ) -> None:
         self._eval = evaluation_engine
         self._state = niblit_state
         self._identity = cognitive_identity
+        self._policy_optimizer = policy_optimizer
         self._lock = threading.Lock()
         self._event_counter = 0
         self._last_insight: Optional[MetaInsight] = None
@@ -272,7 +274,16 @@ class MetaEngine:
         # ── 5. Update decision_policy in CognitiveIdentity ───────────────────
         self._update_decision_policy(patterns, slope, avg_recent)
 
-        # ── 6. Build diagnosis string ─────────────────────────────────────────
+        # ── 6. Notify PolicyOptimizer of detected behavioral patterns ─────────
+        # PolicyOptimizer uses this signal to boost exploration or adjust
+        # per-context policies rather than applying static rule nudges.
+        if self._policy_optimizer is not None:
+            try:
+                self._policy_optimizer.record_meta_insight(patterns, slope, avg_recent)
+            except Exception as exc:
+                log.debug("[MetaEngine] policy_optimizer.record_meta_insight failed: %s", exc)
+
+        # ── 7. Build diagnosis string ─────────────────────────────────────────
         diagnosis = self._build_diagnosis(
             patterns, dominant_advisor, dominance_ratio, slope, avg_recent
         )

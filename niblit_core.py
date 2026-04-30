@@ -1583,6 +1583,18 @@ except Exception as _e:
     _get_meta_engine = None  # type: ignore[assignment]
     _META_ENGINE_AVAILABLE = False
 
+try:
+    from modules.policy_optimizer import (
+        PolicyOptimizer as _PolicyOptimizer,
+        get_policy_optimizer as _get_policy_optimizer,
+    )
+    _POLICY_OPTIMIZER_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"PolicyOptimizer not available: {_e}")
+    _PolicyOptimizer = None  # type: ignore[assignment,misc]
+    _get_policy_optimizer = None  # type: ignore[assignment]
+    _POLICY_OPTIMIZER_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -1981,6 +1993,7 @@ class NiblitCore:
         self.evaluation_engine: Optional[Any] = None  # initialised in _init_optional_services
         self.cognitive_identity: Optional[Any] = None  # initialised in _init_optional_services
         self.meta_engine: Optional[Any] = None  # initialised in _init_optional_services
+        self.policy_optimizer: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -8292,12 +8305,32 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     evaluation_engine=self.evaluation_engine,
                     niblit_state=self.niblit_state,
                     cognitive_identity=self.cognitive_identity,
+                    policy_optimizer=self.policy_optimizer,  # may be None at this point; re-wired below
                 )
                 log.info("✅ MetaEngine initialised (meta-cognition active)")
                 self.startup_report.add("meta_engine", "ready")
             except Exception as _mee:
                 log.debug("MetaEngine init failed: %s", _mee)
                 self.startup_report.add("meta_engine", "degraded", str(_mee))
+
+        if _POLICY_OPTIMIZER_AVAILABLE and _get_policy_optimizer is not None:
+            try:
+                self.policy_optimizer = _get_policy_optimizer(
+                    cognitive_identity=self.cognitive_identity,
+                )
+                log.info("✅ PolicyOptimizer initialised (context-aware policy learning active)")
+                self.startup_report.add("policy_optimizer", "ready")
+                # Back-wire to DecisionEngine so it can apply context overrides.
+                if self.decision_engine is not None and hasattr(
+                    self.decision_engine, "set_policy_optimizer"
+                ):
+                    self.decision_engine.set_policy_optimizer(self.policy_optimizer)
+                # Back-wire to MetaEngine so patterns feed the optimizer.
+                if self.meta_engine is not None:
+                    self.meta_engine._policy_optimizer = self.policy_optimizer  # pylint: disable=protected-access
+            except Exception as _poe:
+                log.debug("PolicyOptimizer init failed: %s", _poe)
+                self.startup_report.add("policy_optimizer", "degraded", str(_poe))
 
         self._init_agents()
 
@@ -9906,6 +9939,36 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     )
             except Exception as _eval_err:
                 log.debug("[SDAL] EvaluationEngine.score_outcome failed: %s", _eval_err)
+
+        # ── PolicyOptimizer episode recording ─────────────────────────────────
+        # Record the full (context, advisor, confidences, reward) tuple so the
+        # PolicyOptimizer can learn from longitudinal trajectories.
+        if self.policy_optimizer is not None and _sdal_result is not None:
+            try:
+                _ctx_type = (
+                    getattr(self.niblit_state, "context", {}).get("_context_type", "chat")
+                    if self.niblit_state is not None else "chat"
+                )
+                _advisor_confs = {
+                    s.name: s.confidence for s in _sdal_result.signals
+                } if _sdal_result.signals else {}
+                _outcome_score = (
+                    getattr(self.evaluation_engine, "_history", [{}])[-1].quality_score
+                    if (
+                        self.evaluation_engine is not None
+                        and hasattr(self.evaluation_engine, "_history")
+                        and self.evaluation_engine._history  # pylint: disable=protected-access
+                    )
+                    else _sdal_result.confidence
+                )
+                self.policy_optimizer.record_episode(
+                    context_type=_ctx_type,
+                    advisor_chosen=_sdal_result.chosen_advisor,
+                    advisor_confidences=_advisor_confs,
+                    outcome_score=float(_outcome_score),
+                )
+            except Exception as _po_err:
+                log.debug("[SDAL] PolicyOptimizer.record_episode failed: %s", _po_err)
 
         self._trigger_learning(text, response)
         return response
