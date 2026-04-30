@@ -107,6 +107,19 @@ except ImportError:  # pragma: no cover
     Goal = None  # type: ignore[assignment,misc]
     _GOAL_ENGINE_AVAILABLE = False
 
+try:
+    from modules.event_bus import (
+        get_event_bus as _cc_get_event_bus,
+        NiblitEvent as _CcEvent,
+        EVENT_GOAL_UPDATED as _EVENT_GOAL_UPDATED,
+    )
+    _CC_EVENT_BUS_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _cc_get_event_bus = None  # type: ignore[assignment]
+    _CcEvent = None  # type: ignore[assignment,misc]
+    _EVENT_GOAL_UPDATED = "goal.updated"
+    _CC_EVENT_BUS_AVAILABLE = False
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Result dataclass
@@ -469,11 +482,10 @@ class CognitionCore:
             )
 
         # Emit goal.updated event so the DecisionEngine can track the active goal.
-        if result.goals:
+        if result.goals and _CC_EVENT_BUS_AVAILABLE and _cc_get_event_bus is not None:
             try:
-                from modules.event_bus import get_event_bus as _cc_get_event_bus, NiblitEvent as _CcEvent
                 _cc_get_event_bus().publish(_CcEvent(
-                    type="goal.updated",
+                    type=_EVENT_GOAL_UPDATED,
                     source="cognition_core",
                     payload={
                         "active_goal": result.goals[0].to_dict() if hasattr(result.goals[0], "to_dict") else str(result.goals[0]),

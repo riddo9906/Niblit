@@ -9837,7 +9837,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.debug(
                     "[SDAL] Winner: advisor=%s eff=%.3f conf=%.2f",
                     _sdal_result.chosen_advisor,
-                    _sdal_result.confidence,
+                    next(
+                        (s.effective_score for s in _sdal_result.signals
+                         if s.name == _sdal_result.chosen_advisor),
+                        0.0,
+                    ),
                     _sdal_result.confidence,
                 )
             except Exception as _sdal_err:
