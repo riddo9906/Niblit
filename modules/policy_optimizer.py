@@ -459,7 +459,9 @@ class PolicyOptimizer:
         High variance → advisor is unpredictable → worth exploring.
         Low variance → advisor is consistent → less urgency to explore.
 
-        Note: called inside ``_lock``.
+        Threading: **Must be called while ``self._lock`` is held.**
+        All call sites in this class hold the lock before calling this method.
+        External callers must not invoke this method directly.
         """
         n = self._conf_count.get(advisor, 0) + 1
         self._conf_count[advisor] = n

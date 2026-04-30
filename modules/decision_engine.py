@@ -126,6 +126,10 @@ except ImportError:
     EVENT_DECISION_MADE = "decision.made"
     _EVENT_BUS_AVAILABLE = False
 
+# Clamp limits for per-advisor weights after policy/capability adjustments.
+_MAX_ADVISOR_WEIGHT = 2.0
+_MIN_ADVISOR_WEIGHT = 0.05
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Data structures
@@ -505,7 +509,7 @@ class DecisionEngine:
                 overrides = self._policy_optimizer.get_context_overrides(context_type)
                 for adv, mult in overrides.items():
                     if adv in weights:
-                        weights[adv] = min(2.0, weights[adv] * mult)
+                        weights[adv] = min(_MAX_ADVISOR_WEIGHT, weights[adv] * mult)
                 # Store classified context type so Layer 12 can log it.
                 if state is not None and hasattr(state, "update_context"):
                     state.update_context(_context_type=context_type)
@@ -538,12 +542,12 @@ class DecisionEngine:
 
         # risk_preference: nudge toward safety or boldness.
         if risk_preference == "conservative":
-            weights["memory"]    = min(2.0, weights.get("memory",    0.20) + 0.05)
-            weights["reasoning"] = min(2.0, weights.get("reasoning", 0.20) + 0.03)
-            weights["llm"]       = max(0.05, weights.get("llm",       0.40) - 0.05)
+            weights["memory"]    = min(_MAX_ADVISOR_WEIGHT, weights.get("memory",    0.20) + 0.05)
+            weights["reasoning"] = min(_MAX_ADVISOR_WEIGHT, weights.get("reasoning", 0.20) + 0.03)
+            weights["llm"]       = max(_MIN_ADVISOR_WEIGHT, weights.get("llm",       0.40) - 0.05)
         elif risk_preference == "bold":
-            weights["llm"]       = min(2.0, weights.get("llm",       0.40) + 0.05)
-            weights["reasoning"] = min(2.0, weights.get("reasoning", 0.20) + 0.03)
+            weights["llm"]       = min(_MAX_ADVISOR_WEIGHT, weights.get("llm",       0.40) + 0.05)
+            weights["reasoning"] = min(_MAX_ADVISOR_WEIGHT, weights.get("reasoning", 0.20) + 0.03)
 
         # ── Run all advisors independently ────────────────────────────────────
         # All five advisors are invoked regardless of each other's output.

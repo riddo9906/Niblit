@@ -8305,7 +8305,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     evaluation_engine=self.evaluation_engine,
                     niblit_state=self.niblit_state,
                     cognitive_identity=self.cognitive_identity,
-                    policy_optimizer=self.policy_optimizer,  # may be None at this point; re-wired below
+                    # PolicyOptimizer is initialised after MetaEngine.
+                    # niblit_core back-wires meta_engine._policy_optimizer
+                    # once PolicyOptimizer is ready (see block below).
+                    policy_optimizer=None,
                 )
                 log.info("✅ MetaEngine initialised (meta-cognition active)")
                 self.startup_report.add("meta_engine", "ready")
