@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """modules/llama3_memory_adapter.py — Llama 3.2-powered KnowledgeDB manager.
 
-Llama3MemoryAdapter gives the local Llama 3.2 brain (QwenLocalBrain loaded with
-the ``llama3`` preset) the ability to:
+Llama3MemoryAdapter gives Niblit's local brain—when loaded with the ``llama3``
+model preset—the ability to:
 
   1. **Read** Niblit's KnowledgeDB facts and learning log.
   2. **Audit** individual facts — decide KEEP | REWRITE | REMOVE for each one.
@@ -117,10 +117,11 @@ class Llama3MemoryAdapter:
     Parameters
     ----------
     local_brain:
-        A ``QwenLocalBrain`` instance loaded with the ``llama3`` preset (or any
-        object with a compatible ``ask(prompt, system_prompt=None) -> str`` and
-        optionally ``generate_with_tools(prompt, tools, ...) -> (str, list)``
-        method).
+        Niblit's local brain instance loaded with the ``llama3`` model preset
+        (or any object with a compatible ``ask(prompt, system_prompt=None) -> str``
+        and optionally ``generate_with_tools(prompt, tools, ...) -> (str, list)``
+        method).  The brain class is ``QwenLocalBrain`` regardless of the active
+        model preset — "Llama3" here refers to the preset, not a different class.
     knowledge_db:
         A ``KnowledgeDB`` instance (or any object with ``list_facts``,
         ``add_fact``, and optionally ``get_learning_log``).
