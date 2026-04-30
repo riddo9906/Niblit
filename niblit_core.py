@@ -1516,6 +1516,37 @@ except Exception as _e:
     _EmbeddingPipeline = None  # type: ignore[assignment,misc]
     _EMBEDDING_PIPELINE_AVAILABLE = False
 
+# ── SDAL: NiblitState, EventBus, DecisionEngine ───────────────────────────────
+try:
+    from modules.niblit_state import NiblitState as _NiblitState, get_niblit_state as _get_niblit_state
+    _NIBLIT_STATE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"NiblitState not available: {_e}")
+    _NiblitState = None  # type: ignore[assignment,misc]
+    _get_niblit_state = None  # type: ignore[assignment]
+    _NIBLIT_STATE_AVAILABLE = False
+
+try:
+    from modules.event_bus import EventBus as _EventBus, get_event_bus as _get_sdal_event_bus
+    _SDAL_EVENT_BUS_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"SDAL EventBus not available: {_e}")
+    _EventBus = None  # type: ignore[assignment,misc]
+    _get_sdal_event_bus = None  # type: ignore[assignment]
+    _SDAL_EVENT_BUS_AVAILABLE = False
+
+try:
+    from modules.decision_engine import (
+        DecisionEngine as _DecisionEngine,
+        get_decision_engine as _get_decision_engine,
+    )
+    _DECISION_ENGINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"DecisionEngine not available: {_e}")
+    _DecisionEngine = None  # type: ignore[assignment,misc]
+    _get_decision_engine = None  # type: ignore[assignment]
+    _DECISION_ENGINE_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -1907,6 +1938,10 @@ class NiblitCore:
         self.kernel_v3: Optional[Any] = None  # initialised in _init_optional_services
         self.cognitive_graph_kernel: Optional[Any] = None  # initialised in _init_optional_services
         self.msg_layer: Optional[Any] = None  # initialised in _init_optional_services
+        # ── Additive: SDAL — NiblitState, EventBus, DecisionEngine ───────────
+        self.niblit_state: Optional[Any] = None    # initialised in _init_optional_services
+        self.sdal_event_bus: Optional[Any] = None  # initialised in _init_optional_services
+        self.decision_engine: Optional[Any] = None # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -8145,6 +8180,38 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.warning("[Core] BrainRouter init failed (degraded): %s", _br_err)
             self.startup_report.add("brain_router", "degraded", str(_br_err))
 
+        # ============================
+        # SDAL: NiblitState + EventBus + DecisionEngine
+        # ============================
+        if _NIBLIT_STATE_AVAILABLE and _get_niblit_state is not None:
+            try:
+                self.niblit_state = _get_niblit_state()
+                log.info("✅ NiblitState initialised (shared SDAL state active)")
+                self.startup_report.add("niblit_state", "ready")
+            except Exception as _nse:
+                log.debug("NiblitState init failed: %s", _nse)
+                self.startup_report.add("niblit_state", "degraded", str(_nse))
+
+        if _SDAL_EVENT_BUS_AVAILABLE and _get_sdal_event_bus is not None:
+            try:
+                self.sdal_event_bus = _get_sdal_event_bus()
+                log.info("✅ SDAL EventBus initialised (pub/sub wiring active)")
+                self.startup_report.add("sdal_event_bus", "ready")
+            except Exception as _ebe:
+                log.debug("SDAL EventBus init failed: %s", _ebe)
+                self.startup_report.add("sdal_event_bus", "degraded", str(_ebe))
+
+        if _DECISION_ENGINE_AVAILABLE and _get_decision_engine is not None:
+            try:
+                self.decision_engine = _get_decision_engine(
+                    knowledge_db=getattr(self, "db", None),
+                )
+                log.info("✅ DecisionEngine initialised (SDAL gate active)")
+                self.startup_report.add("decision_engine", "ready")
+            except Exception as _dee:
+                log.debug("DecisionEngine init failed: %s", _dee)
+                self.startup_report.add("decision_engine", "degraded", str(_dee))
+
         self._init_agents()
 
     def _init_agents(self) -> None:
@@ -9671,16 +9738,52 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self._routing = False
 
         # ============================
-        # LAYER 12: GENERAL CONVERSATION (brain.think ONLY)
+        # LAYER 12: GENERAL CONVERSATION — routed through SDAL gate
         # ============================
-        log.debug("[BRAIN] General chat fallback - brain.think() only")
+        # All general chat passes through the DecisionEngine (Single Decision
+        # Authority Layer).  Advisors (Memory, Reasoning, Goal, Quality, LLM)
+        # each contribute a (suggestion, confidence) pair; the engine selects
+        # the best response via weighted aggregation.
+        # When the DecisionEngine is unavailable we fall back to brain.think().
+        # ============================
+        log.debug("[SDAL] General chat — routing through DecisionEngine")
+
         response = None
 
-        if self.brain:
+        if self.decision_engine is not None:
+            try:
+                # Build the LLM callable from brain_router (preferred) or brain.think.
+                _llm_fn = None
+                _br = getattr(self, "brain_router", None)
+                if _br is not None and callable(getattr(_br, "route", None)):
+                    _llm_fn = _br.route
+                elif self.brain is not None and callable(getattr(self.brain, "think", None)):
+                    _llm_fn = self.brain.think
+
+                # Update shared state context before calling advisors.
+                _state = getattr(self, "niblit_state", None)
+                if _state is not None and hasattr(_state, "update_context"):
+                    _state.update_context(user_input=text, last_topic=text[:80])
+
+                _result = self.decision_engine.decide(
+                    state=_state,
+                    user_input=text,
+                    llm_fn=_llm_fn,
+                )
+                response = _result.action or None
+                log.debug(
+                    "[SDAL] Decision: advisor=%s conf=%.2f",
+                    _result.chosen_advisor, _result.confidence,
+                )
+            except Exception as _sdal_err:
+                log.debug("[SDAL] DecisionEngine.decide failed, falling back: %s", _sdal_err)
+
+        # Fallback: call brain.think directly if SDAL produced nothing.
+        if not response and self.brain:
             try:
                 response = safe_call(self.brain.think, text)
             except Exception as e:
-                log.debug(f"Brain.think failed: {e}")
+                log.debug(f"Brain.think fallback failed: {e}")
 
         if not response:
             response = f"I hear you: {text}"

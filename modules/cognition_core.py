@@ -468,6 +468,22 @@ class CognitionCore:
                 len(result.goals),
             )
 
+        # Emit goal.updated event so the DecisionEngine can track the active goal.
+        if result.goals:
+            try:
+                from modules.event_bus import get_event_bus as _cc_get_event_bus, NiblitEvent as _CcEvent
+                _cc_get_event_bus().publish(_CcEvent(
+                    type="goal.updated",
+                    source="cognition_core",
+                    payload={
+                        "topic": result.goals[0].to_dict() if hasattr(result.goals[0], "to_dict") else str(result.goals[0]),
+                        "goals_count": len(result.goals),
+                        "cycle_count": self._cycle_count + 1,
+                    },
+                ))
+            except Exception as _ev_exc:
+                log.debug("[CognitionCore] goal.updated event failed: %s", _ev_exc)
+
         # Periodic maintenance
         maintenance_ran = False
         with self._lock:
