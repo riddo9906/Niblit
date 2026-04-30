@@ -70,10 +70,10 @@ log = logging.getLogger("MetaEngine")
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-_ANALYZE_EVERY      = int(float(os.environ.get("NIBLIT_META_ANALYZE_EVERY",   "10")))
+_ANALYZE_EVERY      = int(os.environ.get("NIBLIT_META_ANALYZE_EVERY",   "10"))
 _RELIANCE_THRESH    = float(os.environ.get("NIBLIT_META_RELIANCE_THRESH",     "0.70"))
 _NUDGE_DELTA        = float(os.environ.get("NIBLIT_META_NUDGE_DELTA",         "0.03"))
-_TRAJECTORY_WINDOW  = int(float(os.environ.get("NIBLIT_META_TRAJECTORY_WIN",  "20")))
+_TRAJECTORY_WINDOW  = int(os.environ.get("NIBLIT_META_TRAJECTORY_WIN",  "20"))
 
 # ── Optional dependency imports ───────────────────────────────────────────────
 
@@ -346,8 +346,7 @@ class MetaEngine:
         if self._eval is None:
             return []
         try:
-            with self._eval._lock:  # pylint: disable=protected-access
-                return [r.to_dict() for r in self._eval._history]  # pylint: disable=protected-access
+            return self._eval.get_history()
         except Exception:
             return []
 

@@ -509,7 +509,7 @@ class DecisionEngine:
                 overrides = self._policy_optimizer.get_context_overrides(context_type)
                 for adv, mult in overrides.items():
                     if adv in weights:
-                        weights[adv] = min(_MAX_ADVISOR_WEIGHT, weights[adv] * mult)
+                        weights[adv] = max(_MIN_ADVISOR_WEIGHT, min(_MAX_ADVISOR_WEIGHT, weights[adv] * mult))
                 # Store classified context type so Layer 12 can log it.
                 if state is not None and hasattr(state, "update_context"):
                     state.update_context(_context_type=context_type)

@@ -9974,12 +9974,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 _advisor_confs = {
                     s.name: s.confidence for s in _sdal_result.signals
                 } if _sdal_result.signals else {}
-                _history = getattr(self.evaluation_engine, "_history", None)  # pylint: disable=protected-access
                 _outcome_score = (
-                    _history[-1].quality_score
-                    if _history
+                    self.evaluation_engine.last_quality_score()
+                    if self.evaluation_engine is not None
+                    and hasattr(self.evaluation_engine, "last_quality_score")
                     else _sdal_result.confidence
-                )
+                ) or _sdal_result.confidence
                 self.policy_optimizer.record_episode(
                     context_type=_ctx_type,
                     advisor_chosen=_sdal_result.chosen_advisor,

@@ -84,8 +84,8 @@ log = logging.getLogger("PolicyOptimizer")
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-_LEARN_EVERY    = int(float(os.environ.get("NIBLIT_POLICY_LEARN_EVERY",  "20")))
-_MAX_EPISODES   = int(float(os.environ.get("NIBLIT_POLICY_MAX_EPISODES", "500")))
+_LEARN_EVERY    = int(os.environ.get("NIBLIT_POLICY_LEARN_EVERY",  "20"))
+_MAX_EPISODES   = int(os.environ.get("NIBLIT_POLICY_MAX_EPISODES", "500"))
 _MIN_EXPLORE    = float(os.environ.get("NIBLIT_POLICY_MIN_EXPLORE",      "0.02"))
 _MAX_EXPLORE    = float(os.environ.get("NIBLIT_POLICY_MAX_EXPLORE",      "0.35"))
 
@@ -300,7 +300,7 @@ class PolicyOptimizer:
 
             # Update uncertainty tracking for all advisors this cycle.
             for adv, conf in advisor_confidences.items():
-                self.__update_uncertainty(adv, conf)
+                self._update_uncertainty(adv, conf)
 
             # Trigger learning every _LEARN_EVERY episodes.
             should_learn = (self._total_episodes % _LEARN_EVERY == 0)
@@ -452,7 +452,7 @@ class PolicyOptimizer:
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
-    def __update_uncertainty(self, advisor: str, confidence: float) -> None:
+    def _update_uncertainty(self, advisor: str, confidence: float) -> None:
         """Update rolling variance for *advisor* using Welford's online algorithm.
 
         Uncertainty is the variance of the advisor's confidence stream.

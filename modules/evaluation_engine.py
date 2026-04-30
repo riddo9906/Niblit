@@ -306,6 +306,20 @@ class EvaluationEngine:
         with self._lock:
             return self._weights.get(advisor, default)
 
+    def get_history(self) -> List[Dict[str, Any]]:
+        """Return a thread-safe snapshot of the evaluation history.
+
+        Returns a list of serialisable dicts (one per :class:`EvaluationRecord`).
+        Callers should use this instead of accessing ``_history`` directly.
+        """
+        with self._lock:
+            return [r.to_dict() for r in self._history]
+
+    def last_quality_score(self) -> Optional[float]:
+        """Return the quality score from the most recent evaluation, or None."""
+        with self._lock:
+            return self._history[-1].quality_score if self._history else None
+
     def status(self) -> Dict[str, Any]:
         """Return engine statistics and current weights."""
         with self._lock:
