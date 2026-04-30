@@ -42,19 +42,56 @@ logger = logging.getLogger("Niblit.ResearchAgent")
 def is_relevant(query: str, text: str, threshold: float = 0.5) -> bool:
     """Return *True* when *text* is semantically relevant to *query*.
 
-    Uses simple term-overlap ratio.
+    Improvements over the previous simple term-overlap ratio:
+
+    * **Stop-word filtering** — short function words ("is", "the", "a",
+      "what", "how", …) are excluded from the query term set before scoring.
+      A query like "what is asyncio" should match on "asyncio", not on "what"
+      or "is" which appear in almost every English sentence.
+
+    * **At least one substantive match required** — even when threshold is low,
+      the text must contain at least one meaningful query term (not just stop
+      words) to be considered relevant.
+
+    The caller-supplied *threshold* is always honoured; this function does not
+    raise it internally, ensuring existing call sites behave as expected.
 
     Args:
         query:     The original search query.
         text:      Candidate text to evaluate.
-        threshold: Minimum overlap score in ``[0, 1]``.  Default ``0.5``.
+        threshold: Minimum overlap score in [0, 1].  Default 0.5.
     """
-    query_terms = set(query.lower().split())
+    _QUERY_STOP = frozenset({
+        "what", "is", "are", "how", "the", "a", "an", "do", "does",
+        "you", "know", "about", "tell", "me", "explain", "can", "i",
+        "to", "of", "in", "for", "on", "and", "or", "with", "at",
+        "by", "from", "its", "it", "this", "that", "will", "would",
+        "could", "should", "have", "has", "had", "be", "been", "being",
+        "was", "were", "may", "might",
+    })
+
+    if not text or not query:
+        return not bool(query)
+
+    # Build the set of substantive query terms (≥ 3 chars, not a stop word)
+    query_terms = {
+        t for t in query.lower().split()
+        if len(t) >= 3 and t not in _QUERY_STOP
+    }
+    # Fallback: use all terms when every word was filtered out (e.g. "a b")
+    if not query_terms:
+        query_terms = set(query.lower().split())
     if not query_terms:
         return True
+
     text_lower = text.lower()
-    overlap = sum(1 for term in query_terms if term in text_lower)
-    return (overlap / len(query_terms)) >= threshold
+    matched = sum(1 for term in query_terms if term in text_lower)
+
+    # Require at least 1 matching substantive term regardless of threshold
+    if matched == 0:
+        return False
+
+    return (matched / len(query_terms)) >= threshold
 
 
 def should_reflect(results: list) -> bool:
