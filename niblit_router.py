@@ -153,6 +153,11 @@ class ChatDetector:
     KNOWLEDGE_SHARE_PATTERNS = [
         # "tell me (something/anything) you (have) (learned/know/discovered/studied)"
         r'tell\s+me\s+(something|anything)\s+(you\s+)?(have\s+)?(learned|know|knows|discovered|studied)',
+        # "tell me about (something/anything) you (have) (learned/know/discovered/studied)"
+        # Handles phrasing like "tell me about anything you have learned"
+        r'tell\s+me\s+about\s+(something|anything)\s+(you\s+)?(have\s+)?(learned|know|knows|discovered|studied)',
+        # "what can you tell me about" anything related to learning/knowledge
+        r'what\s+can\s+you\s+tell\s+me\s+(about\s+)?.*(learned|know|discovered|studied)',
         # "tell me what you (know/have learned/learned/discovered)"
         r'tell\s+me\s+what\s+you\s+(know|have\s+learned|learned|discovered|have\s+been\s+learning)',
         # "what have you been (studying/learning/researching)"

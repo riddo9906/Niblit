@@ -127,7 +127,11 @@ def timestamp():
     return datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
 def suggest_command(user_input):
-    return difflib.get_close_matches(user_input, COMMANDS, n=3, cutoff=0.5)
+    matches = difflib.get_close_matches(user_input, COMMANDS, n=3, cutoff=0.5)
+    # Never suggest a command that is identical to what the user already typed —
+    # difflib returns exact matches too, which creates spurious "Did you mean X?"
+    # messages right after X was successfully executed.
+    return [m for m in matches if m != user_input]
 
 # ─────────────────────────────
 # CLI ARGUMENT PARSER (Ollama-inspired)
@@ -719,10 +723,13 @@ def run_shell(core, io):
             _record_exchange(user_input, response)
             _paged_out(io, response)
 
-            # Suggestion engine
-            sug = suggest_command(cmd)
-            if sug:
-                io.out(f"Did you mean: {sug[0]} ?")
+            # Suggestion engine.
+            # Only run when the input is NOT already a known command — suggesting
+            # close matches after a command that executed successfully is confusing.
+            if cmd not in COMMANDS:
+                sug = suggest_command(cmd)
+                if sug:
+                    io.out(f"Did you mean: {sug[0]} ?")
 
         except KeyboardInterrupt:
             # Ctrl+C pressed while waiting for input — save state before exit

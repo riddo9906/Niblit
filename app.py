@@ -303,7 +303,11 @@ except Exception:
 
 def suggest_command(user_input):
     """Return close-match suggestions exactly like main.py suggest_command()."""
-    return difflib.get_close_matches(user_input, _SHELL_COMMANDS, n=3, cutoff=0.5)
+    matches = difflib.get_close_matches(user_input, _SHELL_COMMANDS, n=3, cutoff=0.5)
+    # Never suggest a command identical to what the user already typed — difflib
+    # returns exact matches too, which causes spurious "Did you mean X?" messages
+    # immediately after X was executed successfully.
+    return [m for m in matches if m != user_input]
 
 
 def _list_threads():
@@ -438,11 +442,14 @@ def _shell_process(core, user_input: str) -> dict:
     # CATCH-ALL — pass to core.handle() exactly like main.py
     response = core.handle(cmd)
 
-    # Suggestion engine (same as main.py)
+    # Suggestion engine (same as main.py).
+    # Only run when the input is NOT already a recognised command — suggesting
+    # close matches for a command that just executed successfully is confusing.
     suggestion = None
-    sug = suggest_command(lower)
-    if sug:
-        suggestion = f"Did you mean: {sug[0]} ?"
+    if lower not in _SHELL_COMMANDS:
+        sug = suggest_command(lower)
+        if sug:
+            suggestion = f"Did you mean: {sug[0]} ?"
 
     return {"reply": str(response), "suggestion": suggestion, "ts": ts, "debug_lines": []}
 
