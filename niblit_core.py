@@ -9989,6 +9989,33 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _po_err:
                 log.debug("[SDAL] PolicyOptimizer.record_episode failed: %s", _po_err)
 
+        # ── MSG Layer closed-loop governance tick ──────────────────────────────
+        # Runs every 20 _handle_impl calls to avoid overhead on every request.
+        # Syncs SelfModel confidence scores with MetaEvaluator, drives ALE with
+        # priority topics for weak subsystems, and feeds health scores into
+        # PolicyOptimizer so routing improves based on system-health signal.
+        if getattr(self, "msg_layer", None) is not None:
+            try:
+                _handle_calls = getattr(self.metrics, "operation_counts", {}).get("handle", 0)
+                if _handle_calls % 20 == 0:
+                    _msg_result = self.msg_layer.closed_loop_tick(
+                        ale=getattr(self, "autonomous_engine", None)
+                    )
+                    # Feed subsystem health scores into PolicyOptimizer
+                    if self.policy_optimizer is not None and isinstance(_msg_result, dict):
+                        for _subsys, _score in _msg_result.get("scores", {}).items():
+                            try:
+                                self.policy_optimizer.record_episode(
+                                    context_type="meta_governance",
+                                    advisor_chosen=f"msg_{_subsys}",
+                                    advisor_confidences={f"msg_{_subsys}": float(_score)},
+                                    outcome_score=float(_score),
+                                )
+                            except Exception:
+                                pass
+            except Exception as _msg_tick_err:
+                log.debug("[MSG] closed_loop_tick failed: %s", _msg_tick_err)
+
         self._trigger_learning(text, response)
         return response
 
