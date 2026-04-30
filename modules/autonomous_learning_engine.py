@@ -6004,6 +6004,24 @@ class AutonomousLearningEngine:
             except Exception as e:
                 log.debug(f"Knowledge DB stats update failed: {e}")
 
+        # ── Emit EVENT_LEARNING_COMPLETE to EventBus ──────────────────────────
+        # MetaEngine and PolicyOptimizer subscribe to this event so they can
+        # observe ALE progress and factor it into policy decisions.
+        try:
+            from modules.event_bus import get_event_bus, NiblitEvent, EVENT_LEARNING_COMPLETE
+            get_event_bus().publish(NiblitEvent(
+                type=EVENT_LEARNING_COMPLETE,
+                source="autonomous_learning_engine",
+                payload={
+                    "cycle": cycle,
+                    "topic": self._current_cycle_topic or "unknown",
+                    "total_actions": self.learning_history.get("learning_rate", 0),
+                    "facts_added": self.learning_history.get("research_completed", 0),
+                },
+            ))
+        except Exception as _ev_err:
+            log.debug("[ALE] EventBus publish failed: %s", _ev_err)
+
         return results
 
     # ─────────────────────────────────────────────

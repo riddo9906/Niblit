@@ -9293,6 +9293,23 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _e:
                 log.debug(f"NiblitTasks.add_task failed: {_e}")
 
+        # ── Quality scoring → unified learning loop ───────────────────────────
+        # Score every response with QualityFeedback so KB facts are reinforced
+        # or decayed and the PolicyOptimizer accumulates an episode for this
+        # conversation turn.  Uses the DB attached to NiblitCore when available.
+        if user_input and response:
+            try:
+                from modules.quality_feedback import get_quality_feedback
+                qf = get_quality_feedback()
+                kb = getattr(self, "db", None)
+                qf.record_answer_quality(
+                    query=user_input,
+                    answer=response,
+                    knowledge_db=kb,
+                )
+            except Exception as _qf_err:
+                log.debug("_trigger_learning QualityFeedback failed: %s", _qf_err)
+
     def health_check(self) -> HealthCheckResult:
         """Comprehensive system health check."""
         components = {}
