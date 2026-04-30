@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import threading
 import time
 from dataclasses import dataclass, field
@@ -490,6 +491,28 @@ class DecisionEngine:
         # ── Fetch live adaptive weights ───────────────────────────────────────
         weights = self._get_weights()
 
+        # ── Apply decision_policy weight modifiers ────────────────────────────
+        # The decision_policy is stored in CognitiveIdentity and written to
+        # NiblitState.identity by niblit_core after each cycle.  We read it
+        # from state so no direct CognitiveIdentity import is needed here.
+        policy = {}
+        if state is not None:
+            identity_snap = getattr(state, "identity", {}) or {}
+            policy = identity_snap.get("decision_policy", {})
+
+        exploration_rate = float(policy.get("exploration_rate", 0.10))
+        risk_preference  = str(policy.get("risk_preference",  "balanced"))
+        priority_mode    = str(policy.get("priority_mode",    "balanced"))
+
+        # risk_preference: nudge toward safety or boldness.
+        if risk_preference == "conservative":
+            weights["memory"]    = min(2.0, weights.get("memory",    0.20) + 0.05)
+            weights["reasoning"] = min(2.0, weights.get("reasoning", 0.20) + 0.03)
+            weights["llm"]       = max(0.05, weights.get("llm",       0.40) - 0.05)
+        elif risk_preference == "bold":
+            weights["llm"]       = min(2.0, weights.get("llm",       0.40) + 0.05)
+            weights["reasoning"] = min(2.0, weights.get("reasoning", 0.20) + 0.03)
+
         # ── Run all advisors independently ────────────────────────────────────
         # All five advisors are invoked regardless of each other's output.
         # This is the competitive model — no short-circuiting.
@@ -507,6 +530,19 @@ class DecisionEngine:
         signals.append(_run_quality_advisor(
             user_input, llm_sig.suggestion, state, weights["quality"]))
 
+        # ── Apply priority_mode multipliers ───────────────────────────────────
+        # "goal_first"    → boost goal-aligned signals.
+        # "quality_first" → boost quality advisor.
+        # "balanced"      → no change.
+        if priority_mode == "goal_first":
+            for sig in signals:
+                if sig.goal_aligned:
+                    sig.effective_score *= 1.20
+        elif priority_mode == "quality_first":
+            for sig in signals:
+                if sig.name == "quality":
+                    sig.effective_score *= 1.20
+
         # ── Competitive selection: best effective_score wins ──────────────────
         # Only signals that produced a non-empty suggestion are eligible.
         candidates = [s for s in signals if s.suggestion]
@@ -520,6 +556,24 @@ class DecisionEngine:
                 weight=0.0,
                 effective_score=0.0,
             )
+
+        # ── Epsilon-greedy exploration ────────────────────────────────────────
+        # When exploration_rate > 0, there is a small probability that a
+        # non-winner with a non-empty suggestion is randomly selected instead.
+        # This prevents the system from converging on a single advisor too
+        # quickly and injects diversity into the decision stream.
+        if (
+            exploration_rate > 0.0
+            and len(candidates) > 1
+            and random.random() < exploration_rate
+        ):
+            non_winners = [s for s in candidates if s.name != chosen.name]
+            if non_winners:
+                chosen = random.choice(non_winners)
+                log.debug(
+                    "[DecisionEngine] Exploration kick — switched to %s (rate=%.2f)",
+                    chosen.name, exploration_rate,
+                )
 
         # ── Aggregate confidence (weighted mean across all advisors) ──────────
         total_weight = sum(s.weight for s in signals)

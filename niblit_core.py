@@ -1571,6 +1571,18 @@ except Exception as _e:
     _get_cognitive_identity = None  # type: ignore[assignment]
     _COGNITIVE_IDENTITY_AVAILABLE = False
 
+try:
+    from modules.meta_engine import (
+        MetaEngine as _MetaEngine,
+        get_meta_engine as _get_meta_engine,
+    )
+    _META_ENGINE_AVAILABLE = True
+except Exception as _e:
+    log.debug(f"MetaEngine not available: {_e}")
+    _MetaEngine = None  # type: ignore[assignment,misc]
+    _get_meta_engine = None  # type: ignore[assignment]
+    _META_ENGINE_AVAILABLE = False
+
 
 def hf_query(prompt: str) -> str:
     """Execute a HuggingFace model query via HFBrain if available."""
@@ -1968,6 +1980,7 @@ class NiblitCore:
         self.decision_engine: Optional[Any] = None # initialised in _init_optional_services
         self.evaluation_engine: Optional[Any] = None  # initialised in _init_optional_services
         self.cognitive_identity: Optional[Any] = None  # initialised in _init_optional_services
+        self.meta_engine: Optional[Any] = None  # initialised in _init_optional_services
         self.hf = None
         self.hf_brain = None  # alias to brain.hf_brain; tracked by component_report
         self.researcher = None
@@ -8273,6 +8286,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.debug("DecisionEngine init failed: %s", _dee)
                 self.startup_report.add("decision_engine", "degraded", str(_dee))
 
+        if _META_ENGINE_AVAILABLE and _get_meta_engine is not None:
+            try:
+                self.meta_engine = _get_meta_engine(
+                    evaluation_engine=self.evaluation_engine,
+                    niblit_state=self.niblit_state,
+                    cognitive_identity=self.cognitive_identity,
+                )
+                log.info("✅ MetaEngine initialised (meta-cognition active)")
+                self.startup_report.add("meta_engine", "ready")
+            except Exception as _mee:
+                log.debug("MetaEngine init failed: %s", _mee)
+                self.startup_report.add("meta_engine", "degraded", str(_mee))
+
         self._init_agents()
 
     def _init_agents(self) -> None:
@@ -9866,13 +9892,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     response=response,
                     decision_result=_sdal_result,
                 )
-                # Sync updated identity profile back into shared state.
+                # Sync updated identity profile (including decision_policy)
+                # back into shared NiblitState so DecisionEngine reads it
+                # on the next call.
                 if self.cognitive_identity is not None and self.niblit_state is not None:
                     _ci_profile = self.cognitive_identity.get_profile()
                     self.niblit_state.update_identity(
                         decision_style=_ci_profile.decision_style,
                         risk_tolerance=_ci_profile.risk_tolerance,
                         response_bias=dict(_ci_profile.response_bias),
+                        decision_policy=dict(_ci_profile.decision_policy),
                         total_decisions=_ci_profile.total_decisions,
                     )
             except Exception as _eval_err:

@@ -105,6 +105,11 @@ class IdentityProfile:
     decision_style:    Dominant decision style inferred from advisor wins.
     risk_tolerance:    Aggressiveness preference [0.0 = cautious, 1.0 = bold].
     response_bias:     Per-advisor multiplicative bias applied to weights.
+    decision_policy:   Active behavioural directives enforced by DecisionEngine:
+                       ``exploration_rate`` — probability of boosting a non-winner
+                         to inject diversity (epsilon-greedy exploration);
+                       ``risk_preference``  — "conservative"|"balanced"|"bold";
+                       ``priority_mode``    — "goal_first"|"quality_first"|"balanced".
     total_decisions:   Total evaluation cycles since creation.
     advisor_win_counts: How many times each advisor was chosen.
     quality_history:   Rolling buffer of quality scores.
@@ -119,6 +124,11 @@ class IdentityProfile:
         "goal":      1.0,
         "llm":       1.0,
         "quality":   1.0,
+    })
+    decision_policy: Dict[str, Any] = field(default_factory=lambda: {
+        "exploration_rate": 0.10,
+        "risk_preference":  "balanced",
+        "priority_mode":    "balanced",
     })
     total_decisions: int = 0
     advisor_win_counts: Dict[str, int] = field(default_factory=dict)
@@ -273,6 +283,44 @@ class CognitiveIdentity:
         with self._lock:
             return self._profile.risk_tolerance
 
+    def get_decision_policy(self) -> Dict[str, Any]:
+        """Return a copy of the active decision policy.
+
+        The decision policy is enforced by DecisionEngine inside
+        ``decide()`` to apply personality-driven selection behaviour.
+        """
+        with self._lock:
+            return dict(self._profile.decision_policy)
+
+    def update_decision_policy(
+        self,
+        exploration_nudge: float = 0.0,
+        risk_preference: Optional[str] = None,
+        priority_mode: Optional[str] = None,
+    ) -> None:
+        """Update the decision policy directives.
+
+        Args:
+            exploration_nudge: Delta applied to ``exploration_rate``
+                               (clamped to [0.0, 0.40]).
+            risk_preference:   New value for ``risk_preference``; ignored when
+                               ``None``.
+            priority_mode:     New value for ``priority_mode``; ignored when
+                               ``None``.
+        """
+        with self._lock:
+            pol = self._profile.decision_policy
+            if exploration_nudge != 0.0:
+                pol["exploration_rate"] = round(
+                    max(0.0, min(0.40, pol.get("exploration_rate", 0.10) + exploration_nudge)),
+                    4,
+                )
+            if risk_preference is not None:
+                pol["risk_preference"] = risk_preference
+            if priority_mode is not None:
+                pol["priority_mode"] = priority_mode
+        self._save()
+
     def status(self) -> Dict[str, Any]:
         """Return a serialisable status dict for the /status or health endpoints."""
         with self._lock:
@@ -286,10 +334,21 @@ class CognitiveIdentity:
             if os.path.isfile(self._path):
                 with open(self._path, "r", encoding="utf-8") as fh:
                     data = json.load(fh)
+                # Merge persisted decision_policy with defaults so new keys
+                # introduced in later versions are always present.
+                default_policy: Dict[str, Any] = {
+                    "exploration_rate": 0.10,
+                    "risk_preference":  "balanced",
+                    "priority_mode":    "balanced",
+                }
+                persisted_policy = data.get("decision_policy", {})
+                default_policy.update(persisted_policy)
+
                 p = IdentityProfile(
                     decision_style=data.get("decision_style", "balanced"),
                     risk_tolerance=float(data.get("risk_tolerance", 0.50)),
                     response_bias=data.get("response_bias", {}),
+                    decision_policy=default_policy,
                     total_decisions=int(data.get("total_decisions", 0)),
                     advisor_win_counts=data.get("advisor_win_counts", {}),
                     quality_history=list(data.get("quality_history", [])),

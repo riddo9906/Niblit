@@ -60,6 +60,7 @@ EVENT_GOAL_UPDATED       = "goal.updated"
 EVENT_LEARNING_COMPLETE  = "learning.cycle.complete"
 EVENT_DECISION_MADE      = "decision.made"
 EVENT_RESPONSE_COMPLETE  = "response.complete"
+EVENT_META_ANALYSIS_COMPLETE = "meta.analysis.complete"
 
 
 @dataclass
