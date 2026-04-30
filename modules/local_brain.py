@@ -208,6 +208,7 @@ KEY COMMANDS (always valid):
   autonomous-learn start|stop|status
   run code <lang> <code> | fix code <lang> <code> | validate <lang> <code>
   qwen status | qwen audit-kb | qwen memory-summary | qwen clean-kb | qwen coach
+  llama3 status | llama3 audit-kb | llama3 memory-summary | llama3 clean-kb | llama3 coach | llama3 tool-audit
   self-research <topic> | self-teach <topic> | reflect <topic>
   my structure | my modules | my commands | ale processes
   local-model status | local-model switch <qwen|llama3>
@@ -326,6 +327,8 @@ You have function-calling tools to inspect and control every subsystem.
   Memory/KB:   recall <topic> | knowledge stats | acquired data | kb stats
                qwen status | qwen audit-kb | qwen clean-kb | qwen memory-summary
                qwen coach | qwen ask <prompt>
+               llama3 status | llama3 audit-kb | llama3 clean-kb | llama3 memory-summary
+               llama3 coach | llama3 tool-audit | llama3 ask <prompt>
                heal kb | heal kb run | heal kb confirm <key>
   Learning:    self-research <topic> | self-teach <topic>
                reflect <topic> | auto-reflect | autonomous-learn start|stop|status
