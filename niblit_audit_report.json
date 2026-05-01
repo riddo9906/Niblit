@@ -1,5 +1,5 @@
 {
-    "timestamp": 1777300395.2632465,
+    "timestamp": 1777647318.8962789,
     "circular_imports": [
         "niblit_memory -> niblit_memory",
         "modules.local_brain -> modules.qwen_memory_adapter -> modules.local_brain",
@@ -620,11 +620,13 @@
         "modules.code_generator",
         "modules.code_quality_checker",
         "modules.cognition_core",
+        "modules.cognitive_identity",
         "modules.collaborative_learner",
         "modules.command_registry",
         "modules.concept_synthesizer",
         "modules.connection_pooling",
         "modules.db",
+        "modules.decision_engine",
         "modules.deployment_bridge",
         "modules.device_control",
         "modules.device_mesh",
@@ -632,6 +634,8 @@
         "modules.enterprise_utility",
         "modules.env_adapter",
         "modules.env_state",
+        "modules.evaluation_engine",
+        "modules.event_bus",
         "modules.event_sourcing",
         "modules.evolution_queue",
         "modules.evolve",
@@ -681,6 +685,7 @@
         "modules.lean_deploy_engine",
         "modules.lean_engine",
         "modules.live_updater",
+        "modules.llama3_memory_adapter",
         "modules.llm_adapter",
         "modules.llm_architect_engine",
         "modules.llm_chat_memory",
@@ -701,6 +706,7 @@
         "modules.meta_cognition.meta_evaluator",
         "modules.meta_cognition.resource_allocator",
         "modules.meta_cognition.self_model",
+        "modules.meta_engine",
         "modules.metacognition",
         "modules.metrics_observability",
         "modules.module_autonomy",
@@ -717,6 +723,7 @@
         "modules.niblit_personality",
         "modules.niblit_runtime",
         "modules.niblit_sidecar",
+        "modules.niblit_state",
         "modules.niblit_tool_executor",
         "modules.openai_adapter",
         "modules.orphan_imports",
@@ -726,6 +733,7 @@
         "modules.phased_research_engine",
         "modules.platform_bootstrap",
         "modules.plugin_architecture",
+        "modules.policy_optimizer",
         "modules.position_sizer",
         "modules.prediction_engine",
         "modules.proot_env",
@@ -937,11 +945,11 @@
         "zipfile"
     ],
     "metrics": {
-        "files_analyzed": 522,
+        "files_analyzed": 530,
         "files_with_errors": 0,
         "circular_imports_found": 14,
         "missing_modules_found": 168,
         "orphaned_modules_found": 150,
-        "audit_time": 3.3119843006134033
+        "audit_time": 3.4858856201171875
     }
 }
