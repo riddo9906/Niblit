@@ -130,22 +130,67 @@ class ResearcherEngine:
         except Exception:
             return None
 
-    def web_search(self, topic):
+    def web_search(self, topic: str) -> str | None:
+        """Search the web for *topic* and return the best text snippet found.
+
+        Search priority:
+        1. SerpEx (when ``SERPEX_API_KEY`` is set) — highest-quality structured results
+        2. DuckDuckGo instant-answer API — free, no key required
+        3. Wikipedia summary API — high-authority fallback for factual topics
+
+        Returns *None* when all sources fail or return nothing useful.
+        """
         # Try SerpEx first if API key is available
         serpex_key = os.getenv("SERPEX_API_KEY", "")
         if serpex_key:
             result = self.serpex_search(topic, serpex_key)
-            if result:
+            if result and len(result.strip()) >= 10:
                 return result
 
-        # Fallback: DuckDuckGo
+        # DuckDuckGo instant-answer API (free, no key)
         try:
-            url = f"https://api.duckduckgo.com/?q={topic}&format=json"
-            r = requests.get(url, timeout=300)
+            url = f"https://api.duckduckgo.com/?q={requests.utils.quote(topic)}&format=json&no_html=1"
+            r = requests.get(url, timeout=10)
             js = r.json()
-            return js.get("AbstractText") or js.get("RelatedTopics", [])
+            abstract = js.get("AbstractText", "")
+            if abstract and len(abstract) >= 30:
+                return abstract
+            # Collect related topic snippets as a fallback
+            related_texts = [
+                t["Text"]
+                for t in js.get("RelatedTopics", [])
+                if isinstance(t, dict) and len(t.get("Text", "")) >= 30
+            ]
+            if related_texts:
+                return " ".join(related_texts[:3])
         except Exception:
-            return None
+            pass
+
+        # Wikipedia summary API (reliable free source for factual topics)
+        try:
+            wiki_search_url = "https://en.wikipedia.org/w/api.php"
+            r = requests.get(
+                wiki_search_url,
+                params={"action": "query", "list": "search", "srsearch": topic, "format": "json"},
+                timeout=10,
+            )
+            hits = r.json().get("query", {}).get("search", [])
+            if hits:
+                title = hits[0]["title"]
+                r2 = requests.get(
+                    "https://en.wikipedia.org/api/rest_v1/page/summary/{}".format(
+                        requests.utils.quote(title.replace(" ", "_"), safe="")
+                    ),
+                    timeout=10,
+                )
+                if r2.status_code == 200:
+                    extract = r2.json().get("extract", "")
+                    if extract and len(extract) >= 10:
+                        return extract
+        except Exception:
+            pass
+
+        return None
 
     def _check_cache(self, topic: str) -> str | None:
         """Return a cached summary from the vector store, or None."""
@@ -194,28 +239,47 @@ class ResearcherEngine:
 
     # ── public API ────────────────────────────────────────────────────────────
 
-    def run(self, topic):
+    def run(self, topic: str) -> dict:
         """Research *topic* and return ``{"topic": str, "summary": str}``.
 
-        Checks the vector store for a cached result first.  New results are
-        stored in the vector store for future lookups.
+        Follows the multi-query retrieval pattern: instead of a single flat
+        search, up to 3 aspect queries are tried in sequence (conceptual →
+        mechanistic → practical) until a useful snippet is found.  This
+        mirrors the strategy used by PhasedResearchEngine.
+
+        The vector-store cache is checked first, and the final result is
+        always stored for future lookups.
         """
         # 1. Check vector-store cache
         cached = self._check_cache(topic)
         if cached:
             return {"topic": topic, "summary": cached, "source": "cache"}
 
-        # 2. Live web search
-        result = self.web_search(topic)
-        if not result:
+        # 2. Build expanded queries — try each until we get useful content.
+        #    _expand_topic_queries is imported from phased_research_engine;
+        #    if unavailable we fall back to a simple list of [topic].
+        try:
+            from modules.phased_research_engine import _expand_topic_queries
+            queries = _expand_topic_queries(topic)
+        except Exception:
+            queries = [topic]
+
+        best_result: str | None = None
+        for query in queries:
+            raw = self.web_search(query)
+            if raw:
+                cleaned = self.clean(str(raw))
+                if len(cleaned) >= 10:
+                    best_result = cleaned
+                    break
+
+        if not best_result:
             return {"error": "No research results."}
 
-        cleaned = self.clean(str(result))
+        # 3. Persist to vector store and memory
+        self._store_result(topic, best_result)
 
-        # 3. Persist to vector store
-        self._store_result(topic, cleaned)
-
-        return {"topic": topic, "summary": cleaned, "source": "web"}
+        return {"topic": topic, "summary": best_result, "source": "web"}
 
 engine = ResearcherEngine()
 
