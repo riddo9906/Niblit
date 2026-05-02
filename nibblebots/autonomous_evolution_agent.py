@@ -1,40 +1,51 @@
 #!/usr/bin/env python3
 """
-nibblebots/autonomous_evolution_agent.py — Niblit Phase 2 Autonomous Evolution Agent
+nibblebots/autonomous_evolution_agent.py — Niblit Phase 3 Autonomous Evolution Agent
 
-Phase 2 upgrades over Phase 1 (code-hygiene baseline):
+Phase 3 upgrades over Phase 2 (batch-fix + log-priority baseline):
 
-  BATCH FIXES
-    Up to EVOLUTION_MAX_FIXES (default 5) files are fixed per run, all of
-    the same fix type.  One focused, meaningful commit per cycle instead of
-    one tiny change per day.
+  SEMANTIC UNDERSTANDING
+    Every raw issue is classified by semantic_engine.py into a structured
+    SemanticIssue: what kind of problem it is, which Niblit subsystem it
+    belongs to, severity (0-1), confidence (0-1), and whether it looks
+    intentional.  The agent now knows *what* it is fixing, not just
+    *which pattern* matched.
 
-  ENRICHED COMMITS
-    Every commit now includes a subject line plus a body explaining the
-    reason (why this pattern is harmful) and the impact (what improves after
-    the fix), making the git history a living design document.
+  IMPACT SCORING
+    impact_engine.py estimates what will improve *before* applying a fix:
+    expected_gain, risk_level, and a confidence-weighted net_score per issue.
+    Weights start from a built-in prior and are updated by real CI outcomes
+    after each commit -- the system learns from experience.
 
-  LOG-DRIVEN PRIORITY
-    Queries the GitHub Actions API for recently-failed workflow runs and
-    promotes files associated with those failures to the front of the fix
-    queue.  This connects runtime failures directly to code improvements —
-    the core of failure-driven evolution.
+  EVOLUTION PLANNER
+    evolution_planner.py ranks all eligible SemanticIssues by net_score and
+    builds a gated EvolutionPlan.  Fixes below the risk threshold or
+    confidence gate are skipped.  Protected modules (decision_engine,
+    meta_engine, trading logic) are never auto-modified.
 
-  NEW FIX TYPES
-    trailing_whitespace  — strip trailing spaces/tabs from every line
-    double_blank_lines   — collapse 3+ consecutive blank lines to exactly 2
+  FEEDBACK LEARNING LOOP
+    feedback_learner.py queries GitHub Actions after each commit to observe
+    whether tests passed and CI failures changed, then feeds that signal
+    back into the impact weights so the next run makes better decisions.
+    All outcomes are appended to outcome_journal.jsonl for traceability.
 
-Expanded fix catalogue (priority order, highest first):
-  1. bare_except         — except:  →  except Exception:
-  2. bare_except_pass    — silent except…pass  →  + noqa: BLE001 annotation
-  3. trailing_whitespace — remove trailing spaces/tabs
-  4. double_blank_lines  — collapse 3+ blank lines to 2
-  5. eof_newline         — add missing terminal newline
+Phase 2 features retained:
+  * Batch fixes (up to EVOLUTION_MAX_FIXES per run)
+  * Enriched commit messages with Category / Reason / Impact
+  * GitHub Actions log scan for failure-driven priority
+  * Fix catalogue: bare_except, bare_except_pass, trailing_whitespace,
+    double_blank_lines, eof_newline
+  * py_compile validation before every write
 
-Safety guarantees (unchanged from Phase 1):
-  * Every patched file is validated with py_compile before writing.
-  * No logic changes — only code style and exception-handling hygiene.
-  * Dry-run mode (EVOLUTION_DRY_RUN=true) never writes or commits anything.
+Phase 3 full cycle:
+  1.  Scan code + GitHub failure logs
+  2.  Detect raw issues (Phase 2 fix catalogue)
+  3.  Classify into SemanticIssues
+  4.  Score impact per SemanticIssue
+  5.  Build ranked EvolutionPlan (gate: confidence + risk threshold)
+  6.  Execute safe batch fixes (py_compile validated)
+  7.  Emit enriched commit message
+  8.  Record outcome + update impact weights
 
 Usage (local testing)::
 
@@ -42,20 +53,24 @@ Usage (local testing)::
 
     EVOLUTION_DRY_RUN=true   python nibblebots/autonomous_evolution_agent.py
     EVOLUTION_MAX_FIXES=10   python nibblebots/autonomous_evolution_agent.py
-    EVOLUTION_FIX_TYPE=trailing_whitespace  python nibblebots/autonomous_evolution_agent.py
+    EVOLUTION_FIX_TYPE=bare_except  python nibblebots/autonomous_evolution_agent.py
+    EVOLUTION_RISK_THRESHOLD=0.10   python nibblebots/autonomous_evolution_agent.py
 
 Environment variables:
-    GITHUB_WORKSPACE           — repo root (auto-set by GitHub Actions)
-    GITHUB_TOKEN               — token for GitHub API log scan (optional locally)
-    GITHUB_REPOSITORY          — owner/repo  (auto-set by GitHub Actions)
-    EVOLUTION_DRY_RUN          — "true" → print without writing
-    EVOLUTION_FIX_TYPE         — force a specific fix type for testing
-    EVOLUTION_MAX_FIXES        — max files to fix per run (default: 5)
-    GITHUB_OUTPUT              — step-output file (auto-set by GitHub Actions)
-    EVOLUTION_COMMIT_MSG_FILE  — path for commit message file
-                                 (default: /tmp/niblit_commit_msg.txt)
-    EVOLUTION_CHANGED_FILES_FILE — path for changed-files list
-                                 (default: /tmp/niblit_changed_files.txt)
+    GITHUB_WORKSPACE              -- repo root (auto-set by GitHub Actions)
+    GITHUB_TOKEN                  -- token for GitHub API calls (optional locally)
+    GITHUB_REPOSITORY             -- owner/repo (auto-set by GitHub Actions)
+    GITHUB_SHA                    -- commit SHA set by Actions after push
+    EVOLUTION_DRY_RUN             -- "true" -> print without writing
+    EVOLUTION_FIX_TYPE            -- force a specific fix type for testing
+    EVOLUTION_MAX_FIXES           -- max files to fix per run (default: 5)
+    EVOLUTION_RISK_THRESHOLD      -- min net_score to apply a fix (default: 0.05)
+    EVOLUTION_CONFIDENCE_MIN      -- min confidence to apply a fix (default: 0.60)
+    GITHUB_OUTPUT                 -- step-output file (auto-set by GitHub Actions)
+    EVOLUTION_COMMIT_MSG_FILE     -- commit message file path
+                                     (default: /tmp/niblit_commit_msg.txt)
+    EVOLUTION_CHANGED_FILES_FILE  -- changed-files list path
+                                     (default: /tmp/niblit_changed_files.txt)
 """
 
 from __future__ import annotations
@@ -70,6 +85,20 @@ from pathlib import Path
 from typing import Any, Callable, List, NamedTuple, Optional, Tuple
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+
+# Phase 3 semantic intelligence modules.
+# Ensure the workspace root is on sys.path so `nibblebots` resolves correctly
+# when the script is invoked as `python nibblebots/autonomous_evolution_agent.py`
+# from the repo root (the usual case both locally and in GitHub Actions).
+try:
+    import sys as _sys
+    _workspace_root = str(Path(os.environ.get("GITHUB_WORKSPACE", ".")).resolve())
+    if _workspace_root not in _sys.path:
+        _sys.path.insert(0, _workspace_root)
+    from nibblebots import semantic_engine, impact_engine, evolution_planner, feedback_learner
+    _PHASE3_AVAILABLE = True
+except ImportError as _e:
+    _PHASE3_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -88,6 +117,7 @@ COMMIT_MSG_FILE = os.environ.get(
 CHANGED_FILES_FILE = os.environ.get(
     "EVOLUTION_CHANGED_FILES_FILE", "/tmp/niblit_changed_files.txt"
 )
+GITHUB_SHA = os.environ.get("GITHUB_SHA", "")
 
 # Directories to scan (relative to WORKSPACE root)
 _SCAN_DIRS: Tuple[str, ...] = (
@@ -365,7 +395,7 @@ def _gh_get(path: str) -> Any:
 
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "Niblit-Evolution-Agent/2.0",
+        "User-Agent": "Niblit-Evolution-Agent/3.0",
     }
     if TOKEN:
         headers["Authorization"] = f"Bearer {TOKEN}"
@@ -608,7 +638,7 @@ def build_commit_message(
         s = "s" if count != 1 else ""
         lines.append(f"  {rel:<60} ({count} instance{s})")
 
-    lines += ["", "[Niblit Evolution Agent — Phase 2]"]
+    lines += ["", "[Niblit Evolution Agent — Phase 3]"]
     return subject, "\n".join(lines)
 
 
@@ -666,11 +696,15 @@ def _repo_summary(files: List[Path]) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    print("🧬 Niblit Autonomous Evolution Agent — Phase 2")
+    print("🧬 Niblit Autonomous Evolution Agent — Phase 3")
     print(f"   Workspace  : {WORKSPACE}")
     print(f"   Dry run    : {DRY_RUN}")
     print(f"   Fix type   : {FORCE_FIX_TYPE or 'auto (priority order)'}")
     print(f"   Max fixes  : {MAX_FIXES} files per run")
+    if _PHASE3_AVAILABLE:
+        print(f"   Phase 3    : semantic + impact + planner + feedback ACTIVE")
+    else:
+        print("   Phase 3    : modules unavailable — falling back to Phase 2 mode")
     print()
 
     # 1. Collect files
@@ -679,17 +713,17 @@ def main() -> int:
     _repo_summary(files)
     print()
 
-    # 2. Log-driven priority (Phase 2 core capability)
+    # 2. Log-driven priority (Phase 2 capability)
     print("📡 Querying GitHub Actions for failure-driven priorities...")
     priority_files = get_log_priority_files()
     print()
 
-    # 3. Find batch of issues to fix this cycle
+    # 3. Find raw batch of issues to fix this cycle
     fix_type = FORCE_FIX_TYPE or None
     issues = find_batch_issues(
         files,
         fix_type=fix_type,
-        max_issues=MAX_FIXES,
+        max_issues=MAX_FIXES * 3,   # over-fetch; planner will gate down to MAX_FIXES
         priority_files=priority_files,
     )
 
@@ -699,18 +733,57 @@ def main() -> int:
         _set_output("commit_subject", "")
         return 0
 
-    fix_type_name = issues[0].fix_type
+    # 4. Phase 3: Semantic classification + impact scoring + planner
+    if _PHASE3_AVAILABLE:
+        print("🧠 Phase 3: classifying issues semantically...")
+        semantic_issues = semantic_engine.classify_batch(issues, workspace=WORKSPACE)
+
+        print("⚖️  Phase 3: scoring impact per issue...")
+        impact_scores = impact_engine.score_batch(semantic_issues)
+
+        paired = list(zip(semantic_issues, impact_scores))
+
+        print("📋 Phase 3: building ranked evolution plan...")
+        plan = evolution_planner.build_plan(paired, workspace=WORKSPACE, max_fixes=MAX_FIXES)
+        evolution_planner.print_plan(plan)
+        print()
+
+        if not plan.planned_fixes:
+            print("✅ Evolution planner found no fixes above the risk/confidence gate.")
+            _set_output("changed_files", "")
+            _set_output("commit_subject", "")
+            return 0
+
+        # Extract the Issue objects in plan order (Phase 2 execution engine takes Issue)
+        planned_fix_types = {pf.semantic_issue.file_path for pf in plan.planned_fixes}
+        ordered_issues = [
+            i for i in issues if i.file_path in planned_fix_types
+        ]
+        # Preserve planner order
+        ordered_issues.sort(
+            key=lambda i: next(
+                pf.rank for pf in plan.planned_fixes
+                if pf.semantic_issue.file_path == i.file_path
+            )
+        )
+        fix_type_name = ordered_issues[0].fix_type if ordered_issues else issues[0].fix_type
+    else:
+        # Phase 2 fallback: apply issues directly
+        ordered_issues = issues[:MAX_FIXES]
+        fix_type_name = issues[0].fix_type
+        plan = None
+
     print(f"🎯 Selected fix type  : {fix_type_name}")
-    print(f"   Files to fix       : {len(issues)}")
-    print(f"   Total instances    : {sum(i.count for i in issues)}")
+    print(f"   Files to fix       : {len(ordered_issues)}")
+    print(f"   Total instances    : {sum(i.count for i in ordered_issues)}")
     print()
 
-    # 4. Apply fixes (batch)
+    # 5. Apply fixes (batch — Phase 2 execution engine)
     fixed_files: List[Tuple[Path, int]] = []
     written_files: List[Path] = []
     total_count = 0
 
-    for issue in issues:
+    for issue in ordered_issues:
         rel = issue.file_path.relative_to(WORKSPACE)
         result = _apply_single_fix(issue)
         if result is None:
@@ -738,8 +811,21 @@ def main() -> int:
         _set_output("commit_subject", "")
         return 1
 
-    # 5. Build enriched commit message
+    # 6. Build enriched commit message
     subject, full_msg = build_commit_message(fix_type_name, fixed_files, total_count)
+
+    # Append Phase 3 impact summary to commit body when planner was active
+    if _PHASE3_AVAILABLE and plan is not None:
+        impact_summary = (
+            f"\nPhase 3 Impact Analysis:\n"
+            f"  Expected net impact : {plan.expected_net_impact:+.3f}\n"
+            f"  Avg risk level      : {plan.risk_level:.3f}\n"
+            f"  Issues skipped (gate): {plan.skipped_count}"
+        )
+        full_msg = full_msg.replace(
+            "[Niblit Evolution Agent — Phase 3]",
+            impact_summary + "\n\n[Niblit Evolution Agent — Phase 3]",
+        )
 
     if DRY_RUN:
         print("\n[DRY RUN] Commit subject:")
@@ -750,9 +836,7 @@ def main() -> int:
         _set_output("commit_subject", "")
         return 0
 
-    # 6. Write commit message and changed-files list to temp files
-    #    The workflow reads these directly, avoiding shell-injection risks with
-    #    multiline strings in GitHub Actions expressions.
+    # 7. Write commit message and changed-files list to temp files
     try:
         Path(COMMIT_MSG_FILE).write_text(full_msg, encoding="utf-8")
     except OSError as exc:
@@ -766,7 +850,7 @@ def main() -> int:
     except OSError as exc:
         print(f"  ⚠ Could not write changed files list: {exc}", file=sys.stderr)
 
-    # 7. Set GitHub Actions step outputs
+    # 8. Set GitHub Actions step outputs
     _set_output("changed_files", changed_files_str)
     _set_output("commit_subject", subject)
 
@@ -774,6 +858,29 @@ def main() -> int:
     print(f"   Fixed   : {len(written_files)} file(s)")
     print(f"   Total   : {total_count} instance(s)")
     print(f"   Subject : {subject}")
+
+    # 9. Phase 3: Record outcome + update impact weights
+    #    NOTE: The commit SHA isn't available until after the workflow pushes,
+    #    so we record a preliminary entry now; the workflow can set GITHUB_SHA
+    #    as a follow-up step and re-invoke feedback_learner directly if needed.
+    if _PHASE3_AVAILABLE and written_files:
+        print("\n📊 Phase 3: scheduling outcome recording for post-push CI check...")
+        # Write a pending-outcome file that the workflow can trigger after CI
+        pending = {
+            "fix_types": list({i.fix_type for i in ordered_issues}),
+            "fixed_files": [str(p.relative_to(WORKSPACE)) for p in written_files],
+            "total_instances": total_count,
+            "commit_sha": GITHUB_SHA,
+        }
+        pending_file = Path("/tmp/niblit_pending_outcome.json")
+        try:
+            pending_file.write_text(
+                json.dumps(pending, indent=2), encoding="utf-8"
+            )
+            print(f"   Pending outcome written to {pending_file}")
+        except OSError as exc:
+            print(f"  ⚠ Could not write pending outcome: {exc}", file=sys.stderr)
+
     return 0
 
 

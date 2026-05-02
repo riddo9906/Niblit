@@ -1,22 +1,25 @@
 name: "🧬 Niblit: Autonomous Evolution Agent"
 
-# Phase 2 evolution agent.  On every run it:
+# Phase 3 evolution agent.  On every run it:
 #   1. Scans EVERY Python file in the repository (378+ files).
-#   2. Queries GitHub Actions API for recent failures to identify priority files
-#      (failure-driven evolution — broken code gets fixed first).
-#   3. Finds up to EVOLUTION_MAX_FIXES files with the same highest-priority issue.
-#   4. Applies all fixes, validates each with py_compile.
-#   5. Commits with an enriched message: subject + reason + impact + per-file list.
+#   2. Queries GitHub Actions API for recent failures to identify priority files.
+#   3. Classifies raw issues into SemanticIssues (semantic_engine.py).
+#   4. Scores the expected impact of each fix (impact_engine.py).
+#   5. Builds a ranked, gated EvolutionPlan (evolution_planner.py).
+#   6. Applies up to EVOLUTION_MAX_FIXES validated fixes.
+#   7. Commits with enriched message: Category + Reason + Impact + Phase 3 scores.
+#   8. (Post-push) Records CI outcome + updates impact weights (feedback_learner.py).
 #
-# Phase 2 fix catalogue (priority order):
-#   1. bare_except         — `except:` → `except Exception:`
-#   2. bare_except_pass    — silent `except…pass` → + `noqa: BLE001` annotation
+# Phase 3 fix catalogue (priority order):
+#   1. bare_except         — `except:` -> `except Exception:`
+#   2. bare_except_pass    — silent `except...pass` -> + `noqa: BLE001` annotation
 #   3. trailing_whitespace — strip trailing spaces/tabs from lines
 #   4. double_blank_lines  — collapse 3+ consecutive blank lines to 2
 #   5. eof_newline         — add missing terminal newline
 #
 # Schedule: Daily at 03:00 UTC
-# Manual:   workflow_dispatch with fix_type, dry_run, max_fixes, target_branch
+# Manual:   workflow_dispatch with fix_type, dry_run, max_fixes, risk_threshold,
+#           confidence_min, target_branch
 
 on:
   schedule:
@@ -34,8 +37,16 @@ on:
         description: "Maximum number of files to fix per run (default: 5)"
         required: false
         default: "5"
+      risk_threshold:
+        description: "Min net_score to apply a fix (default: 0.05)"
+        required: false
+        default: "0.05"
+      confidence_min:
+        description: "Min confidence to apply a fix (default: 0.60)"
+        required: false
+        default: "0.60"
       dry_run:
-        description: "Dry run — print proposed changes without committing"
+        description: "Dry run -- print proposed changes without committing"
         required: false
         default: "false"
         type: boolean
@@ -47,7 +58,7 @@ on:
 permissions:
   contents: write   # push improvement commits
   issues: write     # reserved for future issue-creation fallback
-  actions: read     # query Actions API for failure-driven priority scan
+  actions: read     # query Actions API for failure-driven priority + outcome
 
 jobs:
   evolve:
@@ -55,23 +66,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout ────────────────────────────────────────────────────────
+      # -- 1. Checkout --------------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          # PAT override allows pushing through branch-protection rules.
           token: ${{ secrets.EVOLUTION_BOT_TOKEN || secrets.GITHUB_TOKEN }}
           ref: ${{ inputs.target_branch || github.ref_name || github.event.repository.default_branch }}
           fetch-depth: 0
 
-      # ── 2. Python setup ───────────────────────────────────────────────────
+      # -- 2. Python setup ---------------------------------------------------
       - name: Set up Python 3.12
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      # ── 3. Run evolution agent ────────────────────────────────────────────
-      - name: Run Autonomous Evolution Agent (Phase 2)
+      # -- 3. Run evolution agent (Phase 3) ----------------------------------
+      - name: Run Autonomous Evolution Agent (Phase 3)
         id: agent
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -79,36 +89,69 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           EVOLUTION_DRY_RUN: ${{ inputs.dry_run || 'false' }}
           EVOLUTION_MAX_FIXES: ${{ inputs.max_fixes || '5' }}
-          # Pass empty string when fix_type == 'auto' so the agent uses its
-          # own priority-based selection logic.
+          EVOLUTION_RISK_THRESHOLD: ${{ inputs.risk_threshold || '0.05' }}
+          EVOLUTION_CONFIDENCE_MIN: ${{ inputs.confidence_min || '0.60' }}
           EVOLUTION_FIX_TYPE: ${{ (inputs.fix_type != 'auto' && inputs.fix_type) || '' }}
           EVOLUTION_COMMIT_MSG_FILE: /tmp/niblit_commit_msg.txt
           EVOLUTION_CHANGED_FILES_FILE: /tmp/niblit_changed_files.txt
         run: python nibblebots/autonomous_evolution_agent.py
 
-      # ── 4. Commit and push ────────────────────────────────────────────────
-      #    The agent writes two temp files:
-      #      /tmp/niblit_changed_files.txt  — newline-separated relative paths
-      #      /tmp/niblit_commit_msg.txt     — enriched commit message
-      #    Using temp files avoids multiline-string interpolation pitfalls in
-      #    GitHub Actions expressions.
+      # -- 4. Commit and push ------------------------------------------------
       - name: Commit and push improvements
         if: steps.agent.outputs.changed_files != ''
         run: |
           git config user.name  "niblit-evolution[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage every file listed by the agent (one per line)
           while IFS= read -r f; do
             [ -n "$f" ] && git add "$f"
           done < /tmp/niblit_changed_files.txt
 
-          # Commit using the enriched message written by the agent
           git commit -F /tmp/niblit_commit_msg.txt
-
           git push
 
-      # ── 5. Report outcome ─────────────────────────────────────────────────
+      # -- 5. Record Phase 3 feedback outcome --------------------------------
+      #    Runs after push so the latest run SHA is available.
+      #    Reads the pending-outcome file written by the agent and invokes
+      #    feedback_learner to update impact weights.
+      - name: Record CI outcome + update impact weights
+        if: steps.agent.outputs.changed_files != '' && inputs.dry_run != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          python - <<'PYEOF'
+          import json, os, sys
+          from pathlib import Path
+
+          pending_file = Path("/tmp/niblit_pending_outcome.json")
+          if not pending_file.exists():
+              print("No pending outcome file — skipping feedback recording.")
+              sys.exit(0)
+
+          pending = json.loads(pending_file.read_text())
+          pending["commit_sha"] = os.environ.get("GITHUB_SHA", "")
+
+          # Add nibblebots package to path
+          sys.path.insert(0, os.environ.get("GITHUB_WORKSPACE", "."))
+          from nibblebots import feedback_learner
+
+          outcome = feedback_learner.fetch_ci_outcome(pending["fix_types"])
+          feedback_learner.record_outcome(
+              fix_types=pending["fix_types"],
+              fixed_files=pending["fixed_files"],
+              total_instances=pending["total_instances"],
+              commit_sha=pending["commit_sha"],
+              outcome=outcome,
+          )
+          summary = feedback_learner.journal_summary()
+          print(f"Journal: {summary['total_commits']} commits, "
+                f"pass rate: {summary.get('pass_rate', 0):.0%}")
+          PYEOF
+
+      # -- 6. Report outcome --------------------------------------------------
       - name: Report outcome
         if: always()
         run: |
