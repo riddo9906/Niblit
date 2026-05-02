@@ -19,6 +19,22 @@ class ImprovementIntegrator:
         self.db = db
         self.researcher = researcher
 
+        # Resolve a TopicConstructor singleton up-front; used by GapAnalyzer.
+        _topic_constructor = None
+        try:
+            from modules.topic_constructor import TopicConstructor
+            _topic_constructor = TopicConstructor()
+        except Exception:
+            pass
+
+        # Resolve a QualityFeedback singleton up-front; used by AdaptiveLearning.
+        _quality_feedback = None
+        try:
+            from modules.quality_feedback import get_quality_feedback
+            _quality_feedback = get_quality_feedback()
+        except Exception:
+            pass
+
         # Initialize all 10 modules - gracefully handle import failures
         log.info("🚀 [INTEGRATOR] Initializing 10 improvement modules...")
 
@@ -44,7 +60,7 @@ class ImprovementIntegrator:
 
         try:
             from modules.gap_analyzer import GapAnalyzer
-            self.modules['gap_analyzer'] = GapAnalyzer(db, researcher)
+            self.modules['gap_analyzer'] = GapAnalyzer(db, researcher, topic_constructor=_topic_constructor)
             self.modules_initialized += 1
             log.debug("✅ GapAnalyzer loaded")
         except Exception as e:
@@ -76,7 +92,7 @@ class ImprovementIntegrator:
 
         try:
             from modules.adaptive_learning import AdaptiveLearning
-            self.modules['adaptive_learning'] = AdaptiveLearning()
+            self.modules['adaptive_learning'] = AdaptiveLearning(knowledge_db=db, quality_feedback=_quality_feedback)
             self.modules_initialized += 1
             log.debug("✅ AdaptiveLearning loaded")
         except Exception as e:
@@ -92,7 +108,7 @@ class ImprovementIntegrator:
 
         try:
             from modules.collaborative_learner import CollaborativeLearner
-            self.modules['collaborative_learner'] = CollaborativeLearner()
+            self.modules['collaborative_learner'] = CollaborativeLearner(memory=db)
             self.modules_initialized += 1
             log.debug("✅ CollaborativeLearner loaded")
         except Exception as e:

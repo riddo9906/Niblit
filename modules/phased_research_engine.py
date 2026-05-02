@@ -44,6 +44,33 @@ from typing import Any, Dict, List, Optional, Tuple
 log = logging.getLogger("Niblit.PhasedResearch")
 
 # ---------------------------------------------------------------------------
+# Stop words — filtered out when building gap queries from Phase 1 snippets
+# so only meaningful domain terms surface as sub-topics.
+# ---------------------------------------------------------------------------
+_STOP_WORDS: frozenset = frozenset({
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could",
+    "should", "may", "might", "shall", "to", "of", "in", "for", "on",
+    "with", "at", "by", "from", "this", "that", "it", "its", "and", "or",
+    "but", "not", "so", "as", "if", "which", "who", "what", "how", "when",
+    "where", "why", "can", "also", "very", "such", "more", "than", "all",
+    "any", "most", "some", "each", "use", "used", "using", "about", "into",
+    "through", "during", "before", "after", "above", "below", "between",
+    "then", "there", "here", "just", "only", "same", "both", "few", "other",
+    "because", "while", "although", "however", "therefore", "thus",
+    "their", "they", "them", "these", "those", "you", "we", "our", "your",
+    "his", "her", "its", "my", "me", "he", "she", "i", "us",
+})
+
+# Generic topic suffixes that are stripped when generating sub-queries to
+# avoid compounding vague qualifiers (e.g. "python best practices examples").
+_GENERIC_TOPIC_SUFFIXES = (
+    " overview", " introduction", " intro", " basics", " fundamentals",
+    " best practices", " guide", " tutorial", " explained", " definition",
+    " meaning", " what is",
+)
+
+# ---------------------------------------------------------------------------
 # Code-topic keywords
 # Topics whose name contains any of these are treated as code/software topics
 # and get Phase 3 (GitHub) treatment in addition to Phase 1 and Phase 2.
@@ -71,6 +98,158 @@ _CODE_KEYWORDS = frozenset({
     "encryption", "cryptography", "security", "authentication", "jwt",
     "web scraping", "crawler", "beautifulsoup", "selenium", "playwright",
 })
+
+
+# ---------------------------------------------------------------------------
+# Query-expansion helpers
+# These implement the "multi-query retrieval" pattern used by production RAG
+# systems (LlamaIndex, LangChain) adapted for keyword-search contexts where
+# we don't have an LLM available to generate hypothetical documents.
+# ---------------------------------------------------------------------------
+
+def _expand_topic_queries(topic: str) -> List[str]:
+    """Generate up to 3 focused search queries from a single topic string.
+
+    Rather than searching the bare topic (which returns generic overview pages),
+    this produces queries that target three distinct knowledge facets:
+
+    1. Conceptual understanding  — "what is X" / "X overview"
+    2. Mechanism / process       — "how X works" / "X explained in depth"
+    3. Practical application     — "X examples and use cases"
+
+    This mirrors the multi-query retrieval strategy recommended by LlamaIndex
+    and the step-back prompting technique: by breaking a broad topic into
+    complementary angles, Phase 1 retrieves a richer, more diverse set of
+    snippets instead of five variations of the same summary paragraph.
+
+    The topic base is normalised by stripping common generic suffixes so we
+    don't produce compounds like "python best practices examples" when the
+    caller already passed "python best practices" as the topic.
+    """
+    t = topic.strip()
+    if not t:
+        return [topic]
+
+    # Strip trailing generic qualifiers only when doing so leaves a base with
+    # at least 2 words.  Stripping from "python best practices" would leave
+    # just "python" (1 word) which is too broad — in that case keep the full
+    # topic so the expanded queries remain specific.
+    base = t.lower()
+    for suffix in _GENERIC_TOPIC_SUFFIXES:
+        if base.endswith(suffix):
+            candidate = base[: -len(suffix)].strip()
+            if len(candidate.split()) >= 2:
+                base = candidate
+            break
+    base = base if base else t.lower()
+
+    words = base.split()
+    if len(words) <= 2:
+        # 1-2 word topics: generate broad → specific → example queries to cover
+        # multiple facets. "machine learning" becomes "what is machine learning",
+        # "machine learning how it works", "machine learning examples and use cases".
+        return [
+            f"what is {base}",
+            f"{base} how it works",
+            f"{base} examples and use cases",
+        ]
+
+    # Longer topic already carries specificity — focus on three angles without
+    # repeating the generic qualifier that was stripped above.
+    return [
+        f"{base} overview",
+        f"{base} practical examples",
+        f"{base} in depth",
+    ]
+
+
+def _gap_queries_from_snippets(
+    topic: str, snippets: List[str], max_gaps: int = 2
+) -> List[str]:
+    """Derive targeted gap-filling queries from Phase 1 findings.
+
+    Extracts the most frequent meaningful terms from Phase 1 snippets that are
+    NOT already represented in the topic string.  These become Phase 2 sub-queries
+    so each phase genuinely extends knowledge rather than re-fetching the same
+    top-level overview.
+
+    Example::
+
+        topic    = "python async"
+        snippets = ["asyncio event loop runs coroutines ...",
+                    "await keyword suspends coroutine execution ..."]
+        → gap queries: ["python async event loop", "python async coroutines"]
+
+    This mirrors the "contextual retrieval" / gap-filling strategy used in
+    advanced RAG pipelines (HuggingFace RAG paper, LlamaIndex sub-question
+    decomposition) adapted for keyword search without an LLM.
+    """
+    if not snippets:
+        return []
+
+    topic_words = set(re.sub(r"[^\w\s]", " ", topic.lower()).split()) - _STOP_WORDS
+
+    # Count term frequency across all Phase 1 snippets
+    term_freq: Dict[str, int] = {}
+    for snippet in snippets:
+        for word in re.sub(r"[^\w\s]", " ", snippet.lower()).split():
+            if (
+                len(word) >= 4
+                and word not in _STOP_WORDS
+                and word not in topic_words
+                and not word.isdigit()
+            ):
+                term_freq[word] = term_freq.get(word, 0) + 1
+
+    # Minimum frequency threshold: require at least 2 occurrences when Phase 1
+    # returned ≥ 4 snippets (enough signal to filter noise), but fall back to
+    # 1 occurrence when Phase 1 was sparse — so gap queries are still generated
+    # even from a small snippet set.
+    min_freq = 2 if len(snippets) >= 4 else 1
+    frequent = [w for w, c in term_freq.items() if c >= min_freq]
+    top_terms = sorted(frequent, key=lambda w: term_freq[w], reverse=True)
+
+    gap_queries: List[str] = []
+    for term in top_terms:
+        if len(gap_queries) >= max_gaps:
+            break
+        gap_queries.append(f"{topic} {term}")
+
+    return gap_queries
+
+
+def _score_snippet_quality(snippet: str, topic: str) -> float:
+    """Score a snippet by relevance and information density.
+
+    Used to rank collected snippets before storage so the highest-quality
+    content lands in Tier 1 and the weakest is discarded.
+
+    Scoring components:
+    - **Term overlap** (0–0.5): fraction of substantive topic words present.
+    - **Length score** (0–0.3): normalized snippet length capped at 500 chars.
+    - **Sentence bonus** (0–0.2): bonus when snippet contains multiple sentences
+      (signals a prose paragraph rather than a bare title or navigation link).
+    """
+    if not snippet:
+        return 0.0
+
+    text = snippet.lower()
+    topic_words = (
+        set(re.sub(r"[^\w\s]", " ", topic.lower()).split()) - _STOP_WORDS
+    )
+    if not topic_words:
+        topic_words = set(topic.lower().split())
+
+    # Term overlap score
+    overlap = sum(1 for w in topic_words if w in text) / max(len(topic_words), 1)
+
+    # Length score (normalized, capped at 500 chars)
+    length_score = min(len(snippet), 500) / 500.0
+
+    # Sentence structure bonus
+    sentence_bonus = 0.2 if len(snippet) > 100 and ". " in snippet else 0.0
+
+    return overlap * 0.5 + length_score * 0.3 + sentence_bonus
 
 
 # ---------------------------------------------------------------------------
@@ -273,54 +452,76 @@ class PhasedResearchEngine:
     # ------------------------------------------------------------------
 
     def _phase1_basic(self, topic: str) -> PhaseResult:
-        """Phase 1: Basic understanding via DuckDuckGo + Google/Internet.
+        """Phase 1: Basic understanding via expanded queries to Internet + DuckDuckGo.
 
-        Goal: collect 2–5 short, factual snippets that give a top-level
-        understanding of the topic.  These are stored immediately so
-        Phase 2 can build on them.
+        Goal: collect 2–5 short, factual snippets covering *multiple knowledge
+        facets* of the topic.  A single flat query (the bare topic string) tends
+        to return five variations of the same overview paragraph, so Phase 1 now
+        issues up to 3 focused aspect queries generated by ``_expand_topic_queries``:
+
+        1. Conceptual  — "what is X" or "X overview"
+        2. Mechanistic — "X how it works"
+        3. Practical   — "X examples and use cases"
+
+        This mirrors the multi-query retrieval pattern recommended by LlamaIndex
+        and the step-back prompting technique: diverse queries produce a richer,
+        more complementary set of snippets for Phase 2 to build on.
 
         Sources tried in order:
-        1. Internet (Google/Bing via InternetManager) — returns Wikipedia-
-           biased results which are the cleanest for factual learning.
-        2. ScrapyResearchAgent (DuckDuckGo) — fallback if internet is slow
-           or unavailable.
+        1. Internet (Google/Bing via InternetManager) — Wikipedia-biased results
+           give the cleanest, most factual baseline.
+        2. ScrapyResearchAgent (DuckDuckGo) — used for any query that internet
+           failed to answer (rather than only as a global fallback).
         """
         t0 = time.monotonic()
         pr = PhaseResult(phase=1, topic=topic)
 
-        # ── 1a. Internet search (Wikipedia-biased) ─────────────────────
-        internet = self._get_internet()
-        if internet:
-            try:
-                wiki_query = f"site:wikipedia.org {topic}"
-                result = internet.search(wiki_query)
-                snippets = self._extract_snippets(result)
-                if not snippets:
-                    # Fallback to plain web search
-                    result = internet.search(topic)
-                    snippets = self._extract_snippets(result)
-                for s in snippets[:3]:
-                    if s not in pr.snippets:
-                        pr.snippets.append(s)
-                        pr.sources.append("internet")
-                log.debug("[Phase1] Internet: %d snippets", len(snippets))
-            except Exception as e:
-                log.debug("[Phase1] Internet failed: %s", e)
+        # Generate 3 focused aspect queries instead of a single flat search
+        queries = _expand_topic_queries(topic)
+        log.debug("[Phase1] Expanded queries for %r: %s", topic, queries)
 
-        # ── 1b. DuckDuckGo (Scrapy) — only if internet gave nothing ────
-        if len(pr.snippets) < 2:
-            scrapy = self._get_scrapy()
-            if scrapy:
+        internet = self._get_internet()
+        scrapy = self._get_scrapy()
+
+        for query in queries:
+            if len(pr.snippets) >= self.MAX_SNIPPETS_PER_PHASE:
+                break
+
+            # ── Try internet first for this query ─────────────────────────
+            fetched_this_query: List[str] = []
+            if internet:
                 try:
-                    result = scrapy.search_web(topic)
-                    snippets = self._extract_snippets(result)
-                    for s in snippets[:3]:
-                        if s not in pr.snippets:
-                            pr.snippets.append(s)
-                            pr.sources.append("duckduckgo")
-                    log.debug("[Phase1] DuckDuckGo: %d snippets", len(snippets))
+                    result = internet.search(query)
+                    fetched_this_query = self._extract_snippets(result)
+                    log.debug("[Phase1] Internet(%r): %d snippets", query, len(fetched_this_query))
                 except Exception as e:
-                    log.debug("[Phase1] DuckDuckGo failed: %s", e)
+                    log.debug("[Phase1] Internet failed for %r: %s", query, e)
+
+            # ── DuckDuckGo fallback when internet returned nothing ─────────
+            if not fetched_this_query and scrapy:
+                try:
+                    result = scrapy.search_web(query)
+                    fetched_this_query = self._extract_snippets(result)
+                    log.debug("[Phase1] DuckDuckGo(%r): %d snippets", query, len(fetched_this_query))
+                except Exception as e:
+                    log.debug("[Phase1] DuckDuckGo failed for %r: %s", query, e)
+
+            # Add new (non-duplicate) snippets
+            src = "internet" if internet else "duckduckgo"
+            for s in fetched_this_query[:3]:
+                if s not in pr.snippets and len(pr.snippets) < self.MAX_SNIPPETS_PER_PHASE:
+                    pr.snippets.append(s)
+                    pr.sources.append(src)
+
+        # Rank collected snippets by quality before storing so the best content
+        # lands in Tier 2 and weaker snippets are trimmed at the MAX boundary.
+        if len(pr.snippets) > 1:
+            paired = sorted(
+                zip(pr.snippets, pr.sources),
+                key=lambda pair: _score_snippet_quality(pair[0], topic),
+                reverse=True,
+            )
+            pr.snippets, pr.sources = [p[0] for p in paired], [p[1] for p in paired]
 
         # ── Store Phase 1 results in KB + GraphRAG ─────────────────────
         pr.facts_stored = self._store_phase_results(pr, tier="tier2")
@@ -328,15 +529,24 @@ class PhasedResearchEngine:
         return pr
 
     def _phase2_advanced(self, topic: str, p1: PhaseResult) -> PhaseResult:
-        """Phase 2: Deep knowledge via SerpAPI + Serpex + Qdrant.
+        """Phase 2: Gap-driven deep knowledge via SerpAPI + Serpex + Qdrant.
 
-        Uses the Phase 1 snippets as context to avoid re-fetching what is
-        already known.  Targets richer, more authoritative sources.
+        Phase 2 now follows a two-strategy approach:
 
-        Sources tried in order:
-        1. SerpAPI — Google/Bing structured results (most accurate)
-        2. SerpexAgent — async deep search
-        3. Qdrant vector similarity (recall similar previously stored docs)
+        **Strategy A — Gap queries (primary)**:
+        ``_gap_queries_from_snippets`` analyses what Phase 1 already found and
+        identifies the most frequently mentioned sub-terms that were NOT in the
+        original topic.  These become targeted Phase 2 search queries so the
+        research genuinely *extends* what is known rather than re-fetching the
+        same overview.
+
+        **Strategy B — Advanced sources (secondary)**:
+        SerpAPI → Serpex → Qdrant vector recall → Internet fallback, all
+        searching the original topic when gap queries didn't fill the Phase 2
+        slots.
+
+        Phase 2 snippets are also quality-scored and sorted before storage so
+        the highest-value content reaches Tier 1.
         """
         t0 = time.monotonic()
         pr = PhaseResult(phase=2, topic=topic)
@@ -344,21 +554,53 @@ class PhasedResearchEngine:
         # Build a "what we already know" context to avoid duplicates
         known = " ".join(p1.snippets)[:500]
 
+        # ── Strategy A: gap-driven queries from Phase 1 findings ─────────
+        # Derive up to 2 sub-aspect queries from the most frequent meaningful
+        # terms in Phase 1 snippets that are NOT already in the topic name.
+        gap_queries = _gap_queries_from_snippets(topic, p1.snippets, max_gaps=2)
+        if gap_queries:
+            log.debug("[Phase2] Gap queries for %r: %s", topic, gap_queries)
+            internet = self._get_internet()
+            scrapy = self._get_scrapy()
+            for gq in gap_queries:
+                if len(pr.snippets) >= self.MAX_SNIPPETS_PER_PHASE:
+                    break
+                fetched: List[str] = []
+                if internet:
+                    try:
+                        fetched = self._extract_snippets(internet.search(gq))
+                        log.debug("[Phase2] Gap-internet(%r): %d", gq, len(fetched))
+                    except Exception as e:
+                        log.debug("[Phase2] Gap-internet failed for %r: %s", gq, e)
+                if not fetched and scrapy:
+                    try:
+                        fetched = self._extract_snippets(scrapy.search_web(gq))
+                        log.debug("[Phase2] Gap-scrapy(%r): %d", gq, len(fetched))
+                    except Exception as e:
+                        log.debug("[Phase2] Gap-scrapy failed for %r: %s", gq, e)
+                for s in fetched[:3]:
+                    if s not in known and s not in pr.snippets:
+                        pr.snippets.append(s)
+                        pr.sources.append("gap_query")
+
+        # ── Strategy B: authoritative sources on the original topic ──────
+
         # ── 2a. SerpAPI ──────────────────────────────────────────────
-        serpapi = self._get_serpapi()
-        if serpapi:
-            try:
-                results = serpapi.search(topic, max_results=5) or []
-                if not isinstance(results, list):
-                    results = [results] if results else []
-                for item in results[:5]:
-                    snippet = self._item_to_text(item)
-                    if snippet and snippet not in known:
-                        pr.snippets.append(snippet)
-                        pr.sources.append("serpapi")
-                log.debug("[Phase2] SerpAPI: %d results", len(results))
-            except Exception as e:
-                log.debug("[Phase2] SerpAPI failed: %s", e)
+        if len(pr.snippets) < self.MAX_SNIPPETS_PER_PHASE:
+            serpapi = self._get_serpapi()
+            if serpapi:
+                try:
+                    results = serpapi.search(topic, max_results=5) or []
+                    if not isinstance(results, list):
+                        results = [results] if results else []
+                    for item in results[:5]:
+                        snippet = self._item_to_text(item)
+                        if snippet and snippet not in known and snippet not in pr.snippets:
+                            pr.snippets.append(snippet)
+                            pr.sources.append("serpapi")
+                    log.debug("[Phase2] SerpAPI: %d results", len(results))
+                except Exception as e:
+                    log.debug("[Phase2] SerpAPI failed: %s", e)
 
         # ── 2b. Serpex ───────────────────────────────────────────────
         if len(pr.snippets) < 3:
@@ -405,6 +647,15 @@ class PhasedResearchEngine:
                             pr.sources.append("internet_phase2")
                 except Exception as e:
                     log.debug("[Phase2] Internet fallback failed: %s", e)
+
+        # Rank by quality before storing — best snippets go to Tier 1
+        if len(pr.snippets) > 1:
+            paired = sorted(
+                zip(pr.snippets, pr.sources),
+                key=lambda pair: _score_snippet_quality(pair[0], topic),
+                reverse=True,
+            )
+            pr.snippets, pr.sources = [p[0] for p in paired], [p[1] for p in paired]
 
         # ── Store Phase 2 results in Tier 1 ─────────────────────────
         pr.facts_stored = self._store_phase_results(pr, tier="tier1")

@@ -153,6 +153,11 @@ class ChatDetector:
     KNOWLEDGE_SHARE_PATTERNS = [
         # "tell me (something/anything) you (have) (learned/know/discovered/studied)"
         r'tell\s+me\s+(something|anything)\s+(you\s+)?(have\s+)?(learned|know|knows|discovered|studied)',
+        # "tell me about (something/anything) you (have) (learned/know/discovered/studied)"
+        # Handles phrasing like "tell me about anything you have learned"
+        r'tell\s+me\s+about\s+(something|anything)\s+(you\s+)?(have\s+)?(learned|know|knows|discovered|studied)',
+        # "what can you tell me about" anything related to learning/knowledge
+        r'what\s+can\s+you\s+tell\s+me\s+(about\s+)?.*(learned|know|discovered|studied)',
         # "tell me what you (know/have learned/learned/discovered)"
         r'tell\s+me\s+what\s+you\s+(know|have\s+learned|learned|discovered|have\s+been\s+learning)',
         # "what have you been (studying/learning/researching)"
@@ -270,7 +275,7 @@ class NiblitRouter:
         "toggle-llm", "llm-provider", "hf-status", "hf-enable", "hf-disable", "hf-ask",
         "chat-memory", "llm-train",
         # Local brain / brain-router control — must come before brain.think() dispatch
-        "qwen", "brain",
+        "qwen", "llama3", "brain",
         "self-research", "search", "summary", "remember", "learn",
         "ideas", "reflect", "auto-reflect", "self-idea", "self-implement",
         "self-heal", "self-teach", "idea-implement",
@@ -3616,6 +3621,166 @@ Ask me about:
             "  qwen ask <prompt>   — ask Qwen anything"
         )
 
+    def _handle_llama3(self, cmd: str) -> str:
+        """Handle 'llama3 <sub-command>' — Llama 3.2 local copilot, memory manager, and coach.
+
+        Sub-commands::
+
+            llama3                    — show Llama3 brain + memory adapter status
+            llama3 status             — same as above
+            llama3 memory-summary     — compact snapshot of what Niblit currently knows
+            llama3 audit-kb           — full KB audit (Llama3 reviews every fact)
+            llama3 audit-kb dry       — audit report without applying changes
+            llama3 clean-kb           — alias for audit-kb (applies changes)
+            llama3 tool-audit         — KB audit using Llama 3.2 function-calling tools
+            llama3 tool-audit dry     — tool-audit dry run (no changes applied)
+            llama3 coach              — Llama3 coaching + improvement report
+            llama3 ask <prompt>       — ask Llama3 directly (structural-aware)
+        """
+        lower = cmd.strip().lower()
+        for prefix in ("llama3",):
+            if lower.startswith(prefix):
+                sub = lower[len(prefix):].strip()
+                orig_sub = cmd.strip()[len(prefix):].strip()
+                break
+        else:
+            sub = ""
+            orig_sub = ""
+
+        # Resolve local brain — prefer the active one; try to ensure llama3 template
+        lb = getattr(self.core, "local_brain", None) if self.core else None
+        if lb is None:
+            try:
+                from modules.local_brain import get_local_brain
+                lb = get_local_brain()
+            except Exception:
+                lb = None
+
+        # Warn if the active model is not the llama3 preset
+        _llama3_hint = ""
+        if lb is not None and hasattr(lb, "status"):
+            try:
+                tmpl = lb.status().get("gguf_chat_template", "")
+                if str(tmpl).lower() != "llama3":
+                    _llama3_hint = (
+                        "\n⚠️  Active local model is not the llama3 preset. "
+                        "Run `llm-provider llama3` or `local-model switch llama3` first."
+                    )
+            except Exception:
+                pass
+
+        if sub in ("", "status"):
+            if lb is None:
+                return "⚠️  Llama3 local brain not available (model not loaded)."
+            st = lb.status()
+            try:
+                from modules.llama3_memory_adapter import get_llama3_memory_adapter
+                adapter = get_llama3_memory_adapter(local_brain=lb)
+                adapter_stats = adapter.get_stats()
+                stats_str = (
+                    f"  Audits run    : {adapter_stats['audits_run']}\n"
+                    f"  Tool audits   : {adapter_stats['tool_audits_run']}\n"
+                    f"  Facts reviewed: {adapter_stats['facts_reviewed']}\n"
+                    f"  Facts rewritten: {adapter_stats['facts_rewritten']}\n"
+                    f"  Facts removed  : {adapter_stats['facts_removed']}\n"
+                    f"  Coach runs     : {adapter_stats['coach_runs']}"
+                )
+            except Exception:
+                stats_str = "  Memory adapter: not initialised"
+            return (
+                "🦙 Llama3 Local Copilot\n"
+                f"  Model         : {st.get('model_name', '?')}\n"
+                f"  Backend       : {st.get('backend_in_use', 'none')}\n"
+                f"  Loaded        : {'✅' if st.get('loaded') else '⏳ (lazy)'}\n"
+                f"  Context       : {st.get('gguf_n_ctx', '?')} tokens\n"
+                f"  Template      : {st.get('gguf_chat_template', '?')}\n"
+                f"  Roles         : copilot · manager · coach · tool-caller\n"
+                "\n📊 Memory Adapter Stats:\n" + stats_str
+                + _llama3_hint
+            )
+
+        if sub == "memory-summary":
+            if lb is None:
+                return "⚠️  Llama3 local brain not available."
+            try:
+                from modules.llama3_memory_adapter import get_llama3_memory_adapter
+                adapter = get_llama3_memory_adapter(local_brain=lb)
+                return adapter.get_memory_summary(limit=25) + _llama3_hint
+            except Exception as exc:
+                return f"[llama3 memory-summary] Error: {exc}"
+
+        if sub in ("audit-kb", "clean-kb"):
+            if lb is None:
+                return "⚠️  Llama3 local brain not available — cannot audit KB."
+            try:
+                from modules.llama3_memory_adapter import get_llama3_memory_adapter
+                adapter = get_llama3_memory_adapter(local_brain=lb)
+                return adapter.run_memory_audit(max_facts=30, apply_changes=True) + _llama3_hint
+            except Exception as exc:
+                return f"[llama3 audit-kb] Error: {exc}"
+
+        if sub == "audit-kb dry":
+            if lb is None:
+                return "⚠️  Llama3 local brain not available — cannot audit KB."
+            try:
+                from modules.llama3_memory_adapter import get_llama3_memory_adapter
+                adapter = get_llama3_memory_adapter(local_brain=lb)
+                return adapter.run_memory_audit(max_facts=30, apply_changes=False) + _llama3_hint
+            except Exception as exc:
+                return f"[llama3 audit-kb dry] Error: {exc}"
+
+        if sub == "tool-audit":
+            if lb is None:
+                return "⚠️  Llama3 local brain not available — cannot run tool-audit."
+            try:
+                from modules.llama3_memory_adapter import get_llama3_memory_adapter
+                adapter = get_llama3_memory_adapter(local_brain=lb)
+                return adapter.tool_audit(max_facts=20, apply_changes=True) + _llama3_hint
+            except Exception as exc:
+                return f"[llama3 tool-audit] Error: {exc}"
+
+        if sub == "tool-audit dry":
+            if lb is None:
+                return "⚠️  Llama3 local brain not available — cannot run tool-audit."
+            try:
+                from modules.llama3_memory_adapter import get_llama3_memory_adapter
+                adapter = get_llama3_memory_adapter(local_brain=lb)
+                return adapter.tool_audit(max_facts=20, apply_changes=False) + _llama3_hint
+            except Exception as exc:
+                return f"[llama3 tool-audit dry] Error: {exc}"
+
+        if sub == "coach":
+            if lb is None:
+                return "⚠️  Llama3 local brain not available — cannot coach."
+            try:
+                from modules.llama3_memory_adapter import get_llama3_memory_adapter
+                adapter = get_llama3_memory_adapter(local_brain=lb)
+                return adapter.coach_niblit() + _llama3_hint
+            except Exception as exc:
+                return f"[llama3 coach] Error: {exc}"
+
+        if sub.startswith("ask "):
+            prompt_text = orig_sub[len("ask "):].strip()
+            if not prompt_text:
+                return "Usage: llama3 ask <your prompt>"
+            if lb is None:
+                return "⚠️  Llama3 local brain not available."
+            result = lb.ask(prompt_text)
+            return result + _llama3_hint if _llama3_hint else result
+
+        return (
+            "Unknown llama3 sub-command. Try:\n"
+            "  llama3 status           — brain + adapter stats\n"
+            "  llama3 memory-summary   — what Niblit currently knows\n"
+            "  llama3 audit-kb         — Llama3 reviews and fixes all KB facts\n"
+            "  llama3 audit-kb dry     — audit report (no changes applied)\n"
+            "  llama3 clean-kb         — alias for audit-kb\n"
+            "  llama3 tool-audit       — KB audit via Llama 3.2 function-calling\n"
+            "  llama3 tool-audit dry   — tool-audit dry run\n"
+            "  llama3 coach            — Llama3 coaching + improvement report\n"
+            "  llama3 ask <prompt>     — ask Llama3 anything"
+        )
+
     def _handle_local_model(self, cmd: str) -> str:
         """Handle 'local-model' commands — switch between local model presets.
 
@@ -6659,6 +6824,10 @@ Ask me about:
         if lower == "qwen" or lower.startswith("qwen "):
             return self._handle_qwen(cmd)
 
+        # LLAMA3 — Llama 3.2 local copilot / memory manager / coach / tool-caller (additive)
+        if lower == "llama3" or lower.startswith("llama3 "):
+            return self._handle_llama3(cmd)
+
         # LOCAL MODEL — switch between model presets (qwen / llama3) (additive)
         if lower == "local-model" or lower.startswith("local-model "):
             return self._handle_local_model(cmd)
@@ -7154,6 +7323,21 @@ Ask me about:
             "qwen ask <prompt>        — Ask Qwen anything (full structural-aware context)",
             "  Qwen roles: COPILOT (code gen), MANAGER (KB quality), COACH (gaps + advice),",
             "              TRAINER (research synthesis)",
+            "",
+            "=== LLAMA3 — LOCAL COPILOT / MANAGER / COACH / TOOL-CALLER ===",
+            "llama3                   — Show Llama3 brain status + memory adapter stats",
+            "llama3 status            — Same as above",
+            "llama3 memory-summary    — Compact snapshot of what Niblit currently knows",
+            "llama3 audit-kb          — Llama3 reviews all KB facts (rewrites/removes bad ones)",
+            "llama3 audit-kb dry      — Audit report only — no changes applied",
+            "llama3 clean-kb          — Alias for audit-kb (applies all fixes)",
+            "llama3 tool-audit        — KB audit via Llama 3.2 function-calling (structured)",
+            "llama3 tool-audit dry    — Tool-audit dry run — no changes applied",
+            "llama3 coach             — Llama3 coaching report: gaps, stale facts, next steps",
+            "llama3 ask <prompt>      — Ask Llama3 anything (full structural-aware context)",
+            "  Llama3 roles: COPILOT (code gen), MANAGER (KB quality), COACH (gaps + advice),",
+            "                TOOL-CALLER (function-calling KB edits via llama3 tool-audit)",
+            "  Tip: run 'llm-provider llama3' first to activate the Llama 3.2 preset.",
             "",
             "=== SELF-IMPROVEMENTS ===",
             "show improvements            — View 10 improvement modules",

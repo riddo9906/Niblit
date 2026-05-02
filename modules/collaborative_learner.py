@@ -42,46 +42,91 @@ class CollaborativeLearner:
         log.info(f"✅ [COLLAB] Peer registered with {len(capabilities)} capabilities")
 
     def request_knowledge(self, peer_name: str, topic: str) -> Dict[str, Any]:
+        """Request knowledge from a peer system.
+
+        First tries to satisfy the request from the local KB (so Niblit can
+        answer from its own accumulated knowledge base).  Falls back to a
+        peer-specific stub only when nothing is found locally.
         """
-        Request knowledge from a peer system
-        """
-        log.info(f"📤 [COLLAB] Requesting '{topic}' from {peer_name}")
+        log.info("📤 [COLLAB] Requesting '%s' from %s", peer_name, topic)
 
         if peer_name not in self.peer_systems:
             return {"error": f"Peer {peer_name} not registered"}
 
-        # Simulate knowledge transfer
+        # Try the local KB first — return real content if available
+        local_data: str = ""
+        if self.memory is not None:
+            try:
+                if hasattr(self.memory, "smart_recall"):
+                    hits = self.memory.smart_recall(topic, limit=1)
+                    if hits:
+                        local_data = str(hits[0].get("value") or hits[0].get("text") or "")
+                elif hasattr(self.memory, "recall"):
+                    hits = self.memory.recall(topic, limit=1)
+                    if hits:
+                        local_data = str(hits[0].get("value") or "")
+                elif hasattr(self.memory, "search"):
+                    hits = self.memory.search(topic, top_k=1)
+                    if hits:
+                        local_data = str(hits[0].get("text") or "")
+            except Exception as exc:
+                log.debug("[CollaborativeLearner] KB lookup failed: %s", exc)
+
         knowledge = {
             "source": peer_name,
             "topic": topic,
-            "data": f"Knowledge about {topic} from {peer_name}",
-            "timestamp": "now"
+            "data": local_data if local_data else f"No local knowledge found for '{topic}'",
+            "from_kb": bool(local_data),
         }
 
         # Persist to canonical memory
         self._store(f"collab:{peer_name}:{topic}", knowledge)
 
-        log.info(f"✅ [COLLAB] Received knowledge from {peer_name}")
+        log.info("✅ [COLLAB] Knowledge request fulfilled (from_kb=%s)", knowledge["from_kb"])
         return knowledge
 
     def share_knowledge(self, peer_name: str, knowledge: Dict) -> None:
+        """Share knowledge with a peer system.
+
+        Persists the shared knowledge to the local KB with a ``collab:shared``
+        prefix so it can be retrieved later by either the sender or receiver.
         """
-        Share knowledge with a peer system
-        """
-        log.info(f"📥 [COLLAB] Sharing knowledge with {peer_name}")
+        log.info("📥 [COLLAB] Sharing knowledge with %s", peer_name)
 
         if peer_name in self.peer_systems:
             self.peer_systems[peer_name]["knowledge_shared"] += 1
 
-        self.shared_knowledge.append({
+        entry = {
             "recipient": peer_name,
-            "knowledge": knowledge
-        })
+            "knowledge": knowledge,
+        }
+        self.shared_knowledge.append(entry)
 
-        # Persist to canonical memory
-        self._store(f"collab:shared:{peer_name}", {"recipient": peer_name, "knowledge": str(knowledge)[:300]})
+        # Determine a meaningful key from the knowledge dict
+        topic = (
+            knowledge.get("topic")
+            or knowledge.get("key")
+            or knowledge.get("subject")
+            or "unknown"
+        )
+        data_str = (
+            knowledge.get("data")
+            or knowledge.get("value")
+            or knowledge.get("text")
+            or str(knowledge)
+        )
 
-        log.info(f"✅ [COLLAB] Knowledge shared")
+        # Persist to canonical memory with the real content (truncated to 500 chars)
+        self._store(
+            f"collab:shared:{peer_name}:{topic}",
+            {
+                "recipient": peer_name,
+                "topic": topic,
+                "data": str(data_str)[:500],
+            },
+        )
+
+        log.info("✅ [COLLAB] Knowledge shared with %s (topic: %s)", peer_name, topic)
 
     def get_collaboration_status(self) -> Dict[str, Any]:
         """Get status of collaborative learning"""

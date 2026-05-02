@@ -677,7 +677,22 @@ class UnifiedSelfModules:
         if self.adaptive_learning is None:
             try:
                 from modules.adaptive_learning import AdaptiveLearning
-                self.adaptive_learning = AdaptiveLearning()
+                # Resolve KB and QualityFeedback singletons for richer wiring
+                _al_db = None
+                try:
+                    from niblit_memory import KnowledgeDB
+                    _al_db = KnowledgeDB()
+                except Exception:
+                    pass
+                _al_qf = None
+                try:
+                    from modules.quality_feedback import get_quality_feedback
+                    _al_qf = get_quality_feedback()
+                except Exception:
+                    pass
+                self.adaptive_learning = AdaptiveLearning(
+                    knowledge_db=_al_db, quality_feedback=_al_qf
+                )
             except Exception:
                 pass
         if self.event_bus is None:

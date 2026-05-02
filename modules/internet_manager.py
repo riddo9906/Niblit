@@ -111,8 +111,93 @@ WIKI_SUMMARY = "https://en.wikipedia.org/api/rest_v1/page/summary/{}"
 WIKI_SEARCH = "https://en.wikipedia.org/w/api.php"
 SERPEX_API_URL = "https://api.serpex.dev/api/search"
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; Niblit/1.0)"
+    # Use a realistic browser UA to reduce bot-detection false-positives.
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
 }
+
+# Minimum number of characters a snippet must contain to be worth keeping.
+# Shorter strings are typically navigation links, headings, or bare titles.
+_MIN_SNIPPET_LEN: int = 15
+
+# Source quality tier — lower value = higher quality.
+# Used by _rank_by_source_quality() to sort results before returning them.
+_SOURCE_QUALITY: dict = {
+    "serpex_featured": 0,
+    "serpapi_featured": 0,
+    "serpex": 1,
+    "serpapi": 1,
+    "wikipedia": 2,
+    "duckduckgo": 3,
+    "google_ai": 3,
+    "searchcode": 3,
+    "google": 4,
+}
+
+
+def _deduplicate_results(results: list) -> list:
+    """Remove duplicate and near-duplicate search results.
+
+    Two-stage deduplication:
+    1. **URL dedup** — if the same URL appears more than once, keep only
+       the first occurrence (which tends to have the richer snippet).
+    2. **Text-overlap dedup** — if a new result shares ≥ 65 % of its tokens
+       with an already-accepted result, it is a near-duplicate and is dropped.
+       This removes "echo" results where different sources quote the same
+       paragraph verbatim.
+
+    Entries whose text is shorter than *_MIN_SNIPPET_LEN* are always dropped
+    as they carry too little information to be useful.
+    """
+    seen_urls: set = set()
+    accepted_texts: list = []
+    out: list = []
+
+    for entry in results:
+        text = (entry.get("text") or "").strip()
+        url = (entry.get("url") or "").strip()
+
+        if not text or len(text) < _MIN_SNIPPET_LEN:
+            continue
+
+        # URL-level dedup
+        if url and url in seen_urls:
+            continue
+
+        # Token-overlap dedup
+        text_tokens = set(text.lower().split())
+        if not text_tokens:
+            continue
+        is_duplicate = False
+        for kept_text in accepted_texts:
+            kept_tokens = set(kept_text.lower().split())
+            if not kept_tokens:
+                continue
+            overlap = len(text_tokens & kept_tokens) / max(len(text_tokens), len(kept_tokens))
+            if overlap >= 0.65:
+                is_duplicate = True
+                break
+        if is_duplicate:
+            continue
+
+        if url:
+            seen_urls.add(url)
+        accepted_texts.append(text)
+        out.append(entry)
+
+    return out
+
+
+def _rank_by_source_quality(results: list) -> list:
+    """Sort results so the highest-quality sources appear first.
+
+    Uses the *_SOURCE_QUALITY* tier map.  Results from the same tier are
+    kept in their original order (stable sort) so that within-tier ordering
+    established by the search backends is preserved.
+    """
+    return sorted(results, key=lambda r: _SOURCE_QUALITY.get(r.get("source", ""), 5))
 
 
 class InternetManager:
@@ -383,9 +468,9 @@ class InternetManager:
                 ai_snippets = []
                 try:
                     if BS4_AVAILABLE:
-                        # Fetch main Google AI snippet
+                        # Fetch Google AI snippet box (fast — just parse the SERP HTML)
                         search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
-                        r_snip = requests.get(search_url, headers=HEADERS, timeout=self.timeout)
+                        r_snip = requests.get(search_url, headers=HEADERS, timeout=10)
                         if r_snip.status_code == 200:
                             soup = BeautifulSoup(r_snip.text, "html.parser")
                             snippet_divs = soup.find_all("div", class_=re.compile(r"(ayqGOc|xpdopen)"))
@@ -394,18 +479,34 @@ class InternetManager:
                                 if snippet_text and snippet_text not in ai_snippets:
                                     ai_snippets.append(snippet_text)
 
-                        # Collect content from multiple Google URLs
-                        google_urls = list(google_search(query, num_results=max_results * 5))
-                        for url in google_urls:
-                            try:
-                                page = requests.get(url, timeout=self.timeout, headers=HEADERS)
-                                if page.status_code == 200:
-                                    soup = BeautifulSoup(page.text, "html.parser")
-                                    page_text = ' '.join(p.get_text(separator=' ') for p in soup.find_all('p'))
-                                    if page_text:
-                                        results.append({"source": "google", "text": page_text, "url": url})
-                            except Exception:
-                                continue
+                    # Lightweight page-content fetch: use a short timeout and extract
+                    # only the FIRST meaningful paragraph rather than the entire page.
+                    # This avoids the slow/blocked full-page scraping while still
+                    # surfacing a useful on-topic snippet from each result.
+                    google_urls = list(google_search(query, num_results=max_results))
+                    for url in google_urls[:max_results]:
+                        if not BS4_AVAILABLE:
+                            break
+                        try:
+                            page = requests.get(url, timeout=5, headers=HEADERS)
+                            if page.status_code == 200:
+                                soup = BeautifulSoup(page.text, "html.parser")
+                                first_p = next(
+                                    (
+                                        p.get_text(" ", strip=True)
+                                        for p in soup.find_all("p")
+                                        if len(p.get_text(strip=True)) >= _MIN_SNIPPET_LEN
+                                    ),
+                                    "",
+                                )
+                                if first_p:
+                                    results.append({
+                                        "source": "google",
+                                        "text": first_p[:400],
+                                        "url": url,
+                                    })
+                        except Exception:
+                            continue
                 except Exception:
                     pass
 
@@ -424,7 +525,17 @@ class InternetManager:
                     unique_sentences.append(s_clean)
             # Limit number of sentences per entry
             entry["text"] = " ".join(unique_sentences[:max_results])
-            cleaned_results.append(entry)
+            # Drop entries that ended up too short after cleaning
+            if entry["text"] and len(entry["text"]) >= _MIN_SNIPPET_LEN:
+                cleaned_results.append(entry)
+
+        # ───────── DEDUPLICATE + RANK BY SOURCE QUALITY ─────────
+        # Remove near-duplicate entries and sort so the most authoritative
+        # sources (SerpEx > SerpAPI > Wikipedia > DuckDuckGo > Google) appear
+        # first — matching the quality-ordered retrieval strategy used by
+        # the phased research pipeline.
+        cleaned_results = _deduplicate_results(cleaned_results)
+        cleaned_results = _rank_by_source_quality(cleaned_results)
 
         # ───────── SEARCHCODE (code-aware supplement) ─────────
         # When a searchcode backend is available, augment with real code examples.
@@ -438,7 +549,7 @@ class InternetManager:
                             lines = item.get("lines", {})
                             if isinstance(lines, dict):
                                 text = " ".join(str(v) for v in lines.values())[:400]
-                        if text:
+                        if text and len(text) >= _MIN_SNIPPET_LEN:
                             cleaned_results.append({
                                 "source": "searchcode",
                                 "text": text,
@@ -461,16 +572,18 @@ class InternetManager:
             except Exception:
                 pass
 
-        # ───────── LLM REWRITE ─────────
-        if use_llm and self.llm:
+        # ───────── LLM REWRITE (top result only) ─────────
+        # Only rewrite the single best result to avoid O(n) LLM calls.
+        # All other results are returned with their cleaned text as-is.
+        if use_llm and self.llm and cleaned_results:
             try:
-                for entry in cleaned_results:
-                    rewritten = self.llm.generate(
-                        f"Rewrite the following information in clear, concise, factual words:\n{entry['text']}",
-                        max_tokens=300
-                    )
-                    if rewritten:
-                        entry["text"] = rewritten
+                top = cleaned_results[0]
+                rewritten = self.llm.generate(
+                    f"Rewrite the following information in clear, concise, factual words:\n{top['text']}",
+                    max_tokens=300,
+                )
+                if rewritten:
+                    top["text"] = rewritten
             except Exception:
                 pass
 

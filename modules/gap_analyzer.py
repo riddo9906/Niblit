@@ -1,118 +1,233 @@
 #!/usr/bin/env python3
 """
 GAP ANALYZER MODULE
-Identifies knowledge gaps and suggests learning topics
+Identifies knowledge gaps from the actual KB and suggests learning topics.
+
+Improvements over the original:
+- analyze_gaps() now uses knowledge_recall.knowledge_health() (when available)
+  to identify low-coverage topics from the real KB instead of hardcoded dicts.
+- _find_related_areas() derives relations from KB key patterns rather than a
+  static mapping.
+- _find_deepening_opportunities() uses TopicConstructor to produce safe,
+  search-API-friendly deepening queries.
+- auto_fill_gaps() persists results to the KB after researching each gap.
+- All methods are safe to call even when the DB or researcher is None.
 """
 
 import logging
-from typing import List, Dict
+import re
+from typing import List, Dict, Any, Optional
 
 log = logging.getLogger("GapAnalyzer")
 
+# Minimum knowledge-health coverage score below which a topic is considered
+# a "gap".  Aligned with _GAP_COVERAGE_THRESHOLD in autonomous_learning_engine.
+_GAP_COVERAGE_THRESHOLD: float = 0.40
+
+# Fallback hardcoded prerequisite map used when KB-awareness is unavailable.
+_PREREQUISITES: Dict[str, List[str]] = {
+    "machine learning": ["linear algebra", "statistics", "calculus"],
+    "deep learning": ["machine learning", "neural networks", "calculus"],
+    "quantum computing": ["quantum mechanics", "linear algebra"],
+    "data science": ["statistics", "programming", "data structures"],
+    "natural language processing": ["machine learning", "linguistics", "statistics"],
+    "computer vision": ["machine learning", "linear algebra", "image processing"],
+    "reinforcement learning": ["machine learning", "probability", "optimization"],
+    "neural networks": ["linear algebra", "calculus", "statistics"],
+}
+
+
 class GapAnalyzer:
-    """Identify and analyze knowledge gaps"""
-    
-    def __init__(self, knowledge_db, researcher):
+    """Identify knowledge gaps and suggest learning topics."""
+
+    def __init__(self, knowledge_db, researcher, topic_constructor=None):
         self.db = knowledge_db
         self.researcher = researcher
-        self.known_topics = set()
-        self.gap_suggestions = []
-    
+        self.topic_constructor = topic_constructor
+        self.known_topics: set = set()
+        self.gap_suggestions: Dict[str, List[str]] = {}
+
     def analyze_gaps(self, researched_topics: List[str]) -> Dict[str, List[str]]:
+        """Analyze knowledge gaps from researched topics.
+
+        Uses KB health scores (via knowledge_recall) when available.  Falls
+        back to heuristic analysis when the KB or recall module is unavailable.
         """
-        Analyze knowledge gaps from researched topics
-        Identify related areas not yet covered
-        """
-        log.info(f"🔍 [GAP] Analyzing gaps from {len(researched_topics)} topics")
-        
-        gaps = {
+        log.info("🔍 [GAP] Analyzing gaps from %d topics", len(researched_topics))
+
+        gaps: Dict[str, List[str]] = {
             "missing_prerequisites": [],
             "related_areas": [],
             "deepening_opportunities": [],
-            "cross_domain_connections": []
+            "low_coverage_topics": [],
         }
-        
-        # Analyze each topic
+
+        # --- KB-aware gap detection -------------------------------------------
+        low_coverage = self._find_low_coverage_topics(researched_topics)
+        gaps["low_coverage_topics"] = low_coverage
+
+        # --- Heuristic analysis -----------------------------------------------
         for topic in researched_topics:
-            # Find prerequisites
             prereqs = self._find_missing_prerequisites(topic)
             gaps["missing_prerequisites"].extend(prereqs)
-            
-            # Find related areas
+
             related = self._find_related_areas(topic)
             gaps["related_areas"].extend(related)
-            
-            # Find deepening opportunities
+
             deep = self._find_deepening_opportunities(topic)
             gaps["deepening_opportunities"].extend(deep)
-        
-        # Remove duplicates
+
+        # Remove duplicates while preserving order
         for key in gaps:
-            gaps[key] = list(set(gaps[key]))
-        
-        log.info(f"✅ [GAP] Found {sum(len(v) for v in gaps.values())} gaps")
+            seen: set = set()
+            deduped = []
+            for item in gaps[key]:
+                if item not in seen:
+                    seen.add(item)
+                    deduped.append(item)
+            gaps[key] = deduped
+
+        total = sum(len(v) for v in gaps.values())
+        log.info("✅ [GAP] Found %d gaps", total)
         self.gap_suggestions = gaps
         return gaps
-    
+
     def auto_fill_gaps(self, max_topics: int = 5) -> List[str]:
-        """
-        Automatically research and fill identified gaps
-        """
-        log.info(f"🚀 [GAP] Auto-filling gaps")
-        
-        # Get top gap suggestions
-        all_gaps = []
-        for gap_list in self.gap_suggestions.values():
-            all_gaps.extend(gap_list)
-        
+        """Research and fill identified gaps, persisting results to the KB."""
+        log.info("🚀 [GAP] Auto-filling gaps")
+
+        all_gaps: List[str] = []
+        # Prioritise low-coverage gaps first, then prerequisites
+        for key in ("low_coverage_topics", "missing_prerequisites", "related_areas",
+                    "deepening_opportunities"):
+            all_gaps.extend(self.gap_suggestions.get(key, []))
+
         topics_to_research = all_gaps[:max_topics]
-        
-        if topics_to_research and hasattr(self.researcher, 'search'):
-            for topic in topics_to_research:
-                log.info(f"📚 [GAP] Researching gap: {topic}")
-                try:
-                    self.researcher.search(topic)
-                except Exception as e:
-                    log.debug(f"Gap research failed: {e}")
-        
-        log.info(f"✅ [GAP] Filled {len(topics_to_research)} gaps")
+
+        for topic in topics_to_research:
+            log.info("📚 [GAP] Researching gap: %s", topic)
+            try:
+                result = None
+                if hasattr(self.researcher, "search"):
+                    result = self.researcher.search(topic)
+                elif hasattr(self.researcher, "research"):
+                    result = self.researcher.research(topic)
+
+                # Persist a gap-filled KB fact
+                if result:
+                    self._persist(f"gap_filled:{topic}", {
+                        "topic": topic,
+                        "snippet": str(result)[:300],
+                    })
+            except Exception as exc:
+                log.debug("Gap research failed for '%s': %s", topic, exc)
+
+        log.info("✅ [GAP] Filled %d gaps", len(topics_to_research))
         return topics_to_research
-    
+
+    # ── Internal helpers ───────────────────────────────────────────────────────
+
+    def _find_low_coverage_topics(self, topics: List[str]) -> List[str]:
+        """Return topics whose KB health coverage score is below the threshold.
+
+        Uses ``knowledge_recall.knowledge_health()`` when available.
+        """
+        low: List[str] = []
+        try:
+            from modules.knowledge_recall import get_smart_recall
+            recall = get_smart_recall(self.db)
+            for topic in topics:
+                health = recall.knowledge_health(topic)
+                coverage = health.get("coverage_score", 1.0)
+                if coverage < _GAP_COVERAGE_THRESHOLD:
+                    low.append(topic)
+        except Exception:
+            pass
+        return low
+
     def _find_missing_prerequisites(self, topic: str) -> List[str]:
-        """Find topics that should be learned first"""
-        prerequisites = {
-            "machine learning": ["linear algebra", "statistics", "calculus"],
-            "deep learning": ["machine learning", "neural networks", "calculus"],
-            "quantum computing": ["quantum mechanics", "linear algebra"],
-            "data science": ["statistics", "programming", "data structures"],
-        }
-        
-        return prerequisites.get(topic.lower(), [])
-    
+        """Find prerequisite topics that are not yet covered in the KB."""
+        prereqs = _PREREQUISITES.get(topic.lower(), [])
+
+        # Also look for topics whose keys share a direct dependency token
+        if not prereqs and self.db is not None:
+            try:
+                topic_lower = topic.lower()
+                # Check if the topic has any stored facts at all
+                results = []
+                if hasattr(self.db, "smart_recall"):
+                    results = self.db.smart_recall(topic_lower, limit=1)
+                if not results:
+                    # No facts found → treat parent as a prerequisite gap
+                    words = topic_lower.split()
+                    if len(words) > 1:
+                        prereqs = [words[0]]
+            except Exception:
+                pass
+        return prereqs
+
     def _find_related_areas(self, topic: str) -> List[str]:
-        """Find related domains and topics"""
-        related = {
-            "ai": ["machine learning", "deep learning", "nlp", "computer vision"],
-            "machine learning": ["ai", "statistics", "data science", "neural networks"],
-            "programming": ["algorithms", "data structures", "software engineering"],
-            "data science": ["statistics", "machine learning", "data visualization"],
-        }
-        
-        for key in related:
-            if key.lower() in topic.lower():
-                return related[key]
-        return []
-    
+        """Find domains related to *topic* by scanning KB key patterns."""
+        related: List[str] = []
+        topic_tokens = set(topic.lower().split())
+
+        if self.db is not None:
+            try:
+                facts = self.db.list_facts(100) if hasattr(self.db, "list_facts") else []
+                for fact in facts:
+                    key = str(fact.get("key", ""))
+                    # Extract the domain prefix before the first colon
+                    domain = key.split(":")[0] if ":" in key else key
+                    domain_tokens = set(re.sub(r"[_\-]", " ", domain).lower().split())
+                    # Related if token overlap exists but is not identical
+                    overlap = topic_tokens & domain_tokens
+                    if overlap and domain_tokens != topic_tokens and len(domain) >= 3:
+                        clean = domain.replace("_", " ").strip()
+                        if clean not in related:
+                            related.append(clean)
+                        if len(related) >= 5:
+                            break
+            except Exception:
+                pass
+
+        return related[:5]
+
     def _find_deepening_opportunities(self, topic: str) -> List[str]:
-        """Find opportunities to deepen knowledge"""
-        return [
-            f"{topic} - advanced techniques",
-            f"{topic} - real-world applications",
-            f"{topic} - latest research",
-            f"{topic} - best practices",
-            f"{topic} - case studies"
+        """Return safe, search-API-friendly deepening queries for *topic*."""
+        suffixes = [
+            "advanced techniques",
+            "real world applications",
+            "latest research",
+            "best practices",
+            "implementation examples",
         ]
+        topics = []
+        for suffix in suffixes:
+            raw = f"{topic} {suffix}"
+            if self.topic_constructor is not None:
+                try:
+                    safe = self.topic_constructor.build(raw)
+                    topics.append(safe)
+                    continue
+                except Exception:
+                    pass
+            # Fallback: basic truncation to 60 chars
+            topics.append(raw[:60])
+        return topics
+
+    def _persist(self, key: str, data: Any) -> None:
+        """Persist a gap fact to the KB."""
+        if self.db is None:
+            return
+        try:
+            if hasattr(self.db, "add_fact"):
+                self.db.add_fact(key, data, tags=["gap_analysis"])
+            elif hasattr(self.db, "store_learning"):
+                self.db.store_learning({"key": key, "data": data, "tags": ["gap_analysis"]})
+        except Exception as exc:
+            log.debug("[GapAnalyzer] KB persist failed: %s", exc)
 
 
 if __name__ == "__main__":
     print('Running gap_analyzer.py')
+
