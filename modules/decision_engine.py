@@ -404,15 +404,22 @@ def _run_quality_advisor(
     candidate: str,
     state: Any,
     weight: float,
+    kb_snippets: Optional[List[str]] = None,
 ) -> AdvisorSignal:
-    """QualityAdvisor: score the LLM candidate with the RewardModel."""
+    """QualityAdvisor: score the LLM candidate with the RewardModel.
+
+    When *kb_snippets* is provided (extracted from ``state.memory`` by the
+    caller), the RewardModel's overlap signal is computed against real KB
+    context instead of defaulting to 0.5.  This improves scoring accuracy
+    since the overlap component carries a 35% weight.
+    """
     t0 = time.time()
     confidence = 0.50  # neutral fallback
 
     if _REWARD_MODEL_AVAILABLE and _get_reward_model is not None and candidate:
         try:
             rm = _get_reward_model()
-            confidence = float(rm.score(user_input, candidate, snippets=[]))
+            confidence = float(rm.score(user_input, candidate, snippets=kb_snippets or []))
         except Exception as exc:
             log.debug("[QualityAdvisor] failed: %s", exc)
 
@@ -563,8 +570,32 @@ class DecisionEngine:
         llm_sig = _run_llm_advisor(
             user_input, llm_fn, state, weights["llm"])
         signals.append(llm_sig)
+
+        # Extract text snippets from memory (already populated by MemoryAdvisor
+        # above) so the QualityAdvisor's overlap signal is computed against real
+        # KB context rather than defaulting to 0.5.
+        # Limit: top-5 facts keep snippet volume comparable to a typical RAG
+        # retrieval window; more facts add noise without improving overlap accuracy.
+        # Truncation: 300 chars matches _SCORE_MAX_CHARS in knowledge_recall.py
+        # and keeps individual snippet sizes within the RewardModel's scoring window.
+        mem_snippets: List[str] = []
+        mem_facts = getattr(state, "memory", []) or []
+        for fact in mem_facts[:5]:  # top-5 most-relevant recalled facts
+            if isinstance(fact, dict):
+                val = fact.get("value", "")
+                text = (
+                    str(val.get("summary") or val.get("text") or val.get("content") or val)
+                    if isinstance(val, dict) else str(val)
+                )
+            else:
+                text = str(fact)
+            text = text.strip()[:300]  # align with RewardModel scoring window
+            if text:
+                mem_snippets.append(text)
+
         signals.append(_run_quality_advisor(
-            user_input, llm_sig.suggestion, state, weights["quality"]))
+            user_input, llm_sig.suggestion, state, weights["quality"],
+            kb_snippets=mem_snippets))
 
         # ── Apply priority_mode multipliers ───────────────────────────────────
         # "goal_first"    → boost goal-aligned signals.
