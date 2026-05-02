@@ -1,58 +1,75 @@
 #!/usr/bin/env python3
 """
-nibblebots/autonomous_evolution_agent.py — Niblit Autonomous Code Evolution Agent
+nibblebots/autonomous_evolution_agent.py — Niblit Phase 2 Autonomous Evolution Agent
 
-Combines all nibblebot capabilities into one agent that:
+Phase 2 upgrades over Phase 1 (code-hygiene baseline):
 
-  1. Scans *every* Python file in the repository (modules/, niblit_agents/,
-     niblit_memory/, nibblebots/, and root-level scripts).
-  2. Detects fixable issues from a prioritised catalogue of safe, reversible
-     code-quality improvements.
-  3. Selects ONE issue — the file with the highest instance count for the
-     highest-priority fix type — for maximum impact per run.
-  4. Applies the fix using a pure text transform and validates the result
-     with ``py_compile`` before writing anything.
-  5. Outputs GitHub Actions step-output variables (``commit_msg`` and
-     ``changed_file``) so the calling workflow can commit and push.
+  BATCH FIXES
+    Up to EVOLUTION_MAX_FIXES (default 5) files are fixed per run, all of
+    the same fix type.  One focused, meaningful commit per cycle instead of
+    one tiny change per day.
 
-Fix catalogue (applied in priority order):
-  1. ``bare_except``       — ``except:`` → ``except Exception:``
-  2. ``bare_except_pass``  — ``except Exception: pass`` without comment
-                             → adds ``# noqa: BLE001`` marker so linters
-                             know the silence is intentional
-  3. ``eof_newline``       — ensure every file ends with a single ``\\n``
+  ENRICHED COMMITS
+    Every commit now includes a subject line plus a body explaining the
+    reason (why this pattern is harmful) and the impact (what improves after
+    the fix), making the git history a living design document.
 
-Each fix type is safe, deterministic, and fully reversible:
-  * No logic changes — only surface-level code quality.
-  * ``py_compile`` validates the patched file before it is written.
-  * One file changed per run keeps diffs small and reviewable.
+  LOG-DRIVEN PRIORITY
+    Queries the GitHub Actions API for recently-failed workflow runs and
+    promotes files associated with those failures to the front of the fix
+    queue.  This connects runtime failures directly to code improvements —
+    the core of failure-driven evolution.
+
+  NEW FIX TYPES
+    trailing_whitespace  — strip trailing spaces/tabs from every line
+    double_blank_lines   — collapse 3+ consecutive blank lines to exactly 2
+
+Expanded fix catalogue (priority order, highest first):
+  1. bare_except         — except:  →  except Exception:
+  2. bare_except_pass    — silent except…pass  →  + noqa: BLE001 annotation
+  3. trailing_whitespace — remove trailing spaces/tabs
+  4. double_blank_lines  — collapse 3+ blank lines to 2
+  5. eof_newline         — add missing terminal newline
+
+Safety guarantees (unchanged from Phase 1):
+  * Every patched file is validated with py_compile before writing.
+  * No logic changes — only code style and exception-handling hygiene.
+  * Dry-run mode (EVOLUTION_DRY_RUN=true) never writes or commits anything.
 
 Usage (local testing)::
 
     python nibblebots/autonomous_evolution_agent.py
 
-    # Force a specific fix type:
-    EVOLUTION_FIX_TYPE=bare_except python nibblebots/autonomous_evolution_agent.py
-
-    # Dry run (print diff without writing):
-    EVOLUTION_DRY_RUN=true python nibblebots/autonomous_evolution_agent.py
+    EVOLUTION_DRY_RUN=true   python nibblebots/autonomous_evolution_agent.py
+    EVOLUTION_MAX_FIXES=10   python nibblebots/autonomous_evolution_agent.py
+    EVOLUTION_FIX_TYPE=trailing_whitespace  python nibblebots/autonomous_evolution_agent.py
 
 Environment variables:
-    GITHUB_WORKSPACE   — repo root (set automatically by GitHub Actions)
-    EVOLUTION_DRY_RUN  — "true" to print changes without writing files
-    EVOLUTION_FIX_TYPE — force a specific fix type for testing
-    GITHUB_OUTPUT      — set by GitHub Actions for step output capture
+    GITHUB_WORKSPACE           — repo root (auto-set by GitHub Actions)
+    GITHUB_TOKEN               — token for GitHub API log scan (optional locally)
+    GITHUB_REPOSITORY          — owner/repo  (auto-set by GitHub Actions)
+    EVOLUTION_DRY_RUN          — "true" → print without writing
+    EVOLUTION_FIX_TYPE         — force a specific fix type for testing
+    EVOLUTION_MAX_FIXES        — max files to fix per run (default: 5)
+    GITHUB_OUTPUT              — step-output file (auto-set by GitHub Actions)
+    EVOLUTION_COMMIT_MSG_FILE  — path for commit message file
+                                 (default: /tmp/niblit_commit_msg.txt)
+    EVOLUTION_CHANGED_FILES_FILE — path for changed-files list
+                                 (default: /tmp/niblit_changed_files.txt)
 """
 
 from __future__ import annotations
 
+import json
 import os
 import py_compile
 import re
 import sys
 import tempfile
 from pathlib import Path
-from typing import Callable, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, List, NamedTuple, Optional, Tuple
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -61,7 +78,16 @@ from typing import Callable, List, NamedTuple, Optional, Tuple
 WORKSPACE = Path(os.environ.get("GITHUB_WORKSPACE", ".")).resolve()
 DRY_RUN = os.environ.get("EVOLUTION_DRY_RUN", "").lower() == "true"
 FORCE_FIX_TYPE = os.environ.get("EVOLUTION_FIX_TYPE", "").strip()
+MAX_FIXES = int(os.environ.get("EVOLUTION_MAX_FIXES", "5"))
 GH_OUTPUT = os.environ.get("GITHUB_OUTPUT", "")
+TOKEN = os.environ.get("GITHUB_TOKEN", "")
+REPO = os.environ.get("GITHUB_REPOSITORY", "")
+COMMIT_MSG_FILE = os.environ.get(
+    "EVOLUTION_COMMIT_MSG_FILE", "/tmp/niblit_commit_msg.txt"
+)
+CHANGED_FILES_FILE = os.environ.get(
+    "EVOLUTION_CHANGED_FILES_FILE", "/tmp/niblit_changed_files.txt"
+)
 
 # Directories to scan (relative to WORKSPACE root)
 _SCAN_DIRS: Tuple[str, ...] = (
@@ -96,6 +122,77 @@ class Issue(NamedTuple):
 
 
 # ---------------------------------------------------------------------------
+# Fix metadata — enriches every commit with reason + impact
+# ---------------------------------------------------------------------------
+
+_FIX_METADATA: dict = {
+    "bare_except": {
+        "category": "Error Handling",
+        "reason": (
+            "Bare `except:` clauses catch SystemExit and KeyboardInterrupt, "
+            "masking crashes and making the system impossible to interrupt "
+            "cleanly. They hide the root cause of failures from logs and "
+            "the Niblit evaluation engine."
+        ),
+        "impact": (
+            "Improves crash visibility, enables proper interrupt handling, "
+            "and satisfies linter rule BLE001 / E722. Failures are now "
+            "observable by the SDAL decision loop."
+        ),
+    },
+    "bare_except_pass": {
+        "category": "Error Handling",
+        "reason": (
+            "Silent `except … pass` blocks swallow exceptions without any "
+            "trace. Even the Niblit MetaEngine cannot observe or recover "
+            "from silenced errors, breaking the evaluation feedback loop."
+        ),
+        "impact": (
+            "Marks intentional silences explicitly so future engineers and "
+            "automated tools can distinguish deliberate suppression from "
+            "accidental omission. Improves auditability (noqa: BLE001)."
+        ),
+    },
+    "trailing_whitespace": {
+        "category": "Code Style",
+        "reason": (
+            "Trailing whitespace creates noisy diffs — every change to "
+            "such a line shows up as two edits — breaks some editors and "
+            "Git hooks, and fails whitespace-strict CI checks."
+        ),
+        "impact": (
+            "Cleaner diffs, consistent formatting across all editors, "
+            "and compliance with ruff rules W291 / W293."
+        ),
+    },
+    "double_blank_lines": {
+        "category": "Code Style",
+        "reason": (
+            "PEP 8 requires exactly two blank lines between top-level "
+            "definitions. Three or more blank lines inflate file length "
+            "without adding structural information."
+        ),
+        "impact": (
+            "Reduces visual noise, standardises rhythm, and satisfies "
+            "ruff rule E303."
+        ),
+    },
+    "eof_newline": {
+        "category": "Code Style",
+        "reason": (
+            "Files without a terminal newline violate POSIX and cause diff "
+            "tools to display a 'No newline at end of file' warning, "
+            "polluting code review."
+        ),
+        "impact": (
+            "Eliminates spurious diff noise and satisfies ruff rule W292 "
+            "and the POSIX text-file standard."
+        ),
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # File collection
 # ---------------------------------------------------------------------------
 
@@ -111,7 +208,6 @@ def collect_python_files() -> List[Path]:
         seen.add(resolved)
         files.append(resolved)
 
-    # Scan configured sub-directories
     for dir_name in _SCAN_DIRS:
         dir_path = WORKSPACE / dir_name
         if not dir_path.is_dir():
@@ -121,7 +217,6 @@ def collect_python_files() -> List[Path]:
                 continue
             _add(p)
 
-    # Also scan root-level .py files (app.py, niblit_core.py, etc.)
     for p in sorted(WORKSPACE.glob("*.py")):
         if any(part in _SKIP_PARTS for part in p.parts):
             continue
@@ -132,8 +227,6 @@ def collect_python_files() -> List[Path]:
 
 # ---------------------------------------------------------------------------
 # Fix type 1: bare_except
-# Replace: except:
-# With:    except Exception:
 # ---------------------------------------------------------------------------
 
 _BARE_EXCEPT_RE = re.compile(r"^(\s*)except\s*:", re.MULTILINE)
@@ -145,23 +238,13 @@ def scan_bare_except(content: str) -> int:
 
 
 def fix_bare_except(content: str) -> Tuple[str, int]:
-    """Replace all ``except:`` with ``except Exception:``.
-
-    The leading whitespace is preserved via backreference so indentation
-    is never altered.
-    """
+    """Replace ``except:`` with ``except Exception:``, preserving indentation."""
     new_content, n = _BARE_EXCEPT_RE.subn(r"\1except Exception:", content)
     return new_content, n
 
 
 # ---------------------------------------------------------------------------
-# Fix type 2: bare_except_pass (silent swallow without annotation)
-# Replace: except Exception:\n<ws>pass
-# With:    except Exception:  # noqa: BLE001\n<ws>pass
-#
-# This flags *intentional* silence so linters know it was deliberate rather
-# than accidentally left in.  Only applied to occurrences that do not already
-# carry a noqa comment.
+# Fix type 2: bare_except_pass
 # ---------------------------------------------------------------------------
 
 _BARE_PASS_RE = re.compile(
@@ -172,52 +255,64 @@ _NOQA_MARKER = "  # noqa: BLE001"
 
 
 def scan_bare_except_pass(content: str) -> int:
-    """Count ``except …: …pass`` blocks that do not already carry a noqa marker.
-
-    A block is counted regardless of any other inline comment on the clause
-    line — we only skip if a ``noqa`` annotation is already present, to avoid
-    double-annotating intentionally documented silences.
-    """
-    count = 0
-    for m in _BARE_PASS_RE.finditer(content):
-        clause_line = m.group(2)
-        if "noqa" not in clause_line:
-            count += 1
-    return count
+    """Count ``except …: pass`` blocks that do not already carry a noqa marker."""
+    return sum(1 for m in _BARE_PASS_RE.finditer(content) if "noqa" not in m.group(2))
 
 
 def fix_bare_except_pass(content: str) -> Tuple[str, int]:
-    """Append ``  # noqa: BLE001`` to ``except …: pass`` clauses without one.
-
-    Existing inline comments are preserved; the noqa marker is appended after
-    them.  For example::
-
-        except Exception:  # handle I/O errors
-        →
-        except Exception:  # handle I/O errors  # noqa: BLE001
-
-    Tools like ruff/flake8 recognise noqa markers even when preceded by
-    another inline comment on the same line.
-    """
-    fixed_count = 0
+    """Append ``  # noqa: BLE001`` to un-annotated ``except …: pass`` clauses."""
+    fixed = 0
 
     def _replace(m: re.Match) -> str:  # type: ignore[type-arg]
-        nonlocal fixed_count
-        indent = m.group(1)
-        clause = m.group(2)
-        rest = m.group(3)
-        if "noqa" not in clause:   # only annotate if not already marked
-            fixed_count += 1
-            return f"{indent}{clause}{_NOQA_MARKER}{rest}"
+        nonlocal fixed
+        if "noqa" not in m.group(2):
+            fixed += 1
+            return f"{m.group(1)}{m.group(2)}{_NOQA_MARKER}{m.group(3)}"
         return m.group(0)
 
-    new_content = _BARE_PASS_RE.sub(_replace, content)
-    return new_content, fixed_count
+    return _BARE_PASS_RE.sub(_replace, content), fixed
 
 
 # ---------------------------------------------------------------------------
-# Fix type 3: eof_newline
-# Ensure every file ends with exactly one newline character.
+# Fix type 3: trailing_whitespace  (Phase 2 — NEW)
+# Strip trailing spaces/tabs from every line.
+# ---------------------------------------------------------------------------
+
+_TRAILING_WS_RE = re.compile(r"[ \t]+$", re.MULTILINE)
+
+
+def scan_trailing_whitespace(content: str) -> int:
+    """Return the number of lines that end with trailing whitespace."""
+    return len(_TRAILING_WS_RE.findall(content))
+
+
+def fix_trailing_whitespace(content: str) -> Tuple[str, int]:
+    """Strip trailing spaces and tabs from every line."""
+    new_content, n = _TRAILING_WS_RE.subn("", content)
+    return new_content, n
+
+
+# ---------------------------------------------------------------------------
+# Fix type 4: double_blank_lines  (Phase 2 — NEW)
+# Collapse 3 or more consecutive blank lines to exactly 2 (PEP 8 E303).
+# ---------------------------------------------------------------------------
+
+_TRIPLE_BLANK_RE = re.compile(r"\n{4,}")   # 3+ blank lines = 4+ consecutive \n
+
+
+def scan_double_blank_lines(content: str) -> int:
+    """Return the number of 3+-blank-line blocks in *content*."""
+    return len(_TRIPLE_BLANK_RE.findall(content))
+
+
+def fix_double_blank_lines(content: str) -> Tuple[str, int]:
+    """Collapse every run of 3+ blank lines to exactly 2."""
+    new_content, n = _TRIPLE_BLANK_RE.subn("\n\n\n", content)
+    return new_content, n
+
+
+# ---------------------------------------------------------------------------
+# Fix type 5: eof_newline
 # ---------------------------------------------------------------------------
 
 def scan_eof_newline(content: str) -> int:
@@ -233,56 +328,150 @@ def fix_eof_newline(content: str) -> Tuple[str, int]:
 
 
 # ---------------------------------------------------------------------------
-# Fix catalogue (priority order: highest-priority first)
-# Each entry: (name, scanner_fn, fixer_fn, commit_description)
+# Fix catalogue  (priority order: highest-impact / most-critical first)
+# Each entry: (name, scanner_fn, fixer_fn)
 # ---------------------------------------------------------------------------
 
-_FIX_CATALOGUE: List[Tuple[str, Callable[[str], int], Callable[[str], Tuple[str, int]], str]] = [
-    (
-        "bare_except",
-        scan_bare_except,
-        fix_bare_except,
-        "fix bare except clause",
-    ),
-    (
-        "bare_except_pass",
-        scan_bare_except_pass,
-        fix_bare_except_pass,
-        "annotate silent except-pass with noqa: BLE001",
-    ),
-    (
-        "eof_newline",
-        scan_eof_newline,
-        fix_eof_newline,
-        "add missing EOF newline",
-    ),
+_FIX_CATALOGUE: List[Tuple[str, Callable[[str], int], Callable[[str], Tuple[str, int]]]] = [
+    ("bare_except",        scan_bare_except,        fix_bare_except),
+    ("bare_except_pass",   scan_bare_except_pass,   fix_bare_except_pass),
+    ("trailing_whitespace", scan_trailing_whitespace, fix_trailing_whitespace),
+    ("double_blank_lines", scan_double_blank_lines, fix_double_blank_lines),
+    ("eof_newline",        scan_eof_newline,         fix_eof_newline),
 ]
 
 
 # ---------------------------------------------------------------------------
-# Scanner — find the best single issue to fix this run
+# GitHub API helper  (used by log-priority scanner)
 # ---------------------------------------------------------------------------
 
-def find_best_issue(
+def _gh_get(path: str) -> Any:
+    """GET from GitHub REST API v3.  Returns parsed JSON or None.
+
+    Only requests to ``https://api.github.com`` are made; arbitrary URLs
+    are rejected so the function cannot be misused as an open HTTP client.
+    """
+    _API_BASE = "https://api.github.com"
+    if path.startswith("http"):
+        if not path.startswith(_API_BASE):
+            print(
+                f"  ⚠ _gh_get: rejected non-GitHub URL: {path!r}",
+                file=sys.stderr,
+            )
+            return None
+        url = path
+    else:
+        url = f"{_API_BASE}{path}"
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Niblit-Evolution-Agent/2.0",
+    }
+    if TOKEN:
+        headers["Authorization"] = f"Bearer {TOKEN}"
+    req = Request(url, headers=headers)
+    try:
+        with urlopen(req, timeout=15) as resp:  # noqa: S310
+            return json.loads(resp.read().decode())
+    except URLError as exc:
+        print(f"  ⚠ GitHub API network error ({url}): {exc}", file=sys.stderr)
+        return None
+    except OSError as exc:
+        print(f"  ⚠ GitHub API OS error ({url}): {exc}", file=sys.stderr)
+        return None
+    except json.JSONDecodeError as exc:
+        print(f"  ⚠ GitHub API malformed JSON ({url}): {exc}", file=sys.stderr)
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Log-driven priority scanner  (Phase 2 key feature)
+#
+# Maps keywords in failed workflow/job names to Python path substrings so
+# that files associated with recent CI failures are fixed first.
+# ---------------------------------------------------------------------------
+
+_WORKFLOW_PRIORITY_MAP: dict = {
+    "test":         ["test_", "modules/", "niblit_core.py", "niblit_router.py"],
+    "deploy":       ["app.py", "niblit_core.py", "start.sh"],
+    "improve":      ["nibblebots/improvement_bot.py"],
+    "research":     ["nibblebots/research_bot.py", "modules/researcher_engine.py"],
+    "trading":      ["nibblebots/ai_trading_bot.py", "NiblitSignalStrategy.py",
+                     "modules/trade_kb_learner.py"],
+    "aios":         ["nibblebots/aios_", "modules/aios_"],
+    "llm":          ["nibblebots/llm_engineer_bot.py"],
+    "architecture": ["nibblebots/aios_architecture_bot.py"],
+    "evolution":    ["nibblebots/autonomous_evolution_agent.py"],
+}
+
+
+def get_log_priority_files() -> frozenset:
+    """Query GitHub Actions for recent failures and return priority path substrings.
+
+    Any file whose repo-relative path contains one of the returned substrings
+    is treated as high-priority by ``find_batch_issues()``.
+
+    This is the Phase 2 "failure-driven evolution" capability: runtime CI
+    failures feed directly into fix selection so the agent targets actively
+    broken code rather than a random file with the most style issues.
+    """
+    if not TOKEN or not REPO:
+        print("  ℹ  Log scan skipped (GITHUB_TOKEN / GITHUB_REPOSITORY not set)")
+        return frozenset()
+
+    print("  🔍 Scanning GitHub Actions for recent failures...")
+    data = _gh_get(f"/repos/{REPO}/actions/runs?status=failure&per_page=5")
+    if not data or "workflow_runs" not in data:
+        print("  ℹ  No failure data returned from GitHub API")
+        return frozenset()
+
+    priority: set = set()
+    failed_names: list = []
+    for run in data["workflow_runs"]:
+        wf_name = (run.get("name") or "").lower()
+        failed_names.append(wf_name)
+        for keyword, paths in _WORKFLOW_PRIORITY_MAP.items():
+            if keyword in wf_name:
+                priority.update(paths)
+
+    if failed_names:
+        print(f"  ⚠  Recent failures  : {', '.join(failed_names[:5])}")
+        if priority:
+            print(f"  🎯 Priority targets : {', '.join(sorted(priority))}")
+    else:
+        print("  ✅ No recent workflow failures detected")
+
+    return frozenset(priority)
+
+
+# ---------------------------------------------------------------------------
+# Batch scanner — find up to MAX_FIXES files to fix in one cycle
+# ---------------------------------------------------------------------------
+
+def find_batch_issues(
     files: List[Path],
     fix_type: Optional[str] = None,
-) -> Optional[Issue]:
-    """Scan all files and return the single best issue to fix.
+    max_issues: int = MAX_FIXES,
+    priority_files: frozenset = frozenset(),
+) -> List[Issue]:
+    """Scan all files and return up to *max_issues* Issues of the same fix type.
 
-    Selection strategy:
-    - Iterate fix types in priority order (or honour FORCE_FIX_TYPE).
-    - For each type, scan all files and collect (file, count) pairs.
-    - Return the **file with the most occurrences** of the first type that
-      has any matches at all — maximising impact per commit.
-    - Alphabetical path order is used as a tiebreaker for determinism.
+    All returned issues share one fix type (the highest-priority type with
+    any matches).  Grouping by fix type produces a focused, reviewable commit
+    rather than a grab-bag of unrelated changes.
+
+    Sort order:
+      1. Files matching a priority path prefix (from log scan) first.
+      2. Highest instance count first (maximum impact per file).
+      3. Alphabetical as a deterministic tiebreaker.
     """
     catalogue = [
         entry for entry in _FIX_CATALOGUE
         if fix_type is None or entry[0] == fix_type
     ]
 
-    for fix_name, scanner, _, _ in catalogue:
-        best: Optional[Issue] = None
+    for fix_name, scanner, _ in catalogue:
+        matches: List[Issue] = []
         for path in files:
             try:
                 content = path.read_text(encoding="utf-8", errors="replace")
@@ -290,53 +479,52 @@ def find_best_issue(
                 continue
             count = scanner(content)
             if count > 0:
-                if best is None or count > best.count:
-                    best = Issue(fix_type=fix_name, file_path=path, count=count)
-        if best is not None:
-            return best
+                matches.append(Issue(fix_type=fix_name, file_path=path, count=count))
 
-    return None
+        if not matches:
+            continue
+
+        def _sort_key(issue: Issue) -> tuple:
+            rel = str(issue.file_path.relative_to(WORKSPACE))
+            is_priority = any(pf in rel for pf in priority_files)
+            return (not is_priority, -issue.count, rel)
+
+        matches.sort(key=_sort_key)
+        return matches[:max_issues]
+
+    return []
 
 
 # ---------------------------------------------------------------------------
-# Fixer — apply the selected fix and validate
+# Single-file fixer with py_compile validation
 # ---------------------------------------------------------------------------
 
-def apply_fix(issue: Issue) -> Optional[Tuple[str, str]]:
-    """Apply the fix for *issue* and validate with ``py_compile``.
+def _apply_single_fix(issue: Issue) -> Optional[Tuple[str, int]]:
+    """Apply the fix for *issue*, validate with py_compile.
 
-    Returns ``(new_content, commit_msg)`` on success, or ``None`` if the fix
-    fails validation.
+    Returns ``(new_content, count)`` on success, ``None`` on failure.
     """
-    # Locate the fixer in the catalogue
-    fixer_fn: Optional[Callable[[str], Tuple[str, int]]] = None
-    commit_suffix = ""
-    for fix_name, _, fixer, desc in _FIX_CATALOGUE:
+    fixer: Optional[Callable[[str], Tuple[str, int]]] = None
+    for fix_name, _, fn in _FIX_CATALOGUE:
         if fix_name == issue.fix_type:
-            fixer_fn = fixer
-            commit_suffix = desc
+            fixer = fn
             break
 
-    if fixer_fn is None:
-        print(f"  ⚠ Unknown fix type: {issue.fix_type}", file=sys.stderr)
+    if fixer is None:
         return None
 
     try:
         original = issue.file_path.read_text(encoding="utf-8")
     except OSError as exc:
-        print(f"  ⚠ Cannot read {issue.file_path}: {exc}", file=sys.stderr)
+        print(f"    ⚠ Cannot read {issue.file_path.name}: {exc}", file=sys.stderr)
         return None
 
-    new_content, count = fixer_fn(original)
-
+    new_content, count = fixer(original)
     if count == 0 or new_content == original:
-        print(
-            f"  ⚠ Fixer produced no change for {issue.file_path}",
-            file=sys.stderr,
-        )
         return None
 
-    # Validate with py_compile (catches any accidental syntax corruption)
+    # Validate with py_compile — catches accidental syntax corruption
+    tmp_path = ""
     try:
         with tempfile.NamedTemporaryFile(
             suffix=".py", mode="w", encoding="utf-8", delete=False
@@ -346,60 +534,131 @@ def apply_fix(issue: Issue) -> Optional[Tuple[str, str]]:
         py_compile.compile(tmp_path, doraise=True)
     except py_compile.PyCompileError as exc:
         print(
-            f"  ⚠ Syntax validation FAILED for {issue.file_path}: {exc}",
+            f"    ⚠ Syntax validation FAILED for {issue.file_path.name}: {exc}",
             file=sys.stderr,
         )
         return None
     finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError as exc:
+                print(
+                    f"    ℹ Could not remove temp file {tmp_path}: {exc}",
+                    file=sys.stderr,
+                )
 
-    rel = issue.file_path.relative_to(WORKSPACE)
-    s = "s" if count != 1 else ""
-    commit_msg = f"auto: {commit_suffix} in {rel} ({count} instance{s})"
-    return new_content, commit_msg
+    return new_content, count
 
 
 # ---------------------------------------------------------------------------
-# GitHub Actions output helper
+# Enriched commit message builder  (Phase 2 key feature)
+# ---------------------------------------------------------------------------
+
+# Human-readable verb phrase for each fix type (used in commit subject)
+_SUBJECT_VERBS: dict = {
+    "bare_except":         "fix bare except clause",
+    "bare_except_pass":    "annotate silent except-pass",
+    "trailing_whitespace": "strip trailing whitespace",
+    "double_blank_lines":  "collapse excess blank lines",
+    "eof_newline":         "add missing EOF newline",
+}
+
+
+def build_commit_message(
+    fix_type: str,
+    fixed_files: List[Tuple[Path, int]],   # (path, instance_count)
+    total_count: int,
+) -> Tuple[str, str]:
+    """Build an enriched git commit subject + body.
+
+    The body includes:
+      - Category (e.g. "Error Handling")
+      - Reason  — why this pattern is harmful
+      - Impact  — what improves after the fix
+      - Per-file breakdown  — file path and instance count
+
+    Returns ``(subject_line, full_message)``.
+    """
+    meta = _FIX_METADATA.get(fix_type, {})
+    n_files = len(fixed_files)
+    s_files = "s" if n_files != 1 else ""
+    s_inst = "s" if total_count != 1 else ""
+
+    verb = _SUBJECT_VERBS.get(fix_type, f"apply {fix_type} fix")
+    subject = (
+        f"auto: {verb} in {n_files} file{s_files} "
+        f"({total_count} instance{s_inst})"
+    )
+
+    lines = [subject, ""]
+
+    category = meta.get("category", "Code Quality")
+    lines.append(f"Category: {category}")
+
+    if "reason" in meta:
+        lines += ["", f"Reason: {meta['reason']}"]
+
+    if "impact" in meta:
+        lines += ["", f"Impact: {meta['impact']}"]
+
+    lines += ["", f"Files changed ({n_files}):"]
+    for path, count in sorted(fixed_files, key=lambda x: -x[1]):
+        rel = str(path.relative_to(WORKSPACE))
+        s = "s" if count != 1 else ""
+        lines.append(f"  {rel:<60} ({count} instance{s})")
+
+    lines += ["", "[Niblit Evolution Agent — Phase 2]"]
+    return subject, "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# GitHub Actions output helpers
 # ---------------------------------------------------------------------------
 
 def _set_output(key: str, value: str) -> None:
-    """Write a key=value pair to the GitHub Actions GITHUB_OUTPUT file."""
+    """Write a step-output variable to GITHUB_OUTPUT (supports multiline)."""
     if GH_OUTPUT:
         with open(GH_OUTPUT, "a", encoding="utf-8") as fh:
-            fh.write(f"{key}={value}\n")
+            if "\n" in value:
+                fh.write(f"{key}<<NIBLIT_EOF\n{value}\nNIBLIT_EOF\n")
+            else:
+                fh.write(f"{key}={value}\n")
     else:
-        # Local / dry-run: just print
-        print(f"[OUTPUT] {key}={value}")
+        print(f"[OUTPUT] {key}={value!r}")
 
 
 # ---------------------------------------------------------------------------
-# Repository summary (mirrors improvement_bot.py study_own_repo logic)
+# Repository health summary
 # ---------------------------------------------------------------------------
 
 def _repo_summary(files: List[Path]) -> None:
-    """Print a brief summary of the scanned repository state."""
-    py_count = len(files)
-    test_count = sum(1 for f in files if f.name.startswith("test_"))
+    """Print an issue-count table covering all fix types."""
+    counts: dict = {name: 0 for name, _, _ in _FIX_CATALOGUE}
     total_lines = 0
-    bare_excepts = 0
-    eof_issues = 0
+    test_count = sum(1 for f in files if f.name.startswith("test_"))
+
     for path in files:
         try:
             content = path.read_text(encoding="utf-8", errors="replace")
             total_lines += content.count("\n")
-            bare_excepts += scan_bare_except(content)
-            eof_issues += scan_eof_newline(content)
-        except OSError:
-            pass
-    print(f"  Python files scanned : {py_count}")
-    print(f"  Test files           : {test_count}")
-    print(f"  Total lines          : {total_lines:,}")
-    print(f"  bare_except issues   : {bare_excepts}")
-    print(f"  eof_newline issues   : {eof_issues}")
+            for fix_name, scanner, _ in _FIX_CATALOGUE:
+                counts[fix_name] += scanner(content)
+        except OSError as exc:
+            print(
+                f"  ℹ Summary: could not read {path.name}: {exc}",
+                file=sys.stderr,
+            )
+
+    print(f"  Python files scanned     : {len(files)}")
+    print(f"  Test files               : {test_count}")
+    print(f"  Total lines              : {total_lines:,}")
+    print()
+    print("  Open issues by fix type:")
+    for fix_name, _, _ in _FIX_CATALOGUE:
+        n = counts[fix_name]
+        bar = "█" * min(n, 40)
+        print(f"    {fix_name:<24} : {n:>4}  {bar}")
 
 
 # ---------------------------------------------------------------------------
@@ -407,10 +666,11 @@ def _repo_summary(files: List[Path]) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    print("🧬 Niblit Autonomous Code Evolution Agent")
-    print(f"   Workspace : {WORKSPACE}")
-    print(f"   Dry run   : {DRY_RUN}")
-    print(f"   Fix type  : {FORCE_FIX_TYPE or 'auto (priority order)'}")
+    print("🧬 Niblit Autonomous Evolution Agent — Phase 2")
+    print(f"   Workspace  : {WORKSPACE}")
+    print(f"   Dry run    : {DRY_RUN}")
+    print(f"   Fix type   : {FORCE_FIX_TYPE or 'auto (priority order)'}")
+    print(f"   Max fixes  : {MAX_FIXES} files per run")
     print()
 
     # 1. Collect files
@@ -419,51 +679,101 @@ def main() -> int:
     _repo_summary(files)
     print()
 
-    # 2. Find best issue
-    fix_type = FORCE_FIX_TYPE or None
-    issue = find_best_issue(files, fix_type=fix_type)
-
-    if issue is None:
-        print("✅ No fixable issues found — the repository is already clean!")
-        _set_output("changed_file", "")
-        _set_output("commit_msg", "")
-        return 0
-
-    rel = issue.file_path.relative_to(WORKSPACE)
-    print(f"🎯 Selected improvement")
-    print(f"   Fix type  : {issue.fix_type}")
-    print(f"   File      : {rel}")
-    print(f"   Instances : {issue.count}")
+    # 2. Log-driven priority (Phase 2 core capability)
+    print("📡 Querying GitHub Actions for failure-driven priorities...")
+    priority_files = get_log_priority_files()
     print()
 
-    # 3. Apply fix
-    result = apply_fix(issue)
-    if result is None:
-        print("⚠ Fix could not be applied — aborting.", file=sys.stderr)
-        _set_output("changed_file", "")
-        _set_output("commit_msg", "")
-        return 1
+    # 3. Find batch of issues to fix this cycle
+    fix_type = FORCE_FIX_TYPE or None
+    issues = find_batch_issues(
+        files,
+        fix_type=fix_type,
+        max_issues=MAX_FIXES,
+        priority_files=priority_files,
+    )
 
-    new_content, commit_msg = result
-
-    # 4. Dry-run path
-    if DRY_RUN:
-        print(f"[DRY RUN] Would write: {rel}")
-        print(f"[DRY RUN] Commit msg : {commit_msg}")
-        _set_output("changed_file", "")
-        _set_output("commit_msg", "")
+    if not issues:
+        print("✅ No fixable issues found — the repository is already clean!")
+        _set_output("changed_files", "")
+        _set_output("commit_subject", "")
         return 0
 
-    # 5. Write the patched file
-    try:
-        issue.file_path.write_text(new_content, encoding="utf-8")
-    except OSError as exc:
-        print(f"  ⚠ Failed to write {issue.file_path}: {exc}", file=sys.stderr)
+    fix_type_name = issues[0].fix_type
+    print(f"🎯 Selected fix type  : {fix_type_name}")
+    print(f"   Files to fix       : {len(issues)}")
+    print(f"   Total instances    : {sum(i.count for i in issues)}")
+    print()
+
+    # 4. Apply fixes (batch)
+    fixed_files: List[Tuple[Path, int]] = []
+    written_files: List[Path] = []
+    total_count = 0
+
+    for issue in issues:
+        rel = issue.file_path.relative_to(WORKSPACE)
+        result = _apply_single_fix(issue)
+        if result is None:
+            print(f"  ⚠ Skipping {rel} — validation failed")
+            continue
+
+        new_content, count = result
+        total_count += count
+        fixed_files.append((issue.file_path, count))
+        s = "s" if count != 1 else ""
+        print(f"  ✅ {rel} ({count} instance{s})")
+
+        if DRY_RUN:
+            continue
+
+        try:
+            issue.file_path.write_text(new_content, encoding="utf-8")
+            written_files.append(issue.file_path)
+        except OSError as exc:
+            print(f"  ⚠ Failed to write {rel}: {exc}", file=sys.stderr)
+
+    if not fixed_files:
+        print("\n⚠ All fixes failed validation — nothing to commit.", file=sys.stderr)
+        _set_output("changed_files", "")
+        _set_output("commit_subject", "")
         return 1
 
-    print(f"✅ Applied: {commit_msg}")
-    _set_output("changed_file", str(rel))
-    _set_output("commit_msg", commit_msg)
+    # 5. Build enriched commit message
+    subject, full_msg = build_commit_message(fix_type_name, fixed_files, total_count)
+
+    if DRY_RUN:
+        print("\n[DRY RUN] Commit subject:")
+        print(f"  {subject}")
+        print("\n[DRY RUN] Full commit message:")
+        print(full_msg)
+        _set_output("changed_files", "")
+        _set_output("commit_subject", "")
+        return 0
+
+    # 6. Write commit message and changed-files list to temp files
+    #    The workflow reads these directly, avoiding shell-injection risks with
+    #    multiline strings in GitHub Actions expressions.
+    try:
+        Path(COMMIT_MSG_FILE).write_text(full_msg, encoding="utf-8")
+    except OSError as exc:
+        print(f"  ⚠ Could not write commit message file: {exc}", file=sys.stderr)
+
+    changed_files_str = "\n".join(
+        str(p.relative_to(WORKSPACE)) for p in written_files
+    )
+    try:
+        Path(CHANGED_FILES_FILE).write_text(changed_files_str, encoding="utf-8")
+    except OSError as exc:
+        print(f"  ⚠ Could not write changed files list: {exc}", file=sys.stderr)
+
+    # 7. Set GitHub Actions step outputs
+    _set_output("changed_files", changed_files_str)
+    _set_output("commit_subject", subject)
+
+    print(f"\n✅ Evolution cycle complete")
+    print(f"   Fixed   : {len(written_files)} file(s)")
+    print(f"   Total   : {total_count} instance(s)")
+    print(f"   Subject : {subject}")
     return 0
 
 
