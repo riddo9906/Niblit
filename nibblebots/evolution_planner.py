@@ -112,13 +112,13 @@ def build_plan(
     for issue, impact in paired:
         # Phase 4: use regression-adjusted net_score for gating
         adj_net = regression_adjusted_net_score(impact.net_score)
-        adj_impact = impact._replace(net_score=adj_net)
+        impact_with_adj_score = impact._replace(net_score=adj_net)
 
-        skip_reason = _check_skip(issue, adj_impact)
+        skip_reason = _check_skip(issue, impact_with_adj_score)
         if skip_reason:
             skipped += 1
             continue
-        eligible.append((issue, adj_impact))
+        eligible.append((issue, impact_with_adj_score))
 
     # Sort: error_handling_risk > code_style_debt > others, then net_score
     def _rank_key(pair: Tuple[SemanticIssue, ImpactScore]) -> tuple:

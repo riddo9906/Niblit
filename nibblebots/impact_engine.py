@@ -379,7 +379,9 @@ def fit_regression_from_journal(journal_entries: List[Dict[str, Any]]) -> bool:
     y_mean = sum(ys) / n
     numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(xs, ys))
     denominator = sum((xi - x_mean) ** 2 for xi in xs)
-    beta_1 = numerator / denominator if denominator != 0 else 0.0
+    beta_1 = numerator / denominator if denominator != 0 else None
+    if beta_1 is None:
+        return False   # insufficient variance — all net_scores are identical
     beta_0 = y_mean - beta_1 * x_mean
     _save_regression(beta_0, beta_1, n)
     return True

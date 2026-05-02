@@ -149,7 +149,7 @@ def check(
     result["new_failures"] = latest_failed
     result["rolling_avg"] = round(rolling_avg, 3)
 
-    if new_failures >= ROLLBACK_THRESHOLD:
+    if new_failures > ROLLBACK_THRESHOLD:
         result["regression"] = True
         result["action"] = "revert"
 

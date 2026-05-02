@@ -45,8 +45,7 @@ from typing import Any, Dict, List, Optional
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from nibblebots import impact_engine
-from nibblebots import rollback_guard
+from nibblebots import impact_engine, rollback_guard
 
 
 # ---------------------------------------------------------------------------
