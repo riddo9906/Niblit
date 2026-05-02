@@ -399,6 +399,48 @@ def _run_llm_advisor(
     return _apply_goal_enforcement(sig, state)
 
 
+def _extract_memory_snippets(state: Any, max_facts: int = 5, max_chars: int = 300) -> List[str]:
+    """Extract plain-text snippets from ``state.memory`` for quality scoring.
+
+    Iterates the top-*max_facts* recalled facts (already populated by
+    MemoryAdvisor in the same ``decide()`` call) and converts each to a
+    plain string, truncated to *max_chars*.
+
+    Field priority for dict values: ``summary`` > ``text`` > ``content`` >
+    the raw value itself.  This mirrors the priority used by
+    ``knowledge_recall._fact_text()``.
+
+    Args:
+        state:      :class:`~modules.niblit_state.NiblitState` instance.
+        max_facts:  Maximum number of facts to include (default 5).
+                    Keeps snippet volume comparable to a typical RAG window.
+        max_chars:  Maximum characters per snippet (default 300).
+                    Matches ``_SCORE_MAX_CHARS`` in ``knowledge_recall.py``.
+
+    Returns:
+        A list of non-empty snippet strings.
+    """
+    snippets: List[str] = []
+    for fact in (getattr(state, "memory", []) or [])[:max_facts]:
+        if isinstance(fact, dict):
+            val = fact.get("value", "")
+            if isinstance(val, dict):
+                text = str(
+                    val.get("summary")
+                    or val.get("text")
+                    or val.get("content")
+                    or val
+                )
+            else:
+                text = str(val)
+        else:
+            text = str(fact)
+        text = text.strip()[:max_chars]
+        if text:
+            snippets.append(text)
+    return snippets
+
+
 def _run_quality_advisor(
     user_input: str,
     candidate: str,
@@ -578,20 +620,7 @@ class DecisionEngine:
         # retrieval window; more facts add noise without improving overlap accuracy.
         # Truncation: 300 chars matches _SCORE_MAX_CHARS in knowledge_recall.py
         # and keeps individual snippet sizes within the RewardModel's scoring window.
-        mem_snippets: List[str] = []
-        mem_facts = getattr(state, "memory", []) or []
-        for fact in mem_facts[:5]:  # top-5 most-relevant recalled facts
-            if isinstance(fact, dict):
-                val = fact.get("value", "")
-                text = (
-                    str(val.get("summary") or val.get("text") or val.get("content") or val)
-                    if isinstance(val, dict) else str(val)
-                )
-            else:
-                text = str(fact)
-            text = text.strip()[:300]  # align with RewardModel scoring window
-            if text:
-                mem_snippets.append(text)
+        mem_snippets: List[str] = _extract_memory_snippets(state)
 
         signals.append(_run_quality_advisor(
             user_input, llm_sig.suggestion, state, weights["quality"],
