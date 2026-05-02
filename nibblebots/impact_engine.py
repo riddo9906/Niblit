@@ -1,10 +1,26 @@
 #!/usr/bin/env python3
 """
-nibblebots/impact_engine.py — Phase 3 Impact Scoring Engine
+nibblebots/impact_engine.py — Phase 3/4 Impact Scoring Engine
 
 Estimates *what will improve* if a given SemanticIssue is fixed, before any
 change is made.  This is the core intelligence upgrade from Phase 2 — moving
 from "apply everything that matches" to "apply what matters most".
+
+Phase 4 upgrade: Regression prediction model
+---------------------------------------------
+After ≥ ``REGRESSION_MIN_SAMPLES`` outcome journal entries are available, the
+engine fits a lightweight Ordinary Least Squares regression:
+
+    predicted_outcome_delta = β₀ + β₁ * net_score
+
+Coefficients are stored in ``impact_regression.json`` alongside the weights
+file.  On the next run the engine loads them and adjusts ``net_score`` using:
+
+    adjusted_net_score = net_score * (1 + β₁ * clamp(net_score, 0, 1))
+
+This makes the engine *predict* likely improvement rather than just estimate
+it from static priors.  Falls back silently to rule-based scoring when
+insufficient history exists.
 
 ImpactScore fields
 ------------------
@@ -22,6 +38,7 @@ with observed outcomes.  On the next run the engine loads those weights so it
 gradually learns which fix types actually produce results.
 
 To reset the learned weights, delete impact_weights.json.
+To reset the regression model, delete impact_regression.json.
 """
 
 from __future__ import annotations
@@ -29,7 +46,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from nibblebots.semantic_engine import SemanticIssue
 
@@ -39,6 +56,12 @@ from nibblebots.semantic_engine import SemanticIssue
 # ---------------------------------------------------------------------------
 
 _WEIGHTS_FILE = Path(__file__).parent / "impact_weights.json"
+_REGRESSION_FILE = Path(__file__).parent / "impact_regression.json"
+
+# Minimum outcome journal entries before fitting the regression model
+REGRESSION_MIN_SAMPLES: int = int(
+    os.environ.get("EVOLUTION_REGRESSION_MIN_SAMPLES", "20")
+)
 
 # ---------------------------------------------------------------------------
 # ImpactScore data structure
@@ -266,7 +289,11 @@ def update_weights(
     direction = signal / n_signals   # -1.0 → 1.0
 
     for dim in list(weights[fix_type].keys()):
+        if dim == "risk_flag":      # skip the rollback guard flag
+            continue
         current = weights[fix_type][dim]
+        if not isinstance(current, (int, float)):
+            continue
         if dim.startswith("risk_"):
             # Positive outcome → risk was overstated → nudge down
             delta = -direction * learning_rate * current
@@ -278,3 +305,97 @@ def update_weights(
         )
 
     save_weights(weights)
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: Regression model — predict outcome from net_score
+# ---------------------------------------------------------------------------
+
+def _load_regression() -> Optional[Dict[str, float]]:
+    """Load regression coefficients from disk.  Returns None if unavailable."""
+    if _REGRESSION_FILE.exists():
+        try:
+            data: Any = json.loads(_REGRESSION_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "beta_0" in data and "beta_1" in data:
+                return data
+        except (OSError, json.JSONDecodeError):
+            pass
+    return None
+
+
+def _save_regression(beta_0: float, beta_1: float, n_samples: int) -> None:
+    """Persist regression coefficients to disk."""
+    try:
+        _REGRESSION_FILE.write_text(
+            json.dumps(
+                {"beta_0": round(beta_0, 6), "beta_1": round(beta_1, 6),
+                 "n_samples": n_samples},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        import sys
+        print(f"  ⚠ Could not save regression model: {exc}", file=sys.stderr)
+
+
+def fit_regression_from_journal(journal_entries: List[Dict[str, Any]]) -> bool:
+    """Fit a simple OLS regression from outcome journal entries.
+
+    Maps: net_score → outcome_delta  (positive = improvement)
+
+    Parameters
+    ----------
+    journal_entries : list of dicts from feedback_learner.read_journal()
+
+    Returns True if the model was fitted and saved, False if insufficient data.
+    """
+    xs: List[float] = []
+    ys: List[float] = []
+
+    for entry in journal_entries:
+        net = entry.get("impact_net_score")
+        outcome = entry.get("outcome", {})
+        if net is None:
+            continue
+        # Construct scalar outcome_delta from multi-signal outcome dict
+        tests_ok = outcome.get("tests_passed")
+        ci_delta = outcome.get("ci_failure_change", 0)
+        y = 0.0
+        if tests_ok is True:
+            y += 0.5
+        elif tests_ok is False:
+            y -= 0.5
+        y -= ci_delta * 0.25   # fewer failures → better
+        xs.append(float(net))
+        ys.append(y)
+
+    if len(xs) < REGRESSION_MIN_SAMPLES:
+        return False
+
+    # OLS: β₁ = Σ(xi - x̄)(yi - ȳ) / Σ(xi - x̄)²
+    n = len(xs)
+    x_mean = sum(xs) / n
+    y_mean = sum(ys) / n
+    numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(xs, ys))
+    denominator = sum((xi - x_mean) ** 2 for xi in xs)
+    beta_1 = numerator / denominator if denominator != 0 else 0.0
+    beta_0 = y_mean - beta_1 * x_mean
+    _save_regression(beta_0, beta_1, n)
+    return True
+
+
+def regression_adjusted_net_score(net_score: float) -> float:
+    """Return a regression-adjusted net_score if a model is available.
+
+    When the regression model is available:
+        adjusted = net_score * (1 + clamp(β₁ * net_score, -0.5, +0.5))
+
+    Falls back to the original net_score when no model exists.
+    """
+    model = _load_regression()
+    if model is None:
+        return net_score
+    beta_1 = float(model.get("beta_1", 0.0))
+    adjustment = max(-0.5, min(0.5, beta_1 * net_score))
+    return round(net_score * (1.0 + adjustment), 4)

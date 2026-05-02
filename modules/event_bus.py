@@ -33,6 +33,7 @@ Well-known event type constants
 ``EVENT_LEARNING_COMPLETE``   = ``"learning.cycle.complete"``
 ``EVENT_DECISION_MADE``       = ``"decision.made"``
 ``EVENT_RESPONSE_COMPLETE``   = ``"response.complete"``
+``EVENT_EVOLUTION_OUTCOME``   = ``"evolution.outcome"``
 
 Design
 ------
@@ -62,6 +63,7 @@ EVENT_DECISION_MADE      = "decision.made"
 EVENT_RESPONSE_COMPLETE  = "response.complete"
 EVENT_META_ANALYSIS_COMPLETE = "meta.analysis.complete"
 EVENT_POLICY_OPTIMIZED   = "policy.optimized"
+EVENT_EVOLUTION_OUTCOME  = "evolution.outcome"   # Phase 6: emitted by feedback_learner
 
 
 @dataclass

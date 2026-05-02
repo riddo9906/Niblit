@@ -151,7 +151,25 @@ jobs:
                 f"pass rate: {summary.get('pass_rate', 0):.0%}")
           PYEOF
 
-      # -- 6. Report outcome --------------------------------------------------
+      # -- 6. Phase 4: Auto-revert on regression --------------------------------
+      #    Reads the revert command written by rollback_guard (if any) and
+      #    executes it to undo the commit that caused a CI regression.
+      - name: Auto-revert on regression (Phase 4 rollback guard)
+        if: steps.agent.outputs.changed_files != '' && inputs.dry_run != 'true'
+        run: |
+          if [ -f /tmp/niblit_revert_cmd.txt ]; then
+            REVERT_CMD=$(cat /tmp/niblit_revert_cmd.txt)
+            echo "⚠️  Regression detected — executing: $REVERT_CMD"
+            git config user.name  "niblit-evolution[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            $REVERT_CMD
+            git push
+            echo "✅ Revert pushed successfully."
+          else
+            echo "ℹ️  No regression detected — no revert needed."
+          fi
+
+      # -- 7. Report outcome --------------------------------------------------
       - name: Report outcome
         if: always()
         run: |

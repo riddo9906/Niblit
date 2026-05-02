@@ -46,6 +46,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from nibblebots import impact_engine
+from nibblebots import rollback_guard
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +168,7 @@ def record_outcome(
     total_instances: int,
     commit_sha: str = "",
     outcome: Optional[Dict[str, Any]] = None,
+    impact_net_score: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Record the outcome of an evolution commit and update impact weights.
 
@@ -177,6 +179,7 @@ def record_outcome(
     total_instances  : total number of instances fixed
     commit_sha       : git SHA of the evolution commit (if known)
     outcome          : pre-computed outcome dict; if None, fetched from CI API
+    impact_net_score : average net_score from the EvolutionPlan (for regression)
 
     Returns the outcome dict that was recorded.
     """
@@ -192,6 +195,8 @@ def record_outcome(
         "total_instances": total_instances,
         "outcome": outcome,
     }
+    if impact_net_score is not None:
+        entry["impact_net_score"] = round(float(impact_net_score), 4)
 
     # Append to journal
     try:
@@ -209,6 +214,24 @@ def record_outcome(
             f"tests={'pass' if outcome.get('tests_passed') else 'fail/unknown'}, "
             f"ci_delta={outcome.get('ci_failure_change', 0):+d}"
         )
+
+    # Phase 4: rollback guard — check for regression and emit revert if needed
+    guard_result = rollback_guard.check(fix_types=fix_types, commit_sha=commit_sha)
+    if guard_result.get("regression"):
+        print(
+            f"  🔄 RollbackGuard triggered: {guard_result.get('revert_cmd')}",
+            file=sys.stderr,
+        )
+
+    # Phase 4: attempt to fit regression model from accumulated history
+    journal_entries = read_journal(last_n=200)
+    if len(journal_entries) >= impact_engine.REGRESSION_MIN_SAMPLES:
+        fitted = impact_engine.fit_regression_from_journal(journal_entries)
+        if fitted:
+            print("  📈 Regression model updated from journal history.")
+
+    # Phase 6: emit evolution outcome on the EventBus (best-effort)
+    _emit_evolution_event(entry, outcome)
 
     return outcome
 
@@ -258,3 +281,33 @@ def journal_summary() -> Dict[str, Any]:
         "fix_type_counts": fix_type_counts,
         "latest_timestamp": entries[-1].get("timestamp", ""),
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: EventBus integration (best-effort — never raises)
+# ---------------------------------------------------------------------------
+
+def _emit_evolution_event(entry: Dict[str, Any], outcome: Dict[str, Any]) -> None:
+    """Emit EVENT_EVOLUTION_OUTCOME on the runtime EventBus if available.
+
+    This bridges the evolution agent and the SDAL/MetaEngine so they share
+    knowledge about what the evolution loop has learned.  Silently skipped
+    when the EventBus or MetaEngine is unavailable (e.g. standalone runs).
+    """
+    try:
+        from modules.event_bus import get_event_bus, NiblitEvent, EVENT_EVOLUTION_OUTCOME  # noqa: PLC0415
+        bus = get_event_bus()
+        bus.publish(NiblitEvent(
+            type=EVENT_EVOLUTION_OUTCOME,
+            source="feedback_learner",
+            payload={
+                "fix_types":       entry.get("fix_types", []),
+                "tests_passed":    outcome.get("tests_passed"),
+                "ci_delta":        outcome.get("ci_failure_change", 0),
+                "impact_net_score": entry.get("impact_net_score"),
+                "commit_sha":      entry.get("commit_sha", ""),
+                "timestamp":       entry.get("timestamp", ""),
+            },
+        ))
+    except Exception:  # noqa: BLE001
+        pass  # EventBus unavailable — standalone evolution run

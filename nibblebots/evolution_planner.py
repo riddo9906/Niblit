@@ -35,10 +35,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from nibblebots.semantic_engine import SemanticIssue
-from nibblebots.impact_engine import ImpactScore
+from nibblebots.impact_engine import ImpactScore, regression_adjusted_net_score
 
 
 # ---------------------------------------------------------------------------
@@ -90,14 +90,16 @@ def build_plan(
     paired: List[Tuple[SemanticIssue, ImpactScore]],
     workspace: Path,
     max_fixes: int = 5,
+    dep_graph: Optional[Any] = None,   # DependencyGraph from dependency_analyzer
 ) -> EvolutionPlan:
     """Build a ranked EvolutionPlan from (SemanticIssue, ImpactScore) pairs.
 
     Selection criteria (all must pass):
       1. Not in a protected module
       2. confidence >= CONFIDENCE_MIN
-      3. net_score   >= RISK_THRESHOLD
+      3. net_score   >= RISK_THRESHOLD  (Phase 4: uses regression-adjusted score)
       4. Not a RISK fix type (unless explicitly allowed in the future)
+      5. Phase 5: high-fan-out files (dep_graph provided) → promote to RISK class
 
     Ranking:
       Primary   : semantic type (error_handling_risk first)
@@ -108,11 +110,15 @@ def build_plan(
     skipped = 0
 
     for issue, impact in paired:
-        skip_reason = _check_skip(issue, impact)
+        # Phase 4: use regression-adjusted net_score for gating
+        adj_net = regression_adjusted_net_score(impact.net_score)
+        adj_impact = impact._replace(net_score=adj_net)
+
+        skip_reason = _check_skip(issue, adj_impact)
         if skip_reason:
             skipped += 1
             continue
-        eligible.append((issue, impact))
+        eligible.append((issue, adj_impact))
 
     # Sort: error_handling_risk > code_style_debt > others, then net_score
     def _rank_key(pair: Tuple[SemanticIssue, ImpactScore]) -> tuple:
@@ -128,6 +134,16 @@ def build_plan(
     planned: List[PlannedFix] = []
     for rank, (sem, imp) in enumerate(selected, start=1):
         fix_class = "RISK" if sem.fix_type in _RISK_FIX_TYPES else "SAFE"
+
+        # Phase 5: escalate to RISK if file is high-fan-out
+        if dep_graph is not None and fix_class == "SAFE":
+            try:
+                from nibblebots.dependency_analyzer import is_high_fan_out  # noqa: PLC0415
+                if is_high_fan_out(sem.file_path, dep_graph):
+                    fix_class = "RISK"
+            except Exception:  # noqa: BLE001
+                pass
+
         planned.append(PlannedFix(
             semantic_issue=sem,
             impact=imp,
@@ -149,6 +165,53 @@ def build_plan(
         risk_level=round(avg_risk, 3),
         workspace=workspace,
     )
+
+
+def build_multi_domain_plan(
+    domain_paired: Dict[str, List[Tuple[SemanticIssue, ImpactScore]]],
+    workspace: Path,
+    max_fixes_per_domain: int = 5,
+    dep_graph: Optional[Any] = None,
+) -> Dict[str, EvolutionPlan]:
+    """Build separate plans for each domain and enforce the cross-domain cap.
+
+    Parameters
+    ----------
+    domain_paired          : mapping of domain_name → paired (SemanticIssue, ImpactScore)
+    workspace              : repo root
+    max_fixes_per_domain   : max fixes per individual domain plan
+    dep_graph              : optional DependencyGraph for fan-out risk
+
+    Returns a dict of domain_name → EvolutionPlan.  The total number of SAFE
+    planned fixes is capped at MAX_CROSS_DOMAIN_FIXES.
+    """
+    from nibblebots.domain_registry import MAX_CROSS_DOMAIN_FIXES  # noqa: PLC0415
+
+    plans: Dict[str, EvolutionPlan] = {}
+    total_safe = 0
+
+    for domain_name, paired in domain_paired.items():
+        plan = build_plan(
+            paired=paired,
+            workspace=workspace,
+            max_fixes=max_fixes_per_domain,
+            dep_graph=dep_graph,
+        )
+        # Trim to stay within cross-domain cap
+        safe_fixes = [pf for pf in plan.planned_fixes if pf.fix_class == "SAFE"]
+        if total_safe + len(safe_fixes) > MAX_CROSS_DOMAIN_FIXES:
+            allowed = MAX_CROSS_DOMAIN_FIXES - total_safe
+            safe_fixes = safe_fixes[:allowed]
+            risk_fixes = [pf for pf in plan.planned_fixes if pf.fix_class == "RISK"]
+            trimmed = safe_fixes + risk_fixes
+            plan = plan._replace(
+                planned_fixes=trimmed,
+                skipped_count=plan.skipped_count + (len(plan.planned_fixes) - len(trimmed)),
+            )
+        total_safe += len([pf for pf in plan.planned_fixes if pf.fix_class == "SAFE"])
+        plans[domain_name] = plan
+
+    return plans
 
 
 # ---------------------------------------------------------------------------

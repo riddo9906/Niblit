@@ -41,6 +41,10 @@ SEMANTIC_TYPES = (
     "code_style_debt",       # formatting / PEP 8 issues
     "performance_debt",      # not yet detected by static rules; placeholder
     "architectural_smell",   # structural problems (dead code, always-true, …)
+    # Phase 6 log-derived semantic types
+    "performance_bottleneck",  # timeout / slowness patterns in runtime logs
+    "dependency_break",        # import errors / missing modules in logs
+    "logic_instability",       # assertion failures / unexpected state in logs
 )
 
 # ---------------------------------------------------------------------------
@@ -269,3 +273,103 @@ def _build_context_hint(
     }
     hint = type_map.get(fix_type, f"{fix_type} in {subsystem}")
     return f"{hint} [{count} instance{'s' if count != 1 else ''}]"
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Log-derived semantic classification
+# ---------------------------------------------------------------------------
+
+# Patterns that indicate each log-derived semantic type
+_LOG_PERF_RE = re.compile(
+    r"(timeout|timed.out|slow|latency|performance|memory.leak|OOM|out.of.memory)",
+    re.IGNORECASE,
+)
+_LOG_DEP_RE = re.compile(
+    r"(ImportError|ModuleNotFoundError|No module named|cannot import|"
+    r"dependency.error|missing.package)",
+    re.IGNORECASE,
+)
+_LOG_LOGIC_RE = re.compile(
+    r"(AssertionError|assertion.failed|unexpected.state|invariant.violated|"
+    r"logic.error|inconsistency|unexpected.value)",
+    re.IGNORECASE,
+)
+
+# Minimum line frequency to surface a log-derived semantic type
+_LOG_MIN_FREQ: int = 3
+
+
+def classify_log_lines(
+    lines: List[str],
+    source_label: str = "log",
+) -> List[SemanticIssue]:
+    """Classify a list of log lines into SemanticIssues.
+
+    Applies regex + frequency analysis to surface:
+      * ``performance_bottleneck`` — timeout / slowness patterns
+      * ``dependency_break``       — import / missing-module errors
+      * ``logic_instability``      — assertion failures / unexpected state
+
+    Only patterns that appear at least _LOG_MIN_FREQ times are surfaced to
+    avoid noise from one-off events.
+
+    Parameters
+    ----------
+    lines        : list of raw log line strings
+    source_label : human-readable label for the log source (used in hints)
+
+    Returns a list of SemanticIssue namedtuples (one per detected pattern type).
+    """
+    counts: dict = {
+        "performance_bottleneck": 0,
+        "dependency_break":       0,
+        "logic_instability":      0,
+    }
+    for line in lines:
+        if _LOG_PERF_RE.search(line):
+            counts["performance_bottleneck"] += 1
+        if _LOG_DEP_RE.search(line):
+            counts["dependency_break"] += 1
+        if _LOG_LOGIC_RE.search(line):
+            counts["logic_instability"] += 1
+
+    results: List[SemanticIssue] = []
+    _severity_map = {
+        "performance_bottleneck": 0.55,
+        "dependency_break":       0.75,
+        "logic_instability":      0.70,
+    }
+    for sem_type, count in counts.items():
+        if count < _LOG_MIN_FREQ:
+            continue
+        sev = min(1.0, _severity_map.get(sem_type, 0.50) + 0.02 * count)
+        hint = (
+            f"{sem_type.replace('_', ' ')} detected in {source_label} "
+            f"[{count} occurrence{'s' if count != 1 else ''}]"
+        )
+        results.append(SemanticIssue(
+            fix_type=f"log:{sem_type}",
+            semantic_type=sem_type,
+            file_path=Path(source_label),
+            count=count,
+            subsystem="core",
+            severity=round(sev, 3),
+            confidence=0.75,
+            intentional=False,
+            context_hint=hint,
+        ))
+    return results
+
+
+def classify_log_file(log_path: Path) -> List[SemanticIssue]:
+    """Classify all lines in a log file into SemanticIssues.
+
+    Convenience wrapper around ``classify_log_lines``.
+    """
+    if not log_path.exists():
+        return []
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    return classify_log_lines(lines, source_label=log_path.name)
