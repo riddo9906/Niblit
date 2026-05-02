@@ -9746,6 +9746,23 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return self._cmd_ale_process_awareness(text)
 
         # ============================
+        # LAYER 7g: LOCAL COPILOT COMMANDS (llama3 / qwen)
+        # Direct dispatch via router.handle_command() — ensures these are NEVER
+        # accidentally forwarded to brain.think() / the cloud LLM.
+        # ============================
+        if ltext == "llama3" or ltext.startswith("llama3 "):
+            log.debug("[LLAMA3-CMD] Direct dispatch: %s", ltext.split()[0])
+            if self.router:
+                return self.router.handle_command(text)
+            return "⚠️  Router not available — cannot handle llama3 command."
+
+        if ltext == "qwen" or ltext.startswith("qwen "):
+            log.debug("[QWEN-CMD] Direct dispatch: %s", ltext.split()[0])
+            if self.router:
+                return self.router.handle_command(text)
+            return "⚠️  Router not available — cannot handle qwen command."
+
+        # ============================
         # LAYER 8: INTENT PARSING & CORE COMMANDS
         # ============================
         intent, meta = parse_intent(text)
