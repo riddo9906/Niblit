@@ -68,6 +68,7 @@ EVENT_POLICY_OPTIMIZED   = "policy.optimized"
 EVENT_EVOLUTION_OUTCOME  = "evolution.outcome"   # Phase 6: emitted by feedback_learner
 EVENT_CONTEXT_MISMATCH   = "context.mismatch"    # Phase 8: emitted by context_guard
 EVENT_INTENT_DRIFT       = "intent.drift"         # Phase 8.5: emitted by intent_anchor_engine
+EVENT_MODE_LOCKED        = "stability.mode_locked" # Phase 9: emitted by stability_controller
 
 
 @dataclass

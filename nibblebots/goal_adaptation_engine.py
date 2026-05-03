@@ -89,7 +89,8 @@ def _load_state() -> Dict[str, Any]:
             return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             pass
-    return {"pending_goal": None, "pending_count": 0, "current_goal": "stability"}
+    return {"pending_goal": None, "pending_count": 0, "current_goal": "stability",
+            "last_goal": None, "cycles_in_goal": 0}
 
 
 def _save_state(state: Dict[str, Any]) -> None:
@@ -222,6 +223,8 @@ def evaluate(snapshot: Dict[str, Any]) -> str:
         # Goal confirmed — reset hysteresis counter
         state["pending_goal"] = None
         state["pending_count"] = 0
+        # Track cycles in current goal (for stability_controller awareness)
+        state["cycles_in_goal"] = state.get("cycles_in_goal", 0) + 1
     elif desired_goal == state.get("pending_goal"):
         # Same pending goal as before — increment counter
         state["pending_count"] = state.get("pending_count", 0) + 1
@@ -233,13 +236,16 @@ def evaluate(snapshot: Dict[str, Any]) -> str:
                 f"({reason})"
             )
             objective_engine.update_goal(desired_goal)
+            state["last_goal"] = current_goal
             state["current_goal"] = desired_goal
             state["pending_goal"] = None
             state["pending_count"] = 0
+            state["cycles_in_goal"] = 1
     else:
         # New pending goal, start counting
         state["pending_goal"] = desired_goal
         state["pending_count"] = 1
+        state["cycles_in_goal"] = state.get("cycles_in_goal", 0) + 1
 
     _save_state(state)
     return state["current_goal"]
@@ -248,6 +254,16 @@ def evaluate(snapshot: Dict[str, Any]) -> str:
 def get_current_goal() -> str:
     """Return the current adapted goal without triggering a re-evaluation."""
     return _load_state().get("current_goal", "stability")
+
+
+def get_cycles_in_goal() -> int:
+    """Return the number of consecutive cycles the current goal has been active."""
+    return int(_load_state().get("cycles_in_goal", 0))
+
+
+def get_last_goal() -> Optional[str]:
+    """Return the goal that preceded the current one (None if unchanged since init)."""
+    return _load_state().get("last_goal")
 
 
 def get_adaptation_log(last_n: int = 20) -> List[Dict[str, Any]]:

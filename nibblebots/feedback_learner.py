@@ -413,6 +413,16 @@ def _evaluate_real_world_value(
                 value_delta=assessment.delta,
                 signal_confidence=after_snapshot.get("avg_confidence", 1.0),
             )
+
+        # Phase 9: record cycle outcome in stability_controller (best-effort)
+        try:
+            from nibblebots import stability_controller as _sc  # noqa: PLC0415
+            from nibblebots import strategic_planner as _sp  # noqa: PLC0415
+            _mode = _sc.status().get("current_mode", "exploit")
+            _outcome_score = float(assessment.delta) if assessment.delta is not None else 0.0
+            _sc.record_cycle(mode=_mode, outcome_score=_outcome_score)
+        except Exception:  # noqa: BLE001
+            pass
     except Exception:  # noqa: BLE001
         pass   # Phase 8 is strictly best-effort
 

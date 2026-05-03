@@ -299,6 +299,18 @@ def decide(
         risk_budget = 0.25 if not exploring else 0.40
 
     mode = "explore" if exploring else "exploit"
+
+    # Phase 9: apply stability controller — mode locking + hysteresis + penalty
+    avg_confidence: float = 1.0
+    if reality_snapshot is not None:
+        avg_confidence = float(reality_snapshot.get("avg_confidence", 1.0))
+    try:
+        from nibblebots import stability_controller as _sc  # noqa: PLC0415
+        _momentum = _sc.get_momentum(best_net_score)
+        mode = _sc.resolve_mode(mode, confidence=avg_confidence, momentum=_momentum)
+    except Exception:  # noqa: BLE001
+        pass
+
     reason_parts = [
         f"goal={goal}",
         f"best_net_score={best_net_score:.4f}",
