@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nibblebots/causal_strategy_engine.py — Phase 10 Causal Strategy Learning
+nibblebots/causal_strategy_engine.py — Phase 10/11 Causal Strategy Learning
 
 Moves the system from mode→outcome tracking to condition→outcome rule
 formation.  Instead of "exploration worked", the system learns:
@@ -60,17 +60,48 @@ Four defences against confident-but-wrong rule lock-in:
   ``round(base × trust × (1 − variance))`` and clamped to
   ``CSE_MAX_SAFE_BATCH``, limiting blast radius under high-variance rules.
 
+Validation (Phase 11)
+----------------------
+Four additional mechanisms to move from correlation to causation:
+
+* **Paired counterfactual scoring** — when a counterfactual is issued,
+  the expected outcome (blended_mean of matched rules) is stored in state.
+  The next ``record_episode()`` call picks it up, computes
+  ``counterfactual_delta = actual − expected``, and accumulates it on the
+  rule via ``counterfactual_score`` in ``derive_rules()``.  Positive delta
+  means the inverted strategy outperformed expectations; negative means the
+  original strategy was genuinely better.
+
+* **Rule-blending agreement factor** — when top-K rules are blended, the
+  variance of their exploration-rate suggestions is computed.  High
+  disagreement between rules reduces effective trust:
+  ``agreement = 1 / (1 + pvariance(explore_deltas))``.  This prevents
+  confidently blending contradictory rules.
+
+* **Dominance detection** — every query increments a per-rule usage
+  counter.  Rules whose selection rate exceeds ``CSE_DOMINANCE_THRESHOLD``
+  (70 %) receive a trust penalty of ``CSE_DOMINANCE_PENALTY``, discouraging
+  strategy monoculture and keeping exploration alive.
+
+* **Directional advice** — ``StrategyAdvice`` now carries
+  ``target_subsystem`` and ``priority_fix_type`` derived from the episode
+  majority of the best-matched rule.  This upgrades the advice from
+  execution control ("how much to explore") to directional intelligence
+  ("where to focus").
+
 Constants (overridable via env vars)
 -------------------------------------
-CSE_MIN_RULE_SAMPLES    : int   (env: CSE_MIN_RULE_SAMPLES,   default 5)
-CSE_RULE_WINDOW         : int   (env: CSE_RULE_WINDOW,        default 100)
-CSE_RECENCY_DECAY       : float (env: CSE_RECENCY_DECAY,      default 30.0)
-CSE_VARIANCE_THRESHOLD  : float (env: CSE_VARIANCE_THRESHOLD, default 0.15)
-CSE_DERIVE_INTERVAL     : int   (env: CSE_DERIVE_INTERVAL,    default 10)
-CSE_COUNTERFACTUAL_RATE : float (env: CSE_COUNTERFACTUAL_RATE, default 0.10)
-CSE_RULE_DECAY          : float (env: CSE_RULE_DECAY,          default 100.0)
-CSE_SOFT_MATCH_TOP_K    : int   (env: CSE_SOFT_MATCH_TOP_K,    default 3)
-CSE_MAX_SAFE_BATCH      : int   (env: CSE_MAX_SAFE_BATCH,       default 5)
+CSE_MIN_RULE_SAMPLES      : int   (env: CSE_MIN_RULE_SAMPLES,       default 5)
+CSE_RULE_WINDOW           : int   (env: CSE_RULE_WINDOW,            default 100)
+CSE_RECENCY_DECAY         : float (env: CSE_RECENCY_DECAY,          default 30.0)
+CSE_VARIANCE_THRESHOLD    : float (env: CSE_VARIANCE_THRESHOLD,     default 0.15)
+CSE_DERIVE_INTERVAL       : int   (env: CSE_DERIVE_INTERVAL,        default 10)
+CSE_COUNTERFACTUAL_RATE   : float (env: CSE_COUNTERFACTUAL_RATE,    default 0.10)
+CSE_RULE_DECAY            : float (env: CSE_RULE_DECAY,             default 100.0)
+CSE_SOFT_MATCH_TOP_K      : int   (env: CSE_SOFT_MATCH_TOP_K,       default 3)
+CSE_MAX_SAFE_BATCH        : int   (env: CSE_MAX_SAFE_BATCH,         default 5)
+CSE_DOMINANCE_THRESHOLD   : float (env: CSE_DOMINANCE_THRESHOLD,    default 0.70)
+CSE_DOMINANCE_PENALTY     : float (env: CSE_DOMINANCE_PENALTY,      default 0.10)
 """
 
 from __future__ import annotations
@@ -116,6 +147,15 @@ CSE_SOFT_MATCH_TOP_K: int = int(os.environ.get("CSE_SOFT_MATCH_TOP_K", "3"))
 # Blast-radius cap for recommended batch size under uncertainty.
 CSE_MAX_SAFE_BATCH: int = int(os.environ.get("CSE_MAX_SAFE_BATCH", "5"))
 
+# Dominance detection: rules selected more than this fraction of total
+# queries receive a trust penalty to prevent strategy monoculture.
+CSE_DOMINANCE_THRESHOLD: float = float(
+    os.environ.get("CSE_DOMINANCE_THRESHOLD", "0.70")
+)
+CSE_DOMINANCE_PENALTY: float = float(
+    os.environ.get("CSE_DOMINANCE_PENALTY", "0.10")
+)
+
 # Confidence (and signal) bands: (lower_inclusive, upper_exclusive, label)
 # The last band uses 1.01 so that value == 1.0 is captured as "high".
 CSE_CONFIDENCE_BANDS: List[Tuple[float, float, str]] = [
@@ -147,6 +187,8 @@ class StrategyAdvice:
         "rationale",                # str: human-readable reason for audit log
         "is_counterfactual",        # bool: True when strategy was deliberately
                                     #       inverted for counterfactual testing
+        "target_subsystem",         # str: subsystem to focus on (may be empty)
+        "priority_fix_type",        # str: fix type to prioritise (may be empty)
     )
 
     def __init__(
@@ -158,6 +200,8 @@ class StrategyAdvice:
         confidence: float = 0.0,
         rationale: str = "",
         is_counterfactual: bool = False,
+        target_subsystem: str = "",
+        priority_fix_type: str = "",
     ) -> None:
         self.exploration_rate_delta = float(exploration_rate_delta)
         self.force_stability = bool(force_stability)
@@ -166,6 +210,8 @@ class StrategyAdvice:
         self.confidence = float(confidence)
         self.rationale = str(rationale)
         self.is_counterfactual = bool(is_counterfactual)
+        self.target_subsystem = str(target_subsystem)
+        self.priority_fix_type = str(priority_fix_type)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -176,15 +222,22 @@ class StrategyAdvice:
             "confidence": round(self.confidence, 4),
             "rationale": self.rationale,
             "is_counterfactual": self.is_counterfactual,
+            "target_subsystem": self.target_subsystem,
+            "priority_fix_type": self.priority_fix_type,
         }
 
     def __repr__(self) -> str:
         cf = " [COUNTERFACTUAL]" if self.is_counterfactual else ""
+        direction = ""
+        if self.target_subsystem:
+            direction = f" subsystem={self.target_subsystem!r}"
+        if self.priority_fix_type:
+            direction += f" fix={self.priority_fix_type!r}"
         return (
             f"StrategyAdvice(explore_delta={self.exploration_rate_delta:+.3f}, "
             f"batch={self.recommended_batch_size}, "
             f"conf={self.confidence:.3f}, "
-            f"rationale={self.rationale!r}{cf})"
+            f"rationale={self.rationale!r}{cf}{direction})"
         )
 
 
@@ -271,6 +324,9 @@ def _load_state() -> Dict[str, Any]:
         "rules": [],
         "episode_count": 0,
         "last_derive_count": 0,
+        "query_count": 0,             # Phase 11: total query calls for dominance calc
+        "rule_usage_counts": {},      # Phase 11: {rule_key: int} usage frequency
+        "pending_counterfactual": None,  # Phase 11: {expected_outcome, rule_key} or None
     }
 
 
@@ -323,6 +379,11 @@ def record_episode(
     variance     : variance estimate of recent outcomes (0.0 if unavailable)
     fix_type     : dominant fix type applied this cycle
     subsystem    : dominant subsystem targeted this cycle
+
+    Phase 11: if a counterfactual was previously dispatched
+    (``pending_counterfactual`` set in state), this episode's
+    ``counterfactual_delta`` is computed as ``outcome − expected_outcome``
+    and stored so ``derive_rules()`` can aggregate it per-rule.
     """
     state = _load_state()
     episodes: List[Dict[str, Any]] = state.get("episodes", [])
@@ -346,6 +407,15 @@ def record_episode(
         "var_band": var_band,
         "episode_index": episode_count,  # monotonic index for recency weighting
     }
+
+    # Phase 11: consume pending counterfactual — compute delta vs expected outcome.
+    pending_cf = state.get("pending_counterfactual")
+    if pending_cf is not None:
+        expected = float(pending_cf.get("expected_outcome", outcome))
+        episode["counterfactual_delta"] = round(float(outcome) - expected, 4)
+        episode["counterfactual_rule_key"] = pending_cf.get("rule_key", "")
+        state["pending_counterfactual"] = None  # consumed
+
     episodes.append(episode)
     episode_count += 1
     state["episodes"] = episodes
@@ -439,6 +509,17 @@ def derive_rules() -> List[Dict[str, Any]]:
     Rules are grouped by (mode × confidence_band × signal_band × variance_band).
     Only groups with at least ``CSE_MIN_RULE_SAMPLES`` episodes are promoted.
 
+    Phase 11 additions
+    ------------------
+    * ``target_subsystem`` — the most common subsystem across the group's
+      episodes; guides the planner on *where* to focus.
+    * ``priority_fix_type`` — the most common fix_type across the group's
+      episodes; guides selection of which fix category to prioritise.
+    * ``counterfactual_score`` — mean of ``counterfactual_delta`` values
+      from episodes that were recorded immediately after a counterfactual
+      dispatch for this rule.  Positive = inverted strategy beat expectations;
+      negative = original strategy was genuinely better.
+
     Returns the list of derived rules (also persisted to state and audit log).
     """
     state = _load_state()
@@ -481,6 +562,36 @@ def derive_rules() -> List[Dict[str, Any]]:
             parts[0], parts[1], parts[2], parts[3]
         )
 
+        # Phase 11: derive directional hints from episode majority vote.
+        subsystem_counts: Dict[str, int] = {}
+        fix_type_counts: Dict[str, int] = {}
+        for ep in recent_eps:
+            sub = ep.get("subsystem", "")
+            ft = ep.get("fix_type", "")
+            if sub:
+                subsystem_counts[sub] = subsystem_counts.get(sub, 0) + 1
+            if ft:
+                fix_type_counts[ft] = fix_type_counts.get(ft, 0) + 1
+
+        target_subsystem = (
+            max(subsystem_counts, key=lambda k: subsystem_counts[k])
+            if subsystem_counts else ""
+        )
+        priority_fix_type = (
+            max(fix_type_counts, key=lambda k: fix_type_counts[k])
+            if fix_type_counts else ""
+        )
+
+        # Phase 11: aggregate counterfactual scores for episodes attributed
+        # to this rule key.
+        cf_deltas = [
+            float(ep["counterfactual_delta"])
+            for ep in recent_eps
+            if "counterfactual_delta" in ep
+            and ep.get("counterfactual_rule_key", "") == key
+        ]
+        counterfactual_score = round(sum(cf_deltas) / len(cf_deltas), 4) if cf_deltas else 0.0
+
         rule: Dict[str, Any] = {
             "key": key,
             "conditions": {
@@ -493,6 +604,9 @@ def derive_rules() -> List[Dict[str, Any]]:
             "recommended_adjustments": adjustments,
             "trust_score": stats["trust_score"],
             "derived_at_index": episode_count,  # for age-based decay in query_strategy
+            "target_subsystem": target_subsystem,    # Phase 11
+            "priority_fix_type": priority_fix_type,  # Phase 11
+            "counterfactual_score": counterfactual_score,  # Phase 11
         }
         rules.append(rule)
 
@@ -544,10 +658,35 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     4. **Risk-adjusted batch size** — batch is capped at
        ``CSE_MAX_SAFE_BATCH`` and scaled by trust × (1 − variance), already
        baked into ``recommended_adjustments`` during ``derive_rules()``.
+
+    Phase 11 additions
+    ------------------
+    5. **Agreement factor** — the variance of explore-delta values across
+       top-K rules is used to compute
+       ``agreement = 1 / (1 + pvariance(explore_deltas))``.  High
+       disagreement reduces effective trust, preventing confident blending
+       of contradictory rules.
+
+    6. **Dominance detection** — tracks per-rule selection frequency; rules
+       exceeding ``CSE_DOMINANCE_THRESHOLD`` receive a
+       ``CSE_DOMINANCE_PENALTY`` trust reduction to prevent monoculture.
+
+    7. **Paired counterfactual scoring** — when issuing a counterfactual
+       inversion, the expected outcome (blended_mean) is stored in state as
+       ``pending_counterfactual``.  The next ``record_episode()`` call reads
+       it, computes ``actual − expected``, and stores the delta so
+       ``derive_rules()`` can aggregate it as ``counterfactual_score``.
+
+    8. **Directional advice** — ``StrategyAdvice.target_subsystem`` and
+       ``priority_fix_type`` are populated from the best-matched rule's
+       episode majority, upgrading the advice from execution control to
+       directional intelligence.
     """
     state = _load_state()
     rules: List[Dict[str, Any]] = state.get("rules", [])
     episode_count: int = state.get("episode_count", 0)
+    query_count: int = int(state.get("query_count", 0))
+    rule_usage_counts: Dict[str, int] = state.get("rule_usage_counts", {})
 
     confidence = float(current_context.get("confidence", 0.5))
     signal_conf = float(current_context.get("signal_conf", 0.5))
@@ -558,8 +697,13 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     signal_band = _bucket_confidence(signal_conf)
     var_band = _bucket_variance(variance)
 
+    # Increment global query counter (Phase 11 dominance tracking)
+    query_count += 1
+    state["query_count"] = query_count
+
     if not rules:
         # No rules derived yet — unknown zone
+        _save_state(state)
         return StrategyAdvice(
             exploration_rate_delta=+0.10,
             force_exploration=True,
@@ -596,6 +740,7 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     # (e.g. mode mismatch + large numeric gap) — treat as unknown zone.
     best_dist = top_k[0][0]
     if best_dist >= 1.0:
+        _save_state(state)
         return StrategyAdvice(
             exploration_rate_delta=+0.10,
             force_exploration=True,
@@ -620,12 +765,15 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     batch_votes: List[int] = []
     blended_mean = 0.0
     blended_variance = 0.0
+    explore_deltas: List[float] = []  # Phase 11: for agreement factor
 
     for _dist, dt, rule in top_k:
         w = dt / total_weight
         adj = rule.get("recommended_adjustments", {})
         stats = rule.get("outcome_stats", {})
-        blended_explore_delta += float(adj.get("exploration_rate_delta", 0.0)) * w
+        delta = float(adj.get("exploration_rate_delta", 0.0))
+        blended_explore_delta += delta * w
+        explore_deltas.append(delta)
         batch_votes.append(int(adj.get("batch_size", 2)))
         blended_mean += float(stats.get("mean", 0.0)) * w
         blended_variance += float(stats.get("variance", 0.0)) * w
@@ -639,6 +787,40 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     effective_trust = total_weight / len(top_k) if len(top_k) > 0 else 0.0
     # Normalise so it stays in [0, 1]
     effective_trust = min(1.0, effective_trust)
+
+    # ------------------------------------------------------------------
+    # Phase 11.5: Agreement factor — penalise blending of contradictory rules.
+    # agreement = 1 / (1 + pvariance(explore_deltas))
+    # Reduces trust when top-k rules disagree on exploration direction.
+    # ------------------------------------------------------------------
+    if len(explore_deltas) > 1:
+        delta_variance = statistics.pvariance(explore_deltas)
+        agreement = 1.0 / (1.0 + delta_variance)
+        effective_trust *= agreement
+    else:
+        agreement = 1.0
+
+    # ------------------------------------------------------------------
+    # Phase 11.6: Dominance detection — penalise overly-dominant rules.
+    # ------------------------------------------------------------------
+    best_rule_key = top_k[0][2].get("key", "")
+    if best_rule_key and query_count > 0:
+        usage = int(rule_usage_counts.get(best_rule_key, 0))
+        usage_rate = usage / query_count
+        if usage_rate > CSE_DOMINANCE_THRESHOLD:
+            effective_trust = max(0.0, effective_trust - CSE_DOMINANCE_PENALTY)
+    # Track usage of the top-1 selected rule
+    if best_rule_key:
+        rule_usage_counts[best_rule_key] = int(rule_usage_counts.get(best_rule_key, 0)) + 1
+    state["rule_usage_counts"] = rule_usage_counts
+
+    # ------------------------------------------------------------------
+    # Phase 11.8: Directional advice — populate subsystem / fix_type hints
+    # from the best-matched rule's episode majority.
+    # ------------------------------------------------------------------
+    best_rule = top_k[0][2]
+    target_subsystem = str(best_rule.get("target_subsystem", ""))
+    priority_fix_type = str(best_rule.get("priority_fix_type", ""))
 
     # ------------------------------------------------------------------
     # 3. Determine force flags from blended statistics
@@ -659,13 +841,14 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     rationale = (
         f"{rule_type}_blended(k={len(top_k)}): "
         f"mean={blended_mean:.3f} var={blended_variance:.3f} "
-        f"trust={effective_trust:.3f} dist={best_dist:.3f} "
+        f"trust={effective_trust:.3f} agree={agreement:.3f} dist={best_dist:.3f} "
         f"→ explore_delta={blended_explore_delta:+.3f} batch={blended_batch}"
     )
 
     # ------------------------------------------------------------------
     # 4. Counterfactual pressure: deliberately invert the strategy
     #    when the matched rule is highly trusted, to prevent lock-in.
+    #    Phase 11: also persist expected outcome for paired scoring.
     # ------------------------------------------------------------------
     is_counterfactual = False
     if (
@@ -673,6 +856,12 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
         and random.random() < CSE_COUNTERFACTUAL_RATE
     ):
         is_counterfactual = True
+        # Phase 11: store expected outcome so the next record_episode()
+        # can compute counterfactual_delta = actual − expected.
+        state["pending_counterfactual"] = {
+            "expected_outcome": round(blended_mean, 4),
+            "rule_key": best_rule_key,
+        }
         # Invert: flip exploration delta sign, shrink batch to 1 when
         # the rule recommended exploit, or increase it when it recommended
         # penalise.
@@ -684,6 +873,8 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
             f"inverted → explore_delta={blended_explore_delta:+.3f} batch={blended_batch}"
         )
 
+    _save_state(state)
+
     return StrategyAdvice(
         exploration_rate_delta=blended_explore_delta,
         force_stability=force_stability,
@@ -692,6 +883,8 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
         confidence=effective_trust,
         rationale=rationale,
         is_counterfactual=is_counterfactual,
+        target_subsystem=target_subsystem,
+        priority_fix_type=priority_fix_type,
     )
 
 
@@ -703,10 +896,25 @@ def status() -> Dict[str, Any]:
     """Return a summary of the causal strategy engine state."""
     state = _load_state()
     rules = state.get("rules", [])
+    query_count = int(state.get("query_count", 0))
+    rule_usage_counts: Dict[str, int] = state.get("rule_usage_counts", {})
+
+    # Compute dominance summary: rules whose usage_rate > threshold
+    dominant_rules = []
+    if query_count > 0:
+        for r in rules:
+            key = r.get("key", "")
+            usage = int(rule_usage_counts.get(key, 0))
+            rate = usage / query_count
+            if rate > CSE_DOMINANCE_THRESHOLD:
+                dominant_rules.append({"key": key, "usage_rate": round(rate, 3)})
+
     return {
         "episode_count": state.get("episode_count", 0),
         "last_derive_count": state.get("last_derive_count", 0),
         "rule_count": len(rules),
+        "query_count": query_count,
+        "dominant_rules": dominant_rules,
         "top_rules": rules[:5],
         "cse_min_rule_samples": CSE_MIN_RULE_SAMPLES,
         "cse_variance_threshold": CSE_VARIANCE_THRESHOLD,
@@ -717,4 +925,6 @@ def status() -> Dict[str, Any]:
         "cse_rule_decay": CSE_RULE_DECAY,
         "cse_soft_match_top_k": CSE_SOFT_MATCH_TOP_K,
         "cse_max_safe_batch": CSE_MAX_SAFE_BATCH,
+        "cse_dominance_threshold": CSE_DOMINANCE_THRESHOLD,
+        "cse_dominance_penalty": CSE_DOMINANCE_PENALTY,
     }
