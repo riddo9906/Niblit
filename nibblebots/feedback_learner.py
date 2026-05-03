@@ -418,17 +418,19 @@ def _evaluate_real_world_value(
         # Phase 9.5: also pass contextual conditions for context-aware memory
         try:
             from nibblebots import stability_controller as _sc  # noqa: PLC0415
+            from nibblebots import intent_anchor_engine as _iae  # noqa: PLC0415
             _mode = _sc.status().get("current_mode", "exploit")
             _outcome_score = float(assessment.delta) if assessment.delta is not None else 0.0
+            # avg_confidence is the primary signal reliability measure from SIE
             _avg_confidence = float(after_snapshot.get("avg_confidence", 0.5))
-            _signal_reliability = float(after_snapshot.get("signal_reliability", _avg_confidence))
-            _intent_alignment = float(after_snapshot.get("intent_alignment", 1.0))
+            # intent_alignment comes from the intent_anchor_engine rolling score
+            _intent_alignment = float(_iae.get_rolling_score())
             _sc.record_cycle(
                 mode=_mode,
                 outcome_score=_outcome_score,
                 confidence=_avg_confidence,
                 intent_alignment=_intent_alignment,
-                signal_reliability=_signal_reliability,
+                signal_reliability=_avg_confidence,
             )
         except Exception:  # noqa: BLE001
             pass

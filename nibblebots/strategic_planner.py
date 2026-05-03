@@ -301,13 +301,28 @@ def decide(
     mode = "explore" if exploring else "exploit"
 
     # Phase 9: apply stability controller — mode locking + hysteresis + penalty
+    # Phase 9.5: pass signal_conf + intent_score for contextual mode memory
     avg_confidence: float = 1.0
+    signal_conf: float = 1.0
+    intent_score: float = 1.0
     if reality_snapshot is not None:
         avg_confidence = float(reality_snapshot.get("avg_confidence", 1.0))
+        signal_conf = avg_confidence  # avg_confidence is the primary signal reliability measure
+    try:
+        from nibblebots import intent_anchor_engine as _iae  # noqa: PLC0415
+        intent_score = float(_iae.get_rolling_score())
+    except Exception:  # noqa: BLE001
+        pass
     try:
         from nibblebots import stability_controller as _sc  # noqa: PLC0415
         _momentum = _sc.get_momentum(best_net_score)
-        mode = _sc.resolve_mode(mode, confidence=avg_confidence, momentum=_momentum)
+        mode = _sc.resolve_mode(
+            mode,
+            confidence=avg_confidence,
+            momentum=_momentum,
+            signal_conf=signal_conf,
+            intent_score=intent_score,
+        )
     except Exception:  # noqa: BLE001
         pass
 
