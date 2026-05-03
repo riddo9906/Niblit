@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nibblebots/stability_controller.py — Phase 9.5 Stability Controller
+nibblebots/stability_controller.py — Phase 9.5b Stability Controller
 
 Prevents the "self-oscillation" failure mode where the system thrashes
 between stability and exploration modes faster than it can learn from
@@ -21,7 +21,7 @@ The system never accumulates compounding improvements.
 
 Solution
 --------
-Four complementary mechanisms:
+Five complementary mechanisms:
 
 1. **Mode locking** (minimum duration)
    Once a mode is entered, it cannot be exited until
@@ -44,10 +44,33 @@ Four complementary mechanisms:
    Every cycle is recorded with its *conditions* (confidence,
    intent_alignment, signal_reliability) alongside the outcome score.
    ``get_mode_score()`` looks up similar past conditions and returns
-   the average outcome for a given mode.  ``resolve_mode()`` uses these
-   scores to favour exploration when history shows exploration
-   outperforms stability under the *current* conditions — solving the
-   "context-blind stability bias" failure mode.
+   a *statistically-grounded* score for a given mode.
+
+   Phase 9.5b upgrades the raw-average lookup with three filters that
+   prevent false-pattern reinforcement from noisy or sparse data:
+
+   a. **Recency weighting** — outcomes are weighted by
+      ``exp(-age / CONTEXT_RECENCY_DECAY)`` so recent evidence counts
+      more than stale data.
+
+   b. **Sample-confidence scaling** — if fewer than
+      ``CONTEXT_MEMORY_MIN_SAMPLES`` similar records exist the score is
+      scaled down proportionally, preventing a single lucky run from
+      dominating the decision.
+
+   c. **Variance penalty** — high variance across similar-condition
+      outcomes reduces the returned score via
+      ``1 / (1 + population_variance)``, discounting inconsistent modes.
+
+   ``resolve_mode()`` uses these scores to favour exploration when
+   history *reliably* shows exploration outperforms stability.
+
+5. **Exploration epsilon** (Phase 9.5b)
+   With probability ``CONTEXT_EXPLORATION_EPSILON`` (default 0.05) the
+   controller overrides a settled non-exploration mode and forces
+   "explore" for one cycle.  This prevents the system from getting stuck
+   in a local optimum when memory consistently but incorrectly discourages
+   exploration.
 
 Public API
 ----------
@@ -60,40 +83,52 @@ Public API
     controller can learn mode effectiveness per condition.
 
 ``get_mode_score(mode, confidence, signal_conf)``
-    Return the average outcome for ``mode`` under conditions similar to
-    the given confidence and signal_conf values.  Returns 0.0 when no
-    similar history exists.
+    Return the recency-weighted, confidence-scaled, variance-penalised
+    outcome score for ``mode`` under conditions similar to the provided
+    values.  Returns 0.0 when no similar history exists.
 
 ``status()``
     Returns a dict summarising current controller state for logging.
 
 Constants (overridable via env vars)
 -------------------------------------
-MODE_MIN_DURATION         : int    (env: SC_MODE_MIN_DURATION, default 5)
-                            Minimum cycles before a mode can be changed.
-CONFIDENCE_ENTER_STABILITY: float  (env: SC_CONF_ENTER_STAB, default 0.45)
-                            confidence below this triggers stability mode.
-CONFIDENCE_EXIT_STABILITY : float  (env: SC_CONF_EXIT_STAB, default 0.65)
-                            confidence must exceed this to leave stability.
-SWITCH_PENALTY_DECAY      : float  (env: SC_SWITCH_DECAY, default 0.05)
-                            Penalty added per recent switch.
-SWITCH_PENALTY_MAX        : float  (env: SC_SWITCH_PENALTY_MAX, default 0.25)
-                            Hard cap on switch penalty (prevents stuck-mode).
-SWITCH_WINDOW             : int    (env: SC_SWITCH_WINDOW, default 10)
-                            Number of recent cycles tracked for switch penalty.
-CONTEXT_MEMORY_MAX        : int    (env: SC_CTX_MEMORY_MAX, default 200)
-                            Maximum number of contextual cycle records kept.
-CONTEXT_SIMILARITY_BAND   : float  (env: SC_CTX_BAND, default 0.1)
-                            Tolerance for matching conditions in get_mode_score.
-EXPLORATION_BIAS_THRESHOLD: float  (env: SC_EXPLORE_BIAS, default 0.05)
-                            Margin by which exploration_score must exceed
-                            stability_score to favour exploration.
+MODE_MIN_DURATION           : int    (env: SC_MODE_MIN_DURATION, default 5)
+                              Minimum cycles before a mode can be changed.
+CONFIDENCE_ENTER_STABILITY  : float  (env: SC_CONF_ENTER_STAB, default 0.45)
+                              confidence below this triggers stability mode.
+CONFIDENCE_EXIT_STABILITY   : float  (env: SC_CONF_EXIT_STAB, default 0.65)
+                              confidence must exceed this to leave stability.
+SWITCH_PENALTY_DECAY        : float  (env: SC_SWITCH_DECAY, default 0.05)
+                              Penalty added per recent switch.
+SWITCH_PENALTY_MAX          : float  (env: SC_SWITCH_PENALTY_MAX, default 0.25)
+                              Hard cap on switch penalty (prevents stuck-mode).
+SWITCH_WINDOW               : int    (env: SC_SWITCH_WINDOW, default 10)
+                              Number of recent cycles tracked for switch penalty.
+CONTEXT_MEMORY_MAX          : int    (env: SC_CTX_MEMORY_MAX, default 200)
+                              Maximum number of contextual cycle records kept.
+CONTEXT_SIMILARITY_BAND     : float  (env: SC_CTX_BAND, default 0.1)
+                              Tolerance for matching conditions in get_mode_score.
+CONTEXT_MEMORY_MIN_SAMPLES  : int    (env: SC_CTX_MIN_SAMPLES, default 5)
+                              Minimum similar records needed for full trust.
+                              Below this the score is scaled down proportionally.
+CONTEXT_RECENCY_DECAY       : float  (env: SC_CTX_RECENCY_DECAY, default 50)
+                              Exponential decay half-life (in cycles) for
+                              recency weighting in get_mode_score.
+EXPLORATION_BIAS_THRESHOLD  : float  (env: SC_EXPLORE_BIAS, default 0.05)
+                              Margin by which exploration_score must exceed
+                              stability_score to favour exploration.
+CONTEXT_EXPLORATION_EPSILON : float  (env: SC_CTX_EXPLORE_EPSILON, default 0.05)
+                              Probability of a forced exploration probe each
+                              cycle to prevent long-term stagnation.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
+import random
+import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -117,6 +152,13 @@ SWITCH_WINDOW: int = int(os.environ.get("SC_SWITCH_WINDOW", "10"))
 CONTEXT_MEMORY_MAX: int = int(os.environ.get("SC_CTX_MEMORY_MAX", "200"))
 CONTEXT_SIMILARITY_BAND: float = float(os.environ.get("SC_CTX_BAND", "0.1"))
 EXPLORATION_BIAS_THRESHOLD: float = float(os.environ.get("SC_EXPLORE_BIAS", "0.05"))
+
+# Phase 9.5b: statistically-grounded memory scoring
+CONTEXT_MEMORY_MIN_SAMPLES: int = int(os.environ.get("SC_CTX_MIN_SAMPLES", "5"))
+CONTEXT_RECENCY_DECAY: float = float(os.environ.get("SC_CTX_RECENCY_DECAY", "50"))
+CONTEXT_EXPLORATION_EPSILON: float = float(
+    os.environ.get("SC_CTX_EXPLORE_EPSILON", "0.05")
+)
 
 _STATE_FILE = Path(__file__).parent / "stability_controller_state.json"
 _LOG_FILE = Path(__file__).parent / "stability_controller_log.jsonl"
@@ -224,11 +266,27 @@ def get_mode_score(
     confidence: float,
     signal_conf: float,
 ) -> float:
-    """Return the average outcome for *mode* under similar past conditions.
+    """Return a statistically-grounded outcome score for *mode* under similar
+    past conditions.
 
     "Similar" is defined as records where both *confidence* and
     *signal_reliability* fall within ``CONTEXT_SIMILARITY_BAND`` of the
     provided values.
+
+    Phase 9.5b upgrade — the raw average is replaced with three filters:
+
+    1. **Recency weighting** — each record is weighted by
+       ``exp(-age / CONTEXT_RECENCY_DECAY)`` where *age* is the number of
+       records recorded since that entry.  Recent evidence counts more.
+
+    2. **Sample-confidence scaling** — if fewer than
+       ``CONTEXT_MEMORY_MIN_SAMPLES`` similar records are found, the score
+       is scaled down linearly so a single lucky result cannot dominate
+       the decision.
+
+    3. **Variance penalty** — the weighted average is multiplied by
+       ``1 / (1 + population_variance)`` of the similar-condition outcomes,
+       reducing trust in modes that have produced inconsistent results.
 
     Parameters
     ----------
@@ -238,19 +296,53 @@ def get_mode_score(
 
     Returns
     -------
-    float : average outcome score, or 0.0 if no similar records exist.
+    float : adjusted outcome score in [0, 1], or 0.0 if no similar records exist.
     """
     state = _load_state()
     history: List[Dict[str, Any]] = state.get("context_history", [])
+
     similar = [
         r for r in history
         if r.get("mode") == mode
         and abs(r.get("confidence", 0.0) - confidence) < CONTEXT_SIMILARITY_BAND
         and abs(r.get("signal_reliability", 0.0) - signal_conf) < CONTEXT_SIMILARITY_BAND
     ]
-    if not similar:
+    n = len(similar)
+    if n == 0:
         return 0.0
-    return sum(float(r.get("outcome", 0.0)) for r in similar) / len(similar)
+
+    # Sample-confidence: scale down when evidence is sparse
+    sample_confidence = min(1.0, n / max(1, CONTEXT_MEMORY_MIN_SAMPLES))
+
+    # Recency weighting: newer records get higher weight
+    # Use list position as proxy for cycle age (larger index = more recent)
+    # The global history list grows monotonically; compute index-based age.
+    max_idx = len(history) - 1
+    weighted_sum = 0.0
+    total_weight = 0.0
+    for r in similar:
+        # Prefer stored cycle_index; fall back to linear scan position
+        record_idx = r.get("cycle_index", history.index(r) if r in history else 0)
+        age = max(0, max_idx - record_idx)
+        w = math.exp(-age / max(1.0, CONTEXT_RECENCY_DECAY))
+        outcome = float(r.get("outcome", 0.0))
+        weighted_sum += outcome * w
+        total_weight += w
+
+    if total_weight == 0.0:
+        return 0.0
+
+    weighted_avg = weighted_sum / total_weight
+
+    # Variance penalty: inconsistent history is less trustworthy
+    if n > 1:
+        outcomes = [float(r.get("outcome", 0.0)) for r in similar]
+        variance = statistics.pvariance(outcomes)
+        stability_factor = 1.0 / (1.0 + variance)
+    else:
+        stability_factor = 1.0
+
+    return weighted_avg * sample_confidence * stability_factor
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +444,25 @@ def resolve_mode(
             "favor_exploration": favor_exploration,
         })
 
+    # Step 3b (Phase 9.5b): Exploration epsilon safeguard
+    # When the system has been settled in a non-exploration mode for at least
+    # MODE_MIN_DURATION cycles, occasionally force one exploration cycle to
+    # prevent long-term stagnation from over-confident memory.
+    if (
+        not switch_occurred
+        and resolved != "explore"
+        and cycles_in_mode >= MODE_MIN_DURATION
+        and random.random() < CONTEXT_EXPLORATION_EPSILON
+    ):
+        resolved = "explore"
+        switch_occurred = True
+        switch_history[-1] = True  # Mark this cycle as a switch
+        _log_event("exploration_epsilon_trigger", {
+            "overridden_mode": current_mode,
+            "cycles_in_mode": cycles_in_mode,
+            "epsilon": CONTEXT_EXPLORATION_EPSILON,
+        })
+
     # Step 4: Update state
     if switch_occurred:
         _log_event("mode_change", {
@@ -416,6 +527,7 @@ def record_cycle(
         "confidence": float(confidence),
         "intent_alignment": float(intent_alignment),
         "signal_reliability": float(signal_reliability),
+        "cycle_index": len(ctx_history),  # Phase 9.5b: monotonic index for recency weighting
     })
     state["context_history"] = ctx_history
 
@@ -484,7 +596,10 @@ def status() -> Dict[str, Any]:
         "confidence_exit_stability": CONFIDENCE_EXIT_STABILITY,
         "context_memory_size": len(ctx_history),
         "context_memory_max": CONTEXT_MEMORY_MAX,
+        "context_memory_min_samples": CONTEXT_MEMORY_MIN_SAMPLES,
+        "context_recency_decay": CONTEXT_RECENCY_DECAY,
         "exploration_bias_threshold": EXPLORATION_BIAS_THRESHOLD,
+        "exploration_epsilon": CONTEXT_EXPLORATION_EPSILON,
     }
 
 
