@@ -39,6 +39,27 @@ The "unknown zone" path directly solves the Phase 9.5b gap: when
 this engine signals maximum uncertainty, triggering aggressive exploration
 rather than treating absence of evidence as evidence of neutrality.
 
+Hardening (Phase 10 post-audit)
+---------------------------------
+Four defences against confident-but-wrong rule lock-in:
+
+* **Soft matching** — rules are ranked by continuous-distance similarity
+  rather than exact band equality, handling near-boundary conditions
+  gracefully (``CSE_SOFT_MATCH_TOP_K`` best rules averaged).
+
+* **Counterfactual pressure** — with probability
+  ``CSE_COUNTERFACTUAL_RATE`` (10 %) the engine deliberately inverts the
+  derived strategy for one cycle when trust > 0.7.  The outcome feeds back
+  into the episode log, preventing premature exploitation lock-in.
+
+* **Rule decay** — trust scores are attenuated by
+  ``exp(-age / CSE_RULE_DECAY)`` where *age* is the number of episodes
+  since the rule was derived, so stale rules lose influence over time.
+
+* **Risk-adjusted batch size** — recommended batch is computed as
+  ``round(base × trust × (1 − variance))`` and clamped to
+  ``CSE_MAX_SAFE_BATCH``, limiting blast radius under high-variance rules.
+
 Constants (overridable via env vars)
 -------------------------------------
 CSE_MIN_RULE_SAMPLES    : int   (env: CSE_MIN_RULE_SAMPLES,   default 5)
@@ -46,6 +67,10 @@ CSE_RULE_WINDOW         : int   (env: CSE_RULE_WINDOW,        default 100)
 CSE_RECENCY_DECAY       : float (env: CSE_RECENCY_DECAY,      default 30.0)
 CSE_VARIANCE_THRESHOLD  : float (env: CSE_VARIANCE_THRESHOLD, default 0.15)
 CSE_DERIVE_INTERVAL     : int   (env: CSE_DERIVE_INTERVAL,    default 10)
+CSE_COUNTERFACTUAL_RATE : float (env: CSE_COUNTERFACTUAL_RATE, default 0.10)
+CSE_RULE_DECAY          : float (env: CSE_RULE_DECAY,          default 100.0)
+CSE_SOFT_MATCH_TOP_K    : int   (env: CSE_SOFT_MATCH_TOP_K,    default 3)
+CSE_MAX_SAFE_BATCH      : int   (env: CSE_MAX_SAFE_BATCH,       default 5)
 """
 
 from __future__ import annotations
@@ -53,6 +78,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import random
 import statistics
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,6 +94,27 @@ CSE_RULE_WINDOW: int = int(os.environ.get("CSE_RULE_WINDOW", "100"))
 CSE_RECENCY_DECAY: float = float(os.environ.get("CSE_RECENCY_DECAY", "30.0"))
 CSE_VARIANCE_THRESHOLD: float = float(os.environ.get("CSE_VARIANCE_THRESHOLD", "0.15"))
 CSE_DERIVE_INTERVAL: int = int(os.environ.get("CSE_DERIVE_INTERVAL", "10"))
+
+# Counterfactual pressure: probability of deliberately inverting a
+# high-confidence rule to prevent exploitation lock-in.
+CSE_COUNTERFACTUAL_RATE: float = float(
+    os.environ.get("CSE_COUNTERFACTUAL_RATE", "0.10")
+)
+# Minimum trust score that triggers counterfactual challenges.
+CSE_COUNTERFACTUAL_MIN_TRUST: float = float(
+    os.environ.get("CSE_COUNTERFACTUAL_MIN_TRUST", "0.70")
+)
+
+# Rule age decay: trust is attenuated by exp(-age/CSE_RULE_DECAY) where
+# age = current_episode_count - rule.derived_at_index.
+CSE_RULE_DECAY: float = float(os.environ.get("CSE_RULE_DECAY", "100.0"))
+
+# Soft matching: take top-k closest rules (by continuous distance) rather
+# than requiring exact band equality.
+CSE_SOFT_MATCH_TOP_K: int = int(os.environ.get("CSE_SOFT_MATCH_TOP_K", "3"))
+
+# Blast-radius cap for recommended batch size under uncertainty.
+CSE_MAX_SAFE_BATCH: int = int(os.environ.get("CSE_MAX_SAFE_BATCH", "5"))
 
 # Confidence (and signal) bands: (lower_inclusive, upper_exclusive, label)
 # The last band uses 1.01 so that value == 1.0 is captured as "high".
@@ -98,6 +145,8 @@ class StrategyAdvice:
         "recommended_batch_size",   # int: hint for evolution_planner max_fixes
         "confidence",               # float [0, 1]: trust score of matched rule
         "rationale",                # str: human-readable reason for audit log
+        "is_counterfactual",        # bool: True when strategy was deliberately
+                                    #       inverted for counterfactual testing
     )
 
     def __init__(
@@ -108,6 +157,7 @@ class StrategyAdvice:
         recommended_batch_size: int = 3,
         confidence: float = 0.0,
         rationale: str = "",
+        is_counterfactual: bool = False,
     ) -> None:
         self.exploration_rate_delta = float(exploration_rate_delta)
         self.force_stability = bool(force_stability)
@@ -115,6 +165,7 @@ class StrategyAdvice:
         self.recommended_batch_size = int(recommended_batch_size)
         self.confidence = float(confidence)
         self.rationale = str(rationale)
+        self.is_counterfactual = bool(is_counterfactual)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -124,14 +175,16 @@ class StrategyAdvice:
             "recommended_batch_size": self.recommended_batch_size,
             "confidence": round(self.confidence, 4),
             "rationale": self.rationale,
+            "is_counterfactual": self.is_counterfactual,
         }
 
     def __repr__(self) -> str:
+        cf = " [COUNTERFACTUAL]" if self.is_counterfactual else ""
         return (
             f"StrategyAdvice(explore_delta={self.exploration_rate_delta:+.3f}, "
             f"batch={self.recommended_batch_size}, "
             f"conf={self.confidence:.3f}, "
-            f"rationale={self.rationale!r})"
+            f"rationale={self.rationale!r}{cf})"
         )
 
 
@@ -159,6 +212,48 @@ def _bucket_variance(v: float) -> str:
 def _episode_key(mode: str, conf_band: str, signal_band: str, var_band: str) -> str:
     """Canonical pipe-delimited key for an episode bucket."""
     return f"{mode}|{conf_band}|{signal_band}|{var_band}"
+
+
+# ---------------------------------------------------------------------------
+# Soft-matching helpers
+# ---------------------------------------------------------------------------
+
+# Representative midpoint values for each named band, used for continuous-
+# distance calculation in soft rule matching.
+_CONF_BAND_MIDPOINT: Dict[str, float] = {"low": 0.20, "medium": 0.55, "high": 0.85}
+_VAR_BAND_MIDPOINT: Dict[str, float] = {"low": 0.075, "high": 0.25}
+_MODE_MISMATCH_PENALTY: float = 0.50   # added to distance when modes differ
+
+# Weights for the soft-distance formula:
+#   distance = w_conf * |conf_diff| + w_signal * |signal_diff| + w_var * |var_diff|
+# plus mode-mismatch penalty if applicable.
+_W_CONF: float = 0.40
+_W_SIGNAL: float = 0.35
+_W_VAR: float = 0.25
+
+
+def _rule_distance(
+    rule: Dict[str, Any],
+    confidence: float,
+    signal_conf: float,
+    variance: float,
+    mode: str,
+) -> float:
+    """Compute a continuous distance between a rule's conditions and the
+    current context.  Lower distance ⟹ better match."""
+    conds = rule.get("conditions", {})
+    r_conf = _CONF_BAND_MIDPOINT.get(conds.get("confidence_band", "medium"), 0.55)
+    r_sig  = _CONF_BAND_MIDPOINT.get(conds.get("signal_band", "medium"), 0.55)
+    r_var  = _VAR_BAND_MIDPOINT.get(conds.get("variance_band", "low"), 0.075)
+
+    dist = (
+        _W_CONF   * abs(confidence  - r_conf)
+        + _W_SIGNAL * abs(signal_conf - r_sig)
+        + _W_VAR    * abs(variance    - r_var)
+    )
+    if conds.get("mode") != mode:
+        dist += _MODE_MISMATCH_PENALTY
+    return dist
 
 
 # ---------------------------------------------------------------------------
@@ -309,20 +404,33 @@ def _compute_rule_stats(
     }
 
 
-def _derive_adjustments(mean: float, variance: float, count: int) -> Dict[str, Any]:
-    """Derive recommended parameter adjustments from rule statistics."""
+def _derive_adjustments(mean: float, variance: float, count: int, trust: float = 1.0) -> Dict[str, Any]:
+    """Derive recommended parameter adjustments from rule statistics.
+
+    Batch size is risk-adjusted: ``round(base × trust × (1 − variance))``,
+    then clamped to [1, CSE_MAX_SAFE_BATCH].  This limits blast radius when
+    the rule is uncertain (high variance) or has low trust.
+    """
     if count < CSE_MIN_RULE_SAMPLES:
         return {"exploration_rate_delta": 0.0, "batch_size": 2}
 
     if mean > 0.5 and variance < CSE_VARIANCE_THRESHOLD:
         # High mean + low variance → exploit: reduce exploration, larger batches
-        return {"exploration_rate_delta": -0.05, "batch_size": 4}
+        base_batch = 4
+        explore_delta = -0.05
     elif mean > 0.5 and variance >= CSE_VARIANCE_THRESHOLD:
         # High mean + high variance → mixed: maintain rate, moderate batch
-        return {"exploration_rate_delta": 0.0, "batch_size": 2}
+        base_batch = 2
+        explore_delta = 0.0
     else:
         # Low mean → penalise: increase exploration, shrink batch
-        return {"exploration_rate_delta": +0.05, "batch_size": 1}
+        base_batch = 1
+        explore_delta = +0.05
+
+    # Risk-adjusted batch: scale by trust and consistency
+    risk_batch = max(1, round(base_batch * trust * (1.0 - variance)))
+    capped_batch = min(risk_batch, CSE_MAX_SAFE_BATCH)
+    return {"exploration_rate_delta": explore_delta, "batch_size": capped_batch}
 
 
 def derive_rules() -> List[Dict[str, Any]]:
@@ -365,7 +473,7 @@ def derive_rules() -> List[Dict[str, Any]]:
 
         stats = _compute_rule_stats(recent_eps, max_idx)
         adjustments = _derive_adjustments(
-            stats["mean"], stats["variance"], stats["count"]
+            stats["mean"], stats["variance"], stats["count"], stats["trust_score"]
         )
 
         parts = key.split("|")
@@ -384,6 +492,7 @@ def derive_rules() -> List[Dict[str, Any]]:
             "outcome_stats": stats,
             "recommended_adjustments": adjustments,
             "trust_score": stats["trust_score"],
+            "derived_at_index": episode_count,  # for age-based decay in query_strategy
         }
         rules.append(rule)
 
@@ -417,84 +526,172 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     -------
     StrategyAdvice with concrete adjustments and a confidence rating.
     An advice confidence of 0.0 signals "unknown zone — explore freely".
+
+    Hardening mechanisms applied here
+    ----------------------------------
+    1. **Soft matching** — all rules are ranked by continuous distance from
+       the current context; the top ``CSE_SOFT_MATCH_TOP_K`` are blended by
+       their (decayed) trust scores to produce the final advice.
+
+    2. **Rule age decay** — each rule's effective trust is attenuated by
+       ``exp(-age / CSE_RULE_DECAY)`` to prevent stale rules from dominating.
+
+    3. **Counterfactual pressure** — when the winning rule has trust > 0.7,
+       there is a ``CSE_COUNTERFACTUAL_RATE`` (10 %) probability of inverting
+       the strategy for one cycle.  The inverted outcome feeds back into the
+       episode log normally, providing a controlled challenge to the rule.
+
+    4. **Risk-adjusted batch size** — batch is capped at
+       ``CSE_MAX_SAFE_BATCH`` and scaled by trust × (1 − variance), already
+       baked into ``recommended_adjustments`` during ``derive_rules()``.
     """
     state = _load_state()
     rules: List[Dict[str, Any]] = state.get("rules", [])
+    episode_count: int = state.get("episode_count", 0)
 
     confidence = float(current_context.get("confidence", 0.5))
     signal_conf = float(current_context.get("signal_conf", 0.5))
     variance = float(current_context.get("variance", 0.0))
+    mode = str(current_context.get("mode", ""))
 
     conf_band = _bucket_confidence(confidence)
     signal_band = _bucket_confidence(signal_conf)
     var_band = _bucket_variance(variance)
 
-    # Mode-agnostic matching: find all rules for the current condition bands
-    matching = [
-        r for r in rules
-        if (
-            r.get("conditions", {}).get("confidence_band") == conf_band
-            and r.get("conditions", {}).get("signal_band") == signal_band
-            and r.get("conditions", {}).get("variance_band") == var_band
-        )
-    ]
-
-    if not matching:
-        # Unknown zone: no historical data for these conditions
+    if not rules:
+        # No rules derived yet — unknown zone
         return StrategyAdvice(
             exploration_rate_delta=+0.10,
             force_exploration=True,
             recommended_batch_size=1,
             confidence=0.0,
             rationale=(
-                f"unknown_zone: no rules for "
-                f"conf={conf_band}/signal={signal_band}/var={var_band}"
+                f"unknown_zone: no rules derived yet "
+                f"(conf={conf_band}/signal={signal_band}/var={var_band})"
                 " — maximise exploration"
             ),
         )
 
-    # Pick the highest-trust matching rule (list is pre-sorted by trust_score desc)
-    best = matching[0]
-    stats = best.get("outcome_stats", {})
-    adjustments = best.get("recommended_adjustments", {})
-    trust = float(best.get("trust_score", 0.0))
+    # ------------------------------------------------------------------
+    # 1. Rank all rules by continuous distance from current context,
+    #    then apply age-based decay to effective trust.
+    # ------------------------------------------------------------------
+    scored: List[Tuple[float, float, Dict[str, Any]]] = []  # (distance, decayed_trust, rule)
+    for rule in rules:
+        dist = _rule_distance(rule, confidence, signal_conf, variance, mode)
+        raw_trust = float(rule.get("trust_score", 0.0))
+        derived_at = int(rule.get("derived_at_index", 0))
+        age = max(0, episode_count - derived_at)
+        decayed_trust = raw_trust * math.exp(-age / max(1.0, CSE_RULE_DECAY))
+        scored.append((dist, decayed_trust, rule))
 
-    mean = float(stats.get("mean", 0.0))
-    rule_variance = float(stats.get("variance", 0.0))
-    count = int(stats.get("count", 0))
+    # Sort by distance ascending, break ties by decayed_trust descending
+    scored.sort(key=lambda t: (t[0], -t[1]))
 
-    explore_delta = float(adjustments.get("exploration_rate_delta", 0.0))
-    batch_size = int(adjustments.get("batch_size", 2))
+    # Keep top-k candidates
+    top_k = scored[:max(1, CSE_SOFT_MATCH_TOP_K)]
 
-    if mean > 0.5 and rule_variance < CSE_VARIANCE_THRESHOLD and count >= CSE_MIN_RULE_SAMPLES:
-        rationale = (
-            f"exploit_rule: mean={mean:.3f} var={rule_variance:.3f} "
-            f"trust={trust:.3f} → reduce exploration, batch={batch_size}"
+    # Check whether the best match is a genuine near-miss or too far away.
+    # A distance ≥ 1.0 means the closest rule is at least a full unit away
+    # (e.g. mode mismatch + large numeric gap) — treat as unknown zone.
+    best_dist = top_k[0][0]
+    if best_dist >= 1.0:
+        return StrategyAdvice(
+            exploration_rate_delta=+0.10,
+            force_exploration=True,
+            recommended_batch_size=1,
+            confidence=0.0,
+            rationale=(
+                f"unknown_zone: closest rule distance={best_dist:.3f} ≥ 1.0 "
+                f"(conf={conf_band}/signal={signal_band}/var={var_band})"
+                " — maximise exploration"
+            ),
         )
+
+    # ------------------------------------------------------------------
+    # 2. Blend top-k rules weighted by decayed_trust (trust-weighted mean
+    #    of explore_delta; majority-vote for batch size).
+    # ------------------------------------------------------------------
+    total_weight = sum(dt for _, dt, _ in top_k)
+    if total_weight == 0.0:
+        total_weight = 1.0  # guard against all-zero decay
+
+    blended_explore_delta = 0.0
+    batch_votes: List[int] = []
+    blended_mean = 0.0
+    blended_variance = 0.0
+
+    for _dist, dt, rule in top_k:
+        w = dt / total_weight
+        adj = rule.get("recommended_adjustments", {})
+        stats = rule.get("outcome_stats", {})
+        blended_explore_delta += float(adj.get("exploration_rate_delta", 0.0)) * w
+        batch_votes.append(int(adj.get("batch_size", 2)))
+        blended_mean += float(stats.get("mean", 0.0)) * w
+        blended_variance += float(stats.get("variance", 0.0)) * w
+
+    # Majority-vote batch: use the median of top-k suggestions
+    batch_votes.sort()
+    mid = len(batch_votes) // 2
+    blended_batch = batch_votes[mid]
+
+    # Effective trust is the weighted-average decayed trust across top-k
+    effective_trust = total_weight / len(top_k) if len(top_k) > 0 else 0.0
+    # Normalise so it stays in [0, 1]
+    effective_trust = min(1.0, effective_trust)
+
+    # ------------------------------------------------------------------
+    # 3. Determine force flags from blended statistics
+    # ------------------------------------------------------------------
+    if blended_mean > 0.5 and blended_variance < CSE_VARIANCE_THRESHOLD:
         force_stability = False
         force_exploration = False
-    elif mean > 0.5 and rule_variance >= CSE_VARIANCE_THRESHOLD:
-        rationale = (
-            f"mixed_rule: mean={mean:.3f} var={rule_variance:.3f} (high) "
-            f"trust={trust:.3f} → gather more data"
-        )
+        rule_type = "exploit"
+    elif blended_mean > 0.5:
         force_stability = False
         force_exploration = False
+        rule_type = "mixed"
     else:
-        rationale = (
-            f"penalise_rule: mean={mean:.3f} var={rule_variance:.3f} "
-            f"trust={trust:.3f} → increase exploration"
-        )
         force_stability = False
-        force_exploration = explore_delta > 0
+        force_exploration = blended_explore_delta > 0
+        rule_type = "penalise"
+
+    rationale = (
+        f"{rule_type}_blended(k={len(top_k)}): "
+        f"mean={blended_mean:.3f} var={blended_variance:.3f} "
+        f"trust={effective_trust:.3f} dist={best_dist:.3f} "
+        f"→ explore_delta={blended_explore_delta:+.3f} batch={blended_batch}"
+    )
+
+    # ------------------------------------------------------------------
+    # 4. Counterfactual pressure: deliberately invert the strategy
+    #    when the matched rule is highly trusted, to prevent lock-in.
+    # ------------------------------------------------------------------
+    is_counterfactual = False
+    if (
+        effective_trust >= CSE_COUNTERFACTUAL_MIN_TRUST
+        and random.random() < CSE_COUNTERFACTUAL_RATE
+    ):
+        is_counterfactual = True
+        # Invert: flip exploration delta sign, shrink batch to 1 when
+        # the rule recommended exploit, or increase it when it recommended
+        # penalise.
+        blended_explore_delta = -blended_explore_delta
+        blended_batch = 1 if blended_batch > 1 else min(3, CSE_MAX_SAFE_BATCH)
+        force_exploration = not force_exploration
+        rationale = (
+            f"COUNTERFACTUAL({rationale}): "
+            f"inverted → explore_delta={blended_explore_delta:+.3f} batch={blended_batch}"
+        )
 
     return StrategyAdvice(
-        exploration_rate_delta=explore_delta,
+        exploration_rate_delta=blended_explore_delta,
         force_stability=force_stability,
         force_exploration=force_exploration,
-        recommended_batch_size=batch_size,
-        confidence=trust,
+        recommended_batch_size=blended_batch,
+        confidence=effective_trust,
         rationale=rationale,
+        is_counterfactual=is_counterfactual,
     )
 
 
@@ -515,4 +712,9 @@ def status() -> Dict[str, Any]:
         "cse_variance_threshold": CSE_VARIANCE_THRESHOLD,
         "cse_recency_decay": CSE_RECENCY_DECAY,
         "cse_derive_interval": CSE_DERIVE_INTERVAL,
+        "cse_counterfactual_rate": CSE_COUNTERFACTUAL_RATE,
+        "cse_counterfactual_min_trust": CSE_COUNTERFACTUAL_MIN_TRUST,
+        "cse_rule_decay": CSE_RULE_DECAY,
+        "cse_soft_match_top_k": CSE_SOFT_MATCH_TOP_K,
+        "cse_max_safe_batch": CSE_MAX_SAFE_BATCH,
     }
