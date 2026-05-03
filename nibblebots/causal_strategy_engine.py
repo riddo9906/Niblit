@@ -806,7 +806,9 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     best_rule_key = top_k[0][2].get("key", "")
     if best_rule_key and query_count > 0:
         usage = int(rule_usage_counts.get(best_rule_key, 0))
-        usage_rate = usage / query_count
+        # Use (usage + 1) / query_count to include the current selection
+        # in the rate, giving the accurate post-selection dominance rate.
+        usage_rate = (usage + 1) / query_count
         if usage_rate > CSE_DOMINANCE_THRESHOLD:
             effective_trust = max(0.0, effective_trust - CSE_DOMINANCE_PENALTY)
     # Track usage of the top-1 selected rule
