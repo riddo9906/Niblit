@@ -34,6 +34,7 @@ Well-known event type constants
 ``EVENT_DECISION_MADE``       = ``"decision.made"``
 ``EVENT_RESPONSE_COMPLETE``   = ``"response.complete"``
 ``EVENT_EVOLUTION_OUTCOME``   = ``"evolution.outcome"``
+``EVENT_CONTEXT_MISMATCH``    = ``"context.mismatch"``
 
 Design
 ------
@@ -64,6 +65,7 @@ EVENT_RESPONSE_COMPLETE  = "response.complete"
 EVENT_META_ANALYSIS_COMPLETE = "meta.analysis.complete"
 EVENT_POLICY_OPTIMIZED   = "policy.optimized"
 EVENT_EVOLUTION_OUTCOME  = "evolution.outcome"   # Phase 6: emitted by feedback_learner
+EVENT_CONTEXT_MISMATCH   = "context.mismatch"    # Phase 8: emitted by context_guard
 
 
 @dataclass

@@ -110,6 +110,8 @@ def build_plan(
       7. Phase 7: "do_nothing" decision → empty plan regardless of scores
       8. Phase 8: value_engine gate — skip fix if value_delta < MIN_REAL_WORLD_GAIN
                   (only when reality_snapshot is provided)
+      9. Phase 8: context_guard check — confidence penalty + max_fixes scale on
+                  mismatch / spike; priority boost on repeated input
 
     Ranking:
       Primary   : semantic type (error_handling_risk first)
@@ -136,12 +138,41 @@ def build_plan(
         except Exception:  # noqa: BLE001
             value_gate_active = False
 
+    # Phase 8: context integrity check — use the most common fix_type in paired
+    # to represent the dominant intent of this plan batch.
+    ctx_confidence_adj: float = 0.0
+    ctx_max_fixes_scale: float = 1.0
+    if paired:
+        try:
+            from nibblebots import context_guard as _cg  # noqa: PLC0415
+            ft_counts: Dict[str, int] = {}
+            for sem_item, _ in paired:
+                ft_counts[sem_item.fix_type] = ft_counts.get(sem_item.fix_type, 0) + 1
+            rep_ft = max(ft_counts, key=lambda k: ft_counts[k])
+            rep_sub = next(
+                (s.subsystem for s, _ in paired if s.fix_type == rep_ft), "unknown"
+            )
+            rep_sem = next(
+                (s.semantic_type for s, _ in paired if s.fix_type == rep_ft), "unknown"
+            )
+            cg_verdict = _cg.check(rep_ft, rep_sub, rep_sem)
+            ctx_confidence_adj = cg_verdict.confidence_adj
+            ctx_max_fixes_scale = cg_verdict.max_fixes_scale
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Apply context-guard scaling to max_fixes
+    effective_max_fixes = max(1, int(max_fixes * ctx_max_fixes_scale))
+
     eligible: List[Tuple[SemanticIssue, ImpactScore]] = []
     skipped = 0
 
     for issue, impact in paired:
         # Phase 4: use regression-adjusted net_score for gating
         adj_net = regression_adjusted_net_score(impact.net_score)
+        # Phase 8: apply context confidence penalty to per-issue confidence
+        adj_confidence = max(0.0, issue.confidence - ctx_confidence_adj)
+        issue = issue._replace(confidence=round(adj_confidence, 3))
         impact_with_adj_score = impact._replace(net_score=adj_net)
 
         skip_reason = _check_skip(issue, impact_with_adj_score)
@@ -182,7 +213,7 @@ def build_plan(
             _random.shuffle(grp)
         eligible = [p for k in sorted(groups) for p in groups[k]]
 
-    selected = eligible[:max_fixes]
+    selected = eligible[:effective_max_fixes]
 
     planned: List[PlannedFix] = []
     for rank, (sem, imp) in enumerate(selected, start=1):

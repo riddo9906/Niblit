@@ -83,6 +83,7 @@ try:
         NiblitEvent as _NiblitEvent,
         EVENT_RESPONSE_COMPLETE,
         EVENT_META_ANALYSIS_COMPLETE,
+        EVENT_CONTEXT_MISMATCH,
     )
     _EVENT_BUS_AVAILABLE = True
 except ImportError:
@@ -90,6 +91,7 @@ except ImportError:
     _NiblitEvent = None  # type: ignore[assignment,misc]
     EVENT_RESPONSE_COMPLETE = "response.complete"
     EVENT_META_ANALYSIS_COMPLETE = "meta.analysis.complete"
+    EVENT_CONTEXT_MISMATCH = "context.mismatch"
     _EVENT_BUS_AVAILABLE = False
 
 
@@ -181,6 +183,16 @@ class MetaEngine:
             except Exception as exc:
                 log.debug("[MetaEngine] Event subscription failed: %s", exc)
 
+            # Phase 8: subscribe to context mismatch events from context_guard
+            try:
+                _get_event_bus().subscribe(
+                    EVENT_CONTEXT_MISMATCH,
+                    self.on_context_mismatch,
+                )
+                log.info("[MetaEngine] Subscribed to context.mismatch events")
+            except Exception as exc:
+                log.debug("[MetaEngine] context.mismatch subscription failed: %s", exc)
+
         log.info(
             "[MetaEngine] Initialised — meta-cognition active (analyze every %d)",
             _ANALYZE_EVERY,
@@ -203,6 +215,40 @@ class MetaEngine:
                 self.analyze()
             except Exception as exc:
                 log.debug("[MetaEngine] analyze() failed: %s", exc)
+
+    def on_context_mismatch(self, event: Any) -> None:
+        """Phase 8: handle context.mismatch events emitted by context_guard.
+
+        Reduces context-persistence confidence in the current analysis window
+        and injects a meta-pattern so the next analyze() cycle sees it.
+        """
+        try:
+            payload = getattr(event, "payload", {}) or {}
+            status = payload.get("status", "mismatch")
+            similarity = float(payload.get("similarity", 0.0))
+            details = payload.get("details", "")
+            log.info(
+                "[MetaEngine] context.mismatch received: status=%s similarity=%.2f — %s",
+                status, similarity, details,
+            )
+            with self._lock:
+                # Treat a context mismatch as a quality-degrading signal by
+                # injecting a synthetic "low" score into the eval engine's
+                # history so the trajectory slope detects the instability.
+                if self._eval is not None:
+                    try:
+                        self._eval.reinforce("context_guard", -0.05)
+                    except Exception:  # noqa: BLE001
+                        pass
+
+                # Force a fresh analysis cycle on the next event regardless of
+                # the regular cadence (by bumping the counter to the next
+                # multiple of _ANALYZE_EVERY).
+                remainder = self._event_counter % _ANALYZE_EVERY
+                if remainder != 0:
+                    self._event_counter += _ANALYZE_EVERY - remainder
+        except Exception as exc:  # noqa: BLE001
+            log.debug("[MetaEngine] on_context_mismatch error: %s", exc)
 
     # ── Primary API ───────────────────────────────────────────────────────────
 

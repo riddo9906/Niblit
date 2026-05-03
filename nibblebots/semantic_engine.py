@@ -196,7 +196,7 @@ def classify(
 
     context_hint = _build_context_hint(fix_type, subsystem, severity, count)
 
-    return SemanticIssue(
+    issue = SemanticIssue(
         fix_type=fix_type,
         semantic_type=semantic_type,
         file_path=file_path,
@@ -207,6 +207,15 @@ def classify(
         intentional=intentional,
         context_hint=context_hint,
     )
+
+    # Phase 8: update context_guard window so it tracks live context
+    try:
+        from nibblebots import context_guard as _cg  # noqa: PLC0415
+        _cg.observe(fix_type, subsystem, semantic_type)
+    except Exception:  # noqa: BLE001
+        pass
+
+    return issue
 
 
 def classify_batch(
