@@ -39,6 +39,7 @@ including your Android phone via Termux.
 - [🆕 Domain Tokenizer Trainer](#-domain-tokenizer-trainer)
 - [🆕 Phased Research Engine](#-phased-research-engine)
 - [🆕 Cognitive Graph Kernel v1.0](#-cognitive-graph-kernel-v10)
+- [🆕 Autonomous Evolution Engine (Phases 2–9.5)](#-autonomous-evolution-engine-phases-295)
 - [Project Structure](#project-structure)
 - [Running Tests](#running-tests)
 - [Troubleshooting](#troubleshooting)
@@ -1772,6 +1773,233 @@ cgk stop                 — stop background loops
 
 Singleton via `get_cognitive_graph_kernel()`. Wired into `niblit_core._init_optional_services`
 as `self.cognitive_graph_kernel`; auto-started on init with `CyberMembrane` bridge.
+
+---
+
+## 🆕 Autonomous Evolution Engine (Phases 2–9.5)
+
+Niblit continuously improves its own Python codebase through a multi-phase
+**Autonomous Evolution Engine** that runs on a scheduled GitHub Actions
+workflow (`niblit-autonomous-evolution.yml`).  Each phase added a new layer
+of intelligence on top of the previous one.
+
+---
+
+### Phase 2 — Batch Fix Agent
+
+**File:** `nibblebots/autonomous_evolution_agent.py`
+
+- Scans all Python files for code quality issues
+- Batches up to `MAX_FIXES` (default 5) files of the same fix type per run
+- Fix catalogue: `bare_except`, `bare_except_pass`, `trailing_whitespace`,
+  `double_blank_lines`, `eof_newline`
+- Enriched commit messages include Category / Reason / Impact
+- Uses GitHub API log scan (`get_log_priority_files()`) to prioritise files
+  that appeared in recent CI failures
+- Temp files `/tmp/niblit_{commit_msg,changed_files}.txt` bridge
+  agent ↔ workflow
+
+---
+
+### Phase 3 — Semantic Impact Engine
+
+**Files:** `nibblebots/semantic_engine.py`, `nibblebots/impact_engine.py`,
+`nibblebots/evolution_planner.py`, `nibblebots/feedback_learner.py`
+
+- `SemanticEngine.classify()` maps each issue to a `SemanticIssue`
+  (subsystem / severity / confidence)
+- `ImpactEngine.score()` assigns expected_gain / risk / net_score using
+  learnable weights stored in `impact_weights.json`
+- `EvolutionPlanner.build_plan()` gates fixes: confidence ≥ 0.60,
+  net_score ≥ 0.05; protects `decision_engine`, `meta_engine`, trading
+- `FeedbackLearner.record_outcome()` records CI outcomes to
+  `outcome_journal.jsonl` and calls `impact_engine.update_weights()`
+
+---
+
+### Phase 4–6 — Observation, Rollback & Domain Awareness
+
+**New files:**
+`nibblebots/observation_collector.py`,
+`nibblebots/rollback_guard.py`,
+`nibblebots/domain_registry.py`,
+`nibblebots/dependency_analyzer.py`,
+`nibblebots/system_health_monitor.py`,
+`nibblebots/learning_loop_bridge.py`
+
+| Component | What it does |
+|-----------|-------------|
+| `ObservationCollector` | Unified sensing layer across CI, health, and code |
+| `RollbackGuard` | Auto-reverts commits when ≥ 2 consecutive regressions; writes `/tmp/niblit_revert_cmd.txt` |
+| `ImpactEngine` (regression) | Fits a Pearson regression model from the outcome journal (`fit_regression_from_journal`, min 20 samples) |
+| `DomainRegistry` | Classifies files into `code / workflow_config / dependency_pins`; caps cross-domain fixes at 8 |
+| `DependencyAnalyzer` | Builds AST import graph; flags high fan-out files (≥ 10 imports) for extra risk |
+| `SystemHealthMonitor` | Captures `SystemHealthSnapshot` + delta every cycle |
+| `LearningLoopBridge` | Publishes `EVENT_EVOLUTION_OUTCOME` on EventBus → MetaEngine |
+
+Also added: `semantic_engine` log-derived classification
+(`classify_log_lines` / `classify_log_file`).
+
+---
+
+### Phase 7 — Strategic Planning & Anomaly Detection
+
+**New files:**
+`nibblebots/anomaly_detector.py`,
+`nibblebots/confidence_decay.py`,
+`nibblebots/delayed_outcome_tracker.py`,
+`nibblebots/strategic_planner.py`
+
+| Component | What it does |
+|-----------|-------------|
+| `AnomalyDetector` | EWMA + IQR control chart; detects pattern drift; exposes `is_system_safe()` |
+| `ConfidenceDecay` | Exponential half-life decay on `impact_weights` (half-life = 14 days); `mark_validated` / `apply_decay` / `get_staleness_report` |
+| `DelayedOutcomeTracker` | Tracks outcomes at H1 / H5 / H20 horizon checkpoints; `get_corrected_entries` feeds delayed regression |
+| `StrategicPlanner` | Do-nothing gate (`MIN_GAIN = 0.03`), ε-greedy exploration (`EXPLORATION_RATE = 0.20`), goal derivation: `maximize_stability / minimize_regression / improve_learning` |
+
+`EvolutionPlanner.build_plan()` now accepts a `strategic_decision` parameter;
+`FeedbackLearner` calls all four components on every `record_outcome()`.
+
+---
+
+### Phase 8 — Real-World Value & Causal Tracking
+
+**New files:**
+`nibblebots/objective_engine.py`,
+`nibblebots/reality_bridge.py`,
+`nibblebots/value_engine.py`,
+`nibblebots/causality_tracker.py`,
+`nibblebots/goal_adaptation_engine.py`
+
+| Component | What it does |
+|-----------|-------------|
+| `ObjectiveEngine` | Top-authority goal layer (`ObjectiveProfile`); `score_outcome / score_delta / update_goal`; persists to `objective_state.json` |
+| `RealityBridge` | Aggregates CI journal + trade KB + health log into a snapshot; `pull_snapshot / get_cached_snapshot / inject_snapshot` |
+| `ValueEngine` | `ValueAssessment` (delta / confidence / passes_gate); confidence-weighted evaluation; hard gate `MIN_REAL_WORLD_GAIN = 0.02`; history in `value_history.jsonl` |
+| `CausalityTracker` | Pearson r + mean_value_delta + consistency per fix_type; `record / get_correlations / get_fix_type_trust`; `CAUSALITY_WINDOW = 30` |
+| `GoalAdaptationEngine` | Hysteresis-gated goal switching (stability ↔ profitability ↔ learning); `evaluate / force_goal`; log in `goal_adaptation_log.jsonl` |
+
+Upgraded wiring: `StrategicPlanner.decide()` gains `reality_snapshot` param +
+objective_engine gate; `EvolutionPlanner.build_plan()` gains `value_engine` gate;
+`FeedbackLearner` calls `_evaluate_real_world_value()` every cycle.
+
+---
+
+### Phase 8.5 — Signal Integrity & Intent Anchoring
+
+**New files:**
+`nibblebots/signal_integrity_engine.py`,
+`nibblebots/intent_anchor_engine.py`
+
+| Component | What it does |
+|-----------|-------------|
+| `SignalIntegrityEngine` | Assesses CI / trading / runtime / snapshot reliability; returns `SignalConfidence`; gates on `SIE_MIN_CONFIDENCE_GATE = 0.50` |
+| `IntentAnchorEngine` | Persistent intent anchor with drift detection; `set_anchor / score_alignment / update / check_drift / status`; `INTENT_DRIFT_THRESHOLD = 0.40`, penalty `0.25`; state in `intent_anchor_state.json` |
+
+Upgraded wiring: `RealityBridge.pull_snapshot()` merges `SignalConfidence`
+fields; `ValueEngine.evaluate()` uses confidence-weighted delta with hard gate;
+`CausalityTracker.record()` gains `signal_confidence` parameter;
+`GoalAdaptationEngine` forces `stability` when `avg_confidence < 0.5`;
+`EvolutionPlanner` halves the plan on intent drift.
+
+---
+
+### Phase 9 — Temporal Consistency (Stability Controller)
+
+**New file:** `nibblebots/stability_controller.py`
+
+Adds controlled temporal consistency to prevent the system thrashing between
+modes faster than it can learn from either.
+
+| Mechanism | What it does |
+|-----------|-------------|
+| **Mode locking** | Once a mode is entered, it cannot be exited until `MODE_MIN_DURATION = 5` cycles have elapsed |
+| **Asymmetric hysteresis** | Enter stability: confidence < 0.45; Exit stability: confidence > 0.65 — creates a dead zone that prevents flip-flopping |
+| **Safety override** | Low-confidence always forces stability regardless of mode lock |
+| **Switch penalty** | Recent switches accumulate a penalty; suppresses further switches when penalty ≥ 0.15 with negative momentum |
+
+Upgraded wiring: `StrategicPlanner.decide()` calls
+`stability_controller.resolve_mode()`; `GoalAdaptationEngine` tracks
+`last_goal + cycles_in_goal`; `FeedbackLearner._evaluate_real_world_value()`
+calls `stability_controller.record_cycle()`.  Added `EVENT_MODE_LOCKED` on
+EventBus.
+
+---
+
+### Phase 9.5 — Context-Aware Mode Memory (Situational Intelligence)
+
+**File:** `nibblebots/stability_controller.py` (extended)
+
+Solves the **"context-blind stability bias"** failure mode: without this
+upgrade, stability mode that performs well during noisy CI biases the system
+toward stability even when conditions improve, causing under-exploration.
+
+#### Three new capabilities
+
+**1. Contextual cycle recording**
+
+Every `record_cycle()` call now stores conditions alongside the outcome:
+
+```python
+{
+    "mode": mode,
+    "outcome": outcome_score,
+    "confidence": avg_confidence,
+    "intent_alignment": intent_score,
+    "signal_reliability": signal_confidence,
+}
+```
+
+**2. Mode effectiveness scoring per condition** (`get_mode_score`)
+
+```python
+# Returns avg outcome for this mode only among records with similar conditions
+score = stability_controller.get_mode_score("explore", confidence=0.8, signal_conf=0.75)
+```
+
+Looks up the last `CONTEXT_MEMORY_MAX = 200` records, filters to those where
+both `confidence` and `signal_reliability` are within `CONTEXT_SIMILARITY_BAND = 0.1`,
+and returns the mean outcome.  Returns `0.0` when no similar history exists.
+
+**3. Contextual exploration bias in `resolve_mode()`**
+
+```python
+exploration_score = get_mode_score("explore", confidence, signal_conf)
+stability_score   = get_mode_score("stability", confidence, signal_conf)
+
+if exploration_score > stability_score + EXPLORATION_BIAS_THRESHOLD:  # default 0.05
+    favour_exploration = True  # override the stability gate
+```
+
+This changes the system from:
+> *"Stability worked recently → keep using it"*
+
+to:
+> *"Stability works under these conditions, not always"*
+
+**4. Switch penalty cap** (`SWITCH_PENALTY_MAX = 0.25`)
+
+The penalty is now hard-capped at 0.25 (was 0.50), preventing permanent
+"stuck mode" where the system can never switch regardless of conditions.
+
+#### New constants (overridable via env vars)
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `SC_SWITCH_PENALTY_MAX` | `0.25` | Hard cap on switch penalty |
+| `SC_CTX_MEMORY_MAX` | `200` | Max contextual cycle records |
+| `SC_CTX_BAND` | `0.1` | Similarity tolerance for condition matching |
+| `SC_EXPLORE_BIAS` | `0.05` | Margin exploration must beat stability to trigger bias |
+
+#### Evolution of intelligence layers
+
+| Layer | Capability |
+|-------|-----------|
+| Phase 3 | Fix things |
+| Phase 7 | Learn impact |
+| Phase 8 | Align with goals |
+| Phase 9 | Stabilise behaviour |
+| **Phase 9.5** | **Understand context of success** |
 
 ---
 

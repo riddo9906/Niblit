@@ -415,12 +415,21 @@ def _evaluate_real_world_value(
             )
 
         # Phase 9: record cycle outcome in stability_controller (best-effort)
+        # Phase 9.5: also pass contextual conditions for context-aware memory
         try:
             from nibblebots import stability_controller as _sc  # noqa: PLC0415
-            from nibblebots import strategic_planner as _sp  # noqa: PLC0415
             _mode = _sc.status().get("current_mode", "exploit")
             _outcome_score = float(assessment.delta) if assessment.delta is not None else 0.0
-            _sc.record_cycle(mode=_mode, outcome_score=_outcome_score)
+            _avg_confidence = float(after_snapshot.get("avg_confidence", 0.5))
+            _signal_reliability = float(after_snapshot.get("signal_reliability", _avg_confidence))
+            _intent_alignment = float(after_snapshot.get("intent_alignment", 1.0))
+            _sc.record_cycle(
+                mode=_mode,
+                outcome_score=_outcome_score,
+                confidence=_avg_confidence,
+                intent_alignment=_intent_alignment,
+                signal_reliability=_signal_reliability,
+            )
         except Exception:  # noqa: BLE001
             pass
     except Exception:  # noqa: BLE001

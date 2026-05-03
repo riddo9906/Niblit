@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nibblebots/stability_controller.py — Phase 9 Stability Controller
+nibblebots/stability_controller.py — Phase 9.5 Stability Controller
 
 Prevents the "self-oscillation" failure mode where the system thrashes
 between stability and exploration modes faster than it can learn from
@@ -21,7 +21,7 @@ The system never accumulates compounding improvements.
 
 Solution
 --------
-Three complementary mechanisms:
+Four complementary mechanisms:
 
 1. **Mode locking** (minimum duration)
    Once a mode is entered, it cannot be exited until
@@ -34,37 +34,60 @@ Three complementary mechanisms:
    ``CONFIDENCE_EXIT_STABILITY`` (0.65 by default).
    This creates a "dead zone" that prevents flip-flopping.
 
-3. **Switch penalty**
+3. **Switch penalty** (capped at 0.25)
    Recent mode switches accumulate a penalty that reduces the
    effective score of *any* new switch, making them progressively
-   harder to trigger the more recent ones there were.
+   harder to trigger the more recent ones there were.  The cap of 0.25
+   prevents the system from becoming permanently "stuck mode".
+
+4. **Context-aware mode memory** (Phase 9.5)
+   Every cycle is recorded with its *conditions* (confidence,
+   intent_alignment, signal_reliability) alongside the outcome score.
+   ``get_mode_score()`` looks up similar past conditions and returns
+   the average outcome for a given mode.  ``resolve_mode()`` uses these
+   scores to favour exploration when history shows exploration
+   outperforms stability under the *current* conditions — solving the
+   "context-blind stability bias" failure mode.
 
 Public API
 ----------
-``resolve_mode(proposed_mode, confidence, momentum)``
-    The primary entry point.  Given a proposed mode ("exploit" /
-    "explore" / "stability") and the current confidence + momentum
-    values, returns the mode the system should actually use this cycle.
+``resolve_mode(proposed_mode, confidence, momentum, signal_conf, intent_score)``
+    The primary entry point.  Given a proposed mode and current signals,
+    returns the mode the system should actually use this cycle.
 
-``record_cycle(mode, outcome_score)``
-    Record the outcome of a completed cycle so the controller can
-    track per-mode effectiveness and switch history.
+``record_cycle(mode, outcome_score, confidence, intent_alignment, signal_reliability)``
+    Record the outcome of a completed cycle with its conditions so the
+    controller can learn mode effectiveness per condition.
+
+``get_mode_score(mode, confidence, signal_conf)``
+    Return the average outcome for ``mode`` under conditions similar to
+    the given confidence and signal_conf values.  Returns 0.0 when no
+    similar history exists.
 
 ``status()``
     Returns a dict summarising current controller state for logging.
 
 Constants (overridable via env vars)
 -------------------------------------
-MODE_MIN_DURATION       : int    (env: SC_MODE_MIN_DURATION, default 5)
-                          Minimum cycles before a mode can be changed.
-CONFIDENCE_ENTER_STABILITY : float (env: SC_CONF_ENTER_STAB, default 0.45)
-                          confidence below this triggers stability mode.
-CONFIDENCE_EXIT_STABILITY  : float (env: SC_CONF_EXIT_STAB, default 0.65)
-                          confidence must exceed this to leave stability mode.
-SWITCH_PENALTY_DECAY    : float  (env: SC_SWITCH_DECAY, default 0.05)
-                          Penalty added per recent switch.
-SWITCH_WINDOW           : int    (env: SC_SWITCH_WINDOW, default 10)
-                          Number of recent cycles tracked for switch penalty.
+MODE_MIN_DURATION         : int    (env: SC_MODE_MIN_DURATION, default 5)
+                            Minimum cycles before a mode can be changed.
+CONFIDENCE_ENTER_STABILITY: float  (env: SC_CONF_ENTER_STAB, default 0.45)
+                            confidence below this triggers stability mode.
+CONFIDENCE_EXIT_STABILITY : float  (env: SC_CONF_EXIT_STAB, default 0.65)
+                            confidence must exceed this to leave stability.
+SWITCH_PENALTY_DECAY      : float  (env: SC_SWITCH_DECAY, default 0.05)
+                            Penalty added per recent switch.
+SWITCH_PENALTY_MAX        : float  (env: SC_SWITCH_PENALTY_MAX, default 0.25)
+                            Hard cap on switch penalty (prevents stuck-mode).
+SWITCH_WINDOW             : int    (env: SC_SWITCH_WINDOW, default 10)
+                            Number of recent cycles tracked for switch penalty.
+CONTEXT_MEMORY_MAX        : int    (env: SC_CTX_MEMORY_MAX, default 200)
+                            Maximum number of contextual cycle records kept.
+CONTEXT_SIMILARITY_BAND   : float  (env: SC_CTX_BAND, default 0.1)
+                            Tolerance for matching conditions in get_mode_score.
+EXPLORATION_BIAS_THRESHOLD: float  (env: SC_EXPLORE_BIAS, default 0.05)
+                            Margin by which exploration_score must exceed
+                            stability_score to favour exploration.
 """
 
 from __future__ import annotations
@@ -87,7 +110,13 @@ CONFIDENCE_EXIT_STABILITY: float = float(
     os.environ.get("SC_CONF_EXIT_STAB", "0.65")
 )
 SWITCH_PENALTY_DECAY: float = float(os.environ.get("SC_SWITCH_DECAY", "0.05"))
+SWITCH_PENALTY_MAX: float = float(os.environ.get("SC_SWITCH_PENALTY_MAX", "0.25"))
 SWITCH_WINDOW: int = int(os.environ.get("SC_SWITCH_WINDOW", "10"))
+
+# Phase 9.5: context-aware mode memory
+CONTEXT_MEMORY_MAX: int = int(os.environ.get("SC_CTX_MEMORY_MAX", "200"))
+CONTEXT_SIMILARITY_BAND: float = float(os.environ.get("SC_CTX_BAND", "0.1"))
+EXPLORATION_BIAS_THRESHOLD: float = float(os.environ.get("SC_EXPLORE_BIAS", "0.05"))
 
 _STATE_FILE = Path(__file__).parent / "stability_controller_state.json"
 _LOG_FILE = Path(__file__).parent / "stability_controller_log.jsonl"
@@ -109,8 +138,9 @@ def _load_state() -> Dict[str, Any]:
     return {
         "current_mode": "exploit",
         "cycles_in_mode": 0,
-        "switch_history": [],       # list of bool — True = mode changed this cycle
-        "mode_outcome_history": [], # list of {"mode": str, "outcome": float}
+        "switch_history": [],         # list of bool — True = mode changed this cycle
+        "mode_outcome_history": [],   # list of {"mode": str, "outcome": float}
+        "context_history": [],        # list of Phase 9.5 contextual records
         "previous_score": None,
     }
 
@@ -119,6 +149,7 @@ def _save_state(state: Dict[str, Any]) -> None:
     # Bound history lists
     state["switch_history"] = state.get("switch_history", [])[-SWITCH_WINDOW * 2:]
     state["mode_outcome_history"] = state.get("mode_outcome_history", [])[-50:]
+    state["context_history"] = state.get("context_history", [])[-CONTEXT_MEMORY_MAX:]
     try:
         _STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
     except OSError:
@@ -143,10 +174,15 @@ def _log_event(event: str, details: Dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 def _switch_penalty(switch_history: List[bool]) -> float:
-    """Compute a score penalty based on how many recent cycles had mode switches."""
+    """Compute a score penalty based on how many recent cycles had mode switches.
+
+    Capped at ``SWITCH_PENALTY_MAX`` (default 0.25) to prevent the system
+    from becoming permanently unable to switch modes.
+    """
     recent = switch_history[-SWITCH_WINDOW:]
     num_switches = sum(1 for s in recent if s)
-    return min(0.50, num_switches * SWITCH_PENALTY_DECAY)
+    raw_penalty = num_switches * SWITCH_PENALTY_DECAY
+    return min(SWITCH_PENALTY_MAX, raw_penalty)
 
 
 def _apply_confidence_gate(
@@ -180,6 +216,44 @@ def _apply_confidence_gate(
 
 
 # ---------------------------------------------------------------------------
+# Phase 9.5: context-aware mode memory helpers
+# ---------------------------------------------------------------------------
+
+def get_mode_score(
+    mode: str,
+    confidence: float,
+    signal_conf: float,
+) -> float:
+    """Return the average outcome for *mode* under similar past conditions.
+
+    "Similar" is defined as records where both *confidence* and
+    *signal_reliability* fall within ``CONTEXT_SIMILARITY_BAND`` of the
+    provided values.
+
+    Parameters
+    ----------
+    mode        : the mode whose historical effectiveness to query
+    confidence  : current avg_confidence value
+    signal_conf : current signal_reliability / avg_confidence from SIE
+
+    Returns
+    -------
+    float : average outcome score, or 0.0 if no similar records exist.
+    """
+    state = _load_state()
+    history: List[Dict[str, Any]] = state.get("context_history", [])
+    similar = [
+        r for r in history
+        if r.get("mode") == mode
+        and abs(r.get("confidence", 0.0) - confidence) < CONTEXT_SIMILARITY_BAND
+        and abs(r.get("signal_reliability", 0.0) - signal_conf) < CONTEXT_SIMILARITY_BAND
+    ]
+    if not similar:
+        return 0.0
+    return sum(float(r.get("outcome", 0.0)) for r in similar) / len(similar)
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -187,11 +261,13 @@ def resolve_mode(
     proposed_mode: str,
     confidence: float = 1.0,
     momentum: float = 0.0,
+    signal_conf: float = 1.0,
+    intent_score: float = 1.0,
 ) -> str:
     """Resolve the mode the system should use this cycle.
 
-    Applies mode locking, asymmetric hysteresis, and switch penalty to
-    stabilise decision-making across cycles.
+    Applies mode locking, asymmetric hysteresis, switch penalty, and
+    Phase 9.5 context-aware bias to stabilise decision-making across cycles.
 
     Parameters
     ----------
@@ -201,6 +277,10 @@ def resolve_mode(
                     Lower values push toward stability.
     momentum      : float (current_score − previous_score).
                     Positive = improving; negative = declining.
+    signal_conf   : float [0, 1] — signal_reliability from the snapshot.
+                    Used for contextual mode memory lookup (Phase 9.5).
+    intent_score  : float [0, 1] — intent_alignment score.
+                    Stored with context records for future analysis.
 
     Returns
     -------
@@ -215,6 +295,25 @@ def resolve_mode(
 
     # Step 1: Apply confidence-based asymmetric hysteresis
     gated_mode = _apply_confidence_gate(proposed_mode, current_mode, confidence)
+
+    # Step 1b (Phase 9.5): contextual bias — if exploration has historically
+    # outperformed stability under the current conditions, favour exploration
+    # when the gated result is "stability" (but not when it's a forced-safety).
+    # This only applies when we are not already in exploration and the confidence
+    # gate is suggesting stability for reasons other than a hard safety override.
+    favor_exploration = False
+    if gated_mode == "stability" and confidence >= CONFIDENCE_ENTER_STABILITY:
+        exploration_score = get_mode_score("explore", confidence, signal_conf)
+        stability_score = get_mode_score("stability", confidence, signal_conf)
+        if exploration_score > stability_score + EXPLORATION_BIAS_THRESHOLD:
+            favor_exploration = True
+            gated_mode = "explore"
+            _log_event("contextual_exploration_bias", {
+                "exploration_score": round(exploration_score, 4),
+                "stability_score": round(stability_score, 4),
+                "confidence": round(confidence, 3),
+                "signal_conf": round(signal_conf, 3),
+            })
 
     # Step 2: Mode locking — block mode change until min duration elapsed.
     # Exception: confidence-forced "stability" is a safety override and
@@ -234,7 +333,7 @@ def resolve_mode(
     else:
         resolved = current_mode
 
-    # Step 3: Compute switch penalty (informational — log only, does not block)
+    # Step 3: Compute switch penalty (capped at SWITCH_PENALTY_MAX)
     switch_occurred = resolved != current_mode
     switch_history: List[bool] = state.get("switch_history", [])
     switch_history.append(switch_occurred)
@@ -250,6 +349,7 @@ def resolve_mode(
             "current": current_mode,
             "penalty": round(penalty, 3),
             "momentum": round(momentum, 4),
+            "favor_exploration": favor_exploration,
         })
 
     # Step 4: Update state
@@ -260,6 +360,7 @@ def resolve_mode(
             "confidence": round(confidence, 3),
             "momentum": round(momentum, 4),
             "cycles_in_prior_mode": cycles_in_mode,
+            "favor_exploration": favor_exploration,
         })
         state["current_mode"] = resolved
         state["cycles_in_mode"] = 1
@@ -279,19 +380,44 @@ def resolve_mode(
     return resolved
 
 
-def record_cycle(mode: str, outcome_score: float) -> None:
-    """Record the outcome of a completed cycle.
+def record_cycle(
+    mode: str,
+    outcome_score: float,
+    confidence: float = 0.5,
+    intent_alignment: float = 1.0,
+    signal_reliability: float = 1.0,
+) -> None:
+    """Record the outcome of a completed cycle with its conditions.
+
+    Phase 9.5 upgrade: stores full context alongside each outcome so
+    ``get_mode_score()`` can provide condition-aware effectiveness scores.
 
     Parameters
     ----------
-    mode          : the mode used during this cycle
-    outcome_score : a scalar [0, 1] representing how well the cycle went
-                    (e.g. avg value_delta, pass_rate, net_score)
+    mode               : the mode used during this cycle
+    outcome_score      : a scalar [0, 1] representing how well the cycle went
+                         (e.g. avg value_delta, pass_rate, net_score)
+    confidence         : avg_confidence at cycle time (from signal_integrity_engine)
+    intent_alignment   : intent alignment score at cycle time (from intent_anchor_engine)
+    signal_reliability : signal reliability / avg_confidence from the snapshot
     """
     state = _load_state()
+
+    # Legacy per-mode outcome history (kept for backwards compat)
     history: List[Dict[str, Any]] = state.get("mode_outcome_history", [])
     history.append({"mode": mode, "outcome": float(outcome_score)})
     state["mode_outcome_history"] = history
+
+    # Phase 9.5: contextual record
+    ctx_history: List[Dict[str, Any]] = state.get("context_history", [])
+    ctx_history.append({
+        "mode": mode,
+        "outcome": float(outcome_score),
+        "confidence": float(confidence),
+        "intent_alignment": float(intent_alignment),
+        "signal_reliability": float(signal_reliability),
+    })
+    state["context_history"] = ctx_history
 
     # Update momentum baseline
     prev = state.get("previous_score")
@@ -344,15 +470,21 @@ def status() -> Dict[str, Any]:
         if per_mode_counts[m] > 0:
             per_mode_avg[m] = round(per_mode_avg[m] / per_mode_counts[m], 4)
 
+    ctx_history: List[Dict[str, Any]] = state.get("context_history", [])
+
     return {
         "current_mode": state.get("current_mode", "exploit"),
         "cycles_in_mode": state.get("cycles_in_mode", 0),
         "mode_min_duration": MODE_MIN_DURATION,
         "recent_switches": recent_switches,
         "switch_penalty": round(penalty, 3),
+        "switch_penalty_max": SWITCH_PENALTY_MAX,
         "per_mode_avg_outcome": per_mode_avg,
         "confidence_enter_stability": CONFIDENCE_ENTER_STABILITY,
         "confidence_exit_stability": CONFIDENCE_EXIT_STABILITY,
+        "context_memory_size": len(ctx_history),
+        "context_memory_max": CONTEXT_MEMORY_MAX,
+        "exploration_bias_threshold": EXPLORATION_BIAS_THRESHOLD,
     }
 
 
