@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nibblebots/causal_strategy_engine.py — Phase 10/11/12 Causal Strategy Learning
+nibblebots/causal_strategy_engine.py — Phase 10/11/12/13 Causal Strategy Learning
 
 Moves the system from mode→outcome tracking to condition→outcome rule
 formation.  Instead of "exploration worked", the system learns:
@@ -115,20 +115,71 @@ Three mechanisms to distinguish narrow hacks from robust strategies:
   variance across the top-K blended rules, ensuring all strategy dimensions
   are internally consistent before high confidence is awarded.
 
+Calibration & Regime Awareness (Phase 13)
+-------------------------------------------
+Seven mechanisms to prevent long-term drift and miscalibration under scale:
+
+* **Confidence calibration** — every rule tracks ``predicted_confidence`` vs
+  ``actual_success`` across its member episodes.
+  ``calibration_error = |mean(predicted) − mean(actual_success)|``; the rule's
+  effective trust is then multiplied by ``(1 − calibration_error)``, penalising
+  overconfident rules and boosting underconfident ones.
+
+* **Regime shift detection** — a rolling-mean baseline (last
+  ``CSE_REGIME_WINDOW_BASELINE`` outcomes) is compared with a recent window
+  (last ``CSE_REGIME_WINDOW_RECENT`` outcomes).  When the delta exceeds
+  ``CSE_REGIME_THRESHOLD``, all rule trusts are scaled down by
+  ``CSE_REGIME_TRUST_REDUCTION`` and exploration is temporarily boosted to
+  prevent the system clinging to strategies that fit an outdated environment.
+
+* **Strategy interaction memory** — each episode is tagged with an
+  ``interaction_key = (mode, batch_size, subsystem, explore_flag)`` and its
+  outcome is stored in ``interaction_outcomes``.  When the current context
+  matches a known high-outcome combo, exploration delta and batch size are
+  nudged toward the historically successful values.
+
+* **Delayed-outcome weighting** — ``record_episode()`` accepts optional
+  ``delayed_h5`` and ``delayed_h20`` scores from the existing
+  ``delayed_outcome_tracker``.  When provided, the stored outcome is:
+  ``0.6 × immediate + 0.3 × H5 + 0.1 × H20``, preventing short-term
+  optimisation traps.
+
+* **Structured exploration** — counterfactual pressure is extended to three
+  modes: *counterfactual* (existing, full inversion), *adjacent* (small
+  parameter perturbation ±``CSE_ADJACENT_EXPLORE_DELTA``), and *directed*
+  (intentionally target the lowest-generalisation-score subsystem).
+
+* **Trust saturation cap** — ``effective_trust`` is clamped to
+  ``CSE_TRUST_SATURATION_CAP`` (0.85) before any decision, preventing
+  absolute certainty from silencing further learning.
+
+* **Meta-learning velocity signal** — the mean improvement rate over the
+  last ``CSE_META_VELOCITY_WINDOW`` episodes drives a global exploration
+  adjustment: low velocity → increase exploration; high velocity → stabilise.
+
 Constants (overridable via env vars)
 -------------------------------------
-CSE_MIN_RULE_SAMPLES      : int   (env: CSE_MIN_RULE_SAMPLES,       default 5)
-CSE_RULE_WINDOW           : int   (env: CSE_RULE_WINDOW,            default 100)
-CSE_RECENCY_DECAY         : float (env: CSE_RECENCY_DECAY,          default 30.0)
-CSE_VARIANCE_THRESHOLD    : float (env: CSE_VARIANCE_THRESHOLD,     default 0.15)
-CSE_DERIVE_INTERVAL       : int   (env: CSE_DERIVE_INTERVAL,        default 10)
-CSE_COUNTERFACTUAL_RATE   : float (env: CSE_COUNTERFACTUAL_RATE,    default 0.10)
-CSE_RULE_DECAY            : float (env: CSE_RULE_DECAY,             default 100.0)
-CSE_SOFT_MATCH_TOP_K      : int   (env: CSE_SOFT_MATCH_TOP_K,       default 3)
-CSE_MAX_SAFE_BATCH        : int   (env: CSE_MAX_SAFE_BATCH,         default 5)
-CSE_DOMINANCE_THRESHOLD   : float (env: CSE_DOMINANCE_THRESHOLD,    default 0.70)
-CSE_DOMINANCE_SCALE       : float (env: CSE_DOMINANCE_SCALE,         default 0.50)
-CSE_GENERALIZATION_BAND   : float (env: CSE_GENERALIZATION_BAND,     default 0.20)
+CSE_MIN_RULE_SAMPLES        : int   (env: CSE_MIN_RULE_SAMPLES,          default 5)
+CSE_RULE_WINDOW             : int   (env: CSE_RULE_WINDOW,               default 100)
+CSE_RECENCY_DECAY           : float (env: CSE_RECENCY_DECAY,             default 30.0)
+CSE_VARIANCE_THRESHOLD      : float (env: CSE_VARIANCE_THRESHOLD,        default 0.15)
+CSE_DERIVE_INTERVAL         : int   (env: CSE_DERIVE_INTERVAL,           default 10)
+CSE_COUNTERFACTUAL_RATE     : float (env: CSE_COUNTERFACTUAL_RATE,       default 0.10)
+CSE_RULE_DECAY              : float (env: CSE_RULE_DECAY,                default 100.0)
+CSE_SOFT_MATCH_TOP_K        : int   (env: CSE_SOFT_MATCH_TOP_K,          default 3)
+CSE_MAX_SAFE_BATCH          : int   (env: CSE_MAX_SAFE_BATCH,            default 5)
+CSE_DOMINANCE_THRESHOLD     : float (env: CSE_DOMINANCE_THRESHOLD,       default 0.70)
+CSE_DOMINANCE_SCALE         : float (env: CSE_DOMINANCE_SCALE,           default 0.50)
+CSE_GENERALIZATION_BAND     : float (env: CSE_GENERALIZATION_BAND,       default 0.20)
+CSE_REGIME_THRESHOLD        : float (env: CSE_REGIME_THRESHOLD,          default 0.15)
+CSE_REGIME_TRUST_REDUCTION  : float (env: CSE_REGIME_TRUST_REDUCTION,    default 0.30)
+CSE_REGIME_WINDOW_BASELINE  : int   (env: CSE_REGIME_WINDOW_BASELINE,    default 50)
+CSE_REGIME_WINDOW_RECENT    : int   (env: CSE_REGIME_WINDOW_RECENT,      default 10)
+CSE_TRUST_SATURATION_CAP    : float (env: CSE_TRUST_SATURATION_CAP,      default 0.85)
+CSE_META_VELOCITY_WINDOW    : int   (env: CSE_META_VELOCITY_WINDOW,      default 20)
+CSE_META_LOW_VELOCITY       : float (env: CSE_META_LOW_VELOCITY,         default 0.01)
+CSE_ADJACENT_EXPLORE_DELTA  : float (env: CSE_ADJACENT_EXPLORE_DELTA,    default 0.02)
+CSE_INTERACTION_MIN_SAMPLES : int   (env: CSE_INTERACTION_MIN_SAMPLES,   default 3)
 """
 
 from __future__ import annotations
@@ -190,6 +241,54 @@ CSE_DOMINANCE_SCALE: float = float(
 # as a cross-context (generalisation) test rather than an in-band match.
 CSE_GENERALIZATION_BAND: float = float(
     os.environ.get("CSE_GENERALIZATION_BAND", "0.20")
+)
+
+# ---------------------------------------------------------------------------
+# Phase 13: Calibration + Regime Awareness constants
+# ---------------------------------------------------------------------------
+
+# Regime shift detection: if |mean(recent) − mean(baseline)| > threshold,
+# a regime shift is flagged and all rule trusts are temporarily reduced.
+CSE_REGIME_THRESHOLD: float = float(
+    os.environ.get("CSE_REGIME_THRESHOLD", "0.15")
+)
+# Fraction by which all rule trusts are reduced during a detected regime shift.
+CSE_REGIME_TRUST_REDUCTION: float = float(
+    os.environ.get("CSE_REGIME_TRUST_REDUCTION", "0.30")
+)
+# Number of recent outcomes forming the "baseline" for regime detection.
+CSE_REGIME_WINDOW_BASELINE: int = int(
+    os.environ.get("CSE_REGIME_WINDOW_BASELINE", "50")
+)
+# Number of most-recent outcomes compared against the baseline.
+CSE_REGIME_WINDOW_RECENT: int = int(
+    os.environ.get("CSE_REGIME_WINDOW_RECENT", "10")
+)
+
+# Trust saturation cap: no rule can reach absolute certainty.
+CSE_TRUST_SATURATION_CAP: float = float(
+    os.environ.get("CSE_TRUST_SATURATION_CAP", "0.85")
+)
+
+# Meta-learning velocity: window (episodes) and threshold below which
+# the system considers itself "stagnating" and boosts global exploration.
+CSE_META_VELOCITY_WINDOW: int = int(
+    os.environ.get("CSE_META_VELOCITY_WINDOW", "20")
+)
+CSE_META_LOW_VELOCITY: float = float(
+    os.environ.get("CSE_META_LOW_VELOCITY", "0.01")
+)
+
+# Adjacent exploration: magnitude of the small parameter perturbation used
+# when the exploration mode is "adjacent" rather than full counterfactual.
+CSE_ADJACENT_EXPLORE_DELTA: float = float(
+    os.environ.get("CSE_ADJACENT_EXPLORE_DELTA", "0.02")
+)
+
+# Interaction memory: minimum outcome samples per interaction_key before
+# the system biases toward known-good strategy combos.
+CSE_INTERACTION_MIN_SAMPLES: int = int(
+    os.environ.get("CSE_INTERACTION_MIN_SAMPLES", "3")
 )
 
 # Confidence (and signal) bands: (lower_inclusive, upper_exclusive, label)
@@ -346,6 +445,48 @@ def _rule_distance(
 
 
 # ---------------------------------------------------------------------------
+# Phase 13 helpers: regime shift detection, meta-learning velocity, interaction key
+# ---------------------------------------------------------------------------
+
+def _detect_regime_shift(outcome_history):
+    # type: (list) -> bool
+    """Return True when recent outcomes have shifted significantly from baseline.
+
+    Compares rolling_mean(last CSE_REGIME_WINDOW_RECENT) against
+    rolling_mean(last CSE_REGIME_WINDOW_BASELINE).  Returns False when there
+    is insufficient history.
+    """
+    if len(outcome_history) < CSE_REGIME_WINDOW_RECENT + 1:
+        return False
+    baseline = outcome_history[-CSE_REGIME_WINDOW_BASELINE:]
+    recent = outcome_history[-CSE_REGIME_WINDOW_RECENT:]
+    baseline_mean = sum(baseline) / len(baseline)
+    recent_mean = sum(recent) / len(recent)
+    return abs(recent_mean - baseline_mean) > CSE_REGIME_THRESHOLD
+
+
+def _compute_learning_velocity(outcome_history):
+    # type: (list) -> float
+    """Return the mean per-step improvement rate over the velocity window.
+
+    Positive = system is improving; near-zero or negative = stagnating.
+    Returns 0.0 when there is insufficient history.
+    """
+    n = min(CSE_META_VELOCITY_WINDOW, len(outcome_history))
+    if n < 2:
+        return 0.0
+    window = outcome_history[-n:]
+    diffs = [window[i + 1] - window[i] for i in range(len(window) - 1)]
+    return sum(diffs) / len(diffs)
+
+
+def _interaction_key(mode, batch_size, subsystem, is_explore):
+    # type: (str, int, str, bool) -> str
+    """Canonical string key encoding a strategy combination for interaction memory."""
+    return f"{mode}|{batch_size}|{subsystem}|{'E' if is_explore else 'X'}"
+
+
+# ---------------------------------------------------------------------------
 # State management
 # ---------------------------------------------------------------------------
 
@@ -364,6 +505,9 @@ def _load_state() -> Dict[str, Any]:
         "rule_usage_counts": {},      # Phase 11: {rule_key: int} usage frequency
         "pending_counterfactual": None,  # Phase 11: {expected_outcome, rule_key} or None
         "pending_generalization": None,  # Phase 12: {rule_key, context_distance} or None
+        # Phase 13 -------------------------------------------------------
+        "outcome_history": [],        # rolling list of outcome scores for regime / velocity
+        "interaction_outcomes": {},   # {interaction_key: [outcome, ...]}
     }
 
 
@@ -403,6 +547,10 @@ def record_episode(
     variance: float = 0.0,
     fix_type: str = "",
     subsystem: str = "",
+    batch_size: int = 0,
+    is_explore: bool = False,
+    delayed_h5: Optional[float] = None,
+    delayed_h20: Optional[float] = None,
 ) -> None:
     """Record one completed cycle for causal rule learning.
 
@@ -416,15 +564,32 @@ def record_episode(
     variance     : variance estimate of recent outcomes (0.0 if unavailable)
     fix_type     : dominant fix type applied this cycle
     subsystem    : dominant subsystem targeted this cycle
+    batch_size   : actual batch size used (Phase 13: interaction tracking)
+    is_explore   : True when exploration mode was active (Phase 13)
+    delayed_h5   : H5-horizon outcome from delayed_outcome_tracker (Phase 13)
+    delayed_h20  : H20-horizon outcome from delayed_outcome_tracker (Phase 13)
 
     Phase 11: if a counterfactual was previously dispatched
     (``pending_counterfactual`` set in state), this episode's
-    ``counterfactual_delta`` is computed as ``outcome − expected_outcome``
+    ``counterfactual_delta`` is computed as ``outcome - expected_outcome``
     and stored so ``derive_rules()`` can aggregate it per-rule.
+
+    Phase 13: when ``delayed_h5`` / ``delayed_h20`` are provided, the stored
+    outcome is blended: ``0.6 * immediate + 0.3 * H5 + 0.1 * H20``, preventing
+    short-term optimisation traps.
     """
     state = _load_state()
     episodes: List[Dict[str, Any]] = state.get("episodes", [])
     episode_count: int = state.get("episode_count", 0)
+    outcome_history: List[float] = state.get("outcome_history", [])
+    interaction_outcomes: Dict[str, List[float]] = state.get("interaction_outcomes", {})
+
+    # Phase 13: blend immediate outcome with delayed horizons when available.
+    immediate_outcome = float(outcome)
+    if delayed_h5 is not None or delayed_h20 is not None:
+        dh5 = float(delayed_h5) if delayed_h5 is not None else immediate_outcome
+        dh20 = float(delayed_h20) if delayed_h20 is not None else immediate_outcome
+        outcome = 0.6 * immediate_outcome + 0.3 * dh5 + 0.1 * dh20
 
     conf_band = _bucket_confidence(confidence)
     signal_band = _bucket_confidence(signal_conf)
@@ -464,6 +629,24 @@ def record_episode(
         episode["gen_rule_key"] = pending_gen.get("rule_key", "")
         episode["gen_context_distance"] = float(pending_gen.get("context_distance", 0.0))
         state["pending_generalization"] = None  # consumed
+
+    # Phase 13: record interaction key on this episode for interaction memory.
+    ikey = _interaction_key(mode, batch_size, subsystem, is_explore)
+    episode["interaction_key"] = ikey
+
+    # Update interaction_outcomes for the current combo.
+    bucket = interaction_outcomes.setdefault(ikey, [])
+    bucket.append(float(outcome))
+    # Cap per-key history at 50 to prevent unbounded growth.
+    if len(bucket) > 50:
+        interaction_outcomes[ikey] = bucket[-50:]
+    state["interaction_outcomes"] = interaction_outcomes
+
+    # Phase 13: maintain rolling outcome history for regime detection and velocity.
+    outcome_history.append(float(outcome))
+    if len(outcome_history) > CSE_REGIME_WINDOW_BASELINE * 2:
+        outcome_history = outcome_history[-(CSE_REGIME_WINDOW_BASELINE * 2):]
+    state["outcome_history"] = outcome_history
 
     episodes.append(episode)
     episode_count += 1
@@ -663,6 +846,16 @@ def derive_rules() -> List[Dict[str, Any]]:
         else:
             gen_score = 0.0
 
+        # Phase 13: confidence calibration — compare predicted confidence with
+        # actual success rate (outcome > 0.5 = success) to penalise overconfidence.
+        predicted_confs = [float(ep.get("confidence", 0.5)) for ep in recent_eps]
+        actual_successes = [1.0 if float(ep.get("outcome", 0.0)) > 0.5 else 0.0
+                            for ep in recent_eps]
+        mean_predicted = sum(predicted_confs) / len(predicted_confs) if predicted_confs else 0.5
+        mean_actual = sum(actual_successes) / len(actual_successes) if actual_successes else 0.5
+        calibration_error = round(abs(mean_predicted - mean_actual), 4)
+        calibrated_trust = round(stats["trust_score"] * max(0.0, 1.0 - calibration_error), 4)
+
         rule: Dict[str, Any] = {
             "key": key,
             "conditions": {
@@ -674,6 +867,8 @@ def derive_rules() -> List[Dict[str, Any]]:
             "outcome_stats": stats,
             "recommended_adjustments": adjustments,
             "trust_score": stats["trust_score"],
+            "calibration_error": calibration_error,    # Phase 13
+            "calibrated_trust": calibrated_trust,      # Phase 13
             "derived_at_index": episode_count,  # for age-based decay in query_strategy
             "target_subsystem": target_subsystem,    # Phase 11/12
             "priority_fix_type": priority_fix_type,  # Phase 11/12
@@ -768,11 +963,17 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     episode_count: int = state.get("episode_count", 0)
     query_count: int = int(state.get("query_count", 0))
     rule_usage_counts: Dict[str, int] = state.get("rule_usage_counts", {})
+    outcome_history: List[float] = state.get("outcome_history", [])
+    interaction_outcomes: Dict[str, List[float]] = state.get("interaction_outcomes", {})
 
     confidence = float(current_context.get("confidence", 0.5))
     signal_conf = float(current_context.get("signal_conf", 0.5))
     variance = float(current_context.get("variance", 0.0))
     mode = str(current_context.get("mode", ""))
+
+    # Phase 13: compute regime shift and meta-velocity before anything else.
+    regime_shift = _detect_regime_shift(outcome_history)
+    learning_velocity = _compute_learning_velocity(outcome_history)
 
     conf_band = _bucket_confidence(confidence)
     signal_band = _bucket_confidence(signal_conf)
@@ -914,6 +1115,58 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     state["rule_usage_counts"] = rule_usage_counts
 
     # ------------------------------------------------------------------
+    # Phase 13-A: Calibration-adjusted trust — apply rule's calibration error
+    # so overconfident rules are penalised proportionally.
+    # ------------------------------------------------------------------
+    best_calibration_error = float(top_k[0][2].get("calibration_error", 0.0))
+    effective_trust = effective_trust * max(0.0, 1.0 - best_calibration_error)
+
+    # ------------------------------------------------------------------
+    # Phase 13-B: Regime shift penalty — if the environment has shifted,
+    # scale down trust and boost exploration temporarily.
+    # ------------------------------------------------------------------
+    if regime_shift:
+        effective_trust = effective_trust * (1.0 - CSE_REGIME_TRUST_REDUCTION)
+        blended_explore_delta += 0.05  # temporary global exploration boost
+
+    # ------------------------------------------------------------------
+    # Phase 13-C: Meta-learning velocity adjustment — if the system is
+    # stagnating, push exploration; if improving, let it exploit.
+    # ------------------------------------------------------------------
+    if abs(learning_velocity) >= 0.0:  # always runs; guard against NaN below
+        if learning_velocity < CSE_META_LOW_VELOCITY and learning_velocity >= 0.0:
+            # Low positive velocity: nudge exploration gently
+            blended_explore_delta += 0.02
+        elif learning_velocity < 0.0:
+            # Negative velocity: system is degrading — explore more aggressively
+            blended_explore_delta += 0.05
+
+    # ------------------------------------------------------------------
+    # Phase 13-D: Trust saturation cap — prevents absolute certainty.
+    # ------------------------------------------------------------------
+    effective_trust = min(effective_trust, CSE_TRUST_SATURATION_CAP)
+
+    # ------------------------------------------------------------------
+    # Phase 13-E: Strategy interaction memory bias — if the current
+    # combination (mode, batch, subsystem, explore) has a strong track
+    # record, nudge parameters toward that successful configuration.
+    # ------------------------------------------------------------------
+    proposed_batch = blended_batch
+    proposed_delta = blended_explore_delta
+    is_explore_flag = blended_explore_delta > 0 or force_exploration
+    ikey = _interaction_key(mode, proposed_batch, target_subsystem, is_explore_flag)
+    known_outcomes = interaction_outcomes.get(ikey, [])
+    if len(known_outcomes) >= CSE_INTERACTION_MIN_SAMPLES:
+        mean_interaction_outcome = sum(known_outcomes) / len(known_outcomes)
+        if mean_interaction_outcome > 0.6:
+            # Known-good combo: tighten exploration slightly and keep batch
+            blended_explore_delta = max(proposed_delta - 0.01, proposed_delta)
+        elif mean_interaction_outcome < 0.4:
+            # Known-bad combo: increase exploration and shrink batch
+            blended_explore_delta += 0.03
+            blended_batch = max(1, blended_batch - 1)
+
+    # ------------------------------------------------------------------
     # Phase 11.8 / 12: Directional advice — populate subsystem / fix_type
     # hints from the best-matched rule (already impact-weighted in derive_rules).
     # Phase 12: also store pending_generalization when applied cross-context.
@@ -954,8 +1207,9 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
     )
 
     # ------------------------------------------------------------------
-    # 4. Counterfactual pressure: deliberately invert the strategy
-    #    when the matched rule is highly trusted, to prevent lock-in.
+    # 4. Structured exploration pressure (Phase 13 upgrade):
+    #    Three modes — counterfactual, adjacent, directed — chosen by
+    #    random selection when trust > CSE_COUNTERFACTUAL_MIN_TRUST.
     #    Phase 11: also persist expected outcome for paired scoring.
     # ------------------------------------------------------------------
     is_counterfactual = False
@@ -963,23 +1217,54 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
         effective_trust >= CSE_COUNTERFACTUAL_MIN_TRUST
         and random.random() < CSE_COUNTERFACTUAL_RATE
     ):
-        is_counterfactual = True
-        # Phase 11: store expected outcome so the next record_episode()
-        # can compute counterfactual_delta = actual − expected.
-        state["pending_counterfactual"] = {
-            "expected_outcome": round(blended_mean, 4),
-            "rule_key": best_rule_key,
-        }
-        # Invert: flip exploration delta sign, shrink batch to 1 when
-        # the rule recommended exploit, or increase it when it recommended
-        # penalise.
-        blended_explore_delta = -blended_explore_delta
-        blended_batch = 1 if blended_batch > 1 else min(3, CSE_MAX_SAFE_BATCH)
-        force_exploration = not force_exploration
-        rationale = (
-            f"COUNTERFACTUAL({rationale}): "
-            f"inverted → explore_delta={blended_explore_delta:+.3f} batch={blended_batch}"
-        )
+        # Phase 13: choose exploration mode.
+        # Weights: counterfactual 50%, adjacent 30%, directed 20%.
+        explore_roll = random.random()
+        if explore_roll < 0.50:
+            # --- Counterfactual (existing behaviour) ---
+            is_counterfactual = True
+            state["pending_counterfactual"] = {
+                "expected_outcome": round(blended_mean, 4),
+                "rule_key": best_rule_key,
+            }
+            blended_explore_delta = -blended_explore_delta
+            blended_batch = 1 if blended_batch > 1 else min(3, CSE_MAX_SAFE_BATCH)
+            force_exploration = not force_exploration
+            rationale = (
+                f"COUNTERFACTUAL({rationale}): "
+                f"inverted → explore_delta={blended_explore_delta:+.3f} batch={blended_batch}"
+            )
+        elif explore_roll < 0.80:
+            # --- Adjacent exploration: small parameter perturbation ---
+            # Slightly perturb batch size and exploration delta so the
+            # system probes the neighbourhood without full inversion.
+            adj_sign = 1 if random.random() < 0.5 else -1
+            blended_explore_delta += adj_sign * CSE_ADJACENT_EXPLORE_DELTA
+            blended_batch = max(1, min(blended_batch + adj_sign, CSE_MAX_SAFE_BATCH))
+            rationale = (
+                f"ADJACENT_EXPLORE({rationale}): "
+                f"perturbed → explore_delta={blended_explore_delta:+.3f} batch={blended_batch}"
+            )
+        else:
+            # --- Directed exploration: target lowest-generalisation subsystem ---
+            # Find the subsystem whose rules have the weakest generalisation
+            # score and direct effort there to gather out-of-band data.
+            worst_gen_subsystem = ""
+            worst_gen_score = float("inf")
+            for r in rules:
+                gs = float(r.get("generalization_score", 0.0))
+                sub = r.get("target_subsystem", "")
+                if sub and gs < worst_gen_score:
+                    worst_gen_score = gs
+                    worst_gen_subsystem = sub
+            if worst_gen_subsystem:
+                target_subsystem = worst_gen_subsystem
+            force_exploration = True
+            blended_explore_delta = max(blended_explore_delta, 0.05)
+            rationale = (
+                f"DIRECTED_EXPLORE({rationale}): "
+                f"targeting subsystem={target_subsystem!r} gen_score={worst_gen_score:.3f}"
+            )
 
     _save_state(state)
 
@@ -1031,6 +1316,38 @@ def status() -> Dict[str, Any]:
         key=lambda x: -x["generalization_score"],
     )[:5]
 
+    # Phase 13: compute regime shift, velocity, and calibration summary.
+    outcome_history: List[float] = state.get("outcome_history", [])
+    interaction_outcomes: Dict[str, List[float]] = state.get("interaction_outcomes", {})
+    regime_shift = _detect_regime_shift(outcome_history)
+    learning_velocity = _compute_learning_velocity(outcome_history)
+
+    calibration_summary = sorted(
+        [
+            {
+                "key": r.get("key", ""),
+                "calibration_error": r.get("calibration_error", 0.0),
+                "calibrated_trust": r.get("calibrated_trust", r.get("trust_score", 0.0)),
+            }
+            for r in rules
+        ],
+        key=lambda x: -x["calibration_error"],
+    )[:5]
+
+    # Top interaction combos by mean outcome.
+    top_interactions = sorted(
+        [
+            {
+                "key": k,
+                "mean_outcome": round(sum(v) / len(v), 4),
+                "samples": len(v),
+            }
+            for k, v in interaction_outcomes.items()
+            if len(v) >= CSE_INTERACTION_MIN_SAMPLES
+        ],
+        key=lambda x: -x["mean_outcome"],
+    )[:5]
+
     return {
         "episode_count": state.get("episode_count", 0),
         "last_derive_count": state.get("last_derive_count", 0),
@@ -1039,6 +1356,13 @@ def status() -> Dict[str, Any]:
         "dominant_rules": dominant_rules,
         "top_rules": rules[:5],
         "generalization_summary": generalization_summary,
+        # Phase 13 ----------------------------------------------------------
+        "regime_shift_detected": regime_shift,
+        "learning_velocity": round(learning_velocity, 5),
+        "outcome_history_len": len(outcome_history),
+        "calibration_summary": calibration_summary,
+        "top_interactions": top_interactions,
+        # Constants ---------------------------------------------------------
         "cse_min_rule_samples": CSE_MIN_RULE_SAMPLES,
         "cse_variance_threshold": CSE_VARIANCE_THRESHOLD,
         "cse_recency_decay": CSE_RECENCY_DECAY,
@@ -1051,4 +1375,11 @@ def status() -> Dict[str, Any]:
         "cse_dominance_threshold": CSE_DOMINANCE_THRESHOLD,
         "cse_dominance_scale": CSE_DOMINANCE_SCALE,
         "cse_generalization_band": CSE_GENERALIZATION_BAND,
+        "cse_regime_threshold": CSE_REGIME_THRESHOLD,
+        "cse_regime_trust_reduction": CSE_REGIME_TRUST_REDUCTION,
+        "cse_trust_saturation_cap": CSE_TRUST_SATURATION_CAP,
+        "cse_meta_velocity_window": CSE_META_VELOCITY_WINDOW,
+        "cse_meta_low_velocity": CSE_META_LOW_VELOCITY,
+        "cse_adjacent_explore_delta": CSE_ADJACENT_EXPLORE_DELTA,
+        "cse_interaction_min_samples": CSE_INTERACTION_MIN_SAMPLES,
     }
