@@ -52,6 +52,9 @@ CONFIDENCE_MIN = float(os.environ.get("EVOLUTION_CONFIDENCE_MIN", "0.60"))
 # Phase 8: minimum real-world value gain required for a fix to be executed
 MIN_REAL_WORLD_GAIN = float(os.environ.get("VALUE_MIN_GAIN", "0.02"))
 
+# Phase 8.5: confidence penalty applied to low-intent-alignment fixes
+INTENT_ALIGNMENT_PENALTY = float(os.environ.get("INTENT_ALIGNMENT_PENALTY", "0.25"))
+
 # Fix types that we consider RISK (no automated mutation without human review)
 _RISK_FIX_TYPES: frozenset = frozenset({
     # Nothing in Phase 3 is logic-mutating yet; this guard is ready for Phase 4
@@ -164,6 +167,14 @@ def build_plan(
     # Apply context-guard scaling to max_fixes
     effective_max_fixes = max(1, int(max_fixes * ctx_max_fixes_scale))
 
+    # Phase 8.5: load intent anchor engine (best-effort)
+    _intent_anchor = None
+    try:
+        from nibblebots import intent_anchor_engine as _iae  # noqa: PLC0415
+        _intent_anchor = _iae
+    except Exception:  # noqa: BLE001
+        pass
+
     eligible: List[Tuple[SemanticIssue, ImpactScore]] = []
     skipped = 0
 
@@ -172,6 +183,23 @@ def build_plan(
         adj_net = regression_adjusted_net_score(impact.net_score)
         # Phase 8: apply context confidence penalty to per-issue confidence
         adj_confidence = max(0.0, issue.confidence - ctx_confidence_adj)
+
+        # Phase 8.5: apply intent alignment penalty
+        if _intent_anchor is not None:
+            try:
+                alignment = _intent_anchor.update(
+                    issue.fix_type,
+                    issue.subsystem,
+                    str(issue.file_path),
+                )
+                if alignment < 0.4:
+                    adj_confidence = max(
+                        0.0,
+                        adj_confidence - INTENT_ALIGNMENT_PENALTY,
+                    )
+            except Exception:  # noqa: BLE001
+                pass
+
         issue = issue._replace(confidence=round(adj_confidence, 3))
         impact_with_adj_score = impact._replace(net_score=adj_net)
 
@@ -272,6 +300,26 @@ def build_plan(
             for i, pf in enumerate(planned_sorted)
         ]
         avg_net = sum(pf.impact.net_score for pf in planned) / max(len(planned), 1)
+
+    # Phase 8.5: check for long-term intent drift; reduce plan size on alarm
+    if _intent_anchor is not None:
+        try:
+            drift_signal = _intent_anchor.check_drift()
+            if drift_signal == "intent_drift" and len(planned) > 1:
+                # Halve the plan to prioritise goal-aligned fixes
+                half = max(1, len(planned) // 2)
+                skipped += len(planned) - half
+                planned = planned[:half]
+                avg_net = (
+                    sum(pf.impact.net_score for pf in planned) / len(planned)
+                    if planned else 0.0
+                )
+                avg_risk = (
+                    sum(pf.impact.risk_level for pf in planned) / len(planned)
+                    if planned else 0.0
+                )
+        except Exception:  # noqa: BLE001
+            pass
 
     return EvolutionPlan(
         planned_fixes=planned,

@@ -101,12 +101,16 @@ def _pearson(xs: List[float], ys: List[float]) -> float:
 # ---------------------------------------------------------------------------
 
 def _load_state() -> Dict[str, List[Tuple[float, float]]]:
-    """Load the per-fix-type (net_score, value_delta) window lists."""
+    """Load the per-fix-type observation window lists.
+
+    Supports both legacy 2-tuple (net_score, value_delta) entries and the
+    Phase 8.5 3-tuple (net_score, value_delta, confidence) entries.
+    """
     if not _STATE_FILE.exists():
         return {}
     try:
         raw = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
-        # raw is { fix_type: [[net_score, value_delta], ...] }
+        # Normalise to tuples regardless of length (2 or 3 elements)
         return {
             ft: [tuple(pair) for pair in pairs]  # type: ignore[misc]
             for ft, pairs in raw.items()
@@ -136,19 +140,31 @@ def record(
     fix_types: List[str],
     impact_net_score: float,
     value_delta: float,
+    signal_confidence: float = 1.0,
 ) -> None:
     """Record a (net_score, value_delta) observation for each fix_type.
 
     Parameters
     ----------
-    fix_types         : list of fix types applied in this commit
-    impact_net_score  : average net_score from impact_engine for this commit
-    value_delta       : objective value delta from value_engine for this commit
+    fix_types          : list of fix types applied in this commit
+    impact_net_score   : average net_score from impact_engine for this commit
+    value_delta        : objective value delta from value_engine for this commit
+    signal_confidence  : Phase 8.5 — avg_confidence from signal_integrity_engine
+                         (1.0 = fully trusted; low values down-weight this obs)
+
+    Phase 8.5 note
+    --------------
+    Observations with low ``signal_confidence`` are stored with a down-weighted
+    ``value_delta`` so the causality tracker does not learn from garbage signals.
+    The stored tuple is (net_score, confidence_weighted_value_delta, confidence).
     """
+    confidence = max(0.0, min(1.0, float(signal_confidence)))
+    weighted_delta = value_delta * confidence
     state = _load_state()
     for ft in fix_types:
         window = list(state.get(ft, []))
-        window.append((float(impact_net_score), float(value_delta)))
+        # Store 3-tuple for new entries; older 2-tuples remain readable
+        window.append((float(impact_net_score), weighted_delta, confidence))
         # Maintain rolling window
         if len(window) > CAUSALITY_WINDOW:
             window = window[-CAUSALITY_WINDOW:]

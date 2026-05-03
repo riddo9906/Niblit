@@ -1,0 +1,2 @@
+{"timestamp": "2026-05-03T07:24:35.442696+00:00", "event": "anchor_set", "old_goal": "stability", "new_goal": "profitability", "keywords": ["trading", "profit", "win", "risk", "strategy", "signal"], "subsystems": ["trading", "decision", "strategy", "risk"]}
+{"timestamp": "2026-05-03T07:24:35.443045+00:00", "event": "anchor_set", "old_goal": "profitability", "new_goal": "stability", "keywords": ["test", "error", "exception", "fix", "stable", "reliable"], "subsystems": ["testing", "ci", "error_handling", "logging"]}

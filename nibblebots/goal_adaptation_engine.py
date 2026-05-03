@@ -131,7 +131,29 @@ def _derive_desired_goal(snapshot: Dict[str, Any]) -> tuple[str, str]:
     """Compute the goal the system *should* have given this snapshot.
 
     Returns (goal, reason).
+
+    Phase 8.5 guard
+    ---------------
+    When the snapshot carries ``avg_confidence < SIE_MIN_CONFIDENCE_GATE``
+    (populated by signal_integrity_engine via reality_bridge), the signals
+    are too noisy to drive goal changes.  We force ``"stability"`` to avoid
+    optimising toward an unreliable picture of reality.
     """
+    # Phase 8.5: if signal integrity is low, default to stability
+    avg_confidence = snapshot.get("avg_confidence")
+    if avg_confidence is not None:
+        try:
+            from nibblebots.signal_integrity_engine import SIE_MIN_CONFIDENCE_GATE  # noqa: PLC0415
+            gate = SIE_MIN_CONFIDENCE_GATE
+        except Exception:  # noqa: BLE001
+            gate = 0.50
+        if float(avg_confidence) < gate:
+            return (
+                "stability",
+                f"avg_confidence={float(avg_confidence):.3f} < {gate} "
+                "(signal integrity too low for goal adaptation)",
+            )
+
     pass_rate = float(snapshot.get("pass_rate", 0.8))
     trend = float(snapshot.get("ci_failure_trend", 0.0))
     real_world_score = float(snapshot.get("real_world_score", 0.5))

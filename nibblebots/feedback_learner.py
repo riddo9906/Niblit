@@ -405,12 +405,13 @@ def _evaluate_real_world_value(
             assessment, commit_sha=commit_sha, fix_types=fix_types
         )
 
-        # Feed causality tracker
+        # Feed causality tracker — Phase 8.5: pass signal_confidence
         if fix_types and impact_net_score is not None:
             causality_tracker.record(
                 fix_types=fix_types,
                 impact_net_score=impact_net_score,
                 value_delta=assessment.delta,
+                signal_confidence=after_snapshot.get("avg_confidence", 1.0),
             )
     except Exception:  # noqa: BLE001
         pass   # Phase 8 is strictly best-effort

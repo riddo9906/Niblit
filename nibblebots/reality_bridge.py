@@ -252,6 +252,11 @@ def pull_snapshot() -> Dict[str, Any]:
 
     Reads from outcome journal, trade KB, and health log.  Any missing
     source degrades gracefully to conservative defaults.
+
+    Phase 8.5: after aggregating the raw signals, ``signal_integrity_engine``
+    is called to attach per-source confidence scores and an ``avg_confidence``
+    field.  Downstream consumers (value_engine, goal_adaptation_engine) use
+    these to avoid learning from noisy or insufficient data.
     """
     journal_entries = _read_journal()
     trade_entries = _read_trade_kb()
@@ -266,7 +271,17 @@ def pull_snapshot() -> Dict[str, Any]:
         **trading,
         **runtime,
         "n_journal_entries": len(journal_entries),
+        "n_trade_entries": len(trade_entries),
     }
+
+    # Phase 8.5: enrich snapshot with signal integrity confidence scores
+    try:
+        from nibblebots import signal_integrity_engine as _sie  # noqa: PLC0415
+        sig_conf = _sie.assess_snapshot(snapshot)
+        snapshot.update(sig_conf.to_dict())
+    except Exception:  # noqa: BLE001
+        # Degrade gracefully — snapshot still usable without confidence fields
+        pass
 
     # Cache for before/after comparison
     _cache_snapshot(snapshot)

@@ -154,18 +154,50 @@ def evaluate(
     after_snapshot  : RealitySnapshot captured after the evolution commit
 
     Returns a ValueAssessment with delta, confidence, and gate result.
+
+    Phase 8.5 upgrade
+    -----------------
+    * ``confidence`` is now taken directly from ``avg_confidence`` in the
+      snapshot if signal_integrity_engine populated it; otherwise falls back
+      to the internal heuristic.
+    * ``delta`` is weighted by confidence (confidence-weighted delta), so
+      noisy signals produce smaller apparent improvements.
+    * When ``avg_confidence < SIE_MIN_CONFIDENCE_GATE`` (0.50), the assessment
+      is forced to ``passes_gate = False`` regardless of raw delta.
     """
     before_score = objective_engine.score_outcome(before_snapshot)
     after_score = objective_engine.score_outcome(after_snapshot)
-    delta = after_score - before_score
-    confidence, source = _estimate_confidence(before_snapshot, after_snapshot)
-    return ValueAssessment(
-        delta=delta,
+    raw_delta = after_score - before_score
+    heuristic_confidence, source = _estimate_confidence(before_snapshot, after_snapshot)
+
+    # Phase 8.5: prefer signal-integrity-derived confidence when available
+    avg_conf_before = float(before_snapshot.get("avg_confidence", -1))
+    avg_conf_after = float(after_snapshot.get("avg_confidence", -1))
+    if avg_conf_before >= 0 and avg_conf_after >= 0:
+        confidence = round((avg_conf_before + avg_conf_after) / 2.0, 4)
+    else:
+        confidence = heuristic_confidence
+
+    # Phase 8.5: confidence-weighted delta — noisy signals shrink apparent gain
+    weighted_delta = raw_delta * confidence
+
+    assessment = ValueAssessment(
+        delta=weighted_delta,
         confidence=confidence,
         source=source,
         before_score=before_score,
         after_score=after_score,
     )
+
+    # Phase 8.5: hard gate — below minimum confidence, never passes
+    try:
+        from nibblebots.signal_integrity_engine import SIE_MIN_CONFIDENCE_GATE  # noqa: PLC0415
+        if confidence < SIE_MIN_CONFIDENCE_GATE:
+            assessment.passes_gate = False
+    except Exception:  # noqa: BLE001
+        pass
+
+    return assessment
 
 
 def evaluate_single(after_snapshot: Dict[str, Any]) -> ValueAssessment:
