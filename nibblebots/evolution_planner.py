@@ -39,6 +39,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from nibblebots.semantic_engine import SemanticIssue
 from nibblebots.impact_engine import ImpactScore, regression_adjusted_net_score
+from nibblebots import anomaly_detector, strategic_planner
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +92,7 @@ def build_plan(
     workspace: Path,
     max_fixes: int = 5,
     dep_graph: Optional[Any] = None,   # DependencyGraph from dependency_analyzer
+    strategic_decision: Optional[Any] = None,  # StrategicDecision from strategic_planner
 ) -> EvolutionPlan:
     """Build a ranked EvolutionPlan from (SemanticIssue, ImpactScore) pairs.
 
@@ -100,12 +102,24 @@ def build_plan(
       3. net_score   >= RISK_THRESHOLD  (Phase 4: uses regression-adjusted score)
       4. Not a RISK fix type (unless explicitly allowed in the future)
       5. Phase 5: high-fan-out files (dep_graph provided) → promote to RISK class
+      6. Phase 7: strategic_decision.risk_budget enforced on avg risk
+      7. Phase 7: "do_nothing" decision → empty plan regardless of scores
 
     Ranking:
       Primary   : semantic type (error_handling_risk first)
-      Secondary : net_score descending
+      Secondary : net_score descending (explore mode: shuffle top tier for variety)
       Tertiary  : instance count descending
     """
+    # Phase 7: honour strategic "do nothing" decision
+    if strategic_decision is not None and not strategic_decision.should_proceed():
+        return EvolutionPlan(
+            planned_fixes=[],
+            skipped_count=len(paired),
+            expected_net_impact=0.0,
+            risk_level=0.0,
+            workspace=workspace,
+        )
+
     eligible: List[Tuple[SemanticIssue, ImpactScore]] = []
     skipped = 0
 
@@ -129,6 +143,18 @@ def build_plan(
         return (type_order, -imp.net_score, -sem.count)
 
     eligible.sort(key=_rank_key)
+
+    # Phase 7 exploration mode: shuffle within the same semantic-type tier
+    if strategic_decision is not None and strategic_decision.is_exploring():
+        import random as _random  # noqa: PLC0415
+        groups: dict = {}
+        for pair in eligible:
+            key = _rank_key(pair)[0]
+            groups.setdefault(key, []).append(pair)
+        for grp in groups.values():
+            _random.shuffle(grp)
+        eligible = [p for k in sorted(groups) for p in groups[k]]
+
     selected = eligible[:max_fixes]
 
     planned: List[PlannedFix] = []
@@ -157,6 +183,22 @@ def build_plan(
     else:
         avg_net = 0.0
         avg_risk = 0.0
+
+    # Phase 7: enforce risk_budget from strategic decision
+    if (
+        strategic_decision is not None
+        and strategic_decision.should_proceed()
+        and avg_risk > strategic_decision.risk_budget
+    ):
+        # Drop fixes until we're within budget
+        while planned and avg_risk > strategic_decision.risk_budget:
+            planned = [pf for pf in planned if pf.fix_class != "RISK"]
+            if planned:
+                avg_risk = sum(pf.impact.risk_level for pf in planned) / len(planned)
+            else:
+                avg_risk = 0.0
+        avg_net = sum(pf.impact.net_score for pf in planned) / max(len(planned), 1)
+        skipped += (len(selected) - len(planned))
 
     return EvolutionPlan(
         planned_fixes=planned,

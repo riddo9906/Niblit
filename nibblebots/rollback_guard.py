@@ -130,6 +130,7 @@ def check(
         "rolling_avg": 0.0,
         "action": "none",
         "revert_cmd": None,
+        "anomaly_warning": False,
     }
 
     runs = _fetch_recent_runs(ROLLING_WINDOW + 1)
@@ -148,6 +149,19 @@ def check(
     new_failures = latest_failed - rolling_avg
     result["new_failures"] = latest_failed
     result["rolling_avg"] = round(rolling_avg, 3)
+
+    # Phase 7: pre-emptive anomaly warning (before threshold is hit)
+    try:
+        from nibblebots import anomaly_detector as _ad  # noqa: PLC0415
+        if not _ad.is_system_safe():
+            result["anomaly_warning"] = True
+            print(
+                "  ⚠ RollbackGuard: anomaly_detector reports system is degraded "
+                "(pre-emptive warning — threshold not yet reached)",
+                file=sys.stderr,
+            )
+    except Exception:  # noqa: BLE001
+        pass
 
     if new_failures > ROLLBACK_THRESHOLD:
         result["regression"] = True

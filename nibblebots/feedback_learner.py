@@ -46,6 +46,7 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from nibblebots import impact_engine, rollback_guard
+from nibblebots import anomaly_detector, delayed_outcome_tracker, confidence_decay
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +215,10 @@ def record_outcome(
             f"ci_delta={outcome.get('ci_failure_change', 0):+d}"
         )
 
+    # Phase 7: confidence decay — mark validated fix types
+    if outcome.get("tests_passed"):
+        confidence_decay.mark_validated(fix_types)
+
     # Phase 4: rollback guard — check for regression and emit revert if needed
     guard_result = rollback_guard.check(fix_types=fix_types, commit_sha=commit_sha)
     if guard_result.get("regression"):
@@ -222,12 +227,26 @@ def record_outcome(
             file=sys.stderr,
         )
 
+    # Phase 7: anomaly detection — observe the latest failure rate
+    _observe_anomaly(outcome, fix_types)
+
+    # Phase 7: delayed outcome tracking — register commit, advance all open records
+    _advance_delayed_tracking(
+        commit_sha=commit_sha,
+        fix_types=fix_types,
+        outcome=outcome,
+        impact_net_score=impact_net_score,
+    )
+
     # Phase 4: attempt to fit regression model from accumulated history
     journal_entries = read_journal(last_n=200)
     if len(journal_entries) >= impact_engine.REGRESSION_MIN_SAMPLES:
         fitted = impact_engine.fit_regression_from_journal(journal_entries)
         if fitted:
             print("  📈 Regression model updated from journal history.")
+
+    # Phase 7: try to enrich regression model with delayed (corrected) outcomes
+    _try_delayed_regression_fit()
 
     # Phase 6: emit evolution outcome on the EventBus (best-effort)
     _emit_evolution_event(entry, outcome)
@@ -280,6 +299,75 @@ def journal_summary() -> Dict[str, Any]:
         "fix_type_counts": fix_type_counts,
         "latest_timestamp": entries[-1].get("timestamp", ""),
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: anomaly observation helper
+# ---------------------------------------------------------------------------
+
+def _observe_anomaly(outcome: Dict[str, Any], fix_types: List[str]) -> None:
+    """Feed the latest CI outcome into the anomaly detector (best-effort)."""
+    try:
+        failed = outcome.get("tests_passed") is False
+        failure_rate = 1.0 if failed else 0.0
+        report = anomaly_detector.observe(failure_rate, fix_types=fix_types)
+        if not report.is_safe:
+            print(
+                f"  ⚠ AnomalyDetector: {len(report.alerts)} alert(s) — "
+                + "; ".join(a.message for a in report.alerts),
+                file=sys.stderr,
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: delayed outcome tracking helpers
+# ---------------------------------------------------------------------------
+
+def _advance_delayed_tracking(
+    commit_sha: str,
+    fix_types: List[str],
+    outcome: Dict[str, Any],
+    impact_net_score: Optional[float],
+) -> None:
+    """Register the new commit and advance open records by one run (best-effort)."""
+    try:
+        ci_passed = bool(outcome.get("tests_passed"))
+        # Advance all existing open records first (this run is a signal for them)
+        delayed_outcome_tracker.record_run(ci_passed)
+        # Then register the NEW commit (so it starts tracking from next run)
+        if commit_sha:
+            delayed_outcome_tracker.register_commit(
+                commit_sha=commit_sha,
+                fix_types=fix_types,
+                h0_failures=int(not ci_passed),
+                impact_net_score=impact_net_score,
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _try_delayed_regression_fit() -> None:
+    """Fit regression using corrected delayed outcomes if available (best-effort)."""
+    try:
+        corrected = delayed_outcome_tracker.get_corrected_entries(min_horizon=5)
+        if len(corrected) < impact_engine.REGRESSION_MIN_SAMPLES:
+            return
+        # Build synthetic journal entries from delayed outcomes
+        synthetic: List[Dict[str, Any]] = [
+            {
+                "impact_net_score": e["impact_net_score"],
+                "outcome": {"ci_failure_change": e["delayed_delta"]},
+            }
+            for e in corrected
+            if e.get("impact_net_score") is not None
+        ]
+        if len(synthetic) >= impact_engine.REGRESSION_MIN_SAMPLES:
+            if impact_engine.fit_regression_from_journal(synthetic):
+                print("  📈 Regression model refined with delayed outcome data.")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ---------------------------------------------------------------------------
