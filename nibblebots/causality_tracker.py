@@ -207,7 +207,6 @@ def get_fix_type_trust(fix_type: str) -> float:
     # Map pearson_r from [-1,1] to [0,1]
     r_normalised = (p["pearson_r"] + 1.0) / 2.0
     # mean_value_delta: positive is better, scale with tanh to [0,1]
-    import math
     delta_normalised = (math.tanh(p["mean_value_delta"] * 5) + 1.0) / 2.0
     consistency = p["consistency"]
 

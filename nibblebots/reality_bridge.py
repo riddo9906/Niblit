@@ -39,6 +39,7 @@ REALITY_TRADE_WINDOW    : int  (env: REALITY_TRADE_WINDOW, default 50)
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -185,7 +186,6 @@ def _trading_signals(trade_entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     win_rate = (wins / total) if total > 0 else None
 
     # Normalised profit delta: tanh so large swings don't dominate
-    import math
     if profit_vals:
         mean_profit = sum(profit_vals) / len(profit_vals)
         # Map [-∞, +∞] → [0, 1] using tanh
