@@ -252,7 +252,7 @@ def decide(
     # -----------------------------------------------------------------------
     # Check 3: Exploration vs exploitation
     # -----------------------------------------------------------------------
-    rng = random.Random(rng_seed)   # isolated RNG — doesn't pollute global state
+    rng = random.Random(rng_seed)   # isolated RNG; None seeds from system time (non-deterministic)
     exploring = rng.random() < EXPLORATION_RATE
 
     history_list: List[bool] = state.get("exploration_history", [])

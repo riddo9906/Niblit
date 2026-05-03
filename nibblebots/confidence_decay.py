@@ -194,8 +194,8 @@ def apply_decay(dry_run: bool = False) -> Dict[str, float]:
                 # Risk inflates when stale — but only up to the ceiling
                 new_val = min(DECAY_MAX_RISK_FACTOR, val * risk_factor)
             else:
-                # Gain decays when stale
-                new_val = max(DECAY_MIN_FACTOR * 0.1, val * gain_factor)
+                # Gain decays when stale; floor is DECAY_MIN_FACTOR
+                new_val = max(DECAY_MIN_FACTOR, val * gain_factor)
             dims[dim] = round(new_val, 4)
 
     if not dry_run:

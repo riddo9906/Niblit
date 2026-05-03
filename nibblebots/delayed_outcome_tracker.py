@@ -148,14 +148,18 @@ def _update_horizons(record: Dict[str, Any]) -> None:
             continue
         if runs < h:
             continue
-        # Enough runs have elapsed — compute horizon statistics
+        # Enough runs have elapsed — compute horizon statistics.
+        # delta = failure_rate_in_window - h0_failure_rate
+        # Both sides are rates in [0, 1].  Positive delta = regression.
         window = results[:h]
         pass_count = sum(1 for r in window if r)
         fail_count = sum(1 for r in window if not r)
-        delta = fail_count - h0 * (h / max(len(results), 1))  # rough normalisation
+        window_failure_rate = fail_count / h
+        h0_failure_rate = min(1.0, h0)   # h0 is already 0 or 1 (per-run)
+        delta = window_failure_rate - h0_failure_rate
         horizon["pass_count"] = pass_count
         horizon["fail_count"] = fail_count
-        horizon["delta"] = round(delta, 2)
+        horizon["delta"] = round(delta, 4)
         horizon["matured"] = True
 
 

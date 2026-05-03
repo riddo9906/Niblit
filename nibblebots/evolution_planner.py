@@ -184,21 +184,36 @@ def build_plan(
         avg_net = 0.0
         avg_risk = 0.0
 
-    # Phase 7: enforce risk_budget from strategic decision
+    # Phase 7: enforce risk_budget from strategic decision.
+    # Sort by risk_level descending and drop the riskiest fixes first so we
+    # maximise the net_score of the remaining plan within the budget.
     if (
         strategic_decision is not None
         and strategic_decision.should_proceed()
         and avg_risk > strategic_decision.risk_budget
     ):
-        # Drop fixes until we're within budget
-        while planned and avg_risk > strategic_decision.risk_budget:
-            planned = [pf for pf in planned if pf.fix_class != "RISK"]
-            if planned:
-                avg_risk = sum(pf.impact.risk_level for pf in planned) / len(planned)
+        planned_sorted = sorted(planned, key=lambda pf: pf.impact.risk_level, reverse=True)
+        while planned_sorted and avg_risk > strategic_decision.risk_budget:
+            planned_sorted.pop(0)
+            if planned_sorted:
+                avg_risk = (
+                    sum(pf.impact.risk_level for pf in planned_sorted) / len(planned_sorted)
+                )
             else:
                 avg_risk = 0.0
+        # Re-rank by net_score after budget enforcement
+        planned_sorted.sort(key=lambda pf: (-pf.impact.net_score, pf.rank))
+        skipped += len(planned) - len(planned_sorted)
+        planned = [
+            PlannedFix(
+                semantic_issue=pf.semantic_issue,
+                impact=pf.impact,
+                fix_class=pf.fix_class,
+                rank=i + 1,
+            )
+            for i, pf in enumerate(planned_sorted)
+        ]
         avg_net = sum(pf.impact.net_score for pf in planned) / max(len(planned), 1)
-        skipped += (len(selected) - len(planned))
 
     return EvolutionPlan(
         planned_fixes=planned,
