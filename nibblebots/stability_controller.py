@@ -153,6 +153,10 @@ CONTEXT_MEMORY_MAX: int = int(os.environ.get("SC_CTX_MEMORY_MAX", "200"))
 CONTEXT_SIMILARITY_BAND: float = float(os.environ.get("SC_CTX_BAND", "0.1"))
 EXPLORATION_BIAS_THRESHOLD: float = float(os.environ.get("SC_EXPLORE_BIAS", "0.05"))
 
+# Phase 10: adaptive similarity band — base band is scaled by signal_conf so
+# the matching window widens in uncertain conditions and narrows when confident.
+CONTEXT_BAND_SCALE: float = float(os.environ.get("SC_CTX_BAND_SCALE", "1.0"))
+
 # Phase 9.5b: statistically-grounded memory scoring
 CONTEXT_MEMORY_MIN_SAMPLES: int = int(os.environ.get("SC_CTX_MIN_SAMPLES", "5"))
 CONTEXT_RECENCY_DECAY: float = float(os.environ.get("SC_CTX_RECENCY_DECAY", "50"))
@@ -265,13 +269,13 @@ def get_mode_score(
     mode: str,
     confidence: float,
     signal_conf: float,
-) -> float:
+) -> Optional[float]:
     """Return a statistically-grounded outcome score for *mode* under similar
     past conditions.
 
     "Similar" is defined as records where both *confidence* and
-    *signal_reliability* fall within ``CONTEXT_SIMILARITY_BAND`` of the
-    provided values.
+    *signal_reliability* fall within an **adaptive band** of the provided
+    values.
 
     Phase 9.5b upgrade — the raw average is replaced with three filters:
 
@@ -288,6 +292,18 @@ def get_mode_score(
        ``1 / (1 + population_variance)`` of the similar-condition outcomes,
        reducing trust in modes that have produced inconsistent results.
 
+    Phase 10 upgrades:
+
+    4. **Adaptive similarity band** — the matching window is
+       ``max(0.05, CONTEXT_SIMILARITY_BAND * (1 + signal_conf) * CONTEXT_BAND_SCALE)``.
+       In uncertain conditions (low signal_conf) the band widens so
+       matches are still found; in high-confidence regions it narrows so
+       different regimes are not accidentally merged.
+
+    5. **Unknown-zone signalling** — returns ``None`` instead of ``0.0``
+       when no similar records exist.  Callers can distinguish "we have
+       no data" from "history shows neutral outcomes".
+
     Parameters
     ----------
     mode        : the mode whose historical effectiveness to query
@@ -296,20 +312,24 @@ def get_mode_score(
 
     Returns
     -------
-    float : adjusted outcome score in [0, 1], or 0.0 if no similar records exist.
+    Optional[float] : adjusted outcome score in [0, 1], or ``None`` when
+                      no similar records exist (unknown zone).
     """
     state = _load_state()
     history: List[Dict[str, Any]] = state.get("context_history", [])
 
+    # Phase 10: adaptive band — widens in uncertain conditions
+    band = max(0.05, CONTEXT_SIMILARITY_BAND * (1.0 + signal_conf) * CONTEXT_BAND_SCALE)
+
     similar = [
         r for r in history
         if r.get("mode") == mode
-        and abs(r.get("confidence", 0.0) - confidence) < CONTEXT_SIMILARITY_BAND
-        and abs(r.get("signal_reliability", 0.0) - signal_conf) < CONTEXT_SIMILARITY_BAND
+        and abs(r.get("confidence", 0.0) - confidence) < band
+        and abs(r.get("signal_reliability", 0.0) - signal_conf) < band
     ]
     n = len(similar)
     if n == 0:
-        return 0.0
+        return None  # Phase 10: unknown zone — caller should treat as max uncertainty
 
     # Sample-confidence: scale down when evidence is sparse
     sample_confidence = min(1.0, n / max(1, CONTEXT_MEMORY_MIN_SAMPLES))
@@ -388,21 +408,26 @@ def resolve_mode(
     # Step 1: Apply confidence-based asymmetric hysteresis
     gated_mode = _apply_confidence_gate(proposed_mode, current_mode, confidence)
 
-    # Step 1b (Phase 9.5): contextual bias — if exploration has historically
-    # outperformed stability under the current conditions, favour exploration
-    # when the gated result is "stability" (but not when it's a forced-safety).
-    # This only applies when we are not already in exploration and the confidence
-    # gate is suggesting stability for reasons other than a hard safety override.
+    # Step 1b (Phase 9.5 + Phase 10): contextual bias + unknown-zone detection.
+    # Get mode scores here so both the unknown-zone guard and the bias check
+    # share the same lookup.
     favor_exploration = False
+    exploration_score = get_mode_score("explore", confidence, signal_conf)
+    stability_score = get_mode_score("stability", confidence, signal_conf)
+
     if gated_mode == "stability" and confidence >= CONFIDENCE_ENTER_STABILITY:
-        exploration_score = get_mode_score("explore", confidence, signal_conf)
-        stability_score = get_mode_score("stability", confidence, signal_conf)
-        if exploration_score > stability_score + EXPLORATION_BIAS_THRESHOLD:
+        # Phase 10: None score = "unknown zone" → increase exploration bias
+        _unknown_zone = (exploration_score is None or stability_score is None)
+        eff_explore = exploration_score if exploration_score is not None else 0.0
+        eff_stab = stability_score if stability_score is not None else 0.0
+
+        if _unknown_zone or eff_explore > eff_stab + EXPLORATION_BIAS_THRESHOLD:
             favor_exploration = True
             gated_mode = "explore"
-            _log_event("contextual_exploration_bias", {
-                "exploration_score": round(exploration_score, 4),
-                "stability_score": round(stability_score, 4),
+            _log_evt = "unknown_zone_force_explore" if _unknown_zone else "contextual_exploration_bias"
+            _log_event(_log_evt, {
+                "exploration_score": exploration_score,
+                "stability_score": stability_score,
                 "confidence": round(confidence, 3),
                 "signal_conf": round(signal_conf, 3),
             })
@@ -444,15 +469,16 @@ def resolve_mode(
             "favor_exploration": favor_exploration,
         })
 
-    # Step 3b (Phase 9.5b): Exploration epsilon safeguard
-    # When the system has been settled in a non-exploration mode for at least
-    # MODE_MIN_DURATION cycles, occasionally force one exploration cycle to
-    # prevent long-term stagnation from over-confident memory.
+    # Step 3b (Phase 9.5b / Phase 10): Dynamic exploration epsilon.
+    # Scale epsilon by (1 − signal_conf) so exploration is need-driven:
+    #   signal_conf=0.9 → dynamic_epsilon ≈ 0.005  (already confident, rarely probe)
+    #   signal_conf=0.2 → dynamic_epsilon ≈ 0.040  (uncertain, probe more often)
+    dynamic_epsilon = CONTEXT_EXPLORATION_EPSILON * (1.0 - signal_conf)
     if (
         not switch_occurred
         and resolved != "explore"
         and cycles_in_mode >= MODE_MIN_DURATION
-        and random.random() < CONTEXT_EXPLORATION_EPSILON
+        and random.random() < dynamic_epsilon
     ):
         resolved = "explore"
         switch_occurred = True
@@ -460,7 +486,9 @@ def resolve_mode(
         _log_event("exploration_epsilon_trigger", {
             "overridden_mode": current_mode,
             "cycles_in_mode": cycles_in_mode,
-            "epsilon": CONTEXT_EXPLORATION_EPSILON,
+            "base_epsilon": CONTEXT_EXPLORATION_EPSILON,
+            "dynamic_epsilon": round(dynamic_epsilon, 5),
+            "signal_conf": round(signal_conf, 3),
         })
 
     # Step 4: Update state
@@ -600,6 +628,7 @@ def status() -> Dict[str, Any]:
         "context_recency_decay": CONTEXT_RECENCY_DECAY,
         "exploration_bias_threshold": EXPLORATION_BIAS_THRESHOLD,
         "exploration_epsilon": CONTEXT_EXPLORATION_EPSILON,
+        "context_band_scale": CONTEXT_BAND_SCALE,
     }
 
 

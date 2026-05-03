@@ -100,6 +100,7 @@ def build_plan(
     dep_graph: Optional[Any] = None,   # DependencyGraph from dependency_analyzer
     strategic_decision: Optional[Any] = None,  # StrategicDecision from strategic_planner
     reality_snapshot: Optional[Dict[str, Any]] = None,  # Phase 8 RealitySnapshot
+    strategy_advice: Optional[Any] = None,  # Phase 10 StrategyAdvice from causal_strategy_engine
 ) -> EvolutionPlan:
     """Build a ranked EvolutionPlan from (SemanticIssue, ImpactScore) pairs.
 
@@ -115,6 +116,8 @@ def build_plan(
                   (only when reality_snapshot is provided)
       9. Phase 8: context_guard check — confidence penalty + max_fixes scale on
                   mismatch / spike; priority boost on repeated input
+     10. Phase 10: strategy_advice.recommended_batch_size caps effective_max_fixes
+                   when the Causal Strategy Engine has sufficient confidence (> 0.6).
 
     Ranking:
       Primary   : semantic type (error_handling_risk first)
@@ -166,6 +169,16 @@ def build_plan(
 
     # Apply context-guard scaling to max_fixes
     effective_max_fixes = max(1, int(max_fixes * ctx_max_fixes_scale))
+
+    # Phase 10: honour CSE recommended_batch_size when confidence is sufficient
+    if strategy_advice is not None:
+        try:
+            _rbs = int(strategy_advice.recommended_batch_size)
+            _conf = float(getattr(strategy_advice, "confidence", 0.0))
+            if _rbs > 0 and _conf > 0.6:
+                effective_max_fixes = min(effective_max_fixes, _rbs)
+        except Exception:  # noqa: BLE001
+            pass
 
     # Phase 8.5: load intent anchor engine (best-effort)
     _intent_anchor = None

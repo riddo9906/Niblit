@@ -432,6 +432,21 @@ def _evaluate_real_world_value(
                 intent_alignment=_intent_alignment,
                 signal_reliability=_avg_confidence,
             )
+            # Phase 10: record episode in causal strategy engine (best-effort)
+            try:
+                from nibblebots import causal_strategy_engine as _cse  # noqa: PLC0415
+                _cse.record_episode(
+                    mode=_mode,
+                    outcome=_outcome_score,
+                    confidence=_avg_confidence,
+                    signal_conf=_avg_confidence,
+                    intent_score=_intent_alignment,
+                    variance=0.0,
+                    fix_type=fix_types[0] if fix_types else "",
+                    subsystem="",
+                )
+            except Exception:  # noqa: BLE001
+                pass
         except Exception:  # noqa: BLE001
             pass
     except Exception:  # noqa: BLE001

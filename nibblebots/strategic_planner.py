@@ -146,6 +146,7 @@ class StrategicDecision:
         "goal",          # current system-level goal
         "reason",        # human-readable explanation
         "risk_budget",   # float: max allowed avg risk_level for this cycle
+        "recommended_batch_size",  # Phase 10: optional batch-size hint from CSE
     )
 
     def __init__(
@@ -155,12 +156,14 @@ class StrategicDecision:
         goal: str,
         reason: str,
         risk_budget: float,
+        recommended_batch_size: Optional[int] = None,
     ) -> None:
         self.action = action
         self.mode = mode
         self.goal = goal
         self.reason = reason
         self.risk_budget = risk_budget
+        self.recommended_batch_size = recommended_batch_size
 
     def should_proceed(self) -> bool:
         return self.action == "proceed"
@@ -169,13 +172,16 @@ class StrategicDecision:
         return self.mode == "explore"
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        d = {
             "action": self.action,
             "mode": self.mode,
             "goal": self.goal,
             "reason": self.reason,
             "risk_budget": self.risk_budget,
         }
+        if self.recommended_batch_size is not None:
+            d["recommended_batch_size"] = self.recommended_batch_size
+        return d
 
     def __repr__(self) -> str:
         return (
@@ -326,6 +332,27 @@ def decide(
     except Exception:  # noqa: BLE001
         pass
 
+    # Phase 10: Causal Strategy Engine — context-aware parameter adjustments.
+    # Query after resolve_mode so the CSE sees the controller-resolved mode.
+    _cse_batch_size: Optional[int] = None
+    try:
+        from nibblebots import causal_strategy_engine as _cse  # noqa: PLC0415
+        _advice = _cse.query_strategy({
+            "confidence": avg_confidence,
+            "signal_conf": signal_conf,
+            "variance": 0.0,
+            "mode": mode,
+        })
+        if _advice.confidence > 0.6:
+            _eff_rate = max(0.05, EXPLORATION_RATE + _advice.exploration_rate_delta)
+            _cse_exploring = random.random() < _eff_rate  # noqa: S311
+            if _cse_exploring != exploring:
+                exploring = _cse_exploring
+                mode = "explore" if exploring else "exploit"
+            _cse_batch_size = _advice.recommended_batch_size
+    except Exception:  # noqa: BLE001
+        pass
+
     reason_parts = [
         f"goal={goal}",
         f"best_net_score={best_net_score:.4f}",
@@ -338,6 +365,8 @@ def decide(
         reason_parts.append(
             f"obj_score={objective_engine.score_outcome(reality_snapshot):.4f}"
         )
+    if _cse_batch_size is not None:
+        reason_parts.append(f"cse_batch={_cse_batch_size}")
 
     _save_state(state)
 
@@ -347,6 +376,7 @@ def decide(
         goal=goal,
         reason=" | ".join(reason_parts),
         risk_budget=risk_budget,
+        recommended_batch_size=_cse_batch_size,
     )
 
 
