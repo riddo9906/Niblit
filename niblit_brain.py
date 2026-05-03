@@ -18,7 +18,10 @@ Enhancements:
 7. Structured logging with correlation IDs
 """
 
-__all__ = ["NiblitBrain", "BrainTrainer", "NiblitCloudBrain", "get_niblit_cloud_brain", "set_cloud_brain_url", "hf_query"]
+__all__ = [
+    "NiblitBrain", "BrainTrainer", "NiblitCloudBrain",
+    "get_niblit_cloud_brain", "set_cloud_brain_url", "hf_query",
+]
 
 import re
 import sys
@@ -377,6 +380,7 @@ class NiblitCloudBrain:
         ``POST /chat/completions``, then ``POST /chat`` (Niblit native).
         Returns an error string on failure — never raises.
         """
+        # pylint: disable=too-many-locals
         import json as _json
         import urllib.error
         import urllib.request
@@ -455,7 +459,7 @@ _cloud_brain_lock = threading.Lock()
 
 def get_niblit_cloud_brain() -> NiblitCloudBrain:
     """Return the process-wide :class:`NiblitCloudBrain` singleton."""
-    global _cloud_brain_instance
+    global _cloud_brain_instance  # pylint: disable=global-statement
     if _cloud_brain_instance is None:
         with _cloud_brain_lock:
             if _cloud_brain_instance is None:
@@ -480,11 +484,10 @@ def set_cloud_brain_url(url: str) -> NiblitCloudBrain:
     -------
     The updated :class:`NiblitCloudBrain` singleton.
     """
-    import os as _os
-    global _cloud_brain_instance
+    global _cloud_brain_instance  # pylint: disable=global-statement
 
     url = url.strip().rstrip("/")
-    _os.environ["NIBLIT_CLOUD_SERVER_URL"] = url
+    os.environ["NIBLIT_CLOUD_SERVER_URL"] = url
 
     with _cloud_brain_lock:
         if _cloud_brain_instance is None:
@@ -995,7 +998,7 @@ class NiblitBrain:
     # pylint: disable=too-many-instance-attributes
 
     def __init__(self, memory, llm_enabled=True, internet=None, enable_improvements=True):
-        # pylint: disable=too-many-branches,too-many-statements
+        # pylint: disable=too-many-branches,too-many-statements,too-many-locals
         self.memory = memory
         self.llm_enabled = llm_enabled
         self.enable_improvements = enable_improvements
@@ -1486,7 +1489,7 @@ class NiblitBrain:
         - Telemetry
         - Structured request tracing
         """
-        # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks
+        # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks,too-many-locals,too-many-return-statements
         _exit_stack = contextlib.ExitStack()
         try:
             # Structured request tracing
@@ -1665,7 +1668,9 @@ class NiblitBrain:
                 # ── 1. Qwen local brain (primary when LLM is toggled off) ──────
                 if getattr(self, "brain_router", None):
                     try:
-                        _lb_resp = self.brain_router._local_first(user_input, context=context)
+                        _lb_resp = self.brain_router._local_first(  # pylint: disable=protected-access
+                            user_input, context=context
+                        )
                         if _lb_resp and not _lb_resp.startswith("[LocalBrain unavailable"):
                             _exit_stack.close()
                             return _lb_resp

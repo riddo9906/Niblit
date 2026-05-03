@@ -50,6 +50,7 @@ import importlib.util
 import hashlib
 import json
 import uuid
+import traceback as _traceback
 import contextvars
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Tuple, Optional, Callable
@@ -105,7 +106,6 @@ correlation_id_var = contextvars.ContextVar('correlation_id', default=None)
 # Usage:
 #   MyClass, _MY_AVAILABLE = _try_import("modules.my_module", "MyClass")
 # ============================================================
-import traceback as _traceback  # imported here for use in LoopTracer.record
 
 def _try_import(dotted_path: str, attr: Optional[str] = None):
     """Attempt to import *attr* from *dotted_path*.
@@ -684,7 +684,7 @@ class ModuleRegistry:
 # ============================================================
 
 try:
-    from modules.utils import safe_call as safe_call  # noqa: F401
+    from modules.utils import safe_call  # noqa: F401
 except Exception:
     def safe_call(fn: Callable, *a, **kw) -> Optional[Any]:  # type: ignore[misc]
         """Call fn(*a, **kw) safely, logging and returning None on failure."""
@@ -695,7 +695,7 @@ except Exception:
             return None
 
 
-class _noop_lock:
+class _NoopLock:
     """Trivial no-op context manager used as a fallback when an object has no lock."""
     def __enter__(self):
         return self
@@ -2690,7 +2690,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
 
-        topic = text[len("autonomous-learn add-topic"):].strip() if text.lower().startswith("autonomous-learn add-topic") else text.strip()
+        topic = (
+            text[len("autonomous-learn add-topic"):].strip()
+            if text.lower().startswith("autonomous-learn add-topic")
+            else text.strip()
+        )
         if not topic:
             return "Usage: autonomous-learn add-topic <topic>"
 
@@ -3785,7 +3789,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[❌ Autonomous engine not available]"
         if not hasattr(self.autonomous_engine, "_autonomous_command_awareness"):
             return "[❌ Command awareness step not available]"
-        result = self.autonomous_engine._autonomous_command_awareness()
+        result = self.autonomous_engine._autonomous_command_awareness()  # pylint: disable=protected-access
         return result or "✅ Command awareness complete"
 
     def _cmd_autonomous_command_exec(self, _text: str) -> str:
@@ -3794,7 +3798,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[❌ Autonomous engine not available]"
         if not hasattr(self.autonomous_engine, "_autonomous_command_execution"):
             return "[❌ Command execution step not available]"
-        result = self.autonomous_engine._autonomous_command_execution()
+        result = self.autonomous_engine._autonomous_command_execution()  # pylint: disable=protected-access
         return result or "✅ Command execution complete"
 
     def _cmd_autonomous_topic_seed(self, _text: str) -> str:
@@ -3803,7 +3807,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[❌ Autonomous engine not available]"
         if not hasattr(self.autonomous_engine, "_autonomous_topic_seeding"):
             return "[❌ Topic seeding step not available]"
-        result = self.autonomous_engine._autonomous_topic_seeding()
+        result = self.autonomous_engine._autonomous_topic_seeding()  # pylint: disable=protected-access
         return result or "✅ Topic seeding complete"
 
     def _cmd_autonomous_serpex_research(self, _text: str) -> str:
@@ -3812,7 +3816,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[❌ Autonomous engine not available]"
         if not hasattr(self.autonomous_engine, "_autonomous_serpex_research"):
             return "[❌ Serpex research step not available]"
-        return self.autonomous_engine._autonomous_serpex_research()
+        return self.autonomous_engine._autonomous_serpex_research()  # pylint: disable=protected-access
 
     def _cmd_autonomous_serpex_search(self, text: str) -> str:
         """Live Serpex search with relevance filter.  Pass the query after 'serpex-search'."""
@@ -3827,7 +3831,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if not self.autonomous_engine:
             return "[❌ Autonomous engine not available]"
         agent = (
-            self.autonomous_engine._get_serpex_agent()
+            self.autonomous_engine._get_serpex_agent()  # pylint: disable=protected-access
             if hasattr(self.autonomous_engine, "_get_serpex_agent")
             else None
         )
@@ -3969,8 +3973,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
         content = result["content"]
         if isinstance(content, bytes):
             return f"📄 {filepath} ({result['size']} bytes, binary)"
-        preview = content[:1000] if len(content) > 1000 else content
-        suffix = "...[truncated]" if len(content) > 1000 else ""
+        content_str: str = content  # narrowed to str by isinstance check above
+        preview = content_str[:1000] if len(content_str) > 1000 else content_str
+        suffix = "...[truncated]" if len(content_str) > 1000 else ""
         return f"📄 **{filepath}** ({result['size']} chars):\n```\n{preview}{suffix}\n```"
 
     def _cmd_write_file(self, spec: str) -> str:
@@ -4143,7 +4148,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         logging.disable(logging.NOTSET)
         try:
             from niblit_io import NiblitIO as _NiblitIO
-            _NiblitIO._quiet = False
+            _NiblitIO._quiet = False  # pylint: disable=protected-access
         except Exception:
             pass
         return "✅ Loop output visible"
@@ -4153,7 +4158,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         logging.disable(logging.CRITICAL)
         try:
             from niblit_io import NiblitIO as _NiblitIO
-            _NiblitIO._quiet = True
+            _NiblitIO._quiet = True  # pylint: disable=protected-access
         except Exception:
             pass
         return "⏹️ Loop output hidden (loops still running)"
@@ -4251,15 +4256,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
             )
         try:
             if mode == "tree":
-                import json as _json
                 tree = meta.get_confidence_parse_tree()
-                return _json.dumps(tree, indent=2, default=str)
-            elif mode == "rich":
-                import json as _json
+                return json.dumps(tree, indent=2, default=str)
+            if mode == "rich":
                 rich = meta.evaluate_understanding_rich()
-                return _json.dumps(rich, indent=2, default=str)
-            else:
-                return meta.confidence_cli_report()
+                return json.dumps(rich, indent=2, default=str)
+            return meta.confidence_cli_report()
         except Exception as exc:
             return f"[confidence] Error: {exc}"
 
@@ -4275,8 +4277,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         trader = getattr(self, "swing_trader_v3", None)
         if trader is None:
             return "⚠️  FilteredSwingTraderV3 not initialised."
-        import json as _json
-        return _json.dumps(trader.get_legs(last_n), indent=2, default=str)
+        return json.dumps(trader.get_legs(last_n), indent=2, default=str)
 
     def _cmd_swing_explain(self) -> str:
         """Explain the last swing entry signal (additive)."""
@@ -4312,7 +4313,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         history [N]          — last N step results (default 20)
         incomplete           — list incomplete steps from last run
         """
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-return-statements
         ckpt = getattr(self, "ale_checkpoint", None)
         if ckpt is None:
             return (
@@ -4404,10 +4405,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         After reset, Niblit starts fresh — no contaminated facts, no blob topics.
         """
-        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
-        import os  # pylint: disable=redefined-outer-name
-        import sqlite3
-
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements,protected-access
         confirm = (confirm or "").strip().lower()
 
         # ── STATUS (dry-run) ─────────────────────────────────────────────────
@@ -4470,7 +4468,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             if obj is None:
                 continue
             try:
-                with getattr(obj, "lock", _noop_lock()):
+                with getattr(obj, "lock", _NoopLock()):
                     for _field in ("facts", "interactions", "learning_log",
                                   "learning_queue", "events"):
                         if hasattr(obj, "data") and isinstance(obj.data, dict):
@@ -4479,9 +4477,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             obj.state[_field] = []
                 path = getattr(obj, "path", None) or getattr(obj, "filename", None)
                 if path and os.path.exists(path):
-                    import json as _json
                     with open(path, "w", encoding="utf-8") as f:
-                        _json.dump(_BLANK_STATE, f, indent=2)
+                        json.dump(_BLANK_STATE, f, indent=2)
                     cleared.append(f"KnowledgeDB/NiblitMemory file: {path}")
                 cleared.append(f"{attr} in-memory state cleared")
             except Exception as exc:
@@ -5805,7 +5802,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_self_research(self, text: str) -> str:
         """Self-research command — uses self_researcher + internet directly, NOT LLM."""
-        topic = (text[len("self-research"):].strip() if text.lower().startswith("self-research") else text.strip()) or "general"
+        topic = (
+            text[len("self-research"):].strip()
+            if text.lower().startswith("self-research")
+            else text.strip()
+        ) or "general"
         # Direct module path: use researcher directly
         if self.researcher and hasattr(self.researcher, "search"):
             try:
@@ -5836,7 +5837,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_self_idea(self, text: str) -> str:
         """Self-idea command — uses SelfIdeaImplementation directly, NOT LLM."""
-        prompt = (text[len("self-idea"):].strip() if text.lower().startswith("self-idea") else text.strip()) or "system improvement"
+        prompt = (
+            text[len("self-idea"):].strip()
+            if text.lower().startswith("self-idea")
+            else text.strip()
+        ) or "system improvement"
         # Direct module path: use idea_implementation
         if self.idea_implementation and hasattr(self.idea_implementation, "implement_idea"):
             try:
@@ -5866,7 +5871,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if self.reflect and hasattr(self.reflect, "reflect_on_research"):
             # When a short topic is given, research first so the stored reflection
             # contains real knowledge content, not just a shallow "Themes:" entry.
-            is_short_topic = topic and "\n" not in topic and len(topic.split()) <= 6  # same threshold as NiblitRouter._MAX_SHORT_TOPIC_WORDS
+            # Same threshold as NiblitRouter._MAX_SHORT_TOPIC_WORDS
+            is_short_topic = (
+                topic and "\n" not in topic and len(topic.split()) <= 6
+            )
             if is_short_topic:
                 research_text = ""
                 try:
@@ -5904,7 +5912,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_self_implement(self, text: str) -> str:
         """Self-implement command — uses SelfImplementer directly."""
-        plan = (text[len("self-implement"):].strip() if text.lower().startswith("self-implement") else text.strip()) or ""
+        plan = (
+            text[len("self-implement"):].strip()
+            if text.lower().startswith("self-implement")
+            else text.strip()
+        ) or ""
         # Direct module path: enqueue to self_implementer
         if self.self_implementer and hasattr(self.self_implementer, "enqueue_plan"):
             try:
@@ -6152,7 +6164,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         # SQLiteResearcher — local-first, zero-latency KB lookup (no network required)
         try:
-            self.sqlite_researcher = SQLiteResearcher(knowledge_db=getattr(self, "db", None)) if SQLiteResearcher else None
+            self.sqlite_researcher = (
+                SQLiteResearcher(knowledge_db=getattr(self, "db", None))
+                if SQLiteResearcher else None
+            )
             if self.sqlite_researcher:
                 log.info("✅ SQLiteResearcher loaded (local KB backend)")
             self.startup_report.add("sqlite_researcher", "ready")
@@ -9796,7 +9811,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     _br.set_mode("local")
             except Exception as _tl_br_err:
                 log.debug("[Core] toggle-llm BrainRouter mode sync failed: %s", _tl_br_err)
-            return f"LLM {'resumed (BrainRouter→balanced)' if self.llm_enabled else 'paused — Qwen local brain active (BrainRouter→local)'}"
+            if self.llm_enabled:
+                return "LLM resumed (BrainRouter→balanced)"
+            return "LLM paused — Qwen local brain active (BrainRouter→local)"
 
         # ── Brain mode / status commands ──────────────────────────────────────
         if ltext.startswith("brain mode ") or ltext.startswith("brain-mode "):
@@ -9814,7 +9831,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if ltext in ("brain status", "brain-status"):
             try:
                 from modules.brain_router import get_brain_router
-                import json
                 _br3 = get_brain_router()
                 _lb3 = getattr(self, "local_brain", None)
                 _lb_status = _lb3.status() if _lb3 else {"loaded": False}

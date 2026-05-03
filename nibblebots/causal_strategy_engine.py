@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nibblebots/causal_strategy_engine.py — Phase 10/11/12/13 Causal Strategy Learning
+nibblebots/causal_strategy_engine.py — Phase 10/11/12/13/14 Causal Strategy Learning
 
 Moves the system from mode→outcome tracking to condition→outcome rule
 formation.  Instead of "exploration worked", the system learns:
@@ -180,6 +180,33 @@ CSE_META_VELOCITY_WINDOW    : int   (env: CSE_META_VELOCITY_WINDOW,      default
 CSE_META_LOW_VELOCITY       : float (env: CSE_META_LOW_VELOCITY,         default 0.01)
 CSE_ADJACENT_EXPLORE_DELTA  : float (env: CSE_ADJACENT_EXPLORE_DELTA,    default 0.02)
 CSE_INTERACTION_MIN_SAMPLES : int   (env: CSE_INTERACTION_MIN_SAMPLES,   default 3)
+
+Multi-Agent Internal Debate (Phase 14)
+----------------------------------------
+Three internal strategy agents — *conservative*, *balanced*, and *aggressive*
+— each propose a ``StrategyAdvice`` derived from the Phase 13 output:
+
+* **Conservative** — tightens exploration (``−0.05``) and increases batch by 1;
+  biases toward stability.  Beneficial during low-variance, high-trust regimes.
+
+* **Balanced** — adopts the Phase 13 blended advice unchanged.  Provides a
+  neutral reference point.
+
+* **Aggressive** — boosts exploration (``+0.05``) and shrinks batch by 1;
+  biases toward exploration.  Beneficial when learning velocity is low or the
+  environment is shifting.
+
+``_debate_vote()`` selects the winning agent by comparing each agent's current
+``debate_agent_trust`` score.  The winner's ``StrategyAdvice`` is returned with
+an augmented rationale that records the vote margins, enabling full auditability.
+
+After each episode ``record_episode()`` updates the winning agent's trust:
+``new_trust = old_trust + CSE_DEBATE_TRUST_LR × (outcome − 0.5)``, so agents
+that consistently produce good outcomes gain authority while poor ones lose it.
+The agent trust values are persisted in state.
+
+CSE_DEBATE_ENABLED  : bool  (env: CSE_DEBATE_ENABLED,  default "1" → True)
+CSE_DEBATE_TRUST_LR : float (env: CSE_DEBATE_TRUST_LR, default 0.05)
 """
 
 from __future__ import annotations
@@ -289,6 +316,21 @@ CSE_ADJACENT_EXPLORE_DELTA: float = float(
 # the system biases toward known-good strategy combos.
 CSE_INTERACTION_MIN_SAMPLES: int = int(
     os.environ.get("CSE_INTERACTION_MIN_SAMPLES", "3")
+)
+
+# ---------------------------------------------------------------------------
+# Phase 14: Multi-Agent Internal Debate constants
+# ---------------------------------------------------------------------------
+
+# Master switch: set to "0" or "false" to bypass the debate layer entirely.
+CSE_DEBATE_ENABLED: bool = (
+    os.environ.get("CSE_DEBATE_ENABLED", "1").lower() not in ("0", "false", "no")
+)
+
+# Learning rate for updating each debate agent's trust after an episode.
+# Positive outcome (> 0.5) rewards the winning agent; negative penalises it.
+CSE_DEBATE_TRUST_LR: float = float(
+    os.environ.get("CSE_DEBATE_TRUST_LR", "0.05")
 )
 
 # Confidence (and signal) bands: (lower_inclusive, upper_exclusive, label)
@@ -487,6 +529,99 @@ def _interaction_key(mode, batch_size, subsystem, is_explore):
 
 
 # ---------------------------------------------------------------------------
+# Phase 14 helpers: multi-agent internal debate
+# ---------------------------------------------------------------------------
+
+def _build_debate_proposals(
+    base_advice: "StrategyAdvice",
+) -> Dict[str, "StrategyAdvice"]:
+    """Build one strategy proposal per internal debate agent.
+
+    Conservative — tightens exploration by 0.05 and increases batch by 1;
+                   biases toward stability to avoid risky moves.
+    Balanced     — adopts the Phase 13 blended advice unchanged; neutral
+                   reference point.
+    Aggressive   — boosts exploration by 0.05 and shrinks batch by 1;
+                   biases toward discovery when the system may be stagnating.
+
+    All three share the base advice's directional hints (target_subsystem,
+    priority_fix_type, is_counterfactual) so only the rate/batch dials differ.
+    """
+    conservative = StrategyAdvice(
+        exploration_rate_delta=base_advice.exploration_rate_delta - 0.05,
+        force_stability=True,
+        force_exploration=False,
+        recommended_batch_size=min(
+            base_advice.recommended_batch_size + 1, CSE_MAX_SAFE_BATCH
+        ),
+        confidence=base_advice.confidence,
+        rationale=f"DEBATE/conservative({base_advice.rationale})",
+        is_counterfactual=base_advice.is_counterfactual,
+        target_subsystem=base_advice.target_subsystem,
+        priority_fix_type=base_advice.priority_fix_type,
+    )
+    balanced = StrategyAdvice(
+        exploration_rate_delta=base_advice.exploration_rate_delta,
+        force_stability=base_advice.force_stability,
+        force_exploration=base_advice.force_exploration,
+        recommended_batch_size=base_advice.recommended_batch_size,
+        confidence=base_advice.confidence,
+        rationale=f"DEBATE/balanced({base_advice.rationale})",
+        is_counterfactual=base_advice.is_counterfactual,
+        target_subsystem=base_advice.target_subsystem,
+        priority_fix_type=base_advice.priority_fix_type,
+    )
+    aggressive = StrategyAdvice(
+        exploration_rate_delta=base_advice.exploration_rate_delta + 0.05,
+        force_stability=False,
+        force_exploration=True,
+        recommended_batch_size=max(1, base_advice.recommended_batch_size - 1),
+        confidence=base_advice.confidence,
+        rationale=f"DEBATE/aggressive({base_advice.rationale})",
+        is_counterfactual=base_advice.is_counterfactual,
+        target_subsystem=base_advice.target_subsystem,
+        priority_fix_type=base_advice.priority_fix_type,
+    )
+    return {
+        "conservative": conservative,
+        "balanced": balanced,
+        "aggressive": aggressive,
+    }
+
+
+def _debate_vote(
+    proposals: Dict[str, "StrategyAdvice"],
+    agent_trust: Dict[str, float],
+) -> Tuple[str, "StrategyAdvice"]:
+    """Select the winning proposal by highest agent trust.
+
+    The agent with the greatest current trust score wins; ``balanced`` is the
+    tiebreaker when scores are equal.  The winning advice's rationale is
+    annotated with the vote margins so the decision is fully auditable.
+
+    Returns ``(winner_name, winning_StrategyAdvice)``.
+    """
+    if not proposals:
+        return ("balanced", StrategyAdvice(rationale="DEBATE: no proposals"))
+
+    best_agent = max(
+        proposals.keys(),
+        key=lambda a: (agent_trust.get(a, 0.5), a == "balanced"),
+    )
+    winner = proposals[best_agent]
+
+    # Annotate rationale with per-agent trust margins for audit log.
+    votes_summary = " | ".join(
+        f"{a}={agent_trust.get(a, 0.5):.3f}"
+        for a in sorted(proposals.keys())
+    )
+    winner.rationale = (
+        f"DEBATE_WIN/{best_agent}[{votes_summary}]→{winner.rationale}"
+    )
+    return (best_agent, winner)
+
+
+# ---------------------------------------------------------------------------
 # State management
 # ---------------------------------------------------------------------------
 
@@ -508,6 +643,13 @@ def _load_state() -> Dict[str, Any]:
         # Phase 13 -------------------------------------------------------
         "outcome_history": [],        # rolling list of outcome scores for regime / velocity
         "interaction_outcomes": {},   # {interaction_key: [outcome, ...]}
+        # Phase 14 -------------------------------------------------------
+        "debate_agent_trust": {       # per-agent trust scores, evolve over time
+            "conservative": 0.5,
+            "balanced": 0.5,
+            "aggressive": 0.5,
+        },
+        "last_debate_winner": "",     # name of the agent that won the last debate
     }
 
 
@@ -647,6 +789,22 @@ def record_episode(
     if len(outcome_history) > CSE_REGIME_WINDOW_BASELINE * 2:
         outcome_history = outcome_history[-(CSE_REGIME_WINDOW_BASELINE * 2):]
     state["outcome_history"] = outcome_history
+
+    # Phase 14: update the winning debate agent's trust based on the episode outcome.
+    # Reward is centred on 0.5 so a perfect outcome (+0.5) gives maximum boost
+    # and a zero outcome (−0.5) gives maximum penalty.
+    last_winner = state.get("last_debate_winner", "")
+    if last_winner and CSE_DEBATE_ENABLED:
+        debate_trust: Dict[str, float] = state.get(
+            "debate_agent_trust",
+            {"conservative": 0.5, "balanced": 0.5, "aggressive": 0.5},
+        )
+        reward = float(outcome) - 0.5
+        old_trust = debate_trust.get(last_winner, 0.5)
+        new_trust = max(0.05, min(0.95, old_trust + CSE_DEBATE_TRUST_LR * reward))
+        debate_trust[last_winner] = round(new_trust, 4)
+        state["debate_agent_trust"] = debate_trust
+        state["last_debate_winner"] = ""   # consumed
 
     episodes.append(episode)
     episode_count += 1
@@ -1268,7 +1426,7 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
 
     _save_state(state)
 
-    return StrategyAdvice(
+    base_advice = StrategyAdvice(
         exploration_rate_delta=blended_explore_delta,
         force_stability=force_stability,
         force_exploration=force_exploration,
@@ -1279,6 +1437,23 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
         target_subsystem=target_subsystem,
         priority_fix_type=priority_fix_type,
     )
+
+    # ------------------------------------------------------------------
+    # Phase 14: Multi-Agent Internal Debate Layer
+    # ------------------------------------------------------------------
+    if CSE_DEBATE_ENABLED:
+        debate_agent_trust: Dict[str, float] = state.get(
+            "debate_agent_trust",
+            {"conservative": 0.5, "balanced": 0.5, "aggressive": 0.5},
+        )
+        proposals = _build_debate_proposals(base_advice)
+        winner_name, final_advice = _debate_vote(proposals, debate_agent_trust)
+        # Persist the winner so record_episode() can update its trust.
+        state["last_debate_winner"] = winner_name
+        _save_state(state)
+        return final_advice
+
+    return base_advice
 
 
 # ---------------------------------------------------------------------------
@@ -1362,6 +1537,12 @@ def status() -> Dict[str, Any]:
         "outcome_history_len": len(outcome_history),
         "calibration_summary": calibration_summary,
         "top_interactions": top_interactions,
+        # Phase 14 ----------------------------------------------------------
+        "debate_agent_trust": state.get(
+            "debate_agent_trust",
+            {"conservative": 0.5, "balanced": 0.5, "aggressive": 0.5},
+        ),
+        "debate_enabled": CSE_DEBATE_ENABLED,
         # Constants ---------------------------------------------------------
         "cse_min_rule_samples": CSE_MIN_RULE_SAMPLES,
         "cse_variance_threshold": CSE_VARIANCE_THRESHOLD,
@@ -1382,4 +1563,5 @@ def status() -> Dict[str, Any]:
         "cse_meta_low_velocity": CSE_META_LOW_VELOCITY,
         "cse_adjacent_explore_delta": CSE_ADJACENT_EXPLORE_DELTA,
         "cse_interaction_min_samples": CSE_INTERACTION_MIN_SAMPLES,
+        "cse_debate_trust_lr": CSE_DEBATE_TRUST_LR,
     }
