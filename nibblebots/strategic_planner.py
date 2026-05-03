@@ -47,6 +47,8 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from nibblebots import objective_engine, goal_adaptation_engine
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -191,15 +193,19 @@ def decide(
     system_safe: bool = True,
     pass_rate: Optional[float] = None,
     rng_seed: Optional[int] = None,
-) -> StrategicDecision:
+    reality_snapshot: Optional[Dict[str, Any]] = None,
+) -> "StrategicDecision":
     """Produce a StrategicDecision for the current evolution cycle.
 
     Parameters
     ----------
-    best_net_score : the highest net_score available from the impact scorer
-    system_safe    : False when anomaly_detector says system is degraded
-    pass_rate      : latest CI pass rate (0.0–1.0); used for goal derivation
-    rng_seed       : optional seed for deterministic testing
+    best_net_score    : the highest net_score available from the impact scorer
+    system_safe       : False when anomaly_detector says system is degraded
+    pass_rate         : latest CI pass rate (0.0–1.0); used for goal derivation
+    rng_seed          : optional seed for deterministic testing
+    reality_snapshot  : Phase 8 — RealitySnapshot from reality_bridge; when
+                        provided the objective_engine score is used to gate and
+                        the goal_adaptation_engine may update the primary goal.
 
     Returns a StrategicDecision with action, mode, goal, and risk_budget.
     """
@@ -212,7 +218,18 @@ def decide(
         history.append(float(pass_rate))
         state["pass_rate_history"] = history
 
-    goal = _derive_goal(state.get("pass_rate_history", []))
+    # Phase 8: let goal_adaptation_engine override the goal if we have a snapshot
+    if reality_snapshot is not None:
+        goal = goal_adaptation_engine.evaluate(reality_snapshot)
+        # Map goal_adaptation goal names to internal strategic goal constants
+        _goal_map = {
+            "stability": GOAL_MAXIMIZE_STABILITY,
+            "learning": GOAL_IMPROVE_LEARNING,
+            "profitability": GOAL_IMPROVE_LEARNING,  # treated as improve_learning internally
+        }
+        goal = _goal_map.get(goal, goal)
+    else:
+        goal = _derive_goal(state.get("pass_rate_history", []))
     state["current_goal"] = goal
 
     # -----------------------------------------------------------------------
@@ -230,9 +247,22 @@ def decide(
         )
 
     # -----------------------------------------------------------------------
-    # Check 2: Minimum gain threshold
+    # Check 2: Minimum gain threshold (Phase 7 + Phase 8 objective gate)
     # -----------------------------------------------------------------------
-    if best_net_score < MIN_GAIN_THRESHOLD:
+    min_gain = MIN_GAIN_THRESHOLD
+    gain_reason = f"best_net_score={best_net_score:.4f}"
+
+    # Phase 8: if we have an objective score, use it as additional gate
+    if reality_snapshot is not None:
+        obj_score = objective_engine.score_outcome(reality_snapshot)
+        gain_reason += f" | obj_score={obj_score:.4f}"
+        # If objective score is very low, tighten the minimum gain requirement
+        if obj_score < 0.40:
+            min_gain = max(min_gain, 0.06)  # require stronger gain when system is struggling
+        elif obj_score > 0.85:
+            min_gain = min(min_gain, 0.01)  # relax gate when system is healthy
+
+    if best_net_score < min_gain:
         state["do_nothing_streak"] = state.get("do_nothing_streak", 0) + 1
         _save_state(state)
         return StrategicDecision(
@@ -240,8 +270,7 @@ def decide(
             mode="exploit",
             goal=goal,
             reason=(
-                f"best_net_score={best_net_score:.4f} < "
-                f"MIN_GAIN_THRESHOLD={MIN_GAIN_THRESHOLD:.4f} — nothing worth fixing"
+                f"{gain_reason} < min_gain={min_gain:.4f} — nothing worth fixing"
             ),
             risk_budget=0.0,
         )
@@ -278,6 +307,10 @@ def decide(
     ]
     if exploring:
         reason_parts.append("(epsilon-greedy exploration triggered)")
+    if reality_snapshot is not None:
+        reason_parts.append(
+            f"obj_score={objective_engine.score_outcome(reality_snapshot):.4f}"
+        )
 
     _save_state(state)
 

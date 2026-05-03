@@ -47,6 +47,7 @@ from urllib.request import Request, urlopen
 
 from nibblebots import impact_engine, rollback_guard
 from nibblebots import anomaly_detector, delayed_outcome_tracker, confidence_decay
+from nibblebots import value_engine, causality_tracker, reality_bridge
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +249,13 @@ def record_outcome(
     # Phase 7: try to enrich regression model with delayed (corrected) outcomes
     _try_delayed_regression_fit()
 
+    # Phase 8: value engine + causality tracker
+    _evaluate_real_world_value(
+        commit_sha=commit_sha,
+        fix_types=fix_types,
+        impact_net_score=impact_net_score,
+    )
+
     # Phase 6: emit evolution outcome on the EventBus (best-effort)
     _emit_evolution_event(entry, outcome)
 
@@ -368,6 +376,44 @@ def _try_delayed_regression_fit() -> None:
                 print("  📈 Regression model refined with delayed outcome data.")
     except Exception:  # noqa: BLE001
         pass
+
+
+# ---------------------------------------------------------------------------
+# Phase 8: value engine + causality tracker helpers
+# ---------------------------------------------------------------------------
+
+def _evaluate_real_world_value(
+    commit_sha: str,
+    fix_types: List[str],
+    impact_net_score: Optional[float],
+) -> None:
+    """Evaluate real-world value delta and record causality data (best-effort)."""
+    try:
+        # Pull a fresh snapshot and compare to the cached pre-commit snapshot
+        before_snapshot = reality_bridge.get_cached_snapshot()
+        after_snapshot = reality_bridge.pull_snapshot()
+
+        if before_snapshot is not None:
+            assessment = value_engine.evaluate(before_snapshot, after_snapshot)
+        else:
+            assessment = value_engine.evaluate_single(after_snapshot)
+
+        print(f"  🌍 ValueEngine: {assessment}")
+
+        # Persist for history and causality tracking
+        value_engine.record_assessment(
+            assessment, commit_sha=commit_sha, fix_types=fix_types
+        )
+
+        # Feed causality tracker
+        if fix_types and impact_net_score is not None:
+            causality_tracker.record(
+                fix_types=fix_types,
+                impact_net_score=impact_net_score,
+                value_delta=assessment.delta,
+            )
+    except Exception:  # noqa: BLE001
+        pass   # Phase 8 is strictly best-effort
 
 
 # ---------------------------------------------------------------------------

@@ -49,6 +49,9 @@ from nibblebots import anomaly_detector, strategic_planner
 RISK_THRESHOLD = float(os.environ.get("EVOLUTION_RISK_THRESHOLD", "0.05"))
 CONFIDENCE_MIN = float(os.environ.get("EVOLUTION_CONFIDENCE_MIN", "0.60"))
 
+# Phase 8: minimum real-world value gain required for a fix to be executed
+MIN_REAL_WORLD_GAIN = float(os.environ.get("VALUE_MIN_GAIN", "0.02"))
+
 # Fix types that we consider RISK (no automated mutation without human review)
 _RISK_FIX_TYPES: frozenset = frozenset({
     # Nothing in Phase 3 is logic-mutating yet; this guard is ready for Phase 4
@@ -93,6 +96,7 @@ def build_plan(
     max_fixes: int = 5,
     dep_graph: Optional[Any] = None,   # DependencyGraph from dependency_analyzer
     strategic_decision: Optional[Any] = None,  # StrategicDecision from strategic_planner
+    reality_snapshot: Optional[Dict[str, Any]] = None,  # Phase 8 RealitySnapshot
 ) -> EvolutionPlan:
     """Build a ranked EvolutionPlan from (SemanticIssue, ImpactScore) pairs.
 
@@ -104,6 +108,8 @@ def build_plan(
       5. Phase 5: high-fan-out files (dep_graph provided) → promote to RISK class
       6. Phase 7: strategic_decision.risk_budget enforced on avg risk
       7. Phase 7: "do_nothing" decision → empty plan regardless of scores
+      8. Phase 8: value_engine gate — skip fix if value_delta < MIN_REAL_WORLD_GAIN
+                  (only when reality_snapshot is provided)
 
     Ranking:
       Primary   : semantic type (error_handling_risk first)
@@ -120,6 +126,16 @@ def build_plan(
             workspace=workspace,
         )
 
+    # Phase 8: pre-compute value engine gate if snapshot is available
+    value_gate_active = reality_snapshot is not None
+    _value_engine = None
+    if value_gate_active:
+        try:
+            from nibblebots import value_engine as _ve  # noqa: PLC0415
+            _value_engine = _ve
+        except Exception:  # noqa: BLE001
+            value_gate_active = False
+
     eligible: List[Tuple[SemanticIssue, ImpactScore]] = []
     skipped = 0
 
@@ -132,6 +148,17 @@ def build_plan(
         if skip_reason:
             skipped += 1
             continue
+
+        # Phase 8: gate on real-world value
+        if value_gate_active and _value_engine is not None:
+            try:
+                assessment = _value_engine.evaluate_single(reality_snapshot)
+                if not assessment.passes_gate:
+                    skipped += 1
+                    continue
+            except Exception:  # noqa: BLE001
+                pass   # degrade gracefully
+
         eligible.append((issue, impact_with_adj_score))
 
     # Sort: error_handling_risk > code_style_debt > others, then net_score

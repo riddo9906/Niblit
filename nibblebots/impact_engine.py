@@ -401,3 +401,43 @@ def regression_adjusted_net_score(net_score: float) -> float:
     beta_1 = float(model.get("beta_1", 0.0))
     adjustment = max(-0.5, min(0.5, beta_1 * net_score))
     return round(net_score * (1.0 + adjustment), 4)
+
+
+# ---------------------------------------------------------------------------
+# Phase 8: Objective-blended scoring
+# ---------------------------------------------------------------------------
+
+def objective_blended_net_score(
+    net_score: float,
+    after_snapshot: Optional[Dict[str, Any]] = None,
+    before_snapshot: Optional[Dict[str, Any]] = None,
+    blend_alpha: float = 0.50,
+) -> float:
+    """Blend regression-adjusted net_score with objective value delta.
+
+    Phase 8 formula:
+        regression_score = regression_adjusted_net_score(net_score)
+        blended = regression_score * (1 - α) + value_blend * α
+
+    When no reality snapshots are provided, falls back to regression score.
+
+    Parameters
+    ----------
+    net_score       : raw net_score from impact_engine.score()
+    after_snapshot  : RealitySnapshot from reality_bridge (post-fix)
+    before_snapshot : RealitySnapshot from reality_bridge (pre-fix)
+    blend_alpha     : weight given to objective value side [0, 1]
+    """
+    reg_score = regression_adjusted_net_score(net_score)
+    if after_snapshot is None:
+        return reg_score
+
+    try:
+        from nibblebots import value_engine  # noqa: PLC0415 — lazy import avoids circular deps
+        return value_engine.blend_net_score(
+            impact_net_score=reg_score,
+            after_snapshot=after_snapshot,
+            before_snapshot=before_snapshot,
+        )
+    except Exception:  # noqa: BLE001
+        return reg_score
