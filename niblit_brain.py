@@ -16,11 +16,14 @@ Enhancements:
 5. Batch processing for learning
 6. Event sourcing for audit trail
 7. Structured logging with correlation IDs
+8. Multi-Agent Internal Debate Layer (Phase 14)
 """
 
 __all__ = [
     "NiblitBrain", "BrainTrainer", "NiblitCloudBrain",
     "get_niblit_cloud_brain", "set_cloud_brain_url", "hf_query",
+    "get_brain_debate_status", "_update_brain_debate_trust",
+    "BRAIN_DEBATE_ENABLED", "BRAIN_DEBATE_TRUST_LR",
 ]
 
 import re
@@ -232,6 +235,128 @@ except Exception as _e:
         return filename
 # pylint: enable=invalid-name
 
+
+# ── Phase 14: Multi-Agent Internal Debate Layer ───────────────────────────────
+#
+# Three internal agents (conservative / balanced / creative) each propose a
+# response routing strategy for every think() call.  The agent with the highest
+# accumulated trust score wins; its strategy is applied and its trust is updated
+# via a simple TD rule after the response quality is scored.
+#
+# conservative — prefer local/offline brain; avoid external calls; shorter answers
+# balanced     — default routing; unchanged baseline behaviour
+# creative     — prefer cloud/RAG-augmented path; encourage richer answers
+#
+# Trust scores start at 0.5 and evolve within [0.05, 0.95].
+# Set BRAIN_DEBATE_ENABLED=0 in the environment to bypass the debate layer.
+# ---------------------------------------------------------------------------
+
+BRAIN_DEBATE_ENABLED: bool = (
+    os.environ.get("BRAIN_DEBATE_ENABLED", "1").lower() not in ("0", "false", "no")
+)
+BRAIN_DEBATE_TRUST_LR: float = float(os.environ.get("BRAIN_DEBATE_TRUST_LR", "0.05"))
+
+_BRAIN_DEBATE_TRUST: Dict[str, float] = {
+    "conservative": 0.5,
+    "balanced": 0.5,
+    "creative": 0.5,
+}
+_brain_debate_last_winner: str = ""
+_brain_debate_lock = threading.Lock()
+
+
+def _build_brain_debate_proposals(
+    user_input: str,
+    llm_enabled: bool,
+) -> Dict[str, Dict[str, Any]]:
+    """Build one routing-strategy proposal per internal debate agent.
+
+    Each proposal is a dict of hint flags passed to :meth:`NiblitBrain.think`:
+
+    conservative — prefer offline path (local brain / KB only); no cloud calls
+    balanced     — use the default routing logic unchanged
+    creative     — prefer cloud + RAG augmentation; richer context
+
+    Returns ``{"conservative": {...}, "balanced": {...}, "creative": {...}}``.
+    """
+    base: Dict[str, Any] = {"llm_enabled": llm_enabled, "user_input": user_input}
+    return {
+        "conservative": {
+            **base,
+            "prefer_local": True,
+            "use_rag": False,
+            "rationale": f"DEBATE/conservative({user_input[:30]})",
+        },
+        "balanced": {
+            **base,
+            "prefer_local": False,
+            "use_rag": True,
+            "rationale": f"DEBATE/balanced({user_input[:30]})",
+        },
+        "creative": {
+            **base,
+            "prefer_local": False,
+            "use_rag": True,
+            "augment_context": True,
+            "rationale": f"DEBATE/creative({user_input[:30]})",
+        },
+    }
+
+
+def _brain_debate_vote(
+    proposals: Dict[str, Dict[str, Any]],
+    agent_trust: Dict[str, float],
+) -> tuple:
+    """Select the winning proposal by highest agent trust.
+
+    ``balanced`` is the tiebreaker when scores are equal.
+    Returns ``(winner_name, winning_proposal)``.
+    """
+    if not proposals:
+        return ("balanced", {"rationale": "DEBATE: no proposals"})
+
+    best_agent = max(
+        proposals.keys(),
+        key=lambda a: (agent_trust.get(a, 0.5), a == "balanced"),
+    )
+    winner = proposals[best_agent]
+
+    votes_summary = " | ".join(
+        f"{a}={agent_trust.get(a, 0.5):.3f}" for a in sorted(proposals.keys())
+    )
+    winner["rationale"] = (
+        f"DEBATE_WIN/{best_agent}[{votes_summary}]→{winner.get('rationale', '')}"
+    )
+    return (best_agent, winner)
+
+
+def _update_brain_debate_trust(winner: str, outcome: float) -> None:
+    """Update *winner*'s trust score using a TD-style rule.
+
+    ``outcome`` should be in ``[0, 1]``; 1.0 = excellent response,
+    0.0 = poor or failed response.  Values near 0.5 leave trust unchanged.
+
+    ``new_trust = clamp(old_trust + BRAIN_DEBATE_TRUST_LR × (outcome − 0.5))``
+    """
+    global _BRAIN_DEBATE_TRUST, _brain_debate_last_winner  # pylint: disable=global-statement
+    with _brain_debate_lock:
+        old = _BRAIN_DEBATE_TRUST.get(winner, 0.5)
+        new = max(0.05, min(0.95, old + BRAIN_DEBATE_TRUST_LR * (outcome - 0.5)))
+        _BRAIN_DEBATE_TRUST[winner] = round(new, 4)
+        _brain_debate_last_winner = ""  # consumed
+
+
+def get_brain_debate_status() -> Dict[str, Any]:
+    """Return a dict summarising the current debate-layer state."""
+    return {
+        "debate_enabled": BRAIN_DEBATE_ENABLED,
+        "brain_debate_trust_lr": BRAIN_DEBATE_TRUST_LR,
+        "debate_agent_trust": dict(_BRAIN_DEBATE_TRUST),
+        "last_debate_winner": _brain_debate_last_winner,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 # ───────── Memory Adapter ─────────
 class _DBMemoryAdapter:
@@ -1490,6 +1615,26 @@ class NiblitBrain:
         - Structured request tracing
         """
         # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks,too-many-locals,too-many-return-statements
+        # ── Phase 14: Multi-Agent Internal Debate Layer ───────────────────────
+        # Before executing the main think() pipeline, the three internal debate
+        # agents vote on a routing strategy.  The winning agent's preferences are
+        # stored and its trust updated after the response is obtained.
+        _debate_winner: str = "balanced"
+        _debate_prefer_local: bool = False
+        _debate_augment_context: bool = False
+        if BRAIN_DEBATE_ENABLED:
+            global _BRAIN_DEBATE_TRUST, _brain_debate_last_winner  # pylint: disable=global-statement
+            with _brain_debate_lock:
+                _proposals = _build_brain_debate_proposals(user_input, self.llm_enabled)
+                _debate_winner, _winning_proposal = _brain_debate_vote(
+                    _proposals, _BRAIN_DEBATE_TRUST
+                )
+                _brain_debate_last_winner = _debate_winner
+                _debate_prefer_local = bool(_winning_proposal.get("prefer_local", False))
+                _debate_augment_context = bool(_winning_proposal.get("augment_context", False))
+                log.debug("[BRAIN/DEBATE] winner=%s prefer_local=%s augment=%s",
+                          _debate_winner, _debate_prefer_local, _debate_augment_context)
+        # ─────────────────────────────────────────────────────────────────────
         _exit_stack = contextlib.ExitStack()
         try:
             # Structured request tracing
@@ -1752,30 +1897,45 @@ class NiblitBrain:
             # The context already assembled above (SECA/RAG/Graph-RAG) plus the
             # recent conversation history prefix are passed as memory context so
             # the local brain has both knowledge and conversation continuity.
+            #
+            # Phase 14 debate integration: the conservative agent biases toward
+            # the local-brain path; the creative agent appends an extra hint to
+            # encourage the router toward richer, augmented responses.
             _extra_context_stripped = (_chat_history_prefix + context).strip()
+            if _debate_augment_context and _extra_context_stripped:
+                _extra_context_stripped += "\n[Debate/creative: prefer augmented response]"
             if getattr(self, "brain_router", None):
                 try:
-                    _br_response = self.brain_router.route(
-                        user_input,
-                        context=_extra_context_stripped,
-                    )
-                    if _br_response and isinstance(_br_response, str) and \
-                            not _br_response.startswith("[LocalBrain unavailable") and \
-                            not _br_response.startswith("[LocalBrain error"):
-                        response = _br_response
-                        log.debug("[BRAIN] BrainRouter response (mode=%s)",
-                                  self.brain_router.mode)
-                        # Persist this exchange to LLMChatMemory so future requests
-                        # see it as part of conversation history.  ChatCompletions is
-                        # skipped when brain_router produces a result, so we persist
-                        # here to keep chat history consistent.
-                        try:
-                            from modules.llm_chat_memory import get_llm_chat_memory
-                            _cm_persist = get_llm_chat_memory()
-                            _cm_persist.add("user", user_input)
-                            _cm_persist.add("assistant", _br_response)
-                        except Exception as _cm_err:
-                            log.debug("[BRAIN] Chat memory persist skipped: %s", _cm_err)
+                    # Conservative agent: use local-first path when available
+                    if _debate_prefer_local and hasattr(self.brain_router, "_local_first"):
+                        _local_resp = self.brain_router._local_first(  # pylint: disable=protected-access
+                            user_input, context=_extra_context_stripped
+                        )
+                        if _local_resp and not _local_resp.startswith("[LocalBrain"):
+                            response = _local_resp
+                            log.debug("[BRAIN/DEBATE] conservative local-first path selected")
+                    if not response:
+                        _br_response = self.brain_router.route(
+                            user_input,
+                            context=_extra_context_stripped,
+                        )
+                        if _br_response and isinstance(_br_response, str) and \
+                                not _br_response.startswith("[LocalBrain unavailable") and \
+                                not _br_response.startswith("[LocalBrain error"):
+                            response = _br_response
+                            log.debug("[BRAIN] BrainRouter response (mode=%s)",
+                                      self.brain_router.mode)
+                            # Persist this exchange to LLMChatMemory so future requests
+                            # see it as part of conversation history.  ChatCompletions is
+                            # skipped when brain_router produces a result, so we persist
+                            # here to keep chat history consistent.
+                            try:
+                                from modules.llm_chat_memory import get_llm_chat_memory
+                                _cm_persist = get_llm_chat_memory()
+                                _cm_persist.add("user", user_input)
+                                _cm_persist.add("assistant", _br_response)
+                            except Exception as _cm_err:
+                                log.debug("[BRAIN] Chat memory persist skipped: %s", _cm_err)
                 except Exception as _br_err:
                     log.debug("[BRAIN] BrainRouter.route failed: %s", _br_err)
 
@@ -1860,11 +2020,24 @@ class NiblitBrain:
                 if hasattr(self, 'telemetry') and self.telemetry:
                     self.telemetry.increment_counter("brain_think_success")
 
+                # ── Phase 14: update debate agent trust on successful response ──
+                if BRAIN_DEBATE_ENABLED and _debate_winner:
+                    # Score the outcome as 0.7 (above neutral) for any non-empty
+                    # response; callers may call _update_brain_debate_trust() with
+                    # a more precise outcome if explicit feedback is available.
+                    _update_brain_debate_trust(_debate_winner, outcome=0.7)
+                # ─────────────────────────────────────────────────────────────
+
                 _exit_stack.close()
                 return response
 
             if hasattr(self, 'telemetry') and self.telemetry:
                 self.telemetry.increment_counter("brain_think_failure")
+
+            # ── Phase 14: update debate agent trust on failed response ─────────
+            if BRAIN_DEBATE_ENABLED and _debate_winner:
+                _update_brain_debate_trust(_debate_winner, outcome=0.3)
+            # ─────────────────────────────────────────────────────────────────
 
             _exit_stack.close()
             # ── Gap-learning trigger: when HFBrain has no answer, queue research ──
@@ -2071,6 +2244,10 @@ class NiblitBrain:
 
         if getattr(self, "brain_router", None):
             stats["brain_router"] = self.brain_router.stats()
+
+        # Phase 14: include debate-layer status
+        if BRAIN_DEBATE_ENABLED:
+            stats["debate"] = get_brain_debate_status()
 
         return stats
 

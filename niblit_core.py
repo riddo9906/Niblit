@@ -49,10 +49,10 @@ import inspect
 import importlib.util
 import hashlib
 import json
-import uuid
+import uuid  # pylint: disable=unused-import
 import traceback as _traceback
 import contextvars
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta  # pylint: disable=unused-import
 from typing import Any, Dict, List, Tuple, Optional, Callable
 from dataclasses import dataclass, field
 import collections
@@ -60,9 +60,9 @@ from collections import defaultdict
 import queue as _queue_mod
 from contextlib import contextmanager
 from pathlib import Path
-from functools import lru_cache
-from enum import Enum
-from abc import ABC, abstractmethod
+from functools import lru_cache  # pylint: disable=unused-import
+from enum import Enum  # pylint: disable=unused-import
+from abc import ABC, abstractmethod  # pylint: disable=unused-import
 
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
 # platform injects env vars directly, so this is a no-op in those environments.
@@ -75,7 +75,7 @@ except ImportError:
 # Side-effect import kept at module level so orphan symbol stubs are available
 # (moved here from line 1 so it runs after stdlib/dotenv setup).
 try:
-    import modules.orphan_imports  # auto-added by self_heal_auto
+    import modules.orphan_imports  # auto-added by self_heal_auto  # pylint: disable=unused-import
 except Exception:
     pass
 
@@ -134,19 +134,19 @@ except Exception as e:
     CommandRegistry = None
 
 try:
-    from modules.structured_logging import StructuredLogger, RequestContext
+    from modules.structured_logging import StructuredLogger, RequestContext  # pylint: disable=unused-import
 except Exception as e:
     log.debug(f"StructuredLogger import failed: {e}")
     StructuredLogger = None
 
 try:
-    from modules.async_first import AsyncTaskCoordinator, AsyncTask
+    from modules.async_first import AsyncTaskCoordinator, AsyncTask  # pylint: disable=unused-import
 except Exception as e:
     log.debug(f"AsyncTaskCoordinator import failed: {e}")
     AsyncTaskCoordinator = None
 
 try:
-    from modules.event_sourcing import EventStore, Event, EventType
+    from modules.event_sourcing import EventStore, Event, EventType  # pylint: disable=unused-import
 except Exception as e:
     log.debug(f"EventStore import failed: {e}")
     EventStore = None
@@ -188,13 +188,13 @@ except Exception as e:
     LearningBatcher = None
 
 try:
-    from modules.plugin_architecture import PluginManager, PluginInterface
+    from modules.plugin_architecture import PluginManager, PluginInterface  # pylint: disable=unused-import
 except Exception as e:
     log.debug(f"PluginManager import failed: {e}")
     PluginManager = None
 
 try:
-    from modules.monitoring_alerting import AlertManager, Alert, AlertSeverity
+    from modules.monitoring_alerting import AlertManager, Alert, AlertSeverity  # pylint: disable=unused-import
 except Exception as e:
     log.debug(f"AlertManager import failed: {e}")
     AlertManager = None
@@ -409,7 +409,7 @@ except Exception as _e:
 # DEPLOYMENT BRIDGE, AUTONOMOUS NETWORK, MODULE AUTONOMY
 # ============================================================
 try:
-    from modules.deployment_bridge import DeploymentBridge, get_deployment_bridge
+    from modules.deployment_bridge import DeploymentBridge, get_deployment_bridge  # pylint: disable=unused-import
     _DEPLOYMENT_BRIDGE_AVAILABLE = True
 except Exception as _e:
     log.debug(f"DeploymentBridge import failed: {_e}")
@@ -418,7 +418,7 @@ except Exception as _e:
     _DEPLOYMENT_BRIDGE_AVAILABLE = False
 
 try:
-    from modules.autonomous_network import AutonomousNetworkBuilder, get_autonomous_network
+    from modules.autonomous_network import AutonomousNetworkBuilder, get_autonomous_network  # pylint: disable=unused-import
     _AUTONOMOUS_NETWORK_AVAILABLE = True
 except Exception as _e:
     log.debug(f"AutonomousNetworkBuilder import failed: {_e}")
@@ -427,7 +427,7 @@ except Exception as _e:
     _AUTONOMOUS_NETWORK_AVAILABLE = False
 
 try:
-    from modules.module_autonomy import ModuleAutonomy, get_module_autonomy
+    from modules.module_autonomy import ModuleAutonomy, get_module_autonomy  # pylint: disable=unused-import
     _MODULE_AUTONOMY_AVAILABLE = True
 except Exception as _e:
     log.debug(f"ModuleAutonomy import failed: {_e}")
@@ -809,7 +809,7 @@ except Exception as _e:
     NiblitRouter = None
 
 try:
-    from modules import internet_manager
+    from modules import internet_manager  # pylint: disable=unused-import
 except Exception as _e:
     log.debug(f"internet_manager failed to import: {_e}")
     internet_manager = None
@@ -930,7 +930,7 @@ except Exception as _e:
     NiblitLearning = None
 
 try:
-    from niblit_io import NiblitIO
+    from niblit_io import NiblitIO  # pylint: disable=unused-import
 except Exception as _e:
     log.debug(f"NiblitIO not available: {_e}")
     NiblitIO = None
@@ -977,7 +977,7 @@ except Exception as _e:
     load_modules = None
 
 try:
-    from niblit_net import fetch_data, learn_from_data
+    from niblit_net import fetch_data, learn_from_data  # pylint: disable=unused-import
 except Exception as _e:
     log.debug(f"niblit_net not available: {_e}")
     fetch_data = None
@@ -4712,7 +4712,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         lean params <name>                       — Show optimal params for a project
         lean jobs                                — Show active LEAN background jobs
         """
-        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-return-statements
         engine = getattr(self, "lean_engine", None)
         if engine is None:
             return "[lean] LeanEngine not initialised — check startup logs"
@@ -4792,7 +4792,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return engine.parameter_sweep(proj, grid)
         if sub in ("params", "optimal-params", "best-params"):
             if not rest:
-                data = engine._load_optimal_params()
+                data = engine._load_optimal_params()  # pylint: disable=protected-access
                 if not data:
                     return "No optimal parameters stored yet."
                 lines = [f"  {proj}: score={v.get('score')} metric={v.get('metric')}"
@@ -4831,7 +4831,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         lean deploy orders <projectId>
         lean deploy compile <projectId>
         """
-        # pylint: disable=too-many-branches,too-many-statements
+        # pylint: disable=too-many-branches,too-many-statements,too-many-return-statements
         engine = getattr(self, "lean_deploy_engine", None)
         if engine is None:
             return "[lean deploy] LeanDeployEngine not initialised — check startup logs"
@@ -4950,7 +4950,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         market alpaca-account
         market alpaca-order <symbol> <qty> [side=buy]
         """
-        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-return-statements
         mdp = getattr(self, "market_data_providers", None)
         if mdp is None:
             return "[market] MarketDataProviders not initialised — check startup logs"
@@ -5070,7 +5070,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         trading study auto-stop
         trading study log <symbol> <side> <price> <qty> [pnl=N]
         """
-        # pylint: disable=too-many-locals,too-many-branches
+        # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements
         ts = getattr(self, "trading_study", None)
         if ts is None:
             return "[trading study] TradingStudy not initialised — check startup logs"
@@ -5146,7 +5146,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         game play <template>     — Load a built-in template (pong/gravity/adventure)
         game action <entity> k=v — Apply action dict to an entity
         """
-        # pylint: disable=too-many-branches,too-many-statements
+        # pylint: disable=too-many-branches,too-many-statements,too-many-return-statements
         engine = getattr(self, "game_engine", None)
         if engine is None:
             return "[game] GameEngine not initialised — check startup logs"
@@ -5247,7 +5247,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         file execute <path> [args]
                                  — Execute a script file
         """
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-return-statements
         fm = getattr(self, "universal_file_manager", None)
         if fm is None:
             return "[file] UniversalFileManager not initialised — check startup logs"
@@ -5306,22 +5306,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
         hardware summary          — Human-readable hardware summary
         hardware requirements     — Deployment recommendation for this hardware
         """
+        # pylint: disable=too-many-return-statements
         lower = cmd.strip().lower()
-        # Strip leading 'hardware' token
         sub = lower.removeprefix("hardware").strip()
-
         hw = getattr(self, "hardware_scanner", None)
         if hw is None:
             return "[hardware] HardwareScanner not initialised — check startup logs"
-
         if sub in ("scan", "rescan"):
             profile = hw.scan()
             return hw.summary() + f"\n✅ Scan complete ({profile.get('scanned_at', '')})"
         if sub in ("status", ""):
             return hw.status()
         if sub in ("profile", "json"):
-            import json as _json
-            return _json.dumps(hw.get_profile(), indent=2, default=str)
+            return json.dumps(hw.get_profile(), indent=2, default=str)
         if sub in ("summary", "info"):
             return hw.summary()
         if sub in ("requirements", "recommend", "req"):
@@ -5349,7 +5346,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         platform info             — Platform type and capability flags
         platform requirements     — Setup hints for the current platform
         """
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-return-statements
         lower = cmd.strip().lower()
         sub = lower
         for prefix in ("os ", "platform "):
@@ -5400,6 +5397,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # ── BIOSIntegration commands (additive) ───────────────────────────────────
     def _cmd_bios(self, cmd: str) -> str:
         """Route 'bios ...' commands to BIOSIntegration."""
+        # pylint: disable=too-many-return-statements
         lower = cmd.strip().lower()
         sub = lower.removeprefix("bios").strip()
         bi = getattr(self, "bios_integration", None)
@@ -5433,6 +5431,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # ── KernelIntegration commands (additive) ────────────────────────────────
     def _cmd_krnl(self, cmd: str) -> str:
         """Route 'krnl ...' commands to KernelIntegration."""
+        # pylint: disable=too-many-return-statements
         lower = cmd.strip().lower()
         sub = lower
         for prefix in ("krnl ", "kernel "):
@@ -5486,7 +5485,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # ── DeviceControl commands (additive) ────────────────────────────────────
     def _cmd_device_ctrl(self, cmd: str) -> str:
         """Route 'cmd exec / device ctrl' commands to DeviceControl."""
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-return-statements
         lower = cmd.strip()
         sub = lower
         for prefix in ("cmd exec ", "device ctrl ", "ctrl "):
@@ -5544,6 +5543,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # ── DeviceMesh commands (additive) ───────────────────────────────────────
     def _cmd_mesh(self, cmd: str) -> str:
         """Route 'mesh ...' commands to DeviceMesh."""
+        # pylint: disable=too-many-return-statements
         lower = cmd.strip().lower()
         sub = lower.removeprefix("mesh").strip()
         dm = getattr(self, "device_mesh", None)
@@ -5583,6 +5583,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     # ── GitHubDeepResearch commands (additive) ───────────────────────────────
     def _cmd_github_deep(self, cmd: str) -> str:
         """Route 'github-deep ...' commands to GitHubDeepResearch."""
+        # pylint: disable=too-many-return-statements
         lower = cmd.strip().lower()
         sub = lower
         for prefix in ("github-deep ", "github deep "):
@@ -5632,7 +5633,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         agents submit <type> [k=v ...] — Enqueue a task for a named agent
         agents pending           — Show pending tasks in the task queue
         """
-        # pylint: disable=too-many-locals,too-many-branches
+        # pylint: disable=too-many-locals,too-many-branches,too-many-return-statements
         rm = getattr(self, "runtime_manager", None)
         if rm is None:
             return (
@@ -6697,8 +6698,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             # the real run() / run_with_learning() logic can fire.
             if SelfMaintenance is not None:
                 try:
-                    import inspect as _inspect
-                    _sm_params = set(_inspect.signature(SelfMaintenance.__init__).parameters)
+                    _sm_params = set(inspect.signature(SelfMaintenance.__init__).parameters)
                     if "db" in _sm_params:
                         self.self_maintenance = SelfMaintenance(
                             self.db,
@@ -7591,8 +7591,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # The model download + 2,000 HTTP upserts can take minutes; keeping
         # them off the DeferredInitThread lets the CLI open on time.
         if _batch_populate_qdrant is not None and self.db is not None:
-            import threading as _threading
-
             _bpq_db = self.db
             _bpq_vs = getattr(self, "vector_store", None)
             _bpq_report = self.startup_report
@@ -7614,7 +7612,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         "qdrant_batch_populate", "degraded", str(_bpe)
                     )
 
-            _bpq_thread = _threading.Thread(
+            _bpq_thread = threading.Thread(
                 target=_run_batch_populate,
                 daemon=True,
                 name="QdrantBatchPopulate",
@@ -7629,8 +7627,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if (_start_background_refresh is not None
                 and self.dynamic_topic_manager is not None):
             try:
-                import threading as _threading
-                self._topic_refresh_stop_event = _threading.Event()
+                self._topic_refresh_stop_event = threading.Event()
                 self._topic_refresh_thread = _start_background_refresh(
                     dtm=self.dynamic_topic_manager,
                     ale=getattr(self, "autonomous_engine", None),
@@ -7754,7 +7751,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 )
                 # Wire reflect_module back into LeanDeployEngine
                 if self.lean_deploy_engine is not None:
-                    self.lean_deploy_engine._reflect = self.trading_study
+                    self.lean_deploy_engine._reflect = self.trading_study  # pylint: disable=protected-access
                 log.info("✅ TradingStudy initialised")
                 self.startup_report.add("trading_study", "ready")
             except Exception as _tse2:
@@ -7805,7 +7802,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     hardware_scanner=getattr(self, "hardware_scanner", None),
                 )
                 log.info("✅ OSIntegration initialised — platform=%s",
-                         type(self.os_integration._installer).__name__)
+                         type(self.os_integration._installer).__name__)  # pylint: disable=protected-access
                 self.startup_report.add("os_integration", "ready")
             except Exception as _oie2:
                 log.debug("[INIT] OSIntegration init failed: %s", _oie2)
@@ -9262,8 +9259,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             topics = getattr(self.slsa_engine, "topics", [])
             if running:
                 return f"[SLSA] Generator is running with topics: {topics}"
-            else:
-                return f"[SLSA] Generator is initialized but not running (topics: {topics})"
+            return f"[SLSA] Generator is initialized but not running (topics: {topics})"
         except Exception as e:
             log.error(f"[SLSA] Failed to get status: {e}")
             return f"[SLSA status unavailable: {e}]"
@@ -9542,13 +9538,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if ltext.startswith("autonomous-learn"):
             if "start" in ltext:
                 return self._cmd_autonomous_start(text)
-            elif "stop" in ltext:
+            if "stop" in ltext:
                 return self._cmd_autonomous_stop(text)
-            elif "code-status" in ltext:
+            if "code-status" in ltext:
                 return self._cmd_autonomous_code_status(text)
-            elif "status" in ltext:
+            if "status" in ltext:
                 return self._cmd_autonomous_status(text)
-            elif "add-topic" in ltext:
+            if "add-topic" in ltext:
                 return self._cmd_autonomous_add_topic(text)
 
         # ============================
@@ -9802,10 +9798,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
             # Sync BrainRouter mode: off→local, on→balanced (respects NIBLIT_BRAIN_MODE env)
             try:
                 from modules.brain_router import get_brain_router
-                import os as _os
                 _br = get_brain_router()
                 if turning_on:
-                    _env_mode = _os.environ.get("NIBLIT_BRAIN_MODE", "balanced").lower()
+                    _env_mode = os.environ.get("NIBLIT_BRAIN_MODE", "balanced").lower()
                     _br.set_mode(_env_mode if _env_mode in {"balanced", "power"} else "balanced")
                 else:
                     _br.set_mode("local")
