@@ -54,7 +54,8 @@ from nibblebots import value_engine, causality_tracker, reality_bridge
 # Paths
 # ---------------------------------------------------------------------------
 
-_JOURNAL_FILE = Path(__file__).parent / "outcome_journal.jsonl"
+_JOURNAL_FILE  = Path(__file__).parent / "outcome_journal.jsonl"
+_PATTERN_FILE  = Path(__file__).parent / "pattern_memory.jsonl"  # Phase 15
 
 # ---------------------------------------------------------------------------
 # GitHub API helpers (same pattern as autonomous_evolution_agent.py)
@@ -449,6 +450,20 @@ def _evaluate_real_world_value(
                 pass
         except Exception:  # noqa: BLE001
             pass
+
+        # Phase 15: store winning pattern to pattern_memory.jsonl (best-effort)
+        if assessment.delta is not None and assessment.delta > 0:
+            try:
+                _subsystem = after_snapshot.get("subsystem", "")
+                store_success_pattern(
+                    fix_types=fix_types,
+                    subsystem=str(_subsystem),
+                    outcome_score=float(assessment.delta),
+                    commit_sha=commit_sha,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
     except Exception:  # noqa: BLE001
         pass   # Phase 8 is strictly best-effort
 
@@ -481,3 +496,113 @@ def _emit_evolution_event(entry: Dict[str, Any], outcome: Dict[str, Any]) -> Non
         ))
     except Exception:  # noqa: BLE001
         pass  # EventBus unavailable — standalone evolution run
+
+
+# ---------------------------------------------------------------------------
+# Phase 15: pattern memory  (Ruflo "store after success" principle)
+# ---------------------------------------------------------------------------
+
+def _semantic_hash(fix_type: str, subsystem: str) -> str:
+    """Return a short stable key for a (fix_type, subsystem) pair."""
+    import hashlib  # noqa: PLC0415
+    raw = f"{fix_type}::{subsystem}".encode()
+    return hashlib.sha256(raw).hexdigest()[:16]
+
+
+def store_success_pattern(
+    fix_types: List[str],
+    subsystem: str,
+    outcome_score: float,
+    commit_sha: str = "",
+) -> None:
+    """Persist a winning fix pattern to pattern_memory.jsonl.
+
+    Called by ``_evaluate_real_world_value`` after a successful CI cycle.
+    Each pattern entry is keyed by a semantic hash so duplicate (fix_type,
+    subsystem) pairs accumulate a hit count rather than growing unbounded.
+
+    Parameters
+    ----------
+    fix_types     : list of fix types that succeeded
+    subsystem     : semantic subsystem label (e.g. "core", "evaluation")
+    outcome_score : value-engine delta for this cycle
+    commit_sha    : git SHA of the successful commit (for traceability)
+    """
+    timestamp = datetime.now(timezone.utc).isoformat()
+    entries: Dict[str, Any] = {}
+
+    # Load existing patterns for dedup
+    if _PATTERN_FILE.exists():
+        try:
+            for line in _PATTERN_FILE.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line:
+                    try:
+                        rec = json.loads(line)
+                        entries[rec["hash"]] = rec
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+        except OSError:
+            pass
+
+    changed = False
+    for fix_type in fix_types:
+        key = _semantic_hash(fix_type, subsystem)
+        if key in entries:
+            rec = entries[key]
+            rec["hit_count"] = rec.get("hit_count", 1) + 1
+            rec["last_outcome"] = round(outcome_score, 4)
+            rec["last_seen"] = timestamp
+            rec["avg_outcome"] = round(
+                (rec.get("avg_outcome", outcome_score) * (rec["hit_count"] - 1)
+                 + outcome_score) / rec["hit_count"],
+                4,
+            )
+        else:
+            entries[key] = {
+                "hash":         key,
+                "fix_type":     fix_type,
+                "subsystem":    subsystem,
+                "hit_count":    1,
+                "avg_outcome":  round(outcome_score, 4),
+                "last_outcome": round(outcome_score, 4),
+                "first_seen":   timestamp,
+                "last_seen":    timestamp,
+                "commit_sha":   commit_sha,
+            }
+        changed = True
+
+    if not changed:
+        return
+
+    try:
+        lines = [json.dumps(rec) for rec in entries.values()]
+        _PATTERN_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError as exc:
+        print(f"  ⚠ Could not write pattern_memory.jsonl: {exc}", file=sys.stderr)
+
+
+def load_top_patterns(min_confidence: float = 0.70, top_n: int = 10) -> List[Dict[str, Any]]:
+    """Load the highest-confidence patterns from pattern_memory.jsonl.
+
+    Returns patterns sorted by avg_outcome descending, filtered to those
+    with avg_outcome >= min_confidence.  Used by the evolution agent for
+    pre-task memory search.
+    """
+    if not _PATTERN_FILE.exists():
+        return []
+    records: List[Dict[str, Any]] = []
+    try:
+        for line in _PATTERN_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    rec = json.loads(line)
+                    if rec.get("avg_outcome", 0.0) >= min_confidence:
+                        records.append(rec)
+                except json.JSONDecodeError:
+                    pass
+    except OSError:
+        return []
+    records.sort(key=lambda r: r.get("avg_outcome", 0.0), reverse=True)
+    return records[:top_n]

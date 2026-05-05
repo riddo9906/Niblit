@@ -669,7 +669,7 @@ def run_shell(core, io):
                 io.out("Shutdown.")
                 try:
                     core.shutdown()
-                except:
+                except Exception:  # noqa: BLE001
                     pass
                 break
 

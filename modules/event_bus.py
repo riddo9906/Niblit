@@ -69,6 +69,7 @@ EVENT_EVOLUTION_OUTCOME  = "evolution.outcome"   # Phase 6: emitted by feedback_
 EVENT_CONTEXT_MISMATCH   = "context.mismatch"    # Phase 8: emitted by context_guard
 EVENT_INTENT_DRIFT       = "intent.drift"         # Phase 8.5: emitted by intent_anchor_engine
 EVENT_MODE_LOCKED        = "stability.mode_locked" # Phase 9: emitted by stability_controller
+EVENT_AGENT_OBSERVATION  = "agent.observation"      # Phase 15: emitted by background worker agents
 
 
 @dataclass

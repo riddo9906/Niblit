@@ -6938,7 +6938,7 @@ Ask me about:
                     mem = len(safe_call(self.memory.recent_interactions) or [])
                 elif self.core and hasattr(self.core, "db"):
                     mem = len(self.core.db.recent_interactions(500))
-            except:
+            except Exception:  # noqa: BLE001
                 mem = 0
 
             autonomous_status = ""
