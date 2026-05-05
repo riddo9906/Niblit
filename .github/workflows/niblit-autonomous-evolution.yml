@@ -1,7 +1,7 @@
 name: "🧬 Niblit: Autonomous Evolution Agent"
 
 # Phase 16 evolution agent.  On every run it:
-#   1. Scans EVERY Python file in the repository (400+ files).
+#   1. Scans all Python files in the repository.
 #   2. Queries GitHub Actions API for recent failures to identify priority files
 #      AND maps failure patterns to fix types (Phase 16 failure→fix layer).
 #   3. Classifies raw issues into SemanticIssues (semantic_engine.py).

@@ -522,10 +522,11 @@ def get_log_priority_files() -> frozenset:
 def get_failure_fix_hints() -> List[str]:
     """Phase 16 Failure→Fix mapping layer: map CI failure patterns to fix types.
 
-    Extends the log-priority scan so the agent reacts to *what kind* of failure
-    occurred, not just *which workflow* failed.  Job and step names are scanned
-    for keywords (test, import, syntax, …) that predict which fix type is most
-    likely to reduce the failure rate.
+    Complements the log-priority scan: instead of only returning *which files*
+    to prioritise, this function returns *which fix types* to attempt based on
+    keywords in the failed workflow and job names.  Job and step names are
+    scanned for keywords (test, import, syntax, …) that predict which fix type
+    is most likely to reduce the failure rate.
 
     Returns a priority-ordered list of fix_type strings (most relevant first).
     Falls back to an empty list if the GitHub API is unavailable or no signal
@@ -985,11 +986,11 @@ def main() -> int:
     failure_fix_hints = get_failure_fix_hints()
     if failure_fix_hints and not FORCE_FIX_TYPE:
         if preferred_fix_types:
-            for ft in failure_fix_hints:
-                if ft not in preferred_fix_types:
-                    preferred_fix_types.insert(0, ft)
+            # Prepend hints that aren't already in the list, preserving hint order
+            new_prefixes = [ft for ft in failure_fix_hints if ft not in preferred_fix_types]
+            preferred_fix_types = new_prefixes + preferred_fix_types
         else:
-            preferred_fix_types = failure_fix_hints
+            preferred_fix_types = list(failure_fix_hints)
         print(
             "  💡 Failure→fix hints merged: "
             + " → ".join(preferred_fix_types[:3])
