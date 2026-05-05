@@ -136,20 +136,20 @@ class NiblitSQLiteDB:
         row = conn.execute("SELECT value FROM facts WHERE key = ?", (key,)).fetchone()
         return row["value"] if row else None
 
-    def list_facts(self, limit: int = 200, category: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_facts(self, limit: int = 200, offset: int = 0, category: Optional[str] = None) -> List[Dict[str, Any]]:
         """Return a list of fact dicts, newest first."""
         conn = self._conn()
         if category is not None:
             rows = conn.execute(
                 "SELECT key, value, category, created_at FROM facts "
-                "WHERE category = ? ORDER BY id DESC LIMIT ?",
-                (category, limit),
+                "WHERE category = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+                (category, limit, offset),
             ).fetchall()
         else:
             rows = conn.execute(
                 "SELECT key, value, category, created_at FROM facts "
-                "ORDER BY id DESC LIMIT ?",
-                (limit,),
+                "ORDER BY id DESC LIMIT ? OFFSET ?",
+                (limit, offset),
             ).fetchall()
         return [dict(r) for r in rows]
 
