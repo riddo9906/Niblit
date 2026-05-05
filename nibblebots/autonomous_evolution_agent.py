@@ -126,6 +126,24 @@ CHANGED_FILES_FILE = os.environ.get(
 )
 GITHUB_SHA = os.environ.get("GITHUB_SHA", "")
 
+# ---------------------------------------------------------------------------
+# Phase 16: Dual-lane execution model
+# ---------------------------------------------------------------------------
+
+# Fix types that are near-zero risk and can bypass the semantic/impact pipeline
+LOW_RISK_FIXES: frozenset = frozenset({
+    "trailing_whitespace",
+    "double_blank_lines",
+    "eof_newline",
+})
+
+# Maximum files to fix in the bulk (Lane 2) execution pass
+BULK_MAX_FIXES = int(os.environ.get("EVOLUTION_BULK_MAX_FIXES", "50"))
+
+# Set EVOLUTION_BULK_LANE=false to disable the bulk lane entirely
+BULK_LANE_ENABLED = os.environ.get("EVOLUTION_BULK_LANE", "true").lower() != "false"
+
+
 # Directories to scan (relative to WORKSPACE root)
 _SCAN_DIRS: Tuple[str, ...] = (
     "modules",
@@ -439,6 +457,26 @@ _WORKFLOW_PRIORITY_MAP: dict = {
     "llm":          ["nibblebots/llm_engineer_bot.py"],
     "architecture": ["nibblebots/aios_architecture_bot.py"],
     "evolution":    ["nibblebots/autonomous_evolution_agent.py"],
+    "copilot":      ["modules/", "niblit_core.py", "nibblebots/"],
+}
+
+# ---------------------------------------------------------------------------
+# Phase 16: Failure → Fix mapping layer
+#
+# Maps keywords found in failed CI workflow/job names to the most likely
+# fix types.  Allows the agent to react to *what kind* of failure occurred
+# rather than relying purely on static fix-type priority.
+# ---------------------------------------------------------------------------
+
+_FAILURE_FIX_MAP: dict = {
+    "test":     ["bare_except", "bare_except_pass"],
+    "copilot":  ["bare_except_pass", "trailing_whitespace"],
+    "import":   ["bare_except_pass"],
+    "syntax":   ["trailing_whitespace", "eof_newline"],
+    "linting":  ["trailing_whitespace", "double_blank_lines", "eof_newline"],
+    "quality":  ["trailing_whitespace", "bare_except_pass"],
+    "deploy":   ["bare_except", "eof_newline"],
+    "runtime":  ["bare_except"],
 }
 
 
@@ -481,9 +519,60 @@ def get_log_priority_files() -> frozenset:
     return frozenset(priority)
 
 
-# ---------------------------------------------------------------------------
-# Batch scanner — find up to MAX_FIXES files to fix in one cycle
-# ---------------------------------------------------------------------------
+def get_failure_fix_hints() -> List[str]:
+    """Phase 16 Failure→Fix mapping layer: map CI failure patterns to fix types.
+
+    Extends the log-priority scan so the agent reacts to *what kind* of failure
+    occurred, not just *which workflow* failed.  Job and step names are scanned
+    for keywords (test, import, syntax, …) that predict which fix type is most
+    likely to reduce the failure rate.
+
+    Returns a priority-ordered list of fix_type strings (most relevant first).
+    Falls back to an empty list if the GitHub API is unavailable or no signal
+    is found.
+    """
+    if not TOKEN or not REPO:
+        return []
+
+    data = _gh_get(f"/repos/{REPO}/actions/runs?status=failure&per_page=5")
+    if not data or "workflow_runs" not in data:
+        return []
+
+    hits: dict = {}   # fix_type → relevance score
+    for run in data["workflow_runs"][:5]:
+        wf_name = (run.get("name") or "").lower()
+        for keyword, fix_types in _FAILURE_FIX_MAP.items():
+            if keyword in wf_name:
+                for ft in fix_types:
+                    hits[ft] = hits.get(ft, 0) + 1
+
+        run_id = run.get("id")
+        if not run_id:
+            continue
+        jobs_data = _gh_get(
+            f"/repos/{REPO}/actions/runs/{run_id}/jobs?per_page=10"
+        )
+        if not jobs_data or "jobs" not in jobs_data:
+            continue
+        for job in jobs_data["jobs"]:
+            if job.get("conclusion") not in ("failure", "timed_out"):
+                continue
+            # Combine job name and failed step names for keyword scanning
+            job_text = (job.get("name") or "").lower()
+            for step in (job.get("steps") or []):
+                if step.get("conclusion") == "failure":
+                    job_text += " " + (step.get("name") or "").lower()
+            for keyword, fix_types in _FAILURE_FIX_MAP.items():
+                if keyword in job_text:
+                    for ft in fix_types:
+                        hits[ft] = hits.get(ft, 0) + 2  # job signal weighted higher
+
+    ordered = sorted(hits, key=lambda k: -hits[k])
+    if ordered:
+        print(f"  🔥 Failure→fix hints     : {', '.join(ordered[:3])}")
+    return ordered
+
+
 
 def find_batch_issues(
     files: List[Path],
@@ -550,9 +639,49 @@ def find_batch_issues(
     return []
 
 
-# ---------------------------------------------------------------------------
-# Single-file fixer with py_compile validation
-# ---------------------------------------------------------------------------
+def find_bulk_issues(
+    files: List[Path],
+    max_issues: int = BULK_MAX_FIXES,
+    priority_files: frozenset = frozenset(),
+) -> dict:
+    """Phase 16 Lane 2: scan for all LOW_RISK_FIXES types simultaneously.
+
+    Unlike ``find_batch_issues`` (which returns ONE fix type), this function
+    scans for every type in ``LOW_RISK_FIXES`` and returns a dict mapping
+    fix_type → List[Issue].  Each list is independently capped at
+    *max_issues* files and sorted by priority (priority_files first, then
+    highest instance count, then alphabetical for determinism).
+
+    Results are intentionally NOT run through the semantic/impact pipeline —
+    LOW_RISK_FIXES are considered near-zero risk and are applied directly
+    without scoring or confidence gating.
+    """
+    results: dict = {}
+    for fix_name, scanner, _ in _FIX_CATALOGUE:
+        if fix_name not in LOW_RISK_FIXES:
+            continue
+        matches: List[Issue] = []
+        for path in files:
+            try:
+                content = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            count = scanner(content)
+            if count > 0:
+                matches.append(Issue(fix_type=fix_name, file_path=path, count=count))
+        if not matches:
+            continue
+
+        def _bulk_sort_key(issue: Issue) -> tuple:
+            rel = str(issue.file_path.relative_to(WORKSPACE))
+            is_priority = any(pf in rel for pf in priority_files)
+            return (not is_priority, -issue.count, rel)
+
+        matches.sort(key=_bulk_sort_key)
+        results[fix_name] = matches[:max_issues]
+    return results
+
+
 
 def _apply_single_fix(issue: Issue) -> Optional[Tuple[str, int]]:
     """Apply the fix for *issue*, validate with py_compile.
@@ -667,9 +796,78 @@ def build_commit_message(
     return subject, "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# GitHub Actions output helpers
-# ---------------------------------------------------------------------------
+def _build_lane2_section(
+    lane2_fixed: List[Tuple[Path, int, str]],  # (path, count, fix_type)
+) -> str:
+    """Phase 16: build the Lane 2 bulk-cleanup section for the commit body.
+
+    Produces a tidy per-fix-type summary that is appended to the intelligent
+    lane's commit message when both lanes contributed changes.
+    """
+    by_type: dict = {}
+    for path, count, ft in lane2_fixed:
+        by_type.setdefault(ft, []).append((path, count))
+
+    lines = ["Lane 2 — Bulk Low-Risk Cleanup:"]
+    for ft, entries in by_type.items():
+        n = len(entries)
+        total = sum(c for _, c in entries)
+        verb = _SUBJECT_VERBS.get(ft, ft)
+        meta = _FIX_METADATA.get(ft, {})
+        category = meta.get("category", "Code Style")
+        s_f = "s" if n != 1 else ""
+        s_i = "s" if total != 1 else ""
+        lines.append(f"  [{category}] {verb}: {n} file{s_f}, {total} instance{s_i}")
+        for path, count in sorted(entries, key=lambda x: -x[1]):
+            rel = str(path.relative_to(WORKSPACE))
+            lines.append(f"    {rel:<60} ({count} instance{'s' if count != 1 else ''})")
+    return "\n".join(lines)
+
+
+def _build_bulk_commit_message(
+    lane2_fixed: List[Tuple[Path, int, str]],  # (path, count, fix_type)
+) -> Tuple[str, str]:
+    """Phase 16: build a standalone commit message when only Lane 2 ran.
+
+    Used when the intelligent lane planner gated all fixes but the bulk lane
+    still has cosmetic cleanup work to do.
+    """
+    by_type: dict = {}
+    for path, count, ft in lane2_fixed:
+        by_type.setdefault(ft, []).append((path, count))
+
+    type_parts = []
+    for ft, entries in by_type.items():
+        n = len(entries)
+        verb = _SUBJECT_VERBS.get(ft, ft)
+        type_parts.append(f"{verb} in {n} file{'s' if n != 1 else ''}")
+    total_inst = sum(c for _, c, _ in lane2_fixed)
+    s_inst = "s" if total_inst != 1 else ""
+    subject = "auto: " + " + ".join(type_parts) + f" ({total_inst} instance{s_inst})"
+
+    lines = [subject, ""]
+    lines.append("Category: Code Style (Bulk Cleanup)")
+    lines += [
+        "",
+        (
+            "Reason: Phase 16 bulk execution lane applied low-risk cosmetic fixes that "
+            "bypass the semantic scoring pipeline.  These changes (trailing whitespace, "
+            "blank lines, EOF newlines) are near-zero risk and improve diff cleanliness."
+        ),
+        "",
+        (
+            "Impact: Cleaner diffs, consistent formatting, and compliance with ruff "
+            "rules W291/W292/W293/E303.  Enables the intelligent lane to focus on "
+            "higher-value semantic fixes on future runs."
+        ),
+        "",
+        _build_lane2_section(lane2_fixed),
+        "",
+        "[Niblit Evolution Agent — Phase 16]",
+    ]
+    return subject, "\n".join(lines)
+
+
 
 def _set_output(key: str, value: str) -> None:
     """Write a step-output variable to GITHUB_OUTPUT (supports multiline)."""
@@ -721,11 +919,12 @@ def _repo_summary(files: List[Path]) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    print("🧬 Niblit Autonomous Evolution Agent — Phase 15")
+    print("🧬 Niblit Autonomous Evolution Agent — Phase 16")
     print(f"   Workspace  : {WORKSPACE}")
     print(f"   Dry run    : {DRY_RUN}")
     print(f"   Fix type   : {FORCE_FIX_TYPE or 'auto (priority order)'}")
-    print(f"   Max fixes  : {MAX_FIXES} files per run")
+    print(f"   Max fixes  : {MAX_FIXES} files per run (Lane 1)")
+    print(f"   Bulk lane  : {'ENABLED — up to ' + str(BULK_MAX_FIXES) + ' files' if BULK_LANE_ENABLED else 'disabled'}")
     if _PHASE3_AVAILABLE:
         print("   Phase 3    : semantic + impact + planner + feedback ACTIVE")
     else:
@@ -777,9 +976,24 @@ def main() -> int:
     _repo_summary(files)
     print()
 
-    # 2. Log-driven priority (Phase 2 capability)
+    # 2. Log-driven priority (Phase 2) + Phase 16 failure-to-fix hints
     print("📡 Querying GitHub Actions for failure-driven priorities...")
     priority_files = get_log_priority_files()
+
+    # Phase 16: merge failure→fix hints into preferred_fix_types so that fix
+    # types associated with real CI failures are tried first this cycle.
+    failure_fix_hints = get_failure_fix_hints()
+    if failure_fix_hints and not FORCE_FIX_TYPE:
+        if preferred_fix_types:
+            for ft in failure_fix_hints:
+                if ft not in preferred_fix_types:
+                    preferred_fix_types.insert(0, ft)
+        else:
+            preferred_fix_types = failure_fix_hints
+        print(
+            "  💡 Failure→fix hints merged: "
+            + " → ".join(preferred_fix_types[:3])
+        )
     print()
 
     # 3. Find raw batch of issues to fix this cycle
@@ -814,10 +1028,11 @@ def main() -> int:
         print()
 
         if not plan.planned_fixes:
-            print("✅ Evolution planner found no fixes above the risk/confidence gate.")
-            _set_output("changed_files", "")
-            _set_output("commit_subject", "")
-            return 0
+            # Phase 16: don't exit — fall through to the bulk lane which may
+            # still have low-risk cosmetic cleanup work to do.
+            print("ℹ️  Planner: no fixes above gate — continuing to bulk lane.")
+            ordered_issues = []
+            fix_type_name = None
 
         # Phase 15 — swarm topology split for large batches (>3 fixes)
         # When MAX_FIXES > 3 and the plan has > 3 fixes, split into a "core"
@@ -859,22 +1074,34 @@ def main() -> int:
                 if pf.semantic_issue.file_path == i.file_path
             )
         )
-        fix_type_name = ordered_issues[0].fix_type if ordered_issues else issues[0].fix_type
+        fix_type_name = ordered_issues[0].fix_type if ordered_issues else None
     else:
         # Phase 2 fallback: apply issues directly
         ordered_issues = issues[:MAX_FIXES]
         fix_type_name = issues[0].fix_type
         plan = None
 
-    print(f"🎯 Selected fix type  : {fix_type_name}")
-    print(f"   Files to fix       : {len(ordered_issues)}")
-    print(f"   Total instances    : {sum(i.count for i in ordered_issues)}")
+    # When Lane 1 has nothing and Lane 2 is not available, exit cleanly
+    if not ordered_issues and (not BULK_LANE_ENABLED or FORCE_FIX_TYPE):
+        print("✅ No eligible fixes found — repository is clean or all issues gated.")
+        _set_output("changed_files", "")
+        _set_output("commit_subject", "")
+        return 0
+
+    if ordered_issues:
+        print(f"🎯 Selected fix type  : {fix_type_name}")
+        print(f"   Files to fix       : {len(ordered_issues)}")
+        print(f"   Total instances    : {sum(i.count for i in ordered_issues)}")
+    else:
+        print("ℹ️  Lane 1: no fixes selected — bulk lane will handle cleanup only")
     print()
 
-    # 5. Apply fixes (batch — Phase 2 execution engine)
-    fixed_files: List[Tuple[Path, int]] = []
+    # 5. Apply fixes — Lane 1 (intelligent pipeline) + Lane 2 (bulk low-risk)
+    lane1_fixed: List[Tuple[Path, int]] = []
+    lane2_fixed: List[Tuple[Path, int, str]] = []  # (path, count, fix_type)
     written_files: List[Path] = []
-    total_count = 0
+    lane1_count = 0
+    lane2_count = 0
 
     for issue in ordered_issues:
         rel = issue.file_path.relative_to(WORKSPACE)
@@ -884,8 +1111,8 @@ def main() -> int:
             continue
 
         new_content, count = result
-        total_count += count
-        fixed_files.append((issue.file_path, count))
+        lane1_count += count
+        lane1_fixed.append((issue.file_path, count))
         s = "s" if count != 1 else ""
         print(f"  ✅ {rel} ({count} instance{s})")
 
@@ -898,14 +1125,60 @@ def main() -> int:
         except OSError as exc:
             print(f"  ⚠ Failed to write {rel}: {exc}", file=sys.stderr)
 
-    if not fixed_files:
+    # Phase 16 — Lane 2: bulk low-risk execution
+    # trailing_whitespace / double_blank_lines / eof_newline bypass the
+    # semantic+impact pipeline entirely — near-zero risk, high throughput.
+    if BULK_LANE_ENABLED and not FORCE_FIX_TYPE:
+        lane1_paths = {p for p, _ in lane1_fixed}
+        bulk_results = find_bulk_issues(
+            files=[f for f in files if f not in lane1_paths],
+            max_issues=BULK_MAX_FIXES,
+            priority_files=priority_files,
+        )
+        if bulk_results:
+            _total_bulk = sum(len(v) for v in bulk_results.values())
+            print(
+                f"\n🚀 Phase 16 — Lane 2 ({_total_bulk} file(s) across "
+                f"{len(bulk_results)} fix type(s))"
+            )
+            for bulk_ft, bulk_batch in bulk_results.items():
+                verb = _SUBJECT_VERBS.get(bulk_ft, bulk_ft)
+                print(f"   {verb}:")
+                for issue in bulk_batch:
+                    rel = issue.file_path.relative_to(WORKSPACE)
+                    result = _apply_single_fix(issue)
+                    if result is None:
+                        print(f"    ⚠ Skipping {rel} — validation failed")
+                        continue
+                    new_content, count = result
+                    lane2_count += count
+                    s = "s" if count != 1 else ""
+                    print(f"    ✅ {rel} ({count} instance{s})")
+                    lane2_fixed.append((issue.file_path, count, bulk_ft))
+                    if DRY_RUN:
+                        continue
+                    try:
+                        issue.file_path.write_text(new_content, encoding="utf-8")
+                        written_files.append(issue.file_path)
+                    except OSError as exc:
+                        print(f"    ⚠ Failed to write {rel}: {exc}", file=sys.stderr)
+
+    all_fixed = lane1_fixed + [(p, c) for p, c, _ in lane2_fixed]
+
+    if not all_fixed:
         print("\n⚠ All fixes failed validation — nothing to commit.", file=sys.stderr)
         _set_output("changed_files", "")
         _set_output("commit_subject", "")
         return 1
 
-    # 6. Build enriched commit message
-    subject, full_msg = build_commit_message(fix_type_name, fixed_files, total_count)
+    # 6. Build enriched commit message (covers both lanes)
+    if fix_type_name and lane1_fixed:
+        subject, full_msg = build_commit_message(
+            fix_type_name, lane1_fixed, lane1_count
+        )
+    else:
+        # Only Lane 2 contributed (intelligent lane gated all fixes)
+        subject, full_msg = _build_bulk_commit_message(lane2_fixed)
 
     # Append Phase 3 impact summary to commit body when planner was active
     if _PHASE3_AVAILABLE and plan is not None:
@@ -919,6 +1192,11 @@ def main() -> int:
             "[Niblit Evolution Agent — Phase 3]",
             impact_summary + "\n\n[Niblit Evolution Agent — Phase 3]",
         )
+
+    # Append Lane 2 bulk section when both lanes contributed
+    if lane2_fixed and fix_type_name and lane1_fixed:
+        full_msg = full_msg.rstrip("\n") + "\n\n" + _build_lane2_section(lane2_fixed)
+        subject = subject + f" + {len(lane2_fixed)} bulk cleanup(s)"
 
     if DRY_RUN:
         print("\n[DRY RUN] Commit subject:")
@@ -947,6 +1225,7 @@ def main() -> int:
     _set_output("changed_files", changed_files_str)
     _set_output("commit_subject", subject)
 
+    total_count = lane1_count + lane2_count
     print(f"\n✅ Evolution cycle complete")
     print(f"   Fixed   : {len(written_files)} file(s)")
     print(f"   Total   : {total_count} instance(s)")
@@ -958,9 +1237,11 @@ def main() -> int:
     #    as a follow-up step and re-invoke feedback_learner directly if needed.
     if _PHASE3_AVAILABLE and written_files:
         print("\n📊 Phase 3: scheduling outcome recording for post-push CI check...")
-        # Write a pending-outcome file that the workflow can trigger after CI
         pending = {
-            "fix_types": list({i.fix_type for i in ordered_issues}),
+            "fix_types": list(
+                {i.fix_type for i in ordered_issues}
+                | {ft for _, _, ft in lane2_fixed}
+            ),
             "fixed_files": [str(p.relative_to(WORKSPACE)) for p in written_files],
             "total_instances": total_count,
             "commit_sha": GITHUB_SHA,

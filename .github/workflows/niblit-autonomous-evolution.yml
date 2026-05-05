@@ -1,25 +1,31 @@
 name: "🧬 Niblit: Autonomous Evolution Agent"
 
-# Phase 3 evolution agent.  On every run it:
-#   1. Scans EVERY Python file in the repository (378+ files).
-#   2. Queries GitHub Actions API for recent failures to identify priority files.
+# Phase 16 evolution agent.  On every run it:
+#   1. Scans EVERY Python file in the repository (400+ files).
+#   2. Queries GitHub Actions API for recent failures to identify priority files
+#      AND maps failure patterns to fix types (Phase 16 failure→fix layer).
 #   3. Classifies raw issues into SemanticIssues (semantic_engine.py).
 #   4. Scores the expected impact of each fix (impact_engine.py).
 #   5. Builds a ranked, gated EvolutionPlan (evolution_planner.py).
-#   6. Applies up to EVOLUTION_MAX_FIXES validated fixes.
-#   7. Commits with enriched message: Category + Reason + Impact + Phase 3 scores.
-#   8. (Post-push) Records CI outcome + updates impact weights (feedback_learner.py).
+#   6. Lane 1 — Intelligent: applies up to EVOLUTION_MAX_FIXES validated fixes.
+#   7. Lane 2 — Bulk (Phase 16): applies trailing_whitespace / double_blank_lines /
+#      eof_newline fixes at scale (up to EVOLUTION_BULK_MAX_FIXES files), bypassing
+#      the semantic pipeline for near-zero-risk cosmetic cleanup.
+#   8. Commits with enriched message: Category + Reason + Impact + Phase 3 scores.
+#   9. (Post-push) Records CI outcome + updates impact weights (feedback_learner.py).
 #
-# Phase 3 fix catalogue (priority order):
-#   1. bare_except         — `except:` -> `except Exception:`
-#   2. bare_except_pass    — silent `except...pass` -> + `noqa: BLE001` annotation
-#   3. trailing_whitespace — strip trailing spaces/tabs from lines
-#   4. double_blank_lines  — collapse 3+ consecutive blank lines to 2
-#   5. eof_newline         — add missing terminal newline
+# Phase 16 fix catalogue (priority order):
+#   Lane 1 (intelligent):
+#     1. bare_except         — `except:` -> `except Exception:`
+#     2. bare_except_pass    — silent `except...pass` -> + `noqa: BLE001` annotation
+#   Lane 2 (bulk low-risk):
+#     3. trailing_whitespace — strip trailing spaces/tabs from lines
+#     4. double_blank_lines  — collapse 3+ consecutive blank lines to 2
+#     5. eof_newline         — add missing terminal newline
 #
 # Schedule: Daily at 03:00 UTC
 # Manual:   workflow_dispatch with fix_type, dry_run, max_fixes, risk_threshold,
-#           confidence_min, target_branch
+#           confidence_min, bulk_max_fixes, bulk_lane, target_branch
 
 on:
   schedule:
@@ -54,6 +60,15 @@ on:
         description: "Branch to commit improvements to (default: repo default branch)"
         required: false
         default: ""
+      bulk_max_fixes:
+        description: "Maximum files to fix in the bulk low-risk lane (default: 50)"
+        required: false
+        default: "50"
+      bulk_lane:
+        description: "Enable the bulk low-risk execution lane (trailing whitespace, blank lines, EOF)"
+        required: false
+        default: "true"
+        type: boolean
 
 permissions:
   contents: write   # push improvement commits
@@ -94,6 +109,8 @@ jobs:
           EVOLUTION_FIX_TYPE: ${{ (inputs.fix_type != 'auto' && inputs.fix_type) || '' }}
           EVOLUTION_COMMIT_MSG_FILE: /tmp/niblit_commit_msg.txt
           EVOLUTION_CHANGED_FILES_FILE: /tmp/niblit_changed_files.txt
+          EVOLUTION_BULK_MAX_FIXES: ${{ inputs.bulk_max_fixes || '50' }}
+          EVOLUTION_BULK_LANE: ${{ inputs.bulk_lane != 'false' && 'true' || 'false' }}
         run: python nibblebots/autonomous_evolution_agent.py
 
       # -- 4. Commit and push ------------------------------------------------
