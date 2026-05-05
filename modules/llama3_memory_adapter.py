@@ -211,6 +211,37 @@ class Llama3MemoryAdapter:
         except Exception as exc:
             log.debug("[Llama3MemoryAdapter] Could not save audit cursor: %s", exc)
 
+    def _count_facts(self, kb: Any) -> int:
+        """Return the total number of facts in *kb* as efficiently as possible.
+
+        Tries, in order:
+        1. ``kb.count_facts()``          — dedicated count method (O(1) for SQL).
+        2. SQL ``COUNT(*)``              — when *kb* exposes a ``_conn()`` method.
+        3. ``len(kb.list_facts(99999))`` — fallback for JSON-backed stores.
+        """
+        # 1. Dedicated count method
+        if hasattr(kb, "count_facts"):
+            try:
+                return int(kb.count_facts())
+            except Exception:
+                pass
+
+        # 2. SQL COUNT — avoids fetching rows
+        if hasattr(kb, "_conn"):
+            try:
+                conn = kb._conn()
+                row = conn.execute("SELECT COUNT(*) FROM facts").fetchone()
+                if row:
+                    return int(row[0])
+            except Exception:
+                pass
+
+        # 3. Fallback: load all facts (JSON-backed stores are small enough)
+        try:
+            return len(kb.list_facts(99999))
+        except Exception:
+            return 0
+
     # ── Memory reading ────────────────────────────────────────────────────────
 
     def get_memory_summary(self, limit: int = 20) -> str:
@@ -345,12 +376,9 @@ class Llama3MemoryAdapter:
 
         # ── Determine total fact count ─────────────────────────────────────
         try:
-            # Fetch a large window to learn the approximate total; the KB may
-            # not expose a dedicated count method.
-            total_probe = kb.list_facts(99999) if hasattr(kb, "list_facts") else []
-            total_facts = len(total_probe)
+            total_facts = self._count_facts(kb) if hasattr(kb, "list_facts") else 0
         except Exception as exc:
-            return f"[Llama3MemoryAdapter] Could not read facts: {exc}"
+            return f"[Llama3MemoryAdapter] Could not count facts: {exc}"
 
         if total_facts == 0:
             return "✅ KnowledgeDB is empty — nothing to audit."
@@ -363,8 +391,9 @@ class Llama3MemoryAdapter:
         if offset >= total_facts:
             offset = 0
 
-        # Fetch a generous window starting at offset so internal facts can be
-        # filtered out while still filling up to max_facts auditable entries.
+        # Fetch 3× max_facts facts starting at the cursor offset.  The
+        # multiplier accounts for internal metadata facts that will be filtered
+        # out, ensuring we have enough candidates to fill the max_facts quota.
         fetch_window = max_facts * 3
         try:
             window = kb.list_facts(fetch_window, offset=offset)
@@ -628,7 +657,7 @@ class Llama3MemoryAdapter:
             try:
                 kb = self._get_kb()
                 if kb and hasattr(kb, "list_facts"):
-                    total = len(kb.list_facts(99999))
+                    total = self._count_facts(kb)
             except Exception:
                 pass
 
