@@ -457,7 +457,7 @@ class NiblitCloudBrain:
         self.timeout = int(
             timeout
             if timeout is not None
-            else os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "300")
+            else os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "60")
         )
         self.api_key = api_key or os.environ.get("NIBLIT_API_KEY", "")
         self._available: Optional[bool] = None
@@ -2082,7 +2082,7 @@ class NiblitBrain:
                         f"From local knowledge: {summary}"
                     )
             return (
-                f"[HFBrain offline — set HF_TOKEN (or HF_API_KEY) to enable AI responses]\n"
+                f"[No response available — check HF_TOKEN / NIBLIT_LLAMA_SERVER_URL or try again]\n"
                 f"Received: {user_input}"
             )
 

@@ -513,9 +513,14 @@ def find_batch_issues(
         if fix_type is None or entry[0] == fix_type
     ]
     if preferred_fix_types:
-        pref_set = list(preferred_fix_types)
-        ordered: list = [e for p in pref_set for e in base_catalogue if e[0] == p]
-        ordered += [e for e in base_catalogue if e[0] not in pref_set]
+        pref_lookup = set(preferred_fix_types)   # O(1) membership checks
+        # First pass: entries matching a preferred type (preserve preference order)
+        ordered: list = [
+            e for name in preferred_fix_types
+            for e in base_catalogue if e[0] == name
+        ]
+        # Second pass: everything else from the base catalogue
+        ordered += [e for e in base_catalogue if e[0] not in pref_lookup]
         catalogue = ordered
     else:
         catalogue = base_catalogue
@@ -834,7 +839,6 @@ def main() -> int:
             # Interleave: core first, then peripheral (mirrors Ruflo coordinator/worker merge)
             merged = core_fixes + peripheral_fixes
             if merged:
-                import collections as _col  # noqa: PLC0415
                 plan = plan._replace(planned_fixes=merged[:MAX_FIXES])
                 print(
                     f"🐝 Phase 15 swarm split: {len(core_fixes)} core + "

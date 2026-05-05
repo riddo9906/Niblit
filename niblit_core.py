@@ -2166,6 +2166,61 @@ class NiblitCore:
     # PHASED INIT: DEFERRED THREAD
     # ============================
 
+    # Default per-layer timeout (seconds).  Override via NIBLIT_LAYER_INIT_TIMEOUT.
+    # If a layer hangs past this deadline the layer is marked degraded and the
+    # next layer starts immediately — the stalled layer thread continues as daemon.
+    _INIT_LAYER_TIMEOUT_DEFAULT: float = 90.0
+
+    def _init_with_timeout(self, layer_fn, layer_name: str, timeout: float = 0) -> bool:
+        """Run *layer_fn* in a daemon thread; continue if it exceeds *timeout* seconds.
+
+        This prevents a single stalled initialisation step (e.g. a Qdrant
+        connection attempt, a model download, or a sluggish SQLite WAL open)
+        from blocking all subsequent layers.
+
+        The stalled thread keeps running as a daemon and may eventually complete,
+        setting the expected ``self.*`` attributes.  All later layers already use
+        ``getattr(self, 'attr', None)`` patterns, so a temporarily-absent
+        attribute degrades gracefully.
+
+        Returns ``True`` if the layer completed within timeout, ``False`` if it
+        timed out or raised an unhandled exception.
+        """
+        _timeout = timeout or self._INIT_LAYER_TIMEOUT_DEFAULT
+        try:
+            _timeout = float(os.environ.get("NIBLIT_LAYER_INIT_TIMEOUT", _timeout))
+        except (ValueError, TypeError):
+            pass
+
+        result: list = [None]
+        exc_holder: list = [None]
+
+        def _target() -> None:
+            try:
+                layer_fn()
+                result[0] = True
+            except Exception as _exc:  # noqa: BLE001
+                exc_holder[0] = _exc
+
+        t = threading.Thread(target=_target, daemon=True, name=f"niblit-layer-{layer_name}")
+        t.start()
+        t.join(timeout=_timeout)
+
+        if t.is_alive():
+            msg = (
+                f"⚠️ [Layer {layer_name}] init timed out after {int(_timeout)}s — "
+                "continuing without it (still loading in background)"
+            )
+            log.warning("[DEFERRED-INIT] %s", msg)
+            self._push_init_progress(msg)
+            return False
+
+        if exc_holder[0] is not None:
+            log.error("[DEFERRED-INIT] Layer '%s' raised: %s", layer_name, exc_holder[0])
+            return False
+
+        return bool(result[0])
+
     def _deferred_init(self) -> None:
         """Phase-1 background initialization.
 
@@ -6199,42 +6254,47 @@ SW Categories: {stats.get('software_study_categories', 0)}
         individually so the user can see exactly which part of the system is
         coming online.  After all layers finish a :meth:`_verify_unified_loop`
         check confirms that the core cognitive feedback-loop is intact.
+
+        Each layer is wrapped with :meth:`_init_with_timeout` so that a stalled
+        module (e.g. Qdrant connection, model download, SQLite WAL open) does not
+        freeze the entire boot — subsequent layers continue and the stalled one
+        finishes in the background.
         """
         with self.logger.context("initialize_modules"):
             # ── Layer 1 / 5 : Memory & Storage ────────────────────────────────
             self._push_init_progress(
                 "🧱 [Layer 1/5] Memory & Storage — VectorStore, FusedMemory, SemanticAgent…"
             )
-            self._init_vector_store()
+            self._init_with_timeout(self._init_vector_store, "1-Memory")
             self._push_init_progress("✅ [Layer 1/5] Memory & Storage ready")
 
             # ── Layer 2 / 5 : AI Adapters ─────────────────────────────────────
             self._push_init_progress(
                 "🤖 [Layer 2/5] AI Adapters — LLM, HFBrain, SelfTeacher, SelfImplementer…"
             )
-            self._init_ai_adapters()
+            self._init_with_timeout(self._init_ai_adapters, "2-AI-Adapters")
             self._push_init_progress("✅ [Layer 2/5] AI Adapters ready")
 
             # ── Layer 3 / 5 : Cognitive Core ──────────────────────────────────
             self._push_init_progress(
                 "🧠 [Layer 3/5] Cognitive Core — NiblitBrain, NiblitRouter, ALE learning…"
             )
-            self._init_brain_and_router()
-            self._init_learning_systems()
+            self._init_with_timeout(self._init_brain_and_router, "3a-Brain-Router")
+            self._init_with_timeout(self._init_learning_systems, "3b-Learning")
             self._push_init_progress("✅ [Layer 3/5] Cognitive Core ready")
 
             # ── Layer 4 / 5 : System Services ─────────────────────────────────
             self._push_init_progress(
                 "⚙️  [Layer 4/5] System Services — Network, Sensors, Voice, Actions…"
             )
-            self._init_system_services()
+            self._init_with_timeout(self._init_system_services, "4-System-Services")
             self._push_init_progress("✅ [Layer 4/5] System Services ready")
 
             # ── Layer 5 / 5 : Optional & Extended Services ────────────────────
             self._push_init_progress(
                 "🔌 [Layer 5/5] Extended Services — ALE, TradingBrain, CivilizationController, 60+ modules…"
             )
-            self._init_optional_services()
+            self._init_with_timeout(self._init_optional_services, "5-Optional", timeout=120.0)
             self._push_init_progress("✅ [Layer 5/5] Extended Services ready")
 
             # ── Unification check ─────────────────────────────────────────────
