@@ -1,0 +1,1 @@
+{"ts": "2026-05-03T07:09:14.332124+00:00", "status": "repeated", "fix_type": "bare_except", "subsystem": "core", "similarity": 1.0, "confidence_adj": 0.0, "max_fixes_scale": 1.0, "details": "Repeated input detected: fix_type='bare_except' subsystem='core' \u2014 boosting priority"}
