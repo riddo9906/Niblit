@@ -100,6 +100,13 @@ try:
 except ImportError as _e:
     _PHASE3_AVAILABLE = False
 
+# Phase 15: agent registry and pattern memory (optional — degrades gracefully)
+try:
+    from nibblebots import agent_registry as _agent_registry  # noqa: PLC0415
+    _REGISTRY_AVAILABLE = True
+except ImportError:
+    _REGISTRY_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -483,6 +490,7 @@ def find_batch_issues(
     fix_type: Optional[str] = None,
     max_issues: int = MAX_FIXES,
     priority_files: frozenset = frozenset(),
+    preferred_fix_types: Optional[List[str]] = None,
 ) -> List[Issue]:
     """Scan all files and return up to *max_issues* Issues of the same fix type.
 
@@ -494,11 +502,28 @@ def find_batch_issues(
       1. Files matching a priority path prefix (from log scan) first.
       2. Highest instance count first (maximum impact per file).
       3. Alphabetical as a deterministic tiebreaker.
+
+    Phase 15: if *preferred_fix_types* is supplied (from pre-task memory search
+    or the agent registry trust order), those fix types are tried first before
+    the default catalogue priority.
     """
-    catalogue = [
+    # Phase 15: build an ordered catalogue that respects preferred_fix_types
+    base_catalogue = [
         entry for entry in _FIX_CATALOGUE
         if fix_type is None or entry[0] == fix_type
     ]
+    if preferred_fix_types:
+        pref_lookup = set(preferred_fix_types)   # O(1) membership checks
+        # First pass: entries matching a preferred type (preserve preference order)
+        ordered: list = [
+            e for name in preferred_fix_types
+            for e in base_catalogue if e[0] == name
+        ]
+        # Second pass: everything else from the base catalogue
+        ordered += [e for e in base_catalogue if e[0] not in pref_lookup]
+        catalogue = ordered
+    else:
+        catalogue = base_catalogue
 
     for fix_name, scanner, _ in catalogue:
         matches: List[Issue] = []
@@ -696,16 +721,55 @@ def _repo_summary(files: List[Path]) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    print("🧬 Niblit Autonomous Evolution Agent — Phase 3")
+    print("🧬 Niblit Autonomous Evolution Agent — Phase 15")
     print(f"   Workspace  : {WORKSPACE}")
     print(f"   Dry run    : {DRY_RUN}")
     print(f"   Fix type   : {FORCE_FIX_TYPE or 'auto (priority order)'}")
     print(f"   Max fixes  : {MAX_FIXES} files per run")
     if _PHASE3_AVAILABLE:
-        print(f"   Phase 3    : semantic + impact + planner + feedback ACTIVE")
+        print("   Phase 3    : semantic + impact + planner + feedback ACTIVE")
     else:
         print("   Phase 3    : modules unavailable — falling back to Phase 2 mode")
+    if _REGISTRY_AVAILABLE:
+        print(f"   Phase 15   : agent registry ACTIVE — {_agent_registry.registry_summary()}")
     print()
+
+    # Phase 15 — Step 0: Pre-task memory search (Ruflo "search before starting")
+    # Query pattern_memory.jsonl and agent_registry for highest-trust fix types
+    # before scanning so the batch scanner is biased toward proven patterns.
+    preferred_fix_types: Optional[List[str]] = None
+    if _PHASE3_AVAILABLE and _REGISTRY_AVAILABLE and not FORCE_FIX_TYPE:
+        try:
+            top_patterns = feedback_learner.load_top_patterns(min_confidence=0.70, top_n=5)
+            if top_patterns:
+                pref = [p["fix_type"] for p in top_patterns]
+                print(
+                    "🧠 Phase 15: pre-task memory search — top patterns: "
+                    + ", ".join(f"{p['fix_type']}({p['avg_outcome']:.2f})" for p in top_patterns[:3])
+                )
+                preferred_fix_types = pref
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Complement with registry trust order (registry knows about fix types
+        # the memory hasn't seen yet — e.g. on a fresh install)
+        try:
+            registry_order = _agent_registry.fix_types_by_trust()
+            if registry_order:
+                if preferred_fix_types:
+                    # Append registry-order items that aren't already in the list
+                    for ft in registry_order:
+                        if ft not in preferred_fix_types:
+                            preferred_fix_types.append(ft)
+                else:
+                    preferred_fix_types = registry_order
+                    print(
+                        "🧠 Phase 15: registry-driven fix order: "
+                        + " → ".join(preferred_fix_types[:5])
+                    )
+        except Exception:  # noqa: BLE001
+            pass
+        print()
 
     # 1. Collect files
     files = collect_python_files()
@@ -725,6 +789,7 @@ def main() -> int:
         fix_type=fix_type,
         max_issues=MAX_FIXES * 3,   # over-fetch; planner will gate down to MAX_FIXES
         priority_files=priority_files,
+        preferred_fix_types=preferred_fix_types,  # Phase 15
     )
 
     if not issues:
@@ -753,6 +818,34 @@ def main() -> int:
             _set_output("changed_files", "")
             _set_output("commit_subject", "")
             return 0
+
+        # Phase 15 — swarm topology split for large batches (>3 fixes)
+        # When MAX_FIXES > 3 and the plan has > 3 fixes, split into a "core"
+        # worker (subsystem in {core, evaluation, learning}) and a "peripheral"
+        # worker.  Each worker scores its sub-plan; they merge ordered by score.
+        if len(plan.planned_fixes) > 3:
+            _core_subs = {"core", "evaluation", "learning", "error_handling"}
+            core_fixes = [
+                pf for pf in plan.planned_fixes
+                if pf.semantic_issue.subsystem in _core_subs
+            ]
+            peripheral_fixes = [
+                pf for pf in plan.planned_fixes
+                if pf.semantic_issue.subsystem not in _core_subs
+            ]
+            # Each worker sub-plan is sorted by net_score desc (best first)
+            core_fixes.sort(key=lambda pf: -pf.impact.net_score)
+            peripheral_fixes.sort(key=lambda pf: -pf.impact.net_score)
+            # Interleave: core first, then peripheral (mirrors Ruflo coordinator/worker merge)
+            merged = core_fixes + peripheral_fixes
+            if merged:
+                plan = plan._replace(planned_fixes=merged[:MAX_FIXES])
+                print(
+                    f"🐝 Phase 15 swarm split: {len(core_fixes)} core + "
+                    f"{len(peripheral_fixes)} peripheral → "
+                    f"{len(plan.planned_fixes)} merged"
+                )
+                print()
 
         # Extract the Issue objects in plan order (Phase 2 execution engine takes Issue)
         planned_fix_types = {pf.semantic_issue.file_path for pf in plan.planned_fixes}

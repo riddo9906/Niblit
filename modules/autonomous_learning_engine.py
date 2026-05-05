@@ -321,7 +321,15 @@ class AutonomousLearningEngine:
         self.semantic_agent = semantic_agent
         self.claude_engine = claude_engine
         self.builds_integrator = builds_integrator
-        self.step_timeout = step_timeout
+        # Resolve step_timeout: explicit arg → env var → default (180s on Termux)
+        if step_timeout != 600:
+            # Explicit non-default value — honour it
+            self.step_timeout = step_timeout
+        else:
+            try:
+                self.step_timeout = int(os.environ.get("NIBLIT_ALE_STEP_TIMEOUT", "180"))
+            except (ValueError, TypeError):
+                self.step_timeout = 180
         self.hybrid_manager = hybrid_manager
         self.self_monitor = self_monitor
         self.kernel = kernel

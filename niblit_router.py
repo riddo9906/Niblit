@@ -6000,7 +6000,11 @@ Ask me about:
     # MAIN PROCESS
     # ─────────────────────────────────
     def process(self, user_input):
+        if not user_input or not isinstance(user_input, str):
+            return "Please enter a command or question."
         cleaned = user_input.strip()
+        if not cleaned:
+            return "Please enter a command or question."
         lower = cleaned.lower()
 
         self.log_event(f"Incoming: {cleaned}")
@@ -6018,10 +6022,17 @@ Ask me about:
             _ale_pause()
 
         try:
-            return self._process_inner(cleaned, lower)
+            result = self._process_inner(cleaned, lower)
         finally:
             if _ale_active:
                 _ale_resume()
+        # Guard against None/empty responses from any inner path
+        if not result or (isinstance(result, str) and not result.strip()):
+            return (
+                f"I don't have a response for that right now. "
+                f"Try 'help' to see available commands, or ask a specific question."
+            )
+        return result
 
     def _process_inner(self, cleaned, lower):
         """Internal routing logic — called by process() with ALE already paused."""
@@ -6938,7 +6949,7 @@ Ask me about:
                     mem = len(safe_call(self.memory.recent_interactions) or [])
                 elif self.core and hasattr(self.core, "db"):
                     mem = len(self.core.db.recent_interactions(500))
-            except:
+            except Exception:  # noqa: BLE001
                 mem = 0
 
             autonomous_status = ""
