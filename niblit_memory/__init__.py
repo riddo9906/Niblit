@@ -794,8 +794,9 @@ class LocalDB:
 
     # ── facts / artifacts ─────────────────────────────────────────────────────
 
-    def list_facts(self, limit: int = 500) -> List[Dict[str, Any]]:
-        return self.data.get("facts", [])[:limit]
+    def list_facts(self, limit: int = 500, offset: int = 0) -> List[Dict[str, Any]]:
+        facts = self.data.get("facts", [])
+        return facts[offset:offset + limit]
 
     def get_fact(self, key: str) -> Optional[Dict[str, Any]]:
         for fact in self.data.get("facts", []):
@@ -1330,10 +1331,11 @@ class KnowledgeDB:
             })
         self._save(blocking=False)
 
-    def list_facts(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def list_facts(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
         with self.lock:
             facts = list(self.data.get("facts", []))
-        return sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)[:limit]
+        sorted_facts = sorted(facts, key=lambda x: x.get("ts", 0), reverse=True)
+        return sorted_facts[offset:offset + limit]
 
     def delete_fact(self, key: str) -> bool:
         """Remove the most-recent fact whose ``key`` matches *key*.
@@ -2681,11 +2683,12 @@ class NiblitMemory:
                 None,
             )
 
-    def list_facts(self, limit: int = 500) -> List[Dict[str, Any]]:
+    def list_facts(self, limit: int = 500, offset: int = 0) -> List[Dict[str, Any]]:
         """Return the most recently added facts."""
         with self.lock:
             facts = list(self.state.get("facts", []))
-        return sorted(facts, key=lambda x: x.get("last_updated", 0), reverse=True)[:limit]
+        sorted_facts = sorted(facts, key=lambda x: x.get("last_updated", 0), reverse=True)
+        return sorted_facts[offset:offset + limit]
 
     def add_entry(self, key: str, value: Any) -> None:
         """Add a raw interaction entry (LocalDB compatibility)."""

@@ -23,18 +23,26 @@ Public API
     adapter = Llama3MemoryAdapter(local_brain, knowledge_db)
     adapter.get_memory_summary(limit=20)             -> str
     adapter.review_fact(fact)                        -> {"action": ..., "new_value": ..., "reason": ...}
-    adapter.run_memory_audit(max_facts=30)            -> str
+    adapter.run_memory_audit(max_facts=30)            -> str  # cursor-driven, covers full KB over time
     adapter.coach_niblit()                           -> str
     adapter.tool_audit(max_facts=30, apply_changes)  -> str  # uses function-calling
+    adapter.get_audit_coverage_report()              -> dict  # cursor progress summary
 
     # Singleton accessor
     get_llama3_memory_adapter(local_brain, knowledge_db) -> Llama3MemoryAdapter
+
+Environment variables
+---------------------
+LLAMA3_AUDIT_MAX_FACTS      — facts audited per run (default: 30)
+NIBLIT_AUDIT_CURSOR_PATH    — path to audit cursor JSON file
 """
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import tempfile
 import threading
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -47,10 +55,23 @@ _FACT_REVIEW_MAX_CHARS: int = 400
 _COACH_CONTEXT_MAX_CHARS: int = 1800
 # Number of facts audited per batch.
 _AUDIT_BATCH_SIZE: int = 5
+# Max facts audited per run (override via LLAMA3_AUDIT_MAX_FACTS env var).
+_AUDIT_MAX_FACTS_DEFAULT: int = int(os.environ.get("LLAMA3_AUDIT_MAX_FACTS", "30"))
 # Tags that mark internal Niblit metadata — skip during audit.
 _SKIP_TAGS: frozenset = frozenset({
     "routing", "loop", "tick", "counter", "step", "system", "meta", "diagnostic",
 })
+
+
+def _audit_cursor_path() -> str:
+    """Return a writable path for the persistent audit cursor file."""
+    env_val = os.environ.get("NIBLIT_AUDIT_CURSOR_PATH", "").strip()
+    if env_val:
+        return env_val
+    cwd = os.getcwd()
+    if os.access(cwd, os.W_OK):
+        return os.path.join(cwd, "niblit_audit_cursor.json")
+    return os.path.join(tempfile.gettempdir(), "niblit_audit_cursor.json")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -143,6 +164,8 @@ class Llama3MemoryAdapter:
             "coach_runs": 0,
             "tool_audits_run": 0,
         }
+        self._last_audit_offset: int = 0
+        self._last_audit_total: int = 0
         log.debug(
             "[Llama3MemoryAdapter] Initialized (brain=%s, kb=%s)",
             type(local_brain).__name__,
@@ -160,6 +183,64 @@ class Llama3MemoryAdapter:
             return KnowledgeDB()
         except Exception:
             return None
+
+    # ── Audit cursor (persistent progress across runs) ────────────────────────
+
+    def _load_cursor(self) -> Dict[str, int]:
+        """Load the persistent audit cursor from disk.
+
+        Returns a dict with keys ``last_offset``, ``total_audited``, and
+        ``run_count``.  Missing keys default to 0.
+        """
+        try:
+            with open(_audit_cursor_path(), "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            return {
+                "last_offset":   int(data.get("last_offset", 0)),
+                "total_audited": int(data.get("total_audited", 0)),
+                "run_count":     int(data.get("run_count", 0)),
+            }
+        except Exception:
+            return {"last_offset": 0, "total_audited": 0, "run_count": 0}
+
+    def _save_cursor(self, cursor: Dict[str, int]) -> None:
+        """Persist the audit cursor to disk (best-effort)."""
+        try:
+            with open(_audit_cursor_path(), "w", encoding="utf-8") as fh:
+                json.dump(cursor, fh)
+        except Exception as exc:
+            log.debug("[Llama3MemoryAdapter] Could not save audit cursor: %s", exc)
+
+    def _count_facts(self, kb: Any) -> int:
+        """Return the total number of facts in *kb* as efficiently as possible.
+
+        Tries, in order:
+        1. ``kb.count_facts()``          — dedicated count method (O(1) for SQL).
+        2. SQL ``COUNT(*)``              — when *kb* exposes a ``_conn()`` method.
+        3. ``len(kb.list_facts(99999))`` — fallback for JSON-backed stores.
+        """
+        # 1. Dedicated count method
+        if hasattr(kb, "count_facts"):
+            try:
+                return int(kb.count_facts())
+            except Exception:
+                pass
+
+        # 2. SQL COUNT — avoids fetching rows
+        if hasattr(kb, "_conn"):
+            try:
+                conn = kb._conn()
+                row = conn.execute("SELECT COUNT(*) FROM facts").fetchone()
+                if row:
+                    return int(row[0])
+            except Exception:
+                pass
+
+        # 3. Fallback: load all facts (JSON-backed stores are small enough)
+        try:
+            return len(kb.list_facts(99999))
+        except Exception:
+            return 0
 
     # ── Memory reading ────────────────────────────────────────────────────────
 
@@ -269,13 +350,21 @@ class Llama3MemoryAdapter:
 
     def run_memory_audit(
         self,
-        max_facts: int = 30,
+        max_facts: int = _AUDIT_MAX_FACTS_DEFAULT,
         apply_changes: bool = True,
     ) -> str:
         """Audit up to *max_facts* KB entries with Llama.
 
+        Uses a persistent cursor (``niblit_audit_cursor.json``) so that each
+        run processes a **different slice** of the KB, cycling through all
+        facts over multiple runs.  The cursor wraps around when the end of
+        the KB is reached.
+
         When *apply_changes* is True (the default), rewrites and removals are
         applied to the live KnowledgeDB.  Set to False for a dry-run report.
+
+        The default for *max_facts* is controlled by the ``LLAMA3_AUDIT_MAX_FACTS``
+        environment variable (default: 30).
 
         Returns a human-readable audit report.
         """
@@ -285,19 +374,43 @@ class Llama3MemoryAdapter:
         if not self.local_brain:
             return "[Llama3MemoryAdapter] Llama3 local brain unavailable — cannot audit."
 
+        # ── Determine total fact count ─────────────────────────────────────
         try:
-            all_facts = kb.list_facts(max_facts * 2) if hasattr(kb, "list_facts") else []
+            total_facts = self._count_facts(kb) if hasattr(kb, "list_facts") else 0
         except Exception as exc:
-            return f"[Llama3MemoryAdapter] Could not read facts: {exc}"
+            return f"[Llama3MemoryAdapter] Could not count facts: {exc}"
 
-        auditable = [f for f in all_facts if not _is_internal_fact(f)][:max_facts]
+        if total_facts == 0:
+            return "✅ KnowledgeDB is empty — nothing to audit."
+
+        # ── Load + advance cursor ──────────────────────────────────────────
+        cursor = self._load_cursor()
+        offset = cursor["last_offset"]
+
+        # Wrap around if the KB shrank or we've reached the end.
+        if offset >= total_facts:
+            offset = 0
+
+        # Fetch 3× max_facts facts starting at the cursor offset.  The
+        # multiplier accounts for internal metadata facts that will be filtered
+        # out, ensuring we have enough candidates to fill the max_facts quota.
+        fetch_window = max_facts * 3
+        try:
+            window = kb.list_facts(fetch_window, offset=offset)
+        except TypeError:
+            # Older KB implementation without offset support — fall back.
+            window = kb.list_facts(fetch_window)
+
+        auditable = [f for f in window if not _is_internal_fact(f)][:max_facts]
         if not auditable:
-            return "✅ No auditable facts found (all entries are internal metadata)."
+            return "✅ No auditable facts found in current window (all entries are internal metadata)."
 
+        # ── Run audit ─────────────────────────────────────────────────────
         self._stats["audits_run"] += 1
         kept_count = rewrite_count = remove_count = 0
         report_lines = [
-            f"🔍 **Llama3 KB Audit** — reviewing {len(auditable)} fact(s)\n"
+            f"🔍 **Llama3 KB Audit** — reviewing {len(auditable)} fact(s)"
+            f"  (offset {offset}/{total_facts})\n"
         ]
 
         for i in range(0, len(auditable), _AUDIT_BATCH_SIZE):
@@ -339,10 +452,34 @@ class Llama3MemoryAdapter:
                     if apply_changes:
                         self._remove_fact(kb, key)
 
+        # ── Save cursor ────────────────────────────────────────────────────
+        new_offset = offset + len(auditable)
+        if new_offset >= total_facts:
+            new_offset = 0  # wrap — full cycle complete
+        new_total_audited = cursor["total_audited"] + len(auditable)
+        new_cursor = {
+            "last_offset":   new_offset,
+            "total_audited": new_total_audited,
+            "run_count":     cursor["run_count"] + 1,
+        }
+        self._save_cursor(new_cursor)
+
+        # Store for get_audit_coverage_report()
+        self._last_audit_offset = offset
+        self._last_audit_total = total_facts
+
+        cycle_pct = min(100, round(new_total_audited / max(total_facts, 1) * 100))
+        runs_to_cycle = max(1, round(total_facts / max(len(auditable), 1)))
         report_lines.append(
             f"\n📊 **Audit Summary**: "
             f"kept={kept_count}  rewritten={rewrite_count}  removed={remove_count}"
             + ("  (changes applied)" if apply_changes else "  (dry run — no changes)")
+        )
+        report_lines.append(
+            f"📈 **Coverage**: {new_total_audited} cumulative facts audited "
+            f"({cycle_pct}% of current KB)  |  "
+            f"~{runs_to_cycle} runs/full cycle  |  "
+            f"next offset: {new_offset}/{total_facts}"
         )
         return "\n".join(report_lines)
 
@@ -499,6 +636,42 @@ class Llama3MemoryAdapter:
                 log.debug("[Llama3MemoryAdapter] Removed fact: %s", key)
         except Exception as exc:
             log.debug("[Llama3MemoryAdapter] _remove_fact failed for %r: %s", key, exc)
+
+    def get_audit_coverage_report(self) -> Dict[str, Any]:
+        """Return a coverage summary for the persistent audit cursor.
+
+        Returns a dict with:
+            ``total_facts``            — current fact count in the KB
+            ``facts_audited_this_run`` — facts reviewed in the last audit run
+            ``cumulative_audited``     — total facts reviewed across all runs
+            ``run_count``              — number of audit runs completed
+            ``current_offset``         — next offset for the following run
+            ``estimated_full_cycle_runs`` — approximate runs to cover the whole KB
+                                           (based on the default batch size)
+        """
+        cursor = self._load_cursor()
+        total = self._last_audit_total
+
+        # If no audit has been run yet in this session, try to get total from KB.
+        if total == 0:
+            try:
+                kb = self._get_kb()
+                if kb and hasattr(kb, "list_facts"):
+                    total = self._count_facts(kb)
+            except Exception:
+                pass
+
+        batch = max(1, _AUDIT_MAX_FACTS_DEFAULT)
+        estimated_cycle = max(1, round(total / batch)) if total else 0
+
+        return {
+            "total_facts":               total,
+            "facts_audited_this_run":    self._stats.get("facts_reviewed", 0),
+            "cumulative_audited":        cursor["total_audited"],
+            "run_count":                 cursor["run_count"],
+            "current_offset":            cursor["last_offset"],
+            "estimated_full_cycle_runs": estimated_cycle,
+        }
 
     def get_stats(self) -> Dict[str, int]:
         """Return accumulated audit statistics."""
