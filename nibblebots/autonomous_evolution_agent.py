@@ -1305,6 +1305,36 @@ def main() -> int:
         except OSError as exc:
             print(f"  ⚠ Could not write pending outcome: {exc}", file=sys.stderr)
 
+    # Phase 16.5 SIL: record causal attribution for niblit_ci now that we know
+    # the expected impact of this cycle.  This closes the resonance feedback loop
+    # so trust updates use actual outcome deltas rather than correlation alone.
+    if _SIL_AVAILABLE and written_files:
+        try:
+            _sil_objective = "maximize_stability"
+            if _PHASE3_AVAILABLE:
+                try:
+                    from nibblebots import goal_adaptation_engine as _gae  # noqa: PLC0415
+                    _sil_objective = _gae.evaluate() or "maximize_stability"
+                except Exception:  # noqa: BLE001
+                    pass
+            # post score: shift from neutral using normalised expected_net_impact
+            _net = 0.0
+            if _PHASE3_AVAILABLE and plan is not None:
+                _net = float(plan.expected_net_impact)
+            _post_score = min(1.0, max(0.0, 0.5 + _net))
+            _sil.record_resonance_attribution(
+                system_id="niblit_ci",
+                baseline_outcome=0.5,
+                post_resonance_outcome=_post_score,
+                adjustments_applied={"cycle_fixes": len(written_files)},
+            )
+            print(
+                f"  🔗 Phase 16.5 SIL: attribution recorded for niblit_ci "
+                f"(delta={_post_score - 0.5:+.4f})"
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
     return 0
 
 

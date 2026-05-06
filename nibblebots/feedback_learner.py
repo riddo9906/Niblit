@@ -464,6 +464,35 @@ def _evaluate_real_world_value(
             except Exception:  # noqa: BLE001
                 pass
 
+        # Phase 16.5: resonance attribution — record causal evidence for each
+        # active SIL profile so trust updates reflect actual outcome improvement
+        # rather than mere correlation.
+        try:
+            from nibblebots import system_interface_layer as _sil  # noqa: PLC0415
+            _sil_ids = _sil.get_all_profile_ids()
+            if _sil_ids and assessment.delta is not None:
+                # Use the before/after snapshot scores as the true baseline and
+                # post-resonance measurements.  When before_snapshot is available
+                # use its own single-evaluation as baseline; otherwise fall back
+                # to a neutral 0.5.
+                if before_snapshot is not None:
+                    _before_assess = value_engine.evaluate_single(before_snapshot)
+                    _baseline = min(1.0, max(0.0, 0.5 + float(
+                        _before_assess.delta if _before_assess.delta is not None else 0.0
+                    )))
+                else:
+                    _baseline = 0.5
+                _post = min(1.0, max(0.0, 0.5 + float(assessment.delta)))
+                for _sid in _sil_ids:
+                    _sil.record_resonance_attribution(
+                        system_id=_sid,
+                        baseline_outcome=_baseline,
+                        post_resonance_outcome=_post,
+                        adjustments_applied=None,
+                    )
+        except Exception:  # noqa: BLE001
+            pass
+
     except Exception:  # noqa: BLE001
         pass   # Phase 8 is strictly best-effort
 

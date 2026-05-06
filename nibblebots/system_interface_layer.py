@@ -65,6 +65,16 @@ SIL_EXPLORE_BOOST          : float (env: SIL_EXPLORE_BOOST,           default 0.
 SIL_EXPLORE_REDUCTION      : float (env: SIL_EXPLORE_REDUCTION,       default 0.03)
                              Exploration rate delta applied when external signals
                              indicate stability.
+SIL_TRUST_DECAY_FACTOR     : float (env: SIL_TRUST_DECAY_FACTOR,      default 604800)
+                             Time constant (seconds) for trust decay.  Default is
+                             7 days.  A profile that has not been revalidated for
+                             one full decay constant retains ≈37 % of its trust.
+                             Set to 0 to disable decay.
+SIL_ATTRIBUTION_LR         : float (env: SIL_ATTRIBUTION_LR,          default 0.15)
+                             Learning rate for attribution-based TD trust updates.
+                             Separate from SIL_RESONANCE_LR so causal validation
+                             signals can be weighted more aggressively than simple
+                             correlation-based updates.
 SIL_ENABLED                : bool  (env: SIL_ENABLED,                 default "1" → True)
 """
 
@@ -72,6 +82,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import statistics
 from dataclasses import dataclass, field
@@ -101,6 +112,11 @@ SIL_EXPLORE_RATIO_THRESHOLD: float = float(
 )
 SIL_EXPLORE_BOOST: float = float(os.environ.get("SIL_EXPLORE_BOOST", "0.05"))
 SIL_EXPLORE_REDUCTION: float = float(os.environ.get("SIL_EXPLORE_REDUCTION", "0.03"))
+# Trust decay time constant (seconds).  Default 7 days.  Set to 0 to disable.
+SIL_TRUST_DECAY_FACTOR: float = float(os.environ.get("SIL_TRUST_DECAY_FACTOR", "604800"))
+# Attribution learning rate — used by record_resonance_attribution() for
+# causal validation-based trust updates (separate from simple TD rate).
+SIL_ATTRIBUTION_LR: float = float(os.environ.get("SIL_ATTRIBUTION_LR", "0.15"))
 SIL_ENABLED: bool = (
     os.environ.get("SIL_ENABLED", "1").lower() not in ("0", "false", "no")
 )
@@ -158,6 +174,8 @@ class ExternalSystemProfile:
     decision_structure: str = ""
     last_mirrored: str = ""
     resonance_outcomes: List[float] = field(default_factory=list)
+    # Phase 16.5: causal attribution records
+    attribution_history: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -173,6 +191,7 @@ class ExternalSystemProfile:
             "resonance_outcomes": [
                 round(o, 4) for o in self.resonance_outcomes[-20:]
             ],
+            "attribution_history": self.attribution_history[-30:],
         }
 
     @classmethod
@@ -190,6 +209,7 @@ class ExternalSystemProfile:
             resonance_outcomes=[
                 float(o) for o in d.get("resonance_outcomes", [])
             ],
+            attribution_history=d.get("attribution_history", []),
         )
 
 
@@ -432,6 +452,32 @@ def _check_objective_conflict(
 # Core public API
 # ---------------------------------------------------------------------------
 
+def _apply_trust_decay(profile: ExternalSystemProfile) -> ExternalSystemProfile:
+    """Apply time-based exponential trust decay to a profile (in-place).
+
+    ``new_trust = old_trust × exp(−Δt / SIL_TRUST_DECAY_FACTOR)``
+
+    where Δt is the number of seconds elapsed since ``profile.last_mirrored``.
+    Decayed trust is clamped to ``[SIL_MIN_SIGNAL_TRUST, 0.95]`` so a profile
+    never becomes completely inert and can always recover via revalidation.
+
+    Set ``SIL_TRUST_DECAY_FACTOR = 0`` in the environment to disable decay.
+    """
+    if SIL_TRUST_DECAY_FACTOR <= 0.0 or not profile.last_mirrored:
+        return profile
+    try:
+        last = datetime.fromisoformat(profile.last_mirrored)
+        dt_seconds = max(0.0, (datetime.now(timezone.utc) - last).total_seconds())
+        decay = math.exp(-dt_seconds / SIL_TRUST_DECAY_FACTOR)
+        profile.trust_weight = max(
+            SIL_MIN_SIGNAL_TRUST,
+            min(0.95, round(profile.trust_weight * decay, 4)),
+        )
+    except Exception as _decay_err:  # noqa: BLE001
+        log.debug("[SIL] trust decay failed for %s: %s", profile.system_id, _decay_err)
+    return profile
+
+
 def mirror_system(
     system_id: str,
     external_data: Dict[str, Any],
@@ -574,6 +620,10 @@ def establish_resonance(
     if not SIL_ENABLED:
         return ResonanceConfig(rationale="SIL disabled")
 
+    # Phase 16.5: apply time-based trust decay before deriving adjustments so
+    # that stale profiles automatically lose influence between validations.
+    profile = _apply_trust_decay(profile)
+
     # Step 1: align signal weights
     conf_values = list(profile.confidence_model.values())
     avg_conf = statistics.mean(conf_values) if conf_values else 0.5
@@ -671,6 +721,11 @@ def get_profile(system_id: str) -> Optional[ExternalSystemProfile]:
     return ExternalSystemProfile.from_dict(raw) if raw is not None else None
 
 
+def get_all_profile_ids() -> List[str]:
+    """Return the list of all currently known external system IDs."""
+    return list(_load_state().get("profiles", {}).keys())
+
+
 def record_resonance_outcome(system_id: str, outcome: float) -> None:
     """Record an outcome score [0, 1] after resonance was applied.
 
@@ -697,11 +752,122 @@ def record_resonance_outcome(system_id: str, outcome: float) -> None:
     _save_state(state)
 
 
-def get_active_resonance(objective: str = "") -> Optional[ResonanceConfig]:
-    """Return a blended :class:`ResonanceConfig` across all known profiles.
+# ---------------------------------------------------------------------------
+# Phase 16.5: Resonance Attribution Layer
+# ---------------------------------------------------------------------------
 
-    When multiple profiles exist, their resonance configs are trust-weighted
-    and averaged.  Returns ``None`` when SIL is disabled or no profiles exist.
+def record_resonance_attribution(
+    system_id: str,
+    baseline_outcome: float,
+    post_resonance_outcome: float,
+    adjustments_applied: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Record causal attribution of resonance to an observed outcome improvement.
+
+    This separates *signal* from *noise* in the trust update:
+        - ``record_resonance_outcome()`` updates trust via simple correlation
+          (observed outcome → TD update).
+        - ``record_resonance_attribution()`` updates trust via causal attribution
+          (Δoutcome caused by resonance → attribution-weighted TD update).
+
+    The attribution TD rule is:
+        ``resonance_delta = post_resonance_outcome − baseline_outcome``
+        ``new_trust = clamp(old_trust + SIL_ATTRIBUTION_LR × resonance_delta)``
+
+    By tracking both ``baseline_outcome`` (what the system would have done
+    without resonance) and ``post_resonance_outcome`` (what happened after
+    resonance was applied), callers can estimate how much of the improvement
+    was *caused* by resonance rather than by background system behaviour.
+
+    Parameters
+    ----------
+    system_id               : The external system whose resonance is being
+                              attributed.
+    baseline_outcome        : Outcome score before resonance was applied [0,1]
+                              (e.g. objective_engine score pre-cycle).
+    post_resonance_outcome  : Outcome score after resonance was applied [0,1]
+                              (e.g. objective_engine score post-cycle).
+    adjustments_applied     : The ``ResonanceConfig.to_dict()`` dict that was
+                              applied this cycle (for audit).
+
+    Returns
+    -------
+    The attribution record dict (also appended to ``profile.attribution_history``
+    and logged to ``system_interface_log.jsonl``).
+    """
+    state = _load_state()
+    profiles_raw: Dict[str, Any] = state.get("profiles", {})
+
+    resonance_delta = round(float(post_resonance_outcome) - float(baseline_outcome), 4)
+
+    attribution: Dict[str, Any] = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "system_id": system_id,
+        "resonance_applied": True,
+        "adjustments": adjustments_applied or {},
+        "baseline_outcome": round(float(baseline_outcome), 4),
+        "post_resonance_outcome": round(float(post_resonance_outcome), 4),
+        "delta": resonance_delta,
+    }
+
+    if system_id in profiles_raw:
+        profile = ExternalSystemProfile.from_dict(profiles_raw[system_id])
+
+        profile.attribution_history.append(attribution)
+        if len(profile.attribution_history) > 30:
+            profile.attribution_history = profile.attribution_history[-30:]
+
+        # Causal attribution trust update — stronger learning signal than
+        # simple correlation because it explicitly measures the delta.
+        old_trust = profile.trust_weight
+        new_trust = max(
+            SIL_MIN_SIGNAL_TRUST,
+            min(0.95, old_trust + SIL_ATTRIBUTION_LR * resonance_delta),
+        )
+        profile.trust_weight = round(new_trust, 4)
+        profiles_raw[system_id] = profile.to_dict()
+        state["profiles"] = profiles_raw
+        _save_state(state)
+
+    _log_event("attribution", attribution)
+    log.debug(
+        "[SIL] attribution %s: delta=%.4f baseline=%.4f post=%.4f",
+        system_id, resonance_delta, baseline_outcome, post_resonance_outcome,
+    )
+    return attribution
+
+
+# ---------------------------------------------------------------------------
+# Phase 16.5: Multi-system conflict resolution
+# ---------------------------------------------------------------------------
+
+def resolve_conflict(objective: str = "") -> Optional[ResonanceConfig]:
+    """Resolve multi-system conflicts into a single :class:`ResonanceConfig`.
+
+    When multiple external systems are active and their signals potentially
+    disagree (e.g. one is bullish / explore, another is bearish / stabilise),
+    this function computes a composite weight per system:
+
+        ``weight = trust_weight × avg_confidence × objective_alignment_score``
+
+    where ``objective_alignment_score = 1.0 − conflict_penalty``.
+
+    The final :class:`ResonanceConfig` is a weighted average of all systems'
+    resonance configs.  This ensures that high-trust, well-aligned systems
+    dominate while low-trust or misaligned ones contribute proportionally less.
+
+    Direct signal conflicts (one system says explore, another says stabilise)
+    are detected and surfaced in the ``rationale`` field so callers can log
+    or act on the disagreement.
+
+    Parameters
+    ----------
+    objective : Niblit's current goal string (alignment guard).
+
+    Returns
+    -------
+    A conflict-resolved :class:`ResonanceConfig`, or ``None`` if SIL is
+    disabled or no profiles exist.
     """
     if not SIL_ENABLED:
         return None
@@ -711,52 +877,131 @@ def get_active_resonance(objective: str = "") -> Optional[ResonanceConfig]:
         return None
 
     profiles = [ExternalSystemProfile.from_dict(r) for r in profiles_raw.values()]
-    configs = [establish_resonance(p, objective) for p in profiles]
 
-    if len(configs) == 1:
-        return configs[0]
+    if len(profiles) == 1:
+        return establish_resonance(_apply_trust_decay(profiles[0]), objective)
 
-    total_weight = sum(c.signal_weight_adj for c in configs) or 1.0
+    # Compute per-profile composite weight and resonance config
+    items: List[Tuple[float, ResonanceConfig, str]] = []
+    for profile in profiles:
+        profile = _apply_trust_decay(profile)  # noqa: PLW2901 — apply decay inline
+
+        conf_values = list(profile.confidence_model.values())
+        avg_conf = statistics.mean(conf_values) if conf_values else 0.5
+
+        _, penalty = _check_objective_conflict(profile, profile.signals, objective)
+        alignment_score = max(0.0, 1.0 - penalty)
+
+        composite_weight = profile.trust_weight * avg_conf * alignment_score
+        config = establish_resonance(profile, objective)
+        items.append((composite_weight, config, profile.system_id))
+
+    total_weight = sum(w for w, _, _ in items) or 1.0
+
     blended_explore = (
-        sum(c.explore_rate_adj * c.signal_weight_adj for c in configs) / total_weight
+        sum(w * c.explore_rate_adj for w, c, _ in items) / total_weight
     )
     blended_threshold = (
-        sum(c.decision_threshold_adj * c.signal_weight_adj for c in configs)
-        / total_weight
+        sum(w * c.decision_threshold_adj for w, c, _ in items) / total_weight
     )
-    blended_weight = sum(c.signal_weight_adj for c in configs) / len(configs)
-    any_conflict = any(c.objective_conflict for c in configs)
+    blended_signal = (
+        sum(w * c.signal_weight_adj for w, c, _ in items) / total_weight
+    )
+    any_conflict = any(c.objective_conflict for _, c, _ in items)
+
+    # Detect direct exploration / stabilisation conflict
+    explore_adjs = [c.explore_rate_adj for _, c, _ in items]
+    signal_conflict = (
+        any(a > 0.0 for a in explore_adjs) and any(a < 0.0 for a in explore_adjs)
+    )
+
+    system_ids = [sid for _, _, sid in items]
+    rationale = (
+        f"SIL/conflict_resolved({len(profiles)} systems: {', '.join(system_ids)}) "
+        f"signal_conflict={'yes' if signal_conflict else 'no'}"
+    )
+
+    _log_event("conflict_resolved", {
+        "system_ids": system_ids,
+        "signal_conflict": signal_conflict,
+        "objective": objective,
+        "blended_signal_weight": round(blended_signal, 4),
+        "blended_explore_adj": round(blended_explore, 4),
+    })
 
     return ResonanceConfig(
-        signal_weight_adj=round(blended_weight, 4),
+        signal_weight_adj=round(blended_signal, 4),
         explore_rate_adj=round(blended_explore, 4),
         decision_threshold_adj=round(blended_threshold, 4),
-        rationale=f"SIL/blended({len(configs)} systems)",
+        rationale=rationale,
         objective_conflict=any_conflict,
     )
+
+
+def get_active_resonance(objective: str = "") -> Optional[ResonanceConfig]:
+    """Return a conflict-resolved :class:`ResonanceConfig` across all known profiles.
+
+    When multiple profiles exist, delegates to :func:`resolve_conflict` which
+    weights each system by ``trust × confidence × objective_alignment``.  Falls
+    back to the single-profile path when only one profile is known.
+
+    Returns ``None`` when SIL is disabled or no profiles exist.
+    """
+    if not SIL_ENABLED:
+        return None
+
+    profiles_raw = _load_state().get("profiles", {})
+    if not profiles_raw:
+        return None
+
+    if len(profiles_raw) == 1:
+        profile = ExternalSystemProfile.from_dict(next(iter(profiles_raw.values())))
+        return establish_resonance(profile, objective)
+
+    # Phase 16.5: use conflict-resolution for multi-system scenarios
+    return resolve_conflict(objective)
 
 
 def status() -> Dict[str, Any]:
     """Return a diagnostic snapshot of the System Interface Layer."""
     state = _load_state()
     profiles_raw = state.get("profiles", {})
+
+    profile_summaries = []
+    for sid, raw in profiles_raw.items():
+        profile = ExternalSystemProfile.from_dict(raw)
+        # Compute decayed trust for display (doesn't mutate state)
+        decayed_profile = _apply_trust_decay(
+            ExternalSystemProfile.from_dict(raw)
+        )
+        attrs = profile.attribution_history
+        recent_attrs = attrs[-5:] if attrs else []
+        mean_attr_delta = (
+            round(statistics.mean(a["delta"] for a in attrs), 4)
+            if attrs else None
+        )
+        profile_summaries.append({
+            "system_id": sid,
+            "trust_weight": profile.trust_weight,
+            "trust_weight_decayed": decayed_profile.trust_weight,
+            "signal_count": len(profile.signals),
+            "last_mirrored": profile.last_mirrored,
+            "decision_structure": profile.decision_structure,
+            "attribution_samples": len(attrs),
+            "mean_attribution_delta": mean_attr_delta,
+            "recent_attributions": recent_attrs,
+        })
+
     return {
         "sil_enabled": SIL_ENABLED,
         "active_profiles": len(profiles_raw),
         "max_profiles": SIL_MAX_PROFILES,
         "resonance_lr": SIL_RESONANCE_LR,
+        "attribution_lr": SIL_ATTRIBUTION_LR,
+        "trust_decay_factor_seconds": SIL_TRUST_DECAY_FACTOR,
         "objective_penalty": SIL_OBJECTIVE_PENALTY,
         "min_signal_trust": SIL_MIN_SIGNAL_TRUST,
-        "profiles": [
-            {
-                "system_id": sid,
-                "trust_weight": profiles_raw[sid].get("trust_weight", 0.5),
-                "signal_count": len(profiles_raw[sid].get("signals", {})),
-                "last_mirrored": profiles_raw[sid].get("last_mirrored", ""),
-                "decision_structure": profiles_raw[sid].get("decision_structure", ""),
-            }
-            for sid in profiles_raw
-        ],
+        "profiles": profile_summaries,
     }
 
 
