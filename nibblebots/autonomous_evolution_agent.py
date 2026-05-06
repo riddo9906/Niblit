@@ -107,6 +107,13 @@ try:
 except ImportError:
     _REGISTRY_AVAILABLE = False
 
+# Phase 16: System Interface Layer for mirror + resonance (optional)
+try:
+    from nibblebots import system_interface_layer as _sil  # noqa: PLC0415
+    _SIL_AVAILABLE = True
+except ImportError:
+    _SIL_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -995,6 +1002,48 @@ def main() -> int:
             "  💡 Failure→fix hints merged: "
             + " → ".join(preferred_fix_types[:3])
         )
+
+    # Phase 16 SIL: mirror the CI environment as an external system so that
+    # Niblit can establish resonance and adapt its strategy to the CI signal
+    # patterns before scoring and planning fixes.
+    if _SIL_AVAILABLE:
+        try:
+            # Derive current objective from goal_adaptation_engine when available.
+            _sil_objective = "maximize_stability"
+            if _PHASE3_AVAILABLE:
+                try:
+                    from nibblebots import goal_adaptation_engine as _gae  # noqa: PLC0415
+                    _sil_objective = _gae.evaluate() or "maximize_stability"
+                except Exception:  # noqa: BLE001
+                    pass
+
+            _ci_signal_data: dict = {}
+            if failure_fix_hints:
+                for ft in failure_fix_hints:
+                    _ci_signal_data[f"ci_failure_{ft}"] = 1.0
+            if priority_files:
+                _ci_signal_data["ci_priority_files"] = float(len(priority_files))
+            _ci_signal_data["ci_max_fixes"] = float(MAX_FIXES)
+            _ci_profile = _sil.mirror_system(
+                "niblit_ci",
+                _ci_signal_data,
+                current_objective=_sil_objective,
+            )
+            _ci_resonance = _sil.establish_resonance(
+                _ci_profile,
+                current_objective=_sil_objective,
+            )
+            print(
+                f"  🪞 Phase 16 SIL: mirrored niblit_ci → "
+                f"{_ci_profile.decision_structure}"
+            )
+            print(
+                f"  🎯 Resonance: trust={_ci_resonance.signal_weight_adj:.3f} "
+                f"explore_adj={_ci_resonance.explore_rate_adj:+.4f}"
+                + (" [OBJECTIVE_CONFLICT]" if _ci_resonance.objective_conflict else "")
+            )
+        except Exception:  # noqa: BLE001
+            pass
     print()
 
     # 3. Find raw batch of issues to fix this cycle

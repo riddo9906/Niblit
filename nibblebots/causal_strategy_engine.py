@@ -1451,7 +1451,47 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
         # Persist the winner so record_episode() can update its trust.
         state["last_debate_winner"] = winner_name
         _save_state(state)
-        return final_advice
+        base_advice = final_advice
+
+    # ------------------------------------------------------------------
+    # Phase 16: Adaptive System Interface — apply resonance adjustments
+    # from any active external system profiles.  The resonance layer runs
+    # after the debate so both deliberation AND external-system alignment
+    # are factored into the final advice.
+    # ------------------------------------------------------------------
+    try:
+        from nibblebots import system_interface_layer as _sil  # noqa: PLC0415
+        _resonance = _sil.get_active_resonance(
+            objective=str(current_context.get("objective", ""))
+        )
+        if _resonance is not None:
+            # Blend resonance exploration delta into the advice.
+            new_explore_delta = round(
+                max(-0.30, min(0.30,
+                    base_advice.exploration_rate_delta + _resonance.explore_rate_adj
+                )),
+                4,
+            )
+            # Scale effective confidence by the resonance signal weight.
+            new_confidence = round(
+                base_advice.confidence * _resonance.signal_weight_adj, 4
+            )
+            new_rationale = (
+                f"{base_advice.rationale} | {_resonance.rationale}"
+            )
+            base_advice = StrategyAdvice(
+                exploration_rate_delta=new_explore_delta,
+                force_stability=base_advice.force_stability,
+                force_exploration=base_advice.force_exploration,
+                recommended_batch_size=base_advice.recommended_batch_size,
+                confidence=new_confidence,
+                rationale=new_rationale,
+                is_counterfactual=base_advice.is_counterfactual,
+                target_subsystem=base_advice.target_subsystem,
+                priority_fix_type=base_advice.priority_fix_type,
+            )
+    except Exception:  # noqa: BLE001
+        pass
 
     return base_advice
 
@@ -1564,4 +1604,15 @@ def status() -> Dict[str, Any]:
         "cse_adjacent_explore_delta": CSE_ADJACENT_EXPLORE_DELTA,
         "cse_interaction_min_samples": CSE_INTERACTION_MIN_SAMPLES,
         "cse_debate_trust_lr": CSE_DEBATE_TRUST_LR,
+        # Phase 16 ----------------------------------------------------------
+        "system_interface_layer": _sil_status_safe(),
     }
+
+
+def _sil_status_safe() -> Dict[str, Any]:
+    """Return system_interface_layer.status() or an empty dict on any error."""
+    try:
+        from nibblebots import system_interface_layer as _sil  # noqa: PLC0415
+        return _sil.status()
+    except Exception:  # noqa: BLE001
+        return {}
