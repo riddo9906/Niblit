@@ -11,8 +11,8 @@ name: "🧬 Niblit: Autonomous Evolution Agent"
 #   7. Lane 2 — Bulk (Phase 16): applies trailing_whitespace / double_blank_lines /
 #      eof_newline fixes at scale (up to EVOLUTION_BULK_MAX_FIXES files), bypassing
 #      the semantic pipeline for near-zero-risk cosmetic cleanup.
-#   8. Commits with enriched message: Category + Reason + Impact + Phase 3 scores.
-#   9. (Post-push) Records CI outcome + updates impact weights (feedback_learner.py).
+#   8. Instead of auto-pushing, opens a detailed GitHub issue with the full diff
+#      so the team can review and decide whether to apply the improvement manually.
 #
 # Phase 16 fix catalogue (priority order):
 #   Lane 1 (intelligent):
@@ -71,8 +71,8 @@ on:
         type: boolean
 
 permissions:
-  contents: write   # push improvement commits
-  issues: write     # reserved for future issue-creation fallback
+  contents: read    # read repo files during scan (no longer pushes)
+  issues: write     # create detailed evolution-proposal issues for manual review
   actions: read     # query Actions API for failure-driven priority + outcome
 
 jobs:
@@ -113,85 +113,114 @@ jobs:
           EVOLUTION_BULK_LANE: ${{ inputs.bulk_lane != 'false' && 'true' || 'false' }}
         run: python nibblebots/autonomous_evolution_agent.py
 
-      # -- 4. Commit and push ------------------------------------------------
-      - name: Commit and push improvements
+      # -- 4. Create GitHub Issue with proposed improvements ------------------
+      #    Instead of auto-pushing, opens a detailed issue so the team can
+      #    review the diff and decide whether to apply the improvement manually.
+      - name: Create issue with proposed improvements
+        id: create_issue
         if: steps.agent.outputs.changed_files != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name  "niblit-evolution[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          # Stage changed files so we can capture an accurate diff
           while IFS= read -r f; do
-            [ -n "$f" ] && git add "$f"
+            [ -n "$f" ] && git add -- "$f"
           done < /tmp/niblit_changed_files.txt
 
-          git commit -F /tmp/niblit_commit_msg.txt
-          git push
-
-      # -- 5. Record Phase 3 feedback outcome --------------------------------
-      #    Runs after push so the latest run SHA is available.
-      #    Reads the pending-outcome file written by the agent and invokes
-      #    feedback_learner to update impact weights.
-      - name: Record CI outcome + update impact weights
-        if: steps.agent.outputs.changed_files != '' && inputs.dry_run != 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_WORKSPACE: ${{ github.workspace }}
-        run: |
-          python - <<'PYEOF'
-          import json, os, sys
-          from pathlib import Path
-
-          pending_file = Path("/tmp/niblit_pending_outcome.json")
-          if not pending_file.exists():
-              print("No pending outcome file — skipping feedback recording.")
-              sys.exit(0)
-
-          pending = json.loads(pending_file.read_text())
-          pending["commit_sha"] = os.environ.get("GITHUB_SHA", "")
-
-          # Add nibblebots package to path
-          sys.path.insert(0, os.environ.get("GITHUB_WORKSPACE", "."))
-          from nibblebots import feedback_learner
-
-          outcome = feedback_learner.fetch_ci_outcome(pending["fix_types"])
-          feedback_learner.record_outcome(
-              fix_types=pending["fix_types"],
-              fixed_files=pending["fixed_files"],
-              total_instances=pending["total_instances"],
-              commit_sha=pending["commit_sha"],
-              outcome=outcome,
-          )
-          summary = feedback_learner.journal_summary()
-          print(f"Journal: {summary['total_commits']} commits, "
-                f"pass rate: {summary.get('pass_rate', 0):.0%}")
-          PYEOF
-
-      # -- 6. Phase 4: Auto-revert on regression --------------------------------
-      #    Reads the revert command written by rollback_guard (if any) and
-      #    executes it to undo the commit that caused a CI regression.
-      - name: Auto-revert on regression (Phase 4 rollback guard)
-        if: steps.agent.outputs.changed_files != '' && inputs.dry_run != 'true'
-        run: |
-          if [ -f /tmp/niblit_revert_cmd.txt ]; then
-            REVERT_CMD=$(cat /tmp/niblit_revert_cmd.txt)
-            echo "⚠️  Regression detected — executing: $REVERT_CMD"
-            git config user.name  "niblit-evolution[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            $REVERT_CMD
-            git push
-            echo "✅ Revert pushed successfully."
-          else
-            echo "ℹ️  No regression detected — no revert needed."
+          # Capture all detail needed for the issue body
+          COMMIT_MSG=$(cat /tmp/niblit_commit_msg.txt 2>/dev/null || echo "(unavailable)")
+          CHANGED_FILES=$(cat /tmp/niblit_changed_files.txt 2>/dev/null || echo "(none)")
+          DIFF_STAT=$(git diff --cached --stat 2>/dev/null || echo "(none)")
+          # Cap the full diff at 500 lines to stay within GitHub's issue body limit
+          DIFF_PATCH=$(git diff --cached 2>/dev/null | head -n 500 || echo "(none)")
+          DIFF_TOTAL=$(git diff --cached 2>/dev/null | wc -l || echo "0")
+          DIFF_TRUNCATED=""
+          if [ "$DIFF_TOTAL" -gt 500 ] 2>/dev/null; then
+            DIFF_TRUNCATED="⚠️ Diff truncated at 500 lines (full diff has ${DIFF_TOTAL} lines). See the workflow run for the complete patch."
           fi
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-      # -- 7. Report outcome --------------------------------------------------
+          # Build issue body into a file (avoids shell quoting pitfalls with
+          # multi-line content that contains backticks and special characters)
+          {
+            echo "## Niblit Evolution Proposal"
+            echo ""
+            echo "**Proposed by:** niblit-evolution[bot]"
+            echo "**Run date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "**Workflow run:** [Run #${{ github.run_number }}](${RUN_URL})"
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Proposed Commit Message"
+            echo ""
+            echo '```'
+            echo "$COMMIT_MSG"
+            echo '```'
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Files Proposed for Change"
+            echo ""
+            echo '```'
+            echo "$CHANGED_FILES"
+            echo '```'
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Diff Summary"
+            echo ""
+            echo '```'
+            echo "$DIFF_STAT"
+            echo '```'
+            echo ""
+            echo "## Full Diff (first 500 lines)"
+            echo ""
+            if [ -n "$DIFF_TRUNCATED" ]; then
+              echo "> $DIFF_TRUNCATED"
+              echo ""
+            fi
+            echo '```diff'
+            echo "$DIFF_PATCH"
+            echo '```'
+            echo ""
+            echo "---"
+            echo ""
+            echo "> **To apply:** Review the diff above. If the improvement is worth it,"
+            echo "> apply the patch manually, or check out the workflow run artifacts and"
+            echo "> cherry-pick the change."
+            echo ">"
+            echo "> **To dismiss:** Close this issue without merging."
+          } > /tmp/niblit_issue_body.md
+
+          ISSUE_TITLE="[Evolution Proposal] ${{ steps.agent.outputs.commit_subject }}"
+
+          # Create the issue; try with label first, fall back without if the
+          # label doesn't exist in this repo yet.
+          LABEL_ERR=$( gh issue create \
+            --title "$ISSUE_TITLE" \
+            --body-file /tmp/niblit_issue_body.md \
+            --label "evolution-proposal" \
+          2>&1 ) \
+          || {
+            echo "ℹ️  Could not create issue with label (will retry without label): $LABEL_ERR"
+            gh issue create \
+              --title "$ISSUE_TITLE" \
+              --body-file /tmp/niblit_issue_body.md
+          }
+
+          # Restore workspace to a clean state — do NOT leave uncommitted changes
+          git restore --staged . 2>/dev/null || true
+          git restore . 2>/dev/null || true
+
+      # -- 5. Report outcome --------------------------------------------------
       - name: Report outcome
         if: always()
         run: |
           if [ -n "${{ steps.agent.outputs.changed_files }}" ]; then
-            echo "✅ ${{ steps.agent.outputs.commit_subject }}"
+            echo "📋 Evolution issue created for manual review: ${{ steps.agent.outputs.commit_subject }}"
           else
-            echo "ℹ️  No changes committed (nothing to fix or dry-run mode)."
+            echo "ℹ️  No improvements found (nothing to fix or dry-run mode)."
           fi
