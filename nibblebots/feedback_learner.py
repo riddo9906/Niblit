@@ -434,17 +434,43 @@ def _evaluate_real_world_value(
                 signal_reliability=_avg_confidence,
             )
             # Phase 10: record episode in causal strategy engine (best-effort)
+            # Phase 18.5: compute rolling variance from value history instead
+            # of passing the hard-coded 0.0, which was corrupting the CSE's
+            # variance band and regime-detection calculations.
             try:
                 from nibblebots import causal_strategy_engine as _cse  # noqa: PLC0415
+                # Derive variance from the last N value assessments so the CSE
+                # receives a meaningful spread estimate rather than zero.
+                _variance = 0.0
+                try:
+                    _history = value_engine.read_history(last_n=10)
+                    if len(_history) >= 3:
+                        _deltas = [
+                            float(h["delta"])
+                            for h in _history
+                            if isinstance(h.get("delta"), (int, float))
+                        ]
+                        if len(_deltas) >= 3:
+                            _mean_d = sum(_deltas) / len(_deltas)
+                            _variance = round(
+                                sum((d - _mean_d) ** 2 for d in _deltas)
+                                / len(_deltas),
+                                6,
+                            )
+                except Exception:  # noqa: BLE001
+                    pass
+                # batch_size = number of fix types applied this cycle
+                _batch_size = len(fix_types) if fix_types else 1
                 _cse.record_episode(
                     mode=_mode,
                     outcome=_outcome_score,
                     confidence=_avg_confidence,
                     signal_conf=_avg_confidence,
                     intent_score=_intent_alignment,
-                    variance=0.0,
+                    variance=_variance,
                     fix_type=fix_types[0] if fix_types else "",
-                    subsystem="",
+                    subsystem=str(after_snapshot.get("subsystem", "")),
+                    batch_size=_batch_size,
                 )
             except Exception:  # noqa: BLE001
                 pass

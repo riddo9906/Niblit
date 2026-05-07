@@ -188,6 +188,14 @@ def build_plan(
     except Exception:  # noqa: BLE001
         pass
 
+    # Phase 18.5: load causality tracker for per-fix-type confidence boost/penalty
+    _causality = None
+    try:
+        from nibblebots import causality_tracker as _ct  # noqa: PLC0415
+        _causality = _ct
+    except Exception:  # noqa: BLE001
+        pass
+
     eligible: List[Tuple[SemanticIssue, ImpactScore]] = []
     skipped = 0
 
@@ -210,6 +218,28 @@ def build_plan(
                         0.0,
                         adj_confidence - INTENT_ALIGNMENT_PENALTY,
                     )
+            except Exception:  # noqa: BLE001
+                pass
+
+        # Phase 18.5: causality-trust confidence modifier.
+        # Fix types with a strong track record of real-world improvement get
+        # a small confidence boost (up to +0.10); fix types with a weak or
+        # negative track record get a penalty (up to -0.15).  This makes the
+        # planner selectively ambitious: it relaxes the gate for proven fix
+        # types and tightens it for unproven ones, without changing the gate
+        # constant itself.
+        if _causality is not None:
+            try:
+                causal_trust = _causality.get_fix_type_trust(issue.fix_type)
+                # causal_trust in [0, 1]; 0.5 = neutral (no data)
+                # trust > 0.7  → modest boost (up to +0.10)
+                # trust < 0.35 → penalty   (up to -0.15)
+                if causal_trust > 0.7:
+                    boost = 0.10 * (causal_trust - 0.7) / 0.30
+                    adj_confidence = min(1.0, adj_confidence + boost)
+                elif causal_trust < 0.35:
+                    penalty = 0.15 * (0.35 - causal_trust) / 0.35
+                    adj_confidence = max(0.0, adj_confidence - penalty)
             except Exception:  # noqa: BLE001
                 pass
 

@@ -203,20 +203,63 @@ def evaluate(
 def evaluate_single(after_snapshot: Dict[str, Any]) -> ValueAssessment:
     """Evaluate improvement when we only have the 'after' snapshot.
 
-    Uses a neutral baseline (0.5 on all dimensions) for comparison.
-    Confidence is lower since we have no true before snapshot.
+    Phase 18.5 upgrade
+    ------------------
+    When value history exists, we use the rolling average of recent
+    ``before_score`` values as the warm baseline instead of a static 0.5.
+    This produces more accurate assessments when there is prior context —
+    for example, if the last 10 cycles averaged 0.62, a new score of 0.65
+    correctly registers as a modest improvement rather than a large one
+    against the naive 0.5 baseline.
+
+    Confidence is still halved (reflecting the absence of a true before
+    snapshot) but the half-life is taken against the richer baseline.
     """
-    neutral_baseline = {
-        "pass_rate": 0.5,
-        "ci_failure_trend": 0.0,
-        "runtime_score": 0.5,
-        "real_world_score": 0.5,
-        "drawdown": 0.0,
-        "n_journal_entries": 0,
-    }
-    assessment = evaluate(neutral_baseline, after_snapshot)
-    # Halve confidence since we're comparing against neutral baseline
+    # Phase 18.5: attempt to build a warm baseline from history
+    warm_before: Optional[Dict[str, Any]] = None
+    try:
+        history = read_history(last_n=20)
+        if len(history) >= 3:
+            before_scores = [
+                h["before_score"]
+                for h in history
+                if "before_score" in h
+            ]
+            if len(before_scores) >= 3:
+                avg_before = sum(before_scores) / len(before_scores)
+                # Build a synthetic snapshot that reflects the historical mean
+                warm_before = {
+                    "pass_rate": max(0.0, min(1.0, avg_before)),
+                    "ci_failure_trend": 0.0,
+                    "runtime_score": avg_before,
+                    "real_world_score": avg_before,
+                    "drawdown": 0.0,
+                    "n_journal_entries": len(before_scores),
+                }
+    except Exception:  # noqa: BLE001
+        pass
+
+    if warm_before is None:
+        warm_before = {
+            "pass_rate": 0.5,
+            "ci_failure_trend": 0.0,
+            "runtime_score": 0.5,
+            "real_world_score": 0.5,
+            "drawdown": 0.0,
+            "n_journal_entries": 0,
+        }
+
+    assessment = evaluate(warm_before, after_snapshot)
+    # Halve confidence since we have no true before snapshot
     assessment.confidence = round(assessment.confidence * 0.5, 3)
+    # Re-evaluate gate with the reduced confidence
+    assessment.passes_gate = assessment.delta >= MIN_REAL_WORLD_GAIN
+    try:
+        from nibblebots.signal_integrity_engine import SIE_MIN_CONFIDENCE_GATE  # noqa: PLC0415
+        if assessment.confidence < SIE_MIN_CONFIDENCE_GATE * 0.5:
+            assessment.passes_gate = False
+    except Exception:  # noqa: BLE001
+        pass
     return assessment
 
 
