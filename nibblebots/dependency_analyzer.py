@@ -188,3 +188,7 @@ def build_from_workspace(workspace: Optional[Path] = None) -> DependencyGraph:
         and "node_modules" not in f.parts
     ]
     return build_graph(files, workspace=ws)
+
+
+if __name__ == "__main__":
+    print('Running dependency_analyzer.py')

@@ -287,3 +287,7 @@ register(Domain(
     protected_paths=frozenset(),
     description="Dependency version drift audit (report-only — no auto-pin)",
 ))
+
+
+if __name__ == "__main__":
+    print('Running domain_registry.py')

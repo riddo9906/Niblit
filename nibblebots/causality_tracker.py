@@ -265,3 +265,7 @@ def print_report() -> None:
             f"consist={info['consistency']:.2f}  "
             f"n={info['n_obs']}"
         )
+
+
+if __name__ == "__main__":
+    print('Running causality_tracker.py')

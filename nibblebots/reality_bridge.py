@@ -310,3 +310,7 @@ def _cache_snapshot(snapshot: Dict[str, Any]) -> None:
 def inject_snapshot(snapshot: Dict[str, Any]) -> None:
     """Directly inject a snapshot (used in tests and by other subsystems)."""
     _cache_snapshot(snapshot)
+
+
+if __name__ == "__main__":
+    print('Running reality_bridge.py')

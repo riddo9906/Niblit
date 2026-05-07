@@ -227,3 +227,7 @@ def is_risk_flagged(fix_type: str) -> bool:
         return bool(weights.get(fix_type, {}).get(_RISK_FLAG_KEY, False))
     except (OSError, json.JSONDecodeError):
         return False
+
+
+if __name__ == "__main__":
+    print('Running rollback_guard.py')

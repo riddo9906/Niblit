@@ -79,3 +79,7 @@ def test_resolve_conflict_dampens_when_resonance_saturates(monkeypatch, tmp_path
     assert "SATURATED(scale=" in resolved.rationale
     assert 0.0 < resolved.explore_rate_adj < individual.explore_rate_adj
     assert resolved.signal_weight_adj > individual.signal_weight_adj
+
+
+if __name__ == "__main__":
+    print('Running test_system_interface_layer.py')

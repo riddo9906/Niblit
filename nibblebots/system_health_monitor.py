@@ -231,3 +231,7 @@ def as_observation(snapshot: SystemHealthSnapshot) -> "Any":
             "learning_velocity": snapshot.learning_velocity,
         })[:512],
     )
+
+
+if __name__ == "__main__":
+    print('Running system_health_monitor.py')

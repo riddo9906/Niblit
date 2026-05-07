@@ -284,3 +284,7 @@ def read_history(last_n: int = _MAX_HISTORY) -> List[Dict[str, Any]]:
         return lines[-last_n:]
     except (OSError, json.JSONDecodeError):
         return []
+
+
+if __name__ == "__main__":
+    print('Running value_engine.py')

@@ -413,3 +413,7 @@ def exploration_stats() -> Dict[str, Any]:
         "do_nothing_streak": state.get("do_nothing_streak", 0),
         "current_goal": state.get("current_goal", GOAL_IMPROVE_LEARNING),
     }
+
+
+if __name__ == "__main__":
+    print('Running strategic_planner.py')

@@ -654,3 +654,7 @@ def load_top_patterns(min_confidence: float = 0.70, top_n: int = 10) -> List[Dic
         return []
     records.sort(key=lambda r: r.get("avg_outcome", 0.0), reverse=True)
     return records[:top_n]
+
+
+if __name__ == "__main__":
+    print('Running feedback_learner.py')

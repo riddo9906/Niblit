@@ -656,3 +656,7 @@ def _emit_mode_locked_event(
         ))
     except Exception:  # noqa: BLE001
         pass
+
+
+if __name__ == "__main__":
+    print('Running stability_controller.py')

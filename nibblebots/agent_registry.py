@@ -293,3 +293,7 @@ def registry_summary() -> Dict[str, Any]:
             3,
         ),
     }
+
+
+if __name__ == "__main__":
+    print('Running agent_registry.py')

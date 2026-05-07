@@ -151,3 +151,7 @@ def unwire() -> bool:
     except Exception as exc:  # noqa: BLE001
         log.debug("[LearningLoopBridge] unwire() failed: %s", exc)
         return False
+
+
+if __name__ == "__main__":
+    print('Running learning_loop_bridge.py')

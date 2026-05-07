@@ -441,3 +441,7 @@ def objective_blended_net_score(
         )
     except Exception:  # noqa: BLE001
         return reg_score
+
+
+if __name__ == "__main__":
+    print('Running impact_engine.py')

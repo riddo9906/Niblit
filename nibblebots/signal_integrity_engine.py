@@ -264,3 +264,7 @@ def assess_snapshot(snapshot: Dict[str, Any]) -> SignalConfidence:
         avg_confidence=avg,
         is_reliable=avg >= SIE_MIN_CONFIDENCE_GATE,
     )
+
+
+if __name__ == "__main__":
+    print('Running signal_integrity_engine.py')

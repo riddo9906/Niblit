@@ -446,3 +446,7 @@ def print_plan(plan: EvolutionPlan) -> None:
             f"{rel}"
         )
         print(f"       {sem.context_hint}")
+
+
+if __name__ == "__main__":
+    print('Running evolution_planner.py')

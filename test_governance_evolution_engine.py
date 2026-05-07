@@ -148,3 +148,7 @@ def test_status_structure(tmp_path):
     assert "current_snapshot" in s
     assert "objective_penalty_floor" in s["constitutional_invariants"]
     assert "saturation_threshold_floor" in s["constitutional_invariants"]
+
+
+if __name__ == "__main__":
+    print('Running test_governance_evolution_engine.py')

@@ -382,3 +382,7 @@ def classify_log_file(log_path: Path) -> List[SemanticIssue]:
     except OSError:
         return []
     return classify_log_lines(lines, source_label=log_path.name)
+
+
+if __name__ == "__main__":
+    print('Running semantic_engine.py')

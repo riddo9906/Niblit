@@ -292,3 +292,7 @@ def force_goal(goal: str, reason: str = "manual override") -> None:
     objective_engine.update_goal(goal)
     _log_change(old, goal, reason, {})
     print(f"  🎯 GoalAdaptation (forced): {old!r} → {goal!r}  ({reason})")
+
+
+if __name__ == "__main__":
+    print('Running goal_adaptation_engine.py')

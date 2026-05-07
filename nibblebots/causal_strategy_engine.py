@@ -1616,3 +1616,7 @@ def _sil_status_safe() -> Dict[str, Any]:
         return _sil.status()
     except Exception:  # noqa: BLE001
         return {}
+
+
+if __name__ == "__main__":
+    print('Running causal_strategy_engine.py')

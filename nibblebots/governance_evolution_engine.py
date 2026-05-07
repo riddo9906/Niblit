@@ -508,3 +508,7 @@ def status() -> Dict[str, Any]:
         "last_adaptation": state.get("last_adaptation"),
         "total_events": len(state.get("events", [])),
     }
+
+
+if __name__ == "__main__":
+    print('Running governance_evolution_engine.py')
