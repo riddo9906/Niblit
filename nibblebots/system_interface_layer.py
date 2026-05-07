@@ -592,8 +592,8 @@ def _apply_authority_scope(
         try:
             from nibblebots import governance_evolution_engine as _gee  # noqa: PLC0415
             _event_type = (
-                _gee._EVT_SAFETY_OVERRIDE if safety_override_fired
-                else _gee._EVT_AUTHORITY_DENIED
+                _gee.EVT_SAFETY_OVERRIDE if safety_override_fired
+                else _gee.EVT_AUTHORITY_DENIED
             )
             _gee.record_governance_event(_event_type, {
                 "system_id": profile.system_id,
@@ -1145,7 +1145,7 @@ def resolve_conflict(objective: str = "") -> Optional[ResonanceConfig]:
     # Phase 18: feed conflict resolution outcome to Governance Evolution Engine
     try:
         from nibblebots import governance_evolution_engine as _gee  # noqa: PLC0415
-        _gee.record_governance_event(_gee._EVT_CONFLICT_RESOLVED, {
+        _gee.record_governance_event(_gee.EVT_CONFLICT_RESOLVED, {
             "system_ids": system_ids,
             "saturated": damping_factor < 1.0,
             "damping_factor": damping_factor,

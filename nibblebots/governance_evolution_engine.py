@@ -121,10 +121,10 @@ _LOG_FILE = Path(__file__).parent / "governance_log.jsonl"
 # Event types
 # ---------------------------------------------------------------------------
 
-_EVT_SAFETY_OVERRIDE = "safety_override"
-_EVT_AUTHORITY_DENIED = "authority_denied"
-_EVT_CONFLICT_RESOLVED = "conflict_resolved"
-_EVT_CYCLE = "cycle_outcome"
+EVT_SAFETY_OVERRIDE = "safety_override"
+EVT_AUTHORITY_DENIED = "authority_denied"
+EVT_CONFLICT_RESOLVED = "conflict_resolved"
+EVT_CYCLE = "cycle_outcome"
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +220,7 @@ def record_governance_event(
 
     Parameters
     ----------
-    event_type : One of the ``_EVT_*`` constants above or any free-form string.
+    event_type : One of the ``EVT_*`` constants above or any free-form string.
                  The well-known types contribute to the GovernanceSnapshot metrics;
                  unknown types are stored for audit only.
     context    : Optional dict with event-specific details (stored for audit).
@@ -244,7 +244,7 @@ def record_governance_event(
         events = events[-GEE_WINDOW * 2:]
     state["events"] = events
     state["cycle_count"] = state.get("cycle_count", 0) + (
-        1 if event_type == _EVT_CYCLE else 0
+        1 if event_type == EVT_CYCLE else 0
     )
     _save_state(state)
 
@@ -265,15 +265,15 @@ def snapshot() -> GovernanceSnapshot:
 
     resonance_events = [
         e for e in events
-        if e.get("type") in (_EVT_SAFETY_OVERRIDE, _EVT_AUTHORITY_DENIED)
+        if e.get("type") in (EVT_SAFETY_OVERRIDE, EVT_AUTHORITY_DENIED)
     ]
-    conflict_events = [e for e in events if e.get("type") == _EVT_CONFLICT_RESOLVED]
-    cycle_events = [e for e in events if e.get("type") == _EVT_CYCLE]
+    conflict_events = [e for e in events if e.get("type") == EVT_CONFLICT_RESOLVED]
+    cycle_events = [e for e in events if e.get("type") == EVT_CYCLE]
 
     # override_frequency: fraction of resonance events that were SAFETY_OVERRIDE
     total_resonance = max(1, len(resonance_events))
     safety_overrides = [
-        e for e in resonance_events if e.get("type") == _EVT_SAFETY_OVERRIDE
+        e for e in resonance_events if e.get("type") == EVT_SAFETY_OVERRIDE
     ]
     override_frequency = len(safety_overrides) / total_resonance
 
@@ -336,7 +336,7 @@ def evaluate_and_adapt(outcome_score: Optional[float] = None) -> Optional[Govern
     ----------
     outcome_score : Optional float in [0, 1] representing the current cycle's
                     real-world outcome.  When provided it is stored as a
-                    ``_EVT_CYCLE`` event so the stability_preservation_score
+                    ``EVT_CYCLE`` event so the stability_preservation_score
                     metric can track override effectiveness.
 
     Returns
@@ -355,11 +355,11 @@ def evaluate_and_adapt(outcome_score: Optional[float] = None) -> Optional[Govern
         events: List[Dict[str, Any]] = state.get("events", [])
         recent_overrides = [
             e for e in events[-5:]
-            if e.get("type") in (_EVT_SAFETY_OVERRIDE,)
+            if e.get("type") in (EVT_SAFETY_OVERRIDE,)
         ]
         state["events"] = events + [{
             "ts": datetime.now(timezone.utc).isoformat(),
-            "type": _EVT_CYCLE,
+            "type": EVT_CYCLE,
             "outcome": round(float(outcome_score), 4),
             "had_safety_override": len(recent_overrides) > 0,
         }]

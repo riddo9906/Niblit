@@ -18,7 +18,7 @@ def _load_gee(tmp_path):
 def test_record_governance_event_persists(tmp_path):
     gee = _load_gee(tmp_path)
 
-    gee.record_governance_event(gee._EVT_SAFETY_OVERRIDE, {
+    gee.record_governance_event(gee.EVT_SAFETY_OVERRIDE, {
         "system_id": "test_sys",
         "explore_rate_adj_before": 0.05,
         "explore_rate_adj_after": 0.0,
@@ -27,7 +27,7 @@ def test_record_governance_event_persists(tmp_path):
     events = state.get("events", [])
 
     assert len(events) == 1
-    assert events[0]["type"] == gee._EVT_SAFETY_OVERRIDE
+    assert events[0]["type"] == gee.EVT_SAFETY_OVERRIDE
     assert events[0]["system_id"] == "test_sys"
 
 
@@ -36,11 +36,11 @@ def test_snapshot_override_frequency(tmp_path):
 
     # 3 safety overrides, 1 authority denied
     for _ in range(3):
-        gee.record_governance_event(gee._EVT_SAFETY_OVERRIDE, {
+        gee.record_governance_event(gee.EVT_SAFETY_OVERRIDE, {
             "explore_rate_adj_before": 0.05,
             "explore_rate_adj_after": 0.0,
         })
-    gee.record_governance_event(gee._EVT_AUTHORITY_DENIED, {
+    gee.record_governance_event(gee.EVT_AUTHORITY_DENIED, {
         "explore_rate_adj_before": 0.0,
         "explore_rate_adj_after": 0.0,
     })
@@ -56,12 +56,12 @@ def test_snapshot_suppressed_exploration_rate(tmp_path):
 
     # Both events have non-zero before, zero after → both suppressed
     for _ in range(2):
-        gee.record_governance_event(gee._EVT_SAFETY_OVERRIDE, {
+        gee.record_governance_event(gee.EVT_SAFETY_OVERRIDE, {
             "explore_rate_adj_before": 0.05,
             "explore_rate_adj_after": 0.0,
         })
     # One event where no suppression occurred
-    gee.record_governance_event(gee._EVT_AUTHORITY_DENIED, {
+    gee.record_governance_event(gee.EVT_AUTHORITY_DENIED, {
         "explore_rate_adj_before": 0.0,
         "explore_rate_adj_after": 0.0,
     })
@@ -75,8 +75,8 @@ def test_conflict_resolution_success_unsaturated(tmp_path):
     gee = _load_gee(tmp_path)
 
     # Two successful (not saturated) conflict resolutions
-    gee.record_governance_event(gee._EVT_CONFLICT_RESOLVED, {"saturated": False})
-    gee.record_governance_event(gee._EVT_CONFLICT_RESOLVED, {"saturated": False})
+    gee.record_governance_event(gee.EVT_CONFLICT_RESOLVED, {"saturated": False})
+    gee.record_governance_event(gee.EVT_CONFLICT_RESOLVED, {"saturated": False})
 
     snap = gee.snapshot()
     assert snap.conflict_resolution_success == 1.0
@@ -85,8 +85,8 @@ def test_conflict_resolution_success_unsaturated(tmp_path):
 def test_conflict_resolution_success_mixed(tmp_path):
     gee = _load_gee(tmp_path)
 
-    gee.record_governance_event(gee._EVT_CONFLICT_RESOLVED, {"saturated": True})
-    gee.record_governance_event(gee._EVT_CONFLICT_RESOLVED, {"saturated": False})
+    gee.record_governance_event(gee.EVT_CONFLICT_RESOLVED, {"saturated": True})
+    gee.record_governance_event(gee.EVT_CONFLICT_RESOLVED, {"saturated": False})
 
     snap = gee.snapshot()
     assert snap.conflict_resolution_success == 0.5
@@ -106,7 +106,7 @@ def test_evaluate_and_adapt_respects_constitutional_floor(tmp_path, monkeypatch)
 
     # Record many safety overrides with high preservation score
     for _ in range(5):
-        gee.record_governance_event(gee._EVT_SAFETY_OVERRIDE, {
+        gee.record_governance_event(gee.EVT_SAFETY_OVERRIDE, {
             "explore_rate_adj_before": 0.05,
             "explore_rate_adj_after": 0.0,
         })
@@ -115,7 +115,7 @@ def test_evaluate_and_adapt_respects_constitutional_floor(tmp_path, monkeypatch)
     for _ in range(5):
         state.setdefault("events", []).append({
             "ts": "2026-01-01T00:00:00+00:00",
-            "type": gee._EVT_CYCLE,
+            "type": gee.EVT_CYCLE,
             "outcome": 0.8,
             "had_safety_override": True,
         })
