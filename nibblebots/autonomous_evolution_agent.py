@@ -1028,6 +1028,7 @@ def main() -> int:
                 "niblit_ci",
                 _ci_signal_data,
                 current_objective=_sil_objective,
+                authority_domains=["risk", "rollback", "exploration"],
             )
             _ci_resonance = _sil.establish_resonance(
                 _ci_profile,

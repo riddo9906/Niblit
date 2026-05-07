@@ -117,6 +117,9 @@ SIL_TRUST_DECAY_FACTOR: float = float(os.environ.get("SIL_TRUST_DECAY_FACTOR", "
 # Attribution learning rate — used by record_resonance_attribution() for
 # causal validation-based trust updates (separate from simple TD rate).
 SIL_ATTRIBUTION_LR: float = float(os.environ.get("SIL_ATTRIBUTION_LR", "0.15"))
+SIL_SATURATION_THRESHOLD: float = float(
+    os.environ.get("SIL_SATURATION_THRESHOLD", "0.45")
+)
 SIL_ENABLED: bool = (
     os.environ.get("SIL_ENABLED", "1").lower() not in ("0", "false", "no")
 )
@@ -140,6 +143,34 @@ _EXPLORATION_SIGNAL_KEYS = frozenset({
     "fail", "error", "warning", "yellow", "orange", "spike", "oversold",
     "volatile", "volatile_", "instability",
 })
+
+_AUTHORITY_DOMAIN_ORDER = (
+    "rollback",
+    "risk",
+    "market_signals",
+    "exploration",
+    "general",
+)
+
+_AUTHORITY_DOMAIN_KEYWORDS = {
+    "rollback": frozenset({
+        "rollback", "revert", "undo", "restore", "recover",
+    }),
+    "risk": frozenset({
+        "risk", "stable", "stability", "safe", "guard", "health",
+        "monitor", "ci", "test", "failure", "healthy", "pass", "success",
+        "regression",
+    }),
+    "market_signals": frozenset({
+        "ticker", "market", "trade", "trading", "price", "volume",
+        "profit", "rsi", "swing", "signal", "exchange",
+    }),
+    "exploration": frozenset({
+        "explore", "exploration", "learn", "learning", "discover",
+        "research", "creative", "llm", "agent", "novel", "unknown",
+        "anomaly", "spike", "warning", "error",
+    }),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +205,7 @@ class ExternalSystemProfile:
     decision_structure: str = ""
     last_mirrored: str = ""
     resonance_outcomes: List[float] = field(default_factory=list)
+    authority_domains: List[str] = field(default_factory=list)
     # Phase 16.5: causal attribution records
     attribution_history: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -191,6 +223,7 @@ class ExternalSystemProfile:
             "resonance_outcomes": [
                 round(o, 4) for o in self.resonance_outcomes[-20:]
             ],
+            "authority_domains": self.authority_domains,
             "attribution_history": self.attribution_history[-30:],
         }
 
@@ -208,6 +241,9 @@ class ExternalSystemProfile:
             last_mirrored=d.get("last_mirrored", ""),
             resonance_outcomes=[
                 float(o) for o in d.get("resonance_outcomes", [])
+            ],
+            authority_domains=[
+                str(domain) for domain in d.get("authority_domains", [])
             ],
             attribution_history=d.get("attribution_history", []),
         )
@@ -448,6 +484,117 @@ def _check_objective_conflict(
     return False, 0.0
 
 
+def _normalize_authority_domains(domains: List[str]) -> List[str]:
+    """Return ordered, deduplicated authority domains."""
+    cleaned = {
+        str(domain).strip().lower()
+        for domain in domains
+        if str(domain).strip()
+    }
+    if not cleaned:
+        return ["general"]
+    ordered = [domain for domain in _AUTHORITY_DOMAIN_ORDER if domain in cleaned]
+    unordered = sorted(cleaned - set(_AUTHORITY_DOMAIN_ORDER))
+    return ordered + unordered
+
+
+def _infer_authority_domains(
+    system_id: str,
+    external_data: Dict[str, Any],
+    current_objective: str,
+) -> List[str]:
+    """Infer governance domains from the system identity and observed signals."""
+    tokens = " ".join(
+        [system_id.lower(), current_objective.lower()]
+        + [str(key).lower() for key in external_data]
+    )
+    domains = [
+        domain
+        for domain, keywords in _AUTHORITY_DOMAIN_KEYWORDS.items()
+        if any(keyword in tokens for keyword in keywords)
+    ]
+    if not domains:
+        domains = ["general"]
+    return _normalize_authority_domains(domains)
+
+
+def _objective_requires_safety(current_objective: str) -> bool:
+    objective_lower = current_objective.lower()
+    return any(
+        word in objective_lower
+        for word in ("stability", "safe", "risk", "rollback", "regression")
+    )
+
+
+def _authority_priority_score(domains: List[str], objective: str) -> float:
+    """Return an objective-aware governance priority multiplier."""
+    domain_set = set(domains)
+    if _objective_requires_safety(objective):
+        if domain_set & {"risk", "rollback"}:
+            return 1.25
+        if "market_signals" in domain_set:
+            return 0.8
+        if "exploration" in domain_set:
+            return 0.35
+    objective_lower = objective.lower()
+    if any(word in objective_lower for word in ("explore", "learn", "discover")):
+        if "exploration" in domain_set:
+            return 1.15
+        if domain_set & {"risk", "rollback"}:
+            return 0.9
+    return 1.0
+
+
+def _apply_authority_scope(
+    profile: ExternalSystemProfile,
+    current_objective: str,
+    explore_rate_adj: float,
+    decision_threshold_adj: float,
+) -> Tuple[float, float, List[str]]:
+    """Clamp adjustments that fall outside a system's authority domains."""
+    domains = set(profile.authority_domains or ["general"])
+    governance_notes: List[str] = []
+
+    if explore_rate_adj != 0.0 and "exploration" not in domains:
+        explore_rate_adj = 0.0
+        governance_notes.append("AUTHORITY_DENIED(exploration)")
+
+    if decision_threshold_adj > 0.0 and not (domains & {"risk", "rollback"}):
+        decision_threshold_adj = 0.0
+        governance_notes.append("AUTHORITY_DENIED(risk)")
+
+    if decision_threshold_adj < 0.0 and "market_signals" not in domains:
+        decision_threshold_adj = 0.0
+        governance_notes.append("AUTHORITY_DENIED(market_signals)")
+
+    if (
+        _objective_requires_safety(current_objective)
+        and explore_rate_adj > 0.0
+        and not (domains & {"risk", "rollback"})
+    ):
+        explore_rate_adj = 0.0
+        governance_notes.append("SAFETY_OVERRIDE(exploration)")
+
+    if (
+        _objective_requires_safety(current_objective)
+        and decision_threshold_adj < 0.0
+        and not (domains & {"risk", "rollback"})
+    ):
+        decision_threshold_adj = 0.0
+        governance_notes.append("SAFETY_OVERRIDE(threshold)")
+
+    return explore_rate_adj, decision_threshold_adj, governance_notes
+
+
+def _adjustment_magnitude(config: "ResonanceConfig") -> float:
+    """Measure total deviation away from the neutral resonance baseline."""
+    return (
+        abs(1.0 - config.signal_weight_adj)
+        + abs(config.explore_rate_adj)
+        + abs(config.decision_threshold_adj)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Core public API
 # ---------------------------------------------------------------------------
@@ -483,6 +630,7 @@ def mirror_system(
     external_data: Dict[str, Any],
     latency_ms: Optional[float] = None,
     current_objective: str = "",
+    authority_domains: Optional[List[str]] = None,
 ) -> ExternalSystemProfile:
     """Analyse external data and build or update an ExternalSystemProfile.
 
@@ -500,6 +648,7 @@ def mirror_system(
     external_data     : Dict of ``signal_key → value`` observations.
     latency_ms        : Optional observed response latency in milliseconds.
     current_objective : Niblit's current goal string (for audit purposes).
+    authority_domains : Optional explicit governance domains for this system.
 
     Returns
     -------
@@ -533,6 +682,17 @@ def mirror_system(
     profile.decision_structure = _detect_decision_structure(
         profile.signal_types, external_data
     )
+    inferred_domains = _infer_authority_domains(
+        system_id,
+        external_data,
+        current_objective,
+    )
+    if authority_domains is not None:
+        profile.authority_domains = _normalize_authority_domains(authority_domains)
+    else:
+        profile.authority_domains = _normalize_authority_domains(
+            profile.authority_domains + inferred_domains
+        )
 
     # Step 4: update signal observations (store latest numeric values)
     for key, val in external_data.items():
@@ -567,6 +727,7 @@ def mirror_system(
         "signal_count": len(new_signal_types),
         "decision_structure": profile.decision_structure,
         "objective": current_objective,
+        "authority_domains": profile.authority_domains,
     })
 
     # Best-effort EventBus notification
@@ -581,6 +742,7 @@ def mirror_system(
                 "system_id": system_id,
                 "decision_structure": profile.decision_structure,
                 "signal_count": len(new_signal_types),
+                "authority_domains": profile.authority_domains,
             },
         ))
     except Exception:  # noqa: BLE001
@@ -673,14 +835,23 @@ def establish_resonance(
             round(signal_weight_adj - penalty, 4),
         )
 
+    explore_rate_adj, decision_threshold_adj, governance_notes = _apply_authority_scope(
+        profile,
+        current_objective,
+        explore_rate_adj,
+        decision_threshold_adj,
+    )
+
     rationale_parts = [
         f"SIL/resonance({profile.system_id})",
         f"trust={signal_weight_adj:.3f}",
         f"explore_adj={explore_rate_adj:+.4f}",
         f"gate_adj={decision_threshold_adj:+.4f}",
+        f"authority={','.join(profile.authority_domains or ['general'])}",
     ]
     if conflict:
         rationale_parts.append(f"OBJECTIVE_CONFLICT(penalty={penalty:.2f})")
+    rationale_parts.extend(governance_notes)
 
     config = ResonanceConfig(
         signal_weight_adj=signal_weight_adj,
@@ -694,6 +865,8 @@ def establish_resonance(
         "system_id": profile.system_id,
         "config": config.to_dict(),
         "objective": current_objective,
+        "authority_domains": profile.authority_domains,
+        "governance_notes": governance_notes,
     })
 
     try:
@@ -892,7 +1065,8 @@ def resolve_conflict(objective: str = "") -> Optional[ResonanceConfig]:
         _, penalty = _check_objective_conflict(profile, profile.signals, objective)
         alignment_score = max(0.0, 1.0 - penalty)
 
-        composite_weight = profile.trust_weight * avg_conf * alignment_score
+        authority_score = _authority_priority_score(profile.authority_domains, objective)
+        composite_weight = profile.trust_weight * avg_conf * alignment_score * authority_score
         config = establish_resonance(profile, objective)
         items.append((composite_weight, config, profile.system_id))
 
@@ -908,6 +1082,18 @@ def resolve_conflict(objective: str = "") -> Optional[ResonanceConfig]:
         sum(w * c.signal_weight_adj for w, c, _ in items) / total_weight
     )
     any_conflict = any(c.objective_conflict for _, c, _ in items)
+    total_adjustment_magnitude = sum(
+        _adjustment_magnitude(c) for _, c, _ in items
+    )
+    damping_factor = 1.0
+    if total_adjustment_magnitude > SIL_SATURATION_THRESHOLD:
+        damping_factor = max(
+            0.1,
+            round(SIL_SATURATION_THRESHOLD / total_adjustment_magnitude, 4),
+        )
+        blended_signal = 1.0 - ((1.0 - blended_signal) * damping_factor)
+        blended_explore *= damping_factor
+        blended_threshold *= damping_factor
 
     # Detect direct exploration / stabilisation conflict
     explore_adjs = [c.explore_rate_adj for _, c, _ in items]
@@ -920,6 +1106,8 @@ def resolve_conflict(objective: str = "") -> Optional[ResonanceConfig]:
         f"SIL/conflict_resolved({len(profiles)} systems: {', '.join(system_ids)}) "
         f"signal_conflict={'yes' if signal_conflict else 'no'}"
     )
+    if damping_factor < 1.0:
+        rationale += f" | SATURATED(scale={damping_factor:.3f})"
 
     _log_event("conflict_resolved", {
         "system_ids": system_ids,
@@ -927,6 +1115,9 @@ def resolve_conflict(objective: str = "") -> Optional[ResonanceConfig]:
         "objective": objective,
         "blended_signal_weight": round(blended_signal, 4),
         "blended_explore_adj": round(blended_explore, 4),
+        "total_adjustment_magnitude": round(total_adjustment_magnitude, 4),
+        "saturation_threshold": SIL_SATURATION_THRESHOLD,
+        "damping_factor": damping_factor,
     })
 
     return ResonanceConfig(
@@ -987,6 +1178,7 @@ def status() -> Dict[str, Any]:
             "signal_count": len(profile.signals),
             "last_mirrored": profile.last_mirrored,
             "decision_structure": profile.decision_structure,
+            "authority_domains": profile.authority_domains,
             "attribution_samples": len(attrs),
             "mean_attribution_delta": mean_attr_delta,
             "recent_attributions": recent_attrs,
@@ -998,9 +1190,14 @@ def status() -> Dict[str, Any]:
         "max_profiles": SIL_MAX_PROFILES,
         "resonance_lr": SIL_RESONANCE_LR,
         "attribution_lr": SIL_ATTRIBUTION_LR,
+        "saturation_threshold": SIL_SATURATION_THRESHOLD,
         "trust_decay_factor_seconds": SIL_TRUST_DECAY_FACTOR,
         "objective_penalty": SIL_OBJECTIVE_PENALTY,
         "min_signal_trust": SIL_MIN_SIGNAL_TRUST,
+        "authority_matrix": {
+            sid: ExternalSystemProfile.from_dict(raw).authority_domains
+            for sid, raw in profiles_raw.items()
+        },
         "profiles": profile_summaries,
     }
 
