@@ -554,6 +554,7 @@ def _apply_authority_scope(
     """Clamp adjustments that fall outside a system's authority domains."""
     domains = set(profile.authority_domains or ["general"])
     governance_notes: List[str] = []
+    original_explore = explore_rate_adj
 
     if explore_rate_adj != 0.0 and "exploration" not in domains:
         explore_rate_adj = 0.0
@@ -567,6 +568,7 @@ def _apply_authority_scope(
         decision_threshold_adj = 0.0
         governance_notes.append("AUTHORITY_DENIED(market_signals)")
 
+    safety_override_fired = False
     if (
         _objective_requires_safety(current_objective)
         and explore_rate_adj > 0.0
@@ -574,6 +576,7 @@ def _apply_authority_scope(
     ):
         explore_rate_adj = 0.0
         governance_notes.append("SAFETY_OVERRIDE(exploration)")
+        safety_override_fired = True
 
     if (
         _objective_requires_safety(current_objective)
@@ -582,6 +585,25 @@ def _apply_authority_scope(
     ):
         decision_threshold_adj = 0.0
         governance_notes.append("SAFETY_OVERRIDE(threshold)")
+        safety_override_fired = True
+
+    # Phase 18: feed governance events to the Governance Evolution Engine
+    if governance_notes:
+        try:
+            from nibblebots import governance_evolution_engine as _gee  # noqa: PLC0415
+            _event_type = (
+                _gee._EVT_SAFETY_OVERRIDE if safety_override_fired
+                else _gee._EVT_AUTHORITY_DENIED
+            )
+            _gee.record_governance_event(_event_type, {
+                "system_id": profile.system_id,
+                "objective": current_objective,
+                "notes": governance_notes,
+                "explore_rate_adj_before": float(original_explore),
+                "explore_rate_adj_after": float(explore_rate_adj),
+            })
+        except Exception:  # noqa: BLE001
+            pass
 
     return explore_rate_adj, decision_threshold_adj, governance_notes
 
@@ -1120,6 +1142,19 @@ def resolve_conflict(objective: str = "") -> Optional[ResonanceConfig]:
         "damping_factor": damping_factor,
     })
 
+    # Phase 18: feed conflict resolution outcome to Governance Evolution Engine
+    try:
+        from nibblebots import governance_evolution_engine as _gee  # noqa: PLC0415
+        _gee.record_governance_event(_gee._EVT_CONFLICT_RESOLVED, {
+            "system_ids": system_ids,
+            "saturated": damping_factor < 1.0,
+            "damping_factor": damping_factor,
+            "signal_conflict": signal_conflict,
+            "objective": objective,
+        })
+    except Exception:  # noqa: BLE001
+        pass
+
     return ResonanceConfig(
         signal_weight_adj=round(blended_signal, 4),
         explore_rate_adj=round(blended_explore, 4),
@@ -1151,6 +1186,15 @@ def get_active_resonance(objective: str = "") -> Optional[ResonanceConfig]:
 
     # Phase 16.5: use conflict-resolution for multi-system scenarios
     return resolve_conflict(objective)
+
+
+def _gee_status_safe() -> Optional[Dict[str, Any]]:
+    """Return the Governance Evolution Engine status, or None on failure."""
+    try:
+        from nibblebots import governance_evolution_engine as _gee  # noqa: PLC0415
+        return _gee.status()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def status() -> Dict[str, Any]:
@@ -1199,6 +1243,7 @@ def status() -> Dict[str, Any]:
             for sid, raw in profiles_raw.items()
         },
         "profiles": profile_summaries,
+        "governance_evolution": _gee_status_safe(),
     }
 
 

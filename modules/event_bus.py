@@ -74,6 +74,7 @@ EVENT_MODE_LOCKED        = "stability.mode_locked" # Phase 9: emitted by stabili
 EVENT_AGENT_OBSERVATION  = "agent.observation"      # Phase 15: emitted by background worker agents
 EVENT_SYSTEM_MIRRORED   = "system.mirrored"         # Phase 16: emitted by system_interface_layer after mirror_system()
 EVENT_SYSTEM_RESONANCE  = "system.resonance"        # Phase 16: emitted by system_interface_layer after establish_resonance()
+EVENT_GOVERNANCE_ADAPTED = "governance.adapted"     # Phase 18: emitted by governance_evolution_engine after parameter adaptation
 
 
 @dataclass

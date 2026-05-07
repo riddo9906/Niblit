@@ -493,6 +493,25 @@ def _evaluate_real_world_value(
         except Exception:  # noqa: BLE001
             pass
 
+        # Phase 18: governance evolution — on a slow cadence (every
+        # GEE_ADAPT_INTERVAL cycles) evaluate whether governance parameters
+        # should adapt.  Best-effort, never raises.
+        try:
+            from nibblebots import governance_evolution_engine as _gee  # noqa: PLC0415
+            _gee_outcome = min(1.0, max(0.0, 0.5 + float(
+                assessment.delta if assessment.delta is not None else 0.0
+            )))
+            _adaptation = _gee.evaluate_and_adapt(outcome_score=_gee_outcome)
+            if _adaptation is not None:
+                print(
+                    f"  🏛️  GEE: governance adapted — "
+                    f"sat_delta={_adaptation.saturation_threshold_delta:+.4f} "
+                    f"penalty_delta={_adaptation.objective_penalty_delta:+.4f} | "
+                    f"{_adaptation.rationale}"
+                )
+        except Exception:  # noqa: BLE001
+            pass
+
     except Exception:  # noqa: BLE001
         pass   # Phase 8 is strictly best-effort
 
