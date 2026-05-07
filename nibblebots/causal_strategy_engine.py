@@ -1454,7 +1454,7 @@ def query_strategy(current_context: Dict[str, Any]) -> StrategyAdvice:
         base_advice = final_advice
 
     # ------------------------------------------------------------------
-    # Phase 16: Adaptive System Interface — apply resonance adjustments
+    # Phase 16-17: Adaptive System Interface — apply resonance governance
     # from any active external system profiles.  The resonance layer runs
     # after the debate so both deliberation AND external-system alignment
     # are factored into the final advice.

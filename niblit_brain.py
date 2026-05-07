@@ -1636,7 +1636,7 @@ class NiblitBrain:
                           _debate_winner, _debate_prefer_local, _debate_augment_context)
         # ─────────────────────────────────────────────────────────────────────
 
-        # ── Phase 16: Adaptive System Interface — mirror + resonance ─────────
+        # ── Phase 16-17: Adaptive System Interface — mirror + resonance ──────
         # When the user input arrives from an external system (prefixed with
         # "SYS:<system_id>:") we mirror the signal context and establish
         # resonance so the brain's routing adapts to that system's style.
