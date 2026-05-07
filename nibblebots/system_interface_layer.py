@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-nibblebots/system_interface_layer.py — Phase 16-17 Adaptive System Interface Governance Engine
+nibblebots/system_interface_layer.py — Adaptive System Interface Governance Engine
 
 Implements "mirror + resonance" for system-to-system intelligence:
 

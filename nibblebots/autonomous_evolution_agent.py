@@ -107,7 +107,7 @@ try:
 except ImportError:
     _REGISTRY_AVAILABLE = False
 
-# Phase 16-17: System Interface Layer for mirror + resonance governance (optional)
+# System Interface Layer for mirror + resonance governance (optional)
 try:
     from nibblebots import system_interface_layer as _sil  # noqa: PLC0415
     _SIL_AVAILABLE = True
