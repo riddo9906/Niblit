@@ -97,10 +97,20 @@ def _get_evaluation_engine_score() -> Optional[float]:
     try:
         from modules.evaluation_engine import get_evaluation_engine  # noqa: PLC0415
         eng = get_evaluation_engine()
-        history = getattr(eng, "_outcome_history", None) or []
-        if history:
-            recent = history[-min(10, len(history)):]
-            return sum(r.get("score", 0.5) for r in recent) / len(recent)
+        if hasattr(eng, "status"):
+            status = eng.status()
+            avg_quality = status.get("avg_quality")
+            if avg_quality is not None:
+                return float(avg_quality)
+        if hasattr(eng, "get_history"):
+            history = eng.get_history() or []
+            if history:
+                recent = history[-min(10, len(history)):]
+                return sum(float(r.get("quality_score", 0.5)) for r in recent) / len(recent)
+        if hasattr(eng, "last_quality_score"):
+            last = eng.last_quality_score()
+            if last is not None:
+                return float(last)
     except Exception:  # noqa: BLE001
         pass
     return None
@@ -111,10 +121,15 @@ def _get_quality_feedback_score() -> Optional[float]:
     try:
         from modules.quality_feedback import get_quality_feedback  # noqa: PLC0415
         qf = get_quality_feedback()
+        if hasattr(qf, "status"):
+            status = qf.status()
+            recent_avg = status.get("recent_avg_score")
+            if recent_avg is not None and status.get("total_scores", 0) > 0:
+                return float(recent_avg)
         history = getattr(qf, "_score_history", None) or []
         if history:
             recent = history[-min(10, len(history)):]
-            return sum(recent) / len(recent)
+            return sum(float(v) for v in recent) / len(recent)
     except Exception:  # noqa: BLE001
         pass
     return None

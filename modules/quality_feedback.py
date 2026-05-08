@@ -23,6 +23,10 @@ Public API
 ``get_quality_feedback()``
     Return the process-wide singleton.
 
+``QualityFeedback.status()``
+    Return rolling score / verdict statistics so the rest of Niblit can read
+    the live state of the answer-quality feedback loop.
+
 Design
 ------
 * Pure stdlib + the existing RewardModel — no new dependencies.
@@ -64,6 +68,10 @@ _DECAY_AMOUNT: float = 0.10
 # Maximum facts to update in a single call (prevents O(n) lock contention).
 _MAX_FACTS_TO_UPDATE: int = 10
 
+# Maximum number of quality scores to retain in-memory for system-wide status
+# and health monitoring.  Older scores are discarded FIFO.
+_MAX_SCORE_HISTORY: int = 200
+
 # ─────────────────────────────────────────────────────────────────────────────
 # QualityFeedback
 # ─────────────────────────────────────────────────────────────────────────────
@@ -81,6 +89,14 @@ class QualityFeedback:
 
     def __init__(self, reward_model: Optional[Any] = None) -> None:
         self._rm = reward_model
+        self._lock = threading.Lock()
+        self._score_history: List[float] = []
+        self._method_history: List[str] = []
+        self._verdict_counts: Dict[str, int] = {
+            "good": 0,
+            "poor": 0,
+            "neutral": 0,
+        }
 
     # ── public API ────────────────────────────────────────────────────────────
 
@@ -88,10 +104,11 @@ class QualityFeedback:
         self,
         query: str,
         answer: str,
-        knowledge_db: Any,
+        knowledge_db: Any = None,
         snippets: Optional[List[str]] = None,
         used_facts: Optional[List[Dict[str, Any]]] = None,
         is_good: Optional[bool] = None,
+        score_override: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Score *answer* against *query* and update fact confidence in *knowledge_db*.
 
@@ -106,6 +123,12 @@ class QualityFeedback:
                       itself to find which facts were relevant.
         is_good:      Explicit override — ``True`` → treat as high-quality,
                       ``False`` → treat as poor.  ``None`` → use RewardModel.
+        score_override:
+                      Explicit scalar override in [0, 1].  When provided it
+                      takes precedence over ``is_good`` and RewardModel scoring.
+                      This is used by older feedback producers (for example
+                      user satisfaction ratings in AdaptiveLearning) so they can
+                      participate in the same unified quality loop.
 
         Returns
         -------
@@ -120,10 +143,25 @@ class QualityFeedback:
                 snippets=snippets or [],
                 used_facts=used_facts,
                 is_good=is_good,
+                score_override=score_override,
             )
         except Exception as exc:
             log.debug("[QualityFeedback] record_answer_quality error: %s", exc)
             return {"score": 0.5, "error": str(exc), "reinforced": 0, "decayed": 0}
+
+    def status(self) -> Dict[str, Any]:
+        """Return rolling statistics for the process-wide quality loop."""
+        with self._lock:
+            recent = self._score_history[-min(10, len(self._score_history)):]
+            recent_avg = (sum(recent) / len(recent)) if recent else 0.0
+            last_score = self._score_history[-1] if self._score_history else None
+            return {
+                "total_scores": len(self._score_history),
+                "recent_avg_score": round(recent_avg, 3),
+                "last_score": round(last_score, 3) if last_score is not None else None,
+                "verdict_counts": dict(self._verdict_counts),
+                "recent_methods": list(self._method_history[-5:]),
+            }
 
     # ── internal ──────────────────────────────────────────────────────────────
 
@@ -135,9 +173,13 @@ class QualityFeedback:
         snippets: List[str],
         used_facts: Optional[List[Dict[str, Any]]],
         is_good: Optional[bool],
+        score_override: Optional[float],
     ) -> Dict[str, Any]:
         # 1. Score the answer
-        if is_good is True:
+        if score_override is not None:
+            quality = max(0.0, min(1.0, float(score_override)))
+            method = "explicit_score"
+        elif is_good is True:
             quality = 1.0
             method = "explicit_good"
         elif is_good is False:
@@ -152,6 +194,10 @@ class QualityFeedback:
             else:
                 quality = 0.5
                 method = "unavailable"
+
+        # Record process-wide rolling quality history so other parts of Niblit
+        # can observe the live feedback loop instead of re-scoring everything.
+        self._record_score(quality=quality, method=method)
 
         # 2. Find which KB facts were relevant to this query
         facts_to_update = []
@@ -187,6 +233,7 @@ class QualityFeedback:
             return {
                 "score": quality,
                 "method": method,
+                "verdict": self._verdict_label(quality),
                 "reinforced": 0,
                 "decayed": 0,
                 "re_queued": [],
@@ -280,10 +327,32 @@ class QualityFeedback:
         return {
             "score": quality,
             "method": method,
+            "verdict": self._verdict_label(quality),
             "reinforced": reinforced,
             "decayed": decayed,
             "re_queued": re_queued,
         }
+
+    def _record_score(self, quality: float, method: str) -> None:
+        """Update the in-memory rolling score history and verdict counters."""
+        verdict = self._verdict_label(quality)
+        with self._lock:
+            self._score_history.append(float(quality))
+            if len(self._score_history) > _MAX_SCORE_HISTORY:
+                self._score_history.pop(0)
+            self._method_history.append(str(method))
+            if len(self._method_history) > _MAX_SCORE_HISTORY:
+                self._method_history.pop(0)
+            self._verdict_counts[verdict] = self._verdict_counts.get(verdict, 0) + 1
+
+    @staticmethod
+    def _verdict_label(quality: float) -> str:
+        """Map a scalar quality score to a stable verdict label."""
+        if quality >= _GOOD_THRESHOLD:
+            return "good"
+        if quality <= _POOR_THRESHOLD:
+            return "poor"
+        return "neutral"
 
     def _get_reward_model(self) -> Optional[Any]:
         if self._rm is None:

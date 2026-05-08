@@ -5789,6 +5789,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
             mem_count = self._get_memory_count()
             improvements = "✅ Active" if self.improvements else "❌ Inactive"
             autonomous = "✅ Running" if (self.autonomous_engine and self.autonomous_engine.running) else "❌ Stopped"
+            self._refresh_unified_feedback_status()
+            loop_quality = getattr(self, "_unified_loop_status", {}).get("recent_loop_quality")
+            loop_label = (
+                f"{loop_quality:.2f}" if isinstance(loop_quality, (int, float)) else "n/a"
+            )
             _phase_icons = {
                 "pending": "⏳ pending",
                 "running": "⏳ loading modules...",
@@ -5800,7 +5805,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return (
                 f"Status: OK | Memory: {mem_count} | "
                 f"Improvements: {improvements} | Autonomous: {autonomous} | "
-                f"Init: {init_label}"
+                f"Init: {init_label} | LoopQuality: {loop_label}"
             )
         except Exception as e:
             log.error(f"Status command failed: {e}")
@@ -6306,7 +6311,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         """Verify that all layers are connected into one unified feedback loop.
 
         Checks that the critical cognitive pipeline is intact:
-          Input → CommandRegistry/Router → Brain → Memory → ALE (loop)
+          Input → Router → Brain → Memory → Quality/Evaluation → Learning/ALE
 
         Pushes a success or warning summary to the init-progress queue so the
         user sees the result immediately after boot.
@@ -6343,13 +6348,39 @@ SW Categories: {stats.get('software_study_categories', 0)}
         else:
             _warn("KnowledgeDB", "not initialised — knowledge will not persist")
 
-        # 5. Learning layer — ALE
+        # 5. Learning layer — NiblitLearning
+        if getattr(self, "learning", None):
+            _ok("NiblitLearning (interaction-feedback layer)")
+        else:
+            _warn("NiblitLearning", "not initialised — interaction learning degraded")
+
+        # 6. Evaluation layer — EvaluationEngine
+        if getattr(self, "evaluation_engine", None):
+            _ok("EvaluationEngine (response-quality loop)")
+        else:
+            _warn("EvaluationEngine", "not initialised — advisor reinforcement disabled")
+
+        # 7. Quality layer — QualityFeedback
+        try:
+            from modules.quality_feedback import get_quality_feedback  # noqa: PLC0415
+            if get_quality_feedback():
+                _ok("QualityFeedback (KB / policy feedback layer)")
+        except Exception as _qf_err:  # noqa: BLE001
+            _warn("QualityFeedback", f"unavailable — {type(_qf_err).__name__}")
+
+        # 8. Policy layer — PolicyOptimizer
+        if getattr(self, "policy_optimizer", None):
+            _ok("PolicyOptimizer (cross-loop policy learning)")
+        else:
+            _warn("PolicyOptimizer", "not initialised — routing will not adapt globally")
+
+        # 9. Learning layer — ALE
         if getattr(self, "autonomous_engine", None):
             _ok("AutonomousLearningEngine (learning loop)")
         else:
             _warn("AutonomousLearningEngine", "not initialised — background learning disabled")
 
-        # 6. Optional advanced layers
+        # 10. Optional advanced layers
         if getattr(self, "kernel_v3", None):
             _ok("CognitiveKernelV3 (advanced reasoning)")
         if getattr(self, "msg_layer", None):
@@ -6387,6 +6418,54 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "warnings": [n for _, n in warnings],
             "verified": len(warnings) == 0,
         }
+        self._refresh_unified_feedback_status()
+
+    def _refresh_unified_feedback_status(self) -> Dict[str, Any]:
+        """Refresh runtime status of the whole-system feedback loop."""
+        status: Dict[str, Any] = dict(getattr(self, "_unified_loop_status", {}))
+        eval_quality = None
+        qf_quality = None
+
+        try:
+            if getattr(self, "evaluation_engine", None) is not None:
+                eval_quality = self.evaluation_engine.last_quality_score()
+        except Exception:
+            eval_quality = None
+
+        try:
+            from modules.quality_feedback import get_quality_feedback  # noqa: PLC0415
+            qf_status = get_quality_feedback().status()
+            qf_quality = qf_status.get("recent_avg_score")
+            status["quality_feedback"] = qf_status
+        except Exception:
+            pass
+
+        if getattr(self, "evaluation_engine", None) is not None:
+            try:
+                status["evaluation_engine"] = self.evaluation_engine.status()
+            except Exception:
+                pass
+
+        if getattr(self, "learning", None) is not None and getattr(self, "db", None) is not None:
+            try:
+                status["learning_preferences"] = self.db.get_preferences()
+            except Exception:
+                pass
+
+        available_scores = [
+            float(s) for s in (eval_quality, qf_quality) if s is not None
+        ]
+        status["recent_loop_quality"] = round(
+            sum(available_scores) / len(available_scores), 3
+        ) if available_scores else None
+        status["loop_active"] = bool(
+            getattr(self, "brain", None)
+            and getattr(self, "db", None)
+            and getattr(self, "learning", None)
+        )
+
+        self._unified_loop_status = status
+        return status
 
     def _init_vector_store(self) -> None:
         """
@@ -9354,12 +9433,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as e:
                 log.debug(f"Failed to record user activity: {e}")
 
-        if self.learning:
-            try:
-                self.learning.process_interaction(user_input, response)
-            except Exception as _e:
-                log.debug(f"NiblitLearning.process_interaction failed: {_e}")
-
         if self.tasks:
             try:
                 self.tasks.add_task("remember", {"input": user_input, "response": response})
@@ -9370,18 +9443,53 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # Score every response with QualityFeedback so KB facts are reinforced
         # or decayed and the PolicyOptimizer accumulates an episode for this
         # conversation turn.  Uses the DB attached to NiblitCore when available.
+        _qf_result = None
         if user_input and response:
             try:
                 from modules.quality_feedback import get_quality_feedback
                 qf = get_quality_feedback()
                 kb = getattr(self, "db", None)
-                qf.record_answer_quality(
+                _qf_result = qf.record_answer_quality(
                     query=user_input,
                     answer=response,
                     knowledge_db=kb,
                 )
             except Exception as _qf_err:
                 log.debug("_trigger_learning QualityFeedback failed: %s", _qf_err)
+
+        if self.learning:
+            try:
+                _eval_quality = None
+                _chosen_advisor = ""
+                if getattr(self, "evaluation_engine", None) is not None:
+                    try:
+                        _eval_quality = self.evaluation_engine.last_quality_score()
+                        _eval_history = self.evaluation_engine.get_history()
+                        if _eval_history:
+                            _chosen_advisor = str(_eval_history[-1].get("chosen_advisor", ""))
+                    except Exception:
+                        pass
+                _feedback_score = (
+                    float(_qf_result.get("score"))
+                    if isinstance(_qf_result, dict) and _qf_result.get("score") is not None
+                    else None
+                )
+                self.learning.process_interaction(
+                    user_message=user_input,
+                    ai_response=response,
+                    quality_score=_eval_quality,
+                    feedback_score=_feedback_score,
+                    chosen_advisor=_chosen_advisor,
+                    loop_source="niblit_core",
+                )
+                # Close the older learning loop on every interaction instead of
+                # only recording raw entries; this keeps preferences and style
+                # adaptation in sync with the live feedback loop.
+                self.learning.evolve()
+            except Exception as _e:
+                log.debug(f"NiblitLearning unified loop update failed: {_e}")
+
+        self._refresh_unified_feedback_status()
 
     def health_check(self) -> HealthCheckResult:
         """Comprehensive system health check."""

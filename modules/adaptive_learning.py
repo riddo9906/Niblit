@@ -89,10 +89,16 @@ class AdaptiveLearning:
                 "feedback_count": len(self.feedback_history),
             })
 
-        # Wire into QualityFeedback / PolicyOptimizer if available
+        # Wire user satisfaction into the same unified quality / policy loop
+        # used by the rest of Niblit.
         if self._quality_feedback is not None:
             try:
-                self._quality_feedback.record_answer_quality(query, response, satisfaction / 5.0)
+                self._quality_feedback.record_answer_quality(
+                    query=query,
+                    answer=response,
+                    knowledge_db=self._db,
+                    score_override=satisfaction / 5.0,
+                )
             except Exception as exc:
                 log.debug("[AdaptiveLearning] QualityFeedback call failed: %s", exc)
 
@@ -161,4 +167,3 @@ class AdaptiveLearning:
 
 if __name__ == "__main__":
     print('Running adaptive_learning.py')
-
