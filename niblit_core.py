@@ -6462,6 +6462,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception:
                 pass
 
+        if isinstance(getattr(self, "_last_feedback_arbitration", None), dict):
+            status["feedback_arbitration"] = dict(self._last_feedback_arbitration)
+
         available_scores = [
             float(s) for s in (eval_quality, qf_quality) if s is not None
         ]
@@ -6476,6 +6479,73 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         self._unified_loop_status = status
         return status
+
+    def _arbitrate_turn_quality(
+        self,
+        evaluation_quality: Optional[float],
+        feedback_quality: Optional[float],
+    ) -> Dict[str, Any]:
+        """Resolve per-turn quality into one domain-scoped runtime authority.
+
+        Arbitration is intentionally conservative:
+        - if only one source exists, use it directly
+        - if both exist and strongly disagree, use lower score as guardrail
+        - otherwise blend with weighted average (evaluation bias by default)
+        """
+        _eval = None
+        _qf = None
+        try:
+            if evaluation_quality is not None:
+                _eval = max(0.0, min(1.0, float(evaluation_quality)))
+        except Exception:
+            _eval = None
+        try:
+            if feedback_quality is not None:
+                _qf = max(0.0, min(1.0, float(feedback_quality)))
+        except Exception:
+            _qf = None
+
+        result: Dict[str, Any] = {
+            "evaluation_quality": _eval,
+            "feedback_quality": _qf,
+            "resolved_quality": None,
+            "strategy": "none",
+            "disagreement": None,
+        }
+
+        if _eval is None and _qf is None:
+            return result
+
+        if _eval is None:
+            result["resolved_quality"] = round(_qf, 4)
+            result["strategy"] = "single_source_feedback"
+            return result
+        if _qf is None:
+            result["resolved_quality"] = round(_eval, 4)
+            result["strategy"] = "single_source_evaluation"
+            return result
+
+        _diff = abs(_eval - _qf)
+        result["disagreement"] = round(_diff, 4)
+        if _diff >= 0.25:
+            # Conservative arbitration for strong cross-loop disagreement.
+            result["resolved_quality"] = round(min(_eval, _qf), 4)
+            result["strategy"] = "conflict_min_guard"
+            return result
+
+        _eval_w = float(os.environ.get("NIBLIT_FEEDBACK_EVAL_WEIGHT", "0.55"))
+        _qf_w = float(os.environ.get("NIBLIT_FEEDBACK_QF_WEIGHT", "0.45"))
+        _total_w = _eval_w + _qf_w
+        if _total_w <= 0:
+            _eval_w, _qf_w, _total_w = 0.55, 0.45, 1.0
+        _blended = ((_eval * _eval_w) + (_qf * _qf_w)) / _total_w
+        result["resolved_quality"] = round(_blended, 4)
+        result["strategy"] = "weighted_blend"
+        result["weights"] = {
+            "evaluation": round(_eval_w / _total_w, 4),
+            "feedback": round(_qf_w / _total_w, 4),
+        }
+        return result
 
     def _init_vector_store(self) -> None:
         """
@@ -9493,6 +9563,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     if isinstance(_qf_result, dict) and _qf_result.get("score") is not None
                     else None
                 )
+                _feedback_arbitration = self._arbitrate_turn_quality(
+                    evaluation_quality=_eval_quality,
+                    feedback_quality=_feedback_score,
+                )
+                self._last_feedback_arbitration = _feedback_arbitration
                 self.learning.process_interaction(
                     user_message=user_input,
                     ai_response=response,
@@ -9513,8 +9588,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if getattr(self, "adaptive_learning", None):
             try:
                 _turn_quality = None
-                if isinstance(_qf_result, dict):
-                    _turn_quality = _qf_result.get("score")
+                _arb = getattr(self, "_last_feedback_arbitration", None)
+                if isinstance(_arb, dict):
+                    _turn_quality = _arb.get("resolved_quality")
                 if _turn_quality is None and getattr(self, "evaluation_engine", None) is not None:
                     try:
                         _turn_quality = self.evaluation_engine.last_quality_score()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import sys
 import types
 
@@ -108,6 +109,42 @@ def test_niblit_learning_stores_quality_aware_entries_and_evolves():
     assert prefs["avg_interaction_quality"] >= 0.79
     assert "feedback_loop_coherence" in prefs
     assert mem.prefs["interactions"] == 2
+
+
+def test_niblit_learning_evolve_uses_recent_window(monkeypatch):
+    monkeypatch.setenv("NIBLIT_LEARNING_EVOLVE_WINDOW", "2")
+    monkeypatch.setenv("NIBLIT_LEARNING_SCAN_MULTIPLIER", "4")
+
+    import niblit_learning as _learning_mod
+
+    _learning_mod = importlib.reload(_learning_mod)
+    NiblitLearning = _learning_mod.NiblitLearning
+
+    class DummyMemory:
+        def __init__(self):
+            self.prefs = {}
+            self.log = [
+                {"learning_type": "interaction_feedback", "interaction_quality": 0.2, "response_length": 30, "is_question": False, "positivity": 0, "negativity": 1, "loop_success": False},
+                {"learning_type": "interaction_feedback", "interaction_quality": 0.4, "response_length": 60, "is_question": False, "positivity": 0, "negativity": 0, "loop_success": False},
+                {"learning_type": "interaction_feedback", "interaction_quality": 0.8, "response_length": 120, "is_question": True, "positivity": 1, "negativity": 0, "loop_success": True},
+                {"learning_type": "interaction_feedback", "interaction_quality": 0.9, "response_length": 140, "is_question": True, "positivity": 1, "negativity": 0, "loop_success": True},
+            ]
+
+        def get_learning_log(self):
+            return list(self.log)
+
+        def store_preferences(self, prefs):
+            self.prefs = prefs
+
+    mem = DummyMemory()
+    learning = NiblitLearning(mem)
+    prefs = learning.evolve()
+
+    assert prefs is not None
+    assert prefs["interactions"] == 2
+    assert prefs["avg_interaction_quality"] >= 0.84
+    assert prefs["aggregation_window"] == 2
+    assert prefs["all_time_log_entries"] == 4
 
 
 def test_system_health_monitor_reads_runtime_status_from_public_apis(monkeypatch):
@@ -233,3 +270,4 @@ def test_niblit_core_trigger_learning_closes_loop(monkeypatch):
     assert core.adaptive_learning.calls[0]["propagate_quality"] is False
     assert qf.calls == 1
     assert core._unified_loop_status["adaptive_learning"]["feedback_count"] == 1
+    assert core._unified_loop_status["feedback_arbitration"]["strategy"] == "weighted_blend"

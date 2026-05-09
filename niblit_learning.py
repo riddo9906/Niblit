@@ -9,6 +9,7 @@ elsewhere in the system (EvaluationEngine / QualityFeedback).
 """
 
 import logging
+import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -17,6 +18,9 @@ log = logging.getLogger(__name__)
 _POSITIVE_RE = re.compile(r"\b(good|great|awesome|thanks|helpful|nice|love)\b")
 _NEGATIVE_RE = re.compile(r"\b(bad|angry|sad|tired|pain|wrong|broken|useless)\b")
 _QUESTION_RE = re.compile(r"\b(what|why|how|when|where|which|can|could|should)\b")
+
+_EVOLVE_WINDOW_DEFAULT = max(1, int(os.environ.get("NIBLIT_LEARNING_EVOLVE_WINDOW", "300")))
+_EVOLVE_SCAN_MULTIPLIER = max(2, int(os.environ.get("NIBLIT_LEARNING_SCAN_MULTIPLIER", "3")))
 
 
 class NiblitLearning:
@@ -97,10 +101,15 @@ class NiblitLearning:
         if not log_entries:
             return None
 
+        evolve_window = _EVOLVE_WINDOW_DEFAULT
+        scan_limit = max(evolve_window * _EVOLVE_SCAN_MULTIPLIER, evolve_window)
+        candidate_entries = log_entries[-scan_limit:]
         interactions = [
-            d for d in log_entries
+            d for d in candidate_entries
             if isinstance(d, dict) and d.get("learning_type") == "interaction_feedback"
         ]
+        if len(interactions) > evolve_window:
+            interactions = interactions[-evolve_window:]
         if not interactions:
             return None
 
@@ -133,6 +142,8 @@ class NiblitLearning:
             "question_ratio": round(question_ratio, 4),
             "preferred_response_style": response_style,
             "feedback_loop_coherence": round((avg_quality * 0.6) + (success_rate * 0.4), 4),
+            "aggregation_window": evolve_window,
+            "all_time_log_entries": len(log_entries),
         }
 
         self.memory.store_preferences(pref)

@@ -182,3 +182,78 @@ To move toward architectural identity continuity, next changes should focus on:
    - periodic “why we changed” summaries combining planner decisions, CI outcomes, and policy updates.
 
 This will preserve directional coherence while Niblit continues increasing capability.
+
+---
+
+## 10) Additional Cross-Layer Gaps Found (Beyond Nibblebots)
+
+After the previous wiring update, a deeper audit of core runtime logic identified two higher-order integration risks:
+
+1. **Cross-loop quality conflicts had no explicit arbitration**
+   - `EvaluationEngine` and `QualityFeedback` were both feeding quality semantics.
+   - Downstream modules consumed signals, but there was no explicit conflict policy when those signals diverged.
+
+2. **Unbounded per-turn learning aggregation cost**
+   - `NiblitLearning.evolve()` aggregated across full history every turn.
+   - This creates avoidable runtime cost growth as interaction logs become large.
+
+---
+
+## 11) New Runtime Enhancements in This Iteration
+
+### A) Feedback arbitration in `NiblitCore`
+
+Added `_arbitrate_turn_quality(...)` to resolve quality signals into a single turn-level authority:
+
+- single source available → use that source
+- both sources available and strongly disagree → conservative guard (`min`) to avoid confidence inflation
+- otherwise → weighted blend (`evaluation` bias by default, configurable via env)
+
+This creates explicit *feedback hierarchy behavior* without introducing a separate engine yet.
+
+### B) Arbitration diagnostics exposed in unified status
+
+`_refresh_unified_feedback_status()` now includes:
+
+- `feedback_arbitration` payload:
+  - source scores
+  - disagreement magnitude
+  - strategy selected
+  - resolved quality
+
+This makes quality-source decisions inspectable and debuggable.
+
+### C) Adaptive-learning mapping now uses resolved turn quality
+
+`_trigger_learning()` now maps satisfaction from the arbitrated turn quality (not raw single-source fallback), improving coherence between:
+
+- evaluation
+- reinforcement
+- adaptation
+
+### D) Learning bottleneck reduction in `niblit_learning.py`
+
+`NiblitLearning.evolve()` now uses a bounded recent aggregation window:
+
+- `NIBLIT_LEARNING_EVOLVE_WINDOW` (default `300`)
+- `NIBLIT_LEARNING_SCAN_MULTIPLIER` (default `3`)
+
+This preserves adaptive behavior while reducing per-turn aggregation overhead as logs grow.
+
+---
+
+## 12) Practical Impact
+
+These changes improve architectural quality on four fronts:
+
+1. **Coherence**
+   - quality semantics are now resolved before adaptation decisions.
+
+2. **Stability**
+   - conservative guardrails on large signal disagreements reduce destabilizing over-reinforcement.
+
+3. **Observability**
+   - arbitration state is visible in unified loop status.
+
+4. **Performance**
+   - bounded learning aggregation reduces long-run runtime pressure.
