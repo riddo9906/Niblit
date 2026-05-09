@@ -257,3 +257,84 @@ These changes improve architectural quality on four fronts:
 
 4. **Performance**
    - bounded learning aggregation reduces long-run runtime pressure.
+
+---
+
+## 13) Full-System Script Collaboration (Deep Dive)
+
+This repository functions as a unified stack by splitting responsibility across script groups that exchange explicit state:
+
+### A) Bootstrap + Runtime Entry
+
+- `main.py` — primary interactive boot and lifecycle loop.
+- `aios_runtime.py` — canonical phase-boot coordinator (ENV→INTERFACE).
+- `niblit_core.py` — runtime orchestrator and turn loop authority.
+
+### B) Cognition + Routing
+
+- `niblit_brain.py` — inference and response generation.
+- `niblit_router.py` — command/chat/intent routing.
+
+### C) Memory + Knowledge
+
+- `niblit_memory/*` and `modules/knowledge_db.py` — persistent KB and memory APIs.
+- `modules/vector_store.py` and retrieval layers — semantic retrieval backbone.
+
+### D) Quality + Adaptation
+
+- `modules/evaluation_engine.py` — evaluation signal.
+- `modules/quality_feedback.py` — reinforcement signal.
+- `modules/adaptive_learning.py` — user-adaptation strategy.
+- `niblit_learning.py` — long-horizon interaction preference evolution.
+
+### E) Governance + Autonomy
+
+- `nibblebots/*` — strategic, governance, and autonomous evolution layers.
+- `nibblebots/system_health_monitor.py` — cross-loop health reflection.
+
+### F) AIOS / Kernel Integration
+
+- `kernel/*` (Python kernel abstractions) — host/runtime OS-adjacent services.
+- `os/kernel/*` (C++) — bare-metal kernel and syscall/runtime substrate.
+- `os/userland/niblit_tool/*` — userspace bridge into Python `NiblitCore`.
+
+---
+
+## 14) Additional Partial Wiring Fixed in This Pass
+
+### C++ NiblitOS IPC authority mapping
+
+`os/kernel/niblit_iface.cpp` now maps the allocated ring frame at the canonical
+`NIBLIT_RING_VADDR` with user-accessible page flags, instead of using a
+physical-only pointer. This aligns:
+
+- syscall contract (`SYS_NIBLIT_MMAP_RING`),
+- kernel-side ring ownership,
+- userspace bridge expectations.
+
+This removes a hidden address-authority mismatch in the OS integration layer.
+
+### NiblitOS userspace runner build wiring
+
+`os/Makefile` and root `Makefile` now expose explicit targets for the userspace
+Niblit runner bridge:
+
+- `runner` / `runner-run` (inside `os/`)
+- `niblit-runner` / `niblit-runner-run` (repo root wrappers)
+
+This makes the kernel↔Python bridge reproducible in development workflows.
+
+---
+
+## 15) Remaining High-Value Follow-Ups
+
+To continue reducing architectural drift:
+
+1. **Multi-axis quality arbitration**
+   - split scalar quality into domain axes (reasoning/factuality/engagement/risk).
+
+2. **Adaptive memory compression**
+   - preserve high-impact events while compressing low-impact historical noise.
+
+3. **Kernel↔Python reliability contract**
+   - add explicit ring health, timeout, and backpressure metrics in `/proc/niblit`.

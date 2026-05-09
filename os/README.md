@@ -236,6 +236,8 @@ make run        # QEMU from ISO  (-serial stdio for shell)
 make run-elf    # QEMU from ELF  (faster iteration)
 make shell      # build userland shell
 make shell-run  # run shell on host
+make runner     # build userspace Niblit runner bridge
+make runner-run # run userspace Niblit runner bridge
 ```
 
 ## From the repo root
@@ -247,8 +249,20 @@ make run-os             # boot in QEMU
 make run-os-elf         # boot ELF in QEMU
 make niblit-shell       # build userland shell binary
 make niblit-shell-run   # launch interactive shell
+make niblit-runner      # build userspace Niblit runner bridge
+make niblit-runner-run  # run userspace Niblit runner bridge
 make kernel-shell       # launch Python kernel/ shell
 ```
+
+## IPC authority note
+
+The shared Niblit ring now uses canonical virtual address authority:
+
+- physical frame allocated at runtime
+- mapped at `NIBLIT_RING_VADDR`
+- syscall `SYS_NIBLIT_MMAP_RING` returns that same mapped address
+
+This keeps kernel and userspace bridge agreement explicit for ring-based IPC.
 
 ## Roadmap
 
@@ -264,4 +278,3 @@ make kernel-shell       # launch Python kernel/ shell
 | 6     | 🔲 Next | Port musl libc; run Python 3 as a native NiblitOS process |
 | 7     | 🔲 Next | SMP (multi-core) scheduler — one Niblit reasoner per CPU |
 | 8     | 🔲 Next | NVMe/ext4 driver for persistent KB storage beyond VFS RAM |
-

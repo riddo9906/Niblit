@@ -318,6 +318,51 @@ The following components from the AIOS proposal have been implemented:
    sequence with per-phase timing, hook registration, and singleton access via
    `get_aios_runtime()`.
 
+---
+
+## C++ AiOS Logic Review (for Further Development)
+
+Niblit's C++ OS layer (`/os`) provides the low-level substrate for "Niblit as OS":
+
+### Kernel-side responsibilities
+
+- `os/kernel/kernel.cpp` — deterministic boot order and subsystem activation.
+- `os/kernel/syscall.cpp` — syscall control plane including Niblit-specific syscalls (201–209).
+- `os/kernel/niblit_iface.*` — shared IPC ring contract for kernel↔AI communication.
+- `os/kernel/procfs.*` + `os/kernel/vfs.*` — observability and persistent kernel-side AI state.
+
+### Userspace bridge responsibilities
+
+- `os/userland/niblit_tool/niblit_runner.c` — daemon/bridge between kernel IPC and Python tool runtime.
+- `os/userland/niblit_tool/niblit_entry.py` — dispatch layer into `NiblitCore`.
+
+### Wiring hardening now present
+
+- Ring memory is now mapped at canonical `NIBLIT_RING_VADDR` during kernel interface init, aligning syscall-reported address and shared-memory authority.
+- Build wiring now includes explicit runner targets (`make niblit-runner`, `make niblit-runner-run`) so bridge testing is reproducible.
+
+---
+
+## Unified AIOS Boot-to-Reasoning Path
+
+1. C++ kernel boots and brings up syscall/IPC/VFS layers.
+2. Niblit IPC ring accepts queries/tools through kernel shell/syscalls.
+3. Userspace runner forwards requests to `niblit_entry.py`.
+4. `niblit_entry.py` dispatches into Python `NiblitCore`.
+5. `NiblitCore` executes unified quality/evaluation/adaptive loops.
+6. Responses flow back through runner → ring → kernel consumers.
+
+This path gives a single causal chain from hardware boot to adaptive inference.
+
+---
+
+## Next OS-Level Development Priorities
+
+1. **Ring backpressure + timeout policy** in kernel/userspace bridge.
+2. **Multi-response correlation** beyond fixed request ID probing.
+3. **ProcFS AI diagnostics expansion** (queue depth, bridge RTT, arbitration stats).
+4. **Boot profile presets** for dev/safe/performance kernel policies.
+
 2. ✅ **`aios_scheduler.py`** — `AIOSScheduler` wraps `LifecycleEngine` and
    adds a priority heap queue (`ScheduledTask`), phase advancement, task
    submit/cancel, and singleton access via `get_aios_scheduler()`.
@@ -335,4 +380,3 @@ The following components from the AIOS proposal have been implemented:
    `aios.boot.complete` event at Phase 7 with per-phase timing, total boot
    duration, and `boot_id` to the `aios.runtime` logger (DEBUG) and the
    notification queue.
-

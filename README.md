@@ -134,6 +134,49 @@ Key design choices:
 
 ---
 
+## Unified System Wiring (Python AIOS + C++ NiblitOS)
+
+Niblit now operates as one coordinated system instead of loosely-coupled loops:
+
+1. **Runtime cognition** (`niblit_core.py`, `niblit_brain.py`) handles turn execution.
+2. **Evaluation + reinforcement** (`modules/evaluation_engine.py`, `modules/quality_feedback.py`) produce quality signals.
+3. **Turn-quality arbitration** (`niblit_core._arbitrate_turn_quality`) resolves conflicting quality sources into one runtime authority.
+4. **Adaptive layer** (`modules/adaptive_learning.py`) consumes resolved quality without duplicate reinforcement writes (`propagate_quality=False`).
+5. **Long-term learning** (`niblit_learning.py`) evolves interaction preferences using a bounded recency window.
+6. **Governance + evolution** (`nibblebots/*`) applies policy constraints and autonomous adaptation.
+7. **Health/observability** (`_refresh_unified_feedback_status`, `system_health_monitor`) exposes loop quality + arbitration diagnostics.
+
+This architecture prioritizes coherence, causality, and bounded adaptation under scale.
+
+### Current bottleneck controls
+
+- **Feedback conflict guardrails:** high disagreement between evaluation and reinforcement does not get naively averaged.
+- **Bounded learning aggregation:** `NIBLIT_LEARNING_EVOLVE_WINDOW` and `NIBLIT_LEARNING_SCAN_MULTIPLIER` avoid unbounded per-turn aggregation growth.
+- **Single-turn quality authority:** adaptive satisfaction mapping consumes resolved turn-quality, reducing drift between subsystems.
+
+### NiblitOS (C++) integration path
+
+For OS-level execution, the C++ kernel and Python stack connect through the Niblit IPC ring:
+
+`kernel/syscall + niblit_iface` ⇄ `os/userland/niblit_tool/niblit_runner.c` ⇄ `niblit_entry.py` ⇄ `NiblitCore`.
+
+Useful host-side bridge targets:
+
+```bash
+make niblit-runner
+make niblit-runner-run
+```
+
+These complement:
+
+```bash
+make boot-kernel
+make boot-kernel-iso
+make run-os
+```
+
+---
+
 ## Running Niblit in Termux (proot-Ubuntu)
 
 The recommended way to run Niblit on Android is inside a **proot-distro

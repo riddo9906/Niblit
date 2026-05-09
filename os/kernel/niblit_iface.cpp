@@ -5,6 +5,7 @@
 #include "niblit_iface.h"
 #include "vga.h"
 #include "memory.h"
+#include "paging.h"
 #include <stddef.h>
 
 // Simple byte-copy (no libc available in early kernel)
@@ -27,17 +28,25 @@ void init() {
         return;
     }
 
-    // Identity-map the page at NIBLIT_RING_VADDR for now
-    // (a real paging layer would set up proper virtual mapping here).
-    s_ring = reinterpret_cast<NiblitRing*>(phys);
+    // Map the physical page at the canonical shared virtual address so:
+    // - SYS_NIBLIT_MMAP_RING returns a real mapped location
+    // - kernel + userspace agree on a single authority address
+    Paging::map_page(
+        NIBLIT_RING_VADDR,
+        phys,
+        Paging::PAGE_PRESENT | Paging::PAGE_WRITABLE | Paging::PAGE_USER
+    );
+    s_ring = reinterpret_cast<NiblitRing*>(NIBLIT_RING_VADDR);
 
     // Zero-init the ring
     volatile uint8_t* p = reinterpret_cast<volatile uint8_t*>(s_ring);
     for (size_t i = 0; i < sizeof(NiblitRing); ++i) p[i] = 0;
 
-    VGA::write("[NIBLIT] Ring buffer at phys=");
+    VGA::write("[NIBLIT] Ring buffer vaddr=");
+    VGA::write_hex(NIBLIT_RING_VADDR);
+    VGA::write(" phys=");
     VGA::write_hex(phys);
-    VGA::writeln(" — Niblit AI tool interface ready.");
+    VGA::writeln(" (shared authority) — Niblit AI tool interface ready.");
 }
 
 uint32_t send_request(uint32_t type, const char* tool, const char* query) {

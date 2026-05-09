@@ -20,6 +20,8 @@
 //   NIBLIT_ENTRY_PATH    — path to niblit_entry.py (default: niblit_entry.py)
 //   NIBLIT_PYTHON        — python3 interpreter to use (default: python3)
 
+#define _DEFAULT_SOURCE
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -162,11 +164,6 @@ static int dispatch_via_socket(NiblitRing* ring, uint32_t req_idx,
 
     // Build JSON request
     char request_json[NIBLIT_MAX_QUERY + 256];
-    snprintf(request_json, sizeof(request_json),
-             "{\"request_id\":%u,\"type\":\"%s\",\"tool\":\"%s\",\"query\":",
-             req->id,
-             req->type == 1 ? "tool" : "query",
-             req->tool);
 
     // Simple JSON string escape for query (replace " with \")
     char escaped_query[NIBLIT_MAX_QUERY * 2 + 4];
@@ -181,8 +178,21 @@ static int dispatch_via_socket(NiblitRing* ring, uint32_t req_idx,
     escaped_query[oi++] = '"';
     escaped_query[oi] = '\0';
 
-    strncat(request_json, escaped_query, sizeof(request_json) - strlen(request_json) - 4);
-    strncat(request_json, "}\n", sizeof(request_json) - strlen(request_json) - 1);
+    int w = snprintf(
+        request_json,
+        sizeof(request_json),
+        "{\"request_id\":%u,\"type\":\"%s\",\"tool\":\"%s\",\"query\":%s}\n",
+        req->id,
+        req->type == 1 ? "tool" : "query",
+        req->tool,
+        escaped_query
+    );
+    if (w < 0 || (size_t)w >= sizeof(request_json)) {
+        resp->status = 1;
+        snprintf(resp->result, NIBLIT_MAX_RESPONSE,
+                 "ERROR: request JSON too large");
+        return 0;
+    }
 
     // Send
     if (send(g_daemon_fd, request_json, strlen(request_json), MSG_NOSIGNAL) < 0) {
@@ -220,8 +230,10 @@ static int dispatch_via_socket(NiblitRing* ring, uint32_t req_idx,
         }
         resp->result[ri] = '\0';
     } else {
-        strncpy(resp->result, buf, NIBLIT_MAX_RESPONSE - 1);
-        resp->result[NIBLIT_MAX_RESPONSE - 1] = '\0';
+        size_t copy_n = (size_t)total;
+        if (copy_n > NIBLIT_MAX_RESPONSE - 1) copy_n = NIBLIT_MAX_RESPONSE - 1;
+        memcpy(resp->result, buf, copy_n);
+        resp->result[copy_n] = '\0';
     }
 
     const char* status_ok = "\"status\":\"ok\"";

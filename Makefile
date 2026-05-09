@@ -137,7 +137,14 @@ niblit-shell:
 niblit-shell-run:
 	$(MAKE) -C os shell-run
 
+## niblit-runner: Build the NiblitOS userspace Niblit tool runner (host bridge)
+niblit-runner:
+	$(MAKE) -C os runner
+
+## niblit-runner-run: Run the userspace Niblit tool runner (host bridge mode)
+niblit-runner-run:
+	$(MAKE) -C os runner-run
+
 ## kernel-shell: Start the Python kernel/ interactive shell
 kernel-shell:
 	python3 -m kernel.shell
-
