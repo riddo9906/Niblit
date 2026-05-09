@@ -264,3 +264,7 @@ def test_batch_size_nonzero():
     batch_size = len(fix_types)
     assert batch_size == 3
     assert batch_size > 0  # verifies the Phase 18.5 fix (was always 0 before)
+
+
+if __name__ == "__main__":
+    print('Running test_phase18_5_upgrades.py')
