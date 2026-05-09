@@ -46,6 +46,22 @@ def test_adaptive_learning_routes_feedback_into_quality_loop():
     assert calls["score_override"] == 0.8
 
 
+def test_adaptive_learning_can_skip_quality_feedback_propagation():
+    from modules.adaptive_learning import AdaptiveLearning
+
+    called = {"count": 0}
+
+    class DummyQF:
+        def record_answer_quality(self, **kwargs):
+            called["count"] += 1
+            return {"score": kwargs.get("score_override", 0.5)}
+
+    al = AdaptiveLearning(knowledge_db=object(), quality_feedback=DummyQF())
+    al.record_feedback("hello", "hi", 4, propagate_quality=False)
+
+    assert called["count"] == 0
+
+
 def test_niblit_learning_stores_quality_aware_entries_and_evolves():
     from niblit_learning import NiblitLearning
 
@@ -160,16 +176,35 @@ def test_niblit_core_trigger_learning_closes_loop(monkeypatch):
             return {"avg_quality": 0.71}
 
     class DummyQF:
+        def __init__(self):
+            self.calls = 0
+
         def record_answer_quality(self, **kwargs):
+            self.calls += 1
             return {"score": 0.83}
 
         def status(self):
             return {"recent_avg_score": 0.83, "total_scores": 1}
 
+    class DummyAdaptiveLearning:
+        def __init__(self):
+            self.calls = []
+            self.learning_strategy = "balanced"
+            self.feedback_history = []
+
+        def record_feedback(self, **kwargs):
+            self.calls.append(kwargs)
+            self.feedback_history.append({"satisfaction": kwargs.get("satisfaction", 3)})
+
+        def get_recommended_topics(self, count=3):
+            return ["memory", "reasoning"][:count]
+
+    qf = DummyQF()
+
     monkeypatch.setitem(
         sys.modules,
         "modules.quality_feedback",
-        types.SimpleNamespace(get_quality_feedback=lambda: DummyQF()),
+        types.SimpleNamespace(get_quality_feedback=lambda: qf),
     )
 
     core = NiblitCore.__new__(NiblitCore)
@@ -178,6 +213,7 @@ def test_niblit_core_trigger_learning_closes_loop(monkeypatch):
     core.tasks = DummyTasks()
     core.db = object()
     core.evaluation_engine = DummyEval()
+    core.adaptive_learning = DummyAdaptiveLearning()
     core.brain = object()
     core._unified_loop_status = {}
 
@@ -193,3 +229,7 @@ def test_niblit_core_trigger_learning_closes_loop(monkeypatch):
     assert core.learning.kwargs["feedback_score"] == 0.83
     assert core.learning.kwargs["chosen_advisor"] == "llm"
     assert core._unified_loop_status["recent_loop_quality"] == 0.77
+    assert len(core.adaptive_learning.calls) == 1
+    assert core.adaptive_learning.calls[0]["propagate_quality"] is False
+    assert qf.calls == 1
+    assert core._unified_loop_status["adaptive_learning"]["feedback_count"] == 1

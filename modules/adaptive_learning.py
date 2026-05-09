@@ -54,7 +54,13 @@ class AdaptiveLearning:
             "total_interest": self.user_preferences[topic],
         })
 
-    def record_feedback(self, query: str, response: str, satisfaction: int) -> None:
+    def record_feedback(
+        self,
+        query: str,
+        response: str,
+        satisfaction: int,
+        propagate_quality: bool = True,
+    ) -> None:
         """Record user feedback on a response.
 
         Parameters
@@ -91,7 +97,7 @@ class AdaptiveLearning:
 
         # Wire user satisfaction into the same unified quality / policy loop
         # used by the rest of Niblit.
-        if self._quality_feedback is not None:
+        if propagate_quality and self._quality_feedback is not None:
             try:
                 self._quality_feedback.record_answer_quality(
                     query=query,

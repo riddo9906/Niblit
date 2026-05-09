@@ -6452,6 +6452,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception:
                 pass
 
+        if getattr(self, "adaptive_learning", None) is not None:
+            try:
+                status["adaptive_learning"] = {
+                    "strategy": getattr(self.adaptive_learning, "learning_strategy", "balanced"),
+                    "feedback_count": len(getattr(self.adaptive_learning, "feedback_history", []) or []),
+                    "recommended_topics": self.adaptive_learning.get_recommended_topics(count=3),
+                }
+            except Exception:
+                pass
+
         available_scores = [
             float(s) for s in (eval_quality, qf_quality) if s is not None
         ]
@@ -8671,7 +8681,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         try:
             if AdaptiveLearning:
-                self.adaptive_learning = AdaptiveLearning()
+                _qf = None
+                try:
+                    from modules.quality_feedback import get_quality_feedback  # noqa: PLC0415
+                    _qf = get_quality_feedback()
+                except Exception as _qf_err:
+                    log.debug(f"[SELF-IMPROVEMENTS] AdaptiveLearning QualityFeedback unavailable: {_qf_err}")
+                self.adaptive_learning = AdaptiveLearning(
+                    knowledge_db=self.db,
+                    quality_feedback=_qf,
+                )
                 log.info("[SELF-IMPROVEMENTS] ✅ AdaptiveLearning")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] AdaptiveLearning failed: {e}")
@@ -9488,6 +9507,33 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self.learning.evolve()
             except Exception as _e:
                 log.debug(f"NiblitLearning unified loop update failed: {_e}")
+
+        # Feed the same interaction into AdaptiveLearning so preference strategy
+        # and topic guidance evolve alongside the phase-19 unified loop.
+        if getattr(self, "adaptive_learning", None):
+            try:
+                _turn_quality = None
+                if isinstance(_qf_result, dict):
+                    _turn_quality = _qf_result.get("score")
+                if _turn_quality is None and getattr(self, "evaluation_engine", None) is not None:
+                    try:
+                        _turn_quality = self.evaluation_engine.last_quality_score()
+                    except Exception:
+                        _turn_quality = None
+                if _turn_quality is not None:
+                    _turn_quality = max(0.0, min(1.0, float(_turn_quality)))
+                    _satisfaction = int(round(1.0 + (_turn_quality * 4.0)))
+                else:
+                    _satisfaction = 3
+                _satisfaction = max(1, min(5, _satisfaction))
+                self.adaptive_learning.record_feedback(
+                    query=user_input,
+                    response=response,
+                    satisfaction=_satisfaction,
+                    propagate_quality=False,
+                )
+            except Exception as _al_err:
+                log.debug("AdaptiveLearning turn feedback failed: %s", _al_err)
 
         self._refresh_unified_feedback_status()
 
