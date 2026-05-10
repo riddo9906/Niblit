@@ -76,6 +76,13 @@ EVENT_SYSTEM_MIRRORED   = "system.mirrored"         # Phase 16: emitted by syste
 EVENT_SYSTEM_RESONANCE  = "system.resonance"        # Phase 16: emitted by system_interface_layer after establish_resonance()
 EVENT_GOVERNANCE_ADAPTED = "governance.adapted"     # Phase 18: emitted by governance_evolution_engine after parameter adaptation
 
+# Phase 21: Cognitive Execution Layer
+EVENT_INTENT_CLASSIFIED  = "intent.classified"      # Phase 21: emitted by intent_engine after classify()
+EVENT_COGNITIVE_ROUTED   = "cognitive.routed"       # Phase 21: emitted by cognitive_router after route()
+EVENT_EXECUTION_COMPLETE = "execution.complete"     # Phase 21: emitted by execution_graph after run()
+EVENT_SELF_MODEL_UPDATED = "self_model.updated"     # Phase 21: emitted by self_model after update
+EVENT_PLAN_SELECTED      = "plan.selected"          # Phase 21: emitted by deliberative_planner after plan()
+
 
 @dataclass
 class NiblitEvent:
