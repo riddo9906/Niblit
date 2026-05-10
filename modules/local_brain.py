@@ -63,7 +63,7 @@ NIBLIT_LLAMA_BINARY         Path to the llama.cpp CLI binary
 NIBLIT_LLAMA_SERVER_URL     Base URL of a running llama-server instance.
                             Default: ``http://127.0.0.1:8080``
 NIBLIT_LLAMA_SERVER_TIMEOUT HTTP timeout in seconds for llama-server calls.
-                            Default: 120
+                            Default: 600
 
 Model switching
 ---------------
