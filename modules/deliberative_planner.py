@@ -267,8 +267,13 @@ class DeliberativePlanner:
                 pool.insert(0, "call_tool")
 
         # Deduplicate while preserving order
-        seen = set()
-        return [a for a in pool if not (a in seen or seen.add(a))]  # type: ignore[func-returns-value]
+        seen: set = set()
+        unique: List[str] = []
+        for a in pool:
+            if a not in seen:
+                seen.add(a)
+                unique.append(a)
+        return unique
 
     def _trivial_plan(self) -> PlanBranch:
         return PlanBranch(
