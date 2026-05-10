@@ -756,10 +756,25 @@ def run_shell(core, io):
 # ─────────────────────────────
 # MAIN
 # ─────────────────────────────
-if __name__ == "__main__":
+def main(argv=None):
+    """Niblit AIOS entry point.
+
+    This function is registered as the ``niblit`` console-script by
+    ``pyproject.toml`` so users can invoke the AIOS from any directory
+    with simply::
+
+        niblit
+        niblit -c 'status'
+        niblit --list-tools
+
+    Args:
+        argv: Argument list override (defaults to ``sys.argv[1:]``).
+    """
+    global DEBUG_MODE
+
     # ── Parse CLI arguments (Ollama-inspired) ─────────────────────────────────
     try:
-        _args = parse_args()
+        _args = parse_args(argv)
     except SystemExit:
         raise  # --help / --version already printed; honour the exit
 
@@ -986,3 +1001,7 @@ if __name__ == "__main__":
             _stop_sidecar()
         except Exception:
             pass
+
+
+if __name__ == "__main__":
+    main()

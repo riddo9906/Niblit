@@ -29,8 +29,11 @@ Architecture::
          ▼
     DecisionEngine          ← decide_action()  → BUY / SELL / HOLD
          │
-         ▼  (optional RL override)
-    RLTradingPolicy         ← PPO / DQN / Transformer  [rl_trading_policy.py]
+         ├── (optional RL override)
+         │   RLTradingPolicy  ← PPO / DQN / Transformer  [rl_trading_policy.py]
+         │
+         └── (optional TFT second-opinion)
+             TFTForecastAdapter ← EWMA / pytorch-forecasting TFT  [tft_forecast.py]
 
 Autonomous cycle control::
 
@@ -48,6 +51,8 @@ Configuration (environment variables)::
     TRADING_KLINE_LIMIT — Number of candles to fetch per cycle, default 200
     NIBLIT_RL_ALGORITHM — RL policy algorithm: ppo | dqn | transformer (default ppo)
     NIBLIT_RL_ENABLED   — Set to "1" to activate RL override in decide_action()
+    NIBLIT_TFT_ENABLED  — Set to "0" to disable TFT forecast signal (default 1)
+    NIBLIT_TFT_VOTE_ENABLED — Set to "1" so TFT must agree before acting (default 0)
 
 Usage::
 
@@ -114,6 +119,17 @@ try:
 except ImportError:  # pragma: no cover
     _get_rl_policy = None  # type: ignore[assignment]
     _RL_AVAILABLE = False
+
+# ── TFT market forecast (optional second-opinion signal) ──────────────────────
+try:
+    from modules.tft_forecast import get_tft_adapter as _get_tft_adapter
+    _TFT_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _get_tft_adapter = None  # type: ignore[assignment]
+    _TFT_AVAILABLE = False
+
+# Set NIBLIT_TFT_VOTE_ENABLED=1 to require TFT to agree before acting (default 0)
+_TFT_VOTE_ENABLED: bool = os.getenv("NIBLIT_TFT_VOTE_ENABLED", "0").strip() == "1"
 
 # ── Position sizer (Kelly Criterion + max-drawdown circuit breaker) ───────────
 try:
@@ -444,6 +460,15 @@ class TradingBrain:
         Transformer) which learns from market state vectors over time.
         Otherwise falls back to the heuristic similarity-score approach.
 
+        An optional TFT (Temporal Fusion Transformer) forecast signal is
+        consulted as a second opinion:
+
+        * When ``NIBLIT_TFT_VOTE_ENABLED=0`` (default): the TFT signal is
+          logged for reference but does *not* change the final decision.
+        * When ``NIBLIT_TFT_VOTE_ENABLED=1``: the primary action (RL or
+          heuristic) is only returned if the TFT forecast agrees.  When they
+          disagree the more conservative action (HOLD > BUY/SELL) is chosen.
+
         Heuristic logic (default):
 
         * If fewer than 5 similar past states exist → **HOLD**.
@@ -482,6 +507,7 @@ class TradingBrain:
             log.debug("[TradingBrain] Insufficient history — heuristic defaulting to HOLD.")
 
         # RL policy override: when enabled, delegate to the learned policy
+        primary_action = heuristic_action
         if _RL_ENABLED and _RL_AVAILABLE and _get_rl_policy is not None:
             try:
                 rl_policy = _get_rl_policy()
@@ -490,11 +516,32 @@ class TradingBrain:
                     "[TradingBrain] RL(%s) → %s  |  heuristic → %s",
                     rl_policy.algorithm, rl_action, heuristic_action,
                 )
-                return rl_action
+                primary_action = rl_action
             except Exception as exc:  # pragma: no cover
                 log.warning("[TradingBrain] RL policy error — falling back to heuristic: %s", exc)
 
-        return heuristic_action
+        # TFT forecast second-opinion signal
+        if _TFT_AVAILABLE and _get_tft_adapter is not None:
+            try:
+                tft_adapter = _get_tft_adapter()
+                tft_signal = tft_adapter.predict_signal()
+                log.debug(
+                    "[TradingBrain] TFT forecast → %s  |  primary → %s",
+                    tft_signal, primary_action,
+                )
+                if _TFT_VOTE_ENABLED and tft_signal != "HOLD":
+                    if tft_signal != primary_action:
+                        # Signals disagree — be conservative
+                        log.info(
+                            "[TradingBrain] TFT (%s) disagrees with primary (%s) "
+                            "— conservatively holding (NIBLIT_TFT_VOTE_ENABLED=1)",
+                            tft_signal, primary_action,
+                        )
+                        return "HOLD"
+            except Exception as exc:  # pragma: no cover
+                log.debug("[TradingBrain] TFT signal error (non-fatal): %s", exc)
+
+        return primary_action
 
     # ─────────────────────────────────────────────────────────────────────────
     # MAIN CYCLE
@@ -531,6 +578,13 @@ class TradingBrain:
 
             # 3. Extract latest candle
             latest = df.iloc[-1]
+
+            # 3a. Feed close price into TFT rolling buffer
+            if _TFT_AVAILABLE and _get_tft_adapter is not None:
+                try:
+                    _get_tft_adapter().push_price(float(latest["close"]))
+                except Exception:  # pragma: no cover
+                    pass
 
             # 4. Build state vector
             vector = self.build_state_vector(latest)
@@ -711,7 +765,8 @@ class TradingBrain:
         Returns:
             Dict with keys: ``running``, ``symbol``, ``cycle_secs``,
             ``cycle_count``, ``last_decision``, ``last_cycle_ts``,
-            ``rl_enabled``, ``rl_algorithm``, ``position_sizer``.
+            ``rl_enabled``, ``rl_algorithm``, ``tft_forecast``,
+            ``position_sizer``.
         """
         result: Dict[str, Any] = {
             "running": self.running,
@@ -731,6 +786,12 @@ class TradingBrain:
         if _RL_ENABLED and _RL_AVAILABLE and _get_rl_policy is not None:
             try:
                 result["rl_policy"] = _get_rl_policy().status()
+            except Exception:  # pragma: no cover
+                pass
+        # Include TFT forecast status
+        if _TFT_AVAILABLE and _get_tft_adapter is not None:
+            try:
+                result["tft_forecast"] = _get_tft_adapter().status()
             except Exception:  # pragma: no cover
                 pass
         # Include position sizer status

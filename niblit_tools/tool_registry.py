@@ -257,6 +257,12 @@ def _register_builtin_tools(registry: ToolRegistry) -> None:
     except Exception as exc:
         logger.debug("Could not register niblit_serpex_search: %s", exc)
 
+    try:
+        from niblit_tools.builtin_tools import register_all as _register_builtins
+        _register_builtins(registry)
+    except Exception as exc:  # pragma: no cover
+        logger.debug("Could not register core built-in tools: %s", exc)
+
 
 if __name__ == "__main__":
     reg = get_registry()
