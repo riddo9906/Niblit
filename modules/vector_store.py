@@ -79,7 +79,9 @@ except ImportError:
 
 
 _EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
-_EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))  # default dim for intfloat/multilingual-e5-small
+# Default dim for intfloat/multilingual-e5-small. Override with EMBEDDING_DIM
+# when the active embedding source outputs a different vector size.
+_EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))
 _MAX_STORED_ITEMS = 10_000   # in-memory/FAISS safety cap
 # Maximum characters stored as ``text`` in the Qdrant payload.  Using 6000
 # characters ensures rich context is preserved without hitting Qdrant's per-
@@ -412,6 +414,7 @@ class VectorStore:
         self._faiss_items: List[Dict[str, Any]] = []   # parallel list of {id, text}
         self._memory_backend = _InMemoryBackend()
         self._effective_embedding_dim: Optional[int] = None
+        self._effective_dim_fallback_logged: bool = False
 
         self._init_backend()
 
@@ -424,8 +427,21 @@ class VectorStore:
             probe = self._embedder.encode("niblit dimension probe")
             if probe:
                 dim = len(probe)
+            elif not self._effective_dim_fallback_logged:
+                log.warning(
+                    "[VectorStore] Could not probe embedding dimension from model; "
+                    "falling back to EMBEDDING_DIM=%d",
+                    _EMBEDDING_DIM,
+                )
+                self._effective_dim_fallback_logged = True
         except Exception:
-            pass
+            if not self._effective_dim_fallback_logged:
+                log.warning(
+                    "[VectorStore] Embedding dimension probe failed; "
+                    "falling back to EMBEDDING_DIM=%d",
+                    _EMBEDDING_DIM,
+                )
+                self._effective_dim_fallback_logged = True
         self._effective_embedding_dim = dim
         return dim
 
