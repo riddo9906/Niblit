@@ -302,16 +302,16 @@ class ImprovementIntegrator:
     def collect_and_summarize(self, interactions: List[Dict] = None) -> Dict[str, Any]:
         """
         Collect recent interactions and generate summary insights.
-        
+
         Args:
             interactions: List of interaction dicts to summarize
-        
+
         Returns:
             Summary of key insights and patterns
         """
         try:
             log.info("📊 [INTEGRATOR] Collecting and summarizing interactions...")
-            
+
             if interactions is None:
                 interactions = []
                 try:
@@ -319,14 +319,14 @@ class ImprovementIntegrator:
                         interactions = self.db.recent_interactions(10) or []
                 except Exception as e:
                     log.debug(f"Failed to get recent interactions: {e}")
-            
+
             if not interactions:
                 return {
                     "status": "No interactions to summarize",
                     "count": 0,
                     "summary": {}
                 }
-            
+
             summary = {
                 "total_interactions": len(interactions),
                 "sources": {},
@@ -335,7 +335,7 @@ class ImprovementIntegrator:
                 "topics": [],
                 "insights": []
             }
-            
+
             # Analyze interactions
             all_text = []
             for interaction in interactions:
@@ -343,11 +343,11 @@ class ImprovementIntegrator:
                     # Count by source
                     source = interaction.get("source", "unknown")
                     summary["sources"][source] = summary["sources"].get(source, 0) + 1
-                    
+
                     # Count by speaker
                     speaker = interaction.get("speaker", "unknown")
                     summary["speakers"][speaker] = summary["speakers"].get(speaker, 0) + 1
-                    
+
                     # Collect text
                     if interaction.get("input"):
                         all_text.append(str(interaction["input"]).lower())
@@ -355,29 +355,29 @@ class ImprovementIntegrator:
                         all_text.append(str(interaction["response"]).lower())
                 except Exception:
                     pass
-            
+
             # Extract keywords (most common words)
             if all_text:
                 text_combined = " ".join(all_text)
                 words = text_combined.split()
-                
+
                 # Filter out common words
                 stop_words = {
                     "the", "a", "an", "and", "or", "but", "in", "on", "at",
                     "to", "for", "of", "is", "are", "was", "were", "be", "been",
                     "i", "you", "he", "she", "it", "we", "they", "this", "that"
                 }
-                
+
                 word_freq = {}
                 for word in words:
                     clean_word = word.strip(".,!?;:").lower()
                     if clean_word and len(clean_word) > 3 and clean_word not in stop_words:
                         word_freq[clean_word] = word_freq.get(clean_word, 0) + 1
-                
+
                 # Get top keywords
                 sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
                 summary["top_keywords"] = [word for word, count in sorted_words[:5]]
-                
+
                 # Infer topics based on keywords
                 topics_keywords = {
                     "learning": ["learn", "teach", "knowledge", "study", "training"],
@@ -386,29 +386,29 @@ class ImprovementIntegrator:
                     "reasoning": ["reason", "logic", "thinking", "analyze", "conclude"],
                     "ideas": ["idea", "concept", "create", "generate", "plan"]
                 }
-                
+
                 for topic, keywords in topics_keywords.items():
                     if any(kw in summary["top_keywords"] for kw in keywords):
                         summary["topics"].append(topic)
-            
+
             # Generate insights
             if summary["sources"]:
                 most_common_source = max(summary["sources"].items(), key=lambda x: x[1])[0]
                 summary["insights"].append(f"Most common source: {most_common_source}")
-            
+
             if summary["speakers"]:
                 most_common_speaker = max(summary["speakers"].items(), key=lambda x: x[1])[0]
                 summary["insights"].append(f"Primary speaker: {most_common_speaker}")
-            
+
             if summary["topics"]:
                 summary["insights"].append(f"Main topics: {', '.join(summary['topics'])}")
-            
+
             summary["insights"].append(f"Analyzed {len(interactions)} interactions")
             summary["status"] = "✅ Complete"
-            
+
             log.info(f"📊 [INTEGRATOR] Summary generated: {len(summary['insights'])} insights")
             return summary
-        
+
         except Exception as e:
             log.error(f"❌ Collect and summarize failed: {e}")
             return {"status": "Error", "error": str(e)}
@@ -416,13 +416,13 @@ class ImprovementIntegrator:
     def analyze_learning_patterns(self) -> Dict[str, Any]:
         """
         Analyze learning patterns and patterns from the knowledge database.
-        
+
         Returns:
             Dictionary with learning pattern analysis
         """
         try:
             log.info("🔍 [INTEGRATOR] Analyzing learning patterns...")
-            
+
             patterns = {
                 "total_facts": 0,
                 "facts_by_tag": {},
@@ -431,31 +431,31 @@ class ImprovementIntegrator:
                 "learning_velocity": 0,
                 "pattern_insights": []
             }
-            
+
             # Analyze facts
             try:
                 if self.db and hasattr(self.db, "list_facts"):
                     facts = self.db.list_facts(100) or []
                     patterns["total_facts"] = len(facts)
-                    
+
                     for fact in facts:
                         tags = fact.get("tags", [])
                         for tag in tags:
                             patterns["facts_by_tag"][tag] = patterns["facts_by_tag"].get(tag, 0) + 1
             except Exception as e:
                 log.debug(f"Failed to analyze facts: {e}")
-            
+
             # Analyze learning queue
             try:
                 if self.db and hasattr(self.db, "get_learning_queue"):
                     queue = self.db.get_learning_queue() or []
                     patterns["learning_queue_size"] = len(queue)
-                    
+
                     recent_topics = [item.get("topic") for item in queue[:5] if item.get("topic")]
                     patterns["recent_topics"] = recent_topics
             except Exception as e:
                 log.debug(f"Failed to analyze learning queue: {e}")
-            
+
             # Calculate learning velocity
             try:
                 if self.db and hasattr(self.db, "get_learning_log"):
@@ -463,24 +463,24 @@ class ImprovementIntegrator:
                     patterns["learning_velocity"] = len(log_entries) / 100  # Normalize
             except Exception as e:
                 log.debug(f"Failed to calculate learning velocity: {e}")
-            
+
             # Generate insights
             if patterns["total_facts"] > 0:
                 patterns["pattern_insights"].append(f"Accumulated {patterns['total_facts']} facts")
-            
+
             if patterns["facts_by_tag"]:
                 top_tag = max(patterns["facts_by_tag"].items(), key=lambda x: x[1])[0]
                 patterns["pattern_insights"].append(f"Most tagged category: {top_tag}")
-            
+
             if patterns["learning_queue_size"] > 0:
                 patterns["pattern_insights"].append(f"Learning queue has {patterns['learning_queue_size']} pending items")
-            
+
             if patterns["recent_topics"]:
                 patterns["pattern_insights"].append(f"Recent topics: {', '.join(patterns['recent_topics'][:3])}")
-            
+
             log.info(f"🔍 [INTEGRATOR] Learning patterns analyzed: {len(patterns['pattern_insights'])} insights")
             return patterns
-        
+
         except Exception as e:
             log.error(f"❌ Learning pattern analysis failed: {e}")
             return {"status": "Error", "error": str(e)}

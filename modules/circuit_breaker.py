@@ -39,7 +39,7 @@ class CircuitBreakerConfig:
     failure_threshold: int = 5
     success_threshold: int = 2
     timeout_seconds: float = 60
-    
+
     def __post_init__(self):
         if self.failure_threshold < 1:
             raise ValueError("failure_threshold must be >= 1")
@@ -74,7 +74,7 @@ class CircuitBreaker:
             timeout_seconds: Timeout seconds (legacy support)
         """
         self.name = name
-        
+
         if config is None:
             if failure_threshold is not None or success_threshold is not None or timeout_seconds is not None:
                 config = CircuitBreakerConfig(
@@ -84,7 +84,7 @@ class CircuitBreaker:
                 )
             else:
                 config = CircuitBreakerConfig()
-        
+
         self.config = config
         self.state = CircuitState.CLOSED
         self.failure_count = 0

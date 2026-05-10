@@ -454,7 +454,6 @@ def _shell_process(core, user_input: str) -> dict:
     return {"reply": str(response), "suggestion": suggestion, "ts": ts, "debug_lines": []}
 
 
-
 # ══════════════════════════════════════════════════════════════
 # COMMAND CATALOGUE  — every command from niblit_core.help_text()
 # Used by the sidebar menu (/api/commands) and JS quick-actions.
@@ -686,7 +685,6 @@ COMMAND_GROUPS = [
         ],
     },
 ]
-
 
 
 # ══════════════════════════════════════════════════════════════

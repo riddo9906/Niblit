@@ -648,6 +648,5 @@ def test_get_structural_info_commands_section(monkeypatch):
     assert len(result["commands"]) > 0
 
 
-
 if __name__ == "__main__":
     print('Running test_local_brain.py')
