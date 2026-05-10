@@ -27,7 +27,7 @@ _DEFAULT_GGUF_URL = (
     "qwen2.5-0.5b-instruct-q4_k_m.gguf"
 )
 _DEFAULT_GGUF_FILENAME = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
-_DEFAULT_GGUF_DIR = "~/models"
+_DEFAULT_GGUF_DIR = "/data/data/com.termux/files/home/models"
 _DEFAULT_GGUF_DEST = f"{_DEFAULT_GGUF_DIR}/{_DEFAULT_GGUF_FILENAME}"
 
 
@@ -52,7 +52,7 @@ Examples
     parser.add_argument(
         "--model",
         default=os.environ.get(
-            "NIBLIT_LOCAL_MODEL", "~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+            "NIBLIT_LOCAL_MODEL", "/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
         ),
         help="HuggingFace model id or path to .gguf file (used for cache lookup).",
     )
