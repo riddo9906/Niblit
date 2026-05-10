@@ -424,8 +424,8 @@ class VectorStore:
             return self._effective_embedding_dim
         dim = _EMBEDDING_DIM
         try:
-            probe = self._embedder.encode("niblit dimension probe")
-            if probe:
+            probe = self._embedder.encode("dimension probe")
+            if probe is not None and len(probe) > 0:
                 dim = len(probe)
             elif not self._effective_dim_fallback_logged:
                 log.warning(
@@ -434,11 +434,12 @@ class VectorStore:
                     _EMBEDDING_DIM,
                 )
                 self._effective_dim_fallback_logged = True
-        except Exception:
+        except Exception as exc:
             if not self._effective_dim_fallback_logged:
                 log.warning(
-                    "[VectorStore] Embedding dimension probe failed; "
+                    "[VectorStore] Embedding dimension probe failed (%s); "
                     "falling back to EMBEDDING_DIM=%d",
+                    exc,
                     _EMBEDDING_DIM,
                 )
                 self._effective_dim_fallback_logged = True
