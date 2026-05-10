@@ -66,7 +66,7 @@ KERNEL_ELF := build/niblit.elf
 KERNEL_ISO := niblit-os.iso
 
 # ── Phony targets ─────────────────────────────────────────────────────────────
-.PHONY: all iso run clean help
+.PHONY: all iso run run-uefi run-elf shell shell-run runner runner-run clean help
 
 all: $(KERNEL_ELF)
 
@@ -97,11 +97,11 @@ iso: $(KERNEL_ELF)
 	@echo "ISO created: $(KERNEL_ISO)"
 
 # ── Run in QEMU ───────────────────────────────────────────────────────────────
-run: $(KERNEL_ISO)
+run: iso
 	qemu-system-i386 -cdrom $(KERNEL_ISO) -m 128M -serial stdio
 
 # Run in QEMU with OVMF UEFI firmware (requires ovmf package)
-run-uefi: $(KERNEL_ISO)
+run-uefi: iso
 	qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd \
 	    -cdrom $(KERNEL_ISO) -m 128M -serial stdio || \
 	qemu-system-x86_64 -bios /usr/share/qemu/OVMF.fd \
