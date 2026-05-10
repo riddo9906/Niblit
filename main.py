@@ -276,7 +276,7 @@ def _run_tool_cli_mode(args, io=None) -> int:
 # ─────────────────────────────
 def debug(io, msg):
     if DEBUG_MODE:
-        io.out(f"{timestamp()} [DEBUG] {msg}")
+        io.out(f"[DEBUG] {msg}")
 
 # ─────────────────────────────
 # LIVE LOG WRAPPER

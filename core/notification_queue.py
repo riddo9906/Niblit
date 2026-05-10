@@ -178,6 +178,8 @@ _handler_installed: bool = False
 # loading, HTTP requests, or progress bars.  Their loggers are set to
 # WARNING (or ERROR) so only genuine problems reach the console.
 _NOISY_THIRD_PARTY_LOGGERS = (
+    "httpx",
+    "httpcore",
     "transformers",
     "sentence_transformers",
     "safetensors",
