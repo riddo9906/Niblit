@@ -2735,7 +2735,34 @@ Ask me about:
                 log.exception("[LLMProvider] Failed llama3 preset switch: %s", exc)
                 return "❌ Failed to switch local preset to llama3."
 
-        if arg in ("hf", "anthropic", "qwen"):
+        if arg == "qwen":
+            try:
+                from modules.local_brain import swap_local_brain
+                new_lb = swap_local_brain("qwen")
+                if self.core is not None:
+                    self.core.local_brain = new_lb
+                    brain = getattr(self.core, "brain", None)
+                    if brain is not None:
+                        brain.local_brain = new_lb
+                    try:
+                        from modules.brain_router import get_brain_router
+                        br = get_brain_router()
+                        br.local_brain = new_lb
+                    except Exception as exc:
+                        log.debug("[LLMProvider] BrainRouter local_brain rewire skipped: %s", exc)
+                mgr.wire(local_brain=new_lb)
+                mgr.switch("qwen")
+                st = new_lb.status()
+                return (
+                    "✅ Local provider switched to Qwen preset (`qwen`).\n"
+                    f"• Model path: {st.get('model_name', '?')}\n"
+                    f"• Chat template: {st.get('gguf_chat_template', '?')}"
+                )
+            except Exception as exc:
+                log.exception("[LLMProvider] Failed qwen preset switch: %s", exc)
+                return "❌ Failed to switch local preset to qwen."
+
+        if arg in ("hf", "anthropic"):
             return mgr.switch(arg)
 
         return "Usage: llm-provider hf|anthropic|qwen|llama3|status"
@@ -3840,11 +3867,20 @@ Ask me about:
                 # Wire the new instance into core if available
                 if self.core is not None:
                     self.core.local_brain = new_lb
+                    brain = getattr(self.core, "brain", None)
+                    if brain is not None:
+                        brain.local_brain = new_lb
                     # Re-wire BrainRouter if present
                     try:
                         from modules.brain_router import get_brain_router
                         br = get_brain_router()
                         br.local_brain = new_lb
+                    except Exception:
+                        pass
+                    try:
+                        from modules.llm_provider_manager import get_llm_provider_manager
+                        mgr = get_llm_provider_manager()
+                        mgr.wire(local_brain=new_lb)
                     except Exception:
                         pass
                 st = new_lb.status()

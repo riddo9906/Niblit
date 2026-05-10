@@ -9,6 +9,7 @@ import urllib.error
 from modules.local_brain import (
     _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT,
     _GGUF_TEMPLATES,
+    _LocalBrainConfig,
     _LOCAL_MODEL_PRESETS,
     _NIBLIT_FULL_STRUCTURAL_CONTEXT,
     _SHORT_CHAT_SYSTEM_PROMPT,
@@ -22,6 +23,7 @@ from modules.local_brain import (
     _clean_subprocess_output,
     get_local_brain,
     reset_local_brain,
+    set_backend_url,
     swap_local_brain,
 )
 
@@ -179,6 +181,38 @@ def test_swap_local_brain_invalid_preset():
     import pytest
     with pytest.raises(ValueError, match="Unknown local model preset"):
         swap_local_brain("nonexistent-model")
+
+
+def test_get_local_brain_defaults_to_qwen_when_active_preset_unset(monkeypatch):
+    monkeypatch.delenv("NIBLIT_ACTIVE_LOCAL_MODEL", raising=False)
+    reset_local_brain()
+    lb = get_local_brain()
+    assert lb.gguf_chat_template == "qwen"
+    reset_local_brain()
+
+
+def test_set_backend_url_keeps_active_local_preset(monkeypatch):
+    monkeypatch.setenv("NIBLIT_ACTIVE_LOCAL_MODEL", "llama3")
+    reset_local_brain()
+    lb = set_backend_url("http://127.0.0.1:8080", backend="http")
+    assert lb.gguf_chat_template == "llama3"
+    reset_local_brain()
+
+
+def test_local_brain_config_builds_server_url_from_host_port(monkeypatch):
+    monkeypatch.delenv("NIBLIT_LLAMA_SERVER_URL", raising=False)
+    monkeypatch.setenv("NIBLIT_LLAMA_SERVER_HOST", "127.0.0.1")
+    monkeypatch.setenv("NIBLIT_LLAMA_SERVER_PORT", "8080")
+    cfg = _LocalBrainConfig()
+    assert cfg.llama_server_url == "http://127.0.0.1:8080"
+
+
+def test_set_backend_url_normalizes_host_port_without_scheme(monkeypatch):
+    monkeypatch.setenv("NIBLIT_ACTIVE_LOCAL_MODEL", "qwen")
+    reset_local_brain()
+    lb = set_backend_url("127.0.0.1:8080", backend="http")
+    assert lb.llama_server_url == "http://127.0.0.1:8080"
+    reset_local_brain()
 
 
 def test_reset_local_brain_clears_singleton():
