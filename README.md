@@ -2043,6 +2043,64 @@ The penalty is now hard-capped at 0.25 (was 0.50), preventing permanent
 | Phase 8 | Align with goals |
 | Phase 9 | Stabilise behaviour |
 | **Phase 9.5** | **Understand context of success** |
+| **Phase 10–19** | **Governed learning authority — signal arbitration, resonance, causality** |
+| **Phase 20** | **Temporal Coherence — synchronised multi-timescale adaptation** |
+
+---
+
+## 🆕 Phase 20 — Temporal Coherence Layer
+
+Phase 20 solves the *cross-timescale instability* problem: adaptive subsystems
+that operate at different speeds (kernel IPC → per-turn learning → governance)
+can desynchronise, causing fast loops to reinforce stale information from slow
+loops.
+
+### New module: `modules/temporal_coherence.py`
+
+| Class | Role |
+|---|---|
+| `AdaptationClock` | Per-tier cadence gate — `should_adapt("MEDIUM")` fires at most once per 60 s |
+| `EpochManager` | Monotonic epoch counter; stamps every arbitration decision with `_epoch` |
+| `SynchronizationBarrier` | Cross-tier staleness guard — fast tier skips adaptation if slow tier is stale |
+| `TemporalCoherenceLayer` | Unified facade used by `niblit_core`, `niblit_learning`, nibblebots |
+
+### Adaptation tier hierarchy
+
+```
+REALTIME   →  0 s — kernel IPC ring signals
+FAST       →  0 s — per-turn quality scoring (always fires)
+MEDIUM     → 60 s — NiblitLearning.evolve()   ← bounded by cadence gate
+STRATEGY   →  5 m — CSE rule derivation
+GOVERNANCE → 10 m — governance_evolution_engine
+IDENTITY   →  1 h — long-horizon objective continuity
+```
+
+All intervals override via env: `NIBLIT_TCL_<TIER>_INTERVAL_S`.
+
+### Multi-Axis Quality Arbitration (Phase 20B)
+
+`_arbitrate_turn_quality()` now returns five partially-independent quality
+dimensions alongside the backward-compatible scalar:
+
+```python
+{
+  "resolved_quality": 0.72,          # scalar — unchanged for backward compat
+  "quality_axes": {
+    "reasoning":           0.82,     # evaluation_engine signal
+    "engagement":          0.67,     # quality_feedback signal
+    "factuality":          0.67,     # min(eval, qf) — conservative
+    "strategic_alignment": 0.72,     # blended scalar
+    "stability":           0.57,     # penalised by disagreement magnitude
+  }
+}
+```
+
+### NiblitOS Kernel changes (Phase 20)
+
+- `NiblitRing` gains `volatile uint32_t epoch_id` — bumped on every IPC dispatch
+- New syscall `SYS_NIBLIT_EPOCH_SYNC = 210`: advance (arg1=1) or read (arg1=0) epoch
+- `SYS_NIBLIT_EPOCH_SYNC` lets the Python TCL synchronise its epoch counter with
+  the kernel timeline across the IPC boundary at zero extra latency
 
 ---
 

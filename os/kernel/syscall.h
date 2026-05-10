@@ -39,6 +39,8 @@ static constexpr uint32_t SYS_NIBLIT_KB_WRITE       = 206; // write KB fact  (ke
 static constexpr uint32_t SYS_NIBLIT_KB_READ        = 207; // read  KB fact  (key, buf, len)
 static constexpr uint32_t SYS_NIBLIT_RESOURCE_INFO  = 208; // real RAM/CPU/uptime metrics
 static constexpr uint32_t SYS_NIBLIT_MMAP_RING      = 209; // return IPC ring vaddr
+// Phase 20 — Temporal Coherence Layer
+static constexpr uint32_t SYS_NIBLIT_EPOCH_SYNC     = 210; // advance + return current epoch_id
 
 // File descriptors
 static constexpr uint32_t FD_STDIN  = 0;

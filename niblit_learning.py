@@ -35,6 +35,7 @@ class NiblitLearning:
         feedback_score: Optional[float] = None,
         chosen_advisor: str = "",
         loop_source: str = "niblit_core",
+        epoch_tag: Optional[int] = None,
     ) -> None:
         """Analyze one interaction and store a quality-aware learning entry."""
         if not user_message:
@@ -90,6 +91,7 @@ class NiblitLearning:
             "chosen_advisor": chosen_advisor,
             "loop_source": loop_source,
             "loop_success": interaction_quality >= 0.55,
+            "epoch_tag": epoch_tag,
         }
 
         self.memory.store_learning(data)

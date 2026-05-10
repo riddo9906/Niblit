@@ -228,6 +228,15 @@ static uint32_t sys_niblit_mmap_ring(uint32_t /*hint*/) {
     return NIBLIT_RING_VADDR;
 }
 
+// SYS_NIBLIT_EPOCH_SYNC (210) — Phase 20: Temporal Coherence Layer.
+// Advance the ring's epoch_id and return the new value.  The userspace
+// Temporal Coherence Layer calls this once per interaction so its Python
+// epoch counter and the kernel epoch stay synchronised across the IPC
+// boundary.  arg1 = 1 → advance; arg1 = 0 → read current without advancing.
+static uint32_t sys_niblit_epoch_sync(uint32_t advance) {
+    return advance ? NiblitIface::advance_epoch() : NiblitIface::current_epoch();
+}
+
 // ── Main dispatcher ───────────────────────────────────────────────────────────
 static void syscall_handler(IDT::Registers* r) {
     uint32_t num  = r->eax;
@@ -304,6 +313,9 @@ static void syscall_handler(IDT::Registers* r) {
         case SYS_NIBLIT_MMAP_RING:
             ret = sys_niblit_mmap_ring(arg1);
             break;
+        case SYS_NIBLIT_EPOCH_SYNC:
+            ret = sys_niblit_epoch_sync(arg1);
+            break;
         default:
             Serial::log("[SYSCALL] unknown #");
             Serial::write_dec(Serial::COM1, num);
@@ -321,7 +333,7 @@ void init() {
     // We reuse the IDT gate mechanism; gate type 0xEE = 32-bit interrupt gate, DPL=3.
     // The IDT::register_handler path uses DPL=0 gates, so we set the gate directly.
     IDT::register_handler(0x80, syscall_handler);
-    VGA::writeln("[SYSCALL] int 0x80 handler registered (22 syscalls incl. Niblit AI extensions).");
+    VGA::writeln("[SYSCALL] int 0x80 handler registered (23 syscalls incl. Niblit AI extensions + Phase 20 epoch sync).");
     Serial::logln("[SYSCALL] Ready.");
 }
 

@@ -61,6 +61,8 @@ typedef struct {
 typedef struct {
     volatile uint32_t head;
     volatile uint32_t tail;
+    volatile uint32_t epoch_id; // Phase 20: Temporal Coherence epoch counter
+    uint32_t          _ring_pad;
     NiblitRequest     requests[NIBLIT_RING_CAPACITY];
     NiblitResponse    responses[NIBLIT_RING_CAPACITY];
 } NiblitRing;

@@ -1960,6 +1960,14 @@ class NiblitCore:
         self.security_membrane: Optional[Any] = None  # initialised in _init_optional_services
         self.cyber_membrane: Optional[Any] = None    # advanced adaptive cyber membrane
         self.evolution_loop: Optional[Any] = None    # defensive evolution / self-attack loop
+        # ── Phase 20: Temporal Coherence Layer ───────────────────────────────
+        # Governs per-tier adaptation cadence and cross-timescale staleness.
+        try:
+            from modules.temporal_coherence import get_temporal_coherence_layer
+            self._tcl = get_temporal_coherence_layer()
+        except Exception:
+            self._tcl = None
+        self._last_feedback_arbitration: Optional[Dict[str, Any]] = None
         # ── Additive: Cross-environment state manager ─────────────────────────
         self.env_state_manager: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Environment adapter registry ────────────────────────────
@@ -6465,6 +6473,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if isinstance(getattr(self, "_last_feedback_arbitration", None), dict):
             status["feedback_arbitration"] = dict(self._last_feedback_arbitration)
 
+        # ── Phase 20: Temporal Coherence Layer status ─────────────────────────
+        if getattr(self, "_tcl", None) is not None:
+            try:
+                status["temporal_coherence"] = self._tcl.status()
+            except Exception:
+                pass
+
         available_scores = [
             float(s) for s in (eval_quality, qf_quality) if s is not None
         ]
@@ -6487,10 +6502,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
     ) -> Dict[str, Any]:
         """Resolve per-turn quality into one domain-scoped runtime authority.
 
-        Arbitration is intentionally conservative:
+        Phase 20 upgrade — Multi-Axis Quality Arbitration:
+        In addition to the backward-compatible ``resolved_quality`` scalar, the
+        result now carries a ``quality_axes`` dict with partially-independent
+        quality dimensions.  Different subsystems should consume the axis most
+        relevant to their function rather than always using the single scalar.
+
+        Arbitration strategy (unchanged for the scalar):
         - if only one source exists, use it directly
-        - if both exist and strongly disagree, use lower score as guardrail
-        - otherwise blend with weighted average (evaluation bias by default)
+        - if both exist and strongly disagree (diff ≥ 0.25), use the lower
+          score as a conservative guardrail (conflict_min_guard)
+        - otherwise blend with a configurable weighted average
         """
         _eval = None
         _qf = None
@@ -6519,32 +6541,55 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if _eval is None:
             result["resolved_quality"] = round(_qf, 4)
             result["strategy"] = "single_source_feedback"
-            return result
-        if _qf is None:
+        elif _qf is None:
             result["resolved_quality"] = round(_eval, 4)
             result["strategy"] = "single_source_evaluation"
-            return result
+        else:
+            _diff = abs(_eval - _qf)
+            result["disagreement"] = round(_diff, 4)
+            if _diff >= 0.25:
+                result["resolved_quality"] = round(min(_eval, _qf), 4)
+                result["strategy"] = "conflict_min_guard"
+            else:
+                _eval_w = float(os.environ.get("NIBLIT_FEEDBACK_EVAL_WEIGHT", "0.55"))
+                _qf_w = float(os.environ.get("NIBLIT_FEEDBACK_QF_WEIGHT", "0.45"))
+                _total_w = _eval_w + _qf_w
+                if _total_w <= 0:
+                    _eval_w, _qf_w, _total_w = 0.55, 0.45, 1.0
+                _blended = ((_eval * _eval_w) + (_qf * _qf_w)) / _total_w
+                result["resolved_quality"] = round(_blended, 4)
+                result["strategy"] = "weighted_blend"
+                result["weights"] = {
+                    "evaluation": round(_eval_w / _total_w, 4),
+                    "feedback": round(_qf_w / _total_w, 4),
+                }
 
-        _diff = abs(_eval - _qf)
-        result["disagreement"] = round(_diff, 4)
-        if _diff >= 0.25:
-            # Conservative arbitration for strong cross-loop disagreement.
-            result["resolved_quality"] = round(min(_eval, _qf), 4)
-            result["strategy"] = "conflict_min_guard"
-            return result
-
-        _eval_w = float(os.environ.get("NIBLIT_FEEDBACK_EVAL_WEIGHT", "0.55"))
-        _qf_w = float(os.environ.get("NIBLIT_FEEDBACK_QF_WEIGHT", "0.45"))
-        _total_w = _eval_w + _qf_w
-        if _total_w <= 0:
-            _eval_w, _qf_w, _total_w = 0.55, 0.45, 1.0
-        _blended = ((_eval * _eval_w) + (_qf * _qf_w)) / _total_w
-        result["resolved_quality"] = round(_blended, 4)
-        result["strategy"] = "weighted_blend"
-        result["weights"] = {
-            "evaluation": round(_eval_w / _total_w, 4),
-            "feedback": round(_qf_w / _total_w, 4),
-        }
+        # ── Multi-Axis Quality Arbitration (Phase 20) ─────────────────────────
+        # Derive partially-independent quality dimensions from available signals.
+        # Each axis captures a different aspect of interaction quality so that
+        # subsystems (adaptive_learning, causality_tracker, nibblebots) can
+        # consume the dimension most aligned with their function.
+        _base = result["resolved_quality"]
+        if _base is not None:
+            _b = float(_base)
+            # reasoning  — evaluation_engine signal is the best proxy
+            _reasoning = float(_eval) if _eval is not None else _b
+            # engagement — quality_feedback score correlates with user engagement
+            _engagement = float(_qf) if _qf is not None else _b
+            # factuality — conservative: min of available signals (avoids overconfidence)
+            _factuality = min(float(_eval or _b), float(_qf or _b))
+            # strategic_alignment — blended scalar (system-level coherence)
+            _strategic = _b
+            # stability — penalised if signals strongly disagree
+            _disag = result.get("disagreement") or 0.0
+            _stability = max(0.0, _b - float(_disag) * 0.5)
+            result["quality_axes"] = {
+                "reasoning":           round(_reasoning, 4),
+                "engagement":          round(_engagement, 4),
+                "factuality":          round(_factuality, 4),
+                "strategic_alignment": round(_strategic, 4),
+                "stability":           round(_stability, 4),
+            }
         return result
 
     def _init_vector_store(self) -> None:
@@ -9514,6 +9559,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _trigger_learning(self, user_input: str, response: str):
         """Invoke NiblitLearning on each conversation turn, queue follow-up tasks."""
+        # ── Phase 20: advance temporal epoch ─────────────────────────────────
+        _epoch_tag: Optional[int] = None
+        if getattr(self, "_tcl", None) is not None:
+            try:
+                _epoch_tag = self._tcl.tick()
+            except Exception:
+                pass
+
         # Record user activity (not idle)
         if self.autonomous_engine:
             try:
@@ -9568,6 +9621,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     feedback_quality=_feedback_score,
                 )
                 self._last_feedback_arbitration = _feedback_arbitration
+                # Stamp arbitration result with current epoch for traceability
+                if _epoch_tag is not None and getattr(self, "_tcl", None) is not None:
+                    try:
+                        self._tcl.tag_decision(_feedback_arbitration)
+                    except Exception:
+                        pass
                 self.learning.process_interaction(
                     user_message=user_input,
                     ai_response=response,
@@ -9575,11 +9634,24 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     feedback_score=_feedback_score,
                     chosen_advisor=_chosen_advisor,
                     loop_source="niblit_core",
+                    epoch_tag=_epoch_tag,
                 )
-                # Close the older learning loop on every interaction instead of
-                # only recording raw entries; this keeps preferences and style
-                # adaptation in sync with the live feedback loop.
-                self.learning.evolve()
+                # ── Phase 20: cadence-gated evolve() ─────────────────────────
+                # evolve() aggregates the full window every call — gate it to
+                # the MEDIUM tier (default ≥60 s) to avoid O(n) cost every turn.
+                _should_evolve = True
+                if getattr(self, "_tcl", None) is not None:
+                    try:
+                        _should_evolve = self._tcl.should_adapt("MEDIUM")
+                    except Exception:
+                        pass
+                if _should_evolve:
+                    self.learning.evolve()
+                    if getattr(self, "_tcl", None) is not None:
+                        try:
+                            self._tcl.record_heartbeat("MEDIUM")
+                        except Exception:
+                            pass
             except Exception as _e:
                 log.debug(f"NiblitLearning unified loop update failed: {_e}")
 

@@ -146,8 +146,9 @@ NiblitOS C++ Kernel (boots, owns hardware)
 | **207**| **niblit_kb_read**         | key_ptr, buf_ptr, len       |
 | **208**| **niblit_resource_info**   | buf_ptr, len                |
 | **209**| **niblit_mmap_ring**       | — (returns 0xD0000000)      |
+| **210**| **niblit_epoch_sync**      | advance(1)/read(0) → epoch  |
 
-Syscalls 205–209 (bold) are NiblitOS-unique AI extensions.
+Syscalls 205–210 (bold) are NiblitOS-unique AI extensions.
 
 ## /proc filesystem (ProcFS)
 
@@ -273,7 +274,8 @@ This keeps kernel and userspace bridge agreement explicit for ring-based IPC.
 | 2b    | ✅ Done | Paging, heap, PIT, VFS, syscall table, serial, ELF loader |
 | 3a    | ✅ Done | Full driver suite: RTC, PIT, PS/2, DMA, ACPI, PCI, ATA, E1000, MSG |
 | 3b    | ✅ Done | ProcFS (/proc), Niblit KB syscalls (206–209), fork/waitpid stubs |
-| 4     | 🔲 Next | initrd (cpio) — load userspace programs from a RAM disk |
+| 4a    | ✅ Done | Phase 20 Temporal Coherence: epoch_id in ring, SYS_NIBLIT_EPOCH_SYNC (210) |
+| 4b    | 🔲 Next | initrd (cpio) — load userspace programs from a RAM disk |
 | 5     | 🔲 Next | Full fork() with CoW page mapping; proper waitpid() |
 | 6     | 🔲 Next | Port musl libc; run Python 3 as a native NiblitOS process |
 | 7     | 🔲 Next | SMP (multi-core) scheduler — one Niblit reasoner per CPU |

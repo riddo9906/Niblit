@@ -330,11 +330,107 @@ This makes the kernel↔Python bridge reproducible in development workflows.
 
 To continue reducing architectural drift:
 
-1. **Multi-axis quality arbitration**
-   - split scalar quality into domain axes (reasoning/factuality/engagement/risk).
+1. **Multi-axis quality arbitration** — ✅ **Implemented in Phase 20** (see §16).
 
 2. **Adaptive memory compression**
    - preserve high-impact events while compressing low-impact historical noise.
 
 3. **Kernel↔Python reliability contract**
    - add explicit ring health, timeout, and backpressure metrics in `/proc/niblit`.
+
+---
+
+## 16) Phase 20 — Temporal Coherence Layer
+
+### Problem addressed
+
+Adaptive systems spanning multiple timescales suffer from *cross-timescale
+instability*: a fast subsystem (per-turn learning) can reinforce stale
+information produced by a slow subsystem (governance) that has not updated
+recently.  This creates unsynchronised learning that slowly undermines
+arbitration authority and policy coherence.
+
+### Solution: `modules/temporal_coherence.py`
+
+A new first-class module providing three primitives:
+
+| Class | Responsibility |
+|---|---|
+| `AdaptationClock` | Per-tier cadence gate — `should_adapt(tier)` returns True at most once per min_interval for that tier |
+| `EpochManager` | Monotonically increasing runtime epoch counter; stamps every decision dict with `_epoch` / `_epoch_ts` |
+| `SynchronizationBarrier` | Cross-tier staleness guard — fast tier skips adaptation if slow tier heartbeat is stale |
+
+**Tier hierarchy:**
+
+```
+REALTIME  (0 s) — kernel IPC, ring signals
+FAST      (0 s) — per-turn quality scoring (always fires, caller controls)
+MEDIUM   (60 s) — NiblitLearning.evolve() — bounded aggregate (Phase 19+20)
+STRATEGY (300 s) — CSE rule derivation
+GOVERNANCE (600 s) — governance_evolution_engine
+IDENTITY  (3600 s) — long-horizon objective continuity
+```
+
+All intervals are overridable via environment: `NIBLIT_TCL_<TIER>_INTERVAL_S`.
+
+### `NiblitCore` integration
+
+`_trigger_learning()` now:
+
+1. Calls `self._tcl.tick()` — advances the runtime epoch once per interaction.
+2. Stamps the arbitration result with the current epoch via `_tcl.tag_decision(...)`.
+3. Passes `epoch_tag` to `NiblitLearning.process_interaction(...)` — every
+   stored learning entry is now epoch-tagged for delayed-outcome attribution.
+4. Gates `NiblitLearning.evolve()` behind the `MEDIUM` cadence — instead of
+   aggregating on every turn, the expensive window scan only fires when the
+   MEDIUM interval has elapsed.
+
+`_refresh_unified_feedback_status()` now exposes `temporal_coherence` in the
+unified loop status, including epoch count, uptime, per-tier clock state, and
+barrier coherence.
+
+### Multi-Axis Quality Arbitration (Phase 20B)
+
+`_arbitrate_turn_quality()` now returns a `quality_axes` dict alongside the
+backward-compatible `resolved_quality` scalar:
+
+```python
+{
+    "resolved_quality": 0.72,          # scalar (unchanged — backward compat)
+    "quality_axes": {
+        "reasoning":           0.82,   # evaluation_engine signal
+        "engagement":          0.67,   # quality_feedback signal
+        "factuality":          0.67,   # min(eval, qf) — conservative
+        "strategic_alignment": 0.72,   # blended scalar
+        "stability":           0.67,   # penalised by disagreement magnitude
+    }
+}
+```
+
+Different subsystems should consume the axis most aligned to their function
+rather than collapsing to one scalar (e.g. causality_tracker uses `reasoning`,
+adaptive_learning uses `engagement`, governance uses `stability`).
+
+### NiblitOS C++ changes (Phase 20)
+
+| File | Change |
+|---|---|
+| `os/kernel/niblit_iface.h` | Added `volatile uint32_t epoch_id` + `_ring_pad` to `NiblitRing`; added `advance_epoch()` / `current_epoch()` to `NiblitIface` namespace |
+| `os/kernel/niblit_iface.cpp` | `send_request()` now bumps `s_ring->epoch_id` before every dispatch; `advance_epoch()` / `current_epoch()` implemented |
+| `os/kernel/syscall.h` | Added `SYS_NIBLIT_EPOCH_SYNC = 210` |
+| `os/kernel/syscall.cpp` | `sys_niblit_epoch_sync(advance)` implemented; case 210 registered in dispatcher |
+| `os/userland/niblit_tool/niblit_runner.c` | `NiblitRing` struct updated to include `epoch_id` + `_ring_pad` matching kernel layout |
+
+The userspace Temporal Coherence Layer can call `SYS_NIBLIT_EPOCH_SYNC(1)` to
+advance and read the kernel epoch, keeping Python epoch in sync with the
+hardware timeline without additional IPC overhead.
+
+### What this prevents
+
+| Risk | Mitigation |
+|---|---|
+| Fast loop reinforcing stale governance signal | `SynchronizationBarrier` detects staleness and blocks adaptation |
+| O(n) evolve() cost per turn | `MEDIUM` cadence gate limits aggregate scans to once per 60 s |
+| Delayed outcomes attributed to wrong epoch | `epoch_tag` on every learning entry enables accurate attribution |
+| Single-score overcompression of quality | `quality_axes` preserves independent dimensions |
+| Kernel / userspace epoch desync | `SYS_NIBLIT_EPOCH_SYNC` + `ring->epoch_id` create a shared truth surface |
