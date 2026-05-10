@@ -49,7 +49,7 @@ from niblit_core import NiblitCore
 from niblit_io import NiblitIO
 from niblit_router import safe_call
 
-DEFAULT_INIT_WAIT_MAX_SECONDS = 180.0  # 3 min on Termux; override via NIBLIT_INIT_WAIT_MAX_SECONDS
+DEFAULT_INIT_WAIT_MAX_SECONDS = 600.0  # 10 min default; override via NIBLIT_INIT_WAIT_MAX_SECONDS
 TOOL_NO_OUTPUT_MESSAGE = "[Tool returned no output]"
 
 # ── Non-blocking background notification queue (additive) ──────────────────
