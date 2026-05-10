@@ -2359,6 +2359,12 @@ class NiblitCore:
         self.command_registry.register(
             "health", self._cmd_health, "Run a comprehensive health check across all subsystems", "core", priority=100
         )
+        # Phase 21: Temporal Coherence Layer inspection command
+        self.command_registry.register(
+            "coherence", self._cmd_coherence,
+            "Show Temporal Coherence Layer epoch, tier clocks, and barrier states (Phase 21)",
+            "core", priority=99
+        )
         self.command_registry.register(
             "metrics", self._cmd_metrics, "Show real-time performance metrics (CPU, RAM, latency)", "core", priority=100
         )
@@ -5810,14 +5816,65 @@ SW Categories: {stats.get('software_study_categories', 0)}
             }
             phase = getattr(self, "_deferred_init_phase", "pending")
             init_label = _phase_icons.get(phase, phase)
+            # Phase 21: show current TCL epoch in status
+            _epoch_label = "n/a"
+            if getattr(self, "_tcl", None) is not None:
+                try:
+                    _epoch_label = str(self._tcl.epoch.current)
+                except Exception:
+                    pass
             return (
                 f"Status: OK | Memory: {mem_count} | "
                 f"Improvements: {improvements} | Autonomous: {autonomous} | "
-                f"Init: {init_label} | LoopQuality: {loop_label}"
+                f"Init: {init_label} | LoopQuality: {loop_label} | Epoch: {_epoch_label}"
             )
         except Exception as e:
             log.error(f"Status command failed: {e}")
             return f"Status: Error - {e}"
+
+    def _cmd_coherence(self, _text: str) -> str:
+        """Phase 21: Temporal Coherence Layer inspection command.
+
+        Shows the runtime epoch, per-tier adaptation clocks, and cross-tier
+        synchronization barrier states so operators can verify that fast and
+        slow subsystems are running in coherent lock-step.
+        """
+        if getattr(self, "_tcl", None) is None:
+            return "⚠️ Temporal Coherence Layer not initialised (Phase 20 module unavailable)."
+        try:
+            tcl_status = self._tcl.status()
+            epoch_info = tcl_status.get("epoch", {})
+            clocks = tcl_status.get("clocks", {})
+            barriers = tcl_status.get("barriers", {})
+
+            lines = ["🕰️ **Temporal Coherence Layer** (Phase 20/21)"]
+            lines.append(
+                f"  Epoch : {epoch_info.get('current_epoch', '?')}  "
+                f"| Uptime: {epoch_info.get('uptime_s', '?')}s"
+            )
+            lines.append("")
+            lines.append("**Adaptation Clocks** (tier | next_in_s | count):")
+            for tier, info in clocks.items():
+                next_s = info.get("time_until_next_s", 0)
+                count = info.get("adapt_count", 0)
+                interval = info.get("min_interval_s", 0)
+                gate = "🟢 open" if next_s == 0 else f"🔒 {next_s}s"
+                lines.append(
+                    f"  {tier:<12} {gate:<14} | interval={interval}s | adapted×{count}"
+                )
+            lines.append("")
+            lines.append("**Synchronization Barriers** (fast→slow | staleness | coherent):")
+            for key, info in barriers.items():
+                coherent = info.get("coherent", True)
+                icon = "✅" if coherent else "⚠️ STALE"
+                staleness = info.get("staleness_s", 0)
+                threshold = info.get("threshold_s", 0)
+                lines.append(
+                    f"  {key:<22} {icon}  | staleness={staleness}s / threshold={threshold}s"
+                )
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"⚠️ Coherence status error: {exc}"
 
     def _cmd_health(self, _text: str) -> str:
         """Health check command."""
@@ -9635,6 +9692,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     chosen_advisor=_chosen_advisor,
                     loop_source="niblit_core",
                     epoch_tag=_epoch_tag,
+                    # Phase 21: propagate multi-axis quality to the learning record
+                    quality_axes=_feedback_arbitration.get("quality_axes")
+                    if isinstance(_feedback_arbitration, dict)
+                    else None,
                 )
                 # ── Phase 20: cadence-gated evolve() ─────────────────────────
                 # evolve() aggregates the full window every call — gate it to

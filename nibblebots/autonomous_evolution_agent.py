@@ -1336,6 +1336,19 @@ def main() -> int:
         except Exception:  # noqa: BLE001
             pass
 
+    # Phase 21: TCL STRATEGY-tier heartbeat — signal to the TemporalCoherenceLayer
+    # that a full evolution cycle (strategy derivation + causal scoring) completed.
+    # This keeps the STRATEGY→GOVERNANCE synchronization barrier fresh so that
+    # any STRATEGY-tier adapt call in niblit_core is not blocked by a stale barrier.
+    try:
+        from modules.temporal_coherence import get_temporal_coherence_layer  # noqa: PLC0415
+        _tcl = get_temporal_coherence_layer()
+        _tcl.record_heartbeat("STRATEGY")
+        _tcl.record_heartbeat("GOVERNANCE")
+        print("  🕰️ Phase 21 TCL: STRATEGY + GOVERNANCE heartbeats recorded.")
+    except Exception:  # noqa: BLE001
+        pass
+
     return 0
 
 

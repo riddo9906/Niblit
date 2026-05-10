@@ -6,6 +6,13 @@ Move from a simple sentiment counter to a richer interaction-feedback model that
 can participate in Niblit's unified feedback loop.  Each interaction now stores
 not just sentiment, but also response richness and any quality signals produced
 elsewhere in the system (EvaluationEngine / QualityFeedback).
+
+Phase 21 upgrade:
+Accept ``quality_axes`` (multi-axis quality dict from Phase 20 arbitration) in
+``process_interaction()`` and persist the axes alongside the learning entry so
+that downstream analysis can consume per-dimension quality rather than only
+the aggregated scalar.  The axes dict contains: reasoning, engagement,
+factuality, strategic_alignment, stability.
 """
 
 import logging
@@ -36,8 +43,17 @@ class NiblitLearning:
         chosen_advisor: str = "",
         loop_source: str = "niblit_core",
         epoch_tag: Optional[int] = None,
+        quality_axes: Optional[Dict[str, float]] = None,
     ) -> None:
-        """Analyze one interaction and store a quality-aware learning entry."""
+        """Analyze one interaction and store a quality-aware learning entry.
+
+        Phase 21: ``quality_axes`` is an optional dict produced by
+        ``NiblitCore._arbitrate_turn_quality()`` containing per-dimension
+        quality scores (reasoning, engagement, factuality, strategic_alignment,
+        stability).  When provided, the axes are persisted in the learning
+        record alongside the aggregated scalar so that future analysis and
+        adaptive modules can consume the most relevant dimension.
+        """
         if not user_message:
             return
 
@@ -92,6 +108,8 @@ class NiblitLearning:
             "loop_source": loop_source,
             "loop_success": interaction_quality >= 0.55,
             "epoch_tag": epoch_tag,
+            # Phase 21: multi-axis quality dimensions from arbitration
+            "quality_axes": quality_axes if isinstance(quality_axes, dict) else None,
         }
 
         self.memory.store_learning(data)

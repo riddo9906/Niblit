@@ -295,6 +295,50 @@ class TemporalCoherenceLayer:
         barrier = self._barriers.get(barrier_key)
         return barrier.is_coherent() if barrier else True
 
+    # ── Epoch persistence (Phase 21) ──────────────────────────────────────────
+
+    def persist_epoch(self, path: Optional[str] = None) -> bool:
+        """Save the current epoch counter to disk so it survives restarts.
+
+        The epoch file is a tiny JSON: ``{"epoch": <int>}``.
+        Default path: NIBLIT_TCL_EPOCH_PATH env var or ``niblit_tcl_epoch.json``
+        in the current working directory.
+
+        Returns True on success, False on error.
+        """
+        _path = path or os.environ.get("NIBLIT_TCL_EPOCH_PATH", "niblit_tcl_epoch.json")
+        try:
+            import json  # noqa: PLC0415
+            with open(_path, "w", encoding="utf-8") as fh:
+                json.dump({"epoch": self.epoch.current}, fh)
+            log.debug("[TCL] Epoch %d persisted to %s", self.epoch.current, _path)
+            return True
+        except Exception as exc:
+            log.warning("[TCL] persist_epoch failed: %s", exc)
+            return False
+
+    def restore_epoch(self, path: Optional[str] = None) -> bool:
+        """Restore the epoch counter from disk (call during initialisation).
+
+        If the file is missing or unreadable the epoch stays at 0 (safe default).
+        Returns True if a saved epoch was loaded, False otherwise.
+        """
+        _path = path or os.environ.get("NIBLIT_TCL_EPOCH_PATH", "niblit_tcl_epoch.json")
+        try:
+            import json  # noqa: PLC0415
+            with open(_path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            saved = int(data.get("epoch", 0))
+            if saved > 0:
+                self.epoch._epoch = saved
+                log.info("[TCL] Epoch restored to %d from %s", saved, _path)
+                return True
+        except FileNotFoundError:
+            log.debug("[TCL] No epoch file at %s — starting from 0", _path)
+        except Exception as exc:
+            log.warning("[TCL] restore_epoch failed: %s", exc)
+        return False
+
     # ── Status / observability ────────────────────────────────────────────────
 
     def status(self) -> Dict[str, object]:

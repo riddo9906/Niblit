@@ -461,11 +461,44 @@ def _evaluate_real_world_value(
                     pass
                 # batch_size = number of fix types applied this cycle
                 _batch_size = len(fix_types) if fix_types else 1
+                # Phase 21: pull quality_axes from the TCL-tagged arbitration
+                # result stored on the module-level singleton so the CSE
+                # receives richer per-dimension signals rather than reusing
+                # avg_confidence for both confidence and signal_conf.
+                _cse_confidence = _avg_confidence
+                _cse_signal_conf = _avg_confidence
+                try:
+                    from modules.temporal_coherence import get_temporal_coherence_layer  # noqa: PLC0415
+                    _tcl = get_temporal_coherence_layer()
+                    # The arbitration result was tagged by niblit_core with the
+                    # current epoch; retrieve quality_axes from there if available.
+                    # We access the module-level singleton's last arbitration via
+                    # niblit_core if reachable, else fall back to plain confidence.
+                    import niblit_core as _nc_mod  # noqa: PLC0415
+                    _nc_inst = getattr(_nc_mod, "_niblit_core_instance", None)
+                    if _nc_inst is not None:
+                        _arb = getattr(_nc_inst, "_last_feedback_arbitration", None)
+                        if isinstance(_arb, dict):
+                            _axes = _arb.get("quality_axes")
+                            if isinstance(_axes, dict):
+                                # reasoning → confidence (how well the system reasoned)
+                                _cse_confidence = float(
+                                    _axes.get("reasoning", _avg_confidence)
+                                )
+                                # strategic_alignment → signal_conf (system-level coherence)
+                                _cse_signal_conf = float(
+                                    _axes.get("strategic_alignment", _avg_confidence)
+                                )
+                                # stability penalises variance: low stability → higher variance
+                                _stability = float(_axes.get("stability", 1.0))
+                                _variance = max(_variance, round(1.0 - _stability, 6))
+                except Exception:  # noqa: BLE001
+                    pass
                 _cse.record_episode(
                     mode=_mode,
                     outcome=_outcome_score,
-                    confidence=_avg_confidence,
-                    signal_conf=_avg_confidence,
+                    confidence=_cse_confidence,
+                    signal_conf=_cse_signal_conf,
                     intent_score=_intent_alignment,
                     variance=_variance,
                     fix_type=fix_types[0] if fix_types else "",
