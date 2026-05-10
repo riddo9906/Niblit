@@ -1599,7 +1599,7 @@ class QwenLocalBrain:
             return True
 
         self._load_error = (
-            "llama-server not reachable at {url}. "
+            f"llama-server not reachable at {url}. "
             "Start it in a separate Termux session with:\n"
             "  /data/data/com.termux/files/home/llama.cpp/build/bin/llama-server \\\n"
             "      -m /data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\\n"
