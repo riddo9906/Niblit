@@ -98,6 +98,37 @@ _MODEL_NAME      = os.environ.get("NIBLIT_LOCAL_MODEL", "~/models/qwen2.5-0.5b-i
 _GGUF_MODEL_PATH = os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
 _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
+_DEFAULT_LOCAL_PRESET = "qwen"
+
+
+def _normalize_llama_server_url(url: str) -> str:
+    """Return a canonical llama-server URL with scheme and no trailing slash."""
+    value = (url or "").strip().rstrip("/")
+    if not value:
+        return ""
+    if "://" not in value:
+        value = f"http://{value}"
+    return value
+
+
+def _resolve_default_llama_server_url() -> str:
+    """Resolve local llama-server URL from URL or host/port env vars."""
+    explicit = os.environ.get("NIBLIT_LLAMA_SERVER_URL", "").strip()
+    if explicit:
+        return _normalize_llama_server_url(explicit)
+
+    host = os.environ.get("NIBLIT_LLAMA_SERVER_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    if host == "localhost":
+        host = "127.0.0.1"
+    port_raw = os.environ.get("NIBLIT_LLAMA_SERVER_PORT", "8080").strip()
+    port = int(port_raw) if port_raw.isdigit() else 8080
+    return f"http://{host}:{port}"
+
+
+def _active_local_preset() -> str:
+    """Return the active local preset key (defaults to qwen)."""
+    preset = os.environ.get("NIBLIT_ACTIVE_LOCAL_MODEL", _DEFAULT_LOCAL_PRESET).strip().lower()
+    return preset if preset in _LOCAL_MODEL_PRESETS else _DEFAULT_LOCAL_PRESET
 
 
 class _LocalBrainConfig:
@@ -118,9 +149,7 @@ class _LocalBrainConfig:
         # Path to the llama.cpp CLI binary (llama-cli / main).
         self.llama_binary: str = os.environ.get("NIBLIT_LLAMA_BINARY", "").strip()
         # llama-server HTTP bridge configuration.
-        self.llama_server_url: str = os.environ.get(
-            "NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8080"
-        ).rstrip("/")
+        self.llama_server_url: str = _resolve_default_llama_server_url()
         self.llama_server_timeout: int = int(os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "600"))
         # GGUF chat template style.
         self.gguf_chat_template: str = os.environ.get(
@@ -2262,11 +2291,27 @@ def get_local_brain(
     if _instance is None:
         with _inst_lock:
             if _instance is None:
-                _instance = QwenLocalBrain(
-                    model_name=model_name,
-                    max_new_tokens=max_new_tokens,
-                    gguf_model_path=gguf_model_path,
+                # Preserve historical behavior for explicit non-default args.
+                explicit_args = (
+                    model_name != _MODEL_NAME
+                    or max_new_tokens != _MAX_NEW_TOKENS
+                    or gguf_model_path != _GGUF_MODEL_PATH
                 )
+                if explicit_args:
+                    _instance = QwenLocalBrain(
+                        model_name=model_name,
+                        max_new_tokens=max_new_tokens,
+                        gguf_model_path=gguf_model_path,
+                    )
+                else:
+                    preset = _active_local_preset()
+                    cfg = _LOCAL_MODEL_PRESETS[preset]
+                    _instance = QwenLocalBrain(
+                        model_name=cfg["model_path"],
+                        max_new_tokens=max_new_tokens,
+                        gguf_model_path=cfg["model_path"],
+                        gguf_chat_template=cfg["chat_template"],
+                    )
     return _instance
 
 
@@ -2322,6 +2367,12 @@ def swap_local_brain(preset: str) -> QwenLocalBrain:
             gguf_model_path=config["model_path"],
             gguf_chat_template=config["chat_template"],
         )
+    active = preset.strip().lower()
+    model_path = config["model_path"]
+    os.environ["NIBLIT_ACTIVE_LOCAL_MODEL"] = active
+    os.environ["NIBLIT_LOCAL_MODEL"] = model_path
+    os.environ["NIBLIT_GGUF_MODEL_PATH"] = model_path
+    os.environ["NIBLIT_GGUF_CHAT_TEMPLATE"] = config["chat_template"]
     log.info(
         "[LocalBrain] Switched to preset %r — model: %s, template: %s",
         preset, config["model_path"], config["chat_template"],
@@ -2362,7 +2413,7 @@ def set_backend_url(url: str, backend: str = "http") -> QwenLocalBrain:
     """
     global _LLAMA_SERVER_URL, _GGUF_BACKEND, _instance
 
-    url = url.strip().rstrip("/")
+    url = _normalize_llama_server_url(url)
     backend = backend.strip().lower() or "http"
 
     _LLAMA_SERVER_URL = url
@@ -2376,8 +2427,7 @@ def set_backend_url(url: str, backend: str = "http") -> QwenLocalBrain:
 
     reset_local_brain()
     with _inst_lock:
-        # Preserve current model/template from existing preset configuration.
-        preset_cfg = next(iter(_LOCAL_MODEL_PRESETS.values()))  # default preset
+        preset_cfg = _LOCAL_MODEL_PRESETS[_active_local_preset()]
         _instance = QwenLocalBrain(
             model_name=preset_cfg["model_path"],
             gguf_model_path=preset_cfg["model_path"],

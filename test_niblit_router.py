@@ -193,13 +193,22 @@ class TestNiblitRouterProcess:
         assert isinstance(result, str)
 
     def test_llm_provider_qwen_switch_command(self):
-        router, _, _, _ = _make_router()
+        router, _, _, core = _make_router()
         mock_mgr = MagicMock()
         mock_mgr.switch.return_value = "✅ LLM provider switched to **qwen**."
-        with patch("modules.llm_provider_manager.get_llm_provider_manager", return_value=mock_mgr):
+        mock_lb = MagicMock()
+        mock_lb.status.return_value = {
+            "model_name": "~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+            "gguf_chat_template": "qwen",
+        }
+        with (
+            patch("modules.llm_provider_manager.get_llm_provider_manager", return_value=mock_mgr),
+            patch("modules.local_brain.swap_local_brain", return_value=mock_lb),
+        ):
             result = router.process("llm-provider qwen")
         mock_mgr.switch.assert_called_once_with("qwen")
         assert "qwen" in result.lower()
+        assert core.local_brain == mock_lb
 
     def test_llm_provider_status_includes_qwen(self):
         router, _, _, _ = _make_router()
