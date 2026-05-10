@@ -191,6 +191,14 @@ def test_get_local_brain_defaults_to_qwen_when_active_preset_unset(monkeypatch):
     reset_local_brain()
 
 
+def test_get_local_brain_invalid_active_preset_falls_back_to_qwen(monkeypatch):
+    monkeypatch.setenv("NIBLIT_ACTIVE_LOCAL_MODEL", "invalid-preset")
+    reset_local_brain()
+    lb = get_local_brain()
+    assert lb.gguf_chat_template == "qwen"
+    reset_local_brain()
+
+
 def test_set_backend_url_keeps_active_local_preset(monkeypatch):
     monkeypatch.setenv("NIBLIT_ACTIVE_LOCAL_MODEL", "llama3")
     reset_local_brain()

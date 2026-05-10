@@ -118,7 +118,7 @@ def _resolve_default_llama_server_url() -> str:
         return _normalize_llama_server_url(explicit)
 
     host = os.environ.get("NIBLIT_LLAMA_SERVER_HOST", "127.0.0.1").strip() or "127.0.0.1"
-    if host in {"localhost", "0.0.0.0"}:
+    if host == "localhost":
         host = "127.0.0.1"
     port_raw = os.environ.get("NIBLIT_LLAMA_SERVER_PORT", "8080").strip()
     port = int(port_raw) if port_raw.isdigit() else 8080

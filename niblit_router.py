@@ -3881,8 +3881,10 @@ Ask me about:
                         from modules.llm_provider_manager import get_llm_provider_manager
                         mgr = get_llm_provider_manager()
                         mgr.wire(local_brain=new_lb)
-                    except Exception as exc:
+                    except (ImportError, AttributeError) as exc:
                         log.debug("[LocalModel] LLMProviderManager local_brain wire skipped: %s", exc)
+                    except Exception as exc:
+                        log.exception("[LocalModel] Unexpected local_brain wire error: %s", exc)
                 st = new_lb.status()
                 return (
                     f"🔄 Switched to preset '{preset}'\n"
