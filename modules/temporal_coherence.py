@@ -360,3 +360,7 @@ def get_temporal_coherence_layer() -> TemporalCoherenceLayer:
     if _tcl_instance is None:
         _tcl_instance = TemporalCoherenceLayer()
     return _tcl_instance
+
+
+if __name__ == "__main__":
+    print('Running temporal_coherence.py')

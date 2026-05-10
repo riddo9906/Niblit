@@ -269,3 +269,7 @@ def test_tcl_status_has_epoch_clocks_barriers():
     assert "FAST_MEDIUM" in s["barriers"]
     assert "MEDIUM_STRATEGY" in s["barriers"]
     assert "STRATEGY_GOVERNANCE" in s["barriers"]
+
+
+if __name__ == "__main__":
+    print('Running test_phase21_quality_axes_propagation.py')

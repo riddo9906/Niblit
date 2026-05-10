@@ -271,3 +271,7 @@ def test_niblit_core_trigger_learning_closes_loop(monkeypatch):
     assert qf.calls == 1
     assert core._unified_loop_status["adaptive_learning"]["feedback_count"] == 1
     assert core._unified_loop_status["feedback_arbitration"]["strategy"] == "weighted_blend"
+
+
+if __name__ == "__main__":
+    print('Running test_phase19_unified_feedback.py')

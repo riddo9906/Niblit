@@ -267,3 +267,7 @@ def test_arbitration_no_axes_when_no_input():
     result = core._arbitrate_turn_quality(None, None)
     assert result["resolved_quality"] is None
     assert "quality_axes" not in result
+
+
+if __name__ == "__main__":
+    print('Running test_phase20_temporal_coherence.py')
