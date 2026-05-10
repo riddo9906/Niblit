@@ -5551,7 +5551,7 @@ class AutonomousLearningEngine:
           internal budget (45/45/30 s).  ``_RESEARCH_INGEST_WAIT`` is reduced
           to 15 s (overridable via ``NIBLIT_ALE_INGEST_WAIT``) since phases
           write synchronously.
-        * Every step is wrapped in _run_step_with_timeout (default 120 s) so a
+        * Every step is wrapped in _run_step_with_timeout (default 180 s) so a
           stalled network call can never freeze the whole cycle.
         * A 3-second interruptible sleep between all other steps gives the OS
           time to process network I/O between calls, reducing contention.

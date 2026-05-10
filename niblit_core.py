@@ -6364,7 +6364,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self._push_init_progress(
                 "🔌 [Layer 5/5] Extended Services — ALE, TradingBrain, CivilizationController, 60+ modules…"
             )
-            self._init_with_timeout(self._init_optional_services, "5-Optional", timeout=120.0)
+            self._init_with_timeout(self._init_optional_services, "5-Optional", timeout=600.0)
             self._push_init_progress("✅ [Layer 5/5] Extended Services ready")
 
             # ── Unification check ─────────────────────────────────────────────
