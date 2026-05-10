@@ -98,6 +98,7 @@ _MODEL_NAME      = os.environ.get("NIBLIT_LOCAL_MODEL", "~/models/qwen2.5-0.5b-i
 _GGUF_MODEL_PATH = os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
 _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
+_DEFAULT_LOCAL_PRESET = "qwen"
 
 
 def _normalize_llama_server_url(url: str) -> str:
@@ -126,8 +127,8 @@ def _resolve_default_llama_server_url() -> str:
 
 def _active_local_preset() -> str:
     """Return the active local preset key (defaults to qwen)."""
-    preset = os.environ.get("NIBLIT_ACTIVE_LOCAL_MODEL", "qwen").strip().lower()
-    return preset if preset in _LOCAL_MODEL_PRESETS else "qwen"
+    preset = os.environ.get("NIBLIT_ACTIVE_LOCAL_MODEL", _DEFAULT_LOCAL_PRESET).strip().lower()
+    return preset if preset in _LOCAL_MODEL_PRESETS else _DEFAULT_LOCAL_PRESET
 
 
 class _LocalBrainConfig:
@@ -2367,9 +2368,10 @@ def swap_local_brain(preset: str) -> QwenLocalBrain:
             gguf_chat_template=config["chat_template"],
         )
     active = preset.strip().lower()
+    model_path = config["model_path"]
     os.environ["NIBLIT_ACTIVE_LOCAL_MODEL"] = active
-    os.environ["NIBLIT_LOCAL_MODEL"] = config["model_path"]
-    os.environ["NIBLIT_GGUF_MODEL_PATH"] = config["model_path"]
+    os.environ["NIBLIT_LOCAL_MODEL"] = model_path
+    os.environ["NIBLIT_GGUF_MODEL_PATH"] = model_path
     os.environ["NIBLIT_GGUF_CHAT_TEMPLATE"] = config["chat_template"]
     log.info(
         "[LocalBrain] Switched to preset %r — model: %s, template: %s",
