@@ -2000,12 +2000,7 @@ class NiblitBrain:
                     _cc = get_chat_completions(
                         llm_provider_manager=self.llm_provider_manager,
                     )
-                    _question_with_ctx = (
-                        _extra_context_stripped + "\n\n" + user_input
-                        if _extra_context_stripped
-                        else user_input
-                    )
-                    _cc_result = _cc.complete(_question_with_ctx, persist=True)
+                    _cc_result = _cc.complete(user_input, persist=True)
                     if _cc_result.response and not _cc_result.response.startswith("("):
                         response = _cc_result.response
                         log.debug(
