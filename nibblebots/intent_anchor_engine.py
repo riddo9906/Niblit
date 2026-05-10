@@ -355,3 +355,7 @@ def status() -> Dict[str, Any]:
         "total_observations": state.get("total_observations", 0),
         "window_size": len(window),
     }
+
+
+if __name__ == "__main__":
+    print('Running intent_anchor_engine.py')

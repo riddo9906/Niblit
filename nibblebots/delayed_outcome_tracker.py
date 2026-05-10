@@ -290,3 +290,7 @@ def summary() -> Dict[str, Any]:
         "matured_h5": matured_h5,
         "matured_h20": matured_h20,
     }
+
+
+if __name__ == "__main__":
+    print('Running delayed_outcome_tracker.py')

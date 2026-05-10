@@ -66,7 +66,7 @@ KERNEL_ELF := build/niblit.elf
 KERNEL_ISO := niblit-os.iso
 
 # ── Phony targets ─────────────────────────────────────────────────────────────
-.PHONY: all iso run clean help
+.PHONY: all iso run run-uefi run-elf shell shell-run runner runner-run clean help
 
 all: $(KERNEL_ELF)
 
@@ -97,11 +97,11 @@ iso: $(KERNEL_ELF)
 	@echo "ISO created: $(KERNEL_ISO)"
 
 # ── Run in QEMU ───────────────────────────────────────────────────────────────
-run: $(KERNEL_ISO)
+run: iso
 	qemu-system-i386 -cdrom $(KERNEL_ISO) -m 128M -serial stdio
 
 # Run in QEMU with OVMF UEFI firmware (requires ovmf package)
-run-uefi: $(KERNEL_ISO)
+run-uefi: iso
 	qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd \
 	    -cdrom $(KERNEL_ISO) -m 128M -serial stdio || \
 	qemu-system-x86_64 -bios /usr/share/qemu/OVMF.fd \
@@ -113,6 +113,7 @@ run-elf: $(KERNEL_ELF)
 
 # ── Userland shell (Linux test build) ────────────────────────────────────────
 SHELL_BIN := build/niblit-shell
+RUNNER_BIN := build/niblit-runner
 
 shell: $(SHELL_BIN)
 
@@ -122,6 +123,18 @@ $(SHELL_BIN): userland/shell/shell.c | build
 
 shell-run: $(SHELL_BIN)
 	./$(SHELL_BIN)
+
+# ── Niblit userspace tool runner (Linux host) ─────────────────────────────────
+runner: $(RUNNER_BIN)
+
+$(RUNNER_BIN): userland/niblit_tool/niblit_runner.c | build
+	gcc -std=c11 -O2 -Wall userland/niblit_tool/niblit_runner.c -o $@
+	@echo "Niblit runner binary: $@"
+
+runner-run: $(RUNNER_BIN)
+	NIBLIT_ENTRY_PATH=$(PWD)/userland/niblit_tool/niblit_entry.py \
+	NIBLIT_SOCKET_PATH=/tmp/niblit.sock \
+	./$(RUNNER_BIN)
 
 
 build:
@@ -138,6 +151,8 @@ help:
 	@echo "  iso       — wrap ELF in a GRUB2 bootable ISO"
 	@echo "  run       — boot ISO in QEMU"
 	@echo "  run-elf   — boot ELF directly in QEMU (no ISO)"
+	@echo "  runner    — build userspace niblit runner binary"
+	@echo "  runner-run— run userspace niblit runner (host Linux bridge mode)"
 	@echo "  clean     — remove build artefacts"
 	@echo ""
 	@echo "Cross-compiler setup: see os/README.md"

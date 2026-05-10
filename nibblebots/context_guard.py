@@ -396,3 +396,7 @@ def reset() -> None:
 def status() -> Dict[str, Any]:
     """Return current guard diagnostics dict."""
     return _get_guard().status()
+
+
+if __name__ == "__main__":
+    print('Running context_guard.py')

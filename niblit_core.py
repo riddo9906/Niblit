@@ -1960,6 +1960,14 @@ class NiblitCore:
         self.security_membrane: Optional[Any] = None  # initialised in _init_optional_services
         self.cyber_membrane: Optional[Any] = None    # advanced adaptive cyber membrane
         self.evolution_loop: Optional[Any] = None    # defensive evolution / self-attack loop
+        # ── Phase 20: Temporal Coherence Layer ───────────────────────────────
+        # Governs per-tier adaptation cadence and cross-timescale staleness.
+        try:
+            from modules.temporal_coherence import get_temporal_coherence_layer
+            self._tcl = get_temporal_coherence_layer()
+        except Exception:
+            self._tcl = None
+        self._last_feedback_arbitration: Optional[Dict[str, Any]] = None
         # ── Additive: Cross-environment state manager ─────────────────────────
         self.env_state_manager: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Environment adapter registry ────────────────────────────
@@ -2350,6 +2358,12 @@ class NiblitCore:
         )
         self.command_registry.register(
             "health", self._cmd_health, "Run a comprehensive health check across all subsystems", "core", priority=100
+        )
+        # Phase 21: Temporal Coherence Layer inspection command
+        self.command_registry.register(
+            "coherence", self._cmd_coherence,
+            "Show Temporal Coherence Layer epoch, tier clocks, and barrier states (Phase 21)",
+            "core", priority=99
         )
         self.command_registry.register(
             "metrics", self._cmd_metrics, "Show real-time performance metrics (CPU, RAM, latency)", "core", priority=100
@@ -5789,6 +5803,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
             mem_count = self._get_memory_count()
             improvements = "✅ Active" if self.improvements else "❌ Inactive"
             autonomous = "✅ Running" if (self.autonomous_engine and self.autonomous_engine.running) else "❌ Stopped"
+            self._refresh_unified_feedback_status()
+            loop_quality = getattr(self, "_unified_loop_status", {}).get("recent_loop_quality")
+            loop_label = (
+                f"{loop_quality:.2f}" if isinstance(loop_quality, (int, float)) else "n/a"
+            )
             _phase_icons = {
                 "pending": "⏳ pending",
                 "running": "⏳ loading modules...",
@@ -5797,14 +5816,65 @@ SW Categories: {stats.get('software_study_categories', 0)}
             }
             phase = getattr(self, "_deferred_init_phase", "pending")
             init_label = _phase_icons.get(phase, phase)
+            # Phase 21: show current TCL epoch in status
+            _epoch_label = "n/a"
+            if getattr(self, "_tcl", None) is not None:
+                try:
+                    _epoch_label = str(self._tcl.epoch.current)
+                except Exception:
+                    pass
             return (
                 f"Status: OK | Memory: {mem_count} | "
                 f"Improvements: {improvements} | Autonomous: {autonomous} | "
-                f"Init: {init_label}"
+                f"Init: {init_label} | LoopQuality: {loop_label} | Epoch: {_epoch_label}"
             )
         except Exception as e:
             log.error(f"Status command failed: {e}")
             return f"Status: Error - {e}"
+
+    def _cmd_coherence(self, _text: str) -> str:
+        """Phase 21: Temporal Coherence Layer inspection command.
+
+        Shows the runtime epoch, per-tier adaptation clocks, and cross-tier
+        synchronization barrier states so operators can verify that fast and
+        slow subsystems are running in coherent lock-step.
+        """
+        if getattr(self, "_tcl", None) is None:
+            return "⚠️ Temporal Coherence Layer not initialised (Phase 20 module unavailable)."
+        try:
+            tcl_status = self._tcl.status()
+            epoch_info = tcl_status.get("epoch", {})
+            clocks = tcl_status.get("clocks", {})
+            barriers = tcl_status.get("barriers", {})
+
+            lines = ["🕰️ **Temporal Coherence Layer** (Phase 20/21)"]
+            lines.append(
+                f"  Epoch : {epoch_info.get('current_epoch', '?')}  "
+                f"| Uptime: {epoch_info.get('uptime_s', '?')}s"
+            )
+            lines.append("")
+            lines.append("**Adaptation Clocks** (tier | next_in_s | count):")
+            for tier, info in clocks.items():
+                next_s = info.get("time_until_next_s", 0)
+                count = info.get("adapt_count", 0)
+                interval = info.get("min_interval_s", 0)
+                gate = "🟢 open" if next_s == 0 else f"🔒 {next_s}s"
+                lines.append(
+                    f"  {tier:<12} {gate:<14} | interval={interval}s | adapted×{count}"
+                )
+            lines.append("")
+            lines.append("**Synchronization Barriers** (fast→slow | staleness | coherent):")
+            for key, info in barriers.items():
+                coherent = info.get("coherent", True)
+                icon = "✅" if coherent else "⚠️ STALE"
+                staleness = info.get("staleness_s", 0)
+                threshold = info.get("threshold_s", 0)
+                lines.append(
+                    f"  {key:<22} {icon}  | staleness={staleness}s / threshold={threshold}s"
+                )
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"⚠️ Coherence status error: {exc}"
 
     def _cmd_health(self, _text: str) -> str:
         """Health check command."""
@@ -6306,7 +6376,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         """Verify that all layers are connected into one unified feedback loop.
 
         Checks that the critical cognitive pipeline is intact:
-          Input → CommandRegistry/Router → Brain → Memory → ALE (loop)
+          Input → Router → Brain → Memory → Quality/Evaluation → Learning/ALE
 
         Pushes a success or warning summary to the init-progress queue so the
         user sees the result immediately after boot.
@@ -6343,13 +6413,39 @@ SW Categories: {stats.get('software_study_categories', 0)}
         else:
             _warn("KnowledgeDB", "not initialised — knowledge will not persist")
 
-        # 5. Learning layer — ALE
+        # 5. Learning layer — NiblitLearning
+        if getattr(self, "learning", None):
+            _ok("NiblitLearning (interaction-feedback layer)")
+        else:
+            _warn("NiblitLearning", "not initialised — interaction learning degraded")
+
+        # 6. Evaluation layer — EvaluationEngine
+        if getattr(self, "evaluation_engine", None):
+            _ok("EvaluationEngine (response-quality loop)")
+        else:
+            _warn("EvaluationEngine", "not initialised — advisor reinforcement disabled")
+
+        # 7. Quality layer — QualityFeedback
+        try:
+            from modules.quality_feedback import get_quality_feedback  # noqa: PLC0415
+            if get_quality_feedback():
+                _ok("QualityFeedback (KB / policy feedback layer)")
+        except Exception as _qf_err:  # noqa: BLE001
+            _warn("QualityFeedback", f"unavailable — {type(_qf_err).__name__}")
+
+        # 8. Policy layer — PolicyOptimizer
+        if getattr(self, "policy_optimizer", None):
+            _ok("PolicyOptimizer (cross-loop policy learning)")
+        else:
+            _warn("PolicyOptimizer", "not initialised — routing will not adapt globally")
+
+        # 9. Learning layer — ALE
         if getattr(self, "autonomous_engine", None):
             _ok("AutonomousLearningEngine (learning loop)")
         else:
             _warn("AutonomousLearningEngine", "not initialised — background learning disabled")
 
-        # 6. Optional advanced layers
+        # 10. Optional advanced layers
         if getattr(self, "kernel_v3", None):
             _ok("CognitiveKernelV3 (advanced reasoning)")
         if getattr(self, "msg_layer", None):
@@ -6387,6 +6483,171 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "warnings": [n for _, n in warnings],
             "verified": len(warnings) == 0,
         }
+        self._refresh_unified_feedback_status()
+
+    def _refresh_unified_feedback_status(self) -> Dict[str, Any]:
+        """Refresh runtime status of the whole-system feedback loop."""
+        status: Dict[str, Any] = dict(getattr(self, "_unified_loop_status", {}))
+        eval_quality = None
+        qf_quality = None
+
+        try:
+            if getattr(self, "evaluation_engine", None) is not None:
+                eval_quality = self.evaluation_engine.last_quality_score()
+        except Exception:
+            eval_quality = None
+
+        try:
+            from modules.quality_feedback import get_quality_feedback  # noqa: PLC0415
+            qf_status = get_quality_feedback().status()
+            qf_quality = qf_status.get("recent_avg_score")
+            status["quality_feedback"] = qf_status
+        except Exception:
+            pass
+
+        if getattr(self, "evaluation_engine", None) is not None:
+            try:
+                status["evaluation_engine"] = self.evaluation_engine.status()
+            except Exception:
+                pass
+
+        if getattr(self, "learning", None) is not None and getattr(self, "db", None) is not None:
+            try:
+                status["learning_preferences"] = self.db.get_preferences()
+            except Exception:
+                pass
+
+        if getattr(self, "adaptive_learning", None) is not None:
+            try:
+                status["adaptive_learning"] = {
+                    "strategy": getattr(self.adaptive_learning, "learning_strategy", "balanced"),
+                    "feedback_count": len(getattr(self.adaptive_learning, "feedback_history", []) or []),
+                    "recommended_topics": self.adaptive_learning.get_recommended_topics(count=3),
+                }
+            except Exception:
+                pass
+
+        if isinstance(getattr(self, "_last_feedback_arbitration", None), dict):
+            status["feedback_arbitration"] = dict(self._last_feedback_arbitration)
+
+        # ── Phase 20: Temporal Coherence Layer status ─────────────────────────
+        if getattr(self, "_tcl", None) is not None:
+            try:
+                status["temporal_coherence"] = self._tcl.status()
+            except Exception:
+                pass
+
+        available_scores = [
+            float(s) for s in (eval_quality, qf_quality) if s is not None
+        ]
+        status["recent_loop_quality"] = round(
+            sum(available_scores) / len(available_scores), 3
+        ) if available_scores else None
+        status["loop_active"] = bool(
+            getattr(self, "brain", None)
+            and getattr(self, "db", None)
+            and getattr(self, "learning", None)
+        )
+
+        self._unified_loop_status = status
+        return status
+
+    def _arbitrate_turn_quality(
+        self,
+        evaluation_quality: Optional[float],
+        feedback_quality: Optional[float],
+    ) -> Dict[str, Any]:
+        """Resolve per-turn quality into one domain-scoped runtime authority.
+
+        Phase 20 upgrade — Multi-Axis Quality Arbitration:
+        In addition to the backward-compatible ``resolved_quality`` scalar, the
+        result now carries a ``quality_axes`` dict with partially-independent
+        quality dimensions.  Different subsystems should consume the axis most
+        relevant to their function rather than always using the single scalar.
+
+        Arbitration strategy (unchanged for the scalar):
+        - if only one source exists, use it directly
+        - if both exist and strongly disagree (diff ≥ 0.25), use the lower
+          score as a conservative guardrail (conflict_min_guard)
+        - otherwise blend with a configurable weighted average
+        """
+        _eval = None
+        _qf = None
+        try:
+            if evaluation_quality is not None:
+                _eval = max(0.0, min(1.0, float(evaluation_quality)))
+        except Exception:
+            _eval = None
+        try:
+            if feedback_quality is not None:
+                _qf = max(0.0, min(1.0, float(feedback_quality)))
+        except Exception:
+            _qf = None
+
+        result: Dict[str, Any] = {
+            "evaluation_quality": _eval,
+            "feedback_quality": _qf,
+            "resolved_quality": None,
+            "strategy": "none",
+            "disagreement": None,
+        }
+
+        if _eval is None and _qf is None:
+            return result
+
+        if _eval is None:
+            result["resolved_quality"] = round(_qf, 4)
+            result["strategy"] = "single_source_feedback"
+        elif _qf is None:
+            result["resolved_quality"] = round(_eval, 4)
+            result["strategy"] = "single_source_evaluation"
+        else:
+            _diff = abs(_eval - _qf)
+            result["disagreement"] = round(_diff, 4)
+            if _diff >= 0.25:
+                result["resolved_quality"] = round(min(_eval, _qf), 4)
+                result["strategy"] = "conflict_min_guard"
+            else:
+                _eval_w = float(os.environ.get("NIBLIT_FEEDBACK_EVAL_WEIGHT", "0.55"))
+                _qf_w = float(os.environ.get("NIBLIT_FEEDBACK_QF_WEIGHT", "0.45"))
+                _total_w = _eval_w + _qf_w
+                if _total_w <= 0:
+                    _eval_w, _qf_w, _total_w = 0.55, 0.45, 1.0
+                _blended = ((_eval * _eval_w) + (_qf * _qf_w)) / _total_w
+                result["resolved_quality"] = round(_blended, 4)
+                result["strategy"] = "weighted_blend"
+                result["weights"] = {
+                    "evaluation": round(_eval_w / _total_w, 4),
+                    "feedback": round(_qf_w / _total_w, 4),
+                }
+
+        # ── Multi-Axis Quality Arbitration (Phase 20) ─────────────────────────
+        # Derive partially-independent quality dimensions from available signals.
+        # Each axis captures a different aspect of interaction quality so that
+        # subsystems (adaptive_learning, causality_tracker, nibblebots) can
+        # consume the dimension most aligned with their function.
+        _base = result["resolved_quality"]
+        if _base is not None:
+            _b = float(_base)
+            # reasoning  — evaluation_engine signal is the best proxy
+            _reasoning = float(_eval) if _eval is not None else _b
+            # engagement — quality_feedback score correlates with user engagement
+            _engagement = float(_qf) if _qf is not None else _b
+            # factuality — conservative: min of available signals (avoids overconfidence)
+            _factuality = min(float(_eval or _b), float(_qf or _b))
+            # strategic_alignment — blended scalar (system-level coherence)
+            _strategic = _b
+            # stability — penalised if signals strongly disagree
+            _disag = result.get("disagreement") or 0.0
+            _stability = max(0.0, _b - float(_disag) * 0.5)
+            result["quality_axes"] = {
+                "reasoning":           round(_reasoning, 4),
+                "engagement":          round(_engagement, 4),
+                "factuality":          round(_factuality, 4),
+                "strategic_alignment": round(_strategic, 4),
+                "stability":           round(_stability, 4),
+            }
+        return result
 
     def _init_vector_store(self) -> None:
         """
@@ -8592,7 +8853,16 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         try:
             if AdaptiveLearning:
-                self.adaptive_learning = AdaptiveLearning()
+                _qf = None
+                try:
+                    from modules.quality_feedback import get_quality_feedback  # noqa: PLC0415
+                    _qf = get_quality_feedback()
+                except Exception as _qf_err:
+                    log.debug(f"[SELF-IMPROVEMENTS] AdaptiveLearning QualityFeedback unavailable: {_qf_err}")
+                self.adaptive_learning = AdaptiveLearning(
+                    knowledge_db=self.db,
+                    quality_feedback=_qf,
+                )
                 log.info("[SELF-IMPROVEMENTS] ✅ AdaptiveLearning")
         except Exception as e:
             log.debug(f"[SELF-IMPROVEMENTS] AdaptiveLearning failed: {e}")
@@ -9346,6 +9616,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _trigger_learning(self, user_input: str, response: str):
         """Invoke NiblitLearning on each conversation turn, queue follow-up tasks."""
+        # ── Phase 20: advance temporal epoch ─────────────────────────────────
+        _epoch_tag: Optional[int] = None
+        if getattr(self, "_tcl", None) is not None:
+            try:
+                _epoch_tag = self._tcl.tick()
+            except Exception:
+                pass
+
         # Record user activity (not idle)
         if self.autonomous_engine:
             try:
@@ -9353,12 +9631,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     self.autonomous_engine.record_user_activity()
             except Exception as e:
                 log.debug(f"Failed to record user activity: {e}")
-
-        if self.learning:
-            try:
-                self.learning.process_interaction(user_input, response)
-            except Exception as _e:
-                log.debug(f"NiblitLearning.process_interaction failed: {_e}")
 
         if self.tasks:
             try:
@@ -9370,18 +9642,109 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # Score every response with QualityFeedback so KB facts are reinforced
         # or decayed and the PolicyOptimizer accumulates an episode for this
         # conversation turn.  Uses the DB attached to NiblitCore when available.
+        _qf_result = None
         if user_input and response:
             try:
                 from modules.quality_feedback import get_quality_feedback
                 qf = get_quality_feedback()
                 kb = getattr(self, "db", None)
-                qf.record_answer_quality(
+                _qf_result = qf.record_answer_quality(
                     query=user_input,
                     answer=response,
                     knowledge_db=kb,
                 )
             except Exception as _qf_err:
                 log.debug("_trigger_learning QualityFeedback failed: %s", _qf_err)
+
+        if self.learning:
+            try:
+                _eval_quality = None
+                _chosen_advisor = ""
+                if getattr(self, "evaluation_engine", None) is not None:
+                    try:
+                        _eval_quality = self.evaluation_engine.last_quality_score()
+                        _eval_history = self.evaluation_engine.get_history()
+                        if _eval_history:
+                            _chosen_advisor = str(_eval_history[-1].get("chosen_advisor", ""))
+                    except Exception:
+                        pass
+                _feedback_score = (
+                    float(_qf_result.get("score"))
+                    if isinstance(_qf_result, dict) and _qf_result.get("score") is not None
+                    else None
+                )
+                _feedback_arbitration = self._arbitrate_turn_quality(
+                    evaluation_quality=_eval_quality,
+                    feedback_quality=_feedback_score,
+                )
+                self._last_feedback_arbitration = _feedback_arbitration
+                # Stamp arbitration result with current epoch for traceability
+                if _epoch_tag is not None and getattr(self, "_tcl", None) is not None:
+                    try:
+                        self._tcl.tag_decision(_feedback_arbitration)
+                    except Exception:
+                        pass
+                self.learning.process_interaction(
+                    user_message=user_input,
+                    ai_response=response,
+                    quality_score=_eval_quality,
+                    feedback_score=_feedback_score,
+                    chosen_advisor=_chosen_advisor,
+                    loop_source="niblit_core",
+                    epoch_tag=_epoch_tag,
+                    # Phase 21: propagate multi-axis quality to the learning record
+                    quality_axes=_feedback_arbitration.get("quality_axes")
+                    if isinstance(_feedback_arbitration, dict)
+                    else None,
+                )
+                # ── Phase 20: cadence-gated evolve() ─────────────────────────
+                # evolve() aggregates the full window every call — gate it to
+                # the MEDIUM tier (default ≥60 s) to avoid O(n) cost every turn.
+                _should_evolve = True
+                if getattr(self, "_tcl", None) is not None:
+                    try:
+                        _should_evolve = self._tcl.should_adapt("MEDIUM")
+                    except Exception:
+                        pass
+                if _should_evolve:
+                    self.learning.evolve()
+                    if getattr(self, "_tcl", None) is not None:
+                        try:
+                            self._tcl.record_heartbeat("MEDIUM")
+                        except Exception:
+                            pass
+            except Exception as _e:
+                log.debug(f"NiblitLearning unified loop update failed: {_e}")
+
+        # Feed the same interaction into AdaptiveLearning so preference strategy
+        # and topic guidance evolve alongside the phase-19 unified loop.
+        if getattr(self, "adaptive_learning", None):
+            try:
+                _turn_quality = None
+                _arb = getattr(self, "_last_feedback_arbitration", None)
+                if isinstance(_arb, dict):
+                    _turn_quality = _arb.get("resolved_quality")
+                if _turn_quality is None and getattr(self, "evaluation_engine", None) is not None:
+                    try:
+                        _turn_quality = self.evaluation_engine.last_quality_score()
+                    except Exception:
+                        _turn_quality = None
+                if _turn_quality is not None:
+                    _turn_quality = max(0.0, min(1.0, float(_turn_quality)))
+                    _satisfaction = int(round(1.0 + (_turn_quality * 4.0)))
+                else:
+                    _satisfaction = 3
+                _satisfaction = max(1, min(5, _satisfaction))
+                self.adaptive_learning.record_feedback(
+                    query=user_input,
+                    response=response,
+                    satisfaction=_satisfaction,
+                    propagate_quality=False,
+                )
+            except Exception as _al_err:
+                log.debug("AdaptiveLearning turn feedback failed: %s", _al_err)
+
+        self._refresh_unified_feedback_status()
 
     def health_check(self) -> HealthCheckResult:
         """Comprehensive system health check."""

@@ -1,0 +1,30 @@
+{
+  "bare_except": {
+    "crash_visibility": 1.5481,
+    "debuggability": 1.6671,
+    "risk_logic_change": 0.0393,
+    "sdal_observability": 0.9528,
+    "system_stability": 0.7146
+  },
+  "bare_except_pass": {
+    "auditability": 0.6,
+    "crash_visibility": 0.4,
+    "debuggability": 0.5,
+    "risk_logic_change": 0.05
+  },
+  "double_blank_lines": {
+    "ci_compliance": 0.25,
+    "readability": 0.3,
+    "risk_logic_change": 0.0
+  },
+  "eof_newline": {
+    "diff_cleanliness": 0.2,
+    "posix_compliance": 0.4,
+    "risk_logic_change": 0.0
+  },
+  "trailing_whitespace": {
+    "ci_compliance": 0.4,
+    "diff_cleanliness": 0.5,
+    "risk_logic_change": 0.0
+  }
+}

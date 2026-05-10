@@ -36,6 +36,8 @@ Well-known event type constants
 ``EVENT_EVOLUTION_OUTCOME``   = ``"evolution.outcome"``
 ``EVENT_CONTEXT_MISMATCH``    = ``"context.mismatch"``
 ``EVENT_INTENT_DRIFT``        = ``"intent.drift"``
+``EVENT_SYSTEM_MIRRORED``     = ``"system.mirrored"``
+``EVENT_SYSTEM_RESONANCE``    = ``"system.resonance"``
 
 Design
 ------
@@ -70,6 +72,9 @@ EVENT_CONTEXT_MISMATCH   = "context.mismatch"    # Phase 8: emitted by context_g
 EVENT_INTENT_DRIFT       = "intent.drift"         # Phase 8.5: emitted by intent_anchor_engine
 EVENT_MODE_LOCKED        = "stability.mode_locked" # Phase 9: emitted by stability_controller
 EVENT_AGENT_OBSERVATION  = "agent.observation"      # Phase 15: emitted by background worker agents
+EVENT_SYSTEM_MIRRORED   = "system.mirrored"         # Phase 16: emitted by system_interface_layer after mirror_system()
+EVENT_SYSTEM_RESONANCE  = "system.resonance"        # Phase 16: emitted by system_interface_layer after establish_resonance()
+EVENT_GOVERNANCE_ADAPTED = "governance.adapted"     # Phase 18: emitted by governance_evolution_engine after parameter adaptation
 
 
 @dataclass

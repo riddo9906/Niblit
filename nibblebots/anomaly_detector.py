@@ -390,3 +390,7 @@ def is_system_safe() -> bool:
     std = math.sqrt(max(0.0, state.get("ewma_var", 0.0)))
     alert = _ewma_check(latest, mean, std, n)
     return alert is None or alert.severity == SEVERITY_INFO
+
+
+if __name__ == "__main__":
+    print('Running anomaly_detector.py')

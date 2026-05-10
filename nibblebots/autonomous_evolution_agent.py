@@ -107,6 +107,13 @@ try:
 except ImportError:
     _REGISTRY_AVAILABLE = False
 
+# System Interface Layer for mirror + resonance governance (optional)
+try:
+    from nibblebots import system_interface_layer as _sil  # noqa: PLC0415
+    _SIL_AVAILABLE = True
+except ImportError:
+    _SIL_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -995,6 +1002,49 @@ def main() -> int:
             "  💡 Failure→fix hints merged: "
             + " → ".join(preferred_fix_types[:3])
         )
+
+    # Phase 16 SIL: mirror the CI environment as an external system so that
+    # Niblit can establish resonance and adapt its strategy to the CI signal
+    # patterns before scoring and planning fixes.
+    if _SIL_AVAILABLE:
+        try:
+            # Derive current objective from goal_adaptation_engine when available.
+            _sil_objective = "maximize_stability"
+            if _PHASE3_AVAILABLE:
+                try:
+                    from nibblebots import goal_adaptation_engine as _gae  # noqa: PLC0415
+                    _sil_objective = _gae.evaluate() or "maximize_stability"
+                except Exception:  # noqa: BLE001
+                    pass
+
+            _ci_signal_data: dict = {}
+            if failure_fix_hints:
+                for ft in failure_fix_hints:
+                    _ci_signal_data[f"ci_failure_{ft}"] = 1.0
+            if priority_files:
+                _ci_signal_data["ci_priority_files"] = float(len(priority_files))
+            _ci_signal_data["ci_max_fixes"] = float(MAX_FIXES)
+            _ci_profile = _sil.mirror_system(
+                "niblit_ci",
+                _ci_signal_data,
+                current_objective=_sil_objective,
+                authority_domains=["risk", "rollback", "exploration"],
+            )
+            _ci_resonance = _sil.establish_resonance(
+                _ci_profile,
+                current_objective=_sil_objective,
+            )
+            print(
+                f"  🪞 Phase 16 SIL: mirrored niblit_ci → "
+                f"{_ci_profile.decision_structure}"
+            )
+            print(
+                f"  🎯 Resonance: trust={_ci_resonance.signal_weight_adj:.3f} "
+                f"explore_adj={_ci_resonance.explore_rate_adj:+.4f}"
+                + (" [OBJECTIVE_CONFLICT]" if _ci_resonance.objective_conflict else "")
+            )
+        except Exception:  # noqa: BLE001
+            pass
     print()
 
     # 3. Find raw batch of issues to fix this cycle
@@ -1255,6 +1305,49 @@ def main() -> int:
             print(f"   Pending outcome written to {pending_file}")
         except OSError as exc:
             print(f"  ⚠ Could not write pending outcome: {exc}", file=sys.stderr)
+
+    # Phase 16.5 SIL: record causal attribution for niblit_ci now that we know
+    # the expected impact of this cycle.  This closes the resonance feedback loop
+    # so trust updates use actual outcome deltas rather than correlation alone.
+    if _SIL_AVAILABLE and written_files:
+        try:
+            _sil_objective = "maximize_stability"
+            if _PHASE3_AVAILABLE:
+                try:
+                    from nibblebots import goal_adaptation_engine as _gae  # noqa: PLC0415
+                    _sil_objective = _gae.evaluate() or "maximize_stability"
+                except Exception:  # noqa: BLE001
+                    pass
+            # post score: shift from neutral using normalised expected_net_impact
+            _net = 0.0
+            if _PHASE3_AVAILABLE and plan is not None:
+                _net = float(plan.expected_net_impact)
+            _post_score = min(1.0, max(0.0, 0.5 + _net))
+            _sil.record_resonance_attribution(
+                system_id="niblit_ci",
+                baseline_outcome=0.5,
+                post_resonance_outcome=_post_score,
+                adjustments_applied={"cycle_fixes": len(written_files)},
+            )
+            print(
+                f"  🔗 Phase 16.5 SIL: attribution recorded for niblit_ci "
+                f"(delta={_post_score - 0.5:+.4f})"
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Phase 21: TCL STRATEGY-tier heartbeat — signal to the TemporalCoherenceLayer
+    # that a full evolution cycle (strategy derivation + causal scoring) completed.
+    # This keeps the STRATEGY→GOVERNANCE synchronization barrier fresh so that
+    # any STRATEGY-tier adapt call in niblit_core is not blocked by a stale barrier.
+    try:
+        from modules.temporal_coherence import get_temporal_coherence_layer  # noqa: PLC0415
+        _tcl = get_temporal_coherence_layer()
+        _tcl.record_heartbeat("STRATEGY")
+        _tcl.record_heartbeat("GOVERNANCE")
+        print("  🕰️ Phase 21 TCL: STRATEGY + GOVERNANCE heartbeats recorded.")
+    except Exception:  # noqa: BLE001
+        pass
 
     return 0
 

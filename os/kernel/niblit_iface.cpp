@@ -5,6 +5,7 @@
 #include "niblit_iface.h"
 #include "vga.h"
 #include "memory.h"
+#include "paging.h"
 #include <stddef.h>
 
 // Simple byte-copy (no libc available in early kernel)
@@ -27,17 +28,25 @@ void init() {
         return;
     }
 
-    // Identity-map the page at NIBLIT_RING_VADDR for now
-    // (a real paging layer would set up proper virtual mapping here).
-    s_ring = reinterpret_cast<NiblitRing*>(phys);
+    // Map the physical page at the canonical shared virtual address so:
+    // - SYS_NIBLIT_MMAP_RING returns a real mapped location
+    // - kernel + userspace agree on a single authority address
+    Paging::map_page(
+        NIBLIT_RING_VADDR,
+        phys,
+        Paging::PAGE_PRESENT | Paging::PAGE_WRITABLE | Paging::PAGE_USER
+    );
+    s_ring = reinterpret_cast<NiblitRing*>(NIBLIT_RING_VADDR);
 
-    // Zero-init the ring
+    // Zero-init the ring (includes epoch_id = 0)
     volatile uint8_t* p = reinterpret_cast<volatile uint8_t*>(s_ring);
     for (size_t i = 0; i < sizeof(NiblitRing); ++i) p[i] = 0;
 
-    VGA::write("[NIBLIT] Ring buffer at phys=");
+    VGA::write("[NIBLIT] Ring buffer vaddr=");
+    VGA::write_hex(NIBLIT_RING_VADDR);
+    VGA::write(" phys=");
     VGA::write_hex(phys);
-    VGA::writeln(" — Niblit AI tool interface ready.");
+    VGA::writeln(" epoch=0 (Phase 20 TCL) — Niblit AI tool interface ready.");
 }
 
 uint32_t send_request(uint32_t type, const char* tool, const char* query) {
@@ -50,6 +59,10 @@ uint32_t send_request(uint32_t type, const char* tool, const char* query) {
         return 0;
     }
 
+    // Phase 20: advance the temporal epoch on every request dispatch so the
+    // userspace Temporal Coherence Layer can synchronise its epoch counter.
+    s_ring->epoch_id++;
+
     NiblitRequest* req = &s_ring->requests[s_ring->head];
     req->id   = s_seq++;
     req->type = type;
@@ -57,7 +70,6 @@ uint32_t send_request(uint32_t type, const char* tool, const char* query) {
     kstrncpy(req->query, query ? query : "", NIBLIT_MAX_QUERY);
 
     // Advance head (visible to daemon after this write).
-    // Callers must ensure cmd is constructed from trusted sources only.
     s_ring->head = next;
     return req->id;
 }
@@ -87,6 +99,18 @@ void call_tool(const char* tool_name, const char* json_args) {
     VGA::write_dec(id);
     VGA::write(" -> ");
     VGA::writeln(tool_name);
+}
+
+// ── Phase 20: Temporal Coherence epoch helpers ────────────────────────────────
+
+uint32_t advance_epoch() {
+    if (!s_ring) return 0;
+    return ++s_ring->epoch_id;
+}
+
+uint32_t current_epoch() {
+    if (!s_ring) return 0;
+    return s_ring->epoch_id;
 }
 
 } // namespace NiblitIface

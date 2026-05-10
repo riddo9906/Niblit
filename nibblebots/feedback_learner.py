@@ -434,17 +434,76 @@ def _evaluate_real_world_value(
                 signal_reliability=_avg_confidence,
             )
             # Phase 10: record episode in causal strategy engine (best-effort)
+            # Phase 18.5: compute rolling variance from value history instead
+            # of passing the hard-coded 0.0, which was corrupting the CSE's
+            # variance band and regime-detection calculations.
             try:
                 from nibblebots import causal_strategy_engine as _cse  # noqa: PLC0415
+                # Derive variance from the last N value assessments so the CSE
+                # receives a meaningful spread estimate rather than zero.
+                _variance = 0.0
+                try:
+                    _history = value_engine.read_history(last_n=10)
+                    if len(_history) >= 3:
+                        _deltas = [
+                            float(h["delta"])
+                            for h in _history
+                            if isinstance(h.get("delta"), (int, float))
+                        ]
+                        if len(_deltas) >= 3:
+                            _mean_d = sum(_deltas) / len(_deltas)
+                            _variance = round(
+                                sum((d - _mean_d) ** 2 for d in _deltas)
+                                / len(_deltas),
+                                6,
+                            )
+                except Exception:  # noqa: BLE001
+                    pass
+                # batch_size = number of fix types applied this cycle
+                _batch_size = len(fix_types) if fix_types else 1
+                # Phase 21: pull quality_axes from the TCL-tagged arbitration
+                # result stored on the module-level singleton so the CSE
+                # receives richer per-dimension signals rather than reusing
+                # avg_confidence for both confidence and signal_conf.
+                _cse_confidence = _avg_confidence
+                _cse_signal_conf = _avg_confidence
+                try:
+                    from modules.temporal_coherence import get_temporal_coherence_layer  # noqa: PLC0415
+                    _tcl = get_temporal_coherence_layer()
+                    # The arbitration result was tagged by niblit_core with the
+                    # current epoch; retrieve quality_axes from there if available.
+                    # We access the module-level singleton's last arbitration via
+                    # niblit_core if reachable, else fall back to plain confidence.
+                    import niblit_core as _nc_mod  # noqa: PLC0415
+                    _nc_inst = getattr(_nc_mod, "_niblit_core_instance", None)
+                    if _nc_inst is not None:
+                        _arb = getattr(_nc_inst, "_last_feedback_arbitration", None)
+                        if isinstance(_arb, dict):
+                            _axes = _arb.get("quality_axes")
+                            if isinstance(_axes, dict):
+                                # reasoning → confidence (how well the system reasoned)
+                                _cse_confidence = float(
+                                    _axes.get("reasoning", _avg_confidence)
+                                )
+                                # strategic_alignment → signal_conf (system-level coherence)
+                                _cse_signal_conf = float(
+                                    _axes.get("strategic_alignment", _avg_confidence)
+                                )
+                                # stability penalises variance: low stability → higher variance
+                                _stability = float(_axes.get("stability", 1.0))
+                                _variance = max(_variance, round(1.0 - _stability, 6))
+                except Exception:  # noqa: BLE001
+                    pass
                 _cse.record_episode(
                     mode=_mode,
                     outcome=_outcome_score,
-                    confidence=_avg_confidence,
-                    signal_conf=_avg_confidence,
+                    confidence=_cse_confidence,
+                    signal_conf=_cse_signal_conf,
                     intent_score=_intent_alignment,
-                    variance=0.0,
+                    variance=_variance,
                     fix_type=fix_types[0] if fix_types else "",
-                    subsystem="",
+                    subsystem=str(after_snapshot.get("subsystem", "")),
+                    batch_size=_batch_size,
                 )
             except Exception:  # noqa: BLE001
                 pass
@@ -463,6 +522,54 @@ def _evaluate_real_world_value(
                 )
             except Exception:  # noqa: BLE001
                 pass
+
+        # Phase 16.5: resonance attribution — record causal evidence for each
+        # active SIL profile so trust updates reflect actual outcome improvement
+        # rather than mere correlation.
+        try:
+            from nibblebots import system_interface_layer as _sil  # noqa: PLC0415
+            _sil_ids = _sil.get_all_profile_ids()
+            if _sil_ids and assessment.delta is not None:
+                # Use the before/after snapshot scores as the true baseline and
+                # post-resonance measurements.  When before_snapshot is available
+                # use its own single-evaluation as baseline; otherwise fall back
+                # to a neutral 0.5.
+                if before_snapshot is not None:
+                    _before_assess = value_engine.evaluate_single(before_snapshot)
+                    _baseline = min(1.0, max(0.0, 0.5 + float(
+                        _before_assess.delta if _before_assess.delta is not None else 0.0
+                    )))
+                else:
+                    _baseline = 0.5
+                _post = min(1.0, max(0.0, 0.5 + float(assessment.delta)))
+                for _sid in _sil_ids:
+                    _sil.record_resonance_attribution(
+                        system_id=_sid,
+                        baseline_outcome=_baseline,
+                        post_resonance_outcome=_post,
+                        adjustments_applied=None,
+                    )
+        except Exception:  # noqa: BLE001
+            pass
+
+        # Phase 18: governance evolution — on a slow cadence (every
+        # GEE_ADAPT_INTERVAL cycles) evaluate whether governance parameters
+        # should adapt.  Best-effort, never raises.
+        try:
+            from nibblebots import governance_evolution_engine as _gee  # noqa: PLC0415
+            _gee_outcome = min(1.0, max(0.0, 0.5 + float(
+                assessment.delta if assessment.delta is not None else 0.0
+            )))
+            _adaptation = _gee.evaluate_and_adapt(outcome_score=_gee_outcome)
+            if _adaptation is not None:
+                print(
+                    f"  🏛️  GEE: governance adapted — "
+                    f"sat_delta={_adaptation.saturation_threshold_delta:+.4f} "
+                    f"penalty_delta={_adaptation.objective_penalty_delta:+.4f} | "
+                    f"{_adaptation.rationale}"
+                )
+        except Exception:  # noqa: BLE001
+            pass
 
     except Exception:  # noqa: BLE001
         pass   # Phase 8 is strictly best-effort
@@ -606,3 +713,7 @@ def load_top_patterns(min_confidence: float = 0.70, top_n: int = 10) -> List[Dic
         return []
     records.sort(key=lambda r: r.get("avg_outcome", 0.0), reverse=True)
     return records[:top_n]
+
+
+if __name__ == "__main__":
+    print('Running feedback_learner.py')

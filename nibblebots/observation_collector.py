@@ -329,3 +329,7 @@ class ObservationCollector:
             "by_domain": domain_counts,
             "by_signal_type": signal_counts,
         }
+
+
+if __name__ == "__main__":
+    print('Running observation_collector.py')

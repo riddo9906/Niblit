@@ -99,6 +99,7 @@ Consistent shorthand for code and documentation:
 | `aios_hal` | `HAL`, `get_aios_hal()` | `aios_hal.py` |
 | `aios_memory` | `KnowledgeDB`, `MemoryManager`, `LocalDB` | `niblit_memory/__init__.py` |
 | `aios_persistence` | `KnowledgeStore`, SQLite | `niblit_memory/__init__.py` |
+| `temporal_coherence` | `TemporalCoherenceLayer`, `AdaptationClock`, `EpochManager` | `modules/temporal_coherence.py` |
 
 ---
 
@@ -318,6 +319,73 @@ The following components from the AIOS proposal have been implemented:
    sequence with per-phase timing, hook registration, and singleton access via
    `get_aios_runtime()`.
 
+---
+
+## C++ AiOS Logic Review (for Further Development)
+
+Niblit's C++ OS layer (`/os`) provides the low-level substrate for "Niblit as OS":
+
+### Kernel-side responsibilities
+
+- `os/kernel/kernel.cpp` — deterministic boot order and subsystem activation (27-step sequence).
+- `os/kernel/syscall.cpp` — syscall control plane including Niblit-specific syscalls (201–210).
+- `os/kernel/niblit_iface.*` — shared IPC ring contract for kernel↔AI communication, including Phase 20 epoch_id field.
+- `os/kernel/procfs.*` + `os/kernel/vfs.*` — observability and persistent kernel-side AI state.
+
+### Userspace bridge responsibilities
+
+- `os/userland/niblit_tool/niblit_runner.c` — daemon/bridge between kernel IPC and Python tool runtime.
+- `os/userland/niblit_tool/niblit_entry.py` — dispatch layer into `NiblitCore`.
+
+### Wiring hardening present
+
+- Ring memory mapped at canonical `NIBLIT_RING_VADDR` during kernel interface init, aligning syscall-reported address and shared-memory authority.
+- Build wiring includes explicit runner targets (`make niblit-runner`, `make niblit-runner-run`).
+- **Phase 20**: `NiblitRing.epoch_id` — monotonic epoch counter bumped on every `send_request()`; `SYS_NIBLIT_EPOCH_SYNC (210)` lets userspace TCL synchronise its Python epoch with the kernel timeline.
+
+### Phase 20 Temporal Coherence in the OS layer
+
+```
+NiblitRing (shared at 0xD0000000)
+  ├── head / tail         — ring producer/consumer indices
+  ├── epoch_id            — Phase 20: bumped on every AI request dispatch
+  └── requests/responses  — IPC payload arrays
+
+SYS_NIBLIT_EPOCH_SYNC (210)
+  arg1=1 → advance epoch_id, return new value
+  arg1=0 → read current epoch_id without advancing
+```
+
+The Python `TemporalCoherenceLayer.tick()` → `SYS_NIBLIT_EPOCH_SYNC(1)` creates
+a closed-loop epoch sync: kernel events and Python learning decisions share one
+monotonic timeline, enabling accurate delayed-outcome attribution across the
+kernel/userspace boundary.
+
+---
+
+## Unified AIOS Boot-to-Reasoning Path
+
+1. C++ kernel boots and brings up syscall/IPC/VFS/ProcFS layers.
+2. `NiblitIface::init()` maps ring at `NIBLIT_RING_VADDR`, resets `epoch_id=0`.
+3. Niblit IPC ring accepts queries/tools through kernel shell/syscalls.
+4. Userspace runner forwards requests to `niblit_entry.py`; ring `epoch_id` advances on each dispatch.
+5. `niblit_entry.py` dispatches into Python `NiblitCore`.
+6. `NiblitCore._trigger_learning()` calls `_tcl.tick()` → `SYS_NIBLIT_EPOCH_SYNC(1)` (when running natively on NiblitOS) to keep Python epoch aligned with kernel epoch.
+7. `NiblitCore` executes unified quality/evaluation/adaptive loops, epoch-tagged.
+8. Responses flow back through runner → ring → kernel consumers.
+
+This path gives a single causal chain from hardware boot to epoch-tagged adaptive inference.
+
+---
+
+## Next OS-Level Development Priorities
+
+1. **Ring backpressure + timeout policy** in kernel/userspace bridge.
+2. **Multi-response correlation** beyond fixed request ID probing.
+3. **ProcFS AI diagnostics expansion** (queue depth, bridge RTT, arbitration stats, epoch counter).
+4. **Boot profile presets** for dev/safe/performance kernel policies.
+5. **initrd (cpio)** — load userspace programs from a RAM disk (Phase 4b).
+
 2. ✅ **`aios_scheduler.py`** — `AIOSScheduler` wraps `LifecycleEngine` and
    adds a priority heap queue (`ScheduledTask`), phase advancement, task
    submit/cancel, and singleton access via `get_aios_scheduler()`.
@@ -335,4 +403,3 @@ The following components from the AIOS proposal have been implemented:
    `aios.boot.complete` event at Phase 7 with per-phase timing, total boot
    duration, and `boot_id` to the `aios.runtime` logger (DEBUG) and the
    notification queue.
-

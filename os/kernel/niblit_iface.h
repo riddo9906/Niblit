@@ -55,8 +55,13 @@ struct NiblitResponse {
 static constexpr size_t NIBLIT_RING_CAPACITY = 8;    // max in-flight requests
 
 struct NiblitRing {
-    volatile uint32_t head;   // producer index (kernel writes requests here)
-    volatile uint32_t tail;   // consumer index (daemon reads requests here)
+    volatile uint32_t head;     // producer index (kernel writes requests here)
+    volatile uint32_t tail;     // consumer index (daemon reads requests here)
+    // Phase 20: monotonically increasing epoch counter.
+    // The kernel bumps this on every AI request dispatch so the userspace
+    // daemon can tag decisions and detect temporal staleness.
+    volatile uint32_t epoch_id;
+    uint32_t          _ring_pad; // keep 8-byte alignment
     NiblitRequest     requests[NIBLIT_RING_CAPACITY];
     NiblitResponse    responses[NIBLIT_RING_CAPACITY];
 };
@@ -76,6 +81,7 @@ void init();
 
 // Post a request to the Niblit daemon.  Returns the request id.
 // Non-blocking: if the ring is full, returns 0 (drop).
+// Bumps ring->epoch_id before writing so the daemon sees the current epoch.
 uint32_t send_request(uint32_t type, const char* tool, const char* query);
 
 // Poll for a response matching *request_id*.
@@ -87,6 +93,15 @@ void ask(const char* question);
 
 // Convenience: invoke a named Niblit tool with a JSON arguments string.
 void call_tool(const char* tool_name, const char* json_args);
+
+// Phase 20 — Temporal Coherence:
+// Atomically advance and return the ring's epoch_id.
+// Called by SYS_NIBLIT_EPOCH_SYNC so the userspace Temporal Coherence
+// Layer can synchronise its epoch counter with the kernel timeline.
+uint32_t advance_epoch();
+
+// Return the current epoch_id without advancing it.
+uint32_t current_epoch();
 
 } // namespace NiblitIface
 #endif // __cplusplus

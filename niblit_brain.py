@@ -1635,6 +1635,57 @@ class NiblitBrain:
                 log.debug("[BRAIN/DEBATE] winner=%s prefer_local=%s augment=%s",
                           _debate_winner, _debate_prefer_local, _debate_augment_context)
         # ─────────────────────────────────────────────────────────────────────
+
+        # ── Adaptive System Interface — mirror + resonance ───────────────────
+        # When the user input arrives from an external system (prefixed with
+        # "SYS:<system_id>:") we mirror the signal context and establish
+        # resonance so the brain's routing adapts to that system's style.
+        # External callers tag their inputs using the prefix convention:
+        #   "SYS:tickerbot: rsi_oversold=1 volume_spike=1"
+        # For normal user chat, this block is a no-op.
+        _sil_resonance_hint: str = ""
+        try:
+            import re as _re  # noqa: PLC0415
+            _sil_prefix_match = _re.match(
+                r"^SYS:([A-Za-z0-9_\-]+):\s*(.*)", user_input, _re.DOTALL
+            )
+            if _sil_prefix_match:
+                _sil_system_id = _sil_prefix_match.group(1)
+                _sil_payload_str = _sil_prefix_match.group(2).strip()
+                # Parse simple key=value pairs from the payload
+                _sil_data: dict = {}
+                for _kv in _sil_payload_str.replace(",", " ").split():
+                    if "=" in _kv:
+                        _k, _, _v = _kv.partition("=")
+                        try:
+                            _sil_data[_k] = float(_v)
+                        except ValueError:
+                            log.debug(
+                                "[BRAIN/SIL] non-numeric value for key %r: %r — "
+                                "stored as string",
+                                _k, _v,
+                            )
+                            _sil_data[_k] = _v
+                if _sil_data:
+                    from nibblebots import system_interface_layer as _sil_mod  # noqa: PLC0415
+                    _sil_profile = _sil_mod.mirror_system(
+                        _sil_system_id, _sil_data
+                    )
+                    _sil_cfg = _sil_mod.establish_resonance(_sil_profile)
+                    _sil_resonance_hint = (
+                        f"[SIL] {_sil_cfg.rationale}"
+                    )
+                    log.debug(
+                        "[BRAIN/SIL] mirrored %s → %s",
+                        _sil_system_id,
+                        _sil_cfg.rationale,
+                    )
+                    # Strip the SYS prefix so the brain sees clean content
+                    user_input = _sil_payload_str
+        except Exception as _sil_err:  # noqa: BLE001
+            log.debug("[BRAIN/SIL] mirror+resonance skipped: %s", _sil_err)
+        # ─────────────────────────────────────────────────────────────────────
+
         _exit_stack = contextlib.ExitStack()
         try:
             # Structured request tracing

@@ -237,3 +237,7 @@ def get_staleness_report() -> Dict[str, Any]:
         }
 
     return report
+
+
+if __name__ == "__main__":
+    print('Running confidence_decay.py')

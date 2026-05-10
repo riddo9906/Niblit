@@ -232,3 +232,7 @@ def update_constraints(new_constraints: Dict[str, float]) -> None:
 def current_profile() -> Dict[str, Any]:
     """Return the full profile as a plain dict (no side effects)."""
     return _load_profile().to_dict()
+
+
+if __name__ == "__main__":
+    print('Running objective_engine.py')

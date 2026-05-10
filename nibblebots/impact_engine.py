@@ -254,6 +254,22 @@ def update_weights(
         ci_failure_change  : int    — negative = fewer CI failures (good)
         runtime_stable     : bool   — no new runtime errors observed?
 
+    Phase 18.5 — causality-trust-modulated learning rate
+    -----------------------------------------------------
+    The raw ``learning_rate`` is scaled by a factor derived from the
+    causality tracker's trust score for this fix type:
+
+        effective_lr = learning_rate × (0.5 + 0.5 × causal_trust)
+
+    This means:
+    * **High causal trust** (track record of real-world improvement):
+      effective_lr ≈ learning_rate × 1.0  → confident weight updates.
+    * **Neutral / no data** (trust = 0.5):
+      effective_lr ≈ learning_rate × 0.75 → moderate updates.
+    * **Low causal trust** (inconsistent or negative outcomes):
+      effective_lr ≈ learning_rate × 0.5  → cautious, dampened updates
+      so that a noisy signal cannot rapidly corrupt learned priors.
+
     The update follows a simple rule-based adjustment:
         if outcome is positive → nudge gain weights up
         if outcome is negative → nudge risk weights up
@@ -288,6 +304,16 @@ def update_weights(
 
     direction = signal / n_signals   # -1.0 → 1.0
 
+    # Phase 18.5: modulate learning rate by causality trust
+    effective_lr = learning_rate
+    try:
+        from nibblebots import causality_tracker as _ct  # noqa: PLC0415
+        causal_trust = _ct.get_fix_type_trust(fix_type)
+        # Scale: trust=0 → 0.5×lr, trust=0.5 → 0.75×lr, trust=1 → 1.0×lr
+        effective_lr = learning_rate * (0.5 + 0.5 * causal_trust)
+    except Exception:  # noqa: BLE001
+        pass
+
     for dim in list(weights[fix_type].keys()):
         if dim == "risk_flag":      # skip the rollback guard flag
             continue
@@ -296,10 +322,10 @@ def update_weights(
             continue
         if dim.startswith("risk_"):
             # Positive outcome → risk was overstated → nudge down
-            delta = -direction * learning_rate * current
+            delta = -direction * effective_lr * current
         else:
             # Positive outcome → gain was correct or understated → nudge up
-            delta = direction * learning_rate * current
+            delta = direction * effective_lr * current
         weights[fix_type][dim] = round(
             max(0.0, min(2.0, current + delta)), 4
         )
@@ -441,3 +467,7 @@ def objective_blended_net_score(
         )
     except Exception:  # noqa: BLE001
         return reg_score
+
+
+if __name__ == "__main__":
+    print('Running impact_engine.py')
