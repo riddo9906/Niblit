@@ -79,7 +79,7 @@ except ImportError:
 
 
 _EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
-_EMBEDDING_DIM = 384         # default dim for intfloat/multilingual-e5-small (vector dimension)
+_EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))  # default dim for intfloat/multilingual-e5-small
 _MAX_STORED_ITEMS = 10_000   # in-memory/FAISS safety cap
 # Maximum characters stored as ``text`` in the Qdrant payload.  Using 6000
 # characters ensures rich context is preserved without hitting Qdrant's per-
@@ -149,7 +149,7 @@ def get_embedding_model_cache() -> Dict[str, Any]:
     return _model_cache
 
 
-def load_sentence_transformer(model_name: str) -> Any:
+def load_sentence_transformer(model_name: str = _EMBEDDING_MODEL_NAME) -> Any:
     """Load a SentenceTransformer model via the singleton cache (public API).
 
     Returns the cached model if already loaded; otherwise loads it with
@@ -406,11 +406,63 @@ class VectorStore:
 
         self._backend_name: str = "memory"
         self._qdrant_client: Optional[Any] = None
+        self._qdrant_collection_dim: Optional[int] = None
+        self._qdrant_dim_mismatch_logged: bool = False
         self._faiss_index: Optional[Any] = None
         self._faiss_items: List[Dict[str, Any]] = []   # parallel list of {id, text}
         self._memory_backend = _InMemoryBackend()
+        self._effective_embedding_dim: Optional[int] = None
 
         self._init_backend()
+
+    def _get_effective_embedding_dim(self) -> int:
+        """Return embedding dimensionality used by the active embedding model."""
+        if self._effective_embedding_dim is not None:
+            return self._effective_embedding_dim
+        dim = _EMBEDDING_DIM
+        try:
+            probe = self._embedder.encode("niblit dimension probe")
+            if probe:
+                dim = len(probe)
+        except Exception:
+            pass
+        self._effective_embedding_dim = dim
+        return dim
+
+    @staticmethod
+    def _extract_qdrant_collection_dim(info: Any) -> Optional[int]:
+        """Best-effort extraction of dense vector dimension from Qdrant collection info."""
+        try:
+            params = getattr(info, "config", None)
+            params = getattr(params, "params", params)
+            vectors = getattr(params, "vectors", None)
+            if vectors is None and isinstance(params, dict):
+                vectors = params.get("vectors")
+
+            # Single unnamed dense vector
+            size = getattr(vectors, "size", None)
+            if isinstance(size, int):
+                return size
+            if isinstance(vectors, dict) and "size" in vectors:
+                try:
+                    return int(vectors["size"])
+                except Exception:
+                    pass
+
+            # Named vectors: return first dense vector size
+            if isinstance(vectors, dict):
+                for cfg in vectors.values():
+                    cfg_size = getattr(cfg, "size", None)
+                    if isinstance(cfg_size, int):
+                        return cfg_size
+                    if isinstance(cfg, dict) and "size" in cfg:
+                        try:
+                            return int(cfg["size"])
+                        except Exception:
+                            continue
+        except Exception:
+            return None
+        return None
 
     # ── backend selection ─────────────────────────────────────────────────────
 
@@ -428,16 +480,28 @@ class VectorStore:
             if self._qdrant_api_key:
                 kwargs["api_key"] = self._qdrant_api_key
             self._qdrant_client = _QdrantClient(**kwargs)
+            local_dim = self._get_effective_embedding_dim()
             # Ensure collection exists
             existing = [c.name for c in self._qdrant_client.get_collections().collections]
             if self.collection not in existing:
                 self._qdrant_client.create_collection(
                     collection_name=self.collection,
                     vectors_config=_VectorParams(
-                        size=_EMBEDDING_DIM, distance=_Distance.COSINE
+                        size=local_dim, distance=_Distance.COSINE
                     ),
                 )
                 log.info("[VectorStore] Created Qdrant collection '%s'", self.collection)
+                self._qdrant_collection_dim = local_dim
+            else:
+                info = self._qdrant_client.get_collection(self.collection)
+                remote_dim = self._extract_qdrant_collection_dim(info)
+                self._qdrant_collection_dim = remote_dim
+                if remote_dim is not None and remote_dim != local_dim:
+                    raise ValueError(
+                        "Qdrant collection dimension mismatch for "
+                        f"'{self.collection}': remote={remote_dim}, local={local_dim}. "
+                        "Set EMBEDDING_MODEL/EMBEDDING_DIM to match, or use a separate collection."
+                    )
             self._backend_name = "qdrant"
             log.info("[VectorStore] Qdrant backend initialised (%s)", self._qdrant_url)
         except Exception as exc:
@@ -448,9 +512,10 @@ class VectorStore:
 
     def _init_faiss(self) -> None:
         try:
-            self._faiss_index = _faiss.IndexFlatIP(_EMBEDDING_DIM)  # inner-product
+            dim = self._get_effective_embedding_dim()
+            self._faiss_index = _faiss.IndexFlatIP(dim)  # inner-product
             self._backend_name = "faiss"
-            log.info("[VectorStore] FAISS backend initialised (dim=%d)", _EMBEDDING_DIM)
+            log.info("[VectorStore] FAISS backend initialised (dim=%d)", dim)
         except Exception as exc:
             log.warning("[VectorStore] FAISS init failed (%s) — using memory", exc)
 
@@ -547,6 +612,16 @@ class VectorStore:
         self, doc_id: str, text: str, vector: Optional[List[float]], topic: str = ""
     ) -> bool:
         if vector is None:
+            return False
+        if self._qdrant_collection_dim is not None and len(vector) != self._qdrant_collection_dim:
+            if not self._qdrant_dim_mismatch_logged:
+                log.warning(
+                    "[VectorStore] Qdrant upsert skipped: embedding dimension mismatch "
+                    "(collection=%d, vector=%d)",
+                    self._qdrant_collection_dim,
+                    len(vector),
+                )
+                self._qdrant_dim_mismatch_logged = True
             return False
         try:
             # Use a stable integer ID derived from the doc_id string.
