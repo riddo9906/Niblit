@@ -157,8 +157,8 @@ class MetaGovernanceEngine:
         try:
             from modules.event_bus import (
                 EVENT_GOVERNANCE_CAPTURE_WARNING,
-                EVENT_META_GOVERNANCE_UPDATED,
                 EVENT_META_GOVERNANCE_EVALUATED,
+                EVENT_META_GOVERNANCE_UPDATED,
                 NiblitEvent,
                 get_event_bus,
             )
@@ -177,9 +177,15 @@ class MetaGovernanceEngine:
             }
             bus = get_event_bus()
             if report.governance_capture_risk >= 0.55:
-                bus.publish(NiblitEvent(type=EVENT_GOVERNANCE_CAPTURE_WARNING, source="meta_governance_engine", payload=payload))
-            bus.publish(NiblitEvent(type=EVENT_META_GOVERNANCE_UPDATED, source="meta_governance_engine", payload=payload))
-            bus.publish(NiblitEvent(type=EVENT_META_GOVERNANCE_EVALUATED, source="meta_governance_engine", payload=payload))
+                bus.publish(
+                    NiblitEvent(type=EVENT_GOVERNANCE_CAPTURE_WARNING, source="meta_governance_engine", payload=payload)
+                )
+            bus.publish(
+                NiblitEvent(type=EVENT_META_GOVERNANCE_UPDATED, source="meta_governance_engine", payload=payload)
+            )
+            bus.publish(
+                NiblitEvent(type=EVENT_META_GOVERNANCE_EVALUATED, source="meta_governance_engine", payload=payload)
+            )
         except Exception:
             pass
 

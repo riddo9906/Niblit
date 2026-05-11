@@ -7,7 +7,6 @@ import json
 import logging
 import os
 import threading
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -16,7 +15,9 @@ log = logging.getLogger(__name__)
 
 _ENABLED: bool = os.getenv("NIBLIT_ID_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
 _ID_PATH: str = os.getenv("NIBLIT_ID_PATH", str(Path(__file__).resolve().parent.parent / "niblit_identity.json"))
-_TIMELINE_PATH: str = os.getenv("NIBLIT_ID_TIMELINE_PATH", str(Path(__file__).resolve().parent.parent / "identity_timeline.jsonl"))
+_TIMELINE_PATH: str = os.getenv(
+    "NIBLIT_ID_TIMELINE_PATH", str(Path(__file__).resolve().parent.parent / "identity_timeline.jsonl")
+)
 
 _CORE_VALUES = [
     "preserve_system_integrity",
@@ -138,7 +139,9 @@ class NiblitIdentity:
             score = 0.8
         else:
             keys = set(baseline) | set(observed_behaviors)
-            avg_delta = sum(abs(float(baseline.get(k, 0.5)) - float(observed_behaviors.get(k, 0.5))) for k in keys) / len(keys)
+            avg_delta = sum(
+                abs(float(baseline.get(k, 0.5)) - float(observed_behaviors.get(k, 0.5))) for k in keys
+            ) / len(keys)
             score = max(0.0, min(1.0, 1.0 - avg_delta))
         with self._lock:
             self._record.behavioral_coherence = score
@@ -182,7 +185,9 @@ class NiblitIdentity:
         behavior = self.compute_behavioral_consistency(observed_behaviors)
         with self._lock:
             old = self._record.identity_drift_score
-            drift = max(0.0, min(1.0, 1.0 - ((behavior + self._record.value_stability + self._record.continuity_score) / 3.0)))
+            drift = max(
+                0.0, min(1.0, 1.0 - ((behavior + self._record.value_stability + self._record.continuity_score) / 3.0))
+            )
             self._record.drift_velocity = max(0.0, drift - old)
             self._record.identity_drift_score = drift
             self._record.identity_integrity = max(0.0, 1.0 - drift)
@@ -218,9 +223,13 @@ class NiblitIdentity:
                 "identity_drift_score": round(self._record.identity_drift_score, 4),
                 "drift_velocity": round(self._record.drift_velocity, 4),
                 "trajectory_validation_score": round(self._record.trajectory_validation_score, 4),
+                "strategic_direction": self._record.strategic_direction,
                 "goal_count": len(self._record.persistent_goals),
                 "lesson_count": len(self._record.learning_history),
                 "contradiction_count": len(self._record.contradiction_memory),
+                "trusted_subsystems": sorted(
+                    k for k, v in self._record.trust_fingerprint.items() if v >= 0.6
+                ),
                 "confidence": round(self._record.identity_integrity, 4),
                 "stability_impact": round(self._record.continuity_score, 4),
                 "coherence_impact": round(self._record.behavioral_coherence, 4),
@@ -308,7 +317,12 @@ class NiblitIdentity:
 
     def _emit_identity_validated(self, action: str) -> None:
         try:
-            from modules.event_bus import EVENT_IDENTITY_VALIDATED, EVENT_IDENTITY_UPDATED, NiblitEvent, get_event_bus
+            from modules.event_bus import (
+                EVENT_IDENTITY_UPDATED,
+                EVENT_IDENTITY_VALIDATED,
+                NiblitEvent,
+                get_event_bus,
+            )
 
             payload = {
                 "action": action,

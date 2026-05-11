@@ -63,19 +63,45 @@ class GlobalCognitiveMetrics:
         self._snapshot: GlobalCognitiveSnapshot | None = None
 
     def aggregate_metrics(self) -> dict[str, float]:
-        coherence = _extract_metric("modules.cognitive_coherence_engine", "get_cognitive_coherence_engine", "last_report.coherence_score", 0.7)
-        stability_pressure = _extract_metric("modules.recursive_stability_governor", "get_recursive_stability_governor", "last_report.stability_pressure", 0.3)
+        coherence = _extract_metric(
+            "modules.cognitive_coherence_engine", "get_cognitive_coherence_engine", "last_report.coherence_score", 0.7
+        )
+        stability_pressure = _extract_metric(
+            "modules.recursive_stability_governor",
+            "get_recursive_stability_governor",
+            "last_report.stability_pressure",
+            0.3,
+        )
         identity = _extract_metric("modules.niblit_identity", "get_niblit_identity", "identity_drift_score", 0.2)
-        governance_capture = _extract_metric("modules.meta_governance_engine", "get_meta_governance_engine", "last_report.governance_capture_risk", 0.2)
-        emergence = _extract_metric("modules.emergence_monitor", "get_emergence_monitor", "last_report.emergence_index", 0.0)
-        prediction = _extract_metric("modules.reality_validation_engine", "get_reality_validation_engine", "last_report.reality_alignment", 0.6)
+        governance_capture = _extract_metric(
+            "modules.meta_governance_engine", "get_meta_governance_engine", "last_report.governance_capture_risk", 0.2
+        )
+        emergence = _extract_metric(
+            "modules.emergence_monitor", "get_emergence_monitor", "last_report.emergence_index", 0.0
+        )
+        prediction = _extract_metric(
+            "modules.reality_validation_engine", "get_reality_validation_engine", "last_report.reality_alignment", 0.6
+        )
         reflection = _extract_metric("modules.reflection_engine", "get_reflection_engine", "quality_ema", 0.7)
         resonance_dependency = _extract_resonance_dependency()
-        memory_integrity = _extract_metric("niblit_memory.unified_memory_engine", "get_unified_memory", "total_records", 1.0)
-        memory_integrity = min(1.0, float(memory_integrity) / 500.0 if memory_integrity > 1.0 else float(memory_integrity))
-        adaptation_velocity = _extract_metric("modules.recursive_stability_governor", "get_recursive_stability_governor", "last_report.adaptation_velocity", 0.3)
-        causal_consistency = _extract_metric("modules.causal_temporal_engine", "get_causal_temporal_engine", "event_count", 1.0)
-        causal_consistency = min(1.0, float(causal_consistency) / 200.0 if causal_consistency > 1.0 else float(causal_consistency))
+        memory_integrity = _extract_metric(
+            "niblit_memory.unified_memory_engine", "get_unified_memory", "total_records", 1.0
+        )
+        memory_integrity = min(
+            1.0, float(memory_integrity) / 500.0 if memory_integrity > 1.0 else float(memory_integrity)
+        )
+        adaptation_velocity = _extract_metric(
+            "modules.recursive_stability_governor",
+            "get_recursive_stability_governor",
+            "last_report.adaptation_velocity",
+            0.3,
+        )
+        causal_consistency = _extract_metric(
+            "modules.causal_temporal_engine", "get_causal_temporal_engine", "event_count", 1.0
+        )
+        causal_consistency = min(
+            1.0, float(causal_consistency) / 200.0 if causal_consistency > 1.0 else float(causal_consistency)
+        )
 
         metrics = {
             "coherence": float(coherence),
@@ -127,19 +153,22 @@ class GlobalCognitiveMetrics:
     # compatibility API
     def refresh(self) -> dict[str, float]:
         report = self.generate_cognitive_report()
-        return {k: float(report[k]) for k in (
-            "coherence",
-            "stability",
-            "identity_integrity",
-            "adaptation_velocity",
-            "prediction_reliability",
-            "governance_health",
-            "memory_integrity",
-            "emergence_index",
-            "reflection_usefulness",
-            "resonance_dependency",
-            "causal_consistency",
-        )}
+        return {
+            k: float(report[k])
+            for k in (
+                "coherence",
+                "stability",
+                "identity_integrity",
+                "adaptation_velocity",
+                "prediction_reliability",
+                "governance_health",
+                "memory_integrity",
+                "emergence_index",
+                "reflection_usefulness",
+                "resonance_dependency",
+                "causal_consistency",
+            )
+        }
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -160,8 +189,12 @@ class GlobalCognitiveMetrics:
 
             payload = snapshot.to_dict()
             bus = get_event_bus()
-            bus.publish(NiblitEvent(type=EVENT_GLOBAL_COGNITIVE_UPDATE, source="global_cognitive_metrics", payload=payload))
-            bus.publish(NiblitEvent(type=EVENT_GLOBAL_METRICS_UPDATED, source="global_cognitive_metrics", payload=payload))
+            bus.publish(
+                NiblitEvent(type=EVENT_GLOBAL_COGNITIVE_UPDATE, source="global_cognitive_metrics", payload=payload)
+            )
+            bus.publish(
+                NiblitEvent(type=EVENT_GLOBAL_METRICS_UPDATED, source="global_cognitive_metrics", payload=payload)
+            )
         except Exception:
             pass
 

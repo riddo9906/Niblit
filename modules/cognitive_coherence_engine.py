@@ -113,9 +113,15 @@ class CognitiveCoherenceEngine:
             out.append({"type": "reflection_vs_reality_mismatch", "detail": "internal_high_external_low"})
         if identity.get("identity_drift_score", 0.0) > 0.6:
             out.append({"type": "identity_inconsistency", "detail": "high_drift"})
-        if state.get("event_bus_stats", {}).get("governance.adapted", 0) > 20 and state.get("event_bus_stats", {}).get("reflection.complete", 0) > 20:
+        if (
+            state.get("event_bus_stats", {}).get("governance.adapted", 0) > 20
+            and state.get("event_bus_stats", {}).get("reflection.complete", 0) > 20
+        ):
             out.append({"type": "unstable_adaptation_cycles", "detail": "high_loop_volume"})
-        if state.get("constitutional_layer", {}).get("block_count", 0) > state.get("constitutional_layer", {}).get("validation_count", 1) * 0.6:
+        if (
+            state.get("constitutional_layer", {}).get("block_count", 0)
+            > state.get("constitutional_layer", {}).get("validation_count", 1) * 0.6
+        ):
             out.append({"type": "conflicting_goals", "detail": "constitutional_block_dominance"})
         return out
 
@@ -158,7 +164,13 @@ class CognitiveCoherenceEngine:
             "governance",
         ):
             s = state.get(name, {})
-            local = s.get("overall_health") or s.get("quality_ema") or s.get("trust_level") or s.get("continuity_score") or 0.7
+            local = (
+                s.get("overall_health")
+                or s.get("quality_ema")
+                or s.get("trust_level")
+                or s.get("continuity_score")
+                or 0.7
+            )
             mapping[name] = min(1.0, abs(float(local) - reflection_q))
         return mapping, [k for k, v in mapping.items() if v >= 0.55]
 
@@ -231,14 +243,21 @@ class CognitiveCoherenceEngine:
                 "rationale": report.rationale,
                 "epoch": report.epoch,
             }
-            bus.publish(NiblitEvent(type=EVENT_COHERENCE_ANALYZED, source="cognitive_coherence_engine", payload=payload))
-            bus.publish(NiblitEvent(type=EVENT_COHERENCE_EVALUATED, source="cognitive_coherence_engine", payload=payload))
+            bus.publish(
+                NiblitEvent(type=EVENT_COHERENCE_ANALYZED, source="cognitive_coherence_engine", payload=payload)
+            )
+            bus.publish(
+                NiblitEvent(type=EVENT_COHERENCE_EVALUATED, source="cognitive_coherence_engine", payload=payload)
+            )
         except Exception:
             pass
 
     def _save_state(self) -> None:
         try:
-            data = {"run_count": self._run_count, "last_report": self._last_report.to_dict() if self._last_report else None}
+            data = {
+                "run_count": self._run_count,
+                "last_report": self._last_report.to_dict() if self._last_report else None,
+            }
             tmp = _STATE_PATH.with_suffix(".json.tmp")
             with tmp.open("w", encoding="utf-8") as fh:
                 json.dump(data, fh, indent=2)

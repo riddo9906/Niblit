@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 
 import pytest
 
@@ -78,7 +77,13 @@ class TestCoherenceEngine:
         "state,minimum",
         [
             ({"reflection_engine": {"quality_ema": 0.9}, "human_alignment_engine": {"trust_level": 0.1}}, 1),
-            ({"predictive_world_model": {"last_regime": "volatile"}, "governance": {"suppressed_exploration_rate": 0.0}}, 1),
+            (
+                {
+                    "predictive_world_model": {"last_regime": "volatile"},
+                    "governance": {"suppressed_exploration_rate": 0.0},
+                },
+                1,
+            ),
             ({"niblit_identity": {"identity_drift_score": 0.9}}, 1),
             ({"event_bus_stats": {"governance.adapted": 21, "reflection.complete": 21}}, 1),
             ({"constitutional_layer": {"block_count": 10, "validation_count": 10}}, 1),
@@ -93,7 +98,14 @@ class TestCoherenceEngine:
         contradictions = self.engine.detect_contradictions(state)
         assert len(contradictions) >= minimum
 
-    @pytest.mark.parametrize("bus_stats", [{}, {"reflection.complete": 5}, {"reflection.complete": 30, "governance.adapted": 30, "world_model.updated": 3}])
+    @pytest.mark.parametrize(
+        "bus_stats",
+        [
+            {},
+            {"reflection.complete": 5},
+            {"reflection.complete": 30, "governance.adapted": 30, "world_model.updated": 3},
+        ],
+    )
     def test_recursive_instability_range(self, bus_stats):
         score = self.engine.detect_recursive_feedback_loops({"event_bus_stats": bus_stats})
         assert 0.0 <= score <= 1.0
@@ -167,7 +179,9 @@ class TestIdentityOmega5:
 
         self.nid = get_niblit_identity()
 
-    @pytest.mark.parametrize("obs", [{}, {"self_model": 0.8}, {"self_model": 0.1, "planner": 0.2}, {"a": 0.0, "b": 1.0}])
+    @pytest.mark.parametrize(
+        "obs", [{}, {"self_model": 0.8}, {"self_model": 0.1, "planner": 0.2}, {"a": 0.0, "b": 1.0}]
+    )
     def test_compute_behavioral_consistency(self, obs):
         s = self.nid.compute_behavioral_consistency(obs)
         assert 0.0 <= s <= 1.0
@@ -180,7 +194,9 @@ class TestIdentityOmega5:
         out = self.nid.value_integrity_check(self.nid.core_values)
         assert out["is_valid"] is True
 
-    @pytest.mark.parametrize("direction", ["stable coherence", "random maximize reward", "align constitutional stability"]) 
+    @pytest.mark.parametrize(
+        "direction", ["stable coherence", "random maximize reward", "align constitutional stability"]
+    )
     def test_validate_trajectory(self, direction):
         score = self.nid.validate_trajectory(direction)
         assert 0.0 <= score <= 1.0
@@ -207,7 +223,9 @@ class TestRealityValidation:
 
         self.rve = get_reality_validation_engine()
 
-    @pytest.mark.parametrize("prediction,outcome,confidence", [(1.0, 0.9, 0.8), (0.2, 0.7, 0.9), (0.5, 0.5, 0.5), (0.9, 0.1, 0.99)])
+    @pytest.mark.parametrize(
+        "prediction,outcome,confidence", [(1.0, 0.9, 0.8), (0.2, 0.7, 0.9), (0.5, 0.5, 0.5), (0.9, 0.1, 0.99)]
+    )
     def test_verify_predictions(self, prediction, outcome, confidence):
         out = self.rve.verify_predictions(prediction, outcome, confidence)
         assert "absolute_error" in out
@@ -236,7 +254,9 @@ class TestMetaGovernance:
 
         self.mge = get_meta_governance_engine()
 
-    @pytest.mark.parametrize("sub,delta", [("governance", 1.0), ("reflection", 0.5), ("planner", 2.0), ("model_ecology", 1.2)])
+    @pytest.mark.parametrize(
+        "sub,delta", [("governance", 1.0), ("reflection", 0.5), ("planner", 2.0), ("model_ecology", 1.2)]
+    )
     def test_register_influence(self, sub, delta):
         self.mge.register_influence(sub, delta, reason="test")
         bal = self.mge.compute_influence_balance()
@@ -301,7 +321,9 @@ class TestCausalTemporalEngine:
 
         self.cte = get_causal_temporal_engine()
 
-    @pytest.mark.parametrize("sub,event", [("planner", "plan_update"), ("governance", "policy_change"), ("reflection", "reflect")])
+    @pytest.mark.parametrize(
+        "sub,event", [("planner", "plan_update"), ("governance", "policy_change"), ("reflection", "reflect")]
+    )
     def test_register_event(self, sub, event):
         eid = self.cte.register_event(sub, event, "cause", "effect")
         assert isinstance(eid, str)
@@ -330,7 +352,9 @@ class TestEmergenceMonitor:
 
         self.em = get_emergence_monitor()
 
-    @pytest.mark.parametrize("motif", ["new_strategy_loop", "planner_attractor", "self_opt_pattern", "novel_coordination"])
+    @pytest.mark.parametrize(
+        "motif", ["new_strategy_loop", "planner_attractor", "self_opt_pattern", "novel_coordination"]
+    )
     def test_detect_patterns(self, motif):
         self.em.observe_pattern(motif, ["planner", "reflection"])
         self.em.observe_pattern(motif, ["planner", "reflection"])
@@ -347,7 +371,13 @@ class TestEmergenceMonitor:
         self.em.observe_pattern("new_strategy_loop", ["planner", "reflection"])
         self.em.observe_pattern("new_strategy_loop", ["planner", "reflection"])
         d = self.em.analyze().to_dict()
-        for k in ("emergence_index", "emergence_velocity", "motif_frequency", "coalition_strength", "classified_behavior"):
+        for k in (
+            "emergence_index",
+            "emergence_velocity",
+            "motif_frequency",
+            "coalition_strength",
+            "classified_behavior",
+        ):
             assert k in d
 
 
@@ -428,8 +458,8 @@ class TestGlobalCognitiveMetrics:
 
 
 def test_cross_module_event_flow():
-    from modules.event_bus import get_event_bus
     from modules.cognitive_coherence_engine import get_cognitive_coherence_engine
+    from modules.event_bus import get_event_bus
     from modules.global_cognitive_metrics import get_global_cognitive_metrics
 
     bus = get_event_bus()

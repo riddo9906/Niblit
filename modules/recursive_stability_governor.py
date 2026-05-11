@@ -69,7 +69,9 @@ class RecursiveStabilityGovernor:
     def record_adaptation_event(self, subsystem: str, magnitude: float, cause: str = "") -> None:
         now = time.time()
         with self._lock:
-            self._events.append({"ts": now, "subsystem": subsystem, "magnitude": max(0.0, float(magnitude)), "cause": cause})
+            self._events.append(
+                {"ts": now, "subsystem": subsystem, "magnitude": max(0.0, float(magnitude)), "cause": cause}
+            )
             if len(self._events) > 1000:
                 self._events = self._events[-1000:]
             if len(self._events) >= 2:
@@ -199,9 +201,9 @@ class RecursiveStabilityGovernor:
     def _emit(self, report: GovernorReport) -> None:
         try:
             from modules.event_bus import (
+                EVENT_RECURSION_GOVERNED,
                 EVENT_RECURSION_STABILIZED,
                 EVENT_RECURSIVE_WARNING,
-                EVENT_RECURSION_GOVERNED,
                 NiblitEvent,
                 get_event_bus,
             )
@@ -219,9 +221,15 @@ class RecursiveStabilityGovernor:
                 "epoch": report.epoch,
             }
             if report.stability_pressure >= 0.6:
-                bus.publish(NiblitEvent(type=EVENT_RECURSIVE_WARNING, source="recursive_stability_governor", payload=payload))
-            bus.publish(NiblitEvent(type=EVENT_RECURSION_STABILIZED, source="recursive_stability_governor", payload=payload))
-            bus.publish(NiblitEvent(type=EVENT_RECURSION_GOVERNED, source="recursive_stability_governor", payload=payload))
+                bus.publish(
+                    NiblitEvent(type=EVENT_RECURSIVE_WARNING, source="recursive_stability_governor", payload=payload)
+                )
+            bus.publish(
+                NiblitEvent(type=EVENT_RECURSION_STABILIZED, source="recursive_stability_governor", payload=payload)
+            )
+            bus.publish(
+                NiblitEvent(type=EVENT_RECURSION_GOVERNED, source="recursive_stability_governor", payload=payload)
+            )
         except Exception:
             pass
 

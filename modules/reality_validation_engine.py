@@ -81,7 +81,9 @@ class RealityValidationEngine:
                 self._samples = self._samples[-1000:]
         return self.compare_expectation_vs_outcome(prediction, outcome)
 
-    def verify_prediction(self, prediction: float, outcome: float, confidence: float, resonance_weight: float = 0.0) -> dict[str, float]:
+    def verify_prediction(
+        self, prediction: float, outcome: float, confidence: float, resonance_weight: float = 0.0
+    ) -> dict[str, float]:
         return self.verify_predictions(prediction, outcome, confidence, resonance_weight)
 
     def compare_expectation_vs_outcome(self, prediction: float, outcome: float) -> dict[str, float]:
@@ -132,7 +134,9 @@ class RealityValidationEngine:
             calibration_error = self.calibrate_confidence(rows)
             synthetic_risk = self.detect_synthetic_feedback(rows)
             resonance_risk = self.detect_resonance_contamination(rows)
-            reality_alignment = max(0.0, min(1.0, 1.0 - (0.45 * calibration_error + 0.25 * synthetic_risk + 0.3 * resonance_risk)))
+            reality_alignment = max(
+                0.0, min(1.0, 1.0 - (0.45 * calibration_error + 0.25 * synthetic_risk + 0.3 * resonance_risk))
+            )
             confidence_reliability = max(0.0, 1.0 - calibration_error)
             report = RealityValidationReport(
                 reality_alignment=reality_alignment,
@@ -172,7 +176,10 @@ class RealityValidationEngine:
     @staticmethod
     def _rationale(alignment: float, calibration: float, synthetic: float, resonance: float) -> str:
         if alignment < 0.45:
-            return f"Low reality alignment calibration={calibration:.2f} synthetic={synthetic:.2f} resonance={resonance:.2f}"
+            return (
+                f"Low reality alignment calibration={calibration:.2f} "
+                f"synthetic={synthetic:.2f} resonance={resonance:.2f}"
+            )
         return f"Reality alignment stable calibration={calibration:.2f}"
 
     def _emit(self, report: RealityValidationReport) -> None:
