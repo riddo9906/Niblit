@@ -83,6 +83,14 @@ EVENT_EXECUTION_COMPLETE = "execution.complete"     # Phase 21: emitted by execu
 EVENT_SELF_MODEL_UPDATED = "self_model.updated"     # Phase 21: emitted by self_model after update
 EVENT_PLAN_SELECTED      = "plan.selected"          # Phase 21: emitted by deliberative_planner after plan()
 
+# Phase Ω: Unified Intelligence Convergence
+EVENT_STATE_UPDATED        = "state.updated"           # Phase Ω: emitted by unified_cognitive_state on every set()
+EVENT_REFLECTION_COMPLETE  = "reflection.complete"     # Phase Ω: emitted by reflection_engine after reflect()
+EVENT_WORLD_MODEL_UPDATED  = "world_model.updated"     # Phase Ω: emitted by predictive_world_model after forecast()
+EVENT_RESOURCE_ADAPTED     = "resource.adapted"        # Phase Ω: emitted by autonomic_runtime_manager after assess()
+EVENT_IDENTITY_UPDATED     = "identity.updated"        # Phase Ω: emitted by niblit_identity after snapshot update
+EVENT_CONSTITUTION_CHECKED = "constitution.checked"    # Phase Ω: emitted by constitutional_layer after validate()
+
 
 @dataclass
 class NiblitEvent:
