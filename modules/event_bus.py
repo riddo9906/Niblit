@@ -126,6 +126,12 @@ EVENT_SALIENCE_SCORED           = "salience.scored"
 EVENT_COGNITIVE_BUDGET_ENFORCED = "cognitive_budget.enforced"
 EVENT_ATTENTION_ALLOCATED       = "attention.allocated"
 
+# Phase Ω.7: Cross-Repo Cognitive Execution Protocol
+EVENT_EXECUTION_ENVELOPE_PUBLISHED = "execution_envelope.published"   # schema-v2 envelope written to disk
+EVENT_TRADE_REFLECTION_INGESTED    = "trade_reflection.ingested"       # reflection JSONL record ingested
+EVENT_MARKET_EPISODE_INGESTED      = "market_episode.ingested"         # market episode JSONL record ingested
+EVENT_RUNTIME_MODE_CHANGED         = "runtime_mode.changed"            # governance mode transition
+
 
 @dataclass
 class NiblitEvent:
