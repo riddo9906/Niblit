@@ -62,7 +62,7 @@ import logging
 import os
 import threading
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger(__name__)
 
@@ -107,6 +107,11 @@ class NiblitIdentityRecord:
         self.trust_fingerprint: Dict[str, float] = {}  # subsystem → trust 0.0–1.0
         self.continuity_score: float = 1.0
         self.session_count: int = 0
+        self.behavioral_consistency_score: float = 1.0
+        self.value_integrity_score: float = 1.0
+        self.trajectory_validation_score: float = 1.0
+        self.identity_drift_score: float = 0.0
+        self.contradiction_memory: List[Dict] = []
 
     def to_dict(self) -> Dict:
         return {
@@ -121,6 +126,11 @@ class NiblitIdentityRecord:
             "trust_fingerprint": dict(self.trust_fingerprint),
             "continuity_score": round(self.continuity_score, 4),
             "session_count": self.session_count,
+            "behavioral_consistency_score": round(self.behavioral_consistency_score, 4),
+            "value_integrity_score": round(self.value_integrity_score, 4),
+            "trajectory_validation_score": round(self.trajectory_validation_score, 4),
+            "identity_drift_score": round(self.identity_drift_score, 4),
+            "contradiction_memory": list(self.contradiction_memory),
         }
 
 
@@ -162,6 +172,7 @@ class NiblitIdentity:
             if len(self._record.learning_history) > 100:
                 self._record.learning_history.pop(0)
         self._save()
+        self._emit_identity_updated("record_lesson")
 
     def update_direction(self, direction: str) -> None:
         """Update the strategic direction statement."""
@@ -169,6 +180,7 @@ class NiblitIdentity:
             self._record.strategic_direction = direction
             self._record.last_updated = datetime.now(tz=timezone.utc).isoformat()
         self._save()
+        self._emit_identity_updated("update_direction")
 
     def add_goal(self, goal: str) -> None:
         """Add a persistent long-term goal."""
@@ -178,6 +190,7 @@ class NiblitIdentity:
                 if len(self._record.persistent_goals) > 30:
                     self._record.persistent_goals.pop(0)
         self._save()
+        self._emit_identity_updated("add_goal")
 
     def update_trust(self, subsystem: str, trust: float) -> None:
         """Update trust score for a subsystem (EMA)."""
@@ -185,12 +198,88 @@ class NiblitIdentity:
         with self._lock:
             old = self._record.trust_fingerprint.get(subsystem, 0.7)
             self._record.trust_fingerprint[subsystem] = 0.15 * trust + 0.85 * old
+        self._emit_identity_updated("update_trust")
 
     def update_continuity(self, delta: float) -> None:
         """Adjust continuity score by *delta* (positive = more coherent)."""
         with self._lock:
             self._record.continuity_score = max(0.0, min(1.0,
                 self._record.continuity_score + delta))
+        self._emit_identity_updated("update_continuity")
+
+    def detect_identity_drift(self, observed_behaviors: Dict[str, float]) -> float:
+        """Compute identity drift score from behavior consistency and value integrity."""
+        consistency = self.behavioral_consistency_score(observed_behaviors)
+        with self._lock:
+            drift = max(0.0, min(1.0, 1.0 - ((consistency + self._record.value_integrity_score) / 2.0)))
+            self._record.identity_drift_score = drift
+        self._emit_identity_updated("detect_identity_drift")
+        return drift
+
+    def behavioral_consistency_score(self, observed_behaviors: Dict[str, float]) -> float:
+        """Score consistency between current behavior distribution and trust fingerprint."""
+        with self._lock:
+            baseline = dict(self._record.trust_fingerprint)
+        if not observed_behaviors:
+            score = 1.0
+        elif not baseline:
+            score = 0.8
+        else:
+            keys = set(baseline) | set(observed_behaviors)
+            avg_delta = sum(
+                abs(float(baseline.get(k, 0.5)) - float(observed_behaviors.get(k, 0.5)))
+                for k in keys
+            ) / len(keys)
+            score = max(0.0, min(1.0, 1.0 - avg_delta))
+        with self._lock:
+            self._record.behavioral_consistency_score = score
+        return score
+
+    def value_integrity_check(self, candidate_values: List[str]) -> Dict[str, Any]:
+        """Validate candidate values against immutable core principles."""
+        current = set(v.lower().strip() for v in candidate_values)
+        core = set(v.lower().strip() for v in _CORE_VALUES)
+        missing = sorted(core - current)
+        score = max(0.0, min(1.0, 1.0 - (len(missing) / max(1, len(core)))))
+        with self._lock:
+            self._record.value_integrity_score = score
+        if missing:
+            self.record_contradiction("value_integrity_missing_core", {"missing": missing})
+        self._emit_identity_updated("value_integrity_check")
+        return {"score": score, "missing_core_values": missing, "is_valid": not missing}
+
+    def validate_long_term_trajectory(self, proposed_direction: str) -> float:
+        """Score whether trajectory remains aligned with strategic identity direction."""
+        with self._lock:
+            current = self._record.strategic_direction
+        cur_tokens = set(current.lower().split())
+        new_tokens = set((proposed_direction or "").lower().split())
+        overlap = len(cur_tokens & new_tokens) / max(1, len(cur_tokens | new_tokens))
+        score = max(0.0, min(1.0, overlap))
+        with self._lock:
+            self._record.trajectory_validation_score = score
+        if score < 0.2:
+            self.record_contradiction(
+                "trajectory_divergence",
+                {"current": current, "proposed": proposed_direction},
+            )
+        self._emit_identity_updated("validate_long_term_trajectory")
+        return score
+
+    def record_contradiction(self, category: str, payload: Dict[str, Any]) -> None:
+        """Persist contradiction memory for future identity coherence review."""
+        with self._lock:
+            self._record.contradiction_memory.append(
+                {
+                    "category": category,
+                    "payload": dict(payload),
+                    "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+                }
+            )
+            if len(self._record.contradiction_memory) > 200:
+                self._record.contradiction_memory = self._record.contradiction_memory[-200:]
+        self._save()
+        self._emit_identity_updated("record_contradiction")
 
     @property
     def core_values(self) -> List[str]:
@@ -212,6 +301,11 @@ class NiblitIdentity:
                 "strategic_direction": self._record.strategic_direction,
                 "goal_count": len(self._record.persistent_goals),
                 "lesson_count": len(self._record.learning_history),
+                "behavioral_consistency_score": round(self._record.behavioral_consistency_score, 4),
+                "value_integrity_score": round(self._record.value_integrity_score, 4),
+                "trajectory_validation_score": round(self._record.trajectory_validation_score, 4),
+                "identity_drift_score": round(self._record.identity_drift_score, 4),
+                "contradiction_count": len(self._record.contradiction_memory),
                 "trusted_subsystems": sorted(
                     k for k, v in self._record.trust_fingerprint.items() if v >= 0.6
                 ),
@@ -233,6 +327,11 @@ class NiblitIdentity:
                 self._record.trust_fingerprint = d.get("trust_fingerprint", {})
                 self._record.continuity_score = d.get("continuity_score", 1.0)
                 self._record.session_count = d.get("session_count", 0)
+                self._record.behavioral_consistency_score = d.get("behavioral_consistency_score", 1.0)
+                self._record.value_integrity_score = d.get("value_integrity_score", 1.0)
+                self._record.trajectory_validation_score = d.get("trajectory_validation_score", 1.0)
+                self._record.identity_drift_score = d.get("identity_drift_score", 0.0)
+                self._record.contradiction_memory = d.get("contradiction_memory", [])
             self._loaded = True
         except FileNotFoundError:
             pass
@@ -251,6 +350,23 @@ class NiblitIdentity:
             os.replace(tmp, _ID_PATH)
         except Exception as exc:
             log.debug("[NiblitIdentity] save failed: %s", exc)
+
+    def _emit_identity_updated(self, action: str) -> None:
+        try:
+            from modules.event_bus import EVENT_IDENTITY_UPDATED, NiblitEvent, get_event_bus
+
+            get_event_bus().publish(
+                NiblitEvent(
+                    type=EVENT_IDENTITY_UPDATED,
+                    source="niblit_identity",
+                    payload={
+                        "action": action,
+                        "drift_score": self._record.identity_drift_score,
+                    },
+                )
+            )
+        except Exception:
+            pass
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

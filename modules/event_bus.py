@@ -73,8 +73,10 @@ EVENT_INTENT_DRIFT       = "intent.drift"         # Phase 8.5: emitted by intent
 EVENT_MODE_LOCKED        = "stability.mode_locked" # Phase 9: emitted by stability_controller
 EVENT_AGENT_OBSERVATION  = "agent.observation"      # Phase 15: emitted by background worker agents
 EVENT_SYSTEM_MIRRORED   = "system.mirrored"         # Phase 16: emitted by system_interface_layer after mirror_system()
-EVENT_SYSTEM_RESONANCE  = "system.resonance"        # Phase 16: emitted by system_interface_layer after establish_resonance()
-EVENT_GOVERNANCE_ADAPTED = "governance.adapted"     # Phase 18: emitted by governance_evolution_engine after parameter adaptation
+EVENT_SYSTEM_RESONANCE  = "system.resonance"        # Phase 16: emitted by system_interface_layer
+# after establish_resonance()
+EVENT_GOVERNANCE_ADAPTED = "governance.adapted"     # Phase 18: emitted by governance_evolution_engine
+# after parameter adaptation
 
 # Phase 21: Cognitive Execution Layer
 EVENT_INTENT_CLASSIFIED  = "intent.classified"      # Phase 21: emitted by intent_engine after classify()
@@ -90,6 +92,16 @@ EVENT_WORLD_MODEL_UPDATED  = "world_model.updated"     # Phase Ω: emitted by pr
 EVENT_RESOURCE_ADAPTED     = "resource.adapted"        # Phase Ω: emitted by autonomic_runtime_manager after assess()
 EVENT_IDENTITY_UPDATED     = "identity.updated"        # Phase Ω: emitted by niblit_identity after snapshot update
 EVENT_CONSTITUTION_CHECKED = "constitution.checked"    # Phase Ω: emitted by constitutional_layer after validate()
+
+# Phase Ω.5: Cognitive Coherence & Recursive Stability
+EVENT_COHERENCE_EVALUATED      = "coherence.evaluated"
+EVENT_RECURSION_GOVERNED       = "recursion.governed"
+EVENT_REALITY_VALIDATED        = "reality.validated"
+EVENT_META_GOVERNANCE_EVALUATED = "meta_governance.evaluated"
+EVENT_COGNITIVE_THREAT_DETECTED = "cognitive.threat.detected"
+EVENT_TEMPORAL_CAUSAL_UPDATED   = "temporal.causal.updated"
+EVENT_EMERGENCE_DETECTED        = "emergence.detected"
+EVENT_GLOBAL_METRICS_UPDATED    = "global.metrics.updated"
 
 
 @dataclass
