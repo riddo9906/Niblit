@@ -3,196 +3,261 @@
 
 from __future__ import annotations
 
-import logging
+import json
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any
 
-log = logging.getLogger(__name__)
+_STATE_PATH = Path(__file__).resolve().parent.parent / "cognitive_coherence_state.json"
 
 
 @dataclass
 class CoherenceReport:
     coherence_score: float
-    contradiction_vectors: List[str]
-    instability_clusters: List[str]
-    subsystem_divergence_map: Dict[str, float]
-    recursive_amplification_warnings: List[str]
-    goal_alignment_score: float
+    contradiction_count: int
+    fragmentation_score: float
+    recursive_instability: float
+    subsystem_alignment: dict[str, float]
+    contradiction_vectors: list[dict[str, Any]]
+    unstable_clusters: list[str]
+    rationale: str
+    confidence: float
+    stability_impact: float
+    coherence_impact: float
+    causal_trace_metadata: dict[str, Any]
+    explanation: str
+    epoch: int
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "coherence_score": round(self.coherence_score, 4),
+            "contradiction_count": self.contradiction_count,
+            "fragmentation_score": round(self.fragmentation_score, 4),
+            "recursive_instability": round(self.recursive_instability, 4),
+            "subsystem_alignment": {k: round(v, 4) for k, v in self.subsystem_alignment.items()},
             "contradiction_vectors": list(self.contradiction_vectors),
-            "instability_clusters": list(self.instability_clusters),
-            "subsystem_divergence_map": {
-                k: round(v, 4) for k, v in self.subsystem_divergence_map.items()
-            },
-            "recursive_amplification_warnings": list(self.recursive_amplification_warnings),
-            "goal_alignment_score": round(self.goal_alignment_score, 4),
+            "unstable_clusters": list(self.unstable_clusters),
+            "rationale": self.rationale,
+            "confidence": round(self.confidence, 4),
+            "stability_impact": round(self.stability_impact, 4),
+            "coherence_impact": round(self.coherence_impact, 4),
+            "causal_trace_metadata": dict(self.causal_trace_metadata),
+            "explanation": self.explanation,
+            "epoch": self.epoch,
             "timestamp": self.timestamp,
         }
 
 
 class CognitiveCoherenceEngine:
-    """Measures whether major subsystems share a consistent internal reality."""
+    """Detect and prevent internal cognitive fragmentation."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._last_report: Optional[CoherenceReport] = None
+        self._last_report: CoherenceReport | None = None
         self._run_count = 0
+        self._load_state()
 
     def analyze(self) -> CoherenceReport:
         state = self._collect_state()
-        contradictions = self.detect_contradictions(state)
-        goal_alignment = self.measure_goal_alignment(state)
-        warnings = self.detect_recursive_feedback_loops(state)
-        divergence = self.identify_cognitive_fragmentation(state)
-        instability = [k for k, v in divergence.items() if v > 0.6]
-        coherence = self.compute_global_coherence(
-            contradictions=contradictions,
-            warnings=warnings,
-            divergence=divergence,
-            goal_alignment=goal_alignment,
+        contradiction_vectors = self.detect_contradictions(state)
+        alignment = self.measure_goal_alignment(state)
+        recursive_instability = self.detect_recursive_feedback_loops(state)
+        fragmentation_map, unstable_clusters = self.identify_fragmentation_clusters(state)
+        coherence_score = self.compute_global_coherence(
+            contradiction_vectors=contradiction_vectors,
+            alignment=alignment,
+            recursive_instability=recursive_instability,
+            fragmentation_map=fragmentation_map,
         )
+        fragmentation_score = sum(fragmentation_map.values()) / max(1, len(fragmentation_map))
         report = CoherenceReport(
-            coherence_score=coherence,
-            contradiction_vectors=contradictions,
-            instability_clusters=instability,
-            subsystem_divergence_map=divergence,
-            recursive_amplification_warnings=warnings,
-            goal_alignment_score=goal_alignment,
+            coherence_score=coherence_score,
+            contradiction_count=len(contradiction_vectors),
+            fragmentation_score=fragmentation_score,
+            recursive_instability=recursive_instability,
+            subsystem_alignment=alignment,
+            contradiction_vectors=contradiction_vectors,
+            unstable_clusters=unstable_clusters,
+            rationale=self._rationale(coherence_score, contradiction_vectors, unstable_clusters),
+            confidence=max(0.0, min(1.0, 1.0 - fragmentation_score)),
+            stability_impact=max(0.0, min(1.0, 1.0 - recursive_instability)),
+            coherence_impact=coherence_score,
+            causal_trace_metadata={
+                "phase": "omega_5",
+                "contradiction_sources": [v.get("type", "unknown") for v in contradiction_vectors],
+            },
+            explanation="Subsystem cross-check complete with constitutional and temporal context.",
+            epoch=int(state.get("epoch", 0)),
         )
         with self._lock:
             self._last_report = report
             self._run_count += 1
+            self._save_state()
         self._emit(report)
         return report
 
-    def detect_contradictions(self, state: Dict[str, Any]) -> List[str]:
-        issues: List[str] = []
-        reflection = state.get("reflection_engine", {})
+    def detect_contradictions(self, state: dict[str, Any]) -> list[dict[str, Any]]:
+        out: list[dict[str, Any]] = []
         governance = state.get("governance", {})
+        reflection = state.get("reflection_engine", {})
         world = state.get("predictive_world_model", {})
-        human = state.get("human_alignment_engine", {})
-        if reflection.get("quality_ema", 1.0) < 0.4 and governance.get("stability_preservation_score", 1.0) > 0.8:
-            issues.append("reflection_low_quality_vs_governance_high_stability")
-        if world.get("last_regime") == "volatile" and governance.get("suppressed_exploration_rate", 0.0) < 0.1:
-            issues.append("volatile_regime_without_exploration_suppression")
-        if human.get("trust_level", 1.0) < 0.35 and reflection.get("quality_ema", 1.0) > 0.8:
-            issues.append("high_internal_quality_vs_low_human_trust")
-        return issues
-
-    def measure_goal_alignment(self, state: Dict[str, Any]) -> float:
-        constitution = state.get("constitutional_layer", {})
         identity = state.get("niblit_identity", {})
-        coherence = state.get("unified_cognitive_state", {})
-        score = 1.0
-        if constitution.get("block_count", 0) > constitution.get("validation_count", 1) * 0.4:
-            score -= 0.2
-        if identity.get("continuity_score", 1.0) < 0.6:
-            score -= 0.2
-        if coherence.get("key_count", 0) < 5:
-            score -= 0.1
-        return max(0.0, min(1.0, score))
+        human = state.get("human_alignment_engine", {})
 
-    def detect_recursive_feedback_loops(self, state: Dict[str, Any]) -> List[str]:
-        warnings: List[str] = []
+        if governance.get("suppressed_exploration_rate", 0.0) < 0.1 and world.get("last_regime") == "volatile":
+            out.append({"type": "opposing_governance_directives", "detail": "volatile_without_suppression"})
+        if reflection.get("quality_ema", 1.0) > 0.8 and human.get("trust_level", 1.0) < 0.35:
+            out.append({"type": "reflection_vs_reality_mismatch", "detail": "internal_high_external_low"})
+        if identity.get("identity_drift_score", 0.0) > 0.6:
+            out.append({"type": "identity_inconsistency", "detail": "high_drift"})
+        if state.get("event_bus_stats", {}).get("governance.adapted", 0) > 20 and state.get("event_bus_stats", {}).get("reflection.complete", 0) > 20:
+            out.append({"type": "unstable_adaptation_cycles", "detail": "high_loop_volume"})
+        if state.get("constitutional_layer", {}).get("block_count", 0) > state.get("constitutional_layer", {}).get("validation_count", 1) * 0.6:
+            out.append({"type": "conflicting_goals", "detail": "constitutional_block_dominance"})
+        return out
+
+    def measure_goal_alignment(self, state: dict[str, Any]) -> dict[str, float]:
+        baseline = 1.0
+        constitution = state.get("constitutional_layer", {})
+        unified = state.get("unified_cognitive_state", {})
+        identity = state.get("niblit_identity", {})
+        planner = state.get("strategic_planner", {})
+        model_ecology = state.get("model_ecology", {})
+        return {
+            "constitutional_layer": max(0.0, baseline - min(0.6, constitution.get("block_count", 0) * 0.05)),
+            "unified_cognitive_state": 0.7 if unified.get("key_count", 0) >= 5 else 0.4,
+            "niblit_identity": float(identity.get("continuity_score", 0.8)),
+            "strategic_planner": float(planner.get("plan_count", 1) > 0) * 0.8 + 0.2,
+            "model_ecology": 0.8 if model_ecology.get("model_count", 1) >= 1 else 0.5,
+        }
+
+    def detect_recursive_feedback_loops(self, state: dict[str, Any]) -> float:
         stats = state.get("event_bus_stats", {})
-        r = stats.get("reflection.complete", 0)
-        g = stats.get("governance.adapted", 0)
-        w = stats.get("world_model.updated", 0)
-        if r > 0 and g > 0 and w > 0:
-            dominant = max(r, g, w) / max(1, min(r, g, w))
-            if dominant > 3:
-                warnings.append("asymmetric_feedback_amplification")
-        if r > 20 and g > 20:
-            warnings.append("reflection_governance_loop_pressure")
-        return warnings
+        r = float(stats.get("reflection.complete", 0))
+        g = float(stats.get("governance.adapted", 0))
+        p = float(stats.get("world_model.updated", 0))
+        if min(r, g, p) <= 0:
+            return 0.0
+        skew = max(r, g, p) / max(1.0, min(r, g, p))
+        volume = min(1.0, (r + g + p) / 90.0)
+        return max(0.0, min(1.0, (skew - 1.0) / 4.0 + 0.5 * volume))
 
-    def compute_global_coherence(
-        self,
-        contradictions: List[str],
-        warnings: List[str],
-        divergence: Dict[str, float],
-        goal_alignment: float,
-    ) -> float:
-        penalty = len(contradictions) * 0.12 + len(warnings) * 0.08
-        if divergence:
-            penalty += sum(divergence.values()) / len(divergence) * 0.25
-        score = goal_alignment - penalty
-        return max(0.0, min(1.0, score))
-
-    def identify_cognitive_fragmentation(self, state: Dict[str, Any]) -> Dict[str, float]:
-        result: Dict[str, float] = {}
-        baseline = state.get("reflection_engine", {}).get("quality_ema", 0.7)
-        comps = [
+    def identify_fragmentation_clusters(self, state: dict[str, Any]) -> tuple[dict[str, float], list[str]]:
+        reflection_q = float(state.get("reflection_engine", {}).get("quality_ema", 0.7))
+        mapping: dict[str, float] = {}
+        for name in (
             "constitutional_layer",
             "predictive_world_model",
             "human_alignment_engine",
             "model_ecology",
             "self_model",
+            "strategic_planner",
             "governance",
-        ]
-        for name in comps:
-            st = state.get(name, {})
-            if isinstance(st, dict):
-                local = (
-                    st.get("overall_health")
-                    or st.get("quality_ema")
-                    or st.get("trust_level")
-                    or st.get("continuity_score")
-                    or 0.7
-                )
-                result[name] = min(1.0, abs(float(local) - float(baseline)))
-        return result
+        ):
+            s = state.get(name, {})
+            local = s.get("overall_health") or s.get("quality_ema") or s.get("trust_level") or s.get("continuity_score") or 0.7
+            mapping[name] = min(1.0, abs(float(local) - reflection_q))
+        return mapping, [k for k, v in mapping.items() if v >= 0.55]
 
-    def status(self) -> Dict[str, Any]:
+    def compute_global_coherence(
+        self,
+        contradiction_vectors: list[dict[str, Any]],
+        alignment: dict[str, float],
+        recursive_instability: float,
+        fragmentation_map: dict[str, float],
+    ) -> float:
+        align_score = sum(alignment.values()) / max(1, len(alignment))
+        contradiction_penalty = 0.12 * len(contradiction_vectors)
+        fragmentation_penalty = 0.25 * (sum(fragmentation_map.values()) / max(1, len(fragmentation_map)))
+        score = align_score - contradiction_penalty - fragmentation_penalty - 0.2 * recursive_instability
+        return max(0.0, min(1.0, score))
+
+    def status(self) -> dict[str, Any]:
         with self._lock:
             return {
                 "run_count": self._run_count,
                 "last_report": self._last_report.to_dict() if self._last_report else None,
+                "confidence": self._last_report.confidence if self._last_report else 0.0,
+                "stability_impact": self._last_report.stability_impact if self._last_report else 0.0,
+                "coherence_impact": self._last_report.coherence_impact if self._last_report else 0.0,
+                "causal_trace_metadata": self._last_report.causal_trace_metadata if self._last_report else {},
+                "rationale": self._last_report.rationale if self._last_report else "not_initialized",
             }
 
-    def _collect_state(self) -> Dict[str, Any]:
-        state: Dict[str, Any] = {}
-        state["constitutional_layer"] = _safe_status("modules.constitutional_layer", "get_constitutional_layer")
-        state["unified_cognitive_state"] = _safe_status("modules.unified_cognitive_state", "get_unified_state")
-        state["reflection_engine"] = _safe_status("modules.reflection_engine", "get_reflection_engine")
-        state["predictive_world_model"] = _safe_status("modules.predictive_world_model", "get_predictive_world_model")
-        state["human_alignment_engine"] = _safe_status("modules.human_alignment_engine", "get_human_alignment_engine")
-        state["model_ecology"] = _safe_status("modules.model_ecology", "get_model_ecology")
-        state["self_model"] = _safe_status("modules.self_model", "get_self_model")
-        state["niblit_identity"] = _safe_status("modules.niblit_identity", "get_niblit_identity")
-        state["governance"] = _safe_status("nibblebots.governance_evolution_engine", "get_governance_engine")
-        state["event_bus_stats"] = _safe_event_stats()
-        return state
+    def _collect_state(self) -> dict[str, Any]:
+        st: dict[str, Any] = {
+            "constitutional_layer": _safe_status("modules.constitutional_layer", "get_constitutional_layer"),
+            "unified_cognitive_state": _safe_status("modules.unified_cognitive_state", "get_unified_state"),
+            "reflection_engine": _safe_status("modules.reflection_engine", "get_reflection_engine"),
+            "predictive_world_model": _safe_status("modules.predictive_world_model", "get_predictive_world_model"),
+            "human_alignment_engine": _safe_status("modules.human_alignment_engine", "get_human_alignment_engine"),
+            "model_ecology": _safe_status("modules.model_ecology", "get_model_ecology"),
+            "strategic_planner": _safe_status("modules.deliberative_planner", "get_deliberative_planner"),
+            "self_model": _safe_status("modules.self_model", "get_self_model"),
+            "niblit_identity": _safe_status("modules.niblit_identity", "get_niblit_identity"),
+            "governance": _safe_status("nibblebots.governance_evolution_engine", "get_governance_engine"),
+            "event_bus_stats": _safe_event_stats(),
+        }
+        st["epoch"] = st.get("unified_cognitive_state", {}).get("epoch", 0)
+        return st
+
+    def _rationale(self, score: float, contradictions: list[dict[str, Any]], unstable: list[str]) -> str:
+        if score < 0.4:
+            return f"Low coherence due to contradictions={len(contradictions)} unstable_clusters={len(unstable)}"
+        if contradictions:
+            return f"Moderate coherence with contradictions={len(contradictions)}"
+        return "High coherence; subsystem alignment remains stable."
 
     def _emit(self, report: CoherenceReport) -> None:
         try:
             from modules.event_bus import (
+                EVENT_COHERENCE_ANALYZED,
                 EVENT_COHERENCE_EVALUATED,
                 NiblitEvent,
                 get_event_bus,
             )
 
-            get_event_bus().publish(
-                NiblitEvent(
-                    type=EVENT_COHERENCE_EVALUATED,
-                    source="cognitive_coherence_engine",
-                    payload={
-                        "coherence_score": report.coherence_score,
-                        "contradictions": len(report.contradiction_vectors),
-                    },
-                )
-            )
+            bus = get_event_bus()
+            payload = {
+                "coherence_score": report.coherence_score,
+                "contradiction_count": report.contradiction_count,
+                "confidence": report.confidence,
+                "stability_impact": report.stability_impact,
+                "coherence_impact": report.coherence_impact,
+                "causal_trace_metadata": report.causal_trace_metadata,
+                "rationale": report.rationale,
+                "epoch": report.epoch,
+            }
+            bus.publish(NiblitEvent(type=EVENT_COHERENCE_ANALYZED, source="cognitive_coherence_engine", payload=payload))
+            bus.publish(NiblitEvent(type=EVENT_COHERENCE_EVALUATED, source="cognitive_coherence_engine", payload=payload))
+        except Exception:
+            pass
+
+    def _save_state(self) -> None:
+        try:
+            data = {"run_count": self._run_count, "last_report": self._last_report.to_dict() if self._last_report else None}
+            tmp = _STATE_PATH.with_suffix(".json.tmp")
+            with tmp.open("w", encoding="utf-8") as fh:
+                json.dump(data, fh, indent=2)
+            tmp.replace(_STATE_PATH)
+        except Exception:
+            pass
+
+    def _load_state(self) -> None:
+        try:
+            if not _STATE_PATH.exists():
+                return
+            with _STATE_PATH.open(encoding="utf-8") as fh:
+                data = json.load(fh)
+            self._run_count = int(data.get("run_count", 0))
         except Exception:
             pass
 
 
-def _safe_status(module_name: str, getter: str) -> Dict[str, Any]:
+def _safe_status(module_name: str, getter: str) -> dict[str, Any]:
     try:
         mod = __import__(module_name, fromlist=[getter])
         obj = getattr(mod, getter)()
@@ -203,7 +268,7 @@ def _safe_status(module_name: str, getter: str) -> Dict[str, Any]:
     return {}
 
 
-def _safe_event_stats() -> Dict[str, int]:
+def _safe_event_stats() -> dict[str, int]:
     try:
         from modules.event_bus import get_event_bus
 
@@ -212,7 +277,7 @@ def _safe_event_stats() -> Dict[str, int]:
         return {}
 
 
-_coherence_engine: Optional[CognitiveCoherenceEngine] = None
+_coherence_engine: CognitiveCoherenceEngine | None = None
 _coherence_lock = threading.Lock()
 
 
@@ -222,4 +287,3 @@ def get_cognitive_coherence_engine() -> CognitiveCoherenceEngine:
         if _coherence_engine is None:
             _coherence_engine = CognitiveCoherenceEngine()
     return _coherence_engine
-

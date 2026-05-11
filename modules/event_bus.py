@@ -103,6 +103,23 @@ EVENT_TEMPORAL_CAUSAL_UPDATED   = "temporal.causal.updated"
 EVENT_EMERGENCE_DETECTED        = "emergence.detected"
 EVENT_GLOBAL_METRICS_UPDATED    = "global.metrics.updated"
 
+# Phase Ω.5 required canonical events
+EVENT_COHERENCE_ANALYZED        = "coherence.analyzed"
+EVENT_RECURSION_STABILIZED      = "recursion.stabilized"
+EVENT_RECURSIVE_WARNING         = "recursion.warning"
+EVENT_IDENTITY_DRIFT            = "identity.drift"
+EVENT_IDENTITY_VALIDATED        = "identity.validated"
+EVENT_META_GOVERNANCE_UPDATED   = "meta_governance.updated"
+EVENT_GOVERNANCE_CAPTURE_WARNING = "governance.capture.warning"
+EVENT_SUBSYSTEM_QUARANTINED     = "subsystem.quarantined"
+EVENT_COHERENCE_RESTORED        = "coherence.restored"
+EVENT_CAUSAL_CHAIN_UPDATED      = "causal_chain.updated"
+EVENT_TEMPORAL_CONTRADICTION    = "temporal.contradiction"
+EVENT_GLOBAL_COGNITIVE_UPDATE   = "global.cognitive.update"
+EVENT_AGENT_COALITION           = "agent.coalition"
+EVENT_DEBATE_RECORDED           = "debate.recorded"
+EVENT_COLLECTIVE_ALIGNMENT      = "collective.alignment"
+
 
 @dataclass
 class NiblitEvent:
