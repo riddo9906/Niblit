@@ -52,8 +52,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("NiblitEventBus")
 
@@ -120,6 +121,11 @@ EVENT_AGENT_COALITION           = "agent.coalition"
 EVENT_DEBATE_RECORDED           = "debate.recorded"
 EVENT_COLLECTIVE_ALIGNMENT      = "collective.alignment"
 
+# Phase Ω.6: Attention Economy & Cognitive Resource Allocation
+EVENT_SALIENCE_SCORED           = "salience.scored"
+EVENT_COGNITIVE_BUDGET_ENFORCED = "cognitive_budget.enforced"
+EVENT_ATTENTION_ALLOCATED       = "attention.allocated"
+
 
 @dataclass
 class NiblitEvent:
@@ -135,7 +141,7 @@ class NiblitEvent:
 
     type: str
     source: str
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
 
 
@@ -152,9 +158,9 @@ class EventBus:
     """
 
     def __init__(self) -> None:
-        self._handlers: Dict[str, List[_Handler]] = {}
-        self._last: Dict[str, NiblitEvent] = {}
-        self._counts: Dict[str, int] = {}
+        self._handlers: dict[str, list[_Handler]] = {}
+        self._last: dict[str, NiblitEvent] = {}
+        self._counts: dict[str, int] = {}
         self._lock = threading.Lock()
         log.info("[EventBus] Initialised")
 
@@ -211,12 +217,12 @@ class EventBus:
 
     # ── Query ─────────────────────────────────────────────────────────────────
 
-    def last_event(self, event_type: str) -> Optional[NiblitEvent]:
+    def last_event(self, event_type: str) -> NiblitEvent | None:
         """Return the most recently published event of *event_type*, or None."""
         with self._lock:
             return self._last.get(event_type)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return a copy of publish-count statistics keyed by event type."""
         with self._lock:
             return dict(self._counts)
@@ -224,7 +230,7 @@ class EventBus:
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 
-_bus: Optional[EventBus] = None
+_bus: EventBus | None = None
 _bus_lock = threading.Lock()
 
 

@@ -22,6 +22,8 @@ class GlobalCognitiveSnapshot:
     reflection_usefulness: float
     adaptation_velocity: float
     causal_consistency: float
+    attention_pressure: float
+    budget_health: float
     confidence: float
     stability_impact: float
     coherence_impact: float
@@ -44,6 +46,8 @@ class GlobalCognitiveSnapshot:
             "reflection_usefulness": self.reflection_usefulness,
             "adaptation_velocity": self.adaptation_velocity,
             "causal_consistency": self.causal_consistency,
+            "attention_pressure": self.attention_pressure,
+            "budget_health": self.budget_health,
             "confidence": self.confidence,
             "stability_impact": self.stability_impact,
             "coherence_impact": self.coherence_impact,
@@ -102,6 +106,7 @@ class GlobalCognitiveMetrics:
         causal_consistency = min(
             1.0, float(causal_consistency) / 200.0 if causal_consistency > 1.0 else float(causal_consistency)
         )
+        attention_pressure, budget_health = _extract_attention_metrics()
 
         metrics = {
             "coherence": float(coherence),
@@ -115,6 +120,8 @@ class GlobalCognitiveMetrics:
             "reflection_usefulness": float(reflection),
             "adaptation_velocity": float(adaptation_velocity),
             "causal_consistency": float(causal_consistency),
+            "attention_pressure": float(attention_pressure),
+            "budget_health": float(budget_health),
         }
         return metrics
 
@@ -128,8 +135,14 @@ class GlobalCognitiveMetrics:
             metrics["memory_integrity"],
             metrics["reflection_usefulness"],
             metrics["causal_consistency"],
+            metrics.get("budget_health", 1.0),
         ]
-        negative = [metrics["emergence_index"], metrics["resonance_dependency"], metrics["adaptation_velocity"]]
+        negative = [
+            metrics["emergence_index"],
+            metrics["resonance_dependency"],
+            metrics["adaptation_velocity"],
+            metrics.get("attention_pressure", 0.0),
+        ]
         return max(0.0, min(1.0, (sum(positive) / len(positive)) - (sum(negative) / len(negative)) * 0.25))
 
     def generate_cognitive_report(self) -> dict[str, Any]:
@@ -140,7 +153,11 @@ class GlobalCognitiveMetrics:
             confidence=health,
             stability_impact=metrics["stability"],
             coherence_impact=metrics["coherence"],
-            causal_trace_metadata={"health": health},
+            causal_trace_metadata={
+                "health": health,
+                "attention_pressure": metrics["attention_pressure"],
+                "budget_health": metrics["budget_health"],
+            },
             rationale="Global health computed from coherence, stability, identity, governance, and grounding metrics.",
             explanation="Unified telemetry generated for Ω.5 recursive cognition supervision.",
             epoch=_safe_epoch(),
@@ -167,6 +184,8 @@ class GlobalCognitiveMetrics:
                 "reflection_usefulness",
                 "resonance_dependency",
                 "causal_consistency",
+                "attention_pressure",
+                "budget_health",
             )
         }
 
@@ -230,6 +249,20 @@ def _safe_epoch() -> int:
         return int(get_unified_state().status().get("epoch", 0))
     except Exception:
         return 0
+
+
+def _extract_attention_metrics() -> tuple[float, float]:
+    try:
+        from modules.attention_allocator import get_attention_allocator
+        from modules.cognitive_budget_manager import get_cognitive_budget_manager
+
+        attention_status = get_attention_allocator().status()
+        budget_status = get_cognitive_budget_manager().status()
+        pressure = float(attention_status.get("attention_pressure", 0.0))
+        budget_health = max(0.0, 1.0 - float(budget_status.get("budget_utilization", 0.0)))
+        return pressure, budget_health
+    except Exception:
+        return 0.0, 1.0
 
 
 _gcm: GlobalCognitiveMetrics | None = None
