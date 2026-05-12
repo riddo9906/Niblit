@@ -19,6 +19,10 @@ permissions:
   issues: write
   contents: read
 
+concurrency:
+  group: nibblebot-aios-research-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   research:
     name: Run AIOS Research Scan
@@ -41,3 +45,31 @@ jobs:
           GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN || secrets.GITHUB_TOKEN }}
           USE_GH_MODEL_REPORTS: ${{ vars.USE_GH_MODEL_REPORTS || 'false' }}
         run: python nibblebots/aios_research_bot.py
+
+      - name: Emit structured governance output
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from nibblebots.workflow_governance_helpers import build_workflow_output
+
+          payload = build_workflow_output(
+            workflow_name="nibblebot-aios-research",
+            findings=["research_scan_completed"],
+            proposals=["review_research_findings"],
+            governance_impact="low",
+            schema_impact="low",
+            runtime_impact="medium",
+            federation_impact="low",
+            confidence=0.73,
+          )
+          Path("workflow-governance-output.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+          print(json.dumps(payload, indent=2))
+          PY
+
+      - name: Upload structured output
+        uses: actions/upload-artifact@v7
+        with:
+          name: nibblebot-aios-research-governance-output
+          path: workflow-governance-output.json
+          retention-days: 14

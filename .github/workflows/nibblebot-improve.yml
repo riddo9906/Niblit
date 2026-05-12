@@ -24,6 +24,10 @@ permissions:
   issues: write
   contents: read
 
+concurrency:
+  group: nibblebot-improve-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   improve:
     name: Run Nibblebot Improvement Scan
@@ -45,3 +49,31 @@ jobs:
           NIBBLEBOT_TOPICS: ${{ inputs.topics || 'ai-agent,llm-framework' }}
           NIBBLEBOT_DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: python nibblebots/improvement_bot.py
+
+      - name: Emit structured governance output
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from nibblebots.workflow_governance_helpers import build_workflow_output
+
+          payload = build_workflow_output(
+            workflow_name="nibblebot-improve",
+            findings=["improvement_scan_completed"],
+            proposals=["review_generated_improvement_issue"],
+            governance_impact="medium",
+            schema_impact="low",
+            runtime_impact="medium",
+            federation_impact="low",
+            confidence=0.75,
+          )
+          Path("workflow-governance-output.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+          print(json.dumps(payload, indent=2))
+          PY
+
+      - name: Upload structured output
+        uses: actions/upload-artifact@v7
+        with:
+          name: nibblebot-improve-governance-output
+          path: workflow-governance-output.json
+          retention-days: 14

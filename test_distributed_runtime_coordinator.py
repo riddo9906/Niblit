@@ -66,6 +66,7 @@ def test_refresh_builds_contract_and_ingests_streams(tmp_path: Path) -> None:
 
     assert state.source == "local"
     assert contract["schema_version"] == "2.0"
+    assert "compatibility" in contract
     assert contract["signal"] == "BUY"
     assert contract["runtime"]["mode"] == "cautious"
     assert contract["governance"]["governance_mode"] == "cautious"
@@ -80,6 +81,10 @@ def test_refresh_builds_contract_and_ingests_streams(tmp_path: Path) -> None:
     assert bus.last_event(EVENT_RUNTIME_MODE_CHANGED) is not None
     assert bus.last_event(EVENT_TRADE_REFLECTION_INGESTED) is not None
     assert bus.last_event(EVENT_MARKET_EPISODE_INGESTED) is not None
+
+    status = coord.status()
+    assert "compatibility" in status
+    assert "drift_report" in status
 
 
 def test_cloud_status_mapping_to_contract() -> None:
@@ -106,3 +111,7 @@ def test_cloud_status_mapping_to_contract() -> None:
     assert mapped["temporal"]["epoch_id"] == 42
     assert mapped["resources"]["cognitive_budget"] == 0.78
     assert mapped["model_trust"] == 0.73
+
+
+if __name__ == "__main__":
+    print('Running test_distributed_runtime_coordinator.py')

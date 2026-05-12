@@ -1998,6 +1998,20 @@ def api_federation_peers(request: Request):
         return JSONResponse(content={"error": "federation peers unavailable"}, status_code=503)
 
 
+@app.get("/federation/status")
+def api_federation_status(request: Request):
+    """Federation contract readiness metadata (Ω.8 foundation)."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    try:
+        from api.federation import federation_status
+
+        return render_response(request, federation_status())
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("api_federation_status error: %s", exc)
+        return JSONResponse(content={"error": "federation status unavailable"}, status_code=503)
+
+
 # ── API: background status (lightweight, polls every 15s) ──
 @app.get("/api/bg_status")
 def api_bg_status(request: Request):

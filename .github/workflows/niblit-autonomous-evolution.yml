@@ -75,6 +75,10 @@ permissions:
   issues: write     # create detailed evolution-proposal issues for manual review
   actions: read     # query Actions API for failure-driven priority + outcome
 
+concurrency:
+  group: niblit-autonomous-evolution-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   evolve:
     name: "Autonomous Evolution Cycle"
@@ -224,3 +228,35 @@ jobs:
           else
             echo "ℹ️  No improvements found (nothing to fix or dry-run mode)."
           fi
+
+      - name: Emit structured governance output
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from nibblebots.workflow_governance_helpers import build_workflow_output
+
+          findings = ["evolution_cycle_completed"]
+          proposals = ["manual_governance_review_required_for_architecture_changes"]
+          payload = build_workflow_output(
+            workflow_name="niblit-autonomous-evolution",
+            findings=findings,
+            proposals=proposals,
+            governance_impact="high",
+            schema_impact="medium",
+            runtime_impact="medium",
+            federation_impact="low",
+            confidence=0.72,
+          )
+          Path("workflow-governance-output.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+          print(json.dumps(payload, indent=2))
+          PY
+
+      - name: Upload structured output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: niblit-autonomous-evolution-governance-output
+          path: workflow-governance-output.json
+          retention-days: 14

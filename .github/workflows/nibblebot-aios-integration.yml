@@ -19,6 +19,10 @@ permissions:
   issues: write
   contents: read
 
+concurrency:
+  group: nibblebot-aios-integration-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   integration:
     name: Generate AIOS Integration Roadmap
@@ -39,3 +43,31 @@ jobs:
           INTEGRATION_TOPICS: ${{ inputs.topics || '' }}
           INTEGRATION_DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: python nibblebots/aios_integration_bot.py
+
+      - name: Emit structured governance output
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from nibblebots.workflow_governance_helpers import build_workflow_output
+
+          payload = build_workflow_output(
+            workflow_name="nibblebot-aios-integration",
+            findings=["integration_roadmap_generated"],
+            proposals=["review_cross_repo_integration_actions"],
+            governance_impact="medium",
+            schema_impact="medium",
+            runtime_impact="medium",
+            federation_impact="medium",
+            confidence=0.78,
+          )
+          Path("workflow-governance-output.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+          print(json.dumps(payload, indent=2))
+          PY
+
+      - name: Upload structured output
+        uses: actions/upload-artifact@v7
+        with:
+          name: nibblebot-aios-integration-governance-output
+          path: workflow-governance-output.json
+          retention-days: 14

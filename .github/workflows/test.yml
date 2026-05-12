@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Run test suite
@@ -108,4 +112,3 @@ jobs:
           name: coverage-${{ matrix.python-version }}
           path: coverage.xml
           retention-days: 14
-

@@ -24,6 +24,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from shared.governance_contract import (
+    anti_drift_report,
+    compatibility_metadata,
+    normalize_runtime_mode,
+    validate_runtime_contract,
+)
+from shared.governance_contract.event_constants import (
+    EVENT_EXECUTION_ENVELOPE_PUBLISHED,
+    EVENT_MARKET_EPISODE_INGESTED,
+    EVENT_RUNTIME_MODE_CHANGED,
+    EVENT_TRADE_REFLECTION_INGESTED,
+)
+
 log = logging.getLogger("DistributedRuntimeCoordinator")
 
 _SCHEMA_VERSION = "2.0"
@@ -58,6 +71,8 @@ _TRACE_FILE = Path(
         os.path.join(os.environ.get("TMPDIR", "/tmp"), "niblit_runtime_coord_trace.jsonl"),
     )
 )
+
+_COMPATIBILITY = compatibility_metadata()
 
 
 @dataclass
@@ -167,10 +182,31 @@ class DistributedRuntimeCoordinator:
 
     def status(self) -> dict[str, Any]:
         state = self._last_state
+        runtime_validation = validate_runtime_contract(state.runtime_contract)
+        drift = anti_drift_report(
+            contract=state.runtime_contract,
+            compatibility=_COMPATIBILITY,
+            observed_events=[
+                EVENT_EXECUTION_ENVELOPE_PUBLISHED,
+                EVENT_TRADE_REFLECTION_INGESTED,
+                EVENT_MARKET_EPISODE_INGESTED,
+                EVENT_RUNTIME_MODE_CHANGED,
+            ],
+        )
+        federation_status: dict[str, Any] = {}
+        try:
+            from modules.federation_foundation import get_federation_foundation
+
+            federation = get_federation_foundation()
+            federation_status = federation.status()
+        except Exception:
+            federation_status = {}
+
         out = {
             "schema_version": _SCHEMA_VERSION,
             "refresh_count": self._refresh_count,
             "source": state.source,
+            "compatibility": dict(_COMPATIBILITY),
             "cloud": {
                 "url": self.cloud_url,
                 "reachable": state.cloud_reachable,
@@ -190,6 +226,9 @@ class DistributedRuntimeCoordinator:
             "episodes_ingested": state.episodes_ingested,
             "node_count": state.node_count,
             "nodes": self._list_nodes(),
+            "runtime_validation": runtime_validation,
+            "drift_report": drift,
+            "federation": federation_status,
         }
         return out
 
@@ -227,18 +266,14 @@ class DistributedRuntimeCoordinator:
 
     @staticmethod
     def _normalize_runtime_mode(mode: Any) -> str:
-        m = str(mode or "normal").strip().lower()
-        if m == "constrained":
-            m = "cautious"
-        if m not in {"normal", "cautious", "survival", "lockdown"}:
-            m = "normal"
-        return m
+        return normalize_runtime_mode(mode)
 
     @staticmethod
     def _default_contract() -> dict[str, Any]:
         now = int(time.time())
         return {
             "schema_version": _SCHEMA_VERSION,
+            "compatibility": dict(_COMPATIBILITY),
             "timestamp": now,
             "epoch": now,
             "signal": "HOLD",
@@ -342,6 +377,7 @@ class DistributedRuntimeCoordinator:
 
         # runtime_adapter compatibility aliases
         contract["governance_mode"] = mode
+        contract["compatibility"] = dict(_COMPATIBILITY)
         contract["resource_state"] = {
             "cognitive_budget": float((contract.get("resources") or {}).get("cognitive_budget", 1.0)),
             "attention_available": float((contract.get("resources") or {}).get("attention_available", 1.0)),
@@ -496,7 +532,7 @@ class DistributedRuntimeCoordinator:
 
             get_event_bus().publish(
                 NiblitEvent(
-                    type=EVENT_RUNTIME_MODE_CHANGED,
+                    type=EVENT_RUNTIME_MODE_CHANGED,  # canonical value preserved by shared contract
                     source="distributed_runtime_coordinator",
                     payload={"previous_mode": prev, "new_mode": new, "timestamp": int(time.time())},
                 )
@@ -510,7 +546,7 @@ class DistributedRuntimeCoordinator:
 
             get_event_bus().publish(
                 NiblitEvent(
-                    type=EVENT_EXECUTION_ENVELOPE_PUBLISHED,
+                    type=EVENT_EXECUTION_ENVELOPE_PUBLISHED,  # canonical value preserved by shared contract
                     source="distributed_runtime_coordinator",
                     payload={
                         "schema_version": contract.get("schema_version", _SCHEMA_VERSION),

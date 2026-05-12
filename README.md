@@ -2364,3 +2364,27 @@ The coordinator emits and preserves canonical Ω.7 events:
 - `runtime_mode.changed`
 
 This prevents cross-repo naming drift between core, cloud, and lean execution flows.
+
+## Phase Ω.8 — Governance Authority Layer
+
+Niblit now defines canonical cross-repo semantics in `shared/governance_contract/` for:
+
+- schema-v2 envelope semantics
+- runtime mode semantics
+- event semantics
+- advisor protocol normalization
+- telemetry/replay metadata
+- compatibility metadata
+- federation readiness contract
+- anti-drift validation
+
+Runtime inspection surfaces:
+
+- `GET /niblit/runtime`
+- `GET /cluster/status`
+- `GET /federation/peers`
+- `GET /federation/status`
+
+Tooling:
+
+- `python tools/cloud_runtime_ctl.py diagnostics --json`

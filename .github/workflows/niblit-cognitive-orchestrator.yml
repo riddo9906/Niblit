@@ -1,0 +1,66 @@
+name: "🧠 Niblit Cognitive Orchestrator"
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: niblit-cognitive-orchestrator-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    name: Aggregate governance/drift signals
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build unified governance summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from nibblebots.workflow_governance_helpers import build_workflow_output
+
+          workflow_dir = Path('.github/workflows')
+          findings = []
+          proposals = []
+
+          for path in sorted(workflow_dir.glob('*.y*ml')):
+            text = path.read_text(encoding='utf-8', errors='replace')
+            if 'concurrency:' not in text:
+              findings.append(f"missing_concurrency:{path.name}")
+              proposals.append(f"add_concurrency:{path.name}")
+
+          summary = build_workflow_output(
+            workflow_name='niblit-cognitive-orchestrator',
+            findings=findings,
+            proposals=proposals,
+            governance_impact='medium' if findings else 'low',
+            schema_impact='low',
+            runtime_impact='medium' if findings else 'low',
+            federation_impact='low',
+            confidence=0.82,
+          )
+
+          Path('orchestrator-summary.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
+          print(json.dumps(summary, indent=2))
+          PY
+
+      - name: Upload orchestration summary artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: cognitive-orchestrator-summary
+          path: orchestrator-summary.json
+          retention-days: 14

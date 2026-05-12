@@ -504,3 +504,32 @@ API integration points:
 Validation:
 
 - `test_distributed_runtime_coordinator.py` checks contract normalization, event compatibility, and cloud-status mapping.
+
+---
+
+## Phase Ω.8 Canonical Governance Authority
+
+Niblit now centralizes cross-repo semantic authority under:
+
+- `shared/governance_contract/`
+
+Canonical modules include:
+
+- `schema_v2.py`
+- `runtime_modes.py`
+- `event_constants.py`
+- `advisor_protocol.py`
+- `telemetry_contract.py`
+- `constitutional_laws.py`
+- `federation_contract.py`
+- `compatibility_matrix.py`
+- `validators.py`
+
+These definitions are intended to be consumed by runtime/execution repos to prevent semantic drift.
+
+### Runtime + Federation Tooling
+
+- `tools/lib/runtime_client.py` — runtime/federation diagnostics client
+- `tools/cloud_runtime_ctl.py` — CLI for diagnostics, compatibility, federation, and sync inspection
+- `modules/federation_foundation.py` — Ω.8 federation readiness placeholders
+- `api/federation.py` + `/federation/status` endpoint — readiness metadata surface
