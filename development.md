@@ -434,3 +434,43 @@ hardware timeline without additional IPC overhead.
 | Delayed outcomes attributed to wrong epoch | `epoch_tag` on every learning entry enables accurate attribution |
 | Single-score overcompression of quality | `quality_axes` preserves independent dimensions |
 | Kernel / userspace epoch desync | `SYS_NIBLIT_EPOCH_SYNC` + `ring->epoch_id` create a shared truth surface |
+
+---
+
+## Runtime Tooling Subsystem (Portable / Governance-Aware)
+
+Tooling is now split into a portable runtime operations layer:
+
+- `tools/runtime_profiles/*.env` — profile-based runtime configuration
+- `tools/runtime_profiles/profile_loader.sh` — shared bash profile loader
+- `tools/lib/runtime_profiles.py` — shared python profile loader
+- `tools/lib/sidecar_client.py` — reusable UNIX/TCP sidecar client with schema-safe normalization
+- `tools/niblit_ctl.py` — thin CLI wrapper over shared client library
+
+### Governance-aware runtime telemetry
+
+`tools/termux_inference_server.sh` now emits structured runtime telemetry aligned with Phase Ω.7 semantics and event naming:
+
+- `EVENT_RUNTIME_MODE_CHANGED`
+- `EVENT_EXECUTION_ENVELOPE_PUBLISHED`
+- `EVENT_RESOURCE_ADAPTED`
+- `EVENT_ATTENTION_ALLOCATED`
+- `EVENT_REFLECTION_COMPLETE`
+
+These are emitted as operational log events (non-invasive) and do not change core runtime event bus behavior.
+
+### Backward compatibility principles
+
+1. Existing default paths and env vars remain supported.
+2. Existing `tools/install_local_qwen_model.py` entrypoint remains valid.
+3. Existing sidecar UNIX socket workflow remains default.
+4. New features (profiles, TCP transport, output modes) are additive.
+
+### Targeted tooling test coverage
+
+`test_runtime_tooling_layer.py` covers:
+
+- profile discovery and key presence
+- profile env application
+- sidecar response normalization
+- output formatter modes
