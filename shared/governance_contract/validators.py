@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .advisor_protocol import normalize_advisor_votes
 from .compatibility_matrix import validate_compatibility
 from .event_constants import CANONICAL_EVENTS
 from .runtime_modes import normalize_runtime_mode
@@ -13,6 +12,7 @@ from .schema_v2 import SCHEMA_V2_REQUIRED_FIELDS, ensure_schema_v2
 
 def validate_runtime_contract(payload: dict[str, Any] | None) -> dict[str, Any]:
     """Validate schema/runtime/governance/advisor contract consistency."""
+    raw = dict(payload or {})
     env = ensure_schema_v2(payload)
     issues: list[str] = []
 
@@ -25,7 +25,8 @@ def validate_runtime_contract(payload: dict[str, Any] | None) -> dict[str, Any]:
     if runtime_mode != governance_mode:
         issues.append("mode_mismatch:runtime_vs_governance")
 
-    if not isinstance(normalize_advisor_votes(env), dict):
+    raw_advisors = raw.get("advisors")
+    if raw_advisors is not None and not isinstance(raw_advisors, dict):
         issues.append("advisor_protocol_invalid")
 
     return {

@@ -75,8 +75,8 @@ def ensure_schema_v2(payload: dict[str, Any] | None) -> dict[str, Any]:
             "cognitive_budget": max(0.0, min(1.0, float(resources.get("cognitive_budget", 1.0)))),
             "attention_available": max(0.0, min(1.0, float(resources.get("attention_available", 1.0)))),
         },
-        "trace": dict(src.get("trace") or {}),
-        "advisors": dict(src.get("advisors") or {}),
+        "trace": dict(src.get("trace") or {}) if isinstance(src.get("trace"), dict) else {},
+        "advisors": dict(src.get("advisors") or {}) if isinstance(src.get("advisors"), dict) else {},
     }
     return out
 

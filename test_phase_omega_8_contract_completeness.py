@@ -163,6 +163,7 @@ def test_anti_drift_report_multiple_factors_yield_high_risk() -> None:
 def test_normalize_advisor_votes_empty() -> None:
     result = normalize_advisor_votes({})
     assert isinstance(result, dict)
+    assert result == {}
 
 
 def test_normalize_advisor_votes_passthrough() -> None:
@@ -174,7 +175,17 @@ def test_normalize_advisor_votes_passthrough() -> None:
         }
     }
     result = normalize_advisor_votes(env)
-    assert isinstance(result, dict)
+    assert "advisor_1" in result
+    assert result["advisor_1"]["direction"] == "BUY"
+    assert 0.0 <= result["advisor_1"]["confidence"] <= 1.0
+
+
+def test_validate_runtime_contract_non_dict_advisors_flagged() -> None:
+    """Envelope with a non-dict 'advisors' field should trigger advisor_protocol_invalid."""
+    from shared.governance_contract import validate_runtime_contract
+    env = {"advisors": "invalid_advisors_string"}
+    check = validate_runtime_contract(env)
+    assert "advisor_protocol_invalid" in check["issues"]
 
 
 if __name__ == "__main__":
