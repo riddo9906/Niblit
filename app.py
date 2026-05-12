@@ -1941,6 +1941,63 @@ def api_status(request: Request):
     return render_response(request, data)
 
 
+# ── API: cross-repo runtime contract (cloud/lean compatibility) ─────────────
+@app.get("/niblit/runtime")
+def api_niblit_runtime(request: Request):
+    """Return schema-v2 runtime contract for cloud and lean adapters."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    try:
+        core = get_core()
+        coord = getattr(core, "runtime_coordinator", None) if core else None
+        if coord is None:
+            from modules.distributed_runtime_coordinator import get_distributed_runtime_coordinator
+
+            coord = get_distributed_runtime_coordinator()
+        state = coord.refresh()
+        return render_response(request, dict(state.runtime_contract))
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("api_niblit_runtime error: %s", exc)
+        return JSONResponse(content={"error": "runtime contract unavailable"}, status_code=503)
+
+
+@app.get("/cluster/status")
+def api_cluster_status(request: Request):
+    """Federation-readiness cluster status (standalone-safe)."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    try:
+        core = get_core()
+        coord = getattr(core, "runtime_coordinator", None) if core else None
+        if coord is None:
+            from modules.distributed_runtime_coordinator import get_distributed_runtime_coordinator
+
+            coord = get_distributed_runtime_coordinator()
+        return render_response(request, coord.cluster_status())
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("api_cluster_status error: %s", exc)
+        return JSONResponse(content={"error": "cluster status unavailable"}, status_code=503)
+
+
+@app.get("/federation/peers")
+def api_federation_peers(request: Request):
+    """Known federation peers from the runtime coordinator registry."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    try:
+        core = get_core()
+        coord = getattr(core, "runtime_coordinator", None) if core else None
+        if coord is None:
+            from modules.distributed_runtime_coordinator import get_distributed_runtime_coordinator
+
+            coord = get_distributed_runtime_coordinator()
+        peers = coord.federation_peers()
+        return render_response(request, {"peers": peers, "count": len(peers)})
+    except Exception as exc:
+        logging.getLogger("NiblitApp").error("api_federation_peers error: %s", exc)
+        return JSONResponse(content={"error": "federation peers unavailable"}, status_code=503)
+
+
 # ── API: background status (lightweight, polls every 15s) ──
 @app.get("/api/bg_status")
 def api_bg_status(request: Request):
@@ -2623,4 +2680,3 @@ if __name__ == "__main__":
     print(f"Starting Niblit Web AI on http://0.0.0.0:{port}")
     uvicorn.run("app:app", host="0.0.0.0", port=port,
                 reload=os.environ.get("APP_DEBUG", "0") == "1")
-

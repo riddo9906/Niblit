@@ -2318,3 +2318,49 @@ LLAMA_CPP_VERSION=b6129 bash tools/install_llama_server.sh --profile cloud-serve
 bash tools/install_llama_server.sh --action skip
 bash tools/install_llama_server.sh --action overwrite
 ```
+
+---
+
+## 🆕 Distributed Runtime Unification (Niblit + Cloud + Lean)
+
+Niblit now exposes a **cross-repo coordination layer** that treats:
+
+- `riddo9906/Niblit` as governance + cognition authority
+- `riddo9906/Niblit-cloud-server` as cloud runtime/inference node
+- `riddo9906/niblit-lean-algos` as governed execution node
+
+as one unified runtime contract surface.
+
+### Runtime contract endpoint
+
+```bash
+GET /niblit/runtime
+```
+
+Returns schema-v2-compatible coordination payload with aligned fields for cloud/lean adapters:
+
+- runtime mode + governance mode (`normal|cautious|survival|lockdown`)
+- temporal epoch + coherence + coherence drift
+- attention/resource pressure + runtime health
+- forecast consensus + model trust + execution risk
+- replay-safe trace metadata
+
+### Federation-readiness endpoints
+
+```bash
+GET /cluster/status
+GET /federation/peers
+```
+
+These expose federation-ready node registry state while remaining standalone-safe.
+
+### Event-semantic alignment
+
+The coordinator emits and preserves canonical Ω.7 events:
+
+- `execution_envelope.published`
+- `trade_reflection.ingested`
+- `market_episode.ingested`
+- `runtime_mode.changed`
+
+This prevents cross-repo naming drift between core, cloud, and lean execution flows.

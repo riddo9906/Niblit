@@ -1134,6 +1134,17 @@ except Exception as _lam:
     _get_lean_algo_manager = None  # type: ignore[assignment]
     _LEAN_ALGO_MANAGER_AVAILABLE = False
 
+# Cross-repo distributed runtime coordinator (Niblit ↔ cloud ↔ lean).
+try:
+    from modules.distributed_runtime_coordinator import (
+        get_distributed_runtime_coordinator as _get_distributed_runtime_coordinator,
+    )
+    _DISTRIBUTED_RUNTIME_COORDINATOR_AVAILABLE = True
+except Exception as _drc:
+    log.debug(f"distributed_runtime_coordinator not available: {_drc}")
+    _get_distributed_runtime_coordinator = None  # type: ignore[assignment]
+    _DISTRIBUTED_RUNTIME_COORDINATOR_AVAILABLE = False
+
 # ── MarketDataProviders (additive) ────────────────────────────────────────────
 # Unified gateway for free market data: yfinance, CCXT, TwelveData, OANDA, Alpaca.
 try:
@@ -1936,6 +1947,8 @@ class NiblitCore:
         self.lean_deploy_engine: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: LeanAlgoManager (niblit-lean-algos bridge) ───────────
         self.lean_algo_manager: Optional[Any] = None   # initialised in _init_optional_services
+        # ── Additive: distributed runtime coordinator (Niblit/cloud/lean) ──
+        self.runtime_coordinator: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: MarketDataProviders (multi-provider free data) ──────
         self.market_data_providers: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: TradingStudy (study/reflect/metacognition) ──────────
@@ -5818,15 +5831,24 @@ SW Categories: {stats.get('software_study_categories', 0)}
             init_label = _phase_icons.get(phase, phase)
             # Phase 21: show current TCL epoch in status
             _epoch_label = "n/a"
+            _runtime_mode = "normal"
             if getattr(self, "_tcl", None) is not None:
                 try:
                     _epoch_label = str(self._tcl.epoch.current)
                 except Exception:
                     pass
+            if getattr(self, "runtime_coordinator", None) is not None:
+                try:
+                    _runtime_mode = str(
+                        self.runtime_coordinator.status().get("runtime_mode", "normal")
+                    )
+                except Exception:
+                    pass
             return (
                 f"Status: OK | Memory: {mem_count} | "
                 f"Improvements: {improvements} | Autonomous: {autonomous} | "
-                f"Init: {init_label} | LoopQuality: {loop_label} | Epoch: {_epoch_label}"
+                f"Init: {init_label} | LoopQuality: {loop_label} | Epoch: {_epoch_label} "
+                f"| RuntimeMode: {_runtime_mode}"
             )
         except Exception as e:
             log.error(f"Status command failed: {e}")
@@ -6534,6 +6556,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
         if getattr(self, "_tcl", None) is not None:
             try:
                 status["temporal_coherence"] = self._tcl.status()
+            except Exception:
+                pass
+
+        # ── Cross-repo runtime coordination status ────────────────────────────
+        if getattr(self, "runtime_coordinator", None) is not None:
+            try:
+                self.runtime_coordinator.refresh()
+                status["distributed_runtime"] = self.runtime_coordinator.status()
             except Exception:
                 pass
 
@@ -8055,6 +8085,21 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _lame:
                 log.debug("[INIT] LeanAlgoManager init failed: %s", _lame)
                 self.startup_report.add("lean_algo_manager", "degraded", str(_lame))
+
+        # ── DistributedRuntimeCoordinator (additive) ──────────────────────────
+        # Canonical cross-repo runtime contract and federation-readiness state.
+        if (
+            _DISTRIBUTED_RUNTIME_COORDINATOR_AVAILABLE
+            and _get_distributed_runtime_coordinator is not None
+        ):
+            try:
+                self.runtime_coordinator = _get_distributed_runtime_coordinator()
+                self.runtime_coordinator.refresh()
+                log.info("✅ DistributedRuntimeCoordinator initialised")
+                self.startup_report.add("distributed_runtime_coordinator", "ready")
+            except Exception as _drce:
+                log.debug("[INIT] DistributedRuntimeCoordinator init failed: %s", _drce)
+                self.startup_report.add("distributed_runtime_coordinator", "degraded", str(_drce))
 
         # ── TradingStudy (additive) ───────────────────────────────────────────
         # Study/reflect/metacognition engine for trading improvement.

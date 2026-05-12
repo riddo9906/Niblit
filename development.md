@@ -474,3 +474,33 @@ These are emitted as operational log events (non-invasive) and do not change cor
 - profile env application
 - sidecar response normalization
 - output formatter modes
+
+---
+
+## Distributed Runtime Coordination Layer
+
+`modules/distributed_runtime_coordinator.py` is the Niblit-side unification layer for the three-repo runtime ecosystem.
+
+Responsibilities:
+
+- merges cloud runtime status + local lean signal into one normalized schema-v2 contract
+- normalizes governance/runtime modes (`normal`, `cautious`, `survival`, `lockdown`)
+- ingests trade reflection + market episode streams and republishes canonical events
+- writes replay-safe coordination traces for causal/temporal reconstruction
+- maintains federation-readiness node registry state (`core`, `cloud_runtime`, `governed_execution`)
+
+Core integration points:
+
+- `NiblitCore._init_optional_services()` initializes coordinator
+- `_refresh_unified_feedback_status()` includes `distributed_runtime` status
+- `_cmd_status()` surfaces current runtime mode
+
+API integration points:
+
+- `/niblit/runtime` — canonical runtime contract (cloud/lean adapter-compatible)
+- `/cluster/status` — federation-readiness status
+- `/federation/peers` — known peers from node registry
+
+Validation:
+
+- `test_distributed_runtime_coordinator.py` checks contract normalization, event compatibility, and cloud-status mapping.
