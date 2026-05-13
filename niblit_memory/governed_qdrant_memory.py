@@ -103,7 +103,7 @@ class GovernedQdrantMemoryCluster:
         normalized["schema_v2"] = runtime_payload
         normalized["runtime_contract"] = runtime_validation["normalized"]
         normalized["lineage"] = {
-            "trace_id": normalized["replay_metadata"].get("trace_id", ""),
+            "trace_id": (normalized.get("replay_metadata") or {}).get("trace_id", ""),
             "causal_chain": list(normalized.get("causal_chain", [])),
         }
         normalized["reflection_binding"] = {

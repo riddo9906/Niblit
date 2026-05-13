@@ -306,7 +306,7 @@ def _load_sentence_transformer(model_name: str) -> Any:
             f"[VectorStore] Embedding model '{model_name}' loaded "
             f"(load report captured — this is informational only)"
         )
-    if not _POSITION_IDS_COMPAT_LOGGED:
+    if not _POSITION_IDS_COMPAT_LOGGED and model_name == "intfloat/multilingual-e5-small":
         _POSITION_IDS_COMPAT_LOGGED = True
         log.info(
             "[VectorStore] Compatibility note: embeddings.position_ids UNEXPECTED is a non-fatal "

@@ -106,6 +106,8 @@ _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
 _DEFAULT_LOCAL_PRESET = "qwen"
 _FORBIDDEN_MODEL_ROOTS = ("/root/models",)
+if any(_MODEL_NAME.startswith(root) for root in _FORBIDDEN_MODEL_ROOTS):
+    _MODEL_NAME = "/data/model.gguf"
 
 
 def _normalize_llama_server_url(url: str) -> str:

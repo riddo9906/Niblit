@@ -66,7 +66,6 @@ import math
 import os
 import re
 import sqlite3
-import ast
 import shutil
 import tempfile
 import threading
@@ -959,6 +958,7 @@ def ingest(memory: Any, raw_line: str, speaker: str = "user") -> Dict[str, Any]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 _kdb_log = logging.getLogger("KnowledgeDB")
+_KDB_QUARANTINE_SNIPPET_CONTEXT = 200
 
 
 class KnowledgeDB:
@@ -1022,6 +1022,15 @@ class KnowledgeDB:
         return re.sub(r"(?<=\{|,)\s*'([A-Za-z0-9_\-\.]+)'\s*:", lambda m: f' "{m.group(1)}":', src)
 
     @staticmethod
+    def _safe_single_quote_value_fix(src: str) -> str:
+        # Safe conversion only for simple quoted scalar values: : 'value'
+        return re.sub(
+            r":\s*'([A-Za-z0-9 _\-\.:/@]+)'(?=\s*[,}\]])",
+            lambda m: ': "' + m.group(1).replace('"', '\\"') + '"',
+            src,
+        )
+
+    @staticmethod
     def _truncate_to_balanced_object(src: str) -> str:
         in_str = False
         escape = False
@@ -1077,6 +1086,10 @@ class KnowledgeDB:
         if fixed_keys != candidate:
             candidate = fixed_keys
             repairs.append("single_quote_keys_fixed")
+        fixed_values = self._safe_single_quote_value_fix(candidate)
+        if fixed_values != candidate:
+            candidate = fixed_values
+            repairs.append("single_quote_values_fixed")
         stripped = self._strip_trailing_commas(candidate)
         if stripped != candidate:
             candidate = stripped
@@ -1088,16 +1101,6 @@ class KnowledgeDB:
 
         try:
             parsed = json.loads(candidate)
-            return parsed, repairs
-        except Exception:
-            pass
-
-        # Last safe heuristic: parse Python-literal-like JSON and re-serialize
-        # strictly as RFC-compliant JSON.
-        try:
-            py_obj = ast.literal_eval(candidate)
-            parsed = json.loads(json.dumps(py_obj, ensure_ascii=False))
-            repairs.append("single_quotes_normalized")
             return parsed, repairs
         except Exception:
             return None, repairs
@@ -1172,7 +1175,7 @@ class KnowledgeDB:
                         "json_repaired",
                         source=f"{label}:{candidate_path}",
                         details=f"line={exc.lineno} col={exc.colno} pos={exc.pos} repairs={repairs}",
-                        snippet=raw[max(0, exc.pos - 200): exc.pos + 200],
+                        snippet=raw[max(0, exc.pos - _KDB_QUARANTINE_SNIPPET_CONTEXT): exc.pos + _KDB_QUARANTINE_SNIPPET_CONTEXT],
                     )
                     self._merge_loaded(repaired, f"{label}:{candidate_path}:repaired")
                     return
@@ -1180,7 +1183,7 @@ class KnowledgeDB:
                     "json_corruption_unrecoverable",
                     source=f"{label}:{candidate_path}",
                     details=f"line={exc.lineno} col={exc.colno} pos={exc.pos}",
-                    snippet=raw[max(0, exc.pos - 200): exc.pos + 200],
+                    snippet=raw[max(0, exc.pos - _KDB_QUARANTINE_SNIPPET_CONTEXT): exc.pos + _KDB_QUARANTINE_SNIPPET_CONTEXT],
                 )
             except Exception as exc:
                 _kdb_log.error("Failed to load KnowledgeDB (%s): %s", label, exc)
