@@ -94,11 +94,18 @@ log = logging.getLogger("Niblit.LocalBrain")
 # These variables are read at import time from environment variables.
 # Use ``set_backend_url()`` (or ``_local_brain_cfg``) to patch them at runtime
 # *after* import, e.g. from tests or fly.toml secrets loaded late.
-_MODEL_NAME      = os.environ.get("NIBLIT_LOCAL_MODEL", "/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf")
+_MODEL_NAME      = (
+    os.environ.get("NIBLIT_LOCAL_MODEL", "").strip()
+    or os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
+    or os.environ.get("NIBLIT_MODEL_QWEN", "").strip()
+    or os.environ.get("NIBLIT_QWEN_MODEL_PATH", "").strip()
+    or "/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+)
 _GGUF_MODEL_PATH = os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
 _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
 _DEFAULT_LOCAL_PRESET = "qwen"
+_FORBIDDEN_MODEL_ROOTS = ("/root/models",)
 
 
 def _normalize_llama_server_url(url: str) -> str:
@@ -432,6 +439,86 @@ _SHORT_CHAT_SYSTEM_PROMPT = (
     "Reply concisely and naturally."
 )
 
+
+def _runtime_profile_name() -> str:
+    return os.environ.get("NIBLIT_RUNTIME_PROFILE", "").strip().lower()
+
+
+def _is_termux_runtime() -> bool:
+    prefix = os.environ.get("PREFIX", "")
+    if "com.termux" in prefix:
+        return True
+    return os.path.exists("/data/data/com.termux/files/home")
+
+
+def _expand_model_path(path: str) -> str:
+    value = (path or "").strip()
+    if not value:
+        return ""
+    return str(Path(value).expanduser())
+
+
+def _is_forbidden_model_path(path: str) -> bool:
+    value = _expand_model_path(path)
+    if not value:
+        return False
+    return any(value.startswith(root) for root in _FORBIDDEN_MODEL_ROOTS)
+
+
+def _runtime_profile_default_model(preset: str) -> str:
+    profile = _runtime_profile_name()
+    defaults = {
+        "termux-local": {
+            "qwen": "/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+            "llama3": "/data/data/com.termux/files/home/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+        },
+        "cloud-server": {
+            "qwen": "/data/model.gguf",
+            "llama3": "/data/model.gguf",
+        },
+        "niblit": {
+            "qwen": "/data/model.gguf",
+            "llama3": "/data/model.gguf",
+        },
+    }
+    return defaults.get(profile, {}).get(preset, "")
+
+
+def _os_fallback_model(preset: str) -> str:
+    if _is_termux_runtime():
+        return (
+            "/data/data/com.termux/files/home/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+            if preset == "llama3"
+            else "/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+        )
+    if os.path.exists("/.dockerenv"):
+        return "/data/model.gguf"
+    return str(Path.home() / "models" / (
+        "Llama-3.2-1B-Instruct-Q4_K_M.gguf" if preset == "llama3" else "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+    ))
+
+
+def _resolve_portable_model_path(preset: str) -> str:
+    normalized = preset.strip().lower()
+    if normalized not in {"qwen", "llama3"}:
+        normalized = "qwen"
+    candidates = [
+        os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip(),
+        os.environ.get("NIBLIT_MODEL_QWEN", "").strip() if normalized == "qwen" else os.environ.get("NIBLIT_MODEL_LLAMA3", "").strip(),
+        os.environ.get("NIBLIT_QWEN_MODEL_PATH", "").strip() if normalized == "qwen" else os.environ.get("NIBLIT_LLAMA3_MODEL_PATH", "").strip(),
+        _runtime_profile_default_model(normalized),
+        _os_fallback_model(normalized),
+    ]
+    for raw in candidates:
+        candidate = _expand_model_path(raw)
+        if not candidate:
+            continue
+        if _is_forbidden_model_path(candidate):
+            log.warning("[LocalBrain] Ignoring forbidden model path: %s", candidate)
+            continue
+        return candidate
+    return _os_fallback_model(normalized)
+
 # ── Model presets ─────────────────────────────────────────────────────────────
 # A preset maps a human-friendly nickname to the model file path and the correct
 # chat template.  Use ``swap_local_brain("llama3")`` to switch at runtime; the
@@ -439,18 +526,12 @@ _SHORT_CHAT_SYSTEM_PROMPT = (
 # prompt-format state from the previous model leaks into the new one.
 _LOCAL_MODEL_PRESETS: Dict[str, Dict[str, str]] = {
     "qwen": {
-        "model_path": os.environ.get(
-            "NIBLIT_QWEN_MODEL_PATH",
-            "/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
-        ),
+        "model_path": _resolve_portable_model_path("qwen"),
         "chat_template": "qwen",
         "description": "Qwen 2.5 0.5B Instruct (ChatML template)",
     },
     "llama3": {
-        "model_path": os.environ.get(
-            "NIBLIT_LLAMA3_MODEL_PATH",
-            "/data/data/com.termux/files/home/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-        ),
+        "model_path": _resolve_portable_model_path("llama3"),
         "chat_template": "llama3",
         "description": "Llama 3.2 1B Instruct (Llama-3 template, supports function calling)",
     },

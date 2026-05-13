@@ -21,6 +21,7 @@ from modules.local_brain import (
     QwenLocalBrain,
     _build_gguf_prompt,
     _clean_subprocess_output,
+    _resolve_portable_model_path,
     get_local_brain,
     reset_local_brain,
     set_backend_url,
@@ -197,6 +198,24 @@ def test_get_local_brain_invalid_active_preset_falls_back_to_qwen(monkeypatch):
     lb = get_local_brain()
     assert lb.gguf_chat_template == "qwen"
     reset_local_brain()
+
+
+def test_model_resolution_priority_prefers_global_gguf_override(monkeypatch):
+    monkeypatch.setenv("NIBLIT_GGUF_MODEL_PATH", "/opt/models/portable.gguf")
+    monkeypatch.setenv("NIBLIT_MODEL_QWEN", "/opt/models/qwen.gguf")
+    assert _resolve_portable_model_path("qwen") == "/opt/models/portable.gguf"
+
+
+def test_model_resolution_uses_named_model_env_when_no_global_override(monkeypatch):
+    monkeypatch.delenv("NIBLIT_GGUF_MODEL_PATH", raising=False)
+    monkeypatch.setenv("NIBLIT_MODEL_LLAMA3", "/models/llama3.gguf")
+    assert _resolve_portable_model_path("llama3") == "/models/llama3.gguf"
+
+
+def test_model_resolution_rejects_root_models_path(monkeypatch):
+    monkeypatch.setenv("NIBLIT_GGUF_MODEL_PATH", "/root/models/disallowed.gguf")
+    monkeypatch.setenv("NIBLIT_MODEL_QWEN", "/models/qwen-safe.gguf")
+    assert _resolve_portable_model_path("qwen") == "/models/qwen-safe.gguf"
 
 
 def test_set_backend_url_keeps_active_local_preset(monkeypatch):
