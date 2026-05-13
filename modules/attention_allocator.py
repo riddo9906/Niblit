@@ -158,3 +158,7 @@ def get_attention_allocator() -> AttentionAllocator:
         if _attention_allocator is None:
             _attention_allocator = AttentionAllocator()
     return _attention_allocator
+
+
+if __name__ == "__main__":
+    print('Running attention_allocator.py')

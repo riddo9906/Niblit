@@ -310,3 +310,7 @@ def get_deliberative_planner() -> DeliberativePlanner:
         if _planner is None:
             _planner = DeliberativePlanner()
     return _planner
+
+
+if __name__ == "__main__":
+    print('Running deliberative_planner.py')

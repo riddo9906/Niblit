@@ -22,6 +22,8 @@ from modules.local_brain import (
     _build_gguf_prompt,
     _clean_subprocess_output,
     _resolve_portable_model_path,
+    acquire_model_lock,
+    release_model_lock,
     get_local_brain,
     reset_local_brain,
     set_backend_url,
@@ -665,6 +667,181 @@ def test_get_structural_info_commands_section(monkeypatch):
     assert result["section"] == "commands"
     assert isinstance(result.get("commands"), list)
     assert len(result["commands"]) > 0
+
+
+# ── route_inference() tests ───────────────────────────────────────────────────
+
+def test_route_inference_returns_dict_with_required_keys():
+    """route_inference must return dict with text, tool_calls, backend, error."""
+    brain = QwenLocalBrain(gguf_backend="subprocess")
+    brain._backend_in_use = "subprocess"
+    brain._subprocess_bin = object()  # simulate loaded
+
+    def _fake_generate_subprocess(prompt, max_new_tokens, system_prompt):  # noqa: ARG001
+        return "generated text"
+
+    brain._generate_subprocess = _fake_generate_subprocess  # type: ignore[method-assign]
+    # Prevent port-8000 probe from succeeding in test environment
+    brain._check_server_url_cached = lambda url: False  # type: ignore[method-assign]
+
+    result = brain.route_inference("test prompt")
+    assert "text" in result
+    assert "tool_calls" in result
+    assert "backend" in result
+    assert "error" in result
+    assert result["text"] == "generated text"
+    assert result["tool_calls"] == []
+
+
+def test_route_inference_prefers_http_backend_when_available(monkeypatch):
+    """route_inference must switch to HTTP if the cloud server is reachable."""
+    brain = QwenLocalBrain(gguf_backend="auto")
+    # Backend not yet established
+    assert brain._backend_in_use == ""
+
+    # Simulate: port 8000 is reachable, port 8080 is not
+    def _cached_check(url: str) -> bool:
+        return "8000" in url
+
+    brain._check_server_url_cached = _cached_check  # type: ignore[method-assign]
+
+    # Mock actual HTTP generation
+    brain._generate_http = lambda p, n, s: "http response"  # type: ignore[method-assign]
+    # Ensure is_available() considers the brain loaded once we set the URL
+    brain._server_url = "http://127.0.0.1:8000"
+    brain._backend_in_use = "http"
+
+    result = brain.route_inference("hello")
+    assert result["backend"] == "http"
+    assert result["text"] == "http response"
+
+
+def test_route_inference_falls_back_when_http_unavailable():
+    """route_inference must fall back to subprocess if HTTP server is down."""
+    brain = QwenLocalBrain(gguf_backend="auto")
+    brain._backend_in_use = "subprocess"
+    brain._subprocess_bin = object()
+
+    # No HTTP available
+    brain._check_server_url_cached = lambda url: False  # type: ignore[method-assign]
+    brain._generate_subprocess = lambda p, n, s: "subprocess reply"  # type: ignore[method-assign]
+
+    result = brain.route_inference("test")
+    assert result["backend"] == "subprocess"
+    assert result["text"] == "subprocess reply"
+
+
+def test_route_inference_returns_error_dict_when_no_backend():
+    """route_inference must return error dict if no backend can be loaded."""
+    brain = QwenLocalBrain(gguf_backend="http")
+    brain._check_server_url_cached = lambda url: False  # type: ignore[method-assign]
+    # Force ensure_loaded to fail
+    brain._load_tried = True
+    brain._load_error = "test error"
+
+    result = brain.route_inference("hello")
+    assert result["error"] is not None
+    assert "LocalBrain unavailable" in result["text"]
+
+
+# ── acquire_model_lock / release_model_lock tests ─────────────────────────────
+
+def test_acquire_and_release_model_lock():
+    """acquire_model_lock must return True and release must not raise."""
+    # Ensure the lock is free before we test
+    import modules.local_brain as lb_mod
+    if lb_mod._MODEL_SWITCH_LOCK.locked():
+        lb_mod._MODEL_SWITCH_LOCK.release()
+
+    assert acquire_model_lock(timeout=5.0) is True
+    release_model_lock()  # should not raise
+
+
+def test_acquire_model_lock_timeout_when_held():
+    """acquire_model_lock must return False when lock is already held."""
+    import modules.local_brain as lb_mod
+    if lb_mod._MODEL_SWITCH_LOCK.locked():
+        lb_mod._MODEL_SWITCH_LOCK.release()
+
+    # Acquire and hold
+    assert lb_mod._MODEL_SWITCH_LOCK.acquire(timeout=1.0) is True
+    try:
+        # Second acquire with short timeout must fail
+        result = acquire_model_lock(timeout=0.05)
+        assert result is False
+    finally:
+        lb_mod._MODEL_SWITCH_LOCK.release()
+
+
+def test_swap_local_brain_uses_lock(monkeypatch):
+    """swap_local_brain must release the model lock after a successful swap."""
+    import modules.local_brain as lb_mod
+    lock_calls: list = []
+    original_acquire = lb_mod.acquire_model_lock
+    original_release = lb_mod.release_model_lock
+
+    def _tracked_acquire(timeout=30.0):
+        lock_calls.append("acquire")
+        return original_acquire(timeout=timeout)
+
+    def _tracked_release():
+        lock_calls.append("release")
+        original_release()
+
+    monkeypatch.setattr(lb_mod, "acquire_model_lock", _tracked_acquire)
+    monkeypatch.setattr(lb_mod, "release_model_lock", _tracked_release)
+
+    reset_local_brain()
+    swap_local_brain("qwen")
+    reset_local_brain()
+
+    assert "acquire" in lock_calls
+    assert "release" in lock_calls
+    assert lock_calls.count("acquire") == lock_calls.count("release"), (
+        "Lock acquire/release calls are unbalanced"
+    )
+
+
+# ── TTL health cache tests ────────────────────────────────────────────────────
+
+def test_check_server_url_cached_caches_result(monkeypatch):
+    """_check_server_url_cached must call _check_server_url only once within TTL."""
+    brain = QwenLocalBrain(gguf_backend="http")
+    calls: list = []
+
+    def _probe(url: str) -> bool:
+        calls.append(url)
+        return False
+
+    monkeypatch.setattr(brain, "_check_server_url", _probe)
+    brain._check_server_url_cached("http://127.0.0.1:8080")
+    brain._check_server_url_cached("http://127.0.0.1:8080")
+    # Should only have probed once (second call hits cache)
+    assert len(calls) == 1
+
+
+def test_check_server_url_cached_respects_ttl(monkeypatch):
+    """_check_server_url_cached must re-probe after TTL expires."""
+    import time
+    import modules.local_brain as lb_mod
+
+    original_ttl = lb_mod._SERVER_HEALTH_TTL
+    lb_mod._SERVER_HEALTH_TTL = 0.0  # expire immediately
+    try:
+        brain = QwenLocalBrain(gguf_backend="http")
+        calls: list = []
+
+        def _probe(url: str) -> bool:
+            calls.append(url)
+            return True
+
+        monkeypatch.setattr(brain, "_check_server_url", _probe)
+        brain._check_server_url_cached("http://127.0.0.1:8080")
+        time.sleep(0.01)  # wait for TTL to expire
+        brain._check_server_url_cached("http://127.0.0.1:8080")
+        assert len(calls) == 2  # re-probed after TTL
+    finally:
+        lb_mod._SERVER_HEALTH_TTL = original_ttl
 
 
 if __name__ == "__main__":

@@ -42,3 +42,7 @@ def test_knowledge_db_falls_back_to_backup_when_primary_unrecoverable(tmp_path):
     qf = tmp_path / "kb.json.quarantine.jsonl"
     lines = [json.loads(line) for line in qf.read_text(encoding="utf-8").splitlines() if line.strip()]
     assert any(entry.get("reason") == "json_corruption_unrecoverable" for entry in lines)
+
+
+if __name__ == "__main__":
+    print('Running test_knowledge_db_recovery.py')

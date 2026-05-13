@@ -42,3 +42,7 @@ def test_format_response_modes() -> None:
     assert "status=ok" in format_response(resp, mode="pretty")
     assert "pong" in format_response(resp, mode="json")
     assert "status" in format_response(resp, mode="raw")
+
+
+if __name__ == "__main__":
+    print('Running test_runtime_tooling_layer.py')

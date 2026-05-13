@@ -210,3 +210,7 @@ def get_emergence_monitor() -> EmergenceMonitor:
         if _em is None:
             _em = EmergenceMonitor()
     return _em
+
+
+if __name__ == "__main__":
+    print('Running emergence_monitor.py')

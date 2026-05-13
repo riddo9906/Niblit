@@ -283,3 +283,7 @@ def get_recursive_stability_governor() -> RecursiveStabilityGovernor:
         if _rsg is None:
             _rsg = RecursiveStabilityGovernor()
     return _rsg
+
+
+if __name__ == "__main__":
+    print('Running recursive_stability_governor.py')

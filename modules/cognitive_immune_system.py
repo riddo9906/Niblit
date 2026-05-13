@@ -224,3 +224,7 @@ def get_cognitive_immune_system() -> CognitiveImmuneSystem:
         if _cis is None:
             _cis = CognitiveImmuneSystem()
     return _cis
+
+
+if __name__ == "__main__":
+    print('Running cognitive_immune_system.py')

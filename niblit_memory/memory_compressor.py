@@ -332,3 +332,7 @@ def _resolve_kb(kb: Any) -> Any:
     except Exception as exc:
         log.debug("[MemoryCompressor] Could not resolve KB: %s", exc)
         return None
+
+
+if __name__ == "__main__":
+    print('Running memory_compressor.py')

@@ -512,3 +512,7 @@ def get_unified_memory() -> UnifiedMemoryEngine:
         if _ume is None:
             _ume = UnifiedMemoryEngine()
     return _ume
+
+
+if __name__ == "__main__":
+    print('Running unified_memory_engine.py')

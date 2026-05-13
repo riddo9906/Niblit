@@ -35,3 +35,7 @@ def test_embedding_runtime_config_reads_env(monkeypatch):
     cfg = EmbeddingRuntimeConfig.from_env()
     assert cfg.memory_relevance_weight == 0.4
     assert cfg.decay_influence == 0.1
+
+
+if __name__ == "__main__":
+    print('Running test_vector_store_embedding_governance.py')

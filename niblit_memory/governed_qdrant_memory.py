@@ -281,3 +281,7 @@ def get_governed_qdrant_memory_cluster() -> GovernedQdrantMemoryCluster:
         if _cluster is None:
             _cluster = GovernedQdrantMemoryCluster()
     return _cluster
+
+
+if __name__ == "__main__":
+    print('Running governed_qdrant_memory.py')

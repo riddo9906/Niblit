@@ -782,3 +782,7 @@ class TestPhase21EventConstants:
         assert EVENT_EXECUTION_COMPLETE == "execution.complete"
         assert EVENT_SELF_MODEL_UPDATED == "self_model.updated"
         assert EVENT_PLAN_SELECTED == "plan.selected"
+
+
+if __name__ == "__main__":
+    print('Running test_phase21_cognitive_layer.py')

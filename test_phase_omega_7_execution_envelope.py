@@ -505,3 +505,7 @@ class TestBackwardCompatibility:
         # Should return safe defaults without raising
         assert snap["constitution_passed"] is True
         assert snap["stability_pressure"] == 0.0
+
+
+if __name__ == "__main__":
+    print('Running test_phase_omega_7_execution_envelope.py')

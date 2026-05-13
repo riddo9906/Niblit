@@ -262,3 +262,7 @@ def get_causal_temporal_engine() -> CausalTemporalEngine:
         if _cte is None:
             _cte = CausalTemporalEngine()
     return _cte
+
+
+if __name__ == "__main__":
+    print('Running causal_temporal_engine.py')

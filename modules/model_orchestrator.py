@@ -240,3 +240,7 @@ def get_model_orchestrator() -> ModelOrchestrator:
         if _orch is None:
             _orch = ModelOrchestrator()
     return _orch
+
+
+if __name__ == "__main__":
+    print('Running model_orchestrator.py')

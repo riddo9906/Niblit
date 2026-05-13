@@ -319,3 +319,7 @@ def get_resource_manager() -> RuntimeResourceManager:
         if _rrm is None:
             _rrm = RuntimeResourceManager()
     return _rrm
+
+
+if __name__ == "__main__":
+    print('Running runtime_resource_manager.py')

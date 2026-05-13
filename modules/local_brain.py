@@ -110,6 +110,22 @@ if any(_MODEL_NAME.startswith(root) for root in _FORBIDDEN_MODEL_ROOTS):
     log.warning("[LocalBrain] Ignoring forbidden model path at import: %s", _MODEL_NAME)
     _MODEL_NAME = "/data/model.gguf"
 
+# ── Server-health TTL caching ─────────────────────────────────────────────────
+# Avoids probing the llama-server on every generate() call.  Per-instance cache
+# (stored on each QwenLocalBrain) so tests that swap instances don't share state.
+_SERVER_HEALTH_TTL: float = float(os.environ.get("NIBLIT_HTTP_HEALTH_TTL", "10"))
+
+# Primary HTTP port: niblit-cloud-server session (port 8000).
+# Secondary: local llama-server (port 8080, or NIBLIT_LLAMA_SERVER_URL).
+_NIBLIT_CLOUD_SERVER_PRIMARY_PORT: int = int(
+    os.environ.get("NIBLIT_CLOUD_SERVER_PRIMARY_PORT", "8000")
+)
+
+# ── Model-switch lock ─────────────────────────────────────────────────────────
+# Held exclusively during swap_local_brain() to prevent model switches while
+# inference calls are in-flight.
+_MODEL_SWITCH_LOCK = threading.Lock()
+
 
 def _normalize_llama_server_url(url: str) -> str:
     """Return a canonical llama-server URL with scheme and no trailing slash."""
@@ -1565,7 +1581,7 @@ class QwenLocalBrain:
                 return True
             return self._load_python_backend()
 
-        if backend in ("subprocess", "auto"):
+        if backend == "subprocess":
             return self._load_subprocess_backend()
 
         if backend == "python":
@@ -1607,6 +1623,199 @@ class QwenLocalBrain:
             except Exception:
                 continue
         return False
+
+    def _check_server_url_cached(self, url: str) -> bool:
+        """Return True if *url* is reachable, using a per-instance TTL cache.
+
+        The cache is stored on the instance so that tests that create separate
+        :class:`QwenLocalBrain` instances do not share stale health state.
+        Results are re-validated after :data:`_SERVER_HEALTH_TTL` seconds.
+        """
+        import time
+
+        now = time.monotonic()
+        cache: Dict[str, Dict[str, Any]] = self.__dict__.setdefault(
+            "_health_cache", {}
+        )
+        entry = cache.get(url)
+        if entry is not None and (now - entry["ts"]) < _SERVER_HEALTH_TTL:
+            return bool(entry["healthy"])
+        result = self._check_server_url(url)
+        cache[url] = {"healthy": result, "ts": now}
+        return result
+
+    def route_inference(
+        self,
+        prompt: str,
+        context: Optional[str] = None,
+        tools: Optional[list] = None,
+        max_new_tokens: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Unified inference routing pipeline.
+
+        **Backend priority order** (first available wins):
+
+        1. Primary HTTP — niblit-cloud-server at
+           ``http://127.0.0.1:<NIBLIT_CLOUD_SERVER_PRIMARY_PORT>`` (port 8000).
+        2. Configured HTTP — ``NIBLIT_LLAMA_SERVER_URL`` / ``llama_server_url``
+           (default port 8080).
+        3. Subprocess — local llama.cpp CLI binary.
+        4. Python — llama-cpp-python.
+
+        Server health is TTL-cached (see :meth:`_check_server_url_cached`) to
+        avoid probing on every call.
+
+        Parameters
+        ----------
+        prompt:
+            The user message / input text.
+        context:
+            Optional system prompt / context prepended to the request.
+        tools:
+            Optional tool schemas for function-calling (HTTP backend only).
+        max_new_tokens:
+            Per-call token budget override.
+
+        Returns
+        -------
+        dict with keys ``text``, ``tool_calls``, ``backend``, ``error``.
+        """
+        # 1. Probe primary HTTP port (cloud-server) if not already on HTTP.
+        primary_url = (
+            f"http://127.0.0.1:{_NIBLIT_CLOUD_SERVER_PRIMARY_PORT}"
+        )
+        if self._backend_in_use != "http" and self._check_server_url_cached(primary_url):
+            self._server_url = primary_url
+            self._backend_in_use = "http"
+            self._load_tried = True
+            self._load_error = None
+            log.info(
+                "[LocalBrain] route_inference: primary HTTP backend available at %s",
+                primary_url,
+            )
+
+        # 2. Ensure some backend is loaded.
+        if not self.is_available():
+            if not self._ensure_loaded():
+                return {
+                    "text": (
+                        f"[LocalBrain unavailable — {self._load_error or 'model not loaded'}]\n"
+                        f"Input: {prompt[:120]}"
+                    ),
+                    "tool_calls": [],
+                    "backend": "none",
+                    "error": self._load_error or "model not loaded",
+                }
+
+        # 3. Re-validate HTTP backend health (TTL-cached).
+        if self._backend_in_use == "http" and self._server_url:
+            if not self._check_server_url_cached(self._server_url):
+                dead_url = self._server_url
+                log.warning(
+                    "[LocalBrain] route_inference: HTTP server %s unreachable; "
+                    "trying fallback backend",
+                    dead_url,
+                )
+                self._server_url = None
+                self._backend_in_use = ""
+                self._load_tried = False
+                # Evict stale cache entry.
+                self.__dict__.get("_health_cache", {}).pop(dead_url, None)
+                if not self._ensure_loaded():
+                    return {
+                        "text": "[LocalBrain: HTTP server down and no fallback available]",
+                        "tool_calls": [],
+                        "backend": "none",
+                        "error": "server unreachable",
+                    }
+
+        n_tokens = max_new_tokens or self.max_new_tokens
+
+        # 4. Execute with tool schemas (HTTP backend only).
+        if tools and self._backend_in_use == "http" and self._server_url:
+            url = self._server_url
+            messages: list = []
+            if context:
+                messages.append({"role": "system", "content": context})
+            messages.append({"role": "user", "content": prompt})
+            payload: Dict[str, Any] = {
+                "model": "local",
+                "messages": messages,
+                "max_tokens": n_tokens,
+                "temperature": 0.7,
+                "tools": tools,
+                "tool_choice": "auto",
+            }
+            body = json.dumps(payload).encode("utf-8")
+            for chat_url in self._chat_completion_urls(url):
+                req = urllib.request.Request(
+                    chat_url,
+                    data=body,
+                    method="POST",
+                    headers={"Content-Type": "application/json"},
+                )
+                try:
+                    with urllib.request.urlopen(req, timeout=self.llama_server_timeout) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                    choice = data["choices"][0]
+                    message = choice.get("message", {})
+                    text: str = message.get("content") or ""
+                    raw_tool_calls: list = message.get("tool_calls") or []
+                    tool_calls_out: list = []
+                    for tc in raw_tool_calls:
+                        fn = tc.get("function", {})
+                        args = fn.get("arguments", "{}")
+                        if isinstance(args, dict):
+                            args = json.dumps(args)
+                        tool_calls_out.append({
+                            "id": tc.get("id", ""),
+                            "function": {
+                                "name": fn.get("name", ""),
+                                "arguments": args,
+                            },
+                        })
+                    log.debug(
+                        "[LocalBrain] route_inference tools: %d tool_calls, backend=http",
+                        len(tool_calls_out),
+                    )
+                    return {
+                        "text": text.strip(),
+                        "tool_calls": tool_calls_out,
+                        "backend": "http",
+                        "error": None,
+                    }
+                except urllib.error.HTTPError as exc:
+                    if exc.code == 404:
+                        continue
+                    return {
+                        "text": f"[LocalBrain http error: {exc}]",
+                        "tool_calls": [],
+                        "backend": "http",
+                        "error": str(exc),
+                    }
+                except Exception as exc:
+                    return {
+                        "text": f"[LocalBrain http error: {exc}]",
+                        "tool_calls": [],
+                        "backend": "http",
+                        "error": str(exc),
+                    }
+            # All tool-call endpoints returned 404; fall through to plain generate.
+
+        # 5. Execute plain generation via the active backend.
+        if self._backend_in_use == "http":
+            text = self._generate_http(prompt, n_tokens, context)
+        elif self._backend_in_use == "subprocess":
+            text = self._generate_subprocess(prompt, n_tokens, context)
+        else:
+            text = self._generate_python(prompt, n_tokens, context)
+
+        return {
+            "text": text,
+            "tool_calls": [],
+            "backend": self._backend_in_use or "python",
+            "error": None,
+        }
 
     def _canonical_server_base_url(self, url: str) -> str:
         """Return a normalised server base URL with known API suffixes stripped."""
@@ -2037,7 +2246,8 @@ class QwenLocalBrain:
     ) -> str:
         """Generate a response for *prompt*.
 
-        Falls back to a graceful message if no backend is loaded.
+        Delegates to :meth:`route_inference` so that all inference paths share
+        the unified backend-selection and TTL health-check logic.
 
         Parameters
         ----------
@@ -2048,19 +2258,10 @@ class QwenLocalBrain:
         system_prompt:
             Optional system instruction prepended to the chat template.
         """
-        if not self._ensure_loaded():
-            return (
-                f"[LocalBrain unavailable — {self._load_error or 'model not loaded'}]\n"
-                f"Input: {prompt[:120]}"
-            )
-
-        n_tokens = max_new_tokens or self.max_new_tokens
-
-        if self._backend_in_use == "http":
-            return self._generate_http(prompt, n_tokens, system_prompt)
-        if self._backend_in_use == "subprocess":
-            return self._generate_subprocess(prompt, n_tokens, system_prompt)
-        return self._generate_python(prompt, n_tokens, system_prompt)
+        result = self.route_inference(
+            prompt, context=system_prompt, max_new_tokens=max_new_tokens
+        )
+        return result["text"]
 
     def _generate_python(
         self,
@@ -2231,7 +2432,7 @@ class QwenLocalBrain:
         if url is None:
             return ("[LocalBrain http: server URL not set]", [])
 
-        if not self._check_server_url(url):
+        if not self._check_server_url_cached(url):
             log.warning("[LocalBrain] llama-server at %s is no longer reachable.", url)
             self._server_url = None
             self._backend_in_use = ""
@@ -2366,6 +2567,44 @@ _instance: Optional[QwenLocalBrain] = None
 _inst_lock = threading.Lock()
 
 
+# ── Model-switch lock helpers ─────────────────────────────────────────────────
+
+def acquire_model_lock(timeout: float = 30.0) -> bool:
+    """Acquire the exclusive model-switch lock.
+
+    Must be called before :func:`swap_local_brain` or any operation that
+    replaces the active model.  Prevents concurrent switches and guards
+    in-flight inference calls from racing with a model swap.
+
+    Parameters
+    ----------
+    timeout:
+        Maximum seconds to wait for the lock.
+
+    Returns
+    -------
+    ``True`` if the lock was acquired, ``False`` on timeout.
+    """
+    acquired = _MODEL_SWITCH_LOCK.acquire(timeout=timeout)
+    if acquired:
+        log.info("[LocalBrain] Model switch lock acquired")
+    else:
+        log.warning(
+            "[LocalBrain] Could not acquire model switch lock within %.1f s", timeout
+        )
+    return acquired
+
+
+def release_model_lock() -> None:
+    """Release the model-switch lock acquired by :func:`acquire_model_lock`."""
+    try:
+        _MODEL_SWITCH_LOCK.release()
+        log.info("[LocalBrain] Model switch lock released")
+    except RuntimeError:
+        log.debug("[LocalBrain] release_model_lock: lock was not held (already released)")
+
+
+
 def get_local_brain(
     model_name: str = _MODEL_NAME,
     max_new_tokens: int = _MAX_NEW_TOKENS,
@@ -2446,25 +2685,33 @@ def swap_local_brain(preset: str) -> QwenLocalBrain:
         raise ValueError(
             f"Unknown local model preset {preset!r}. Known presets: {known}"
         )
-    reset_local_brain()
-    global _instance
-    with _inst_lock:
-        _instance = QwenLocalBrain(
-            model_name=config["model_path"],
-            gguf_model_path=config["model_path"],
-            gguf_chat_template=config["chat_template"],
+    if not acquire_model_lock():
+        raise RuntimeError(
+            "Could not acquire model switch lock within 30 s; "
+            "an inference call may be active. Retry after it completes."
         )
-    active = preset.strip().lower()
-    model_path = config["model_path"]
-    os.environ["NIBLIT_ACTIVE_LOCAL_MODEL"] = active
-    os.environ["NIBLIT_LOCAL_MODEL"] = model_path
-    os.environ["NIBLIT_GGUF_MODEL_PATH"] = model_path
-    os.environ["NIBLIT_GGUF_CHAT_TEMPLATE"] = config["chat_template"]
-    log.info(
-        "[LocalBrain] Switched to preset %r — model: %s, template: %s",
-        preset, config["model_path"], config["chat_template"],
-    )
-    return _instance
+    try:
+        reset_local_brain()
+        global _instance
+        with _inst_lock:
+            _instance = QwenLocalBrain(
+                model_name=config["model_path"],
+                gguf_model_path=config["model_path"],
+                gguf_chat_template=config["chat_template"],
+            )
+        active = preset.strip().lower()
+        model_path = config["model_path"]
+        os.environ["NIBLIT_ACTIVE_LOCAL_MODEL"] = active
+        os.environ["NIBLIT_LOCAL_MODEL"] = model_path
+        os.environ["NIBLIT_GGUF_MODEL_PATH"] = model_path
+        os.environ["NIBLIT_GGUF_CHAT_TEMPLATE"] = config["chat_template"]
+        log.info(
+            "[LocalBrain] Switched to preset %r — model: %s, template: %s",
+            preset, config["model_path"], config["chat_template"],
+        )
+        return _instance
+    finally:
+        release_model_lock()
 
 
 # ── Backend URL toggle helpers ────────────────────────────────────────────────

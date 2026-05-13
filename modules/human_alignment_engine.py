@@ -363,3 +363,7 @@ def get_human_alignment_engine() -> HumanAlignmentEngine:
         if _hae is None:
             _hae = HumanAlignmentEngine()
     return _hae
+
+
+if __name__ == "__main__":
+    print('Running human_alignment_engine.py')

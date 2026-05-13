@@ -154,3 +154,7 @@ def get_cognitive_budget_manager() -> CognitiveBudgetManager:
         if _budget_manager is None:
             _budget_manager = CognitiveBudgetManager()
     return _budget_manager
+
+
+if __name__ == "__main__":
+    print('Running cognitive_budget_manager.py')

@@ -275,3 +275,7 @@ def get_global_cognitive_metrics() -> GlobalCognitiveMetrics:
         if _gcm is None:
             _gcm = GlobalCognitiveMetrics()
     return _gcm
+
+
+if __name__ == "__main__":
+    print('Running global_cognitive_metrics.py')

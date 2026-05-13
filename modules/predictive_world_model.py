@@ -373,3 +373,7 @@ def get_predictive_world_model() -> PredictiveWorldModel:
         if _pwm is None:
             _pwm = PredictiveWorldModel()
     return _pwm
+
+
+if __name__ == "__main__":
+    print('Running predictive_world_model.py')

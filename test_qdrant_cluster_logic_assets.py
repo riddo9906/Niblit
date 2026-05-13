@@ -36,3 +36,7 @@ def test_deployment_scripts_reference_ui_ready_payloads() -> None:
     assert "deployment/api_payloads" in script
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "deployment/api_payloads" in readme
+
+
+if __name__ == "__main__":
+    print('Running test_qdrant_cluster_logic_assets.py')

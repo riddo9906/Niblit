@@ -307,3 +307,7 @@ def get_autonomic_runtime_manager() -> AutonomicRuntimeManager:
         if _arm is None:
             _arm = AutonomicRuntimeManager()
     return _arm
+
+
+if __name__ == "__main__":
+    print('Running autonomic_runtime_manager.py')

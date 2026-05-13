@@ -237,3 +237,7 @@ def register_all(registry: "ToolRegistry") -> None:  # type: ignore[name-defined
         registry._fns[name] = fn
         registry._defs[name] = tool_def
         logger.debug("Built-in tool registered: %s", name)
+
+
+if __name__ == "__main__":
+    print('Running builtin_tools.py')

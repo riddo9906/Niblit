@@ -355,3 +355,7 @@ def get_reflection_engine() -> ReflectionEngine:
         if _re is None:
             _re = ReflectionEngine()
     return _re
+
+
+if __name__ == "__main__":
+    print('Running reflection_engine.py')

@@ -338,3 +338,7 @@ def get_tft_adapter() -> TFTForecastAdapter:
         if _adapter is None:
             _adapter = TFTForecastAdapter()
     return _adapter
+
+
+if __name__ == "__main__":
+    print('Running tft_forecast.py')

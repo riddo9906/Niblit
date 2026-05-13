@@ -249,3 +249,7 @@ def get_reality_validation_engine() -> RealityValidationEngine:
         if _rve is None:
             _rve = RealityValidationEngine()
     return _rve
+
+
+if __name__ == "__main__":
+    print('Running reality_validation_engine.py')

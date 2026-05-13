@@ -362,3 +362,7 @@ def get_self_model() -> SelfModel:
         if _model is None:
             _model = SelfModel()
     return _model
+
+
+if __name__ == "__main__":
+    print('Running self_model.py')
