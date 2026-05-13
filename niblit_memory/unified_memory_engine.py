@@ -154,6 +154,7 @@ class UnifiedMemoryEngine:
         self._remember_count: int = 0
         self._recall_count: int = 0
         self._compress_count: int = 0
+        self._governed_cluster: Any | None = None
         log.debug("[UME] initialised (max_episodes=%d)", _MAX_EPISODES)
 
     # ── Store API ─────────────────────────────────────────────────────────────
@@ -208,6 +209,12 @@ class UnifiedMemoryEngine:
         # Also forward to KB if semantic
         if category == "semantic":
             self._try_store_kb(uid, text, importance)
+        self._try_store_governed_memory(
+            text=text,
+            category=category,
+            importance=importance,
+            tags=list(tags or []),
+        )
 
         return uid
 
@@ -230,6 +237,7 @@ class UnifiedMemoryEngine:
                 mode=str(turn.get("mode", "")),
             )
             self._episodes.append(ep)
+        self._try_store_governed_episode(ep)
 
     # ── Recall API ────────────────────────────────────────────────────────────
 
@@ -271,6 +279,31 @@ class UnifiedMemoryEngine:
             for rec in chosen:
                 if rec.uid in self._records:
                     self._records[rec.uid].access_count += 1
+
+        if len(chosen) < top_k:
+            cluster = self._get_governed_cluster()
+            if cluster is not None:
+                try:
+                    governed = cluster.recall(
+                        query,
+                        top_k=top_k - len(chosen),
+                        memory_types=[self._category_to_memory_type(category)] if category else None,
+                        governance_state="override",
+                    )
+                    for item in governed:
+                        payload = item.get("payload", {})
+                        chosen.append(
+                            MemoryRecord(
+                                uid=str(payload.get("memory_id", "")),
+                                text=str(payload.get("content_text") or payload.get("summary") or ""),
+                                category=self._memory_type_to_category(str(payload.get("memory_type", "semantic_memory"))),
+                                importance=float(payload.get("importance_score", 0.5)),
+                                tags=list((payload.get("indexing") or {}).get("tags", [])),
+                                is_anchor=bool((payload.get("lifecycle") or {}).get("pinned", False)),
+                            )
+                        )
+                except Exception:
+                    pass
 
         return chosen
 
@@ -315,6 +348,12 @@ class UnifiedMemoryEngine:
                     del self._records[uid]
                     pruned += 1
             self._compress_count += 1
+        cluster = self._get_governed_cluster()
+        if cluster is not None:
+            try:
+                cluster.apply_lifecycle(runtime_pressure=0.0)
+            except Exception:
+                pass
         log.info("[UME] compress: before=%d pruned=%d merged=%d", total, pruned, merged)
         return {"before": total, "pruned": pruned, "merged": merged}
 
@@ -372,6 +411,84 @@ class UnifiedMemoryEngine:
                 mem.store_fact(f"ume:{uid}", text)
         except Exception:
             pass
+
+    def _get_governed_cluster(self) -> Any | None:
+        if self._governed_cluster is not None:
+            return self._governed_cluster
+        try:
+            from niblit_memory.governed_qdrant_memory import get_governed_qdrant_memory_cluster
+
+            self._governed_cluster = get_governed_qdrant_memory_cluster()
+        except Exception:
+            self._governed_cluster = None
+        return self._governed_cluster
+
+    def _try_store_governed_memory(
+        self,
+        *,
+        text: str,
+        category: str,
+        importance: float,
+        tags: list[str],
+    ) -> None:
+        cluster = self._get_governed_cluster()
+        if cluster is None or not text:
+            return
+        try:
+            cluster.write_memory(
+                text,
+                memory_type=self._category_to_memory_type(category),
+                payload={
+                    "importance_score": importance,
+                    "indexing": {"tags": tags},
+                    "replay_metadata": {"decision_lineage": tags},
+                },
+            )
+        except Exception:
+            pass
+
+    def _try_store_governed_episode(self, episode: EpisodeRecord) -> None:
+        cluster = self._get_governed_cluster()
+        if cluster is None:
+            return
+        try:
+            cluster.write_memory(
+                f"{episode.input_text} -> {episode.response_text}",
+                memory_type="episodic_memory",
+                payload={
+                    "summary": episode.response_text,
+                    "importance_score": episode.quality,
+                    "runtime_mode": episode.mode or "normal",
+                    "replay_metadata": {
+                        "trace_id": f"episode-{episode.turn_id}",
+                        "decision_lineage": [episode.intent or "interaction"],
+                    },
+                },
+            )
+        except Exception:
+            pass
+
+    @staticmethod
+    def _category_to_memory_type(category: Optional[str]) -> str:
+        return {
+            "semantic": "semantic_memory",
+            "episodic": "episodic_memory",
+            "strategic": "governance_memory",
+            "causal": "replay_memory",
+            "introspective": "reflection_memory",
+        }.get(category or "semantic", "semantic_memory")
+
+    @staticmethod
+    def _memory_type_to_category(memory_type: str) -> str:
+        return {
+            "semantic_memory": "semantic",
+            "episodic_memory": "episodic",
+            "governance_memory": "strategic",
+            "replay_memory": "causal",
+            "reflection_memory": "introspective",
+            "runtime_memory": "strategic",
+            "execution_memory": "causal",
+        }.get(memory_type, "semantic")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

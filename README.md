@@ -134,6 +134,11 @@ Key design choices:
 
 ---
 
+
+## Governed Qdrant Memory Cluster
+
+Niblit now includes a governed cognition-aware Qdrant memory layer and a deployable `qdrant_cluster_logic/` blueprint package. The runtime normalizes memory payloads through `shared/governance_contract/memory_contracts.py`, routes them through `niblit_memory/governed_qdrant_memory.py`, and preserves replay lineage, federation provenance, lifecycle state, and governance-aware retrieval semantics across semantic, episodic, reflection, governance, runtime, replay, telemetry, advisor, federation, and execution memory collections.
+
 ## Unified System Wiring (Python AIOS + C++ NiblitOS)
 
 Niblit now operates as one coordinated system instead of loosely-coupled loops:

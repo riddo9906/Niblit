@@ -195,3 +195,7 @@ authorities. Rules:
 4. Schema or event contract changes require explicit governance review and a
    compatibility matrix version bump.
 
+
+## Governed Memory Automation Expectations
+
+Automation that touches Qdrant or memory persistence must treat `shared/governance_contract/memory_contracts.py` and `qdrant_cluster_logic/` as the canonical authority for collection naming, payload fields, lifecycle transitions, replay lineage, and federation provenance. Workflows may initialize or validate cluster state, but they must not invent alternate payload schemas or bypass governance locks for replay and governance memory.

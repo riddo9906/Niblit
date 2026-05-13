@@ -1,0 +1,92 @@
+{
+  "memory_schema_version": "1.0",
+  "memory_id": "mem-example-001",
+  "memory_type": "semantic_memory",
+  "content_text": "Normalized governed cognitive memory payload.",
+  "summary": "Canonical governed memory example.",
+  "timestamp": 1710000000,
+  "runtime_mode": "normal",
+  "governance_state": "active",
+  "coherence_score": 0.93,
+  "confidence_decay": 0.08,
+  "federation_origin": {
+    "node_id": "niblit_core",
+    "role": "governance_authority",
+    "authority": "niblit_core"
+  },
+  "advisor_lineage": [
+    "reflection_engine",
+    "meta_governance_engine"
+  ],
+  "reflection_summary": "Memory was reinforced after reflective self-check.",
+  "causal_chain": [
+    "episode-12",
+    "reflection-3"
+  ],
+  "replay_metadata": {
+    "trace_id": "trace-abc123",
+    "decision_lineage": [
+      "reflection",
+      "retrieval",
+      "execution"
+    ],
+    "confidence_evolution": [
+      0.55,
+      0.71,
+      0.82
+    ],
+    "governance_replay": {
+      "mode_at_decision": "normal",
+      "constitution_passed": true
+    },
+    "causal_references": [
+      "mem-alpha",
+      "mem-beta"
+    ]
+  },
+  "constitutional_alignment": {
+    "allowed": true,
+    "authority": "governance",
+    "violated_laws": []
+  },
+  "telemetry_signature": "abc123deadbeef42",
+  "telemetry": {
+    "timestamp": 1710000000,
+    "runtime_mode": "normal",
+    "governance_mode": "normal",
+    "epoch_id": 42,
+    "coherence_score": 0.93,
+    "coherence_drift": 0.04,
+    "attention_pressure": 0.28,
+    "runtime_health": 0.91,
+    "model_trust": 0.78,
+    "execution_risk": 0.19,
+    "source": "niblit_core"
+  },
+  "lifecycle": {
+    "state": "warm",
+    "reinforcement_score": 0.83,
+    "pinned": false,
+    "governance_locked": false,
+    "archive_candidate": false,
+    "retention_days": 365
+  },
+  "routing": {
+    "namespace": "cognition.semantic",
+    "priority": 0.78,
+    "shard_key": "niblit_core:semantic_memory",
+    "replication_scope": "federated"
+  },
+  "indexing": {
+    "keywords": [
+      "governed",
+      "memory"
+    ],
+    "tags": [
+      "semantic",
+      "replay-safe"
+    ],
+    "runtime_mode": "normal",
+    "governance_state": "active"
+  }
+}

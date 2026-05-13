@@ -1,0 +1,35 @@
+{
+  "memory_type": "federation_memory",
+  "federation_origin": {
+    "node_id": "niblit_cloud_server",
+    "role": "runtime_portability",
+    "authority": "niblit_core"
+  },
+  "runtime_mode": "normal",
+  "governance_state": "active",
+  "telemetry": {
+    "timestamp": 1710000000,
+    "runtime_mode": "normal",
+    "governance_mode": "normal",
+    "epoch_id": 99,
+    "coherence_score": 0.89,
+    "coherence_drift": 0.05,
+    "attention_pressure": 0.21,
+    "runtime_health": 0.94,
+    "model_trust": 0.7,
+    "execution_risk": 0.17,
+    "source": "cloud_server"
+  },
+  "indexing": {
+    "keywords": [
+      "federation",
+      "runtime"
+    ],
+    "tags": [
+      "cloud",
+      "compatibility"
+    ],
+    "runtime_mode": "normal",
+    "governance_state": "active"
+  }
+}

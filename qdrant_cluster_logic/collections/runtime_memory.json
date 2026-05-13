@@ -1,0 +1,111 @@
+{
+  "collection_name": "runtime_memory",
+  "purpose": "runtime.snapshots",
+  "qdrant_ui_mapping": {
+    "create_collection": "deployment/api_payloads/runtime_memory.json",
+    "create_indexes": [
+      {
+        "field_name": "trace_id",
+        "field_schema": "keyword"
+      },
+      {
+        "field_name": "runtime_mode",
+        "field_schema": "keyword"
+      },
+      {
+        "field_name": "telemetry.epoch_id",
+        "field_schema": {
+          "type": "integer",
+          "lookup": false,
+          "range": true
+        }
+      },
+      {
+        "field_name": "telemetry.source",
+        "field_schema": "keyword"
+      },
+      {
+        "field_name": "federation_origin.node_id",
+        "field_schema": "keyword"
+      }
+    ]
+  },
+  "vector_policy": {
+    "size": 384,
+    "distance": "Cosine"
+  },
+  "hnsw_config": {
+    "m": 32,
+    "ef_construct": 128,
+    "full_scan_threshold": 10000,
+    "on_disk": false
+  },
+  "optimizers_config": {
+    "deleted_threshold": 0.2,
+    "vacuum_min_vector_number": 1000,
+    "default_segment_number": 2,
+    "memmap_threshold": 20000,
+    "indexing_threshold": 10000
+  },
+  "quantization_config": {
+    "scalar": {
+      "type": "int8",
+      "always_ram": false
+    }
+  },
+  "wal_config": {
+    "wal_capacity_mb": 32,
+    "wal_segments_ahead": 0
+  },
+  "shard_behavior": {
+    "shard_number": 1,
+    "replication_factor": 1,
+    "write_consistency_factor": 1,
+    "shard_key": "niblit_core:runtime_memory"
+  },
+  "strict_mode_recommendation": {
+    "enabled": true,
+    "unindexed_filtering_retrieve": false,
+    "unindexed_filtering_update": false
+  },
+  "payload_indexes": [
+    {
+      "field_name": "trace_id",
+      "field_schema": "keyword"
+    },
+    {
+      "field_name": "runtime_mode",
+      "field_schema": "keyword"
+    },
+    {
+      "field_name": "telemetry.epoch_id",
+      "field_schema": {
+        "type": "integer",
+        "lookup": false,
+        "range": true
+      }
+    },
+    {
+      "field_name": "telemetry.source",
+      "field_schema": "keyword"
+    },
+    {
+      "field_name": "federation_origin.node_id",
+      "field_schema": "keyword"
+    }
+  ],
+  "retention_metadata": {
+    "state": "hot",
+    "retention_days": 60,
+    "replay_preserved": true,
+    "governance_lock_respected": true
+  },
+  "compatibility": {
+    "schema_version": "2.x",
+    "event_contract_version": "omega-7",
+    "governance_contract_version": "1.x",
+    "advisor_protocol_version": "2.x",
+    "runtime_mode_contract": "2026.05",
+    "memory_schema_version": "1.0"
+  }
+}

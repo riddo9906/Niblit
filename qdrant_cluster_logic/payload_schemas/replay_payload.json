@@ -1,0 +1,37 @@
+{
+  "memory_type": "replay_memory",
+  "causal_chain": [
+    "execution-14",
+    "advisor-debate-2",
+    "reflection-5"
+  ],
+  "replay_metadata": {
+    "trace_id": "trace-replay-001",
+    "decision_lineage": [
+      "advisor_consensus",
+      "governance_gate",
+      "execution_outcome"
+    ],
+    "confidence_evolution": [
+      0.48,
+      0.67,
+      0.81
+    ],
+    "governance_replay": {
+      "mode_at_decision": "survival",
+      "constitution_passed": true
+    },
+    "causal_references": [
+      "mem-101",
+      "mem-222"
+    ]
+  },
+  "lifecycle": {
+    "state": "warm",
+    "reinforcement_score": 0.88,
+    "pinned": false,
+    "governance_locked": true,
+    "archive_candidate": false,
+    "retention_days": 730
+  }
+}

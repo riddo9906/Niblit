@@ -260,6 +260,7 @@ class ReflectionEngine:
             governance_notes=governance_notes,
             overall_health=health,
         )
+        self._store_governed_memory(report)
         with self._lock:
             self._recent_reports.append(report)
 
@@ -298,6 +299,28 @@ class ReflectionEngine:
                 if "flag model " in note:
                     mid = note.split("flag model ")[-1].split(" ")[0]
                     eco.record_outcome(mid, success=False, quality=0.3)
+        except Exception:
+            pass
+
+    def _store_governed_memory(self, report: ReflectionReport) -> None:
+        try:
+            from niblit_memory.governed_qdrant_memory import get_governed_qdrant_memory_cluster
+
+            cluster = get_governed_qdrant_memory_cluster()
+            cluster.write_memory(
+                report.summary,
+                memory_type="reflection_memory",
+                payload={
+                    "summary": report.summary,
+                    "reflection_summary": report.summary,
+                    "coherence_score": report.overall_health,
+                    "advisor_lineage": report.governance_notes,
+                    "replay_metadata": {
+                        "decision_lineage": report.adaptation_proposals,
+                        "causal_references": report.failures_detected + report.strategy_drifts,
+                    },
+                },
+            )
         except Exception:
             pass
 

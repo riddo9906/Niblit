@@ -1,0 +1,24 @@
+{
+  "policy_version": "1.0",
+  "states": [
+    "hot",
+    "warm",
+    "cold",
+    "archived"
+  ],
+  "transitions": {
+    "hot_to_warm_days": 7,
+    "warm_to_cold_days": 30,
+    "cold_to_archived_days": 90
+  },
+  "runtime_pressure_thresholds": {
+    "warm": 0.35,
+    "cold": 0.6,
+    "archived": 0.85
+  },
+  "protected_conditions": [
+    "lifecycle.pinned",
+    "lifecycle.governance_locked",
+    "replay_metadata.trace_id.present"
+  ]
+}

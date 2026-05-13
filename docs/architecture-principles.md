@@ -199,3 +199,16 @@ Replay-compatible governance traces must include:
 
 Niblit owns the canonical field names; lean-algos owns the trace writing logic.
 
+
+## Governed Cognitive Memory Authority
+
+Niblit also owns the canonical governed memory contract used by the Qdrant memory cluster blueprint and runtime layer:
+
+- canonical memory collections and namespaces
+- governed payload normalization for replay-safe memory records
+- lifecycle semantics (`hot`, `warm`, `cold`, `archived`)
+- governance-aware recall rules and constitutional gating
+- federation-aware memory provenance
+- replay lineage reconstruction semantics
+
+This keeps Qdrant subordinate to Niblit's governance authority instead of allowing storage-specific semantics to drift independently.

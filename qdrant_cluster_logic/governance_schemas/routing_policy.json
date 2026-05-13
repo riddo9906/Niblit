@@ -1,0 +1,12 @@
+{
+  "policy_version": "1.0",
+  "strategy": "namespace-and-origin",
+  "shard_key_format": "{node_identity}:{collection_name}",
+  "replication_scope": "federated",
+  "routing_dimensions": [
+    "memory_type",
+    "runtime_mode",
+    "governance_state",
+    "federation_origin.node_id"
+  ]
+}

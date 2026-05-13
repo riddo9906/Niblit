@@ -1,0 +1,27 @@
+{
+  "policy_version": "1.0",
+  "authority": "niblit_core",
+  "goals": [
+    "governance-aware retrieval",
+    "deterministic replay",
+    "federation compatibility",
+    "explainable lifecycle decisions"
+  ],
+  "guards": [
+    "constitutional_alignment.required",
+    "runtime_mode.normalized",
+    "replay_metadata.trace_id.required",
+    "federation_origin.node_id.required"
+  ],
+  "recall_rules": {
+    "blocked_states": [
+      "blocked",
+      "quarantined"
+    ],
+    "override_required_when_governance_locked": true,
+    "archived_recall_blocked_in": [
+      "survival",
+      "lockdown"
+    ]
+  }
+}

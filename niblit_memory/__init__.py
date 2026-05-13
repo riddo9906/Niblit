@@ -2743,6 +2743,11 @@ MemoryManager = NiblitMemory
 
 GLOBAL_MEMORY = NiblitMemory()
 
+from .governed_qdrant_memory import (  # noqa: E402
+    GovernedQdrantMemoryCluster,
+    get_governed_qdrant_memory_cluster,
+)
+
 # Expose all merged classes at module level so downstream imports such as
 #   ``from niblit_memory import KnowledgeDB``
 #   ``from niblit_memory import KnowledgeStore``
@@ -2760,6 +2765,8 @@ __all__ = [
     "FusedMemoryPrimary",
     "get_fused_memory",
     "get_primary",
+    "GovernedQdrantMemoryCluster",
+    "get_governed_qdrant_memory_cluster",
     # Knowledge stores
     "KnowledgeDB",
     "KnowledgeStore",

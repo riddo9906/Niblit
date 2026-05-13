@@ -161,6 +161,13 @@ class DistributedRuntimeCoordinator:
 
             self._emit_envelope_published(contract)
             self._append_trace(contract=contract, source=source, reflections=len(reflections), episodes=len(episodes))
+            self._publish_runtime_memory_snapshot(
+                contract=contract,
+                source=source,
+                cloud_ok=cloud_ok,
+                reflections=len(reflections),
+                episodes=len(episodes),
+            )
 
             self._register_dynamic_nodes(cloud_payload=cloud_payload, local_payload=local_payload)
             node_count = self._node_count()
@@ -261,6 +268,59 @@ class DistributedRuntimeCoordinator:
                 }
             )
         return peers
+
+    def _publish_runtime_memory_snapshot(
+        self,
+        *,
+        contract: dict[str, Any],
+        source: str,
+        cloud_ok: bool,
+        reflections: int,
+        episodes: int,
+    ) -> None:
+        try:
+            from niblit_memory.governed_qdrant_memory import get_governed_qdrant_memory_cluster
+
+            cluster = get_governed_qdrant_memory_cluster()
+            runtime = contract.get("runtime") or {}
+            governance = contract.get("governance") or {}
+            temporal = contract.get("temporal") or {}
+            trace = contract.get("trace") or {}
+            cluster.write_memory(
+                f"runtime snapshot {source} mode={runtime.get('mode', 'normal')} coherence={temporal.get('coherence_score', 1.0)}",
+                memory_type="runtime_memory",
+                payload={
+                    "runtime_mode": runtime.get("mode", "normal"),
+                    "governance_state": "active" if governance.get("constitution_passed", True) else "blocked",
+                    "coherence_score": temporal.get("coherence_score", 1.0),
+                    "summary": f"runtime refresh source={source} reflections={reflections} episodes={episodes}",
+                    "replay_metadata": {
+                        "trace_id": str(trace.get("trace_id") or trace.get("causal_trace_id") or f"runtime-{int(time.time())}"),
+                        "decision_lineage": [source, "distributed_runtime_coordinator"],
+                        "causal_references": ["trade_reflection.ingested", "market_episode.ingested"],
+                    },
+                    "telemetry": {
+                        "runtime_mode": runtime.get("mode", "normal"),
+                        "governance_mode": governance.get("governance_mode", runtime.get("mode", "normal")),
+                        "epoch_id": temporal.get("epoch_id", 0),
+                        "coherence_score": temporal.get("coherence_score", 1.0),
+                        "coherence_drift": temporal.get("coherence_drift", 0.0),
+                        "runtime_health": runtime.get("runtime_health", 1.0),
+                        "attention_pressure": runtime.get("attention_pressure", 0.0),
+                        "source": source,
+                    },
+                    "federation_origin": {
+                        "node_id": "niblit_core",
+                        "role": "governance_authority",
+                        "authority": "niblit_core",
+                    },
+                    "indexing": {
+                        "tags": [source, "distributed_runtime", "cloud_reachable" if cloud_ok else "cloud_unreachable"],
+                    },
+                },
+            )
+        except Exception:
+            pass
 
     # ── normalization helpers ────────────────────────────────────────────────
 
