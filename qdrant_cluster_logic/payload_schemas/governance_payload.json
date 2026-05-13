@@ -1,0 +1,30 @@
+{
+  "memory_type": "governance_memory",
+  "runtime_mode": "cautious",
+  "governance_state": "active",
+  "constitutional_alignment": {
+    "allowed": true,
+    "authority": "governance",
+    "violated_laws": []
+  },
+  "lifecycle": {
+    "state": "hot",
+    "reinforcement_score": 0.96,
+    "pinned": true,
+    "governance_locked": true,
+    "archive_candidate": false,
+    "retention_days": 730
+  },
+  "indexing": {
+    "keywords": [
+      "governance",
+      "constitution"
+    ],
+    "tags": [
+      "locked",
+      "federated"
+    ],
+    "runtime_mode": "cautious",
+    "governance_state": "active"
+  }
+}

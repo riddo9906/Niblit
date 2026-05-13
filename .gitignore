@@ -26,6 +26,8 @@ niblit_memory.json
 niblit_memory.json.backup
 niblit_diagnostics.json
 niblit_live_test_report.json
+niblit_identity.json
+identity_timeline.jsonl
 
 # ALE checkpoint state (runtime-generated, not version controlled)
 ale_state.json

@@ -93,6 +93,37 @@ except ImportError:
 EVT_TRADING_SIGNAL  = "trading.signal"
 EVT_TRADING_RESULTS = "trading.results"
 
+# Phase Ω.7 event constants (cross-repo cognitive execution protocol)
+_EVT_ENVELOPE_PUBLISHED    = "execution_envelope.published"
+_EVT_REFLECTION_INGESTED   = "trade_reflection.ingested"
+_EVT_EPISODE_INGESTED      = "market_episode.ingested"
+_EVT_RUNTIME_MODE_CHANGED  = "runtime_mode.changed"
+
+# ── Schema version for the cognitive execution envelope ───────────────────────
+_ENVELOPE_SCHEMA_VERSION = "2.0"
+
+# ── Telemetry sidecar paths (Phase Ω.7) ──────────────────────────────────────
+_DEFAULT_REFLECTION_FILE = Path(
+    os.environ.get(
+        "NIBLIT_REFLECTION_FILE",
+        os.path.join(os.environ.get("TMPDIR", "/tmp"), "niblit_trade_reflection.jsonl"),
+    )
+)
+_DEFAULT_EPISODES_FILE = Path(
+    os.environ.get(
+        "NIBLIT_EPISODES_FILE",
+        os.path.join(os.environ.get("TMPDIR", "/tmp"), "niblit_market_episodes.jsonl"),
+    )
+)
+
+# ── Runtime-mode governance thresholds ────────────────────────────────────────
+# Mirrors the default env vars declared in niblit-lean-algos/.env.example so
+# that mode transitions are consistent across both repos.
+_SURVIVAL_COHERENCE     = float(os.environ.get("NIBLIT_SURVIVAL_COHERENCE",     "0.30"))
+_CAUTIOUS_COHERENCE     = float(os.environ.get("NIBLIT_CAUTIOUS_COHERENCE",     "0.52"))
+_MAX_ATTENTION_PRESSURE = float(os.environ.get("NIBLIT_MAX_ATTENTION_PRESSURE", "0.85"))
+_MIN_COGNITIVE_BUDGET   = float(os.environ.get("NIBLIT_MIN_COGNITIVE_BUDGET",   "0.10"))
+
 
 def _emit_trading_event(event_type: str, payload: Dict[str, Any]) -> None:
     """Emit a trading event to the CognitiveGraphKernel EventBus (best-effort).
@@ -116,6 +147,158 @@ def _emit_trading_event(event_type: str, payload: Dict[str, Any]) -> None:
         ))
     except Exception:  # pragma: no cover – kernel may not be running
         pass
+
+
+def _emit_niblit_event(event_type: str, payload: Dict[str, Any]) -> None:
+    """Emit via the Niblit EventBus (NiblitEvent, best-effort)."""
+    try:
+        from modules.event_bus import NiblitEvent, get_event_bus
+        get_event_bus().publish(NiblitEvent(type=event_type, source="lean_algo_manager", payload=payload))
+    except Exception:  # pragma: no cover
+        pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Governance snapshot helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _governance_snapshot() -> Dict[str, Any]:
+    """Return a lightweight governance context dict from live subsystems.
+
+    All calls are best-effort — a missing or erroring subsystem returns safe
+    defaults so that signal publication is never blocked by a governance
+    subsystem failure.
+    """
+    snap: Dict[str, Any] = {
+        "constitution_passed": True,
+        "violated_laws": [],
+        "stability_pressure": 0.0,
+        "recursion_depth": 0,
+        "cognitive_budget_remaining": 1.0,
+        "cognitive_budget_pressure": 0.0,
+        "attention_pressure": 0.0,
+        "coherence_score": 1.0,
+        "survival_mode": False,
+    }
+
+    # Constitutional layer check
+    try:
+        from modules.constitutional_layer import get_constitutional_layer
+        cl = get_constitutional_layer()
+        verdict = cl.validate("trade_signal_publish", context={
+            "confidence": 0.7,
+            "temporal_coherent": True,
+            "governance_approved": True,
+            "stability_score": 1.0 - snap["stability_pressure"],
+        })
+        snap["constitution_passed"] = bool(verdict.allowed)
+        snap["violated_laws"] = list(verdict.violated_laws)
+    except Exception:
+        pass
+
+    # Recursive stability governor
+    try:
+        from modules.recursive_stability_governor import get_recursive_stability_governor
+        rsg = get_recursive_stability_governor()
+        rsg_status = rsg.status()
+        snap["stability_pressure"] = float(rsg_status.get("stability_pressure", 0.0))
+        snap["recursion_depth"] = int(rsg_status.get("recursion_depth", 0))
+    except Exception:
+        pass
+
+    # Cognitive budget manager
+    try:
+        from modules.cognitive_budget_manager import get_cognitive_budget_manager
+        cbm = get_cognitive_budget_manager()
+        cbm_status = cbm.status()
+        snap["cognitive_budget_remaining"] = float(cbm_status.get("remaining_budget", 1.0))
+        snap["cognitive_budget_pressure"] = float(cbm_status.get("context_pressure", 0.0))
+    except Exception:
+        pass
+
+    # Attention allocator
+    try:
+        from modules.attention_allocator import get_attention_allocator
+        aa = get_attention_allocator()
+        aa_status = aa.status()
+        snap["attention_pressure"] = float(
+            aa_status.get("attention_pressure", aa_status.get("last_allocation", {}) and 0.0 or 0.0)
+        )
+    except Exception:
+        pass
+
+    # Temporal coherence layer
+    try:
+        from modules.causal_temporal_engine import get_causal_temporal_engine
+        cte = get_causal_temporal_engine()
+        cte_status = cte.status()
+        snap["coherence_score"] = float(cte_status.get("coherence_score", 1.0))
+    except Exception:
+        pass
+
+    # Derive survival mode
+    snap["survival_mode"] = snap["coherence_score"] < _SURVIVAL_COHERENCE
+
+    return snap
+
+
+def _world_model_snapshot() -> Dict[str, Any]:
+    """Return forecast consensus from the predictive world model and forecast arbitrator."""
+    snap: Dict[str, Any] = {
+        "direction": "NEUTRAL",
+        "agreement": 0.5,
+        "uncertainty": 0.5,
+        "arbitrator_consensus": 0.5,
+    }
+    try:
+        from modules.predictive_world_model import get_predictive_world_model
+        pwm = get_predictive_world_model()
+        forecast = pwm.forecast()
+        d = forecast.to_dict() if hasattr(forecast, "to_dict") else (
+            forecast if isinstance(forecast, dict) else {}
+        )
+        snap["direction"] = str(d.get("direction", d.get("predicted_direction", "NEUTRAL"))).upper()
+        snap["uncertainty"] = float(d.get("uncertainty", d.get("confidence_interval", 0.5)))
+        snap["agreement"] = round(1.0 - snap["uncertainty"], 4)
+    except Exception:
+        pass
+
+    try:
+        from modules.forecast_arbitrator import get_forecast_arbitrator
+        fa = get_forecast_arbitrator()
+        fa_status = fa.status()
+        snap["arbitrator_consensus"] = float(
+            fa_status.get("consensus", fa_status.get("last_consensus", 0.5))
+        )
+    except Exception:
+        pass
+
+    return snap
+
+
+def _determine_runtime_mode(gov: Dict[str, Any]) -> str:
+    """Map governance snapshot to a runtime mode string.
+
+    Modes (in priority order):
+      lockdown   — constitutional block OR extreme recursion depth
+      survival   — coherence below survival threshold
+      cautious   — coherence below cautious threshold OR high attention pressure
+      normal     — all thresholds within bounds
+    """
+    if not gov.get("constitution_passed", True):
+        return "lockdown"
+    if int(gov.get("recursion_depth", 0)) >= 4:
+        return "lockdown"
+    if bool(gov.get("survival_mode", False)):
+        return "survival"
+    coherence = float(gov.get("coherence_score", 1.0))
+    if coherence < _CAUTIOUS_COHERENCE:
+        return "cautious"
+    attn = float(gov.get("attention_pressure", 0.0))
+    budget = float(gov.get("cognitive_budget_remaining", 1.0))
+    if attn > _MAX_ATTENTION_PRESSURE or budget < _MIN_COGNITIVE_BUDGET:
+        return "cautious"
+    return "normal"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Paths
@@ -202,9 +385,11 @@ class LeanAlgoManager:
         self.signal_interval_secs   = signal_interval_secs
         self.monitor_interval_secs  = monitor_interval_secs
 
-        self.signal_file  = _DEFAULT_SIGNAL_FILE
-        self.results_file = _DEFAULT_RESULTS_FILE
-        self.algos_dir    = Path(
+        self.signal_file      = _DEFAULT_SIGNAL_FILE
+        self.results_file     = _DEFAULT_RESULTS_FILE
+        self.reflection_file  = _DEFAULT_REFLECTION_FILE
+        self.episodes_file    = _DEFAULT_EPISODES_FILE
+        self.algos_dir        = Path(
             os.environ.get("NIBLIT_LEAN_ALGOS", str(_DEFAULT_ALGOS_DIR))
         )
 
@@ -212,9 +397,14 @@ class LeanAlgoManager:
         self._signal_thread: Optional[threading.Thread] = None
         self._monitor_thread: Optional[threading.Thread] = None
 
-        self._last_signal:  Optional[Dict[str, Any]] = None
+        self._last_signal:   Optional[Dict[str, Any]] = None
+        self._last_runtime_mode: str = "normal"
         self._live_projects: List[Dict[str, Any]] = []
         self._deployed_ids:  Dict[str, int] = {}  # algo_name → projectId
+
+        # Phase Ω.7 ingestion cursors (byte offset so JSONL reads are incremental)
+        self._reflection_offset: int = 0
+        self._episodes_offset:   int = 0
 
         # Load previously deployed project IDs if available
         self._load_deployed_ids()
@@ -266,7 +456,20 @@ class LeanAlgoManager:
             self._stop_event.wait(self.signal_interval_secs)
 
     def _publish_signal(self) -> None:
-        """Read TradingBrain signal and write to signal file."""
+        """Read TradingBrain signal, gather governance context, write schema v2 envelope.
+
+        The schema v2 cognitive execution envelope includes:
+          - signal / confidence / market_regime           (TradingBrain output)
+          - forecast_consensus                            (PredictiveWorldModel + ForecastArbitrator)
+          - governance (constitution_passed, survival_mode, mode, stability) (Phase Ω governance stack)
+          - execution constraints (max_position_size, hold_only)
+          - temporal (coherence_score)
+          - runtime (mode)
+          - indicators                                    (legacy v1 compat field)
+
+        The envelope is written atomically then broadcast on both the Kernel
+        EventBus and the Niblit EventBus.
+        """
         if not self.trading_brain:
             return
 
@@ -278,22 +481,97 @@ class LeanAlgoManager:
 
         if not isinstance(decision, str):
             decision = str(decision)
+        signal_str = decision.upper().strip()
 
-        # Build the full signal payload
-        signal_data: Dict[str, Any] = {
-            "signal":    decision.upper().strip(),
-            "timestamp": int(time.time()),
-            "confidence": self._estimate_confidence(decision),
-            "regime":    self._estimate_regime(),
-            "risk_pct":  0.02,
-            "indicators": self._collect_indicators(),
+        confidence = self._estimate_confidence(decision)
+        regime     = self._estimate_regime()
+        indicators = self._collect_indicators()
+        now        = int(time.time())
+
+        # ── Phase Ω.7: governance + world-model snapshot ───────────────────────
+        gov  = _governance_snapshot()
+        wm   = _world_model_snapshot()
+        mode = _determine_runtime_mode(gov)
+
+        # Emit runtime-mode change event if mode transitioned
+        if mode != self._last_runtime_mode:
+            _emit_niblit_event(_EVT_RUNTIME_MODE_CHANGED, {
+                "previous_mode": self._last_runtime_mode,
+                "new_mode": mode,
+                "coherence_score": gov.get("coherence_score", 1.0),
+                "stability_pressure": gov.get("stability_pressure", 0.0),
+            })
+            log.info("[LeanAlgoManager] Runtime mode: %s → %s", self._last_runtime_mode, mode)
+            self._last_runtime_mode = mode
+
+        # ── Build schema v2 envelope ───────────────────────────────────────────
+        # max_position_size: full position in normal, halved in cautious,
+        # minimal (10 %) in survival, zero (hold-only) in lockdown.
+        _base_risk = float(os.environ.get("NIBLIT_DEFAULT_RISK_PCT", "0.02"))
+        _mode_factor = {"normal": 1.0, "cautious": 0.5, "survival": 0.1, "lockdown": 0.0}.get(mode, 1.0)
+        max_pos = round(_base_risk * _mode_factor, 4)
+        hold_only = (mode == "lockdown")
+
+        envelope: Dict[str, Any] = {
+            "schema_version": _ENVELOPE_SCHEMA_VERSION,
+            # ── Core signal ────────────────────────────────────────────────────
+            "signal":         signal_str,
+            "confidence":     round(confidence, 4),
+            "market_regime":  regime,
+            "timestamp":      now,
+            # ── Forecast consensus ─────────────────────────────────────────────
+            "forecast_consensus": {
+                "direction":   wm["direction"],
+                "agreement":   round(wm["agreement"], 4),
+                "uncertainty": round(wm["uncertainty"], 4),
+                "arbitrator_consensus": round(wm["arbitrator_consensus"], 4),
+            },
+            # ── Governance ─────────────────────────────────────────────────────
+            "governance": {
+                "constitution_passed": gov["constitution_passed"],
+                "violated_laws":       gov["violated_laws"],
+                "survival_mode":       gov["survival_mode"],
+                "stability_pressure":  round(gov["stability_pressure"], 4),
+                "recursion_depth":     gov["recursion_depth"],
+                "mode":                mode,
+            },
+            # ── Execution constraints ──────────────────────────────────────────
+            "execution": {
+                "max_position_size": max_pos,
+                "hold_only":         hold_only,
+                "risk_pct":          max_pos,  # legacy alias
+            },
+            # ── Temporal coherence ─────────────────────────────────────────────
+            "temporal": {
+                "coherence_score":          round(gov.get("coherence_score", 1.0), 4),
+                "cognitive_budget":         round(gov.get("cognitive_budget_remaining", 1.0), 4),
+                "cognitive_budget_pressure": round(gov.get("cognitive_budget_pressure", 0.0), 4),
+                "attention_pressure":        round(gov.get("attention_pressure", 0.0), 4),
+            },
+            # ── Runtime mode (convenience top-level copy) ──────────────────────
+            "runtime": {"mode": mode},
+            # ── Legacy v1 compat fields ────────────────────────────────────────
+            "regime":     regime,
+            "risk_pct":   max_pos,
+            "indicators": indicators,
         }
-        self._last_signal = signal_data
-        self._write_json(self.signal_file, signal_data)
-        # Publish into the unified Kernel EventBus so other layers can react
-        _emit_trading_event(EVT_TRADING_SIGNAL, signal_data)
-        log.debug("[LeanAlgoManager] Signal published: %s (conf=%.2f)",
-                  decision, signal_data["confidence"])
+
+        self._last_signal = envelope
+        self._write_json(self.signal_file, envelope)
+
+        # Broadcast on both event buses
+        _emit_trading_event(EVT_TRADING_SIGNAL, envelope)
+        _emit_niblit_event(_EVT_ENVELOPE_PUBLISHED, {
+            "schema_version": _ENVELOPE_SCHEMA_VERSION,
+            "signal": signal_str,
+            "mode": mode,
+            "coherence_score": gov.get("coherence_score", 1.0),
+        })
+
+        log.debug(
+            "[LeanAlgoManager] Envelope v2 published: %s (conf=%.2f mode=%s coherence=%.2f)",
+            signal_str, confidence, mode, gov.get("coherence_score", 1.0),
+        )
 
     def _estimate_confidence(self, decision: str) -> float:
         """Return a confidence score (0-1) based on TradingBrain internals."""
@@ -342,11 +620,13 @@ class LeanAlgoManager:
     # ── live monitoring ───────────────────────────────────────────────────────
 
     def _monitor_loop(self) -> None:
-        """Background loop: poll live algorithm status."""
+        """Background loop: poll live algorithm status and ingest telemetry."""
         while not self._stop_event.is_set():
             try:
                 self._check_live_algorithms()
                 self._ingest_results()
+                self._ingest_reflection()
+                self._ingest_episodes()
             except Exception as exc:
                 log.debug("[LeanAlgoManager] Monitor error: %s", exc)
             self._stop_event.wait(self.monitor_interval_secs)
@@ -402,7 +682,89 @@ class LeanAlgoManager:
         except Exception as exc:
             log.debug("[LeanAlgoManager] Results ingest failed: %s", exc)
 
-    # ── deployment helpers ────────────────────────────────────────────────────
+    def _ingest_reflection(self) -> None:
+        """Incrementally read new records from the trade-reflection JSONL sidecar.
+
+        Each line is a JSON object emitted by NiblitAiMaster after a trade
+        decision.  New records are stored in the knowledge DB and broadcast
+        on the Niblit EventBus so that the reflection_engine / memory layers
+        can learn from real execution outcomes.
+        """
+        if not self.reflection_file.exists():
+            return
+        try:
+            fsize = self.reflection_file.stat().st_size
+            if fsize <= self._reflection_offset:
+                return  # no new data
+            with self.reflection_file.open("r") as fh:
+                fh.seek(self._reflection_offset)
+                new_data = fh.read()
+                self._reflection_offset = fh.tell()
+
+            for line in new_data.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                _emit_niblit_event(_EVT_REFLECTION_INGESTED, rec)
+                if self.knowledge_db and hasattr(self.knowledge_db, "add_fact"):
+                    try:
+                        self.knowledge_db.add_fact(
+                            f"trade_reflection:{int(time.time())}",
+                            json.dumps(rec),
+                            tags=["lean", "trading", "reflection"],
+                        )
+                    except Exception:
+                        pass
+                log.debug("[LeanAlgoManager] Reflection ingested: pair=%s action=%s",
+                          rec.get("pair", "?"), rec.get("action", "?"))
+        except Exception as exc:
+            log.debug("[LeanAlgoManager] Reflection ingest failed: %s", exc)
+
+    def _ingest_episodes(self) -> None:
+        """Incrementally read new records from the market-episode JSONL sidecar.
+
+        Each line is a JSON object describing a market episode (regime + motif
+        + outcome) written by NiblitAiMaster.  Records are stored in the KB
+        for Trade Cognition Expansion (experiential market memory, regime
+        identity, failure-pattern recall).
+        """
+        if not self.episodes_file.exists():
+            return
+        try:
+            fsize = self.episodes_file.stat().st_size
+            if fsize <= self._episodes_offset:
+                return  # no new data
+            with self.episodes_file.open("r") as fh:
+                fh.seek(self._episodes_offset)
+                new_data = fh.read()
+                self._episodes_offset = fh.tell()
+
+            for line in new_data.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                _emit_niblit_event(_EVT_EPISODE_INGESTED, rec)
+                if self.knowledge_db and hasattr(self.knowledge_db, "add_fact"):
+                    try:
+                        self.knowledge_db.add_fact(
+                            f"market_episode:{int(time.time())}",
+                            json.dumps(rec),
+                            tags=["lean", "trading", "market_episode", rec.get("regime", "unknown")],
+                        )
+                    except Exception:
+                        pass
+                log.debug("[LeanAlgoManager] Market episode ingested: regime=%s",
+                          rec.get("regime", "?"))
+        except Exception as exc:
+            log.debug("[LeanAlgoManager] Episode ingest failed: %s", exc)
 
     def deploy_all(self, dry_run: bool = False) -> str:
         """Deploy all algorithms in the niblit-lean-algos repo to QC Cloud."""
@@ -491,13 +853,25 @@ class LeanAlgoManager:
         loop_running = bool(self._signal_thread and self._signal_thread.is_alive())
         deployed_count = len(self._deployed_ids)
 
+        # Phase Ω.7 fields
+        schema_ver = self._last_signal.get("schema_version", "1.0") if signal_ok else "—"
+        runtime_mode = self._last_runtime_mode
+        gov = (self._last_signal.get("governance", {}) or {}) if signal_ok else {}
+        coherence = (self._last_signal.get("temporal", {}) or {}).get("coherence_score", "—")
+
         lines = [
             "=== LeanAlgoManager ===",
             f"  Signal loop:       {'✅ running' if loop_running else '⚠️  stopped'}",
             f"  Last signal:       {self._last_signal.get('signal','—') if signal_ok else '—'}",
+            f"  Schema version:    {schema_ver}",
+            f"  Runtime mode:      {runtime_mode}",
+            f"  Coherence score:   {coherence}",
+            f"  Constitution:      {'✅ passed' if gov.get('constitution_passed', True) else '❌ blocked'}",
             f"  Signal age:        {signal_age}s" if signal_age >= 0 else "  Signal age:        —",
             f"  Signal file:       {self.signal_file}",
             f"  Results file:      {self.results_file}",
+            f"  Reflection file:   {self.reflection_file}",
+            f"  Episodes file:     {self.episodes_file}",
             f"  Algos directory:   {self.algos_dir}",
             f"  Deployed projects: {deployed_count}",
             f"  TradingBrain:      {'✅' if self.trading_brain else '⚠️  not connected'}",
@@ -512,7 +886,7 @@ class LeanAlgoManager:
             "",
             "  Commands:",
             "    lean algo status",
-            "    lean algo signal              — Show current Niblit signal",
+            "    lean algo signal              — Show current cognitive execution envelope",
             "    lean algo deploy-all          — Deploy all algorithms to QC",
             "    lean algo deploy-all dry-run  — Preview deployment plan",
             "    lean algo projects            — List deployed project IDs",
@@ -523,18 +897,31 @@ class LeanAlgoManager:
         return "\n".join(lines)
 
     def show_signal(self) -> str:
-        """Return a formatted current signal string."""
+        """Return a formatted current cognitive execution envelope."""
         if not self._last_signal:
             return "No signal published yet. Start TradingBrain first: trading start"
         s = self._last_signal
         ts = datetime.fromtimestamp(float(s.get("timestamp", 0)), tz=timezone.utc)
+        gov  = s.get("governance", {}) or {}
+        temp = s.get("temporal", {}) or {}
+        fc   = s.get("forecast_consensus", {}) or {}
         inds = s.get("indicators", {})
         lines = [
-            f"📡 Niblit LEAN Signal [{ts.strftime('%H:%M:%S UTC')}]",
-            f"  Signal:     {s.get('signal', '—')}",
-            f"  Confidence: {float(s.get('confidence', 0)):.1%}",
-            f"  Regime:     {s.get('regime', '—')}",
-            f"  Risk %:     {float(s.get('risk_pct', 0)):.1%}",
+            f"📡 Niblit Cognitive Execution Envelope [{ts.strftime('%H:%M:%S UTC')}]"
+            f"  [schema {s.get('schema_version', '1.0')}]",
+            f"  Signal:          {s.get('signal', '—')}",
+            f"  Confidence:      {float(s.get('confidence', 0)):.1%}",
+            f"  Market regime:   {s.get('market_regime', s.get('regime', '—'))}",
+            f"  Runtime mode:    {s.get('runtime', {}).get('mode', '—')}",
+            f"  Constitution:    {'✅ passed' if gov.get('constitution_passed', True) else '❌ blocked'}",
+            f"  Survival mode:   {'🔴 yes' if gov.get('survival_mode') else '🟢 no'}",
+            f"  Coherence:       {temp.get('coherence_score', '—')}",
+            f"  Attn pressure:   {temp.get('attention_pressure', '—')}",
+            f"  Cognitive budget:{temp.get('cognitive_budget', '—')}",
+            f"  Forecast dir:    {fc.get('direction', '—')}  "
+                f"agreement={fc.get('agreement', '—')}  uncertainty={fc.get('uncertainty', '—')}",
+            f"  Max pos size:    {float(s.get('execution', {}).get('max_position_size', s.get('risk_pct', 0))):.1%}",
+            f"  Hold-only:       {s.get('execution', {}).get('hold_only', False)}",
         ]
         if inds:
             lines.append("  Indicators:")

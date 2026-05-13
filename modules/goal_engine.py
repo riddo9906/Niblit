@@ -75,7 +75,7 @@ _EXPLORE_MIN_FACTS = int(os.environ.get("NIBLIT_GOAL_EXPLORE_MIN_FACTS", "3"))
 _CAPABILITY_GAPS = [
     ("pre-training", "Domain tokenizer not trained", "sentencepiece tokenizer training"),
     ("training-infra", "LoRA/QLoRA not active (LOCAL_MODEL_PATH unset)", "LoRA fine-tuning peft trl"),
-    ("transformer-market-model", "No TFT market forecast wired into TradingBrain", "temporal fusion transformer forecasting"),
+    ("transformer-market-model", "TFT forecast integrated with EWMA fallback (modules/tft_forecast.py)", "temporal fusion transformer forecasting"),
     ("risk-management", "Kelly position sizing newly added, needs calibration", "Kelly criterion win rate estimation"),
     ("lm-eval", "lm-eval-harness evaluation not yet run", "lm eval harness mmlu hellaswag benchmark"),
 ]

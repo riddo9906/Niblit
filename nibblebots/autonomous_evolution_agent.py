@@ -581,7 +581,6 @@ def get_failure_fix_hints() -> List[str]:
     return ordered
 
 
-
 def find_batch_issues(
     files: List[Path],
     fix_type: Optional[str] = None,
@@ -688,7 +687,6 @@ def find_bulk_issues(
         matches.sort(key=_bulk_sort_key)
         results[fix_name] = matches[:max_issues]
     return results
-
 
 
 def _apply_single_fix(issue: Issue) -> Optional[Tuple[str, int]]:
@@ -874,7 +872,6 @@ def _build_bulk_commit_message(
         "[Niblit Evolution Agent — Phase 16]",
     ]
     return subject, "\n".join(lines)
-
 
 
 def _set_output(key: str, value: str) -> None:

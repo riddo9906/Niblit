@@ -101,6 +101,5 @@ class ParallelLearner:
             log.debug("[ParallelLearner] memory store failed: %s", exc)
 
 
-
 if __name__ == "__main__":
     print('Running parallel_learner.py')

@@ -29,7 +29,7 @@ class TokenBucket:
     refill_rate: float
     tokens: float = field(default=0)
     last_refill: float = field(default_factory=time.time)
-    
+
     def _refill(self):
         """Refill tokens based on elapsed time."""
         now = time.time()
@@ -39,36 +39,36 @@ class TokenBucket:
             self.tokens + elapsed * self.refill_rate
         )
         self.last_refill = now
-    
+
     async def acquire(self, tokens: float = 1.0, timeout: float = 60.0):
         """
         Acquire tokens, waiting if necessary.
-        
+
         Args:
             tokens: Number of tokens to acquire
             timeout: Maximum wait time in seconds
-            
+
         Raises:
             asyncio.TimeoutError: If timeout exceeded
         """
         start_time = time.time()
-        
+
         while True:
             self._refill()
-            
+
             if self.tokens >= tokens:
                 self.tokens -= tokens
                 return
-            
+
             # Calculate wait time
             wait_time = (tokens - self.tokens) / self.refill_rate
             remaining_timeout = timeout - (time.time() - start_time)
-            
+
             if remaining_timeout <= 0:
                 raise asyncio.TimeoutError(
                     f"Rate limit timeout: waited {timeout}s"
                 )
-            
+
             # Sleep for min of wait_time and remaining_timeout
             await asyncio.sleep(min(wait_time, remaining_timeout, 0.1))
 
@@ -76,18 +76,18 @@ class TokenBucket:
 class RateLimiter:
     """
     Rate limiter with backpressure support.
-    
+
     Features:
     - Global and per-endpoint rate limits
     - Async-ready
     - Configurable timeouts
     - Metrics tracking
     """
-    
+
     def __init__(self, max_requests_per_sec: int = 100):
         """
         Initialize rate limiter.
-        
+
         Args:
             max_requests_per_sec: Global request limit
         """
@@ -102,7 +102,7 @@ class RateLimiter:
             "timeouts": 0,
         }
         log.debug(f"RateLimiter initialized: {max_requests_per_sec} req/sec")
-    
+
     async def acquire(
         self,
         endpoint: Optional[str] = None,
@@ -111,19 +111,19 @@ class RateLimiter:
     ) -> bool:
         """
         Acquire rate limit tokens.
-        
+
         Args:
             endpoint: Specific endpoint (for per-endpoint limits)
             tokens: Number of tokens to acquire
             timeout: Maximum wait time
-            
+
         Returns:
             True if acquired, False if rejected
         """
         try:
             # Always use global bucket
             await self.global_bucket.acquire(tokens, timeout)
-            
+
             # Per-endpoint bucket if specified
             if endpoint:
                 if endpoint not in self.endpoint_buckets:
@@ -132,10 +132,10 @@ class RateLimiter:
                         refill_rate=10
                     )
                 await self.endpoint_buckets[endpoint].acquire(tokens, timeout)
-            
+
             self.metrics["acquired"] += 1
             return True
-            
+
         except asyncio.TimeoutError:
             self.metrics["timeouts"] += 1
             log.warning(f"Rate limit timeout for {endpoint}")
@@ -144,7 +144,7 @@ class RateLimiter:
             log.error(f"Rate limit error: {e}")
             self.metrics["rejected"] += 1
             return False
-    
+
     def get_stats(self) -> Dict[str, int]:
         """Get rate limiter statistics."""
         return {
@@ -157,12 +157,12 @@ class RateLimiter:
 if __name__ == "__main__":
     async def test():
         limiter = RateLimiter(max_requests_per_sec=10)
-        
+
         # Acquire tokens
         for i in range(15):
             success = await limiter.acquire(tokens=1.0, timeout=5.0)
             print(f"Request {i+1}: {'Acquired' if success else 'Rejected'}")
-        
+
         print(f"Stats: {limiter.get_stats()}")
-    
+
     asyncio.run(test())

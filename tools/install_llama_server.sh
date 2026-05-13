@@ -1,111 +1,133 @@
 #!/usr/bin/env bash
-# tools/install_llama_server.sh — Install llama-server binary on Fly.io
-#
-# Run this ONCE from a fly ssh console session to put the llama-server binary
-# inside the running container.  The binary survives for the lifetime of the
-# current machine image (re-run after a fresh deploy replaces the machine).
-#
-# Usage (from your laptop):
-#   fly ssh console -a niblit
-#   bash /app/tools/install_llama_server.sh [INSTALL_DIR]
-#
-# INSTALL_DIR defaults to /usr/local/bin
-#
-# After installing, upload a GGUF model to /data/model.gguf and restart:
-#   fly sftp shell -a niblit
-#   put /local/path/to/model.gguf /data/model.gguf
-#   fly machine restart -a niblit
+# Portable llama runtime binary installer.
 
-set -e
+set -euo pipefail
 
-INSTALL_DIR="${1:-/usr/local/bin}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROFILE="niblit"
+INSTALL_DIR="/usr/local/bin"
+ACTION="${INSTALL_ACTION:-upgrade}" # upgrade|overwrite|skip
 
-echo "[install_llama_server] ════════════════════════════════════"
-echo "[install_llama_server]   llama-server installer for Fly.io"
-echo "[install_llama_server] ════════════════════════════════════"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --profile) PROFILE="${2:-}"; shift 2 ;;
+        --install-dir) INSTALL_DIR="${2:-}"; shift 2 ;;
+        --action) ACTION="${2:-}"; shift 2 ;;
+        *)
+            echo "Unknown arg: $1" >&2
+            echo "Usage: bash $0 [--profile <name>] [--install-dir <path>] [--action upgrade|overwrite|skip]" >&2
+            exit 1
+            ;;
+    esac
+done
 
-# ── Detect architecture ───────────────────────────────────────────────────────
-ARCH=$(uname -m)
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/runtime_profiles/profile_loader.sh"
+niblit_apply_profile "$PROFILE"
+
+require_cmd() {
+    local cmd="$1"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "[install_llama_server] Missing required tool: $cmd" >&2
+        exit 1
+    fi
+}
+
+for dep in curl unzip tar python3; do
+    require_cmd "$dep"
+done
+
+ARCH="$(uname -m)"
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+IS_TERMUX="false"
+IS_FLY="false"
+[ -d "/data/data/com.termux/files/usr" ] && IS_TERMUX="true"
+[ -n "${FLY_APP_NAME:-}" ] || [ -n "${FLY_ALLOC_ID:-}" ] && IS_FLY="true"
+
+ARCH_SUFFIX=""
 case "$ARCH" in
-    x86_64)  ARCH_SUFFIX="x64" ;;
-    aarch64) ARCH_SUFFIX="arm64" ;;
+    x86_64|amd64) ARCH_SUFFIX="x64" ;;
+    aarch64|arm64) ARCH_SUFFIX="arm64" ;;
+    armv7l|armv8l) ARCH_SUFFIX="arm" ;;
     *)
-        echo "[install_llama_server] ❌ Unsupported architecture: ${ARCH}"
+        echo "[install_llama_server] Unsupported architecture: $ARCH" >&2
         exit 1
         ;;
 esac
-echo "[install_llama_server] Architecture: ${ARCH} → ${ARCH_SUFFIX}"
 
-# ── Fetch latest release tag ──────────────────────────────────────────────────
-echo "[install_llama_server] Fetching latest llama.cpp release tag..."
-RELEASE_TAG=$(
-    curl -fsSL https://api.github.com/repos/ggml-org/llama.cpp/releases/latest \
-    | python3 -c "import sys, json; print(json.load(sys.stdin)['tag_name'])" 2>/dev/null
-) || true
+if [ -x "$INSTALL_DIR/llama-server" ]; then
+    case "$ACTION" in
+        skip)
+            echo "[install_llama_server] Existing install found at $INSTALL_DIR/llama-server, action=skip"
+            exit 0
+            ;;
+        overwrite|upgrade)
+            echo "[install_llama_server] Existing install found, action=$ACTION"
+            ;;
+        *)
+            echo "[install_llama_server] Invalid --action '$ACTION' (expected upgrade|overwrite|skip)" >&2
+            exit 1
+            ;;
+    esac
+fi
+
+if [ -n "${LLAMA_CPP_VERSION:-}" ]; then
+    RELEASE_TAG="$LLAMA_CPP_VERSION"
+else
+    RELEASE_TAG=$(curl -fsSL https://api.github.com/repos/ggml-org/llama.cpp/releases/latest | python3 -c "import json,sys;print(json.load(sys.stdin)['tag_name'])")
+fi
 
 if [ -z "$RELEASE_TAG" ]; then
-    echo "[install_llama_server] ❌ Could not fetch release tag."
-    echo "   Check network connectivity from: fly ssh console -a niblit"
+    echo "[install_llama_server] Could not resolve release tag" >&2
     exit 1
 fi
-echo "[install_llama_server] Release: ${RELEASE_TAG}"
 
-# ── Build download URL ────────────────────────────────────────────────────────
-ARCHIVE="llama-${RELEASE_TAG}-bin-ubuntu-${ARCH_SUFFIX}.zip"
-URL="https://github.com/ggml-org/llama.cpp/releases/download/${RELEASE_TAG}/${ARCHIVE}"
-echo "[install_llama_server] Downloading: ${URL}"
-
-# ── Download and extract ──────────────────────────────────────────────────────
 TMPDIR=$(mktemp -d)
-# shellcheck disable=SC2064
-trap "rm -rf ${TMPDIR}" EXIT
+cleanup() { rm -rf "$TMPDIR"; }
+trap cleanup EXIT
 
-if ! curl -fsSL --retry 3 --retry-delay 3 "$URL" -o "${TMPDIR}/llama.zip"; then
-    echo "[install_llama_server] ❌ Download failed."
-    echo "   The release may not provide Ubuntu binaries for this architecture."
-    echo "   Browse available assets at:"
-    echo "     https://github.com/ggml-org/llama.cpp/releases/tag/${RELEASE_TAG}"
+ZIP_ASSET="llama-${RELEASE_TAG}-bin-ubuntu-${ARCH_SUFFIX}.zip"
+TAR_ASSET="llama-${RELEASE_TAG}-bin-ubuntu-${ARCH_SUFFIX}.tar.gz"
+BASE_URL="https://github.com/ggml-org/llama.cpp/releases/download/${RELEASE_TAG}"
+
+DOWNLOAD_PATH=""
+if curl -fsSL --retry 3 --retry-delay 2 "${BASE_URL}/${ZIP_ASSET}" -o "$TMPDIR/llama.zip"; then
+    DOWNLOAD_PATH="$TMPDIR/llama.zip"
+    unzip -q "$DOWNLOAD_PATH" -d "$TMPDIR/unpack"
+elif curl -fsSL --retry 3 --retry-delay 2 "${BASE_URL}/${TAR_ASSET}" -o "$TMPDIR/llama.tar.gz"; then
+    DOWNLOAD_PATH="$TMPDIR/llama.tar.gz"
+    tar -xzf "$DOWNLOAD_PATH" -C "$TMPDIR"
+    mkdir -p "$TMPDIR/unpack"
+    find "$TMPDIR" -maxdepth 2 -type f -name "llama-*" -exec cp {} "$TMPDIR/unpack/" \;
+else
+    echo "[install_llama_server] Failed to download release assets for ${RELEASE_TAG}/${ARCH_SUFFIX}" >&2
+    echo "[install_llama_server] Checked: ${ZIP_ASSET} and ${TAR_ASSET}" >&2
     exit 1
 fi
 
-cd "$TMPDIR"
-unzip -q llama.zip
-
-BINARY=$(find "$TMPDIR" -name "llama-server" -type f | head -1)
+BINARY="$(find "$TMPDIR" -type f -name "llama-server" | head -1 || true)"
 if [ -z "$BINARY" ]; then
-    echo "[install_llama_server] ❌ llama-server binary not found in archive."
-    echo "   Archive contents:"
-    find "$TMPDIR" -type f | head -20
+    echo "[install_llama_server] llama-server not found in downloaded archive" >&2
+    find "$TMPDIR" -type f | head -30
     exit 1
 fi
 
-# ── Install ───────────────────────────────────────────────────────────────────
-cp "$BINARY" "${INSTALL_DIR}/llama-server"
-chmod +x "${INSTALL_DIR}/llama-server"
+mkdir -p "$INSTALL_DIR"
+cp "$BINARY" "$INSTALL_DIR/llama-server"
+chmod +x "$INSTALL_DIR/llama-server"
 
-echo "[install_llama_server] ✅ Installed: ${INSTALL_DIR}/llama-server"
-"${INSTALL_DIR}/llama-server" --version 2>&1 | head -2 || true
+echo "[install_llama_server] ✅ Installed: $INSTALL_DIR/llama-server"
+"$INSTALL_DIR/llama-server" --version 2>&1 | head -2 || true
 
 echo ""
-echo "════════════════════════════════════════════════════════════════"
-echo "  Next steps"
-echo "════════════════════════════════════════════════════════════════"
-echo "  1. Upload a GGUF model (from your laptop):"
+echo "Environment summary:"
+echo "  profile       : $PROFILE"
+echo "  release       : $RELEASE_TAG"
+echo "  os/arch       : $OS/$ARCH"
+echo "  matrix        : ${ARCH_SUFFIX} termux=${IS_TERMUX} fly=${IS_FLY}"
+
 echo ""
-echo "       fly sftp shell -a niblit"
-echo "       put /local/path/to/qwen2.5-0.5b-instruct-q4_k_m.gguf /data/model.gguf"
-echo ""
-echo "  2. Confirm the model path (default /data/model.gguf) is correct:"
-echo ""
-echo "       fly secrets set NIBLIT_GGUF_MODEL_PATH=/data/model.gguf -a niblit"
-echo ""
-echo "  3. Restart the machine to pick up the new binary + model:"
-echo ""
-echo "       fly machine restart -a niblit"
-echo ""
-echo "  Alternatively, use your Termux device as the inference backend"
-echo "  (no local binary or model needed on Fly):"
-echo ""
-echo "       bash /app/tools/termux_inference_server.sh   # run on Termux"
-echo ""
-echo "════════════════════════════════════════════════════════════════"
+echo "Next steps:"
+echo "  - Set NIBLIT_LLAMA_BINARY=$INSTALL_DIR/llama-server"
+echo "  - Ensure NIBLIT_GGUF_MODEL_PATH points to a valid GGUF model"
+echo "  - Optional override next run: export LLAMA_CPP_VERSION=<tag>"

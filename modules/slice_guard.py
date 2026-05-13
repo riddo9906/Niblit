@@ -12,6 +12,5 @@ def slice_guard(value, context="UNKNOWN"):
     return value
 
 
-
 if __name__ == "__main__":
     print('Running slice_guard.py')

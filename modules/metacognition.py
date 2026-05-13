@@ -63,7 +63,7 @@ class ProvenanceRecord:
 
 class Metacognition:
     """Self-aware knowledge evaluation"""
-    
+
     def __init__(self, knowledge_db):
         self.db = knowledge_db
         self.knowledge_map = {}
@@ -71,14 +71,14 @@ class Metacognition:
         self.knowledge_boundaries = set()
         # Additive: provenance registry keyed by fact key
         self._provenance: Dict[str, ProvenanceRecord] = {}
-    
+
     def build_knowledge_map(self, facts: List[Dict]) -> Dict[str, Any]:
         """
         Map what Niblit knows
         Track confidence levels and boundaries
         """
         log.info(f"🧠 [META] Building knowledge map from {len(facts)} facts")
-        
+
         knowledge_map = {
             "total_facts": len(facts),
             "categories": {},
@@ -87,15 +87,15 @@ class Metacognition:
             "low_confidence": [],
             "uncertain": []
         }
-        
+
         for fact in facts:
             key = fact.get("key", "")
             category = key.split(":")[0] if ":" in key else "general"
-            
+
             if category not in knowledge_map["categories"]:
                 knowledge_map["categories"][category] = 0
             knowledge_map["categories"][category] += 1
-            
+
             # Estimate confidence based on source
             confidence = self._estimate_confidence(fact)
             if confidence >= 0.8:
@@ -106,29 +106,29 @@ class Metacognition:
                 knowledge_map["low_confidence"].append(key)
             else:
                 knowledge_map["uncertain"].append(key)
-        
+
         self.knowledge_map = knowledge_map
         log.info(f"✅ [META] Knowledge map built")
         return knowledge_map
-    
+
     def identify_knowledge_boundaries(self, attempted_topics: List[str]) -> Dict[str, List[str]]:
         """
         Identify where knowledge ends
         Recognize what Niblit doesn't know well
         """
         log.info(f"🚧 [META] Identifying knowledge boundaries")
-        
+
         boundaries = {
             "well_understood": [],
             "partially_understood": [],
             "poorly_understood": [],
             "unknown": []
         }
-        
+
         for topic in attempted_topics:
             # Check if in knowledge map
             topic_facts = [f for f in self.knowledge_map.get("high_confidence", []) if topic in f]
-            
+
             if len(topic_facts) > 5:
                 boundaries["well_understood"].append(topic)
             elif len(topic_facts) > 2:
@@ -137,11 +137,11 @@ class Metacognition:
                 boundaries["poorly_understood"].append(topic)
             else:
                 boundaries["unknown"].append(topic)
-        
+
         self.knowledge_boundaries = set(attempted_topics)
         log.info(f"✅ [META] Boundaries identified")
         return boundaries
-    
+
     def evaluate_understanding(self) -> Dict[str, Any]:
         """
         Self-evaluate overall understanding using a weighted confidence score.
@@ -216,7 +216,7 @@ class Metacognition:
         log.info(f"✅ [META] Evaluation: {evaluation['overall_confidence']} confidence "
                  f"(high={n_high}, med={n_medium}, low={n_low}, unc={n_uncert})")
         return evaluation
-    
+
     def _estimate_confidence(self, fact: Dict) -> float:
         """
         Estimate confidence in a fact based on its source, tags, and key prefix.

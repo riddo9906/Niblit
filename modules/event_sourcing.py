@@ -46,14 +46,14 @@ class Event:
     data: Dict[str, Any]
     correlation_id: str
     user_id: Optional[str] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert event to dictionary."""
         return {
             **asdict(self),
             "event_type": self.event_type.value,
         }
-    
+
     def to_json(self) -> str:
         """Convert event to JSON."""
         data = self.to_dict()
@@ -64,37 +64,37 @@ class Event:
 class EventStore:
     """
     Immutable event store with replay capability.
-    
+
     Stores events and can rebuild state by replaying.
     """
-    
+
     def __init__(self, storage_path: Optional[Path] = None):
         self.events: List[Event] = []
         self.storage_path = storage_path or Path("./events.jsonl")
         self.subscribers: Dict[EventType, List[Callable]] = {}
         self._load_from_disk()
         log.debug("EventStore initialized")
-    
+
     def subscribe(self, event_type: EventType, callback: Callable):
         """Subscribe to event type."""
         if event_type not in self.subscribers:
             self.subscribers[event_type] = []
         self.subscribers[event_type].append(callback)
         log.debug(f"Subscribed to {event_type}")
-    
+
     def append_event(self, event: Event) -> None:
         """
         Append immutable event to store.
-        
+
         Args:
             event: Event to append
         """
         self.events.append(event)
         log.debug(f"Event appended: {event.event_type}")
-        
+
         # Persist to disk
         self._persist_event(event)
-        
+
         # Notify subscribers
         if event.event_type in self.subscribers:
             for callback in self.subscribers[event.event_type]:
@@ -102,7 +102,7 @@ class EventStore:
                     callback(event)
                 except Exception as e:
                     log.error(f"Callback error: {e}")
-    
+
     def _persist_event(self, event: Event) -> None:
         """Persist event to disk (append-only)."""
         try:
@@ -110,12 +110,12 @@ class EventStore:
                 f.write(event.to_json() + "\n")
         except Exception as e:
             log.error(f"Failed to persist event: {e}")
-    
+
     def _load_from_disk(self) -> None:
         """Load events from disk on startup."""
         if not self.storage_path.exists():
             return
-        
+
         try:
             with open(self.storage_path, "r") as f:
                 for line in f:
@@ -125,7 +125,7 @@ class EventStore:
                         log.debug(f"Loaded event: {data.get('event_type')}")
         except Exception as e:
             log.error(f"Failed to load events: {e}")
-    
+
     def get_events(
         self,
         event_type: Optional[EventType] = None,
@@ -135,29 +135,29 @@ class EventStore:
     ) -> List[Event]:
         """
         Query events with filters.
-        
+
         Perfect for debugging - grep-like functionality for events.
         """
         results = self.events
-        
+
         if event_type:
             results = [e for e in results if e.event_type == event_type]
-        
+
         if correlation_id:
             results = [e for e in results if e.correlation_id == correlation_id]
-        
+
         if start_time:
             results = [e for e in results if e.timestamp >= start_time]
-        
+
         if end_time:
             results = [e for e in results if e.timestamp <= end_time]
-        
+
         return results
-    
+
     def get_state_at(self, timestamp: float) -> Dict[str, Any]:
         """
         Rebuild state at specific point in time.
-        
+
         By replaying all events up to timestamp.
         """
         state: Dict[str, Any] = {
@@ -165,7 +165,7 @@ class EventStore:
             "errors": 0,
             "slsa_running": False,
         }
-        
+
         for event in self.get_events(end_time=timestamp):
             if event.event_type == EventType.COMMAND_EXECUTED:
                 state["commands_executed"] += 1
@@ -175,15 +175,15 @@ class EventStore:
                 state["slsa_running"] = True
             elif event.event_type == EventType.SLSA_STOPPED:
                 state["slsa_running"] = False
-        
+
         return state
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """Get event store statistics."""
         by_type = {}
         for event in self.events:
             by_type[event.event_type.value] = by_type.get(event.event_type.value, 0) + 1
-        
+
         return {
             "total_events": len(self.events),
             "by_type": by_type,
@@ -194,12 +194,12 @@ class EventStore:
 # Example usage
 if __name__ == "__main__":
     import uuid
-    
+
     store = EventStore()
-    
+
     # Emit some events
     correlation_id = str(uuid.uuid4())
-    
+
     store.append_event(Event(
         timestamp=datetime.now().timestamp(),
         event_type=EventType.COMMAND_RECEIVED,
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         data={"command": "help"},
         correlation_id=correlation_id,
     ))
-    
+
     store.append_event(Event(
         timestamp=datetime.now().timestamp(),
         event_type=EventType.COMMAND_EXECUTED,
@@ -215,14 +215,14 @@ if __name__ == "__main__":
         data={"command": "help", "result": "Help text..."},
         correlation_id=correlation_id,
     ))
-    
+
     # Query events
     events = store.get_events(correlation_id=correlation_id)
     print(f"Events: {len(events)}")
-    
+
     # Get state at time
     state = store.get_state_at(datetime.now().timestamp())
     print(f"State: {state}")
-    
+
     # Stats
     print(f"Stats: {store.get_stats()}")

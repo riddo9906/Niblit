@@ -134,6 +134,11 @@ Key design choices:
 
 ---
 
+
+## Governed Qdrant Memory Cluster
+
+Niblit now includes a governed cognition-aware Qdrant memory layer and a deployable `qdrant_cluster_logic/` blueprint package. The runtime normalizes memory payloads through `shared/governance_contract/memory_contracts.py`, routes them through `niblit_memory/governed_qdrant_memory.py`, and preserves replay lineage, federation provenance, lifecycle state, and governance-aware retrieval semantics across semantic, episodic, reflection, governance, runtime, replay, telemetry, advisor, federation, and execution memory collections.
+
 ## Unified System Wiring (Python AIOS + C++ NiblitOS)
 
 Niblit now operates as one coordinated system instead of loosely-coupled loops:
@@ -2231,3 +2236,160 @@ Set `NIBLIT_AUTONOMOUS_ENGINE=true` in `.env` and ensure `python main.py`
 2. The `GITHUB_TOKEN` secret is automatically provided in Actions — you
    don't need to add it manually unless running locally.
 3. For local testing: `GITHUB_TOKEN=ghp_... python nibblebots/llm_engineer_bot.py`
+
+---
+
+## 🆕 Runtime Tooling Profiles (Phase Ω.7)
+
+Niblit's runtime tooling layer is now profile-driven via `tools/runtime_profiles/`.
+
+Available profiles:
+
+- `niblit`
+- `cloud-server`
+- `termux-local`
+
+Profile files define portable defaults for:
+
+- app identity (`NIBLIT_APP_NAME`, `NIBLIT_RUNTIME_PROFILE`)
+- control transport (`NIBLIT_CTL_SOCKET`, `NIBLIT_CTL_HOST`, `NIBLIT_CTL_PORT`)
+- backend mode (`NIBLIT_GGUF_BACKEND`)
+- inference URL/port (`NIBLIT_LLAMA_SERVER_URL`, `NIBLIT_LLAMA_PORT`)
+- tunnel defaults (`NIBLIT_TUNNEL_TOOL`, `FLY_APP_NAME`)
+- model locations (`NIBLIT_GGUF_MODEL_PATH`, optional `NIBLIT_LLAMA_BINARY`)
+- runtime/governance mode defaults (`NIBLIT_RUNTIME_MODE`, `NIBLIT_SURVIVAL_MODE`, `NIBLIT_ATTENTION_PRESSURE`)
+
+### Profile usage examples
+
+```bash
+# Termux launcher with explicit profile
+bash tools/termux_inference_server.sh --profile termux-local
+
+# Cloud/server profile
+bash tools/install_llama_server.sh --profile cloud-server
+
+# Sidecar client using cloud profile + TCP
+python tools/niblit_ctl.py --profile cloud-server --transport tcp --host 127.0.0.1 --port 7681 --status
+```
+
+### `niblit_ctl.py` transport + output modes
+
+`tools/niblit_ctl.py` now supports both UNIX and TCP transports:
+
+```bash
+# UNIX socket (default)
+python tools/niblit_ctl.py --transport unix --socket /tmp/niblit-ctl.sock --status
+
+# TCP socket
+python tools/niblit_ctl.py --transport tcp --host 127.0.0.1 --port 7681 --status
+```
+
+Structured output options:
+
+```bash
+python tools/niblit_ctl.py -c "runtime status" --json
+python tools/niblit_ctl.py -c "governance snapshot" --pretty
+python tools/niblit_ctl.py -c "coherence state" --raw
+```
+
+Governance/runtime-aware convenience flags:
+
+```bash
+python tools/niblit_ctl.py --runtime-status
+python tools/niblit_ctl.py --governance-snapshot
+python tools/niblit_ctl.py --coherence-state
+python tools/niblit_ctl.py --active-model-state
+python tools/niblit_ctl.py --runtime-mode
+python tools/niblit_ctl.py --attention-allocator-metrics
+```
+
+### Generalized local model validator
+
+`tools/install_local_qwen_model.py` remains backward compatible by name, but now supports broader GGUF/runtime validation:
+
+```bash
+python tools/install_local_qwen_model.py --model-family qwen --verify filesystem
+python tools/install_local_qwen_model.py --model-family llama --verify filesystem llama-binary
+python tools/install_local_qwen_model.py --verify filesystem http --server-url http://127.0.0.1:8080
+python tools/install_local_qwen_model.py --verify local-brain
+```
+
+### Portable runtime installer
+
+`tools/install_llama_server.sh` now supports release overrides and upgrade behavior:
+
+```bash
+LLAMA_CPP_VERSION=b6129 bash tools/install_llama_server.sh --profile cloud-server --action upgrade
+bash tools/install_llama_server.sh --action skip
+bash tools/install_llama_server.sh --action overwrite
+```
+
+---
+
+## 🆕 Distributed Runtime Unification (Niblit + Cloud + Lean)
+
+Niblit now exposes a **cross-repo coordination layer** that treats:
+
+- `riddo9906/Niblit` as governance + cognition authority
+- `riddo9906/Niblit-cloud-server` as cloud runtime/inference node
+- `riddo9906/niblit-lean-algos` as governed execution node
+
+as one unified runtime contract surface.
+
+### Runtime contract endpoint
+
+```bash
+GET /niblit/runtime
+```
+
+Returns schema-v2-compatible coordination payload with aligned fields for cloud/lean adapters:
+
+- runtime mode + governance mode (`normal|cautious|survival|lockdown`)
+- temporal epoch + coherence + coherence drift
+- attention/resource pressure + runtime health
+- forecast consensus + model trust + execution risk
+- replay-safe trace metadata
+
+### Federation-readiness endpoints
+
+```bash
+GET /cluster/status
+GET /federation/peers
+```
+
+These expose federation-ready node registry state while remaining standalone-safe.
+
+### Event-semantic alignment
+
+The coordinator emits and preserves canonical Ω.7 events:
+
+- `execution_envelope.published`
+- `trade_reflection.ingested`
+- `market_episode.ingested`
+- `runtime_mode.changed`
+
+This prevents cross-repo naming drift between core, cloud, and lean execution flows.
+
+## Phase Ω.8 — Governance Authority Layer
+
+Niblit now defines canonical cross-repo semantics in `shared/governance_contract/` for:
+
+- schema-v2 envelope semantics
+- runtime mode semantics
+- event semantics
+- advisor protocol normalization
+- telemetry/replay metadata
+- compatibility metadata
+- federation readiness contract
+- anti-drift validation
+
+Runtime inspection surfaces:
+
+- `GET /niblit/runtime`
+- `GET /cluster/status`
+- `GET /federation/peers`
+- `GET /federation/status`
+
+Tooling:
+
+- `python tools/cloud_runtime_ctl.py diagnostics --json`

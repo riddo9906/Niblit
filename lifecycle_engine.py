@@ -81,9 +81,9 @@ except Exception as _e:
     log.warning(f"trainer_full not available: {_e}")
     class Trainer:
         """No-op stub used when trainer_full is unavailable."""
-        def __init__(self, **kwargs): 
+        def __init__(self, **kwargs):
             pass
-        def step_if_needed(self, interactions=None): 
+        def step_if_needed(self, interactions=None):
             pass
 
 try:
@@ -92,13 +92,13 @@ except Exception as _e:
     log.warning(f"niblit_tasks not available: {_e}")
     class NiblitTasks:
         """No-op stub used when niblit_tasks is unavailable."""
-        def __init__(self, **kwargs): 
+        def __init__(self, **kwargs):
             pass
-        def idle_think(self): 
+        def idle_think(self):
             pass
-        def start(self): 
+        def start(self):
             pass
-        def stop(self): 
+        def stop(self):
             pass
 
 try:
@@ -115,17 +115,17 @@ except Exception as _e:
     log.warning(f"niblit_orchestrator not available: {_e}")
     _ORCHESTRATOR_AVAILABLE = False
 
-    def run_audit(): 
+    def run_audit():
         pass
-    def run_self_heal(): 
+    def run_self_heal():
         pass
-    def generate_fix_guide(): 
+    def generate_fix_guide():
         return ""
-    def execute_fix_guide(g): 
+    def execute_fix_guide(g):
         pass
-    def verify_imports(): 
+    def verify_imports():
         pass
-    def hf_task_example(): 
+    def hf_task_example():
         pass
 
 try:
@@ -134,15 +134,15 @@ except Exception as _e:
     log.warning(f"Memory managers not available: {_e}")
     class MemoryManager:
         """No-op stub for memory."""
-        def __init__(self): 
+        def __init__(self):
             pass
-        def get_learning_log(self): 
+        def get_learning_log(self):
             return []
-        def get_preferences(self): 
+        def get_preferences(self):
             return {}
-        def store_preferences(self, prefs): 
+        def store_preferences(self, prefs):
             pass
-        def log_event(self, msg): 
+        def log_event(self, msg):
             log.info(msg)
 
 _loop_tracer = None  # Lazy-loaded on first use to avoid circular import with niblit_core
@@ -192,7 +192,7 @@ HEARTBEAT_INTERVAL = 1
 class LifecycleEngine:
     """
     Niblit Lifecycle Engine with all 17 production improvements.
-    
+
     Integrates Trainer, Tasks, and Orchestrator as living services
     with heartbeat, phase tracking, and identity invariants.
     """
@@ -222,7 +222,7 @@ class LifecycleEngine:
 
         self.running = False
         self.lock = threading.Lock()
-        
+
         # ─────── IMPROVEMENTS INITIALIZATION ───────
         self._init_improvements()
 
@@ -305,11 +305,11 @@ class LifecycleEngine:
         with self.lock:
             self.phase_index = (self.phase_index + 1) % len(PHASES)
             self.phase = PHASES[self.phase_index]
-            
+
             # Log event
             event_msg = f"[Lifecycle] Advanced to phase: {self.phase}"
             self.memory.log_event(event_msg)
-            
+
             # Store in event store
             if self.event_store:
                 try:
@@ -320,11 +320,11 @@ class LifecycleEngine:
                     })
                 except Exception as e:
                     log.debug(f"Event store failed: {e}")
-            
+
             # Telemetry
             if self.telemetry:
                 self.telemetry.increment_counter(f"phase_{self.phase.lower()}")
-            
+
             log.info(f"[Lifecycle] Phase: {self.phase}")
 
     # ─────────────────────────────
@@ -333,7 +333,7 @@ class LifecycleEngine:
     def _execute_phase(self, phase: str):
         """Execute phase with error handling and metrics."""
         start_time = time.time()
-        
+
         try:
             if phase == "INIT":
                 log.info("[LIFECYCLE] INIT: Running audit...")
@@ -420,13 +420,13 @@ class LifecycleEngine:
         while self.running:
             try:
                 log.debug(f"[Heartbeat] Current Phase: {self.phase} | Time: {datetime.now(timezone.utc).isoformat()}")
-                
+
                 # Execute current phase
                 self._execute_phase(self.phase)
-                
+
                 # Advance to next phase
                 self.advance_phase()
-                
+
                 # Sleep between phases
                 time.sleep(HEARTBEAT_INTERVAL)
 
@@ -446,13 +446,13 @@ class LifecycleEngine:
         """Start lifecycle engine."""
         self.running = True
         log.info("[Lifecycle] Engine starting...")
-        
+
         t = threading.Thread(target=self.heartbeat, daemon=True, name="LifecycleHeartbeat")
         t.start()
-        
+
         self.tasks.start()
         log.info("[Lifecycle] Tasks thread started.")
-        
+
         if self.telemetry:
             self.telemetry.increment_counter("engine_start")
 
@@ -461,7 +461,7 @@ class LifecycleEngine:
         self.running = False
         self.tasks.stop()
         log.info("[Lifecycle] Engine stopped.")
-        
+
         if self.telemetry:
             self.telemetry.increment_counter("engine_stop")
 
@@ -472,10 +472,10 @@ class LifecycleEngine:
             "phase_metrics": self.phase_metrics,
             "identity": IDENTITY,
         }
-        
+
         if self.telemetry:
             stats["telemetry"] = self.telemetry.get_stats()
-        
+
         return stats
 
 

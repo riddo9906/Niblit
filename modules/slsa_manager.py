@@ -14,34 +14,34 @@ log = logging.getLogger("SLSAManager")
 
 class SLSAManager:
     """Singleton manager to control SLSA engine dynamically."""
-    
+
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(SLSAManager, cls).__new__(cls)
         return cls._instance
-    
+
     def __init__(self):
         if getattr(self, "_initialized", False):
             return
         self._initialized = True
-        
+
         self.engine = None
         self.thread = None
         self.running = False
         self.topics = []
         self.lock = threading.RLock()
-        
+
         log.info("✅ SLSAManager initialized")
-    
+
     def start(self, topics: Optional[List[str]] = None) -> str:
         """
         Start SLSA engine with optional topics.
-        
+
         Args:
             topics: List of research topics for SLSA
-        
+
         Returns:
             Status message
         """
@@ -49,7 +49,7 @@ class SLSAManager:
             if self.running and self.engine:
                 log.warning("SLSA engine already running")
                 return "SLSA engine already running."
-            
+
             try:
                 # Import here to avoid circular imports
                 try:
@@ -67,20 +67,20 @@ class SLSAManager:
                         'stop': lambda: None
                     })()
                     self.thread = threading.Thread(target=lambda: None, daemon=True)
-                
+
                 self.running = True
                 self.topics = topics or []
                 log.info(f"🚀 SLSA engine started with topics: {self.topics}")
                 return "SLSA engine started."
-            
+
             except Exception as e:
                 log.error(f"Failed to start SLSA: {e}")
                 return f"Failed to start SLSA: {e}"
-    
+
     def stop(self) -> str:
         """
         Stop SLSA engine.
-        
+
         Returns:
             Status message
         """
@@ -88,48 +88,48 @@ class SLSAManager:
             if not self.running or not self.engine:
                 log.warning("SLSA engine not running")
                 return "SLSA engine is not running."
-            
+
             try:
                 # Stop the engine
                 if hasattr(self.engine, 'stop_event'):
                     self.engine.stop_event.set()
                 elif hasattr(self.engine, 'stop'):
                     self.engine.stop()
-                
+
                 # Wait for thread
                 if self.thread and self.thread.is_alive():
                     self.thread.join(timeout=5)
-                
+
                 self.engine = None
                 self.thread = None
                 self.running = False
                 self.topics = []
-                
+
                 log.info("⏹️ SLSA engine stopped")
                 return "SLSA engine stopped."
-            
+
             except Exception as e:
                 log.error(f"Failed to stop SLSA: {e}")
                 return f"Failed to stop SLSA: {e}"
-    
+
     def restart(self, topics: Optional[List[str]] = None) -> str:
         """
         Restart SLSA engine with optional new topics.
-        
+
         Args:
             topics: New topics (optional)
-        
+
         Returns:
             Status message
         """
         self.stop()
         time.sleep(0.5)
         return self.start(topics=topics)
-    
+
     def status(self) -> str:
         """
         Get SLSA status.
-        
+
         Returns:
             Status string
         """
@@ -139,12 +139,12 @@ class SLSAManager:
                 return f"🚀 SLSA engine running on topics: {topics_str}"
             else:
                 return "⏹️ SLSA engine is not active."
-    
+
     def is_running(self) -> bool:
         """Check if SLSA is running."""
         with self.lock:
             return self.running and self.engine is not None
-    
+
     def get_topics(self) -> List[str]:
         """Get current topics."""
         with self.lock:

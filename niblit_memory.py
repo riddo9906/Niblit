@@ -25,7 +25,9 @@ from niblit_memory import (  # noqa: F401
     GLOBAL_MEMORY,
     FusedMemory,
     FusedMemoryPrimary,
+    GovernedQdrantMemoryCluster,
     get_fused_memory,
+    get_governed_qdrant_memory_cluster,
     get_primary,
     KnowledgeDB,
     KnowledgeStore,
@@ -42,7 +44,9 @@ __all__ = [
     "GLOBAL_MEMORY",
     "FusedMemory",
     "FusedMemoryPrimary",
+    "GovernedQdrantMemoryCluster",
     "get_fused_memory",
+    "get_governed_qdrant_memory_cluster",
     "get_primary",
     "KnowledgeDB",
     "KnowledgeStore",
@@ -52,7 +56,6 @@ __all__ = [
     "canonicalize",
     "ingest",
 ]
-
 
 
 if __name__ == "__main__":

@@ -434,3 +434,102 @@ hardware timeline without additional IPC overhead.
 | Delayed outcomes attributed to wrong epoch | `epoch_tag` on every learning entry enables accurate attribution |
 | Single-score overcompression of quality | `quality_axes` preserves independent dimensions |
 | Kernel / userspace epoch desync | `SYS_NIBLIT_EPOCH_SYNC` + `ring->epoch_id` create a shared truth surface |
+
+---
+
+## Runtime Tooling Subsystem (Portable / Governance-Aware)
+
+Tooling is now split into a portable runtime operations layer:
+
+- `tools/runtime_profiles/*.env` — profile-based runtime configuration
+- `tools/runtime_profiles/profile_loader.sh` — shared bash profile loader
+- `tools/lib/runtime_profiles.py` — shared python profile loader
+- `tools/lib/sidecar_client.py` — reusable UNIX/TCP sidecar client with schema-safe normalization
+- `tools/niblit_ctl.py` — thin CLI wrapper over shared client library
+
+### Governance-aware runtime telemetry
+
+`tools/termux_inference_server.sh` now emits structured runtime telemetry aligned with Phase Ω.7 semantics and event naming:
+
+- `EVENT_RUNTIME_MODE_CHANGED`
+- `EVENT_EXECUTION_ENVELOPE_PUBLISHED`
+- `EVENT_RESOURCE_ADAPTED`
+- `EVENT_ATTENTION_ALLOCATED`
+- `EVENT_REFLECTION_COMPLETE`
+
+These are emitted as operational log events (non-invasive) and do not change core runtime event bus behavior.
+
+### Backward compatibility principles
+
+1. Existing default paths and env vars remain supported.
+2. Existing `tools/install_local_qwen_model.py` entrypoint remains valid.
+3. Existing sidecar UNIX socket workflow remains default.
+4. New features (profiles, TCP transport, output modes) are additive.
+
+### Targeted tooling test coverage
+
+`test_runtime_tooling_layer.py` covers:
+
+- profile discovery and key presence
+- profile env application
+- sidecar response normalization
+- output formatter modes
+
+---
+
+## Distributed Runtime Coordination Layer
+
+`modules/distributed_runtime_coordinator.py` is the Niblit-side unification layer for the three-repo runtime ecosystem.
+
+Responsibilities:
+
+- merges cloud runtime status + local lean signal into one normalized schema-v2 contract
+- normalizes governance/runtime modes (`normal`, `cautious`, `survival`, `lockdown`)
+- ingests trade reflection + market episode streams and republishes canonical events
+- writes replay-safe coordination traces for causal/temporal reconstruction
+- maintains federation-readiness node registry state (`core`, `cloud_runtime`, `governed_execution`)
+
+Core integration points:
+
+- `NiblitCore._init_optional_services()` initializes coordinator
+- `_refresh_unified_feedback_status()` includes `distributed_runtime` status
+- `_cmd_status()` surfaces current runtime mode
+
+API integration points:
+
+- `/niblit/runtime` — canonical runtime contract (cloud/lean adapter-compatible)
+- `/cluster/status` — federation-readiness status
+- `/federation/peers` — known peers from node registry
+
+Validation:
+
+- `test_distributed_runtime_coordinator.py` checks contract normalization, event compatibility, and cloud-status mapping.
+
+---
+
+## Phase Ω.8 Canonical Governance Authority
+
+Niblit now centralizes cross-repo semantic authority under:
+
+- `shared/governance_contract/`
+
+Canonical modules include:
+
+- `schema_v2.py`
+- `runtime_modes.py`
+- `event_constants.py`
+- `advisor_protocol.py`
+- `telemetry_contract.py`
+- `constitutional_laws.py`
+- `federation_contract.py`
+- `compatibility_matrix.py`
+- `validators.py`
+
+These definitions are intended to be consumed by runtime/execution repos to prevent semantic drift.
+
+### Runtime + Federation Tooling
+
+- `tools/lib/runtime_client.py` — runtime/federation diagnostics client
+- `tools/cloud_runtime_ctl.py` — CLI for diagnostics, compatibility, federation, and sync inspection
+- `modules/federation_foundation.py` — Ω.8 federation readiness placeholders
+- `api/federation.py` + `/federation/status` endpoint — readiness metadata surface

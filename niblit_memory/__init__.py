@@ -2206,7 +2206,7 @@ class NiblitMemory:
                 # Save current state
                 with open(self.filename, "w", encoding="utf-8") as f:
                     json.dump(self.state, f, indent=4, ensure_ascii=False)
-                
+
                 log.debug("Memory saved")
                 self.metrics["saves"] += 1
                 if self.telemetry:
@@ -2308,7 +2308,7 @@ class NiblitMemory:
                 })
             log.info(f"[Event] {text}")
             self.save()
-            
+
             if self.event_store:
                 try:
                     self.event_store.append_event({
@@ -2380,7 +2380,7 @@ class NiblitMemory:
         """
         try:
             self.metrics["recalls"] += 1
-            
+
             if query is None:
                 query = ""
 
@@ -2433,7 +2433,7 @@ class NiblitMemory:
             log.debug(f"[Recall] query='{query}' -> {len(results)} results")
             if self.telemetry:
                 self.telemetry.increment_counter("memory_recall_success")
-            
+
             return results[:limit]
 
         except Exception as e:
@@ -2523,10 +2523,10 @@ class NiblitMemory:
             "learning_log_size": len(self.state.get("learning_log", [])),
             "events_size": len(self.state.get("events", [])),
         }
-        
+
         if self.telemetry:
             stats["telemetry"] = self.telemetry.get_stats()
-        
+
         return stats
 
     def health_check(self) -> Dict[str, Any]:
@@ -2733,8 +2733,6 @@ class NiblitMemory:
         return ingest(self, raw_line, speaker=speaker)
 
 
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # GLOBAL SINGLETONS & BACKWARD-COMPAT ALIASES
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2744,6 +2742,11 @@ class NiblitMemory:
 MemoryManager = NiblitMemory
 
 GLOBAL_MEMORY = NiblitMemory()
+
+from .governed_qdrant_memory import (  # noqa: E402
+    GovernedQdrantMemoryCluster,
+    get_governed_qdrant_memory_cluster,
+)
 
 # Expose all merged classes at module level so downstream imports such as
 #   ``from niblit_memory import KnowledgeDB``
@@ -2762,6 +2765,8 @@ __all__ = [
     "FusedMemoryPrimary",
     "get_fused_memory",
     "get_primary",
+    "GovernedQdrantMemoryCluster",
+    "get_governed_qdrant_memory_cluster",
     # Knowledge stores
     "KnowledgeDB",
     "KnowledgeStore",

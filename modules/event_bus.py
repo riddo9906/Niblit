@@ -52,8 +52,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("NiblitEventBus")
 
@@ -73,8 +74,63 @@ EVENT_INTENT_DRIFT       = "intent.drift"         # Phase 8.5: emitted by intent
 EVENT_MODE_LOCKED        = "stability.mode_locked" # Phase 9: emitted by stability_controller
 EVENT_AGENT_OBSERVATION  = "agent.observation"      # Phase 15: emitted by background worker agents
 EVENT_SYSTEM_MIRRORED   = "system.mirrored"         # Phase 16: emitted by system_interface_layer after mirror_system()
-EVENT_SYSTEM_RESONANCE  = "system.resonance"        # Phase 16: emitted by system_interface_layer after establish_resonance()
-EVENT_GOVERNANCE_ADAPTED = "governance.adapted"     # Phase 18: emitted by governance_evolution_engine after parameter adaptation
+EVENT_SYSTEM_RESONANCE  = "system.resonance"        # Phase 16: emitted by system_interface_layer
+# after establish_resonance()
+EVENT_GOVERNANCE_ADAPTED = "governance.adapted"     # Phase 18: emitted by governance_evolution_engine
+# after parameter adaptation
+
+# Phase 21: Cognitive Execution Layer
+EVENT_INTENT_CLASSIFIED  = "intent.classified"      # Phase 21: emitted by intent_engine after classify()
+EVENT_COGNITIVE_ROUTED   = "cognitive.routed"       # Phase 21: emitted by cognitive_router after route()
+EVENT_EXECUTION_COMPLETE = "execution.complete"     # Phase 21: emitted by execution_graph after run()
+EVENT_SELF_MODEL_UPDATED = "self_model.updated"     # Phase 21: emitted by self_model after update
+EVENT_PLAN_SELECTED      = "plan.selected"          # Phase 21: emitted by deliberative_planner after plan()
+
+# Phase Ω: Unified Intelligence Convergence
+EVENT_STATE_UPDATED        = "state.updated"           # Phase Ω: emitted by unified_cognitive_state on every set()
+EVENT_REFLECTION_COMPLETE  = "reflection.complete"     # Phase Ω: emitted by reflection_engine after reflect()
+EVENT_WORLD_MODEL_UPDATED  = "world_model.updated"     # Phase Ω: emitted by predictive_world_model after forecast()
+EVENT_RESOURCE_ADAPTED     = "resource.adapted"        # Phase Ω: emitted by autonomic_runtime_manager after assess()
+EVENT_IDENTITY_UPDATED     = "identity.updated"        # Phase Ω: emitted by niblit_identity after snapshot update
+EVENT_CONSTITUTION_CHECKED = "constitution.checked"    # Phase Ω: emitted by constitutional_layer after validate()
+
+# Phase Ω.5: Cognitive Coherence & Recursive Stability
+EVENT_COHERENCE_EVALUATED      = "coherence.evaluated"
+EVENT_RECURSION_GOVERNED       = "recursion.governed"
+EVENT_REALITY_VALIDATED        = "reality.validated"
+EVENT_META_GOVERNANCE_EVALUATED = "meta_governance.evaluated"
+EVENT_COGNITIVE_THREAT_DETECTED = "cognitive.threat.detected"
+EVENT_TEMPORAL_CAUSAL_UPDATED   = "temporal.causal.updated"
+EVENT_EMERGENCE_DETECTED        = "emergence.detected"
+EVENT_GLOBAL_METRICS_UPDATED    = "global.metrics.updated"
+
+# Phase Ω.5 required canonical events
+EVENT_COHERENCE_ANALYZED        = "coherence.analyzed"
+EVENT_RECURSION_STABILIZED      = "recursion.stabilized"
+EVENT_RECURSIVE_WARNING         = "recursion.warning"
+EVENT_IDENTITY_DRIFT            = "identity.drift"
+EVENT_IDENTITY_VALIDATED        = "identity.validated"
+EVENT_META_GOVERNANCE_UPDATED   = "meta_governance.updated"
+EVENT_GOVERNANCE_CAPTURE_WARNING = "governance.capture.warning"
+EVENT_SUBSYSTEM_QUARANTINED     = "subsystem.quarantined"
+EVENT_COHERENCE_RESTORED        = "coherence.restored"
+EVENT_CAUSAL_CHAIN_UPDATED      = "causal_chain.updated"
+EVENT_TEMPORAL_CONTRADICTION    = "temporal.contradiction"
+EVENT_GLOBAL_COGNITIVE_UPDATE   = "global.cognitive.update"
+EVENT_AGENT_COALITION           = "agent.coalition"
+EVENT_DEBATE_RECORDED           = "debate.recorded"
+EVENT_COLLECTIVE_ALIGNMENT      = "collective.alignment"
+
+# Phase Ω.6: Attention Economy & Cognitive Resource Allocation
+EVENT_SALIENCE_SCORED           = "salience.scored"
+EVENT_COGNITIVE_BUDGET_ENFORCED = "cognitive_budget.enforced"
+EVENT_ATTENTION_ALLOCATED       = "attention.allocated"
+
+# Phase Ω.7: Cross-Repo Cognitive Execution Protocol
+EVENT_EXECUTION_ENVELOPE_PUBLISHED = "execution_envelope.published"   # schema-v2 envelope written to disk
+EVENT_TRADE_REFLECTION_INGESTED    = "trade_reflection.ingested"       # reflection JSONL record ingested
+EVENT_MARKET_EPISODE_INGESTED      = "market_episode.ingested"         # market episode JSONL record ingested
+EVENT_RUNTIME_MODE_CHANGED         = "runtime_mode.changed"            # governance mode transition
 
 
 @dataclass
@@ -91,7 +147,7 @@ class NiblitEvent:
 
     type: str
     source: str
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
 
 
@@ -108,9 +164,9 @@ class EventBus:
     """
 
     def __init__(self) -> None:
-        self._handlers: Dict[str, List[_Handler]] = {}
-        self._last: Dict[str, NiblitEvent] = {}
-        self._counts: Dict[str, int] = {}
+        self._handlers: dict[str, list[_Handler]] = {}
+        self._last: dict[str, NiblitEvent] = {}
+        self._counts: dict[str, int] = {}
         self._lock = threading.Lock()
         log.info("[EventBus] Initialised")
 
@@ -167,12 +223,12 @@ class EventBus:
 
     # ── Query ─────────────────────────────────────────────────────────────────
 
-    def last_event(self, event_type: str) -> Optional[NiblitEvent]:
+    def last_event(self, event_type: str) -> NiblitEvent | None:
         """Return the most recently published event of *event_type*, or None."""
         with self._lock:
             return self._last.get(event_type)
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return a copy of publish-count statistics keyed by event type."""
         with self._lock:
             return dict(self._counts)
@@ -180,7 +236,7 @@ class EventBus:
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
 
-_bus: Optional[EventBus] = None
+_bus: EventBus | None = None
 _bus_lock = threading.Lock()
 
 

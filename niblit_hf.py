@@ -88,7 +88,7 @@ except Exception as _e:
 class NiblitHF:
     """
     NiblitHF - HuggingFace Integration with Production Improvements
-    
+
     Handles all HuggingFace API interactions with fault tolerance,
     caching, rate limiting, and comprehensive monitoring.
     """
@@ -96,7 +96,7 @@ class NiblitHF:
     def __init__(self):
         """Initialize HF client with token and memory."""
         self.token = os.getenv("HF_TOKEN")
-        
+
         try:
             self.memory = MemoryManager()
         except Exception as e:
@@ -255,12 +255,12 @@ class NiblitHF:
     def query_model(self, model: str, payload: Dict[str, Any], use_cache: bool = True) -> Dict[str, Any]:
         """
         Query HuggingFace model with retry logic and caching.
-        
+
         Args:
             model: Model identifier (e.g., "gpt2")
             payload: Request payload
             use_cache: Whether to use cache
-            
+
         Returns:
             API response or error dict
         """
@@ -303,7 +303,7 @@ class NiblitHF:
         for attempt in range(self.max_retries):
             try:
                 start_time = time.time()
-                
+
                 # Call HF API
                 response = await asyncio.to_thread(
                     self._do_query,
@@ -330,14 +330,14 @@ class NiblitHF:
 
             except Exception as e:
                 log.warning(f"[HF] Query attempt {attempt + 1}/{self.max_retries} failed: {e}")
-                
+
                 if attempt < self.max_retries - 1:
                     await asyncio.sleep(self.retry_delay * (attempt + 1))
                 else:
                     self.metrics["failed_queries"] += 1
                     if self.telemetry:
                         self.telemetry.increment_counter("hf_query_failure")
-                    
+
                     self.memory.log_event(f"[HF] Query to {model} failed after {self.max_retries} attempts: {e}")
                     return {"error": str(e), "attempts": self.max_retries}
 
@@ -346,7 +346,7 @@ class NiblitHF:
     def _query_model_sync(self, model: str, payload: Dict[str, Any], use_cache: bool = True) -> Dict[str, Any]:
         """Synchronous query fallback."""
         self.metrics["total_queries"] += 1
-        
+
         try:
             response = self._do_query(model, payload)
             self.metrics["successful_queries"] += 1
@@ -384,11 +384,11 @@ class NiblitHF:
     def text_gen(self, model: str, prompt: str) -> Dict[str, Any]:
         """
         Generate text using HF model.
-        
+
         Args:
             model: Model identifier
             prompt: Text prompt
-            
+
         Returns:
             Generated text or error
         """
