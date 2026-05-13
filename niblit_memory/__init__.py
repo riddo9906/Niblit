@@ -959,6 +959,8 @@ def ingest(memory: Any, raw_line: str, speaker: str = "user") -> Dict[str, Any]:
 
 _kdb_log = logging.getLogger("KnowledgeDB")
 _KDB_QUARANTINE_SNIPPET_CONTEXT = 200
+_KDB_QUARANTINE_DETAILS_MAX_LEN = 500
+_KDB_QUARANTINE_SNIPPET_MAX_LEN = 2000
 
 
 class KnowledgeDB:
@@ -1066,13 +1068,19 @@ class KnowledgeDB:
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "source": source,
                 "reason": reason,
-                "details": details[:500],
-                "snippet": snippet[:2000],
+                "details": details[:_KDB_QUARANTINE_DETAILS_MAX_LEN],
+                "snippet": snippet[:_KDB_QUARANTINE_SNIPPET_MAX_LEN],
             }
             with open(self.quarantine_path, "a", encoding="utf-8") as qf:
                 qf.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception as exc:
             _kdb_log.debug("KnowledgeDB quarantine write failed: %s", exc)
+
+    @staticmethod
+    def _extract_error_snippet(raw: str, pos: int) -> str:
+        start = max(0, pos - _KDB_QUARANTINE_SNIPPET_CONTEXT)
+        end = pos + _KDB_QUARANTINE_SNIPPET_CONTEXT
+        return raw[start:end]
 
     def _repair_json(self, raw: str) -> tuple[Optional[Dict[str, Any]], list[str]]:
         repairs: list[str] = []
@@ -1175,7 +1183,7 @@ class KnowledgeDB:
                         "json_repaired",
                         source=f"{label}:{candidate_path}",
                         details=f"line={exc.lineno} col={exc.colno} pos={exc.pos} repairs={repairs}",
-                        snippet=raw[max(0, exc.pos - _KDB_QUARANTINE_SNIPPET_CONTEXT): exc.pos + _KDB_QUARANTINE_SNIPPET_CONTEXT],
+                        snippet=self._extract_error_snippet(raw, exc.pos),
                     )
                     self._merge_loaded(repaired, f"{label}:{candidate_path}:repaired")
                     return
@@ -1183,7 +1191,7 @@ class KnowledgeDB:
                     "json_corruption_unrecoverable",
                     source=f"{label}:{candidate_path}",
                     details=f"line={exc.lineno} col={exc.colno} pos={exc.pos}",
-                    snippet=raw[max(0, exc.pos - _KDB_QUARANTINE_SNIPPET_CONTEXT): exc.pos + _KDB_QUARANTINE_SNIPPET_CONTEXT],
+                    snippet=self._extract_error_snippet(raw, exc.pos),
                 )
             except Exception as exc:
                 _kdb_log.error("Failed to load KnowledgeDB (%s): %s", label, exc)

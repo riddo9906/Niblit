@@ -95,9 +95,9 @@ log = logging.getLogger("Niblit.LocalBrain")
 # Use ``set_backend_url()`` (or ``_local_brain_cfg``) to patch them at runtime
 # *after* import, e.g. from tests or fly.toml secrets loaded late.
 _MODEL_NAME      = (
-    os.environ.get("NIBLIT_LOCAL_MODEL", "").strip()
-    or os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
+    os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
     or os.environ.get("NIBLIT_MODEL_QWEN", "").strip()
+    or os.environ.get("NIBLIT_LOCAL_MODEL", "").strip()
     or os.environ.get("NIBLIT_QWEN_MODEL_PATH", "").strip()
     or "/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
 )
@@ -107,6 +107,7 @@ _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() els
 _DEFAULT_LOCAL_PRESET = "qwen"
 _FORBIDDEN_MODEL_ROOTS = ("/root/models",)
 if any(_MODEL_NAME.startswith(root) for root in _FORBIDDEN_MODEL_ROOTS):
+    log.warning("[LocalBrain] Ignoring forbidden model path at import: %s", _MODEL_NAME)
     _MODEL_NAME = "/data/model.gguf"
 
 
