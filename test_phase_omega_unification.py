@@ -822,3 +822,7 @@ class TestOmegaIntegration:
         nid.record_lesson("Phase Ω integration", report.summary)
         snap = nid.snapshot()
         assert any("Phase Ω integration" == entry["phase"] for entry in snap["learning_history"])
+
+
+if __name__ == "__main__":
+    print('Running test_phase_omega_unification.py')

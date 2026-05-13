@@ -203,3 +203,7 @@ def format_response(resp: NormalizedResponse, mode: str = "pretty") -> str:
     if resp.malformed_lines:
         parts.append(f"malformed_lines={len(resp.malformed_lines)}")
     return " | ".join(parts)
+
+
+if __name__ == "__main__":
+    print('Running sidecar_client.py')

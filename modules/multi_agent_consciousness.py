@@ -197,3 +197,7 @@ def get_multi_agent_consciousness() -> MultiAgentConsciousness:
         if _mac is None:
             _mac = MultiAgentConsciousness()
     return _mac
+
+
+if __name__ == "__main__":
+    print('Running multi_agent_consciousness.py')

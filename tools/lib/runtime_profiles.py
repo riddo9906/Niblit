@@ -55,3 +55,7 @@ def apply_profile(name: str = "niblit", *, override_existing: bool = False) -> R
             os.environ[key] = value
     os.environ["NIBLIT_RUNTIME_PROFILE"] = profile.name
     return profile
+
+
+if __name__ == "__main__":
+    print('Running runtime_profiles.py')

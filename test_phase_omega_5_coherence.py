@@ -492,3 +492,7 @@ def test_parameterized_health_edges(value):
         }
     )
     assert 0.0 <= h <= 1.0
+
+
+if __name__ == "__main__":
+    print('Running test_phase_omega_5_coherence.py')

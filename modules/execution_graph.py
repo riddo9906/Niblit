@@ -375,3 +375,7 @@ def get_execution_graph() -> ExecutionGraph:
         if _graph is None:
             _graph = ExecutionGraph()
     return _graph
+
+
+if __name__ == "__main__":
+    print('Running execution_graph.py')

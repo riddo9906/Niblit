@@ -311,3 +311,7 @@ def get_constitutional_layer() -> ConstitutionalLayer:
         if _cl is None:
             _cl = ConstitutionalLayer()
     return _cl
+
+
+if __name__ == "__main__":
+    print('Running constitutional_layer.py')

@@ -191,3 +191,7 @@ class TestTFTThreadSafety:
             t.join()
 
         assert errors == [], f"Thread errors: {errors}"
+
+
+if __name__ == "__main__":
+    print('Running test_tft_forecast.py')

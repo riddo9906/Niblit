@@ -230,3 +230,7 @@ def get_cognitive_router() -> CognitiveRouter:
         if _router is None:
             _router = CognitiveRouter()
     return _router
+
+
+if __name__ == "__main__":
+    print('Running cognitive_router.py')

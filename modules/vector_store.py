@@ -39,6 +39,7 @@ import sys
 import threading
 import time
 import warnings
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("VectorStore")
@@ -131,6 +132,57 @@ _log_backend_selection()
 # research agents, etc.).
 _model_cache: Dict[str, Any] = {}
 _model_cache_lock = threading.Lock()
+_POSITION_IDS_COMPAT_LOGGED = False
+
+
+@dataclass(frozen=True)
+class EmbeddingRuntimeConfig:
+    """Governed embedding runtime policy."""
+
+    model_name: str = _EMBEDDING_MODEL_NAME
+    memory_relevance_weight: float = 0.45
+    reflection_weight: float = 0.20
+    replay_weight: float = 0.15
+    coherence_factor: float = 0.15
+    decay_influence: float = 0.05
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 15
+
+    @staticmethod
+    def _clamp(value: Any, default: float) -> float:
+        try:
+            return max(0.0, min(1.0, float(value)))
+        except Exception:
+            return default
+
+    @classmethod
+    def from_env(cls) -> "EmbeddingRuntimeConfig":
+        return cls(
+            model_name=os.getenv("EMBEDDING_MODEL", _EMBEDDING_MODEL_NAME),
+            memory_relevance_weight=cls._clamp(os.getenv("NIBLIT_EMBED_MEMORY_WEIGHT", "0.45"), 0.45),
+            reflection_weight=cls._clamp(os.getenv("NIBLIT_EMBED_REFLECTION_WEIGHT", "0.20"), 0.20),
+            replay_weight=cls._clamp(os.getenv("NIBLIT_EMBED_REPLAY_WEIGHT", "0.15"), 0.15),
+            coherence_factor=cls._clamp(os.getenv("NIBLIT_EMBED_COHERENCE_FACTOR", "0.15"), 0.15),
+            decay_influence=cls._clamp(os.getenv("NIBLIT_EMBED_DECAY_INFLUENCE", "0.05"), 0.05),
+            cache_enabled=os.getenv("NIBLIT_EMBED_QUERY_CACHE", "1").strip().lower() not in {"0", "false", "no"},
+            cache_ttl_seconds=max(1, int(os.getenv("NIBLIT_EMBED_QUERY_CACHE_TTL", "15"))),
+        )
+
+    def govern_score(self, base_score: float, metadata: Optional[Dict[str, Any]] = None) -> float:
+        meta = metadata or {}
+        memory_relevance = self._clamp(meta.get("memory_relevance", base_score), base_score)
+        reflection = self._clamp(meta.get("reflection_weight", meta.get("reflection_score", 0.0)), 0.0)
+        replay = self._clamp(meta.get("replay_weight", meta.get("replay_score", 0.0)), 0.0)
+        coherence = self._clamp(meta.get("coherence_factor", meta.get("coherence_score", 1.0)), 1.0)
+        decay = self._clamp(meta.get("decay_influence", meta.get("confidence_decay", 0.0)), 0.0)
+        score = (
+            self.memory_relevance_weight * memory_relevance
+            + self.reflection_weight * reflection
+            + self.replay_weight * replay
+            + self.coherence_factor * coherence
+        )
+        score -= self.decay_influence * decay
+        return round(max(0.0, min(1.0, score)), 6)
 
 
 def _push_to_notification_queue(msg: str) -> None:
@@ -246,12 +298,19 @@ def _load_sentence_transformer(model_name: str) -> Any:
     if stderr_text:
         banner_parts.append(stderr_text)
 
+    global _POSITION_IDS_COMPAT_LOGGED
     if banner_parts:
         combined = "\n".join(banner_parts)
         log.debug("[VectorStore] Embedding model load report:\n%s", combined)
         _push_to_notification_queue(
             f"[VectorStore] Embedding model '{model_name}' loaded "
             f"(load report captured — this is informational only)"
+        )
+    if not _POSITION_IDS_COMPAT_LOGGED and model_name == "intfloat/multilingual-e5-small":
+        _POSITION_IDS_COMPAT_LOGGED = True
+        log.info(
+            "[VectorStore] Compatibility note: embeddings.position_ids UNEXPECTED is a non-fatal "
+            "artifact for intfloat/multilingual-e5-small and is ignored."
         )
 
     return model
@@ -415,6 +474,8 @@ class VectorStore:
         self._memory_backend = _InMemoryBackend()
         self._effective_embedding_dim: Optional[int] = None
         self._effective_dim_fallback_logged: bool = False
+        self._embedding_runtime = EmbeddingRuntimeConfig.from_env()
+        self._search_cache: Dict[str, Dict[str, Any]] = {}
 
         self._init_backend()
 
@@ -603,13 +664,32 @@ class VectorStore:
         Returns:
             List of ``{"id", "text", "score"}`` dicts, best-match first.
         """
+        cache_key = f"{query}\x00{top_k}\x00{self._backend_name}"
+        now = time.time()
+        if self._embedding_runtime.cache_enabled:
+            cached = self._search_cache.get(cache_key)
+            if cached and (now - float(cached.get("ts", 0.0))) <= self._embedding_runtime.cache_ttl_seconds:
+                return list(cached.get("results", []))
+
         vector = self._embedder.encode(query)
 
         if self._backend_name == "qdrant" and self._qdrant_client is not None:
-            return self._search_qdrant(vector, query, top_k)
-        if self._backend_name == "faiss" and self._faiss_index is not None:
-            return self._search_faiss(vector, query, top_k)
-        return self._memory_backend.search(vector, query, top_k)
+            results = self._search_qdrant(vector, query, top_k)
+        elif self._backend_name == "faiss" and self._faiss_index is not None:
+            results = self._search_faiss(vector, query, top_k)
+        else:
+            results = self._memory_backend.search(vector, query, top_k)
+
+        governed: List[Dict[str, Any]] = []
+        for item in results:
+            base_score = max(0.0, min(1.0, float(item.get("score", 0.0))))
+            metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+            item["score"] = self._embedding_runtime.govern_score(base_score, metadata)
+            governed.append(item)
+        governed.sort(key=lambda x: float(x.get("score", 0.0)), reverse=True)
+        if self._embedding_runtime.cache_enabled:
+            self._search_cache[cache_key] = {"ts": now, "results": list(governed[:top_k])}
+        return governed[:top_k]
 
     def count(self) -> int:
         """Return the number of stored documents."""

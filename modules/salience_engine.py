@@ -185,3 +185,7 @@ def get_salience_engine() -> SalienceEngine:
         if _salience_engine is None:
             _salience_engine = SalienceEngine()
     return _salience_engine
+
+
+if __name__ == "__main__":
+    print('Running salience_engine.py')

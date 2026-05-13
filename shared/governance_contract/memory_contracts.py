@@ -508,3 +508,7 @@ def detect_memory_drift(records: list[dict[str, Any]] | None) -> dict[str, Any]:
         "unknown_runtime_modes": unknown_runtime_modes,
         "issues": unique_issues,
     }
+
+
+if __name__ == "__main__":
+    print('Running memory_contracts.py')

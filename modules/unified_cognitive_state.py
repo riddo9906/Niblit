@@ -348,3 +348,7 @@ def get_unified_state() -> UnifiedCognitiveState:
         if _ucs is None:
             _ucs = UnifiedCognitiveState()
     return _ucs
+
+
+if __name__ == "__main__":
+    print('Running unified_cognitive_state.py')

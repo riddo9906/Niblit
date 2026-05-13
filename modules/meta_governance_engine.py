@@ -242,3 +242,7 @@ def get_meta_governance_engine() -> MetaGovernanceEngine:
         if _mge is None:
             _mge = MetaGovernanceEngine()
     return _mge
+
+
+if __name__ == "__main__":
+    print('Running meta_governance_engine.py')

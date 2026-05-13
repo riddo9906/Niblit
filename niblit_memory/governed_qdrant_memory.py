@@ -19,6 +19,8 @@ from shared.governance_contract.memory_contracts import (
     transition_memory_lifecycle,
     validate_memory_payload,
 )
+from shared.governance_contract.schema_v2 import ensure_schema_v2
+from shared.governance_contract.validators import validate_runtime_contract
 
 log = logging.getLogger("GovernedQdrantMemoryCluster")
 
@@ -88,6 +90,8 @@ class GovernedQdrantMemoryCluster:
         memory_type: str = "semantic_memory",
     ) -> dict[str, Any]:
         """Write a normalized governed memory into the cluster catalog/backend."""
+        runtime_payload = ensure_schema_v2(payload or {})
+        runtime_validation = validate_runtime_contract(runtime_payload)
         validation = validate_memory_payload({**(payload or {}), "memory_type": memory_type, "text": text})
         normalized = normalize_memory_payload(
             validation["normalized"],
@@ -96,6 +100,17 @@ class GovernedQdrantMemoryCluster:
             node_identity=self.node_identity,
             authority=self.authority,
         )
+        normalized["schema_v2"] = runtime_payload
+        normalized["runtime_contract"] = runtime_validation["normalized"]
+        normalized["lineage"] = {
+            "trace_id": (normalized.get("replay_metadata") or {}).get("trace_id", ""),
+            "causal_chain": list(normalized.get("causal_chain", [])),
+        }
+        normalized["reflection_binding"] = {
+            "summary": str(normalized.get("reflection_summary") or ""),
+            "memory_type": normalized["memory_type"],
+        }
+        normalized["federation_metadata"] = dict(normalized.get("federation_origin") or {})
         backend = "none"
         stored = False
         store = self._get_vector_store(normalized["memory_type"])
@@ -111,8 +126,8 @@ class GovernedQdrantMemoryCluster:
             self._catalog[normalized["memory_id"]] = normalized
             self._writes += 1
         return {
-            "valid": validation["valid"],
-            "issues": validation["issues"],
+            "valid": validation["valid"] and runtime_validation["valid"],
+            "issues": validation["issues"] + runtime_validation["issues"],
             "stored": stored,
             "backend": backend,
             "memory_id": normalized["memory_id"],
@@ -127,11 +142,13 @@ class GovernedQdrantMemoryCluster:
         memory_types: list[str] | None = None,
         runtime_mode: str = "normal",
         governance_state: str = "active",
+        filters: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Recall governed memories with explainable ranking and filtering."""
         requested_types = [item for item in (memory_types or list(CANONICAL_MEMORY_COLLECTIONS)) if item in CANONICAL_MEMORY_COLLECTIONS]
         query_tokens = {token for token in query.lower().split() if token}
         candidates: dict[str, float] = {}
+        filters = filters or {}
 
         for memory_type in requested_types:
             store = self._get_vector_store(memory_type)
@@ -152,6 +169,12 @@ class GovernedQdrantMemoryCluster:
         ranked: list[dict[str, Any]] = []
         for payload in catalog_values:
             if payload["memory_type"] not in requested_types:
+                continue
+            trace_filter = str(filters.get("trace_id", "")).strip()
+            if trace_filter and str((payload.get("replay_metadata") or {}).get("trace_id", "")) != trace_filter:
+                continue
+            node_filter = str(filters.get("federation_node_id", "")).strip()
+            if node_filter and str((payload.get("federation_origin") or {}).get("node_id", "")) != node_filter:
                 continue
             if not governed_recall_allowed(payload, runtime_mode=runtime_mode, governance_state=governance_state):
                 continue
@@ -258,3 +281,7 @@ def get_governed_qdrant_memory_cluster() -> GovernedQdrantMemoryCluster:
         if _cluster is None:
             _cluster = GovernedQdrantMemoryCluster()
     return _cluster
+
+
+if __name__ == "__main__":
+    print('Running governed_qdrant_memory.py')

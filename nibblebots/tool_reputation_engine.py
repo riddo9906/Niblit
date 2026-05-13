@@ -260,3 +260,7 @@ def get_tool_reputation_engine() -> ToolReputationEngine:
         if _tre is None:
             _tre = ToolReputationEngine()
     return _tre
+
+
+if __name__ == "__main__":
+    print('Running tool_reputation_engine.py')

@@ -391,3 +391,7 @@ def get_model_ecology() -> ModelEcology:
         if _eco is None:
             _eco = ModelEcology()
     return _eco
+
+
+if __name__ == "__main__":
+    print('Running model_ecology.py')

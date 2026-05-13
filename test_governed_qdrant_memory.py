@@ -117,3 +117,7 @@ def test_collection_blueprints_include_required_memory_collections() -> None:
         "execution_memory",
     ):
         assert required in blueprints
+
+
+if __name__ == "__main__":
+    print('Running test_governed_qdrant_memory.py')

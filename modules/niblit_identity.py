@@ -363,3 +363,7 @@ def get_niblit_identity() -> NiblitIdentity:
         if _nid is None:
             _nid = NiblitIdentity()
     return _nid
+
+
+if __name__ == "__main__":
+    print('Running niblit_identity.py')

@@ -271,3 +271,7 @@ class TestRegisterAll:
         reg = ToolRegistry()
         register_all(reg)
         assert len(reg.list_tools()) >= 6
+
+
+if __name__ == "__main__":
+    print('Running test_builtin_tools.py')

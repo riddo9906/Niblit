@@ -333,3 +333,7 @@ def get_forecast_arbitrator() -> ForecastArbitrator:
         if _arb is None:
             _arb = ForecastArbitrator()
     return _arb
+
+
+if __name__ == "__main__":
+    print('Running forecast_arbitrator.py')

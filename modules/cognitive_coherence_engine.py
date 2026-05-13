@@ -306,3 +306,7 @@ def get_cognitive_coherence_engine() -> CognitiveCoherenceEngine:
         if _coherence_engine is None:
             _coherence_engine = CognitiveCoherenceEngine()
     return _coherence_engine
+
+
+if __name__ == "__main__":
+    print('Running cognitive_coherence_engine.py')

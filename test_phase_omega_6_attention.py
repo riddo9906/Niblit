@@ -143,3 +143,7 @@ def test_global_metrics_include_attention_telemetry():
     assert "attention_pressure" in report
     assert "budget_health" in report
     assert report["causal_trace_metadata"]["attention_pressure"] >= 0.0
+
+
+if __name__ == "__main__":
+    print('Running test_phase_omega_6_attention.py')

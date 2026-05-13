@@ -66,6 +66,7 @@ import math
 import os
 import re
 import sqlite3
+import shutil
 import tempfile
 import threading
 import time
@@ -957,6 +958,9 @@ def ingest(memory: Any, raw_line: str, speaker: str = "user") -> Dict[str, Any]:
 # ══════════════════════════════════════════════════════════════════════════════
 
 _kdb_log = logging.getLogger("KnowledgeDB")
+_KDB_QUARANTINE_SNIPPET_CONTEXT = 200
+_KDB_QUARANTINE_DETAILS_MAX_LEN = 500
+_KDB_QUARANTINE_SNIPPET_MAX_LEN = 2000
 
 
 class KnowledgeDB:
@@ -985,6 +989,9 @@ class KnowledgeDB:
         self._initialized = True
 
         self.path = path or _writable_path("niblit_memory.json", "NIBLIT_MEMORY_PATH")
+        self.backup_path = self.path + ".backup"
+        self.snapshot_path = self.path + ".snapshot"
+        self.quarantine_path = self.path + ".quarantine.jsonl"
         self.autosave_interval = autosave_interval
         self.dump_interval = dump_interval
 
@@ -1007,23 +1014,206 @@ class KnowledgeDB:
 
     # ── internal load / save ──────────────────────────────────────────────────
 
-    def _load(self) -> None:
+    @staticmethod
+    def _strip_trailing_commas(src: str) -> str:
+        return re.sub(r",\s*([}\]])", r"\1", src)
+
+    @staticmethod
+    def _safe_single_quote_key_fix(src: str) -> str:
+        # Safe conversion only for object keys in the form: {'key': ...}
+        return re.sub(r"(?<=\{|,)\s*'([A-Za-z0-9_\-\.]+)'\s*:", lambda m: f' "{m.group(1)}":', src)
+
+    @staticmethod
+    def _safe_single_quote_value_fix(src: str) -> str:
+        # Safe conversion only for simple quoted scalar values: : 'value'
+        return re.sub(
+            r":\s*'([A-Za-z0-9 _\-\.:/@]+)'(?=\s*[,}\]])",
+            lambda m: ': "' + m.group(1).replace('"', '\\"') + '"',
+            src,
+        )
+
+    @staticmethod
+    def _truncate_to_balanced_object(src: str) -> str:
+        in_str = False
+        escape = False
+        depth = 0
+        last_balanced = -1
+        started = False
+        for i, ch in enumerate(src):
+            if in_str:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+                continue
+            if ch in "{[":
+                depth += 1
+                started = True
+            elif ch in "}]":
+                depth = max(0, depth - 1)
+                if started and depth == 0:
+                    last_balanced = i
+        if last_balanced >= 0:
+            return src[: last_balanced + 1]
+        return src
+
+    def _record_quarantine(self, reason: str, *, source: str, details: str = "", snippet: str = "") -> None:
         try:
-            if os.path.exists(self.path):
-                with open(self.path, "r", encoding="utf-8") as f:
-                    loaded = json.load(f)
-                    self.data.update(loaded)
-                    _kdb_log.info("KnowledgeDB loaded from %s", self.path)
-        except Exception as e:
-            _kdb_log.error("Failed to load KnowledgeDB: %s", e)
-            self._save(blocking=False)
+            entry = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "source": source,
+                "reason": reason,
+                "details": details[:_KDB_QUARANTINE_DETAILS_MAX_LEN],
+                "snippet": snippet[:_KDB_QUARANTINE_SNIPPET_MAX_LEN],
+            }
+            with open(self.quarantine_path, "a", encoding="utf-8") as qf:
+                qf.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            _kdb_log.debug("KnowledgeDB quarantine write failed: %s", exc)
+
+    @staticmethod
+    def _extract_error_snippet(raw: str, pos: int) -> str:
+        start = max(0, pos - _KDB_QUARANTINE_SNIPPET_CONTEXT)
+        end = pos + _KDB_QUARANTINE_SNIPPET_CONTEXT
+        return raw[start:end]
+
+    def _repair_json(self, raw: str) -> tuple[Optional[Dict[str, Any]], list[str]]:
+        repairs: list[str] = []
+        candidate = raw
+        try:
+            return json.loads(candidate), repairs
+        except Exception:
+            pass
+
+        fixed_keys = self._safe_single_quote_key_fix(candidate)
+        if fixed_keys != candidate:
+            candidate = fixed_keys
+            repairs.append("single_quote_keys_fixed")
+        fixed_values = self._safe_single_quote_value_fix(candidate)
+        if fixed_values != candidate:
+            candidate = fixed_values
+            repairs.append("single_quote_values_fixed")
+        stripped = self._strip_trailing_commas(candidate)
+        if stripped != candidate:
+            candidate = stripped
+            repairs.append("trailing_commas_removed")
+        truncated = self._truncate_to_balanced_object(candidate)
+        if truncated != candidate:
+            candidate = truncated
+            repairs.append("partial_object_truncated")
+
+        try:
+            parsed = json.loads(candidate)
+            return parsed, repairs
+        except Exception:
+            return None, repairs
+
+    def _merge_loaded(self, loaded: Dict[str, Any], source: str) -> None:
+        if not isinstance(loaded, dict):
+            self._record_quarantine(
+                "non_dict_root",
+                source=source,
+                details=f"Root type={type(loaded).__name__}",
+            )
+            return
+        with self.lock:
+            self.data.update(loaded)
+            self.data.setdefault("meta", {})
+            self.data["meta"]["schema_version"] = "2.0"
+            self.data["meta"]["last_load_source"] = source
+            self.data.setdefault("quarantine", [])
+            for key in ("facts", "interactions", "events", "learning_queue", "acquired_data"):
+                value = self.data.get(key)
+                if not isinstance(value, list):
+                    continue
+                clean_items: List[Any] = []
+                for item in value:
+                    if isinstance(item, (dict, str, int, float, bool)) or item is None:
+                        clean_items.append(item)
+                    else:
+                        self.data["quarantine"].append(
+                            {
+                                "source": source,
+                                "field": key,
+                                "reason": "invalid_entry_type",
+                                "entry_type": type(item).__name__,
+                                "ts": datetime.now(timezone.utc).isoformat(),
+                            }
+                        )
+                self.data[key] = clean_items
+        _kdb_log.info("KnowledgeDB loaded from %s", source)
+
+    def _load(self) -> None:
+        candidates = [
+            ("primary", self.path),
+            ("backup", self.backup_path),
+            ("snapshot", self.snapshot_path),
+        ]
+        for label, candidate_path in candidates:
+            if not os.path.exists(candidate_path):
+                continue
+            try:
+                with open(candidate_path, "r", encoding="utf-8") as f:
+                    raw = f.read()
+                loaded = json.loads(raw)
+                self._merge_loaded(loaded, f"{label}:{candidate_path}")
+                return
+            except json.JSONDecodeError as exc:
+                _kdb_log.error(
+                    "Failed to load KnowledgeDB (%s): %s at line=%d col=%d char=%d",
+                    label,
+                    exc.msg,
+                    exc.lineno,
+                    exc.colno,
+                    exc.pos,
+                )
+                repaired, repairs = self._repair_json(raw)
+                if repaired is not None:
+                    _kdb_log.warning(
+                        "KnowledgeDB recovered from %s with repairs: %s",
+                        label,
+                        ", ".join(repairs) or "none",
+                    )
+                    self._record_quarantine(
+                        "json_repaired",
+                        source=f"{label}:{candidate_path}",
+                        details=f"line={exc.lineno} col={exc.colno} pos={exc.pos} repairs={repairs}",
+                        snippet=self._extract_error_snippet(raw, exc.pos),
+                    )
+                    self._merge_loaded(repaired, f"{label}:{candidate_path}:repaired")
+                    return
+                self._record_quarantine(
+                    "json_corruption_unrecoverable",
+                    source=f"{label}:{candidate_path}",
+                    details=f"line={exc.lineno} col={exc.colno} pos={exc.pos}",
+                    snippet=self._extract_error_snippet(raw, exc.pos),
+                )
+            except Exception as exc:
+                _kdb_log.error("Failed to load KnowledgeDB (%s): %s", label, exc)
+                self._record_quarantine("load_exception", source=f"{label}:{candidate_path}", details=str(exc))
+        _kdb_log.warning("KnowledgeDB started in partial recovery mode with default in-memory state")
+        self._save(blocking=False)
 
     def _save(self, blocking: bool = True) -> None:
         def _do_save() -> None:
             try:
                 with self.lock:
+                    if os.path.exists(self.path):
+                        try:
+                            shutil.copyfile(self.path, self.backup_path)
+                        except Exception as exc:
+                            _kdb_log.debug("KnowledgeDB backup snapshot copy failed: %s", exc)
                     with open(self.path, "w", encoding="utf-8") as f:
                         json.dump(self.data, f, indent=4, ensure_ascii=False)
+                    try:
+                        shutil.copyfile(self.path, self.snapshot_path)
+                    except Exception as exc:
+                        _kdb_log.debug("KnowledgeDB snapshot copy failed: %s", exc)
                     _kdb_log.debug("KnowledgeDB saved")
             except Exception as e:
                 _kdb_log.error("KnowledgeDB save failed: %s", e)

@@ -5238,3 +5238,451 @@
 [2026-05-10T15:33:35.589771+00:00] Installed/updated pip package: flask
 [2026-05-10T15:33:36.154678+00:00] Ran modules.orphan_imports (import attempts logged separately)
 [2026-05-10T15:33:36.154774+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:33:44.866584+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:33:44.874381+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:33:44.874543+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:33:44.878980+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:33:44.879125+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:33:44.884583+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:33:44.884722+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:33:44.890557+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:33:44.890667+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:33:44.892206+00:00] HF endpoint replacements: 4
+[2026-05-13T20:33:44.900986+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:33:44.901122+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:33:44.910459+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:33:44.910613+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:33:44.911065+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:33:44.911187+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:33:44.918598+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:33:44.918755+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:33:44.938801+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:33:44.969465+00:00] Backed up /home/runner/work/Niblit/Niblit/test_phase21_cognitive_layer.py -> /home/runner/work/Niblit/Niblit/test_phase21_cognitive_layer.py.bak.1778704418
+[2026-05-13T20:33:44.969564+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_phase21_cognitive_layer.py
+[2026-05-13T20:33:44.970309+00:00] Backed up /home/runner/work/Niblit/Niblit/test_vector_store_embedding_governance.py -> /home/runner/work/Niblit/Niblit/test_vector_store_embedding_governance.py.bak.1778704418
+[2026-05-13T20:33:44.970376+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_vector_store_embedding_governance.py
+[2026-05-13T20:33:44.976196+00:00] Backed up /home/runner/work/Niblit/Niblit/test_knowledge_db_recovery.py -> /home/runner/work/Niblit/Niblit/test_knowledge_db_recovery.py.bak.1778704418
+[2026-05-13T20:33:44.976310+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_knowledge_db_recovery.py
+[2026-05-13T20:33:44.984520+00:00] Backed up /home/runner/work/Niblit/Niblit/test_qdrant_cluster_logic_assets.py -> /home/runner/work/Niblit/Niblit/test_qdrant_cluster_logic_assets.py.bak.1778704418
+[2026-05-13T20:33:44.984589+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_qdrant_cluster_logic_assets.py
+[2026-05-13T20:33:44.997751+00:00] Backed up /home/runner/work/Niblit/Niblit/test_builtin_tools.py -> /home/runner/work/Niblit/Niblit/test_builtin_tools.py.bak.1778704418
+[2026-05-13T20:33:44.997828+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_builtin_tools.py
+[2026-05-13T20:33:45.022532+00:00] Backed up /home/runner/work/Niblit/Niblit/test_runtime_tooling_layer.py -> /home/runner/work/Niblit/Niblit/test_runtime_tooling_layer.py.bak.1778704418
+[2026-05-13T20:33:45.022611+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_runtime_tooling_layer.py
+[2026-05-13T20:33:45.224436+00:00] Backed up /home/runner/work/Niblit/Niblit/test_governed_qdrant_memory.py -> /home/runner/work/Niblit/Niblit/test_governed_qdrant_memory.py.bak.1778704418
+[2026-05-13T20:33:45.224517+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_governed_qdrant_memory.py
+[2026-05-13T20:33:45.229668+00:00] Backed up /home/runner/work/Niblit/Niblit/test_phase_omega_7_execution_envelope.py -> /home/runner/work/Niblit/Niblit/test_phase_omega_7_execution_envelope.py.bak.1778704418
+[2026-05-13T20:33:45.229740+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_phase_omega_7_execution_envelope.py
+[2026-05-13T20:33:45.233139+00:00] Backed up /home/runner/work/Niblit/Niblit/test_tft_forecast.py -> /home/runner/work/Niblit/Niblit/test_tft_forecast.py.bak.1778704418
+[2026-05-13T20:33:45.233203+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_tft_forecast.py
+[2026-05-13T20:33:45.339917+00:00] Backed up /home/runner/work/Niblit/Niblit/test_phase_omega_unification.py -> /home/runner/work/Niblit/Niblit/test_phase_omega_unification.py.bak.1778704418
+[2026-05-13T20:33:45.340003+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_phase_omega_unification.py
+[2026-05-13T20:33:45.344861+00:00] Backed up /home/runner/work/Niblit/Niblit/test_phase_omega_6_attention.py -> /home/runner/work/Niblit/Niblit/test_phase_omega_6_attention.py.bak.1778704418
+[2026-05-13T20:33:45.344926+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_phase_omega_6_attention.py
+[2026-05-13T20:33:45.392320+00:00] Backed up /home/runner/work/Niblit/Niblit/test_phase_omega_5_coherence.py -> /home/runner/work/Niblit/Niblit/test_phase_omega_5_coherence.py.bak.1778704418
+[2026-05-13T20:33:45.392400+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/test_phase_omega_5_coherence.py
+[2026-05-13T20:33:45.486156+00:00] Backed up /home/runner/work/Niblit/Niblit/nibblebots/tool_reputation_engine.py -> /home/runner/work/Niblit/Niblit/nibblebots/tool_reputation_engine.py.bak.1778704418
+[2026-05-13T20:33:45.486240+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/nibblebots/tool_reputation_engine.py
+[2026-05-13T20:33:45.503032+00:00] Backed up /home/runner/work/Niblit/Niblit/niblit_tools/builtin_tools.py -> /home/runner/work/Niblit/Niblit/niblit_tools/builtin_tools.py.bak.1778704418
+[2026-05-13T20:33:45.503099+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_tools/builtin_tools.py
+[2026-05-13T20:33:45.531002+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/lib/runtime_profiles.py -> /home/runner/work/Niblit/Niblit/tools/lib/runtime_profiles.py.bak.1778704418
+[2026-05-13T20:33:45.531072+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/tools/lib/runtime_profiles.py
+[2026-05-13T20:33:45.533774+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/lib/sidecar_client.py -> /home/runner/work/Niblit/Niblit/tools/lib/sidecar_client.py.bak.1778704418
+[2026-05-13T20:33:45.533836+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/tools/lib/sidecar_client.py
+[2026-05-13T20:33:45.595886+00:00] Backed up /home/runner/work/Niblit/Niblit/niblit_memory/unified_memory_engine.py -> /home/runner/work/Niblit/Niblit/niblit_memory/unified_memory_engine.py.bak.1778704418
+[2026-05-13T20:33:45.597671+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_memory/unified_memory_engine.py
+[2026-05-13T20:33:45.601660+00:00] Backed up /home/runner/work/Niblit/Niblit/niblit_memory/memory_compressor.py -> /home/runner/work/Niblit/Niblit/niblit_memory/memory_compressor.py.bak.1778704418
+[2026-05-13T20:33:45.601981+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_memory/memory_compressor.py
+[2026-05-13T20:33:45.606749+00:00] Backed up /home/runner/work/Niblit/Niblit/niblit_memory/governed_qdrant_memory.py -> /home/runner/work/Niblit/Niblit/niblit_memory/governed_qdrant_memory.py.bak.1778704418
+[2026-05-13T20:33:45.607045+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/niblit_memory/governed_qdrant_memory.py
+[2026-05-13T20:33:45.649584+00:00] Backed up /home/runner/work/Niblit/Niblit/shared/governance_contract/memory_contracts.py -> /home/runner/work/Niblit/Niblit/shared/governance_contract/memory_contracts.py.bak.1778704418
+[2026-05-13T20:33:45.649856+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/shared/governance_contract/memory_contracts.py
+[2026-05-13T20:33:45.719941+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/constitutional_layer.py -> /home/runner/work/Niblit/Niblit/modules/constitutional_layer.py.bak.1778704418
+[2026-05-13T20:33:45.720276+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/constitutional_layer.py
+[2026-05-13T20:33:45.722787+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/model_orchestrator.py -> /home/runner/work/Niblit/Niblit/modules/model_orchestrator.py.bak.1778704418
+[2026-05-13T20:33:45.723238+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/model_orchestrator.py
+[2026-05-13T20:33:45.747494+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/self_model.py -> /home/runner/work/Niblit/Niblit/modules/self_model.py.bak.1778704418
+[2026-05-13T20:33:45.747583+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/self_model.py
+[2026-05-13T20:33:45.768849+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/global_cognitive_metrics.py -> /home/runner/work/Niblit/Niblit/modules/global_cognitive_metrics.py.bak.1778704418
+[2026-05-13T20:33:45.769105+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/global_cognitive_metrics.py
+[2026-05-13T20:33:45.784101+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/cognitive_router.py -> /home/runner/work/Niblit/Niblit/modules/cognitive_router.py.bak.1778704418
+[2026-05-13T20:33:45.784577+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/cognitive_router.py
+[2026-05-13T20:33:45.804989+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/execution_graph.py -> /home/runner/work/Niblit/Niblit/modules/execution_graph.py.bak.1778704418
+[2026-05-13T20:33:45.805295+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/execution_graph.py
+[2026-05-13T20:33:45.828707+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/attention_allocator.py -> /home/runner/work/Niblit/Niblit/modules/attention_allocator.py.bak.1778704418
+[2026-05-13T20:33:45.828983+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/attention_allocator.py
+[2026-05-13T20:33:45.894136+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/unified_cognitive_state.py -> /home/runner/work/Niblit/Niblit/modules/unified_cognitive_state.py.bak.1778704418
+[2026-05-13T20:33:45.894525+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/unified_cognitive_state.py
+[2026-05-13T20:33:45.901917+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/model_ecology.py -> /home/runner/work/Niblit/Niblit/modules/model_ecology.py.bak.1778704418
+[2026-05-13T20:33:45.902405+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/model_ecology.py
+[2026-05-13T20:33:45.917618+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/tft_forecast.py -> /home/runner/work/Niblit/Niblit/modules/tft_forecast.py.bak.1778704418
+[2026-05-13T20:33:45.917984+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/tft_forecast.py
+[2026-05-13T20:33:45.947670+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/reflection_engine.py -> /home/runner/work/Niblit/Niblit/modules/reflection_engine.py.bak.1778704418
+[2026-05-13T20:33:45.948289+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/reflection_engine.py
+[2026-05-13T20:33:45.954568+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/forecast_arbitrator.py -> /home/runner/work/Niblit/Niblit/modules/forecast_arbitrator.py.bak.1778704418
+[2026-05-13T20:33:45.955145+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/forecast_arbitrator.py
+[2026-05-13T20:33:45.959089+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/causal_temporal_engine.py -> /home/runner/work/Niblit/Niblit/modules/causal_temporal_engine.py.bak.1778704418
+[2026-05-13T20:33:45.959502+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/causal_temporal_engine.py
+[2026-05-13T20:33:45.965159+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/predictive_world_model.py -> /home/runner/work/Niblit/Niblit/modules/predictive_world_model.py.bak.1778704418
+[2026-05-13T20:33:45.965581+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/predictive_world_model.py
+[2026-05-13T20:33:45.989259+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/salience_engine.py -> /home/runner/work/Niblit/Niblit/modules/salience_engine.py.bak.1778704418
+[2026-05-13T20:33:45.989383+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/salience_engine.py
+[2026-05-13T20:33:45.995720+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/recursive_stability_governor.py -> /home/runner/work/Niblit/Niblit/modules/recursive_stability_governor.py.bak.1778704418
+[2026-05-13T20:33:45.995989+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/recursive_stability_governor.py
+[2026-05-13T20:33:46.014865+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/deliberative_planner.py -> /home/runner/work/Niblit/Niblit/modules/deliberative_planner.py.bak.1778704418
+[2026-05-13T20:33:46.014978+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/deliberative_planner.py
+[2026-05-13T20:33:46.042348+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/autonomic_runtime_manager.py -> /home/runner/work/Niblit/Niblit/modules/autonomic_runtime_manager.py.bak.1778704418
+[2026-05-13T20:33:46.042435+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/autonomic_runtime_manager.py
+[2026-05-13T20:33:46.067398+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/intent_engine.py -> /home/runner/work/Niblit/Niblit/modules/intent_engine.py.bak.1778704418
+[2026-05-13T20:33:46.067493+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/intent_engine.py
+[2026-05-13T20:33:46.111927+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/reality_validation_engine.py -> /home/runner/work/Niblit/Niblit/modules/reality_validation_engine.py.bak.1778704418
+[2026-05-13T20:33:46.112335+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/reality_validation_engine.py
+[2026-05-13T20:33:46.117949+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/cognitive_immune_system.py -> /home/runner/work/Niblit/Niblit/modules/cognitive_immune_system.py.bak.1778704418
+[2026-05-13T20:33:46.118035+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/cognitive_immune_system.py
+[2026-05-13T20:33:46.132026+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/emergence_monitor.py -> /home/runner/work/Niblit/Niblit/modules/emergence_monitor.py.bak.1778704418
+[2026-05-13T20:33:46.132366+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/emergence_monitor.py
+[2026-05-13T20:33:46.139620+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/multi_agent_consciousness.py -> /home/runner/work/Niblit/Niblit/modules/multi_agent_consciousness.py.bak.1778704418
+[2026-05-13T20:33:46.140023+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/multi_agent_consciousness.py
+[2026-05-13T20:33:46.152604+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/cognitive_coherence_engine.py -> /home/runner/work/Niblit/Niblit/modules/cognitive_coherence_engine.py.bak.1778704418
+[2026-05-13T20:33:46.152706+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/cognitive_coherence_engine.py
+[2026-05-13T20:33:46.163749+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/meta_governance_engine.py -> /home/runner/work/Niblit/Niblit/modules/meta_governance_engine.py.bak.1778704418
+[2026-05-13T20:33:46.164212+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/meta_governance_engine.py
+[2026-05-13T20:33:46.173676+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/runtime_resource_manager.py -> /home/runner/work/Niblit/Niblit/modules/runtime_resource_manager.py.bak.1778704418
+[2026-05-13T20:33:46.173960+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/runtime_resource_manager.py
+[2026-05-13T20:33:46.216517+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/human_alignment_engine.py -> /home/runner/work/Niblit/Niblit/modules/human_alignment_engine.py.bak.1778704418
+[2026-05-13T20:33:46.216602+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/human_alignment_engine.py
+[2026-05-13T20:33:46.230640+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/cognitive_budget_manager.py -> /home/runner/work/Niblit/Niblit/modules/cognitive_budget_manager.py.bak.1778704418
+[2026-05-13T20:33:46.230748+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/cognitive_budget_manager.py
+[2026-05-13T20:33:46.246328+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/niblit_identity.py -> /home/runner/work/Niblit/Niblit/modules/niblit_identity.py.bak.1778704418
+[2026-05-13T20:33:46.246611+00:00] Appended __main__ block to /home/runner/work/Niblit/Niblit/modules/niblit_identity.py
+[2026-05-13T20:33:46.411090+00:00] Added __main__ blocks to 49 files
+[2026-05-13T20:33:46.411180+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:33:46.412811+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:33:47.987275+00:00] Installed/updated pip package: flask
+[2026-05-13T20:33:48.474724+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:33:48.474839+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:34:03.189510+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:34:03.197147+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:34:03.197270+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:34:03.201681+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:34:03.201814+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:34:03.207165+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:34:03.207316+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:34:03.213133+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:34:03.213240+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:34:03.214775+00:00] HF endpoint replacements: 4
+[2026-05-13T20:34:03.218039+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:34:03.218166+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:34:03.227654+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:34:03.227824+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:34:03.228254+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:34:03.228443+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:34:03.235713+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:34:03.235825+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:34:03.249660+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:34:04.576923+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:34:04.577013+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:34:04.577948+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:34:05.813141+00:00] Installed/updated pip package: flask
+[2026-05-13T20:34:06.211173+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:34:06.211346+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:34:20.839395+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:34:20.847110+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:34:20.847231+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:34:20.851752+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:34:20.851898+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:34:20.857345+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:34:20.857482+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:34:20.863325+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:34:20.863439+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:34:20.865005+00:00] HF endpoint replacements: 4
+[2026-05-13T20:34:20.868291+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:34:20.868418+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:34:20.877457+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:34:20.877605+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:34:20.878034+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:34:20.878157+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:34:20.885352+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:34:20.885463+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:34:20.899143+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:34:22.226177+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:34:22.226268+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:34:22.227183+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:34:23.179123+00:00] Installed/updated pip package: flask
+[2026-05-13T20:34:23.598161+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:34:23.598328+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:34:38.368884+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:34:38.376525+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:34:38.376644+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:34:38.380969+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:34:38.381105+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:34:38.386540+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:34:38.386682+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:34:38.392526+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:34:38.392633+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:34:38.394158+00:00] HF endpoint replacements: 4
+[2026-05-13T20:34:38.397413+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:34:38.397537+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:34:38.406750+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:34:38.406905+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:34:38.407477+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:34:38.407603+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:34:38.414884+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:34:38.415022+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:34:38.429075+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:34:39.729421+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:34:39.729513+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:34:39.730476+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:34:40.468652+00:00] Installed/updated pip package: flask
+[2026-05-13T20:34:40.859926+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:34:40.860043+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:34:55.658789+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:34:55.666941+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:34:55.667131+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:34:55.671861+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:34:55.672059+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:34:55.677783+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:34:55.678012+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:34:55.684226+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:34:55.684461+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:34:55.686076+00:00] HF endpoint replacements: 4
+[2026-05-13T20:34:55.689648+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:34:55.689858+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:34:55.699249+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:34:55.699472+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:34:55.699992+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:34:55.700118+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:34:55.707637+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:34:55.707817+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:34:55.721912+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:34:57.269013+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:34:57.269130+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:34:57.270037+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:34:58.133223+00:00] Installed/updated pip package: flask
+[2026-05-13T20:34:58.663646+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:34:58.663781+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:35:14.422485+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:35:14.430388+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:35:14.430555+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:35:14.435143+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:35:14.435377+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:35:14.440988+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:35:14.441197+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:35:14.447778+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:35:14.447996+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:35:14.450836+00:00] HF endpoint replacements: 4
+[2026-05-13T20:35:14.455676+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:35:14.455873+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:35:14.465196+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:35:14.465450+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:35:14.465958+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:35:14.466124+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:35:14.473704+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:35:14.473902+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:35:14.488021+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:35:15.897852+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:35:15.897939+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:35:15.898831+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:35:16.633517+00:00] Installed/updated pip package: flask
+[2026-05-13T20:35:17.116491+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:35:17.116629+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:35:31.958111+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:35:31.966152+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:35:31.966360+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:35:31.971121+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:35:31.971322+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:35:31.977012+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:35:31.977178+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:35:31.983332+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:35:31.983496+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:35:31.985086+00:00] HF endpoint replacements: 4
+[2026-05-13T20:35:31.988498+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:35:31.988686+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:35:31.998253+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:35:31.998492+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:35:31.998983+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:35:31.999109+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:35:32.006701+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:35:32.006859+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:35:32.021055+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:35:33.576775+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:35:33.576877+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:35:33.577807+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:35:34.446640+00:00] Installed/updated pip package: flask
+[2026-05-13T20:35:34.960725+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:35:34.960848+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:35:50.828433+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:35:50.836392+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:35:50.836554+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:35:50.841122+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:35:50.841321+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:35:50.846907+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:35:50.847084+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:35:50.853147+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:35:50.853325+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:35:50.854954+00:00] HF endpoint replacements: 4
+[2026-05-13T20:35:50.858443+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:35:50.858616+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:35:50.868074+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:35:50.868314+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:35:50.868808+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:35:50.868939+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:35:50.876450+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:35:50.876590+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:35:50.890717+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:35:52.471173+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:35:52.471305+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:35:52.472209+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:35:53.325104+00:00] Installed/updated pip package: flask
+[2026-05-13T20:35:53.829070+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:35:53.829213+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:36:09.725766+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:36:09.733706+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:36:09.733906+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:36:09.738475+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:36:09.738713+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:36:09.744300+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:36:09.744525+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:36:09.750581+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:36:09.750770+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:36:09.752382+00:00] HF endpoint replacements: 4
+[2026-05-13T20:36:09.755826+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:36:09.756026+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:36:09.765478+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:36:09.765715+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:36:09.766249+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:36:09.766458+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:36:09.773904+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:36:09.774086+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:36:09.788220+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:36:11.150695+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:36:11.150771+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:36:11.151658+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:36:11.877353+00:00] Installed/updated pip package: flask
+[2026-05-13T20:36:12.265728+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:36:12.265853+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:36:27.856841+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:36:27.864842+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:36:27.865001+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:36:27.869522+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:36:27.869675+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:36:27.875349+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:36:27.875553+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:36:27.881606+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:36:27.881762+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:36:27.883377+00:00] HF endpoint replacements: 4
+[2026-05-13T20:36:27.886845+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:36:27.887022+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:36:27.896344+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:36:27.896534+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:36:27.897035+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:36:27.897188+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:36:27.904703+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:36:27.904868+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:36:27.918836+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:36:29.467342+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:36:29.467448+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:36:29.468428+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:36:30.316662+00:00] Installed/updated pip package: flask
+[2026-05-13T20:36:30.805389+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:36:30.805518+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:36:46.759706+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:36:46.767796+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:36:46.767967+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:36:46.772873+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:36:46.773048+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:36:46.778776+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:36:46.778934+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:36:46.785174+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:36:46.785360+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:36:46.786957+00:00] HF endpoint replacements: 4
+[2026-05-13T20:36:46.790453+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:36:46.790616+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:36:46.800775+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:36:46.801094+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:36:46.801751+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:36:46.801894+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:36:46.809898+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:36:46.810052+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:36:46.824663+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:36:48.413763+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:36:48.413876+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:36:48.414845+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:36:49.271601+00:00] Installed/updated pip package: flask
+[2026-05-13T20:36:49.758559+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:36:49.758695+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:37:05.663191+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:37:05.671259+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:37:05.671451+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:37:05.675979+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:37:05.676131+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:37:05.681806+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:37:05.681956+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:37:05.688028+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:37:05.688169+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:37:05.689813+00:00] HF endpoint replacements: 4
+[2026-05-13T20:37:05.693170+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:37:05.693348+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:37:05.702661+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:37:05.702856+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:37:05.703386+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:37:05.703548+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:37:05.711033+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:37:05.711187+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:37:05.725195+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:37:07.065232+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:37:07.065344+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:37:07.066210+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:37:07.776801+00:00] Installed/updated pip package: flask
+[2026-05-13T20:37:08.203476+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:37:08.203616+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:37:22.818914+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:37:22.826532+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:37:22.826666+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:37:22.831010+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:37:22.831141+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:37:22.836455+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:37:22.836608+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:37:22.842410+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:37:22.842531+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:37:22.844063+00:00] HF endpoint replacements: 4
+[2026-05-13T20:37:22.847311+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:37:22.847448+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:37:22.856475+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:37:22.856636+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:37:22.857098+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:37:22.857232+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:37:22.864483+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:37:22.864617+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:37:22.878404+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:37:24.108617+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:37:24.108704+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:37:24.109564+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:37:24.846616+00:00] Installed/updated pip package: flask
+[2026-05-13T20:37:25.241938+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:37:25.242054+00:00] === Self-heal (Mode A) completed ===
+[2026-05-13T20:37:39.840403+00:00] === Self-heal (Mode A) started ===
+[2026-05-13T20:37:39.848026+00:00] Backed up /home/runner/work/Niblit/Niblit/hf_test.py -> /home/runner/work/Niblit/Niblit/hf_test.py.bak.1778704418
+[2026-05-13T20:37:39.848141+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/hf_test.py
+[2026-05-13T20:37:39.852498+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:37:39.852630+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:37:39.857969+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/hf_brain.py -> /home/runner/work/Niblit/Niblit/modules/hf_brain.py.bak.1778704418
+[2026-05-13T20:37:39.858098+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/hf_brain.py
+[2026-05-13T20:37:39.863983+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/llm_adapter.py.bak.1778704418
+[2026-05-13T20:37:39.864112+00:00] Replaced 'router.huggingface.co' -> 'router.huggingface.co' in /home/runner/work/Niblit/Niblit/modules/llm_adapter.py
+[2026-05-13T20:37:39.865728+00:00] HF endpoint replacements: 4
+[2026-05-13T20:37:39.869012+00:00] Backed up /home/runner/work/Niblit/Niblit/Slsa_generator_full.py -> /home/runner/work/Niblit/Niblit/Slsa_generator_full.py.bak.1778704418
+[2026-05-13T20:37:39.869134+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/Slsa_generator_full.py
+[2026-05-13T20:37:39.878205+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/repo_audit.py -> /home/runner/work/Niblit/Niblit/tools/repo_audit.py.bak.1778704418
+[2026-05-13T20:37:39.878386+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/repo_audit.py
+[2026-05-13T20:37:39.878824+00:00] Backed up /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py -> /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py.bak.1778704418
+[2026-05-13T20:37:39.878947+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/tools/self_heal_auto.py
+[2026-05-13T20:37:39.886135+00:00] Backed up /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py -> /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py.bak.1778704418
+[2026-05-13T20:37:39.886240+00:00] Applied smart import path fixes in /home/runner/work/Niblit/Niblit/modules/local_llm_adapter.py
+[2026-05-13T20:37:39.899977+00:00] Smart import fixes applied to 4 files
+[2026-05-13T20:37:41.204863+00:00] Added __main__ blocks to 0 files
+[2026-05-13T20:37:41.204950+00:00] modules/orphan_imports.py already exists
+[2026-05-13T20:37:41.205811+00:00] niblit_core.py already imports modules.orphan_imports
+[2026-05-13T20:37:41.922892+00:00] Installed/updated pip package: flask
+[2026-05-13T20:37:42.307669+00:00] Ran modules.orphan_imports (import attempts logged separately)
+[2026-05-13T20:37:42.307782+00:00] === Self-heal (Mode A) completed ===
