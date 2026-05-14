@@ -75,13 +75,14 @@ class NiblitMemoryLoop:
 
         memory_id = str(uuid.uuid4())
         memory_text = f"USER: {user_input}\nASSISTANT: {response}"
+        memory_vector = embed(memory_text)
         metadata = {
             "kind": "chat_turn",
             "updated_at": int(time.time()),
             "created_at": int(time.time()),
             "frequency": 1,
         }
-        self.vector_memory.upsert_memory(memory_id, memory_text, query_vector, metadata)
+        self.vector_memory.upsert_memory(memory_id, memory_text, memory_vector, metadata)
 
         return {
             "response": response,

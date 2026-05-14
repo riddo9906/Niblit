@@ -66,7 +66,6 @@ class CopilotChangeAnalyzer:
         """Detect required NRR-v2 regression risks before change application."""
         risks: List[str] = []
         touched_files = [str(p) for p in change.get("touched_files", [])] if isinstance(change.get("touched_files"), list) else []
-        imports = [str(i) for i in change.get("imports", [])] if isinstance(change.get("imports"), list) else []
         summary = str(change.get("summary", "")).lower()
 
         if bool(change.get("dual_backend_execution")) or "dual backend" in summary:
@@ -80,7 +79,12 @@ class CopilotChangeAnalyzer:
         if embedding_dim is not None and int(embedding_dim) != 384:
             risks.append("embedding dimension mismatch risk")
 
-        if self._has_circular_import_risk(imports):
+        import_graph = (
+            change.get("import_graph")
+            if isinstance(change.get("import_graph"), dict)
+            else None
+        )
+        if self._has_circular_import_risk(import_graph):
             risks.append("circular import risk")
 
         if bool(change.get("removes_memory_loop")) or "remove memory loop" in summary:
@@ -108,14 +112,28 @@ class CopilotChangeAnalyzer:
         return any(any(key in path for key in hot_paths) for path in touched_files)
 
     @staticmethod
-    def _has_circular_import_risk(imports: List[str]) -> bool:
-        normalized = [entry.strip() for entry in imports if entry.strip()]
-        seen = set()
-        for entry in normalized:
-            if entry in seen:
+    def _has_circular_import_risk(import_graph: Optional[Dict[str, List[str]]]) -> bool:
+        """Detect cycles in a directed import graph."""
+        if not import_graph:
+            return False
+
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def _visit(node: str) -> bool:
+            if node in visited:
+                return False
+            if node in visiting:
                 return True
-            seen.add(entry)
-        return False
+            visiting.add(node)
+            for neighbor in import_graph.get(node, []):
+                if _visit(str(neighbor)):
+                    return True
+            visiting.remove(node)
+            visited.add(node)
+            return False
+
+        return any(_visit(str(node)) for node in import_graph)
 
     @staticmethod
     def _is_destructive(change: Dict[str, object], risks: List[str]) -> bool:

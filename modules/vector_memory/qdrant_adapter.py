@@ -87,7 +87,7 @@ class QdrantAdapter:
 
     @staticmethod
     def _stable_point_id(memory_id: str) -> int:
-        digest = hashlib.md5(memory_id.encode("utf-8")).hexdigest()
+        digest = hashlib.sha256(memory_id.encode("utf-8")).hexdigest()
         return int(digest, 16) % (2**63)
 
     def insert_memory(
