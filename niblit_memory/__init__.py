@@ -73,6 +73,9 @@ import time
 import uuid
 import logging
 import hashlib
+import queue
+import atexit
+import unicodedata
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List
 
@@ -963,6 +966,424 @@ _KDB_QUARANTINE_DETAILS_MAX_LEN = 500
 _KDB_QUARANTINE_SNIPPET_MAX_LEN = 2000
 
 
+class RecoveryIntegrityValidator:
+    """Schema-safe payload validator used by persistence commits."""
+
+    _LIST_FIELDS = ("facts", "interactions", "learning_log", "learning_queue", "events")
+
+    def normalize(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(payload, dict):
+            raise ValueError("KnowledgeDB payload must be a dict")
+        normalized = dict(payload)
+        for field in self._LIST_FIELDS:
+            value = normalized.get(field)
+            if not isinstance(value, list):
+                normalized[field] = [] if value is None else [value]
+        prefs = normalized.get("preferences")
+        if not isinstance(prefs, dict):
+            normalized["preferences"] = {"mood": "neutral", "verbosity": "medium"}
+        meta = normalized.get("meta")
+        if not isinstance(meta, dict):
+            meta = {}
+        meta["schema_version"] = str(meta.get("schema_version") or "2.0")
+        normalized["meta"] = meta
+        return normalized
+
+
+class ReplaySafePersistenceHooks:
+    """Ensure replay/governance lineage fields survive every disk commit."""
+
+    def apply(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        updated = dict(payload)
+        meta = dict(updated.get("meta") or {})
+        replay_meta = dict(meta.get("replay_metadata") or {})
+        replay_meta.setdefault("trace_id", str(replay_meta.get("trace_id") or ""))
+        replay_meta.setdefault("lineage", list(replay_meta.get("lineage") or []))
+        meta["replay_metadata"] = replay_meta
+        meta.setdefault("governance_state", str(meta.get("governance_state") or "active"))
+        meta.setdefault("runtime_mode", str(meta.get("runtime_mode") or "normal"))
+        meta.setdefault("federation_metadata", dict(meta.get("federation_metadata") or {}))
+        meta.setdefault("advisor_lineage", list(meta.get("advisor_lineage") or []))
+        updated["meta"] = meta
+        return updated
+
+
+class AtomicCommitManager:
+    """Crash-safe atomic JSON commit manager with WAL-style rotations."""
+
+    def __init__(self, *, encoding: str = "utf-8") -> None:
+        self.encoding = encoding
+
+    @staticmethod
+    def _fsync_directory(path: str) -> None:
+        directory = os.path.dirname(os.path.abspath(path)) or "."
+        try:
+            fd = os.open(directory, os.O_RDONLY)
+        except Exception:
+            return
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    def _atomic_write_text(self, path: str, text: str) -> None:
+        abs_path = os.path.abspath(path)
+        directory = os.path.dirname(abs_path) or "."
+        os.makedirs(directory, exist_ok=True)
+        tmp_path = ""
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding=self.encoding,
+                dir=directory,
+                delete=False,
+            ) as tf:
+                tmp_path = tf.name
+                tf.write(text)
+                tf.flush()
+                os.fsync(tf.fileno())
+            os.replace(tmp_path, abs_path)
+            self._fsync_directory(abs_path)
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
+
+    def _copy_atomic(self, src: str, dst: str) -> None:
+        with open(src, "r", encoding=self.encoding) as f:
+            raw = f.read()
+        self._atomic_write_text(dst, raw)
+
+    def commit_json(
+        self,
+        *,
+        path: str,
+        payload: Dict[str, Any],
+        backup_path: Optional[str] = None,
+        snapshot_path: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        serialized = json.dumps(payload, indent=4, ensure_ascii=False)
+        # Validate serialised output before touching disk.
+        json.loads(serialized)
+        if backup_path and os.path.exists(path):
+            try:
+                self._copy_atomic(path, backup_path)
+            except Exception as exc:
+                _kdb_log.debug("KnowledgeDB backup snapshot copy failed: %s", exc)
+        self._atomic_write_text(path, serialized)
+        if snapshot_path:
+            try:
+                self._atomic_write_text(snapshot_path, serialized)
+            except Exception as exc:
+                _kdb_log.debug("KnowledgeDB snapshot copy failed: %s", exc)
+        return {
+            "bytes": len(serialized.encode(self.encoding)),
+            "ts": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+class MemoryMutationQueue:
+    """Deduplicating mutation queue for single-writer persistence."""
+
+    def __init__(self) -> None:
+        self._queue: "queue.Queue[int]" = queue.Queue(maxsize=1)
+        self._lock = threading.Lock()
+        self._requested_version = 0
+        self._committed_version = 0
+
+    def enqueue(self) -> int:
+        with self._lock:
+            self._requested_version += 1
+            version = self._requested_version
+            if self._queue.empty():
+                try:
+                    self._queue.put_nowait(version)
+                except queue.Full:
+                    pass
+            return version
+
+    def pop(self, timeout: float = 0.5) -> Optional[int]:
+        try:
+            return self._queue.get(timeout=timeout)
+        except queue.Empty:
+            return None
+
+    def mark_committed(self) -> int:
+        with self._lock:
+            self._committed_version = self._requested_version
+            return self._committed_version
+
+    def committed_version(self) -> int:
+        with self._lock:
+            return self._committed_version
+
+
+class SaveDebounceController:
+    """Debounce rapid save storms while keeping final state durable."""
+
+    def __init__(self, debounce_seconds: float = 0.25) -> None:
+        self.debounce_seconds = max(0.0, float(debounce_seconds))
+        self._last_commit = 0.0
+        self._lock = threading.Lock()
+
+    def wait_turn(self, stop_event: threading.Event) -> None:
+        with self._lock:
+            elapsed = time.time() - self._last_commit
+            wait_for = max(0.0, self.debounce_seconds - elapsed)
+        if wait_for > 0:
+            stop_event.wait(wait_for)
+
+    def mark_commit(self) -> None:
+        with self._lock:
+            self._last_commit = time.time()
+
+
+class EmbeddingMiddleware:
+    """Deterministic async embedding middleware with validation and cache."""
+
+    model_name = "intfloat/multilingual-e5-small"
+    vector_dim = 384
+
+    def __init__(self, *, cache_size: int = 1024) -> None:
+        self.cache_size = max(1, int(cache_size))
+        self._cache: Dict[str, List[float]] = {}
+        self._cache_order: List[str] = []
+        self._lock = threading.Lock()
+        self._queue: "queue.Queue[tuple[str, dict[str, Any] | None]]" = queue.Queue()
+        self._worker: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+    @staticmethod
+    def _normalize_text(text: str) -> str:
+        base = unicodedata.normalize("NFC", str(text or "")).strip()
+        return f"passage: {base}"
+
+    @classmethod
+    def _validate_vector(cls, vector: List[float]) -> List[float]:
+        if len(vector) != cls.vector_dim:
+            raise ValueError(f"Invalid embedding dimension: expected {cls.vector_dim}, got {len(vector)}")
+        if not all(math.isfinite(v) for v in vector):
+            raise ValueError("Invalid embedding vector: non-finite value found")
+        return [float(v) for v in vector]
+
+    @classmethod
+    def _fallback_embedding(cls, text: str) -> List[float]:
+        seed = hashlib.sha256(text.encode("utf-8")).digest()
+        vector: List[float] = []
+        cursor = seed
+        while len(vector) < cls.vector_dim:
+            cursor = hashlib.sha256(cursor).digest()
+            for idx in range(0, len(cursor), 4):
+                chunk = cursor[idx: idx + 4]
+                if len(chunk) < 4:
+                    continue
+                value = int.from_bytes(chunk, "big", signed=False)
+                vector.append((value % 2000000) / 1000000.0 - 1.0)
+                if len(vector) >= cls.vector_dim:
+                    break
+        norm = math.sqrt(sum(v * v for v in vector)) or 1.0
+        return [v / norm for v in vector]
+
+    def _cache_get(self, key: str) -> Optional[List[float]]:
+        with self._lock:
+            vec = self._cache.get(key)
+            if vec is not None:
+                return list(vec)
+        return None
+
+    def _cache_put(self, key: str, vec: List[float]) -> None:
+        with self._lock:
+            if key in self._cache:
+                self._cache[key] = list(vec)
+                return
+            self._cache[key] = list(vec)
+            self._cache_order.append(key)
+            while len(self._cache_order) > self.cache_size:
+                oldest = self._cache_order.pop(0)
+                self._cache.pop(oldest, None)
+
+    def embed_text(self, text: str) -> List[float]:
+        normalized = self._normalize_text(text)
+        cache_key = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+        vector: List[float]
+        try:
+            from modules.embedding_engine import embed as _embed
+            vector = self._validate_vector(_embed(normalized))
+        except Exception:
+            vector = self._validate_vector(self._fallback_embedding(normalized))
+        self._cache_put(cache_key, vector)
+        return list(vector)
+
+    def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        return [self.embed_text(text) for text in texts]
+
+    def _run(self) -> None:
+        while not self._stop_event.is_set():
+            try:
+                text, _metadata = self._queue.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            try:
+                self.embed_text(text)
+            except Exception as exc:
+                _kdb_log.debug("Embedding middleware worker error: %s", exc)
+
+    def start_worker(self) -> None:
+        if self._worker and self._worker.is_alive():
+            return
+        self._stop_event.clear()
+        self._worker = threading.Thread(target=self._run, daemon=True, name="EmbeddingMiddleware-Worker")
+        self._worker.start()
+
+    def stop_worker(self, timeout: float = 2.0) -> None:
+        self._stop_event.set()
+        worker = self._worker
+        if worker and worker.is_alive():
+            worker.join(timeout=timeout)
+
+    def enqueue(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+        self.start_worker()
+        self._queue.put((text, metadata))
+
+
+class QdrantSyncBridge:
+    """Best-effort hook layer for local JSON ↔ governed Qdrant sync."""
+
+    def __init__(self, *, enabled: bool = False) -> None:
+        self.enabled = enabled
+        self.embedding = EmbeddingMiddleware()
+
+    def sync_after_commit(self, payload: Dict[str, Any]) -> None:
+        if not self.enabled:
+            return
+        try:
+            facts = payload.get("facts", [])
+            for fact in facts[-10:]:
+                if isinstance(fact, dict):
+                    text = str(fact.get("value") or fact.get("key") or "")
+                    if text:
+                        self.embedding.enqueue(text, {"source": "knowledge_db"})
+        except Exception as exc:
+            _kdb_log.debug("Qdrant sync bridge skipped: %s", exc)
+
+
+class RuntimePersistenceCoordinator:
+    """Single-writer persistence coordinator for KnowledgeDB."""
+
+    def __init__(
+        self,
+        *,
+        path: str,
+        backup_path: str,
+        snapshot_path: str,
+        payload_supplier,
+        debounce_seconds: float = 0.25,
+        qdrant_sync_enabled: bool = False,
+    ) -> None:
+        self.path = path
+        self.backup_path = backup_path
+        self.snapshot_path = snapshot_path
+        self.payload_supplier = payload_supplier
+        self.mutation_queue = MemoryMutationQueue()
+        self.debounce = SaveDebounceController(debounce_seconds)
+        self.validator = RecoveryIntegrityValidator()
+        self.replay_hooks = ReplaySafePersistenceHooks()
+        self.atomic = AtomicCommitManager()
+        self.qdrant_bridge = QdrantSyncBridge(enabled=qdrant_sync_enabled)
+        self._condition = threading.Condition()
+        self._commit_lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._worker = threading.Thread(
+            target=self._worker_loop,
+            daemon=True,
+            name="GovernedPersistenceWorker",
+        )
+        self._worker.start()
+
+    def request_save(self) -> int:
+        return self.mutation_queue.enqueue()
+
+    def _commit_snapshot(self) -> None:
+        payload = self.payload_supplier()
+        payload = self.validator.normalize(payload)
+        payload = self.replay_hooks.apply(payload)
+        self.atomic.commit_json(
+            path=self.path,
+            payload=payload,
+            backup_path=self.backup_path,
+            snapshot_path=self.snapshot_path,
+        )
+        self.debounce.mark_commit()
+        self.qdrant_bridge.sync_after_commit(payload)
+
+    def _notify_committed(self) -> None:
+        committed = self.mutation_queue.mark_committed()
+        with self._condition:
+            self._condition.notify_all()
+        _kdb_log.debug("Governed persistence committed version=%d", committed)
+
+    def _worker_loop(self) -> None:
+        while not self._stop_event.is_set():
+            version = self.mutation_queue.pop(timeout=0.25)
+            if version is None:
+                continue
+            if self._stop_event.is_set():
+                break
+            try:
+                self.debounce.wait_turn(self._stop_event)
+                with self._commit_lock:
+                    self._commit_snapshot()
+                self._notify_committed()
+            except Exception as exc:
+                _kdb_log.error("Governed persistence worker commit failed: %s", exc)
+
+    def flush(self, timeout: float = 10.0) -> None:
+        target = self.request_save()
+        deadline = time.time() + max(0.1, timeout)
+        while time.time() < deadline:
+            if self.mutation_queue.committed_version() >= target:
+                return
+            with self._condition:
+                remaining = max(0.05, min(0.5, deadline - time.time()))
+                self._condition.wait(timeout=remaining)
+        # Final synchronous fallback to guarantee durability for shutdown paths.
+        with self._commit_lock:
+            self._commit_snapshot()
+        self._notify_committed()
+
+    def shutdown(self, *, flush: bool = True) -> None:
+        if flush:
+            try:
+                self.flush(timeout=10.0)
+            except Exception as exc:
+                _kdb_log.error("Governed persistence flush during shutdown failed: %s", exc)
+        self._stop_event.set()
+        self.request_save()
+        if self._worker.is_alive():
+            self._worker.join(timeout=2.0)
+
+
+class GovernedPersistenceWorker:
+    """Compatibility facade exposing worker semantics used by integrations."""
+
+    def __init__(self, coordinator: RuntimePersistenceCoordinator) -> None:
+        self.coordinator = coordinator
+
+    def schedule(self) -> int:
+        return self.coordinator.request_save()
+
+    def flush(self, timeout: float = 10.0) -> None:
+        self.coordinator.flush(timeout=timeout)
+
+    def shutdown(self, *, flush: bool = True) -> None:
+        self.coordinator.shutdown(flush=flush)
+
+
 class KnowledgeDB:
     """
     Unified Knowledge Database for Niblit.
@@ -996,6 +1417,7 @@ class KnowledgeDB:
         self.dump_interval = dump_interval
 
         self.lock = threading.RLock()
+        self._shutdown_once = threading.Event()
         self.data: Dict[str, Any] = {
             "facts": [],
             "interactions": [],
@@ -1007,6 +1429,16 @@ class KnowledgeDB:
         }
 
         self._load()
+        self._persistence = RuntimePersistenceCoordinator(
+            path=self.path,
+            backup_path=self.backup_path,
+            snapshot_path=self.snapshot_path,
+            payload_supplier=self._snapshot_for_persistence,
+            debounce_seconds=max(0.05, min(float(self.autosave_interval) / 20.0, 2.0)),
+            qdrant_sync_enabled=False,
+        )
+        self._worker = GovernedPersistenceWorker(self._persistence)
+        atexit.register(self.shutdown)
 
         # KnowledgeDB no longer starts its own autosave/dump threads.
         # NiblitMemory's single autosave loop covers KnowledgeDB too.
@@ -1199,29 +1631,22 @@ class KnowledgeDB:
         _kdb_log.warning("KnowledgeDB started in partial recovery mode with default in-memory state")
         self._save(blocking=False)
 
-    def _save(self, blocking: bool = True) -> None:
-        def _do_save() -> None:
-            try:
-                with self.lock:
-                    if os.path.exists(self.path):
-                        try:
-                            shutil.copyfile(self.path, self.backup_path)
-                        except Exception as exc:
-                            _kdb_log.debug("KnowledgeDB backup snapshot copy failed: %s", exc)
-                    with open(self.path, "w", encoding="utf-8") as f:
-                        json.dump(self.data, f, indent=4, ensure_ascii=False)
-                    try:
-                        shutil.copyfile(self.path, self.snapshot_path)
-                    except Exception as exc:
-                        _kdb_log.debug("KnowledgeDB snapshot copy failed: %s", exc)
-                    _kdb_log.debug("KnowledgeDB saved")
-            except Exception as e:
-                _kdb_log.error("KnowledgeDB save failed: %s", e)
+    def _snapshot_for_persistence(self) -> Dict[str, Any]:
+        with self.lock:
+            payload = json.loads(json.dumps(self.data, ensure_ascii=False))
+        return payload
 
-        if blocking:
-            _do_save()
-        else:
-            threading.Thread(target=_do_save, daemon=True, name="KnowledgeDB-SaveBG").start()
+    def _save(self, blocking: bool = True) -> None:
+        coordinator = getattr(self, "_persistence", None)
+        if coordinator is None:
+            return
+        try:
+            if blocking:
+                coordinator.flush(timeout=10.0)
+            else:
+                coordinator.request_save()
+        except Exception as e:
+            _kdb_log.error("KnowledgeDB save failed: %s", e)
 
     # ── generic get / set ─────────────────────────────────────────────────────
 
@@ -1888,8 +2313,16 @@ class KnowledgeDB:
         self._save(blocking=False)
 
     def shutdown(self) -> None:
+        if self._shutdown_once.is_set():
+            return
+        self._shutdown_once.set()
         _kdb_log.info("KnowledgeDB shutting down — saving final state")
-        self._save(blocking=True)
+        try:
+            self._save(blocking=True)
+        finally:
+            coordinator = getattr(self, "_persistence", None)
+            if coordinator is not None:
+                coordinator.shutdown(flush=False)
 
     # ── fused-memory-compatible record / vector API ───────────────────────────
     # These shim methods allow objects that expect a NiblitMemory-style API
@@ -2959,6 +3392,15 @@ __all__ = [
     "get_governed_qdrant_memory_cluster",
     # Knowledge stores
     "KnowledgeDB",
+    "GovernedPersistenceWorker",
+    "RuntimePersistenceCoordinator",
+    "AtomicCommitManager",
+    "MemoryMutationQueue",
+    "SaveDebounceController",
+    "QdrantSyncBridge",
+    "EmbeddingMiddleware",
+    "ReplaySafePersistenceHooks",
+    "RecoveryIntegrityValidator",
     "KnowledgeStore",
     "GLOBAL_KNOWLEDGE",
     # Lightweight DB
