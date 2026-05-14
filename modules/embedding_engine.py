@@ -13,6 +13,20 @@ log = logging.getLogger("Niblit.EmbeddingEngine")
 EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-small"
 EMBEDDING_DIM = 384
 
+
+class GovernanceViolationError(Exception):
+    """Raised when an operation violates the Niblit embedding governance contract.
+
+    This exception is the authoritative signal for:
+    - Embedding dimension mismatches (must be exactly 384)
+    - Non-finite or zero-norm embedding vectors
+    - Any attempt to bypass the embedding validation pipeline
+
+    The contract rule: ALL vectors MUST be 384-dimensional and produced by
+    ``intfloat/multilingual-e5-small`` through the canonical EmbeddingEngine.
+    Direct raw-vector injection is forbidden and raises this error.
+    """
+
 try:
     import numpy as np
 except ImportError:  # pragma: no cover
@@ -53,12 +67,22 @@ class EmbeddingEngine:
     @staticmethod
     def _validate_and_normalize(vector: List[float]) -> List[float]:
         if len(vector) != EMBEDDING_DIM:
-            raise ValueError(f"invalid embedding dimension: expected {EMBEDDING_DIM}, got {len(vector)}")
+            raise GovernanceViolationError(
+                f"Embedding governance contract violated: "
+                f"expected {EMBEDDING_DIM} dimensions, got {len(vector)}. "
+                "ALL vectors must be 384-dimensional."
+            )
         if not all(math.isfinite(v) for v in vector):
-            raise ValueError("invalid embedding: non-finite value found")
+            raise GovernanceViolationError(
+                "Embedding governance contract violated: non-finite value found in vector. "
+                "Rejecting corrupted embedding."
+            )
         norm = math.sqrt(sum(v * v for v in vector))
         if norm <= 0.0:
-            raise ValueError("invalid embedding: zero norm vector")
+            raise GovernanceViolationError(
+                "Embedding governance contract violated: zero-norm vector rejected. "
+                "Vectors must encode meaningful content."
+            )
         return [float(v / norm) for v in vector]
 
     def embed(self, text: str) -> List[float]:

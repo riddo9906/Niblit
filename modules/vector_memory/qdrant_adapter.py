@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qdrant adapter for strict 384-dimensional advisor memory operations."""
+"""Qdrant adapter for strict 384-dimensional governed memory operations."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ import os
 import time
 import uuid
 from typing import Any, Dict, List, Optional
+
+from modules.embedding_engine import GovernanceViolationError
 
 log = logging.getLogger("Niblit.VectorMemory.QdrantAdapter")
 
@@ -72,17 +74,31 @@ class QdrantAdapter:
 
     @staticmethod
     def validate_vector(vector: List[float]) -> List[float]:
-        """Validate and normalize a vector, enforcing exact 384 dimensions."""
+        """Validate and normalize a vector, enforcing exact 384 dimensions.
+
+        Raises ``GovernanceViolationError`` on any contract breach — callers
+        must not catch this silently; it signals a real governance problem.
+        """
         if not isinstance(vector, list):
-            raise ValueError("vector must be a list of floats")
+            raise GovernanceViolationError(
+                "Governance contract violated: vector must be a list of floats, "
+                f"got {type(vector).__name__}"
+            )
         if len(vector) != VECTOR_DIM:
-            raise ValueError(f"vector must be {VECTOR_DIM}-dimensional")
+            raise GovernanceViolationError(
+                f"Governance contract violated: vector must be {VECTOR_DIM}-dimensional, "
+                f"got {len(vector)}"
+            )
         cleaned = [float(v) for v in vector]
         if not all(math.isfinite(v) for v in cleaned):
-            raise ValueError("vector contains non-finite values")
+            raise GovernanceViolationError(
+                "Governance contract violated: vector contains non-finite values"
+            )
         norm = math.sqrt(sum(v * v for v in cleaned))
         if norm <= 0.0:
-            raise ValueError("vector norm must be > 0")
+            raise GovernanceViolationError(
+                "Governance contract violated: vector norm must be > 0"
+            )
         return [v / norm for v in cleaned]
 
     @staticmethod
