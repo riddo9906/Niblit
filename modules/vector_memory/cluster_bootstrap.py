@@ -218,7 +218,14 @@ class ClusterBootstrap:
             return set()
 
     def _validate_existing_collection(self, client: Any, name: str) -> bool:
-        """Validate that an existing collection conforms to the 384-dim governance contract."""
+        """Validate that an existing collection conforms to the 384-dim governance contract.
+
+        Returns ``True`` when the contract is satisfied.  Returns ``False`` when a
+        concrete dimension mismatch is detected.  When collection info cannot be
+        retrieved (transient error), logs a warning and returns ``True`` to avoid
+        blocking normal operations on temporary connectivity issues — but this is
+        logged explicitly so operators can investigate.
+        """
         try:
             info = client.get_collection(name)
             params = getattr(info, "config", None)
@@ -238,8 +245,13 @@ class ClusterBootstrap:
                 return False
             return True
         except Exception as exc:
-            log.debug("[ClusterBootstrap] could not validate existing collection '%s': %s", name, exc)
-            return True  # treat as valid when info is unavailable — preserve governed state
+            log.warning(
+                "[ClusterBootstrap] Could not retrieve schema info for '%s' to validate "
+                "the 384-dim governance contract (%s). Treating existing collection as "
+                "governed (best-effort). Verify manually if this persists.",
+                name, exc,
+            )
+            return True  # preserve governed state on transient failure; see warning above
 
     def _ensure_payload_indexes(self, client: Any, spec: CollectionSpec) -> None:
         """Create payload indexes idempotently — 409 = already exists = success."""

@@ -12,7 +12,7 @@
 #   ✔ 409 = SUCCESS (idempotent)
 #   ✔ existing collections are valid governed state
 #   ✔ system continues boot on all non-5xx responses
-set -uo pipefail
+set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 : "${QDRANT_URL:?set QDRANT_URL}"
@@ -20,22 +20,31 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 ERRORS=0
 
+# Extract the vectors.size field from an api_payloads JSON file.
+# Returns the size value, or "unknown" if the field is absent or parsing fails.
+_payload_vector_size() {
+  local payload_file="$1"
+  python3 -c "
+import json, sys
+try:
+    p = json.load(open('$payload_file'))
+    print(p.get('vectors', {}).get('size', 'unknown'))
+except Exception:
+    print('unknown')
+" 2>/dev/null || echo "unknown"
+}
+
 for payload in "$ROOT_DIR"/deployment/api_payloads/*.json; do
   name=$(basename "$payload" .json)
 
   # STEP 1: Check if collection already exists
   check_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
       -X GET "$QDRANT_URL/collections/$name" \
-      -H "api-key: $QDRANT_API_KEY")
+      -H "api-key: $QDRANT_API_KEY" || echo "000")
 
   if [ "$check_status" = "200" ]; then
     # STEP 2: Already governed — validate expected vector dimension in payload then skip
-    expected_dim=$(python3 -c "
-import json, sys
-p = json.load(open('$payload'))
-v = p.get('vectors', {})
-print(v.get('size', 'unknown'))
-" 2>/dev/null || echo "unknown")
+    expected_dim=$(_payload_vector_size "$payload")
     if [ "$expected_dim" != "384" ]; then
       echo "ERROR: $name payload declares vector size $expected_dim (must be 384). Refusing creation."
       ERRORS=$((ERRORS + 1))
@@ -46,13 +55,7 @@ print(v.get('size', 'unknown'))
   fi
 
   # STEP 3: Collection missing — validate 384-dim before creating
-  expected_dim=$(python3 -c "
-import json, sys
-p = json.load(open('$payload'))
-v = p.get('vectors', {})
-print(v.get('size', 'unknown'))
-" 2>/dev/null || echo "unknown")
-
+  expected_dim=$(_payload_vector_size "$payload")
   if [ "$expected_dim" != "384" ]; then
     echo "ERROR: $name payload declares vector size $expected_dim (must be 384). Refusing creation."
     ERRORS=$((ERRORS + 1))
@@ -64,7 +67,7 @@ print(v.get('size', 'unknown'))
       -X PUT "$QDRANT_URL/collections/$name" \
       -H "api-key: $QDRANT_API_KEY" \
       -H 'Content-Type: application/json' \
-      --data @"$payload")
+      --data @"$payload" || echo "000")
 
   # STEP 4: 2xx = created; 409 = already exists = SUCCESS; others = error
   if [ "$create_status" = "200" ] || [ "$create_status" = "201" ] || [ "$create_status" = "409" ]; then

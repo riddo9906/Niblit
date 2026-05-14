@@ -2,7 +2,7 @@
 # Idempotent payload index creation.
 # HTTP 409 on index creation means the index already exists — treated as SUCCESS.
 # Indexes are governance infrastructure and must survive repeated bootstraps.
-set -uo pipefail
+set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 : "${QDRANT_URL:?set QDRANT_URL}"
 : "${QDRANT_API_KEY:?set QDRANT_API_KEY}"
@@ -28,7 +28,7 @@ PY
       -X PUT "$QDRANT_URL/collections/$name/index" \
       -H "api-key: $QDRANT_API_KEY" \
       -H 'Content-Type: application/json' \
-      --data "$row")
+      --data "$row" || echo "000")
 
     # 2xx = created; 409 = already exists = SUCCESS; others = error
     if [ "$status" = "200" ] || [ "$status" = "201" ] || [ "$status" = "409" ]; then
