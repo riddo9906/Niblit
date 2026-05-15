@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
 
@@ -39,12 +39,12 @@ class RufloAdapter:
 
     def __init__(
         self,
-        api_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        timeout: Optional[int] = None,
-        api_format: Optional[str] = None,
-        chat_path: Optional[str] = None,
+        api_url: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        timeout: int | None = None,
+        api_format: str | None = None,
+        chat_path: str | None = None,
     ) -> None:
         self.api_url = _normalize_url(api_url if api_url is not None else os.getenv("RUFLO_API_URL", ""))
         self.api_key = api_key if api_key is not None else os.getenv("RUFLO_API_KEY", "")
@@ -61,7 +61,7 @@ class RufloAdapter:
         """Return True when a Ruflo API URL is configured."""
         return bool(self.api_url)
 
-    def generate(self, prompt: str, system: str = "", max_tokens: int = 500) -> Optional[str]:
+    def generate(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
         """Send a generation request and return plain text on success."""
         if not self.is_available():
             return None
@@ -95,14 +95,14 @@ class RufloAdapter:
             return f"{self.api_url}/{self.chat_path}"
         return self.api_url
 
-    def _build_headers(self) -> Dict[str, str]:
+    def _build_headers(self) -> dict[str, str]:
         """Build HTTP headers for the Ruflo request."""
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
-    def _build_payload(self, prompt: str, system: str, max_tokens: int) -> Dict[str, Any]:
+    def _build_payload(self, prompt: str, system: str, max_tokens: int) -> dict[str, Any]:
         """Build a request payload matching the configured Ruflo API format."""
         if self.api_format == "openai":
             messages = []
@@ -110,7 +110,7 @@ class RufloAdapter:
                 messages.append({"role": "system", "content": system})
             messages.append({"role": "user", "content": prompt})
 
-            payload: Dict[str, Any] = {
+            payload: dict[str, Any] = {
                 "messages": messages,
                 "max_tokens": max_tokens,
             }
@@ -127,7 +127,7 @@ class RufloAdapter:
             payload["model"] = self.model
         return payload
 
-    def _extract_text(self, response: requests.Response) -> Optional[str]:
+    def _extract_text(self, response: requests.Response) -> str | None:
         """Normalize multiple likely Ruflo response shapes into plain text."""
         try:
             data = response.json()
@@ -138,7 +138,7 @@ class RufloAdapter:
         content = self._extract_from_payload(data)
         return content.strip() if isinstance(content, str) and content.strip() else None
 
-    def _extract_from_payload(self, payload: Any) -> Optional[str]:
+    def _extract_from_payload(self, payload: Any) -> str | None:
         """Recursively extract text from OpenAI-style or generic JSON payloads."""
         if isinstance(payload, str):
             return payload
