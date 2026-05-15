@@ -9919,6 +9919,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         11. Brain.think() (ONLY for general chat)
         """
         # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
+        ltext = text.lower().strip()
 
         log.debug(f"[HANDLE] Input: '{text[:50]}...' | Normalized: '{ltext[:50]}...'")
 
