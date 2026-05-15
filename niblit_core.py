@@ -6391,12 +6391,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 "🔌 [Layer 5/5] Extended Services — ALE, TradingBrain, CivilizationController, 60+ modules…"
             )
             _layer5_timeout = self._INIT_LAYER5_TIMEOUT_DEFAULT
-            try:
-                _layer5_timeout = float(
-                    os.environ.get("NIBLIT_LAYER5_INIT_TIMEOUT", _layer5_timeout)
-                )
-            except (ValueError, TypeError):
-                _layer5_timeout = self._INIT_LAYER5_TIMEOUT_DEFAULT
+            _layer5_timeout_raw = os.environ.get("NIBLIT_LAYER5_INIT_TIMEOUT")
+            if _layer5_timeout_raw is not None:
+                try:
+                    _layer5_timeout = float(_layer5_timeout_raw)
+                except ValueError:
+                    _layer5_timeout = self._INIT_LAYER5_TIMEOUT_DEFAULT
+            # Note: _init_with_timeout still applies NIBLIT_LAYER_INIT_TIMEOUT as
+            # a global override for all layers, including this one.
             self._init_with_timeout(
                 self._init_optional_services,
                 "5-Optional",
