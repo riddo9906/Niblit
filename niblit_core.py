@@ -2038,6 +2038,25 @@ class NiblitCore:
         self.lifecycle = None
         self.serpex_research_agent = None
         self.scrapy_research_agent = None
+        # ── Additive: AIOS scheduler/HAL, observability, and code-intelligence ─
+        self.aios_scheduler: Optional[Any] = None
+        self.aios_hal: Optional[Any] = None
+        self.anomaly_detector: Optional[Any] = None
+        self.metrics_collector: Optional[Any] = None
+        self.log_aggregator: Optional[Any] = None
+        self.pattern_graph: Optional[Any] = None
+        self.knowledge_reasoner: Optional[Any] = None
+        self.architecture_detector: Optional[Any] = None
+        self.knowledge_graph: Optional[Any] = None
+        self.repo_scanner: Optional[Any] = None
+        self.embedding_pipeline: Optional[Any] = None
+        self.ai_dev_lab: Optional[Any] = None
+        self.graph_rag_bridge: Optional[Any] = None
+        self.chat_completions: Optional[Any] = None
+        self.local_brain: Optional[Any] = None
+        self.brain_router: Optional[Any] = None
+        # ── Computed status dicts populated after initialisation ──────────────
+        self._unified_loop_status: dict = {}
 
         log.info("✨ Booting Niblit (Phase 0 — fast start)...")
 
@@ -5865,6 +5884,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         synchronization barrier states so operators can verify that fast and
         slow subsystems are running in coherent lock-step.
         """
+        # pylint: disable=too-many-locals
         if getattr(self, "_tcl", None) is None:
             return "⚠️ Temporal Coherence Layer not initialised (Phase 20 module unavailable)."
         try:
@@ -6018,6 +6038,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_reflect(self, _text: str) -> str:
         """Reflect command — uses ReflectModule directly, NOT LLM."""
+        # pylint: disable=too-many-branches
         topic = (_text[len("reflect"):].strip() if _text.lower().startswith("reflect") else _text.strip()) or ""
         # Direct module path: use reflect directly
         if self.reflect and hasattr(self.reflect, "reflect_on_research"):
@@ -6159,7 +6180,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             result = subprocess.run(
                 [sys.executable, script],
                 capture_output=True, text=True, timeout=300,
-                cwd=BASE_DIR,
+                cwd=BASE_DIR, check=False,
             )
             output = result.stdout or ""
             if result.stderr:
@@ -6184,7 +6205,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             result = subprocess.run(
                 [sys.executable, script],
                 capture_output=True, text=True, timeout=300,
-                cwd=BASE_DIR,
+                cwd=BASE_DIR, check=False,
             )
             output = result.stdout or ""
             if result.stderr:
@@ -6249,7 +6270,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _init_internet(self):
         """Initialize internet manager and GitHub Code Search client."""
-        # pylint: disable=too-many-statements
+        # pylint: disable=too-many-statements,too-many-branches
         try:
             self.internet = InternetManager(db=self.db) if InternetManager else None
             if self.internet:
@@ -6425,6 +6446,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         Pushes a success or warning summary to the init-progress queue so the
         user sees the result immediately after boot.
         """
+        # pylint: disable=too-many-branches,too-many-statements
         checks: list = []
 
         def _ok(name: str) -> None:
@@ -6531,6 +6553,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _refresh_unified_feedback_status(self) -> Dict[str, Any]:
         """Refresh runtime status of the whole-system feedback loop."""
+        # pylint: disable=too-many-branches
         status: Dict[str, Any] = dict(getattr(self, "_unified_loop_status", {}))
         eval_quality = None
         qf_quality = None
@@ -6623,6 +6646,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
           score as a conservative guardrail (conflict_min_guard)
         - otherwise blend with a configurable weighted average
         """
+        # pylint: disable=too-many-locals
         _eval = None
         _qf = None
         try:
@@ -6780,7 +6804,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _init_ai_adapters(self):
         """Initialize AI adapter modules."""
-        # pylint: disable=too-many-branches
+        # pylint: disable=too-many-branches,too-many-nested-blocks
         try:
             self.reflect = safe_call(Reflect_mod, self.db) if Reflect_mod else None
             self.self_healer = safe_call(SelfHealer_mod, self.db) if SelfHealer_mod else None
@@ -7062,7 +7086,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _init_optional_services(self):
         """Initialize optional heavy modules including all improvements."""
-        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
         try:
             self.membrane = safe_call(Membrane) if Membrane else None
             self.healer_obj = safe_call(Healer) if Healer else None
@@ -9028,7 +9052,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self._async_tasks.add(self._event_loop.create_task(task))
 
             self._start_background_loop(
-                lambda: self._event_loop.run_forever(),
+                self._event_loop.run_forever,
                 "AsyncEventLoop"
             )
         except Exception as e:
@@ -9124,7 +9148,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         For each queued topic: search → reflect → teach → store ale_learned memory.
         """
-        # pylint: disable=too-many-branches,too-many-statements
+        # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks
         while self.running:
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
@@ -9291,7 +9315,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         For each queued topic: search → reflect → teach → store ale_learned memory.
         """
-        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
         while self.running:
             try:
                 # Skip if ALE is already running — it covers all research steps
@@ -9334,7 +9358,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                                 _result_box: list = [None]
 
                                 def _do_search(_t=topic):
-                                    _result_box[0] = safe_call(self.researcher.search, _t)
+                                    _result_box[0] = safe_call(self.researcher.search, _t)  # pylint: disable=cell-var-from-loop
 
                                 _st = threading.Thread(target=_do_search, daemon=True)
                                 _st.start()
@@ -9683,6 +9707,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _trigger_learning(self, user_input: str, response: str):
         """Invoke NiblitLearning on each conversation turn, queue follow-up tasks."""
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
         # ── Phase 20: advance temporal epoch ─────────────────────────────────
         _epoch_tag: Optional[int] = None
         if getattr(self, "_tcl", None) is not None:
@@ -9876,7 +9901,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.error(f"Handler exception: {e}", exc_info=True)
             raise
 
-    def _handle_impl(self, text: str) -> str:  # pylint: disable=too-many-return-statements
+    def _handle_impl(self, text: str) -> str:  # pylint: disable=too-many-return-statements,too-many-nested-blocks
         """
         Main handler with clean layered architecture.
 
@@ -9893,8 +9918,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         10. Router fallback (complex routing)
         11. Brain.think() (ONLY for general chat)
         """
-        # pylint: disable=too-many-locals,too-many-branches,too-many-statements
-        ltext = text.lower().strip()
+        # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
 
         log.debug(f"[HANDLE] Input: '{text[:50]}...' | Normalized: '{ltext[:50]}...'")
 
@@ -9948,7 +9972,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # ============================
         # LAYER 3: SLSA COMMANDS
         # ============================
-        if ltext == "slsa-status" or ltext == "status-slsa":
+        if ltext in ("slsa-status", "status-slsa"):
             log.debug("[SLSA-CMD] Intercepted: status")
             return self._get_slsa_status()
 
