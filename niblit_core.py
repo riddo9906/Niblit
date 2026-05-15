@@ -2187,10 +2187,14 @@ class NiblitCore:
     # PHASED INIT: DEFERRED THREAD
     # ============================
 
-    # Default per-layer timeout (seconds).  Override via NIBLIT_LAYER_INIT_TIMEOUT.
+    # Default per-layer timeout (seconds). Override via NIBLIT_LAYER_INIT_TIMEOUT.
     # If a layer hangs past this deadline the layer is marked degraded and the
     # next layer starts immediately — the stalled layer thread continues as daemon.
     _INIT_LAYER_TIMEOUT_DEFAULT: float = 90.0
+    # Layer 5 (optional/extended services) can legitimately run longer, but 10
+    # minutes feels "stuck" in interactive startup. Keep a tighter default and
+    # allow explicit override via NIBLIT_LAYER5_INIT_TIMEOUT.
+    _INIT_LAYER5_TIMEOUT_DEFAULT: float = 120.0
 
     def _init_with_timeout(self, layer_fn, layer_name: str, timeout: float = 0) -> bool:
         """Run *layer_fn* in a daemon thread; continue if it exceeds *timeout* seconds.
@@ -6386,7 +6390,25 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self._push_init_progress(
                 "🔌 [Layer 5/5] Extended Services — ALE, TradingBrain, CivilizationController, 60+ modules…"
             )
-            self._init_with_timeout(self._init_optional_services, "5-Optional", timeout=600.0)
+            _layer5_timeout = self._INIT_LAYER5_TIMEOUT_DEFAULT
+            _layer5_timeout_raw = os.environ.get("NIBLIT_LAYER5_INIT_TIMEOUT")
+            if _layer5_timeout_raw is not None:
+                try:
+                    _layer5_timeout = float(_layer5_timeout_raw)
+                except ValueError:
+                    log.warning(
+                        "[DEFERRED-INIT] Invalid NIBLIT_LAYER5_INIT_TIMEOUT=%r; using default %.1fs",
+                        _layer5_timeout_raw,
+                        self._INIT_LAYER5_TIMEOUT_DEFAULT,
+                    )
+                    _layer5_timeout = self._INIT_LAYER5_TIMEOUT_DEFAULT
+            # Note: _init_with_timeout still applies NIBLIT_LAYER_INIT_TIMEOUT as
+            # a global override for all layers, including this one.
+            self._init_with_timeout(
+                self._init_optional_services,
+                "5-Optional",
+                timeout=_layer5_timeout,
+            )
             self._push_init_progress("✅ [Layer 5/5] Extended Services ready")
 
             # ── Unification check ─────────────────────────────────────────────
