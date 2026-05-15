@@ -7279,31 +7279,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     log.debug("AIDevLab init failed: %s", _laberr)
                     self.startup_report.add("ai_dev_lab", "degraded", str(_laberr))
 
-            # module_loader can execute many optional module imports that may
-            # be slow (or occasionally block on constrained Termux/proot
-            # environments). Keep it off the DeferredInitThread critical path
-            # so Phase-1 readiness can complete and the CLI can open.
-            if load_modules:
-                def _run_module_loader() -> None:
-                    try:
-                        load_modules()
-                        log.info("✅ module_loader background load complete")
-                    except Exception as e:
-                        log.debug(f"load_modules failed: {e}")
-
-                try:
-                    _ml_thread = threading.Thread(
-                        target=_run_module_loader,
-                        daemon=True,
-                        name="ModuleLoaderThread",
-                    )
-                    _ml_thread.start()
-                    log.info("⏳ module_loader started in background thread (non-blocking)")
-                    self.startup_report.add("module_loader", "background")
-                except Exception as e:
-                    log.debug(f"module_loader background start failed: {e}")
-                    self.startup_report.add("module_loader", "degraded", str(e))
-
             # ============================
             # INITIALIZE 10 SELF-IMPROVEMENTS
             # ============================
@@ -8736,6 +8711,31 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as _poe:
                 log.debug("PolicyOptimizer init failed: %s", _poe)
                 self.startup_report.add("policy_optimizer", "degraded", str(_poe))
+
+        # module_loader can execute many optional module imports that may
+        # be slow (or occasionally block on constrained Termux/proot
+        # environments). Start it only after Layer-5 critical imports are done
+        # so import-lock contention cannot stall deferred-init readiness.
+        if load_modules:
+            def _run_module_loader() -> None:
+                try:
+                    load_modules()
+                    log.info("✅ module_loader background load complete")
+                except Exception as e:
+                    log.debug(f"load_modules failed: {e}")
+
+            try:
+                _ml_thread = threading.Thread(
+                    target=_run_module_loader,
+                    daemon=True,
+                    name="ModuleLoaderThread",
+                )
+                _ml_thread.start()
+                log.info("⏳ module_loader started in background thread (post-init, non-blocking)")
+                self.startup_report.add("module_loader", "background")
+            except Exception as e:
+                log.debug(f"module_loader background start failed: {e}")
+                self.startup_report.add("module_loader", "degraded", str(e))
 
         self._init_agents()
 
