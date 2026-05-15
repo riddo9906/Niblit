@@ -6,10 +6,11 @@ Priority:
     1. Qwen Local Brain (QwenLocalBrain)         ← PRIMARY (default)
     2. HuggingFace Router (HFBrain / HFAdapter)  ← FALLBACK
     3. Anthropic Claude (ClaudeEngine)           ← FALLBACK
+    4. Ruflo HTTP Bridge (RufloAdapter)          ← OPTIONAL FALLBACK
 
 The active provider can be switched at runtime via the ``llm-provider``
-CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic|qwen`` in the
-environment before startup.
+CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic|qwen|ruflo`` in
+the environment before startup.
 
 Usage::
 
@@ -34,7 +35,7 @@ log = logging.getLogger("LLMProviderManager")
 _manager: Optional["LLMProviderManager"] = None
 _manager_lock = threading.Lock()
 
-VALID_PROVIDERS = ("hf", "anthropic", "qwen")
+VALID_PROVIDERS = ("hf", "anthropic", "qwen", "ruflo")
 DEFAULT_PROVIDER = "qwen"
 
 
@@ -61,6 +62,8 @@ class LLMProviderManager:
     ``"qwen"``       Local Qwen brain via
                      :class:`~modules.local_brain.QwenLocalBrain`
                      (local model, no cloud API key required).
+    ``"ruflo"``      Ruflo HTTP bridge via :class:`~modules.ruflo_adapter.RufloAdapter`
+                     (requires ``RUFLO_API_URL`` and optional auth/model vars).
 
     The active provider is stored as a plain string attribute so it can be
     read or overwritten by any module that holds a reference.
@@ -75,6 +78,7 @@ class LLMProviderManager:
         self._hf_brain: Optional[Any] = None
         self._claude: Optional[Any] = None
         self._local_brain: Optional[Any] = None
+        self._ruflo: Optional[Any] = None
 
     # ── wiring (called by niblit_core / niblit_brain after init) ─────────────
 
@@ -112,11 +116,13 @@ class LLMProviderManager:
         hf_ok = self._hf_available()
         ant_ok = self._anthropic_available()
         qwen_ok = self._qwen_available()
+        ruflo_ok = self._ruflo_available()
         return {
             "active": self.active,
             "hf": hf_ok,
             "anthropic": ant_ok,
             "qwen": qwen_ok,
+            "ruflo": ruflo_ok,
             "hf_model": getattr(self._hf_brain, "model", "n/a") if hf_ok else "n/a",
             "anthropic_model": (
                 getattr(self._claude, "_model", "n/a")
@@ -126,6 +132,11 @@ class LLMProviderManager:
             "qwen_model": (
                 getattr(self._local_brain, "model_name", "n/a")
                 if self._local_brain is not None
+                else "n/a"
+            ),
+            "ruflo_model": (
+                getattr(self._ruflo, "model", "n/a")
+                if self._ruflo is not None and ruflo_ok
                 else "n/a"
             ),
         }
@@ -146,6 +157,7 @@ class LLMProviderManager:
             "hf": self._ask_hf,
             "anthropic": self._ask_anthropic,
             "qwen": self._ask_qwen,
+            "ruflo": self._ask_ruflo,
         }
         order = [self.active] + [p for p in VALID_PROVIDERS if p != self.active]
 
@@ -205,6 +217,13 @@ class LLMProviderManager:
             lb = self._local_brain
         return lb is not None
 
+    def _ruflo_available(self) -> bool:
+        rf = self._ruflo
+        if rf is None:
+            self._ruflo = self._lazy_ruflo()
+            rf = self._ruflo
+        return rf is not None and getattr(rf, "is_available", lambda: False)()
+
     def _ask_qwen(self, prompt: str, system: str = "", max_tokens: int = 500) -> Optional[str]:
         lb = self._local_brain
         if lb is None:
@@ -224,6 +243,16 @@ class LLMProviderManager:
         if lower.startswith("[localbrain ") and ("unavailable" in lower or "error" in lower):
             return None
         return text
+
+    def _ask_ruflo(self, prompt: str, system: str = "", max_tokens: int = 500) -> Optional[str]:
+        rf = self._ruflo
+        if rf is None:
+            rf = self._lazy_ruflo()
+            self._ruflo = rf
+        if rf is None or not getattr(rf, "is_available", lambda: False)():
+            return None
+        result = rf.generate(prompt, system=system or "", max_tokens=max_tokens)
+        return result if result and result.strip() else None
 
     def _lazy_hf(self) -> Optional[Any]:
         """Try to import and instantiate HFBrain without requiring a DB."""
@@ -250,6 +279,15 @@ class LLMProviderManager:
             return get_local_brain()
         except Exception as exc:
             log.debug("[LLMProviderManager] LocalBrain lazy-init failed: %s", exc)
+            return None
+
+    def _lazy_ruflo(self) -> Optional[Any]:
+        """Try to import and instantiate Ruflo HTTP adapter."""
+        try:
+            from modules.ruflo_adapter import RufloAdapter  # type: ignore[import]
+            return RufloAdapter()
+        except Exception as exc:
+            log.debug("[LLMProviderManager] RufloAdapter lazy-init failed: %s", exc)
             return None
 
 

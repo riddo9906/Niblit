@@ -218,15 +218,28 @@ class TestNiblitRouterProcess:
             "hf": True,
             "anthropic": False,
             "qwen": True,
+            "ruflo": False,
             "hf_model": "hf-model",
             "anthropic_model": "n/a",
             "qwen_model": "Qwen/Qwen2.5-0.5B-Instruct",
+            "ruflo_model": "n/a",
         }
         with patch("modules.llm_provider_manager.get_llm_provider_manager", return_value=mock_mgr):
             result = router.process("llm-provider status")
         assert "qwen" in result.lower()
         assert "active provider: **qwen**" in result.lower()
+        assert "ruflo http" in result.lower()
         assert "local-model switch qwen|llama3" in result.lower()
+
+    def test_llm_provider_ruflo_switch_command(self):
+        router, _, _, _ = _make_router()
+        mock_mgr = MagicMock()
+        mock_mgr.switch.return_value = "✅ LLM provider switched to **ruflo**."
+
+        with patch("modules.llm_provider_manager.get_llm_provider_manager", return_value=mock_mgr):
+            result = router.process("llm-provider ruflo")
+        mock_mgr.switch.assert_called_once_with("ruflo")
+        assert "ruflo" in result.lower()
 
     def test_llm_provider_llama3_switch_alias(self):
         router, _, _, core = _make_router()

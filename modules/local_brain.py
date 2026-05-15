@@ -258,7 +258,7 @@ CODE CAPABILITIES:
 
 KEY COMMANDS (always valid):
   help | status | brain status | brain mode <local|balanced|power|offline>
-  toggle-llm on/off/status | llm-provider qwen|hf|anthropic|status
+  toggle-llm on/off/status | llm-provider qwen|hf|anthropic|ruflo|status
   recall <topic> | knowledge stats | acquired data
   autonomous-learn start|stop|status
   run code <lang> <code> | fix code <lang> <code> | validate <lang> <code>
@@ -377,7 +377,7 @@ You have function-calling tools to inspect and control every subsystem.
 ─── ALL ROUTER COMMANDS ───
   System:      status | health | version | help | commands | time
   Brain:       brain status | brain mode <local|balanced|power|offline>
-               toggle-llm on|off|status | llm-provider qwen|hf|anthropic|status
+               toggle-llm on|off|status | llm-provider qwen|hf|anthropic|ruflo|status
   Local Model: local-model status | local-model list | local-model switch <preset>
   Memory/KB:   recall <topic> | knowledge stats | acquired data | kb stats
                qwen status | qwen audit-kb | qwen clean-kb | qwen memory-summary
