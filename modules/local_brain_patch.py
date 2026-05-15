@@ -58,3 +58,7 @@ def restore_local_brain_generate(local_brain: Optional[Any] = None) -> Any:
         local_brain.generate = original
         local_brain._nrr_v2_patched = False
     return local_brain
+
+
+if __name__ == "__main__":
+    print('Running local_brain_patch.py')

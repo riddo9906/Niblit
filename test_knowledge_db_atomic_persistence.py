@@ -83,3 +83,7 @@ def test_embedding_middleware_returns_deterministic_384_vectors():
     assert v1 == v2
     assert len(batch) == 2
     assert all(len(v) == 384 for v in batch)
+
+
+if __name__ == "__main__":
+    print('Running test_knowledge_db_atomic_persistence.py')

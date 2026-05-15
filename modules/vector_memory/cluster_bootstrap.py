@@ -373,3 +373,7 @@ class ClusterBootstrap:
                 len(results),
             )
         return results
+
+
+if __name__ == "__main__":
+    print('Running cluster_bootstrap.py')

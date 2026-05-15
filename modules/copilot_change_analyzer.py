@@ -167,3 +167,7 @@ class CopilotChangeAnalyzer:
         if "circular import risk" in risks:
             return "Split shared interfaces into leaf modules and avoid bidirectional imports."
         return "Refactor using wrapper modules without rewriting stable subsystems."
+
+
+if __name__ == "__main__":
+    print('Running copilot_change_analyzer.py')

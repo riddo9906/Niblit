@@ -111,3 +111,7 @@ def get_embedding_engine() -> EmbeddingEngine:
 def embed(text: str) -> List[float]:
     """Public embed API for middleware usage."""
     return get_embedding_engine().embed(text)
+
+
+if __name__ == "__main__":
+    print('Running embedding_engine.py')
