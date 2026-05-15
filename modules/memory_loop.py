@@ -90,3 +90,7 @@ class NiblitMemoryLoop:
             "memory_id": memory_id,
             "router": self.router.last_route(),
         }
+
+
+if __name__ == "__main__":
+    print('Running memory_loop.py')

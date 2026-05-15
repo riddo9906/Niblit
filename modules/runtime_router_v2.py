@@ -50,3 +50,7 @@ class NiblitUnifiedRuntimeRouterV2:
     def last_route(self) -> Dict[str, Any]:
         """Return the last routing decision metadata."""
         return dict(self._last_route)
+
+
+if __name__ == "__main__":
+    print('Running runtime_router_v2.py')

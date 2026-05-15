@@ -198,3 +198,7 @@ class QdrantAdapter:
         except Exception as exc:
             log.warning("[QdrantAdapter] search failed: %s", exc)
             return []
+
+
+if __name__ == "__main__":
+    print('Running qdrant_adapter.py')
