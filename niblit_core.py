@@ -6396,6 +6396,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 try:
                     _layer5_timeout = float(_layer5_timeout_raw)
                 except ValueError:
+                    log.warning(
+                        "[DEFERRED-INIT] Invalid NIBLIT_LAYER5_INIT_TIMEOUT=%r; using default %.1fs",
+                        _layer5_timeout_raw,
+                        self._INIT_LAYER5_TIMEOUT_DEFAULT,
+                    )
                     _layer5_timeout = self._INIT_LAYER5_TIMEOUT_DEFAULT
             # Note: _init_with_timeout still applies NIBLIT_LAYER_INIT_TIMEOUT as
             # a global override for all layers, including this one.
