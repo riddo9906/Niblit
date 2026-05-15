@@ -338,7 +338,7 @@ def _update_brain_debate_trust(winner: str, outcome: float) -> None:
 
     ``new_trust = clamp(old_trust + BRAIN_DEBATE_TRUST_LR × (outcome − 0.5))``
     """
-    global _BRAIN_DEBATE_TRUST, _brain_debate_last_winner  # pylint: disable=global-statement
+    global _brain_debate_last_winner  # pylint: disable=global-statement
     with _brain_debate_lock:
         old = _BRAIN_DEBATE_TRUST.get(winner, 0.5)
         new = max(0.05, min(0.95, old + BRAIN_DEBATE_TRUST_LR * (outcome - 0.5)))
@@ -1623,7 +1623,7 @@ class NiblitBrain:
         _debate_prefer_local: bool = False
         _debate_augment_context: bool = False
         if BRAIN_DEBATE_ENABLED:
-            global _BRAIN_DEBATE_TRUST, _brain_debate_last_winner  # pylint: disable=global-statement
+            global _brain_debate_last_winner  # pylint: disable=global-statement
             with _brain_debate_lock:
                 _proposals = _build_brain_debate_proposals(user_input, self.llm_enabled)
                 _debate_winner, _winning_proposal = _brain_debate_vote(
@@ -1645,9 +1645,8 @@ class NiblitBrain:
         # For normal user chat, this block is a no-op.
         _sil_resonance_hint: str = ""
         try:
-            import re as _re  # noqa: PLC0415
-            _sil_prefix_match = _re.match(
-                r"^SYS:([A-Za-z0-9_\-]+):\s*(.*)", user_input, _re.DOTALL
+            _sil_prefix_match = re.match(
+                r"^SYS:([A-Za-z0-9_\-]+):\s*(.*)", user_input, re.DOTALL
             )
             if _sil_prefix_match:
                 _sil_system_id = _sil_prefix_match.group(1)
