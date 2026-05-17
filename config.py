@@ -41,8 +41,8 @@ class Config:
     # unless overridden by provider-specific env vars.
     LLM_MODEL: str = os.getenv("NIBLIT_LLM_MODEL", "")
 
-    # Active LLM provider: "qwen" (local, default), "hf", or "anthropic".
-    # Can be switched at runtime with `llm-provider hf|anthropic|qwen`.
+    # Active LLM provider: "qwen" (local, default), "hf", "anthropic", or "ruflo".
+    # Can be switched at runtime with `llm-provider hf|anthropic|ruflo|qwen`.
     LLM_ACTIVE_PROVIDER: str = os.getenv("NIBLIT_LLM_PROVIDER", "qwen")
 
     # OpenAI (https://platform.openai.com/api-keys)
@@ -52,6 +52,14 @@ class Config:
     # Anthropic (https://console.anthropic.com/account/keys)
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+
+    # Ruflo HTTP bridge (https://github.com/ruvnet/ruflo)
+    RUFLO_API_URL: str = os.getenv("RUFLO_API_URL", "")
+    RUFLO_API_KEY: str = os.getenv("RUFLO_API_KEY", "")
+    RUFLO_MODEL: str = os.getenv("RUFLO_MODEL", "")
+    RUFLO_TIMEOUT: int = int(os.getenv("RUFLO_TIMEOUT", "60"))
+    RUFLO_API_FORMAT: str = os.getenv("RUFLO_API_FORMAT", "openai")
+    RUFLO_CHAT_PATH: str = os.getenv("RUFLO_CHAT_PATH", "/v1/chat/completions")
 
     # ── Phase 4 Research APIs ────────────────────────────────────────────────
     # Stack Exchange / Stack Overflow API
@@ -154,6 +162,7 @@ class Config:
             ("HuggingFace LLM",      "HF_TOKEN",           bool(cls.HF_TOKEN)),
             ("OpenAI LLM",           "OPENAI_API_KEY",      bool(cls.OPENAI_API_KEY)),
             ("Anthropic LLM",        "ANTHROPIC_API_KEY",   bool(cls.ANTHROPIC_API_KEY)),
+            ("Ruflo HTTP bridge",    "RUFLO_API_URL",       bool(cls.RUFLO_API_URL)),
             ("Qdrant vector store",  "QDRANT_URL",          bool(cls.QDRANT_URL)),
             ("SerpEx search",        "SERPEX_API_KEY",      bool(cls.SERPEX_API_KEY)),
             ("SerpAPI search",       "SERPAPI_API_KEY",     bool(cls.SERPAPI_API_KEY)),
@@ -161,7 +170,12 @@ class Config:
             ("API key auth",         "NIBLIT_API_KEY",      bool(cls.NIBLIT_API_KEY)),
         ]
 
-        any_llm = bool(cls.HF_TOKEN or cls.OPENAI_API_KEY or cls.ANTHROPIC_API_KEY)
+        any_llm = bool(
+            cls.HF_TOKEN
+            or cls.OPENAI_API_KEY
+            or cls.ANTHROPIC_API_KEY
+            or cls.RUFLO_API_URL
+        )
 
         lines = ["", "┌─── Niblit service status ───────────────────────────────────────┐"]
         for label, env_var, enabled in checks:
@@ -183,6 +197,7 @@ class Config:
                 "│    HF_TOKEN          (HuggingFace router — free tier available)  │\n"
                 "│    OPENAI_API_KEY    (OpenAI — pay-as-you-go)                    │\n"
                 "│    ANTHROPIC_API_KEY (Anthropic — pay-as-you-go)                 │\n"
+                "│    RUFLO_API_URL     (Ruflo HTTP bridge endpoint)                │\n"
                 "└──────────────────────────────────────────────────────────────────┘"
             )
             print(msg)

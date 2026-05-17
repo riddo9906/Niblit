@@ -24,6 +24,21 @@ class _StubHFBrain:
         return "hf fallback answer"
 
 
+class _StubRuflo:
+    model = "ruflo-qwen"
+
+    def __init__(self, response="ruflo answer", available=True):
+        self._response = response
+        self._available = available
+
+    def is_available(self):
+        return self._available
+
+    def generate(self, prompt, system="", max_tokens=500):
+        _ = (prompt, system, max_tokens)
+        return self._response
+
+
 class TestLLMProviderManagerQwen:
     def test_switch_to_qwen_and_ask(self):
         mgr = LLMProviderManager()
@@ -49,6 +64,31 @@ class TestLLMProviderManagerQwen:
             hf_brain=_StubHFBrain(),
         )
         mgr.switch("qwen")
+
+        assert mgr.ask("hello") == "hf fallback answer"
+
+    def test_switch_to_ruflo_and_ask(self):
+        mgr = LLMProviderManager()
+        mgr._ruflo = _StubRuflo("ruflo answer")
+
+        msg = mgr.switch("ruflo")
+        assert "ruflo" in msg.lower()
+        assert mgr.ask("hello") == "ruflo answer"
+
+    def test_status_includes_ruflo(self):
+        mgr = LLMProviderManager()
+        mgr._ruflo = _StubRuflo()
+        s = mgr.status()
+
+        assert "ruflo" in s
+        assert "ruflo_model" in s
+        assert s["ruflo"] is True
+
+    def test_ruflo_falls_back_to_hf_when_unavailable(self):
+        mgr = LLMProviderManager()
+        mgr._ruflo = _StubRuflo(available=False)
+        mgr.wire(hf_brain=_StubHFBrain())
+        mgr.switch("ruflo")
 
         assert mgr.ask("hello") == "hf fallback answer"
 

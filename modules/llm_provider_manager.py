@@ -6,10 +6,11 @@ Priority:
     1. Qwen Local Brain (QwenLocalBrain)         ← PRIMARY (default)
     2. HuggingFace Router (HFBrain / HFAdapter)  ← FALLBACK
     3. Anthropic Claude (ClaudeEngine)           ← FALLBACK
+    4. Ruflo HTTP Bridge (RufloAdapter)          ← OPTIONAL FALLBACK
 
 The active provider can be switched at runtime via the ``llm-provider``
-CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic|qwen`` in the
-environment before startup.
+CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic|qwen|ruflo`` in
+the environment before startup.
 
 Usage::
 
@@ -23,22 +24,24 @@ Usage::
     info = mgr.status()       # {"active": "hf", "hf": True, "anthropic": False, ...}
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import threading
-from typing import Any, Dict, Optional
+from typing import Any
 
 log = logging.getLogger("LLMProviderManager")
 
 # ── module-level singleton ────────────────────────────────────────────────────
-_manager: Optional["LLMProviderManager"] = None
+_manager: LLMProviderManager | None = None
 _manager_lock = threading.Lock()
 
-VALID_PROVIDERS = ("hf", "anthropic", "qwen")
+VALID_PROVIDERS = ("hf", "anthropic", "qwen", "ruflo")
 DEFAULT_PROVIDER = "qwen"
 
 
-def get_llm_provider_manager() -> "LLMProviderManager":
+def get_llm_provider_manager() -> LLMProviderManager:
     """Return the process-level :class:`LLMProviderManager` singleton."""
     global _manager
     if _manager is None:
@@ -61,6 +64,8 @@ class LLMProviderManager:
     ``"qwen"``       Local Qwen brain via
                      :class:`~modules.local_brain.QwenLocalBrain`
                      (local model, no cloud API key required).
+    ``"ruflo"``      Ruflo HTTP bridge via :class:`~modules.ruflo_adapter.RufloAdapter`
+                     (requires ``RUFLO_API_URL`` and optional auth/model vars).
 
     The active provider is stored as a plain string attribute so it can be
     read or overwritten by any module that holds a reference.
@@ -72,17 +77,18 @@ class LLMProviderManager:
         self._lock = threading.Lock()
 
         # Lazily resolved provider instances — set by wire() or on first ask()
-        self._hf_brain: Optional[Any] = None
-        self._claude: Optional[Any] = None
-        self._local_brain: Optional[Any] = None
+        self._hf_brain: Any | None = None
+        self._claude: Any | None = None
+        self._local_brain: Any | None = None
+        self._ruflo: Any | None = None
 
     # ── wiring (called by niblit_core / niblit_brain after init) ─────────────
 
     def wire(
         self,
-        hf_brain: Optional[Any] = None,
-        claude: Optional[Any] = None,
-        local_brain: Optional[Any] = None,
+        hf_brain: Any | None = None,
+        claude: Any | None = None,
+        local_brain: Any | None = None,
     ) -> None:
         """Attach live provider instances.  Safe to call multiple times."""
         with self._lock:
@@ -107,16 +113,18 @@ class LLMProviderManager:
 
     # ── status ────────────────────────────────────────────────────────────────
 
-    def status(self) -> Dict[str, Any]:
+    def status(self) -> dict[str, Any]:
         """Return a status dict with provider availability."""
         hf_ok = self._hf_available()
         ant_ok = self._anthropic_available()
         qwen_ok = self._qwen_available()
+        ruflo_ok = self._ruflo_available()
         return {
             "active": self.active,
             "hf": hf_ok,
             "anthropic": ant_ok,
             "qwen": qwen_ok,
+            "ruflo": ruflo_ok,
             "hf_model": getattr(self._hf_brain, "model", "n/a") if hf_ok else "n/a",
             "anthropic_model": (
                 getattr(self._claude, "_model", "n/a")
@@ -128,6 +136,11 @@ class LLMProviderManager:
                 if self._local_brain is not None
                 else "n/a"
             ),
+            "ruflo_model": (
+                getattr(self._ruflo, "model", "n/a")
+                if self._ruflo is not None and ruflo_ok
+                else "n/a"
+            ),
         }
 
     # ── main ask() entry point ────────────────────────────────────────────────
@@ -137,7 +150,7 @@ class LLMProviderManager:
         prompt: str,
         system: str = "",
         max_tokens: int = 500,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Generate a response using the active provider, falling back to the other.
 
         Returns ``None`` when both providers are unavailable.
@@ -146,6 +159,7 @@ class LLMProviderManager:
             "hf": self._ask_hf,
             "anthropic": self._ask_anthropic,
             "qwen": self._ask_qwen,
+            "ruflo": self._ask_ruflo,
         }
         order = [self.active] + [p for p in VALID_PROVIDERS if p != self.active]
 
@@ -176,7 +190,7 @@ class LLMProviderManager:
             cl = self._claude
         return cl is not None and getattr(cl, "is_available", lambda: False)()
 
-    def _ask_hf(self, prompt: str, system: str = "", max_tokens: int = 500) -> Optional[str]:
+    def _ask_hf(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
         hf = self._hf_brain
         if hf is None:
             hf = self._lazy_hf()
@@ -187,7 +201,7 @@ class LLMProviderManager:
         result = hf.ask_single(prompt)
         return result if result and result.strip() else None
 
-    def _ask_anthropic(self, prompt: str, system: str = "", max_tokens: int = 500) -> Optional[str]:
+    def _ask_anthropic(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
         cl = self._claude
         if cl is None:
             cl = self._lazy_claude()
@@ -205,7 +219,14 @@ class LLMProviderManager:
             lb = self._local_brain
         return lb is not None
 
-    def _ask_qwen(self, prompt: str, system: str = "", max_tokens: int = 500) -> Optional[str]:
+    def _ruflo_available(self) -> bool:
+        rf = self._ruflo
+        if rf is None:
+            self._ruflo = self._lazy_ruflo()
+            rf = self._ruflo
+        return rf is not None and getattr(rf, "is_available", lambda: False)()
+
+    def _ask_qwen(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
         lb = self._local_brain
         if lb is None:
             lb = self._lazy_local_brain()
@@ -225,7 +246,17 @@ class LLMProviderManager:
             return None
         return text
 
-    def _lazy_hf(self) -> Optional[Any]:
+    def _ask_ruflo(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+        rf = self._ruflo
+        if rf is None:
+            rf = self._lazy_ruflo()
+            self._ruflo = rf
+        if rf is None or not getattr(rf, "is_available", lambda: False)():
+            return None
+        result = rf.generate(prompt, system=system or "", max_tokens=max_tokens)
+        return result if result and result.strip() else None
+
+    def _lazy_hf(self) -> Any | None:
         """Try to import and instantiate HFBrain without requiring a DB."""
         try:
             from modules.hf_brain import HFBrain  # type: ignore[import]
@@ -234,7 +265,7 @@ class LLMProviderManager:
             log.debug("[LLMProviderManager] HFBrain lazy-init failed: %s", exc)
             return None
 
-    def _lazy_claude(self) -> Optional[Any]:
+    def _lazy_claude(self) -> Any | None:
         """Try to import and instantiate ClaudeEngine."""
         try:
             from niblit_models.claude_engine import ClaudeEngine  # type: ignore[import]
@@ -243,13 +274,22 @@ class LLMProviderManager:
             log.debug("[LLMProviderManager] ClaudeEngine lazy-init failed: %s", exc)
             return None
 
-    def _lazy_local_brain(self) -> Optional[Any]:
+    def _lazy_local_brain(self) -> Any | None:
         """Try to import and instantiate local Qwen brain singleton."""
         try:
             from modules.local_brain import get_local_brain  # type: ignore[import]
             return get_local_brain()
         except Exception as exc:
             log.debug("[LLMProviderManager] LocalBrain lazy-init failed: %s", exc)
+            return None
+
+    def _lazy_ruflo(self) -> Any | None:
+        """Try to import and instantiate Ruflo HTTP adapter."""
+        try:
+            from modules.ruflo_adapter import RufloAdapter  # type: ignore[import]
+            return RufloAdapter()
+        except Exception as exc:
+            log.debug("[LLMProviderManager] RufloAdapter lazy-init failed: %s", exc)
             return None
 
 

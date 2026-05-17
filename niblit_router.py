@@ -2645,6 +2645,7 @@ Ask me about:
             llm-provider qwen       — set local Qwen brain as primary (default)
             llm-provider llama3     — switch local preset to Llama 3.2 and keep local provider active
             llm-provider anthropic  — set Anthropic Claude as primary
+            llm-provider ruflo      — set Ruflo HTTP bridge as primary
             llm-provider hf         — set HuggingFace as primary
             llm-provider status     — show active provider and availability
         """
@@ -2671,9 +2672,11 @@ Ask me about:
             hf_flag = "✅" if s["hf"] else "❌"
             ant_flag = "✅" if s["anthropic"] else "❌"
             qwen_flag = "✅" if s["qwen"] else "❌"
+            ruflo_flag = "✅" if s.get("ruflo") else "❌"
             hf_active = "← active" if s["active"] == "hf" else ""
             ant_active = "← active" if s["active"] == "anthropic" else ""
             qwen_active = "← active" if s["active"] == "qwen" else ""
+            ruflo_active = "← active" if s["active"] == "ruflo" else ""
             local_hint = ""
             try:
                 lb = getattr(self.core, "local_brain", None) if self.core else None
@@ -2702,8 +2705,9 @@ Ask me about:
                 f"• HuggingFace  {hf_flag}  (model: {s['hf_model']}) {hf_active}\n"
                 f"• Anthropic    {ant_flag}  (model: {s['anthropic_model']}) {ant_active}\n"
                 f"• Qwen Local   {qwen_flag}  (model: {s['qwen_model']}) {qwen_active}\n"
+                f"• Ruflo HTTP   {ruflo_flag}  (model: {s.get('ruflo_model', 'n/a')}) {ruflo_active}\n"
                 f"{local_line}"
-                f"\nSwitch provider: `llm-provider hf`, `llm-provider anthropic`, or `llm-provider qwen`\n"
+                f"\nSwitch provider: `llm-provider hf`, `llm-provider anthropic`, `llm-provider ruflo`, or `llm-provider qwen`\n"
                 f"Switch local model: `llm-provider llama3` or `local-model switch qwen|llama3`"
             )
 
@@ -2762,10 +2766,10 @@ Ask me about:
                 log.exception("[LLMProvider] Failed qwen preset switch: %s", exc)
                 return "❌ Failed to switch local preset to qwen."
 
-        if arg in ("hf", "anthropic"):
+        if arg in ("hf", "anthropic", "ruflo"):
             return mgr.switch(arg)
 
-        return "Usage: llm-provider hf|anthropic|qwen|llama3|status"
+        return "Usage: llm-provider hf|anthropic|ruflo|qwen|llama3|status"
 
     # ── Chat Memory handler (LLM inference provider memory) ───────────────────
 
@@ -7063,7 +7067,7 @@ Ask me about:
         if lower in ("hf-status",) or lower.startswith("hf-enable") or lower.startswith("hf-disable") or lower.startswith("hf-ask"):
             return self._handle_hf_brain(cmd)
 
-        # LLM PROVIDER SWITCH (llm-provider hf | anthropic | qwen | status)
+        # LLM PROVIDER SWITCH (llm-provider hf | anthropic | ruflo | qwen | status)
         if lower.startswith("llm-provider"):
             return self._handle_llm_provider(cmd)
 
@@ -7400,6 +7404,7 @@ Ask me about:
             "llm-provider qwen            — Set local provider as primary LLM (keeps current local preset)",
             "llm-provider llama3          — Switch local preset to Llama 3.2 and use local provider",
             "llm-provider anthropic       — Set Anthropic Claude as primary LLM",
+            "llm-provider ruflo           — Set Ruflo HTTP bridge as primary LLM",
             "llm-provider hf              — Set HuggingFace as primary LLM",
             "llm-provider status          — Show active provider & availability",
             "local-model status           — Show current local model preset + backend details",
