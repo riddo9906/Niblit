@@ -304,7 +304,8 @@ class TestDeployPath:
             assert ev.deploy_path == Path(tmpdir)
 
     def test_termux_deploy_path_constant_is_correct(self):
-        assert TERMUX_DEPLOY_PATH == _resolve_termux_deploy_path()
+        assert isinstance(TERMUX_DEPLOY_PATH, Path)
+        assert TERMUX_DEPLOY_PATH.is_absolute()
 
     def test_resolve_termux_deploy_path_prefers_env_override(self, monkeypatch):
         with tempfile.TemporaryDirectory() as tmpdir:

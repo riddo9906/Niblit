@@ -61,7 +61,7 @@ def _resolve_termux_deploy_path() -> Path:
         return Path(override).expanduser()
 
     home = Path.home()
-    candidates = tuple(home.joinpath(*parts) for parts in _TERMUX_DEPLOY_SUFFIXES) + (get_project_root(),)
+    candidates = tuple(home.joinpath(*parts) for parts in _TERMUX_DEPLOY_SUFFIXES)
     for candidate in candidates:
         if candidate.exists():
             return candidate
