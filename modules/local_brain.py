@@ -10,7 +10,7 @@ Supports three execution backends for GGUF quantized models:
   Start the server with::
 
       ~/llama.cpp/build/bin/llama-server \\
-          -m /data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\
+          -m /home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\
           --port 8080 --host 127.0.0.1 -c 2048 -t 4
 
   Then set ``NIBLIT_GGUF_BACKEND=http`` (or ``auto``).
@@ -43,7 +43,7 @@ Environment variables
 ---------------------
 NIBLIT_LOCAL_MODEL          Path to a ``.gguf`` file **or** a HuggingFace
                             model id whose cache is scanned for ``.gguf``
-                            files.  Default: ``/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf``
+                            files.  Default: ``/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf``
 NIBLIT_GGUF_MODEL_PATH      Explicit path to a local ``.gguf`` file
                             (takes priority over NIBLIT_LOCAL_MODEL).
 NIBLIT_LOCAL_MAX_NEW        Max new tokens (default: 200)
@@ -72,7 +72,7 @@ NIBLIT_ACTIVE_LOCAL_MODEL   Active local model preset: ``qwen`` (default)
                             at startup; can be changed at runtime via the
                             ``local-model switch <preset>`` command.
 NIBLIT_LLAMA3_MODEL_PATH    Path to the Llama 3.2 GGUF file.
-                            Default: ``/data/data/com.termux/files/home/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf``
+                            Default: ``/home/riddo9906/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf``
 """
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ _MODEL_NAME      = (
     or os.environ.get("NIBLIT_MODEL_QWEN", "").strip()
     or os.environ.get("NIBLIT_LOCAL_MODEL", "").strip()
     or os.environ.get("NIBLIT_QWEN_MODEL_PATH", "").strip()
-    or "/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+    or "/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
 )
 _GGUF_MODEL_PATH = os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
 _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
@@ -108,7 +108,7 @@ _DEFAULT_LOCAL_PRESET = "qwen"
 _FORBIDDEN_MODEL_ROOTS = ("/root/models",)
 if any(_MODEL_NAME.startswith(root) for root in _FORBIDDEN_MODEL_ROOTS):
     log.warning("[LocalBrain] Ignoring forbidden model path at import: %s", _MODEL_NAME)
-    _MODEL_NAME = "/data/model.gguf"
+    _MODEL_NAME = "/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
 
 # ── Server-health TTL caching ─────────────────────────────────────────────────
 # Avoids probing the llama-server on every generate() call.  Per-instance cache
@@ -496,8 +496,8 @@ def _runtime_profile_default_model(preset: str) -> str:
             "llama3": "/data/model.gguf",
         },
         "niblit": {
-            "qwen": "/data/model.gguf",
-            "llama3": "/data/model.gguf",
+            "qwen": "/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+            "llama3": "/home/riddo9906/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
         },
     }
     return defaults.get(profile, {}).get(preset, "")
@@ -512,9 +512,11 @@ def _os_fallback_model(preset: str) -> str:
         )
     if os.path.exists("/.dockerenv"):
         return "/data/model.gguf"
-    return str(Path.home() / "models" / (
-        "Llama-3.2-1B-Instruct-Q4_K_M.gguf" if preset == "llama3" else "qwen2.5-0.5b-instruct-q4_k_m.gguf"
-    ))
+    return (
+        "/home/riddo9906/models/Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+        if preset == "llama3"
+        else "/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+    )
 
 
 def _resolve_portable_model_path(preset: str) -> str:
@@ -1513,7 +1515,7 @@ class QwenLocalBrain:
         Resolution order:
         1. Explicit ``NIBLIT_GGUF_MODEL_PATH`` / ``gguf_model_path`` param.
         2. ``NIBLIT_LOCAL_MODEL`` / ``model_name`` ends in ``.gguf``.
-        3. Default location: ``/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf``.
+        3. Default location: ``/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf``.
         4. HuggingFace cache scan for any ``.gguf`` file.
         """
         # 1. Explicit env-var path
@@ -1529,10 +1531,7 @@ class QwenLocalBrain:
             p = Path(self.model_name).expanduser()
             return p
         # 3. Default install location used by tools/install_local_qwen_model.py
-        default_path = Path("/data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf")
-        if not default_path.is_file():
-            # Fallback to ~/models for non-Termux environments.
-            default_path = Path.home() / "models" / "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+        default_path = Path("/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf")
         if default_path.is_file():
             return default_path
         # 4. Check HuggingFace cache for any .gguf file
@@ -1893,9 +1892,9 @@ class QwenLocalBrain:
 
         self._load_error = (
             f"llama-server not reachable at {url}. "
-            "Start it in a separate Termux session with:\n"
-            "  /data/data/com.termux/files/home/llama.cpp/build/bin/llama-server \\\n"
-            "      -m /data/data/com.termux/files/home/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\\n"
+            "Start it in a separate shell session with:\n"
+            "  llama-server \\\n"
+            "      -m /home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\\n"
             "      --port 8080 --host 127.0.0.1 -c 2048 -t 4\n"
             "Then set: export NIBLIT_GGUF_BACKEND=http"
         )

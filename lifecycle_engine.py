@@ -336,15 +336,7 @@ class LifecycleEngine:
 
         try:
             if phase == "INIT":
-                log.info("[LIFECYCLE] INIT: Running audit...")
-                if self.cb_audit and asyncio.iscoroutinefunction(self.cb_audit.call):
-                    try:
-                        asyncio.run(self.cb_audit.call(run_audit))
-                    except Exception as e:
-                        log.debug(f"CB call failed, using direct: {e}")
-                        run_audit()
-                else:
-                    run_audit()
+                log.info("[LIFECYCLE] INIT: Skipping automatic audit (manual: 'orchestrate audit').")
 
             elif phase == "AUDIT":
                 log.info("[LIFECYCLE] AUDIT: Complete")
