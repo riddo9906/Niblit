@@ -14,6 +14,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from niblit_core.config.paths import get_project_root
 from modules.evolve import EvolveEngine, TERMUX_DEPLOY_PATH, step as module_level_step
 
 
@@ -298,8 +299,7 @@ class TestDeployPath:
             assert ev.deploy_path == Path(tmpdir)
 
     def test_termux_deploy_path_constant_is_correct(self):
-        expected = "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
-        assert str(TERMUX_DEPLOY_PATH) == expected
+        assert TERMUX_DEPLOY_PATH == get_project_root() or TERMUX_DEPLOY_PATH.exists()
 
     def test_get_status_includes_deploy_path_key(self):
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 BUILD SCANNER MODULE
-Scan, read, and understand the Niblit build directory at
-/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit.
+Scan, read, and understand the active Niblit build directory.
 
 Enables Niblit to read its own source files and store their contents in
 KnowledgeDB for self-understanding and autonomous self-improvement.
@@ -13,21 +12,21 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from niblit_core.config.paths import get_project_root
+
 log = logging.getLogger("BuildScanner")
 
 # Niblit build path — imported from the canonical definition in evolve.py
 try:
     from modules.evolve import TERMUX_DEPLOY_PATH as NIBLIT_BUILD_PATH
 except Exception:
-    NIBLIT_BUILD_PATH = Path(
-        "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
-    )
+    NIBLIT_BUILD_PATH = get_project_root()
 
 # When the configured build path doesn't exist (e.g. running outside Termux),
 # fall back to the Niblit project root so 'scan build' still works and Niblit
 # can read its own source files for self-knowledge.
 if not NIBLIT_BUILD_PATH.exists():
-    NIBLIT_BUILD_PATH = Path(__file__).resolve().parent.parent
+    NIBLIT_BUILD_PATH = get_project_root()
 
 # Maximum bytes read per file to avoid flooding memory
 _MAX_READ_BYTES = 32 * 1024  # 32 KB

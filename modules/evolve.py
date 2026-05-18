@@ -24,6 +24,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from niblit_core.config.paths import get_project_root
+
 try:
     from niblit_memory import NiblitMemory as _NiblitMemory
     _GLOBAL_MEMORY = _NiblitMemory()
@@ -32,14 +34,6 @@ except Exception:
 
 log = logging.getLogger("EvolveEngine")
 
-# Default Termux deployment path for Niblit self-updates.
-# When Niblit is running inside Termux this is the live installation directory.
-# Evolved code is written here so the running process can hot-reload it.
-TERMUX_DEPLOY_PATH = Path(
-    "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
-)
-
-
 def _detect_termux() -> bool:
     """Return True if running inside a Termux environment."""
     return (
@@ -47,6 +41,27 @@ def _detect_termux() -> bool:
         or os.path.isdir("/data/data/com.termux")
         or "termux" in os.environ.get("PREFIX", "").lower()
     )
+
+
+def _resolve_termux_deploy_path() -> Path:
+    """Resolve deploy path dynamically with env override and sane defaults."""
+    override = os.environ.get("NIBLIT_DEPLOY_PATH")
+    if override:
+        return Path(override).expanduser()
+
+    candidates = (
+        Path.home() / "NiblitAIOS" / "Niblit-Modules" / "Niblit-apk" / "Niblit",
+        Path.home() / "Niblit-Modules" / "Niblit-apk" / "Niblit",
+        get_project_root(),
+    )
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return get_project_root()
+
+
+# Canonical deploy path resolved from runtime environment.
+TERMUX_DEPLOY_PATH = _resolve_termux_deploy_path()
 
 # Possible evolution directions — expanded to cover all module capabilities
 _EVOLUTION_DIRECTIONS = [

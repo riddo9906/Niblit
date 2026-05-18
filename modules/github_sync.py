@@ -13,15 +13,15 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from niblit_core.config.paths import get_project_root
+
 log = logging.getLogger("GitHubSync")
 
 # Niblit build path — imported from the canonical definition in evolve.py
 try:
     from modules.evolve import TERMUX_DEPLOY_PATH as NIBLIT_BUILD_PATH
 except Exception:
-    NIBLIT_BUILD_PATH = Path(
-        "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
-    )
+    NIBLIT_BUILD_PATH = get_project_root()
 
 
 class GitHubSync:

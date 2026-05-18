@@ -1,7 +1,7 @@
 {
     "entries": [],
     "meta": {
-        "created_at": "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit",
+        "created_at": "${PROJECT_ROOT}",
         "version": "1.0.0"
     }
 }

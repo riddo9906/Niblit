@@ -2,7 +2,7 @@
     "workspace": {
         "name": "ProjectOne",
         "version": "1.0.0",
-        "created_at": "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
+        "created_at": "${PROJECT_ROOT}"
     },
     "system": {
         "debug_mode": true,

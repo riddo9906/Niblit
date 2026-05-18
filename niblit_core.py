@@ -64,6 +64,8 @@ from functools import lru_cache  # pylint: disable=unused-import
 from enum import Enum  # pylint: disable=unused-import
 from abc import ABC, abstractmethod  # pylint: disable=unused-import
 
+from niblit_core.config.paths import resolve_path
+
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
 # platform injects env vars directly, so this is a no-op in those environments.
 try:
@@ -1046,9 +1048,7 @@ except Exception as _e:
 try:
     from modules.evolve import TERMUX_DEPLOY_PATH as _NIBLIT_BUILD_PATH
 except Exception:
-    _NIBLIT_BUILD_PATH = Path(
-        "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
-    )
+    _NIBLIT_BUILD_PATH = resolve_path()
 
 slsa_manager = None
 try:

@@ -83,6 +83,7 @@ niblit = "main:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = [
+    "niblit_core*",
     "niblit_memory*",
     "modules*",
     "core*",

@@ -20,6 +20,8 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from niblit_core.config.paths import get_project_root, resolve_path
+
 log = logging.getLogger("CodeGenerator")
 
 try:
@@ -36,16 +38,12 @@ except Exception:
 try:
     from modules.evolve import TERMUX_DEPLOY_PATH as NIBLIT_BUILD_PATH
 except Exception:
-    NIBLIT_BUILD_PATH = Path(
-        "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
-    )
+    NIBLIT_BUILD_PATH = get_project_root()
 
 # Local builds directory — structured storage for all generated programs,
 # available in every environment (not just Termux).
 # Layout: builds/{language}/{name}.{ext}
-_MODULE_DIR = Path(__file__).resolve().parent   # modules/
-_REPO_DIR = _MODULE_DIR.parent                  # repository root
-NIBLIT_LOCAL_BUILDS_PATH = _REPO_DIR / "builds"
+NIBLIT_LOCAL_BUILDS_PATH = resolve_path("builds")
 
 # ──────────────────────────────────────────────────────────
 # LANGUAGE TEMPLATES
