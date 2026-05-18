@@ -32,7 +32,7 @@ User Input → CommandRegistry (commands only, zero LLM)
 
 Compatible with main.py, server.py, and app.py.
 """
-# pylint: disable=too-many-lines
+# pylint: disable=too-many-lines,ungrouped-imports
 
 # ============================================================
 # STDLIB IMPORTS
@@ -4072,7 +4072,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         content = result["content"]
         if isinstance(content, bytes):
             return f"📄 {filepath} ({result['size']} bytes, binary)"
-        content_str: str = content  # narrowed to str by isinstance check above
+        content_str = content if isinstance(content, str) else str(content)
         preview = content_str[:1000] if len(content_str) > 1000 else content_str
         suffix = "...[truncated]" if len(content_str) > 1000 else ""
         return f"📄 **{filepath}** ({result['size']} chars):\n```\n{preview}{suffix}\n```"
@@ -6810,7 +6810,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 try:
                     _params = inspect.signature(LLMAdapter.__init__).parameters
                     if "vector_store" in _params:
-                        self.llm = LLMAdapter(vector_store=_vs)
+                        self.llm = safe_call(LLMAdapter, **{"vector_store": _vs})
                     else:
                         self.llm = safe_call(LLMAdapter)
                         if _vs and self.llm and not getattr(self.llm, "vector_store", None):
@@ -7501,7 +7501,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             # ============================
             # BACKGROUND TRAINER (additive — daemon thread, non-blocking)
             # ============================
-            if BackgroundTrainer:
+            if BackgroundTrainer is not None:
                 try:
                     _brain_trainer_for_bg = (
                         getattr(self.brain, "brain_trainer", None)
@@ -9483,10 +9483,25 @@ SW Categories: {stats.get('software_study_categories', 0)}
             if not ORCHESTRATOR_AVAILABLE or not RepoAuditor:
                 return "[Orchestrator not available]"
             log.info("[ORCHESTRATOR] Running audit...")
-            if safe_call:
-                safe_call(RepoAuditor)
+            auditor = RepoAuditor(BASE_DIR)
+            if callable(safe_call):
+                report = safe_call(auditor.run_audit)
+            else:
+                report = auditor.run_audit()
+            report_path = getattr(
+                auditor,
+                "json_report_path",
+                os.path.join(BASE_DIR, "niblit_audit_report.json"),
+            )
             log.info("[ORCHESTRATOR] Audit completed")
-            return "[Audit completed]"
+            if isinstance(report, dict):
+                findings = (
+                    len(report.get("circular_imports", []))
+                    + len(report.get("missing_modules", []))
+                    + len(report.get("orphaned_modules", []))
+                )
+                return f"[Audit completed: report={report_path}, findings={findings}]"
+            return f"[Audit completed: report={report_path}]"
         except Exception as e:
             log.error(f"[ORCHESTRATOR] Audit failed: {e}")
             return f"[Audit failed: {e}]"
