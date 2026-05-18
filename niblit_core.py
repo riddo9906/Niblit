@@ -378,11 +378,7 @@ except Exception as _civ_err:
     log.debug(f"CivilizationController import failed: {_civ_err}")
     _CivilizationController = None  # type: ignore[assignment,misc]
 
-try:
-    from modules.termux_wakelock import TermuxWakeLock
-except Exception as e:
-    log.debug(f"TermuxWakeLock import failed: {e}")
-    TermuxWakeLock = None
+TermuxWakeLock = None
 
 # ── GameEngine (additive) ─────────────────────────────────────────────────────
 try:
@@ -1814,10 +1810,8 @@ class NiblitCore:
         self._init_progress_queue: _queue_mod.Queue = _queue_mod.Queue()
         self._current_init_phase: str = ""
 
-        # Wake-lock: keeps CPU alive when screen is off / Termux is in background
-        self.wakelock: Optional["TermuxWakeLock"] = (
-            TermuxWakeLock() if TermuxWakeLock is not None else None
-        )
+        # Termux wakelock wiring intentionally disabled for non-Termux runtimes.
+        self.wakelock = None
 
         # NEW: Production improvements
         self.command_registry: Optional[CommandRegistry] = None
@@ -9008,12 +9002,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("Background loops disabled via config")
             return
 
-        # Acquire a Termux CPU wake-lock so Android does not freeze the
-        # background loops when the screen turns off or Termux goes to the
-        # background.  On non-Termux platforms this is a silent no-op.
-        if self.wakelock is not None:
-            self.wakelock.acquire()
-
         self._start_sync_loops()
 
         if self.config.enable_async_loops:
@@ -10848,14 +10836,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
         log.info("✅ Shutdown initiated")
         self.running = False
         self._shutdown_event.set()
-
-        # Release Termux CPU wake-lock so Android can enter normal power-saving
-        # mode after Niblit exits.  No-op on non-Termux platforms.
-        if self.wakelock is not None:
-            try:
-                self.wakelock.release()
-            except Exception as e:
-                log.debug(f"Wake-lock release failed: {e}")
 
         # Stop autonomous engine first
         if self.autonomous_engine and self.autonomous_engine.running:

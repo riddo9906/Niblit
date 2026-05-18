@@ -384,13 +384,6 @@ def boot():
         _sidecar = None
         io.out(f"{timestamp()} ⚪ Sidecar socket: not available ({_sc_exc})")
 
-    # Report wake-lock status so the user knows whether the background loops
-    # will keep running while the screen is off / Termux is in the background.
-    if hasattr(core, "wakelock") and core.wakelock is not None:
-        io.out(f"{timestamp()} {core.wakelock.status()}")
-    else:
-        io.out(f"{timestamp()} ⚪ Wake-lock: not available (termux-api not installed)")
-
     # ── Non-blocking background logging (additive enhancement) ──────────────
     # Install the NotificationQueueHandler so background-thread log records are
     # captured in the notification queue instead of being written to the

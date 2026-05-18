@@ -279,45 +279,23 @@ class TestGetWakelock:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Integration: niblit_core wires the wake-lock correctly
+# Integration: niblit_core does not wire Termux wake-lock in desktop/WSL runtime
 # ──────────────────────────────────────────────────────────────────────────────
 
 class TestNiblitCoreWiring:
-    """Smoke-test that NiblitCore creates and uses the wakelock attribute."""
+    """Smoke-test that NiblitCore leaves Termux wakelock disabled."""
 
-    def _make_core_with_mock_wakelock(self):
-        """Import niblit_core and patch TermuxWakeLock before NiblitCore runs."""
-        mock_wl = MagicMock()
-        mock_wl.acquire.return_value = True
-        mock_wl.release.return_value = True
-        mock_wl.status.return_value = "🟢 Wake-lock: ACTIVE"
-        mock_wl.is_acquired = True
-
-        mock_wl_cls = MagicMock(return_value=mock_wl)
-
-        import niblit_core
-        original = niblit_core.TermuxWakeLock
-        niblit_core.TermuxWakeLock = mock_wl_cls
-        try:
-            from niblit_core import NiblitCore
-            core = NiblitCore()
-        finally:
-            niblit_core.TermuxWakeLock = original
-
-        return core, mock_wl
+    def _make_core(self):
+        from niblit_core import NiblitCore
+        return NiblitCore()
 
     def test_core_has_wakelock_attribute(self):
-        core, _ = self._make_core_with_mock_wakelock()
+        core = self._make_core()
         assert hasattr(core, "wakelock")
 
-    def test_wakelock_acquire_called_on_startup(self):
-        core, mock_wl = self._make_core_with_mock_wakelock()
-        mock_wl.acquire.assert_called()
-
-    def test_wakelock_release_called_on_shutdown(self):
-        core, mock_wl = self._make_core_with_mock_wakelock()
-        core.shutdown()
-        mock_wl.release.assert_called()
+    def test_wakelock_is_disabled(self):
+        core = self._make_core()
+        assert core.wakelock is None
 
 
 if __name__ == "__main__":

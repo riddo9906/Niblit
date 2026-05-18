@@ -26,7 +26,3 @@ def resolve_path(*segments: str) -> Path:
     """Resolve one or more path segments under the project root."""
     return PROJECT_ROOT.joinpath(*segments)
 
-
-
-if __name__ == "__main__":
-    print('Running paths.py')

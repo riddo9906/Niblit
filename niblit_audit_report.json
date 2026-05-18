@@ -1,5 +1,5 @@
 {
-    "timestamp": 1779066216.0524879,
+    "timestamp": 1778824171.0847144,
     "circular_imports": [
         "niblit_memory -> niblit_memory",
         "modules.local_brain -> modules.qwen_memory_adapter -> modules.local_brain",
@@ -18,11 +18,7 @@
         "niblit_core -> modules.mcp_server -> niblit_core",
         "niblit_core -> modules.mcp_server -> niblit_core"
     ],
-    "scripts_without_main": [
-        "/home/runner/work/Niblit/Niblit/niblit_core/__init__.py",
-        "/home/runner/work/Niblit/Niblit/niblit_core/config/paths.py",
-        "/home/runner/work/Niblit/Niblit/niblit_core/config/__init__.py"
-    ],
+    "scripts_without_main": [],
     "outdated_scripts": [],
     "missing_modules": [
         "AlgorithmImports",
@@ -240,6 +236,7 @@
         "builds.python.ale_python_natural_language_processi",
         "builds.python.ale_python_natural_language_processing_with_nltk_an",
         "builds.python.ale_python_reasoning_chains_and_multi_step_problem",
+        "builds.python.ale_python_simple_arithmetic_with_numbers",
         "builds.python.ale_python_socket_programming_and_networking_177489",
         "builds.python.ale_python_string_formatting_and_template_rendering",
         "builds.python.ale_python_text_generation_with_transformers_and_la",
@@ -415,17 +412,7 @@
         "tools.structural_helper",
         "workspace_init"
     ],
-    "file_errors": {
-        "/home/runner/work/Niblit/Niblit/niblit_core/__init__.py": [
-            "Missing __main__ check"
-        ],
-        "/home/runner/work/Niblit/Niblit/niblit_core/config/paths.py": [
-            "Missing __main__ check"
-        ],
-        "/home/runner/work/Niblit/Niblit/niblit_core/config/__init__.py": [
-            "Missing __main__ check"
-        ]
-    },
+    "file_errors": {},
     "imports_found": [
         "AlgorithmImports",
         "PIL",
@@ -871,7 +858,6 @@
         "modules.resilience_wrapper",
         "modules.reward_model",
         "modules.rl_trading_policy",
-        "modules.ruflo_adapter",
         "modules.runtime_resource_manager",
         "modules.runtime_router_v2",
         "modules.salience_engine",
@@ -942,7 +928,6 @@
         "niblit_agents.semantic_agent",
         "niblit_brain",
         "niblit_core",
-        "niblit_core.config.paths",
         "niblit_dashboard",
         "niblit_env",
         "niblit_full_upgrade_pipeline",
@@ -1116,11 +1101,11 @@
         "zipfile"
     ],
     "metrics": {
-        "files_analyzed": 655,
+        "files_analyzed": 652,
         "files_with_errors": 0,
         "circular_imports_found": 16,
         "missing_modules_found": 184,
-        "orphaned_modules_found": 203,
-        "audit_time": 4.052922248840332
+        "orphaned_modules_found": 204,
+        "audit_time": 3.0582752227783203
     }
 }
