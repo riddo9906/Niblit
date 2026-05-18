@@ -9,7 +9,7 @@ Supports three execution backends for GGUF quantized models:
   over localhost HTTP, which crosses the proot boundary cleanly.
   Start the server with::
 
-      ~/llama.cpp/build/bin/llama-server \\
+      /home/riddo9906/llama.cpp/build/bin/llama-server \\
           -m /home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\
           --port 8080 --host 127.0.0.1 -c 2048 -t 4
 
@@ -1137,6 +1137,10 @@ _LLAMA_BINARY_CANDIDATES = [
     "llama-cli",                          # in PATH (new name, llama.cpp >= 3.x)
     "llama",                              # in PATH (some distributions)
     "main",                               # in PATH (old name)
+    "/home/riddo9906/llama.cpp/build/bin/llama-cli",
+    "/home/riddo9906/llama.cpp/build/bin/main",
+    "/home/riddo9906/llama.cpp/llama-cli",
+    "/home/riddo9906/llama.cpp/main",
     "~/llama.cpp/build/bin/llama-cli",    # CMake build (Termux / Linux default)
     "~/llama.cpp/build/bin/main",         # CMake build (old binary name)
     "~/llama.cpp/llama-cli",              # legacy Makefile build
@@ -2207,11 +2211,11 @@ class QwenLocalBrain:
                 f"(searched: {searched}). "
                 "Build it on Termux with:\n"
                 "  pkg install git cmake clang make\n"
-                "  git clone https://github.com/ggerganov/llama.cpp ~/llama.cpp\n"
-                "  cd ~/llama.cpp && mkdir -p build && cd build\n"
+                "  git clone https://github.com/ggerganov/llama.cpp /home/riddo9906/llama.cpp\n"
+                "  cd /home/riddo9906/llama.cpp && mkdir -p build && cd build\n"
                 "  cmake .. -DLLAMA_NATIVE=OFF -DLLAMA_BUILD_TESTS=OFF\n"
                 "  cmake --build . -j1\n"
-                "Then set: export NIBLIT_LLAMA_BINARY=~/llama.cpp/build/bin/llama-cli"
+                "Then set: export NIBLIT_LLAMA_BINARY=/home/riddo9906/llama.cpp/build/bin/llama-cli"
             )
             log.warning("[LocalBrain] %s", self._load_error)
             return False
