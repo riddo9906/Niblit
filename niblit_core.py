@@ -32,7 +32,7 @@ User Input → CommandRegistry (commands only, zero LLM)
 
 Compatible with main.py, server.py, and app.py.
 """
-# pylint: disable=too-many-lines
+# pylint: disable=too-many-lines,ungrouped-imports
 
 # ============================================================
 # STDLIB IMPORTS
@@ -63,6 +63,8 @@ from pathlib import Path
 from functools import lru_cache  # pylint: disable=unused-import
 from enum import Enum  # pylint: disable=unused-import
 from abc import ABC, abstractmethod  # pylint: disable=unused-import
+
+from niblit_core.config.paths import resolve_path
 
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
 # platform injects env vars directly, so this is a no-op in those environments.
@@ -376,11 +378,7 @@ except Exception as _civ_err:
     log.debug(f"CivilizationController import failed: {_civ_err}")
     _CivilizationController = None  # type: ignore[assignment,misc]
 
-try:
-    from modules.termux_wakelock import TermuxWakeLock
-except Exception as e:
-    log.debug(f"TermuxWakeLock import failed: {e}")
-    TermuxWakeLock = None
+TermuxWakeLock = None
 
 # ── GameEngine (additive) ─────────────────────────────────────────────────────
 try:
@@ -1046,9 +1044,7 @@ except Exception as _e:
 try:
     from modules.evolve import TERMUX_DEPLOY_PATH as _NIBLIT_BUILD_PATH
 except Exception:
-    _NIBLIT_BUILD_PATH = Path(
-        "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
-    )
+    _NIBLIT_BUILD_PATH = resolve_path()
 
 slsa_manager = None
 try:
@@ -1814,10 +1810,8 @@ class NiblitCore:
         self._init_progress_queue: _queue_mod.Queue = _queue_mod.Queue()
         self._current_init_phase: str = ""
 
-        # Wake-lock: keeps CPU alive when screen is off / Termux is in background
-        self.wakelock: Optional["TermuxWakeLock"] = (
-            TermuxWakeLock() if TermuxWakeLock is not None else None
-        )
+        # Termux wakelock wiring intentionally disabled for non-Termux runtimes.
+        self.wakelock = None
 
         # NEW: Production improvements
         self.command_registry: Optional[CommandRegistry] = None
@@ -4078,7 +4072,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         content = result["content"]
         if isinstance(content, bytes):
             return f"📄 {filepath} ({result['size']} bytes, binary)"
-        content_str: str = content  # narrowed to str by isinstance check above
+        content_str = content if isinstance(content, str) else str(content)
         preview = content_str[:1000] if len(content_str) > 1000 else content_str
         suffix = "...[truncated]" if len(content_str) > 1000 else ""
         return f"📄 **{filepath}** ({result['size']} chars):\n```\n{preview}{suffix}\n```"
@@ -6816,7 +6810,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 try:
                     _params = inspect.signature(LLMAdapter.__init__).parameters
                     if "vector_store" in _params:
-                        self.llm = LLMAdapter(vector_store=_vs)
+                        self.llm = safe_call(LLMAdapter, vector_store=_vs)
                     else:
                         self.llm = safe_call(LLMAdapter)
                         if _vs and self.llm and not getattr(self.llm, "vector_store", None):
@@ -7507,7 +7501,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             # ============================
             # BACKGROUND TRAINER (additive — daemon thread, non-blocking)
             # ============================
-            if BackgroundTrainer:
+            if BackgroundTrainer is not None:
                 try:
                     _brain_trainer_for_bg = (
                         getattr(self.brain, "brain_trainer", None)
@@ -9008,12 +9002,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.info("Background loops disabled via config")
             return
 
-        # Acquire a Termux CPU wake-lock so Android does not freeze the
-        # background loops when the screen turns off or Termux goes to the
-        # background.  On non-Termux platforms this is a silent no-op.
-        if self.wakelock is not None:
-            self.wakelock.acquire()
-
         self._start_sync_loops()
 
         if self.config.enable_async_loops:
@@ -9495,10 +9483,25 @@ SW Categories: {stats.get('software_study_categories', 0)}
             if not ORCHESTRATOR_AVAILABLE or not RepoAuditor:
                 return "[Orchestrator not available]"
             log.info("[ORCHESTRATOR] Running audit...")
-            if safe_call:
-                safe_call(RepoAuditor)
+            auditor = RepoAuditor(BASE_DIR)
+            if safe_call is not None:
+                report = safe_call(auditor.run_audit)
+            else:
+                report = auditor.run_audit()
+            report_path = getattr(
+                auditor,
+                "json_report_path",
+                os.path.join(BASE_DIR, "niblit_audit_report.json"),
+            )
             log.info("[ORCHESTRATOR] Audit completed")
-            return "[Audit completed]"
+            if isinstance(report, dict):
+                findings = (
+                    len(report.get("circular_imports", []))
+                    + len(report.get("missing_modules", []))
+                    + len(report.get("orphaned_modules", []))
+                )
+                return f"[Audit completed: report={report_path}, findings={findings}]"
+            return f"[Audit completed: report={report_path}]"
         except Exception as e:
             log.error(f"[ORCHESTRATOR] Audit failed: {e}")
             return f"[Audit failed: {e}]"
@@ -10848,14 +10851,6 @@ SW Categories: {stats.get('software_study_categories', 0)}
         log.info("✅ Shutdown initiated")
         self.running = False
         self._shutdown_event.set()
-
-        # Release Termux CPU wake-lock so Android can enter normal power-saving
-        # mode after Niblit exits.  No-op on non-Termux platforms.
-        if self.wakelock is not None:
-            try:
-                self.wakelock.release()
-            except Exception as e:
-                log.debug(f"Wake-lock release failed: {e}")
 
         # Stop autonomous engine first
         if self.autonomous_engine and self.autonomous_engine.running:

@@ -25,9 +25,9 @@
 #   NIBLIT_LLAMA_SERVER_PORT  Port for the LOCAL llama-server process.
 #                             Default: 8081
 #   NIBLIT_LLAMA_BINARY       Path to llama-server binary.
-#                             Default: /usr/local/bin/llama-server
+#                             Default: /home/riddo9906/llama.cpp/build/bin/llama-server
 #   NIBLIT_GGUF_MODEL_PATH    Path to the GGUF model file.
-#                             Default: /data/model.gguf
+#                             Default: /home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
 #   NIBLIT_GGUF_N_CTX         Context size passed to llama-server. Default: 4096
 #   NIBLIT_GGUF_N_THREADS     CPU threads for llama-server. Default: 2
 #   PORT                      Port for uvicorn. Default: 8080
@@ -37,8 +37,8 @@ set -e
 PORT="${PORT:-8080}"
 LLAMA_URL="${NIBLIT_LLAMA_SERVER_URL:-http://127.0.0.1:8081}"
 LLAMA_PORT="${NIBLIT_LLAMA_SERVER_PORT:-8081}"
-LLAMA_BIN="${NIBLIT_LLAMA_BINARY:-/usr/local/bin/llama-server}"
-MODEL_FILE="${NIBLIT_GGUF_MODEL_PATH:-/data/model.gguf}"
+LLAMA_BIN="${NIBLIT_LLAMA_BINARY:-/home/riddo9906/llama.cpp/build/bin/llama-server}"
+MODEL_FILE="${NIBLIT_GGUF_MODEL_PATH:-/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf}"
 
 echo "[start.sh] ════════════════════════════════════════════"
 echo "[start.sh]   Niblit  ·  Fly.io startup"
@@ -102,7 +102,7 @@ if _is_local_url "$LLAMA_URL"; then
         else
             echo "[start.sh]   Model   : ${MODEL_FILE} ❌"
             echo "[start.sh]             Upload with:  fly sftp shell"
-            echo "[start.sh]             then: put /local/path/to/model.gguf /data/model.gguf"
+            echo "[start.sh]             then: put /local/path/to/model.gguf /home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
         fi
         echo "[start.sh]   → Alternative: use Termux as remote inference backend"
         echo "[start.sh]     bash tools/termux_inference_server.sh  # run on Termux"

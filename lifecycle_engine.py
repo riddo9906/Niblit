@@ -23,13 +23,15 @@ Production Enhancements:
 16. Learning system integration
 17. Full production readiness
 """
+# pylint: disable=missing-function-docstring,too-many-instance-attributes,too-many-branches,too-many-statements
+# pylint: disable=global-statement
 
 import threading
 import time
 import logging
 import asyncio
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any
 
 log = logging.getLogger("LifecycleEngine")
 logging.basicConfig(
@@ -61,12 +63,6 @@ try:
 except Exception as _e:
     log.debug(f"CacheStrategy unavailable: {_e}")
     CacheStrategy = None
-
-try:
-    from modules.batch_processing import Batcher
-except Exception as _e:
-    log.debug(f"Batcher unavailable: {_e}")
-    Batcher = None
 
 try:
     from modules.event_sourcing import EventStore
@@ -103,29 +99,14 @@ except Exception as _e:
 
 try:
     from niblit_orchestrator import (
-        run_audit,
         run_self_heal,
-        generate_fix_guide,
-        execute_fix_guide,
-        verify_imports,
-        hf_task_example,
     )
     _ORCHESTRATOR_AVAILABLE = True
 except Exception as _e:
     log.warning(f"niblit_orchestrator not available: {_e}")
     _ORCHESTRATOR_AVAILABLE = False
 
-    def run_audit():
-        pass
     def run_self_heal():
-        pass
-    def generate_fix_guide():
-        return ""
-    def execute_fix_guide(g):
-        pass
-    def verify_imports():
-        pass
-    def hf_task_example():
         pass
 
 try:
@@ -153,8 +134,8 @@ def _get_loop_tracer():
     global _loop_tracer
     if _loop_tracer is None:
         try:
-            from niblit_core import loop_tracer as _lt
-            _loop_tracer = _lt
+            import niblit_core as _nc
+            _loop_tracer = getattr(_nc, "loop_tracer", None)
         except Exception:
             pass
     return _loop_tracer
@@ -336,15 +317,7 @@ class LifecycleEngine:
 
         try:
             if phase == "INIT":
-                log.info("[LIFECYCLE] INIT: Running audit...")
-                if self.cb_audit and asyncio.iscoroutinefunction(self.cb_audit.call):
-                    try:
-                        asyncio.run(self.cb_audit.call(run_audit))
-                    except Exception as e:
-                        log.debug(f"CB call failed, using direct: {e}")
-                        run_audit()
-                else:
-                    run_audit()
+                log.info("[LIFECYCLE] INIT: Skipping automatic audit (manual: 'orchestrate audit').")
 
             elif phase == "AUDIT":
                 log.info("[LIFECYCLE] AUDIT: Complete")
@@ -393,9 +366,11 @@ class LifecycleEngine:
             elif phase == "MAINTAIN":
                 log.info("[LIFECYCLE] MAINTAIN: Maintenance...")
                 if _ORCHESTRATOR_AVAILABLE:
-                    fix_guide = generate_fix_guide()
-                    execute_fix_guide(fix_guide)
-                    verify_imports()
+                    log.info(
+                        "[LIFECYCLE] MAINTAIN: Skipping automatic audit/fix-guide/verify "
+                        "(manual commands: 'orchestrate audit', 'orchestrate fix-guide', "
+                        "'orchestrate verify')."
+                    )
 
             elif phase == "IDLE":
                 log.info("[LIFECYCLE] IDLE: Heartbeat idle")

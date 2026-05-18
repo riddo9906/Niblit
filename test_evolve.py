@@ -14,7 +14,13 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from modules.evolve import EvolveEngine, TERMUX_DEPLOY_PATH, step as module_level_step
+from niblit_core.config.paths import get_project_root
+from modules.evolve import (
+    EvolveEngine,
+    TERMUX_DEPLOY_PATH,
+    _resolve_termux_deploy_path,
+    step as module_level_step,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -298,8 +304,29 @@ class TestDeployPath:
             assert ev.deploy_path == Path(tmpdir)
 
     def test_termux_deploy_path_constant_is_correct(self):
-        expected = "/data/data/com.termux/files/home/NiblitAIOS/Niblit-Modules/Niblit-apk/Niblit"
-        assert str(TERMUX_DEPLOY_PATH) == expected
+        assert isinstance(TERMUX_DEPLOY_PATH, Path)
+        assert TERMUX_DEPLOY_PATH.is_absolute()
+
+    def test_resolve_termux_deploy_path_prefers_env_override(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            override = str(Path(tmpdir) / "custom_deploy")
+            monkeypatch.setenv("NIBLIT_DEPLOY_PATH", override)
+            assert _resolve_termux_deploy_path() == Path(override)
+
+    def test_resolve_termux_deploy_path_uses_existing_home_candidate(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.delenv("NIBLIT_DEPLOY_PATH", raising=False)
+            home = Path(tmpdir)
+            candidate = home / "NiblitAIOS" / "Niblit-Modules" / "Niblit-apk" / "Niblit"
+            candidate.mkdir(parents=True)
+            monkeypatch.setattr("modules.evolve.Path.home", lambda *_a, **_kw: home)
+            assert _resolve_termux_deploy_path() == candidate
+
+    def test_resolve_termux_deploy_path_falls_back_to_project_root(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            monkeypatch.delenv("NIBLIT_DEPLOY_PATH", raising=False)
+            monkeypatch.setattr("modules.evolve.Path.home", lambda *_a, **_kw: Path(tmpdir))
+            assert _resolve_termux_deploy_path() == get_project_root()
 
     def test_get_status_includes_deploy_path_key(self):
         with tempfile.TemporaryDirectory() as tmpdir:
