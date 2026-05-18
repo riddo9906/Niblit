@@ -34,6 +34,12 @@ except Exception:
 
 log = logging.getLogger("EvolveEngine")
 
+_TERMUX_DEPLOY_SUFFIXES = (
+    ("NiblitAIOS", "Niblit-Modules", "Niblit-apk", "Niblit"),
+    ("Niblit-Modules", "Niblit-apk", "Niblit"),
+)
+
+
 def _detect_termux() -> bool:
     """Return True if running inside a Termux environment."""
     return (
@@ -44,16 +50,18 @@ def _detect_termux() -> bool:
 
 
 def _resolve_termux_deploy_path() -> Path:
-    """Resolve deploy path dynamically with env override and sane defaults."""
+    """Resolve deploy path in priority order.
+
+    1) ``NIBLIT_DEPLOY_PATH`` environment override (if set).
+    2) Existing Termux-style candidate directories under ``$HOME``.
+    3) Project root fallback for non-Termux and portable dev/test runs.
+    """
     override = os.environ.get("NIBLIT_DEPLOY_PATH")
     if override:
         return Path(override).expanduser()
 
-    candidates = (
-        Path.home() / "NiblitAIOS" / "Niblit-Modules" / "Niblit-apk" / "Niblit",
-        Path.home() / "Niblit-Modules" / "Niblit-apk" / "Niblit",
-        get_project_root(),
-    )
+    home = Path.home()
+    candidates = tuple(home.joinpath(*parts) for parts in _TERMUX_DEPLOY_SUFFIXES) + (get_project_root(),)
     for candidate in candidates:
         if candidate.exists():
             return candidate

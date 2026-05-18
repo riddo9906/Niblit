@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from niblit_core.config.paths import resolve_path
+
 _LEGACY_MODULE: ModuleType | None = None
-_LEGACY_PATH = Path(__file__).resolve().parents[1] / "niblit_core.py"
+_LEGACY_PATH = resolve_path("niblit_core.py")
 
 
 def _load_legacy_module() -> ModuleType:
