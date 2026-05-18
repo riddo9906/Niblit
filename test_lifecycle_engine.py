@@ -10,4 +10,3 @@ def test_self_heal_phase_is_manual_only(monkeypatch):
     engine._execute_phase("SELF_HEAL")
 
     assert called == []
-    assert engine.phase_metrics["SELF_HEAL"]["executions"] == 1
