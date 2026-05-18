@@ -6810,7 +6810,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 try:
                     _params = inspect.signature(LLMAdapter.__init__).parameters
                     if "vector_store" in _params:
-                        self.llm = safe_call(LLMAdapter, **{"vector_store": _vs})
+                        self.llm = safe_call(LLMAdapter, vector_store=_vs)
                     else:
                         self.llm = safe_call(LLMAdapter)
                         if _vs and self.llm and not getattr(self.llm, "vector_store", None):
@@ -9484,7 +9484,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 return "[Orchestrator not available]"
             log.info("[ORCHESTRATOR] Running audit...")
             auditor = RepoAuditor(BASE_DIR)
-            if callable(safe_call):
+            if safe_call is not None:
                 report = safe_call(auditor.run_audit)
             else:
                 report = auditor.run_audit()
