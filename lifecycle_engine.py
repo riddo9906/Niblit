@@ -323,15 +323,10 @@ class LifecycleEngine:
                 log.info("[LIFECYCLE] AUDIT: Complete")
 
             elif phase == "SELF_HEAL":
-                log.info("[LIFECYCLE] SELF_HEAL: Running self-heal...")
-                if self.cb_heal and asyncio.iscoroutinefunction(self.cb_heal.call):
-                    try:
-                        asyncio.run(self.cb_heal.call(run_self_heal))
-                    except Exception as e:
-                        log.debug(f"CB call failed, using direct: {e}")
-                        run_self_heal()
-                else:
-                    run_self_heal()
+                log.info(
+                    "[LIFECYCLE] SELF_HEAL: Skipping automatic self-heal "
+                    "(manual command: 'orchestrate self-heal')."
+                )
 
             elif phase == "TRAIN":
                 log.info("[LIFECYCLE] TRAIN: Training...")
