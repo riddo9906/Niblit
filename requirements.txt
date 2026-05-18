@@ -107,7 +107,7 @@ prometheus-client>=0.19.0
 #   pip install transformers accelerate sentencepiece safetensors
 transformers>=4.40.0
 accelerate>=0.29.0
-sentencepiece>=0.2.0
+sentencepiece>=0.2.1
 safetensors>=0.4.3
 # torch is needed for local inference; install the CPU wheel for Termux/proot:
 #   pip install torch  (or the ARM wheel from pytorch.org)
