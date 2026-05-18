@@ -37,7 +37,7 @@ scrapy>=2.11.0
 docker>=6.0.0
 
 # ── QuantConnect LEAN CLI ────────────────────────────────────────────────────
-lean>=1.0.0
+lean>=1.0.225
 
 # ── Optional fine-tuning stack (uncomment to enable QLoRA fine-tuning) ───────
 # trl>=0.8.6
