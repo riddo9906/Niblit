@@ -296,8 +296,12 @@ class HFBrain:
                 timeout=300
             )
 
-            if r.status_code == 401:
-                log.warning("[HFBrain] HTTP 401 — invalid or expired token; disabling HFBrain")
+            if r.status_code in (401, 402):
+                if r.status_code == 401:
+                    reason = "invalid or expired token"
+                else:
+                    reason = "insufficient credits or billing required"
+                log.warning("[HFBrain] HTTP %d — %s; disabling HFBrain", r.status_code, reason)
                 self.enabled = False
                 return None
 
