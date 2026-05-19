@@ -57,21 +57,21 @@ log = logging.getLogger("MarketDataProviders")
 try:
     import yfinance as _yf
     _YFINANCE_OK = True
-except Exception:
+except (ImportError, ModuleNotFoundError, SyntaxError):
     _yf = None  # type: ignore[assignment]
     _YFINANCE_OK = False
 
 try:
     import ccxt as _ccxt
     _CCXT_OK = True
-except Exception:
+except (ImportError, ModuleNotFoundError, SyntaxError):
     _ccxt = None  # type: ignore[assignment]
     _CCXT_OK = False
 
 try:
     from twelvedata import TDClient as _TDClient
     _TWELVE_OK = True
-except Exception:
+except (ImportError, ModuleNotFoundError, SyntaxError):
     _TDClient = None  # type: ignore[assignment]
     _TWELVE_OK = False
 
@@ -82,7 +82,7 @@ try:
     import oandapyV20.endpoints.orders as _oanda_orders
     import oandapyV20.endpoints.trades as _oanda_trades
     _OANDA_OK = True
-except Exception:
+except (ImportError, ModuleNotFoundError, SyntaxError):
     _oanda = None  # type: ignore[assignment]
     _OANDA_OK = False
 
@@ -98,14 +98,14 @@ try:
     from alpaca.trading.requests import MarketOrderRequest as _AlpacaMktOrder
     from alpaca.trading.enums import OrderSide as _AlpacaOrderSide, TimeInForce as _AlpacaTIF
     _ALPACA_OK = True
-except Exception:
+except (ImportError, ModuleNotFoundError, SyntaxError):
     _ALPACA_OK = False
 
 # ── notification queue ────────────────────────────────────────────────────────
 
 try:
     from core.notification_queue import notif_queue as _notif_queue
-except Exception:
+except (ImportError, ModuleNotFoundError):
     class _NopQueue:
         def push(self, msg: str) -> None:
             pass
