@@ -10,6 +10,7 @@
 # New supporting API endpoints mirror app.py's surface so both servers are
 # API-compatible with existing clients (Router V2, memory, deployment, providers).
 
+import asyncio
 import datetime
 import difflib
 import json as _json
@@ -25,7 +26,7 @@ try:
 except ImportError:
     pass  # python-dotenv not installed — rely on os.environ
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -39,6 +40,11 @@ try:
     from config import settings as _settings
 except Exception:
     _settings = None
+
+try:
+    from modules.unified_runtime import get_unified_runtime
+except Exception:
+    get_unified_runtime = None
 
 _origins = getattr(_settings, "CORS_ORIGINS", "*") if _settings else "*"
 _origins_list = [_origins] if isinstance(_origins, str) else list(_origins)
@@ -61,6 +67,15 @@ def get_core():
     if _core is None and NiblitCore:
         _core = NiblitCore()
     return _core
+
+
+def _get_unified_runtime():
+    if get_unified_runtime is None:
+        return None
+    try:
+        return get_unified_runtime()
+    except Exception:
+        return None
 
 
 # ══════════════════════════════════════════════════════════════
@@ -103,6 +118,7 @@ _SHELL_COMMANDS = [
     "run-diagnostics", "run-live-test", "loop-errors",
     "orchestrate audit", "orchestrate self-heal", "orchestrate pipeline",
     "llm-provider list", "llm-provider status",
+    "runtime status", "runtime provider", "runtime infer",
 ]
 
 
@@ -959,7 +975,54 @@ async function pollStatus(){
 }
 setInterval(pollStatus, 12000);
 
+// ════════════════════════════════════════════
+// UNIFIED RUNTIME STREAM (WebSocket)
+// ════════════════════════════════════════════
+let rtSocket = null;
+let rtRetryTimer = null;
+function _runtimeWsUrl(){
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${location.host}/ws/runtime`;
+}
+function startRuntimeSocket(){
+  try{
+    if(rtSocket && (rtSocket.readyState===WebSocket.OPEN || rtSocket.readyState===WebSocket.CONNECTING)) return;
+    rtSocket = new WebSocket(_runtimeWsUrl());
+    rtSocket.onmessage = (ev) => {
+      let msg = null;
+      try{ msg = JSON.parse(ev.data); } catch(_){ return; }
+      if(!msg || msg.stream_format!=='niblit.runtime.stream.v1') return;
+      const st = msg.state || {};
+      const tel = msg.telemetry || {};
+      if(st.active_provider){
+        document.getElementById('tel-mode').textContent = st.runtime_mode || document.getElementById('tel-mode').textContent;
+      }
+      if(tel.threads !== undefined) document.getElementById('tel-threads').textContent = tel.threads;
+      if(tel.facts_count !== undefined && tel.facts_count !== null) document.getElementById('tel-facts').textContent = tel.facts_count + ' facts';
+      if(tel.ale){
+        const a = tel.ale;
+        document.getElementById('tel-ale').textContent = a.running ? `▶ #${a.cycle}` : '■ stopped';
+        document.getElementById('tel-ale').className = 'tel-v' + (a.running ? '' : ' off');
+      }
+      if(st.active_provider){
+        const s = document.getElementById('status-txt');
+        if(s && s.textContent && s.textContent.startsWith('online')){
+          s.textContent = `online · ${st.active_provider}`;
+        }
+      }
+    };
+    rtSocket.onclose = () => {
+      if(rtRetryTimer) clearTimeout(rtRetryTimer);
+      rtRetryTimer = setTimeout(startRuntimeSocket, 2000);
+    };
+    rtSocket.onerror = () => {
+      try{ rtSocket.close(); }catch(_){}
+    };
+  } catch(_){}
+}
+
 runBoot();
+startRuntimeSocket();
 </script>
 </body>
 </html>
@@ -1004,8 +1067,12 @@ def chat(body: ChatBody):
         return JSONResponse({"error": "no text provided"}, status_code=400)
     if not n:
         return JSONResponse({"error": "core unavailable"}, status_code=500)
+    runtime = _get_unified_runtime()
     try:
-        reply = n.handle(text)
+        if runtime is not None:
+            reply = runtime.dispatch_command(command=text, core=n)
+        else:
+            reply = n.handle(text)
     except Exception as exc:
         logging.getLogger("NiblitServer").error("chat error: %s", exc)
         reply = "[error] chat failed — see server logs"
@@ -1031,6 +1098,12 @@ def api_boot():
     """Return boot messages (mirrors app.py /api/boot and main.py boot())."""
     msgs = _get_boot_messages()
     core = get_core()
+    runtime = _get_unified_runtime()
+    if runtime is not None:
+        try:
+            runtime.boot(core=core)
+        except Exception:
+            pass
     return JSONResponse({"messages": msgs, "ready": core is not None})
 
 
@@ -1057,6 +1130,16 @@ def api_bg_status():
                 "cycle":   getattr(ale, "_cycle_count", 0),
                 "topic":   ale.get_current_topic() if hasattr(ale, "get_current_topic") else None,
             }
+    runtime = _get_unified_runtime()
+    if runtime is not None:
+        try:
+            snap = runtime.state(core=core)
+            data["runtime"] = {
+                "mode": snap["state"].get("runtime_mode", "api"),
+                "active_provider": snap["state"].get("active_provider", "qwen"),
+            }
+        except Exception:
+            pass
     return JSONResponse(data)
 
 
@@ -1078,6 +1161,18 @@ def api_status():
             data["facts_count"] = len(core.db.list_facts(limit=500))
         except Exception:
             pass
+    runtime = _get_unified_runtime()
+    if runtime is not None:
+        try:
+            snap = runtime.state(core=core)
+            data["runtime"] = {
+                "active_provider": snap["state"].get("active_provider", "qwen"),
+                "runtime_mode": snap["state"].get("runtime_mode", "api"),
+                "deployment": snap["state"].get("deployment", {}),
+                "event_counts": snap.get("events", {}).get("event_counts", {}),
+            }
+        except Exception:
+            pass
     return JSONResponse(data)
 
 
@@ -1096,6 +1191,73 @@ def api_threads():
     return JSONResponse({"threads": _list_threads()})
 
 
+@app.get("/api/runtime/state")
+def api_runtime_state():
+    """Unified runtime state envelope for UI/API/runtime interoperability."""
+    core = get_core()
+    runtime = _get_unified_runtime()
+    if runtime is None:
+        return JSONResponse(
+            {
+                "stream_format": "niblit.runtime.stream.v1",
+                "type": "runtime.state",
+                "state": {"runtime_mode": "api", "active_provider": "qwen"},
+                "telemetry": {},
+                "events": {},
+            }
+        )
+    return JSONResponse(runtime.state(core=core))
+
+
+@app.get("/api/runtime/events")
+def api_runtime_events(since: int = 0, limit: int = 100):
+    """Replay normalized runtime events from the unified runtime event bus."""
+    runtime = _get_unified_runtime()
+    if runtime is None:
+        return JSONResponse({"events": [], "since": since, "limit": limit})
+    return JSONResponse({"events": runtime.events(since=since, limit=limit), "since": since, "limit": limit})
+
+
+@app.websocket("/ws/runtime")
+async def ws_runtime(websocket: WebSocket):
+    """Live runtime stream for telemetry + events in canonical stream format."""
+    await websocket.accept()
+    runtime = _get_unified_runtime()
+    if runtime is None:
+        await websocket.send_json(
+            {
+                "stream_format": "niblit.runtime.stream.v1",
+                "type": "runtime.warning",
+                "message": "Unified runtime unavailable",
+            }
+        )
+        await websocket.close()
+        return
+
+    cursor = 0
+    try:
+        while True:
+            frame = runtime.stream_frame(core=get_core(), since=cursor)
+            events = frame.get("events", [])
+            if events:
+                cursor = max(cursor, max(int(e.get("id", 0)) for e in events))
+            await websocket.send_json(frame)
+            await asyncio.sleep(1.0)
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        try:
+            await websocket.send_json(
+                {
+                    "stream_format": "niblit.runtime.stream.v1",
+                    "type": "runtime.warning",
+                    "message": str(exc),
+                }
+            )
+        except Exception:
+            pass
+
+
 def run_server():
     import uvicorn
     port = int(os.environ.get("PORT", 8080))
@@ -1104,4 +1266,3 @@ def run_server():
 
 if __name__ == "__main__":
     run_server()
-

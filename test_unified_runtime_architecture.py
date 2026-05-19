@@ -1,0 +1,197 @@
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+from fastapi.testclient import TestClient
+
+from modules.unified_runtime import (
+    NiblitUnifiedRuntime,
+    ProviderRuntimeManager,
+    RuntimeEventBus,
+)
+
+
+def test_event_bus_emit_and_replay() -> None:
+    bus = RuntimeEventBus()
+    bus.emit("provider.started", "test", {"provider": "qwen"})
+    bus.emit("provider.failed", "test", {"provider": "hf"})
+    events = bus.events(since=0, limit=10)
+    assert len(events) == 2
+    assert events[0]["type"] == "provider.started"
+    assert events[1]["type"] == "provider.failed"
+
+
+def test_event_bus_since_cursor() -> None:
+    bus = RuntimeEventBus()
+    e1 = bus.emit("a", "t", {})
+    bus.emit("b", "t", {})
+    events = bus.events(since=e1.id, limit=10)
+    assert len(events) == 1
+    assert events[0]["type"] == "b"
+
+
+def test_provider_runtime_set_active_unknown() -> None:
+    mgr = ProviderRuntimeManager(RuntimeEventBus())
+    out = mgr.set_active("unknown-provider")
+    assert "Unknown provider" in out
+
+
+def test_provider_runtime_route_prefers_local_for_offline() -> None:
+    mgr = ProviderRuntimeManager(RuntimeEventBus())
+    selected, _ = mgr._route_provider(  # pylint: disable=protected-access
+        task_type="fast",
+        local_first=True,
+        offline_mode=True,
+        context_window=None,
+    )
+    assert selected in {"qwen", "local_llama"}
+
+
+def test_provider_runtime_generate_normalized_shape() -> None:
+    mgr = ProviderRuntimeManager(RuntimeEventBus())
+    fake_mgr = MagicMock()
+    fake_mgr.ask.return_value = "hello from provider"
+    fake_mgr.switch.return_value = "ok"
+    fake_mgr.status.return_value = {"active": "qwen", "qwen": True, "hf": True, "anthropic": True, "ruflo": True}
+    fake_rr_cls = MagicMock()
+    fake_rr = MagicMock()
+    fake_rr.generate.return_value = ""
+    fake_rr_cls.return_value = fake_rr
+
+    with patch("modules.llm_provider_manager.get_llm_provider_manager", return_value=fake_mgr), patch(
+        "modules.runtime_router_v2.NiblitUnifiedRuntimeRouterV2", fake_rr_cls
+    ):
+        out = mgr.generate(prompt="hello", task_type="general", local_first=False)
+
+    assert out["stream_format"] == "niblit.runtime.stream.v1"
+    assert out["type"] == "inference.result"
+    assert "telemetry" in out
+    assert "provider" in out
+
+
+def test_unified_runtime_dispatch_runtime_status(tmp_path: Path) -> None:
+    state_file = tmp_path / "runtime_state.json"
+    rt = NiblitUnifiedRuntime(state_file=state_file)
+    out = rt.dispatch_command(command="runtime status", core=None)
+    assert "runtime_mode" in out
+
+
+def test_unified_runtime_state_persistence(tmp_path: Path) -> None:
+    state_file = tmp_path / "runtime_state.json"
+    rt = NiblitUnifiedRuntime(state_file=state_file)
+    rt.dispatch_command(command="runtime provider qwen", core=None)
+    state = rt.state(core=None)["state"]
+    assert state_file.exists()
+    reloaded = NiblitUnifiedRuntime(state_file=state_file)
+    new_state = reloaded.state(core=None)["state"]
+    assert new_state["active_provider"] == state["active_provider"]
+
+
+def test_unified_runtime_stream_frame_shape(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    frame = rt.stream_frame(core=None, since=0)
+    assert frame["stream_format"] == "niblit.runtime.stream.v1"
+    assert frame["type"] == "runtime.frame"
+    assert "state" in frame
+    assert "telemetry" in frame
+    assert "events" in frame
+
+
+@pytest.fixture()
+def server_client():
+    mock_core = MagicMock()
+    mock_core.db.get_personality.return_value = {"mood": "steady"}
+    mock_core.db.list_facts.return_value = [{"key": "a", "value": "b"}]
+    mock_core.handle.return_value = "core-handle-reply"
+    mock_core.autonomous_engine = None
+
+    runtime = MagicMock()
+    runtime.boot.return_value = {"ok": True}
+    runtime.dispatch_command.return_value = "runtime-dispatch-reply"
+    runtime.state.return_value = {
+        "state": {
+            "runtime_mode": "api",
+            "active_provider": "qwen",
+            "deployment": {"environment": "local"},
+        },
+        "providers": {"health": {}},
+        "telemetry": {"threads": 2, "facts_count": 1},
+        "events": {"event_counts": {"boot.sequence": 1}},
+    }
+    runtime.events.return_value = [{"id": 1, "type": "boot.sequence", "source": "runtime", "payload": {}}]
+    runtime.stream_frame.return_value = {
+        "stream_format": "niblit.runtime.stream.v1",
+        "type": "runtime.frame",
+        "state": {"runtime_mode": "api", "active_provider": "qwen"},
+        "telemetry": {"threads": 2, "facts_count": 1},
+        "events": [{"id": 1, "type": "telemetry.update", "source": "runtime", "payload": {}}],
+        "provider": {"active_provider": "qwen"},
+    }
+
+    with patch("server.get_core", return_value=mock_core), patch("server.get_unified_runtime", return_value=runtime):
+        import server as srv
+
+        srv._core = mock_core  # pylint: disable=protected-access
+        client = TestClient(srv.app, raise_server_exceptions=False)
+        yield client, runtime
+
+
+def test_server_runtime_state_endpoint(server_client) -> None:
+    client, _ = server_client
+    resp = client.get("/api/runtime/state")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "state" in data
+    assert data["state"]["active_provider"] == "qwen"
+
+
+def test_server_runtime_events_endpoint(server_client) -> None:
+    client, _ = server_client
+    resp = client.get("/api/runtime/events?since=0&limit=20")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "events" in data
+    assert isinstance(data["events"], list)
+
+
+def test_server_chat_uses_runtime_dispatch(server_client) -> None:
+    client, runtime = server_client
+    resp = client.post("/chat", json={"text": "status"})
+    assert resp.status_code == 200
+    assert resp.json()["reply"] == "runtime-dispatch-reply"
+    runtime.dispatch_command.assert_called()
+
+
+def test_server_boot_calls_runtime_boot(server_client) -> None:
+    client, runtime = server_client
+    resp = client.get("/api/boot")
+    assert resp.status_code == 200
+    runtime.boot.assert_called()
+
+
+def test_server_bg_status_contains_runtime(server_client) -> None:
+    client, _ = server_client
+    resp = client.get("/api/bg_status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "runtime" in data
+    assert "active_provider" in data["runtime"]
+
+
+def test_server_status_contains_runtime(server_client) -> None:
+    client, _ = server_client
+    resp = client.get("/api/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "runtime" in data
+    assert "active_provider" in data["runtime"]
+
+
+def test_runtime_websocket_stream(server_client) -> None:
+    client, _ = server_client
+    with client.websocket_connect("/ws/runtime") as ws:
+        msg = ws.receive_json()
+        assert msg["stream_format"] == "niblit.runtime.stream.v1"
+        assert msg["type"] == "runtime.frame"
