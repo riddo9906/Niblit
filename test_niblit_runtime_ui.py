@@ -645,7 +645,10 @@ class TestRuntimeCompatibility:
     def test_api_commands_mirrors_niblit_dashboard_commands(self, client):
         """COMMANDS from server.py must exactly match niblit_dashboard.py COMMANDS."""
         c, _, srv = client
-        import niblit_dashboard as nd  # pylint: disable=import-error
+        try:
+            import niblit_dashboard as nd
+        except ImportError:
+            pytest.skip("niblit_dashboard.py not importable in this environment (Kivy dependency)")
         server_keys = {cmd["key"] for cmd in srv.COMMANDS}
         dashboard_keys = {cmd["key"] for cmd in nd.COMMANDS}
         assert server_keys == dashboard_keys, (

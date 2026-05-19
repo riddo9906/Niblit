@@ -981,7 +981,6 @@ class ChatBody(BaseModel):
 
 @app.get("/")
 def dashboard():
-    accept = ""
     return HTMLResponse(_build_dashboard())
 
 
