@@ -105,7 +105,7 @@ except (ImportError, ModuleNotFoundError, SyntaxError):
 
 try:
     from core.notification_queue import notif_queue as _notif_queue
-except (ImportError, ModuleNotFoundError):
+except (ImportError, ModuleNotFoundError, SyntaxError):
     class _NopQueue:
         def push(self, msg: str) -> None:
             pass
