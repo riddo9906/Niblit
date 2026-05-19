@@ -6,12 +6,11 @@ from modules.hf_brain import HFBrain
 
 
 class _StubDB:
-    def list_facts(self, limit=200):
-        _ = limit
+    def list_facts(self, _limit=200):
         return []
 
-    def add_interaction(self, role, text):
-        _ = (role, text)
+    def add_interaction(self, _role, _text):
+        return None
 
 
 def test_hf_402_disables_hfbrain(monkeypatch):
@@ -28,4 +27,3 @@ def test_hf_402_disables_hfbrain(monkeypatch):
 
     assert result is None
     assert brain.enabled is False
-
