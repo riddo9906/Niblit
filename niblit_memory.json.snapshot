@@ -283,7 +283,7 @@
         "created_at": "2026-05-15T11:47:29.416161+00:00",
         "version": "1.0.0",
         "schema_version": "2.0",
-        "last_load_source": "primary:/home/runner/work/Niblit/Niblit/niblit_memory.json",
+        "last_load_source": "snapshot:/home/runner/work/Niblit/Niblit/niblit_memory.json.snapshot",
         "replay_metadata": {
             "trace_id": "",
             "lineage": []
