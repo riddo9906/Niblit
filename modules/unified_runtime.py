@@ -8,6 +8,7 @@ and state can interact through normalized contracts.
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -18,6 +19,12 @@ from pathlib import Path
 from typing import Any
 
 log = logging.getLogger("Niblit.UnifiedRuntime")
+
+MAX_EVENT_BUFFER = 2000
+MAX_TELEMETRY_HISTORY = 200
+MAX_COMMAND_HISTORY = 500
+CMD_PREFIX_RUNTIME_PROVIDER = "runtime provider "
+CMD_PREFIX_RUNTIME_INFER = "runtime infer "
 
 
 def _utc_ts() -> float:
@@ -90,8 +97,8 @@ class RuntimeEventBus:
                 payload=dict(payload or {}),
             )
             self._events.append(event)
-            if len(self._events) > 2000:
-                self._events = self._events[-2000:]
+            if len(self._events) > MAX_EVENT_BUFFER:
+                self._events = self._events[-MAX_EVENT_BUFFER:]
             self._counts[event_type] = self._counts.get(event_type, 0) + 1
             handlers = list(self._handlers)
 
@@ -307,7 +314,11 @@ class ProviderRuntimeManager:
                     from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
 
                     rr = NiblitUnifiedRuntimeRouterV2()
-                    text = rr.generate(prompt=prompt, context=context)
+                    sig = inspect.signature(rr.generate)
+                    if "max_tokens" in sig.parameters:
+                        text = rr.generate(prompt=prompt, context=context, max_tokens=max_tokens)
+                    else:
+                        text = rr.generate(prompt=prompt, context=context)
                 except Exception:
                     text = ""
             if not text:
@@ -448,13 +459,13 @@ class CommandRuntime:
         if not text:
             return ""
         state.command_history.append(text)
-        if len(state.command_history) > 500:
-            state.command_history = state.command_history[-500:]
+        if len(state.command_history) > MAX_COMMAND_HISTORY:
+            state.command_history = state.command_history[-MAX_COMMAND_HISTORY:]
         self._event_bus.emit("command.executed", "CommandRuntime", {"command": text})
 
         lower = text.lower()
-        if lower.startswith("runtime provider "):
-            target = text.split(" ", 2)[-1].strip().lower()
+        if lower.startswith(CMD_PREFIX_RUNTIME_PROVIDER):
+            target = text[len(CMD_PREFIX_RUNTIME_PROVIDER) :].strip().lower()
             result = self._provider_runtime.set_active(target)
             state.active_provider = self._provider_runtime.status().get("active_provider", state.active_provider)
             return result
@@ -469,8 +480,8 @@ class CommandRuntime:
                 indent=2,
                 sort_keys=True,
             )
-        if lower.startswith("runtime infer "):
-            prompt = text[len("runtime infer ") :].strip()
+        if lower.startswith(CMD_PREFIX_RUNTIME_INFER):
+            prompt = text[len(CMD_PREFIX_RUNTIME_INFER) :].strip()
             result = self._provider_runtime.generate(prompt=prompt, task_type="general", local_first=True)
             return result.get("text") or f"[runtime error] {result.get('error', 'inference failed')}"
 
@@ -532,8 +543,8 @@ class NiblitUnifiedRuntime:
                 event_stats=self._event_bus.stats(),
             )
             self._state.telemetry_snapshots.append(dict(telemetry))
-            if len(self._state.telemetry_snapshots) > 200:
-                self._state.telemetry_snapshots = self._state.telemetry_snapshots[-200:]
+            if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
+                self._state.telemetry_snapshots = self._state.telemetry_snapshots[-MAX_TELEMETRY_HISTORY:]
             self._event_bus.emit("telemetry.update", "RuntimeTelemetryManager", telemetry)
             self._save_state()
             return {
@@ -584,4 +595,3 @@ def get_unified_runtime() -> NiblitUnifiedRuntime:
             if _unified_runtime is None:
                 _unified_runtime = NiblitUnifiedRuntime()
     return _unified_runtime
-

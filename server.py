@@ -1031,10 +1031,19 @@ startRuntimeSocket();
 
 def _build_dashboard() -> str:
     """Inject COMMANDS and SEARCH_PROVIDERS into the dashboard HTML template."""
+    def _json_for_script(value) -> str:
+        # Escape characters that can break out of <script> context.
+        return (
+            _json.dumps(value, ensure_ascii=False)
+            .replace("</", "<\\/")
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+        )
+
     return (
         DASHBOARD_HTML
-        .replace("__JSON_COMMANDS__",  _json.dumps(COMMANDS,  ensure_ascii=False))
-        .replace("__JSON_PROVIDERS__", _json.dumps(SEARCH_PROVIDERS, ensure_ascii=False))
+        .replace("__JSON_COMMANDS__", _json_for_script(COMMANDS))
+        .replace("__JSON_PROVIDERS__", _json_for_script(SEARCH_PROVIDERS))
     )
 
 
