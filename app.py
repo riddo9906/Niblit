@@ -9,6 +9,7 @@ The /chat endpoint mirrors the run_shell() logic from main.py so that
 the web experience is identical to running Niblit in a Termux terminal.
 """
 
+import asyncio
 import difflib
 import datetime
 import hmac
@@ -28,7 +29,7 @@ try:
 except ImportError:
     pass  # python-dotenv not installed — rely on os.environ
 
-from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -37,6 +38,11 @@ try:
     from niblit_core import NiblitCore
 except Exception:
     NiblitCore = None
+
+try:
+    from modules.unified_runtime import get_unified_runtime
+except Exception:
+    get_unified_runtime = None
 
 # ══════════════════════════════════════════════════════════════
 # CONTENT NEGOTIATION RENDERERS
@@ -230,6 +236,15 @@ def get_core():
                 except Exception as exc:
                     logging.getLogger("NiblitApp").error("NiblitCore init error: %s", exc)
     return _core
+
+
+def _get_unified_runtime():
+    if get_unified_runtime is None:
+        return None
+    try:
+        return get_unified_runtime()
+    except Exception:
+        return None
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1864,6 +1879,7 @@ def dashboard(request: Request):
     return render_response(request, {"service": "niblit", "status": "ok",
                             "endpoints": ["/api/boot", "/api/commands", "/api/search",
                                           "/api/status", "/api/suggest", "/api/threads",
+                                          "/api/runtime/state", "/api/runtime/events", "/ws/runtime",
                                           "/ping", "/chat", "/memory",
                                           "/v1/models", "/v1/chat/completions", "/health"]})
 
@@ -1891,6 +1907,12 @@ def api_boot(request: Request):
     """
     msgs = _get_boot_messages()
     core = get_core()
+    runtime = _get_unified_runtime()
+    if runtime is not None:
+        try:
+            runtime.boot(core=core)
+        except Exception:
+            pass
     return render_response(request, {"messages": msgs, "ready": core is not None})
 
 
@@ -1936,6 +1958,18 @@ def api_status(request: Request):
             # Use a small limit just to obtain a count — the memory API
             # does not currently expose a dedicated count method.
             data["facts_count"] = len(core.memory.list_facts(limit=500))
+        except Exception:
+            pass
+    runtime = _get_unified_runtime()
+    if runtime is not None:
+        try:
+            snap = runtime.state(core=core)
+            data["runtime"] = {
+                "active_provider": snap["state"].get("active_provider", "qwen"),
+                "runtime_mode": snap["state"].get("runtime_mode", "api"),
+                "deployment": snap["state"].get("deployment", {}),
+                "event_counts": snap.get("events", {}).get("event_counts", {}),
+            }
         except Exception:
             pass
     return render_response(request, data)
@@ -2041,7 +2075,91 @@ def api_bg_status(request: Request):
                 "seeds": len(getattr(dtm, "seed_topics", [])),
                 "thread_alive": refresh_thread is not None and refresh_thread.is_alive(),
             }
+    runtime = _get_unified_runtime()
+    if runtime is not None:
+        try:
+            snap = runtime.state(core=core)
+            data["runtime"] = {
+                "mode": snap["state"].get("runtime_mode", "api"),
+                "active_provider": snap["state"].get("active_provider", "qwen"),
+            }
+        except Exception:
+            pass
     return render_response(request, data)
+
+
+@app.get("/api/runtime/state")
+def api_runtime_state(request: Request):
+    """Unified runtime state envelope (additive, compatibility-safe)."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    runtime = _get_unified_runtime()
+    if runtime is None:
+        return render_response(
+            request,
+            {
+                "stream_format": "niblit.runtime.stream.v1",
+                "type": "runtime.state",
+                "state": {"runtime_mode": "api", "active_provider": "qwen"},
+                "telemetry": {},
+                "events": {},
+            },
+        )
+    return render_response(request, runtime.state(core=get_core()))
+
+
+@app.get("/api/runtime/events")
+def api_runtime_events(request: Request, since: int = 0, limit: int = 100):
+    """Replay unified runtime events for shell/clients."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    runtime = _get_unified_runtime()
+    if runtime is None:
+        return render_response(request, {"events": [], "since": since, "limit": limit})
+    return render_response(
+        request,
+        {"events": runtime.events(since=since, limit=limit), "since": since, "limit": limit},
+    )
+
+
+@app.websocket("/ws/runtime")
+async def ws_runtime(websocket: WebSocket):
+    """Live unified runtime stream in canonical format."""
+    await websocket.accept()
+    runtime = _get_unified_runtime()
+    if runtime is None:
+        await websocket.send_json(
+            {
+                "stream_format": "niblit.runtime.stream.v1",
+                "type": "runtime.warning",
+                "message": "Unified runtime unavailable",
+            }
+        )
+        await websocket.close()
+        return
+
+    cursor = 0
+    try:
+        while True:
+            frame = runtime.stream_frame(core=get_core(), since=cursor)
+            events = frame.get("events", [])
+            if events:
+                cursor = max(cursor, max(int(e.get("id", 0)) for e in events))
+            await websocket.send_json(frame)
+            await asyncio.sleep(1.0)
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        try:
+            await websocket.send_json(
+                {
+                    "stream_format": "niblit.runtime.stream.v1",
+                    "type": "runtime.warning",
+                    "message": str(exc),
+                }
+            )
+        except Exception:
+            pass
 
 
 # ── API: search (GET or POST) ────────────────────────────

@@ -40,6 +40,8 @@ including your Android phone via Termux.
 - [🆕 Phased Research Engine](#-phased-research-engine)
 - [🆕 Cognitive Graph Kernel v1.0](#-cognitive-graph-kernel-v10)
 - [🆕 Autonomous Evolution Engine (Phases 2–9.5)](#-autonomous-evolution-engine-phases-295)
+- [🆕 Unified Cognitive Runtime PR Update (May 2026)](#-unified-cognitive-runtime-pr-update-may-2026)
+- [🆕 C++ NiblitOS Kernel Progress (May 2026)](#-c-niblitos-kernel-progress-may-2026)
 - [Project Structure](#project-structure)
 - [Running Tests](#running-tests)
 - [Troubleshooting](#troubleshooting)
@@ -179,6 +181,143 @@ make boot-kernel
 make boot-kernel-iso
 make run-os
 ```
+
+---
+
+## 🆕 Unified Cognitive Runtime PR Update (May 2026)
+
+This PR unifies runtime layers into a single runtime authority while keeping the
+`niblit_dashboard.py` + `server.py` Cognitive Runtime Shell architecture as the
+canonical Niblit operating environment.
+
+### Core runtime unification delivered
+
+- Added `modules/unified_runtime.py` with:
+  - `NiblitUnifiedRuntime` (composition root)
+  - `RuntimeState` (persistent state authority)
+  - `RuntimeEventBus` (normalized event feed + replay cursor model)
+  - `ProviderRuntimeManager` (provider registry, scoring, health/fallback routing)
+  - `RuntimeTelemetryManager` (unified telemetry snapshots)
+  - `DeploymentRuntimeManager` (runtime environment detection/topology)
+  - `CommandRuntime` (runtime-native command dispatch)
+- Introduced canonical runtime stream envelope:
+  - `stream_format = "niblit.runtime.stream.v1"`
+
+### Runtime API + stream surfaces (server + app parity)
+
+Added in both `server.py` and `app.py`:
+
+- `GET /api/runtime/state`
+- `GET /api/runtime/events`
+- `WS /ws/runtime`
+
+Also integrated runtime state into existing status surfaces:
+
+- `/api/status` now includes runtime mode/provider/deployment/event counters
+- `/api/bg_status` now includes runtime mode/provider slices
+- boot path initializes unified runtime snapshots
+
+### Provider/runtime command routing changes
+
+- Chat/runtime command path now dispatches through `CommandRuntime` (with
+  compatibility fallback to existing core handling).
+- Added runtime-native command support:
+  - `runtime status`
+  - `runtime provider <name>`
+  - `runtime infer <prompt>`
+- Preserved existing `llm-provider` command behavior and compatibility.
+
+### Shell/UI runtime integration without replacing architecture
+
+- Preserved existing shell design system, panel model, and command philosophy.
+- Added runtime websocket client in dashboard JS to hydrate telemetry/status
+  from unified runtime stream frames.
+- Kept existing polling paths for graceful compatibility fallback.
+
+### Security + maintainability hardening included in follow-up commit
+
+- Hardened dashboard script JSON injection in `server.py`:
+  - escapes `</`, `<`, `>` when embedding JSON payloads in script context.
+- Replaced runtime magic numbers with constants in `modules/unified_runtime.py`.
+- Consolidated runtime command prefixes into constants.
+- Added `max_tokens`-aware Router V2 call path when supported by signature.
+
+### Tests added/updated for this PR
+
+- Added `test_unified_runtime_architecture.py`
+  - runtime managers
+  - normalized events/frames
+  - server runtime endpoints + websocket behavior
+- Added `test_app_unified_runtime.py`
+  - app runtime endpoint + websocket parity
+- Confirmed compatibility with existing runtime-shell tests:
+  - `test_server.py`
+  - `test_niblit_runtime_ui.py`
+
+### Additional PR file updates now explicitly documented
+
+Alongside runtime-focused code, this PR also included state/log snapshot updates:
+
+- `niblit_state.json`
+- `niblit_memory.json.snapshot`
+- `nibblebots/context_guard_log.jsonl`
+- `nibblebots/impact_weights.json`
+
+---
+
+## 🆕 C++ NiblitOS Kernel Progress (May 2026)
+
+Current status: **advanced prototype / early real kernel stage**, not yet
+production-grade general-purpose OS.
+
+### What is already strong
+
+- Real multiboot kernel and boot path (`os/kernel/kernel.cpp`).
+- Core low-level subsystems present:
+  - GDT/IDT/IRQ/PIT
+  - paging + physical memory allocator + heap
+  - process scheduler and task model
+  - VFS + ProcFS
+  - device/driver surfaces (keyboard, ATA, PCI, ACPI, DMA, net)
+- Kernel shell command surface and observability paths exist.
+- AI-specific syscall/IPC pathway is implemented in kernel space:
+  - `niblit_query`, `niblit_tool`, IPC ring mapping, epoch sync, KB read/write.
+- End-to-end bridge model defined:
+  - kernel ring ↔ userspace runner ↔ Python `NiblitCore`.
+
+### Practical maturity assessment
+
+- **Boot/infrastructure maturity:** medium-high (for hobby/research OS stage).
+- **Kernel reliability/safety maturity:** medium-low (needs stronger isolation/fault hardening).
+- **Userspace/process model maturity:** medium-low (fork/wait are still stubs).
+- **Security model maturity:** low-medium (requires privilege/isolation expansion).
+- **Production readiness:** not yet (still a research/experimental OS runtime).
+
+### Highest-impact improvements recommended next
+
+1. **Process model completion**
+   - replace `fork`/`waitpid` stubs with real semantics (or explicitly remove
+     stubs and expose supported process APIs only).
+2. **Memory safety + isolation hardening**
+   - strengthen user/kernel separation, syscall pointer validation, guard pages,
+     and robust fault handling paths.
+3. **Scheduler and preemption robustness**
+   - starvation/fairness instrumentation, priority policy, lock/IRQ-safe paths.
+4. **Driver/runtime fault containment**
+   - improve per-driver failure handling so a faulty device path cannot cascade.
+5. **IPC ring formalization**
+   - ABI versioning, strict bounds/contracts, replay/error semantics, and fuzz tests.
+6. **Filesystem durability strategy**
+   - define persistence guarantees, crash consistency, and recovery policy.
+7. **Networking hardening**
+   - expand protocol correctness testing and defensive parsing.
+8. **Toolchain/test automation**
+   - add deterministic kernel regression harnesses (boot assertions, syscall tests,
+     IPC contract tests, stress tests).
+9. **Security model for AI syscalls**
+   - capability/ACL gating for AI-oriented syscalls and KB mutation operations.
+10. **Performance telemetry loop**
+   - expose stable kernel metrics contract consumed by runtime telemetry manager.
 
 ---
 
