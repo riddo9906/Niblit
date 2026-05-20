@@ -8,8 +8,22 @@ import re
 import requests
 from datetime import datetime
 from typing import Dict, Optional
-from modules.db import LocalDB
+
+from niblit_memory import LocalDB
 from modules.internet_manager import InternetManager
+
+# --- Repo integrations ---
+try:
+    from niblit_tools.serpex_api import niblit_serpex_search
+except Exception as _e:
+    niblit_serpex_search = None
+    logging.warning(f"Serpex integration unavailable: {_e}")
+
+try:
+    from niblit_agents.semantic_agent import SemanticAgent
+except Exception as _e:
+    SemanticAgent = None
+    logging.warning(f"Qdrant integration unavailable: {_e}")
 
 log = logging.getLogger("SLSA")
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
@@ -23,12 +37,26 @@ DEFAULT_TOPICS = ["car", "computer", "phone"]
 class SLSAGenerator:
     """Continuous semantic emergence engine integrated with DB."""
 
-    def __init__(self, interval=30, db_path="niblit.db", topics=None, internet=None):
+    def __init__(self, interval=30, db_path="", db=None, topics=None, internet=None,
+                 semantic_agent=None, searchcode_search=None, serpex_agent=None,
+                 auto_start=False):
         self.interval = interval
         self.stop_event = threading.Event()  # Thread-safe stop signal
-        self.db = LocalDB(db_path)
+        # Accept an existing DB instance to avoid creating a new file (Vercel-safe).
+        # If none provided, use an empty db_path so LocalDB picks a writable location.
+        if db is not None:
+            self.db = db
+        else:
+            self.db = LocalDB(db_path)  # empty db_path triggers _writable_path in LocalDB
         self.topics = topics or DEFAULT_TOPICS
         self.internet = internet or InternetManager(db=self.db)
+        # Integrate Qdrant (SemanticAgent) and Serpex (scrapy-powered search)
+        self.semantic_agent = semantic_agent or (SemanticAgent() if SemanticAgent else None)
+        self.searchcode_search = searchcode_search
+        self.serpex_agent = serpex_agent or niblit_serpex_search
+        self._thread: Optional[threading.Thread] = None
+        if auto_start:
+            self.start()
 
     # ───────── RAW DATA COLLECTION ─────────
     def fetch_wikipedia(self, topic: str) -> Optional[Dict]:
@@ -147,6 +175,48 @@ class SLSAGenerator:
         if self.internet and not self.stop_event.is_set():
             structured_results = self.internet.search(topic)
 
+        # ── Serpex enrichment (scrapy) ──────────────────────────────────────
+        if self.serpex_agent and not self.stop_event.is_set():
+            try:
+                # niblit_serpex_search returns results as list of dicts
+                serpex_results = self.serpex_agent(topic)
+                if serpex_results:
+                    if structured_results is None:
+                        structured_results = []
+                    for r in serpex_results:
+                        if isinstance(r, dict) and "error" not in r:
+                            text = r.get("snippet", "") or r.get("text", "")
+                            if text:
+                                structured_results.append({
+                                    "source": "serpex",
+                                    "text": text,
+                                    "url": r.get("url"),
+                                })
+            except Exception as _e:
+                log.debug("[SLSA] Serpex enrichment failed: %s", _e)
+
+        # ── Searchcode enrichment (code topics) ─────────────────────────────
+        if self.searchcode_search and not self.stop_event.is_set():
+            try:
+                sc_results = self.searchcode_search.search_code(topic, per_page=3)
+                if sc_results:
+                    if structured_results is None:
+                        structured_results = []
+                    for r in sc_results:
+                        text = r.get("snippet") or r.get("text", "")
+                        if not text and "lines" in r:
+                            lines = r.get("lines", {})
+                            if isinstance(lines, dict):
+                                text = " ".join(str(v) for v in lines.values())[:400]
+                        if text:
+                            structured_results.append({
+                                "source": "searchcode",
+                                "text": text,
+                                "url": r.get("url", ""),
+                            })
+            except Exception as _e:
+                log.debug("[SLSA] Searchcode enrichment failed: %s", _e)
+
         if self.stop_event.is_set():
             return
         wiki = self.fetch_wikipedia(topic)
@@ -168,6 +238,25 @@ class SLSAGenerator:
             log.info(f"[ARTIFACT EMERGED] {topic}")
             log.info(f"[DEFINITION] {artifact['definition']}")
             self.feed_modules(artifact)
+
+            # ── Semantic storage — embed into Qdrant vector store ──
+            if self.semantic_agent:
+                try:
+                    summary_text = " | ".join(
+                        filter(None, [
+                            artifact.get("definition", ""),
+                            artifact.get("function", ""),
+                            artifact.get("structure", ""),
+                        ])
+                    )
+                    if summary_text:
+                        self.semantic_agent.store_knowledge(
+                            [{"snippet": summary_text[:600], "title": topic, "url": ""}],
+                            source="slsa",
+                            query=topic,
+                        )
+                except Exception as _e:
+                    log.debug("[SLSA] SemanticAgent (Qdrant) store failed: %s", _e)
 
     # ───────── BACKGROUND LOOP ─────────
     def run(self):
@@ -191,9 +280,27 @@ class SLSAGenerator:
 
         log.info("[SLSA] Generator fully stopped")
 
-    # ───────── STOP ─────────
+    # ───────── START / STOP ─────────
+    def start(self) -> threading.Thread:
+        """Start the generator loop in a daemon thread if not already running."""
+        if self._thread and self._thread.is_alive():
+            log.debug("[SLSA] Already running")
+            return self._thread
+        self.stop_event.clear()
+        self._thread = threading.Thread(target=self.run, daemon=True, name="SLSA-Generator")
+        self._thread.start()
+        log.info("[SLSA] Generator thread started")
+        return self._thread
+
     def stop(self):
         self.stop_event.set()
+        if self._thread:
+            self._thread.join(timeout=5)
+        log.info("[SLSA] Generator stopped")
+
+    @property
+    def is_running(self) -> bool:
+        return bool(self._thread and self._thread.is_alive())
 
 
 # ───────── START SLSA ─────────
