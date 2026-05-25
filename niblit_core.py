@@ -2574,6 +2574,10 @@ class NiblitCore:
             "NiblitDevAgent lightweight architecture index", "dev_agent", priority=75
         )
         self.command_registry.register(
+            "dev-agent analyze", lambda t="": self._cmd_dev_agent("analyze " + t),
+            "NiblitDevAgent scope analysis: runtime + provider + architecture impact", "dev_agent", priority=75
+        )
+        self.command_registry.register(
             "sa-scripts", self._cmd_sa_scripts,
             "List every repo script with its function", "structural_awareness", priority=74
         )

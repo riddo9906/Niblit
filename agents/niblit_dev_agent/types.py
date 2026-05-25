@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Type definitions for NiblitDevAgent phase-1 scaffolding."""
+"""Type definitions for NiblitDevAgent scaffolding (Phase 1 + Phase 2)."""
 
 from __future__ import annotations
 
@@ -35,3 +35,46 @@ class ArchitectureSummary(TypedDict, total=False):
     deployment_boundaries: list[str]
     event_runtime_systems: list[str]
     runtime_shell_surfaces: list[str]
+
+
+# ── Phase-2 types ─────────────────────────────────────────────────────────────
+
+
+class ImpactAssessmentDict(TypedDict, total=False):
+    affected: bool
+    details: str
+    severity: str  # none | low | medium | high | critical
+
+
+class DevTaskContractDict(TypedDict, total=False):
+    task_id: str
+    task_type: str
+    scope: str
+    description: str
+    affected_modules: list[str]
+    runtime_impact: ImpactAssessmentDict
+    deployment_impact: ImpactAssessmentDict
+    provider_impact: ImpactAssessmentDict
+    memory_impact: ImpactAssessmentDict
+    telemetry_impact: ImpactAssessmentDict
+    rollback_strategy: str
+    approval_state: str
+    execution_state: str
+    metadata: dict[str, Any]
+
+
+class ScopeAnalysisReport(TypedDict, total=False):
+    scope: str
+    analysis_duration_ms: float
+    touched_modules: list[str]
+    provider_context: dict[str, Any]
+    runtime_context: dict[str, Any]
+    architecture_summary: dict[str, Any]
+
+
+class WorkflowSuggestion(TypedDict, total=False):
+    trigger: str
+    workflow: str
+    description: str
+    governed_task_type: str
+    severity: str

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NiblitDevAgent phase-1 runtime scaffold and registration surface."""
+"""NiblitDevAgent — governed cognitive development runtime (Phase 2)."""
 
 from __future__ import annotations
 
@@ -12,14 +12,18 @@ from agents.base_agent import BaseAgent
 from agents.niblit_dev_agent.architecture_indexer import ArchitectureIndexer
 from agents.niblit_dev_agent.context_engine import ContextEngine
 from agents.niblit_dev_agent.event_subscriber import EventSubscriber
+from agents.niblit_dev_agent.filesystem_guard import FilesystemGuard
 from agents.niblit_dev_agent.memory_bridge import MemoryBridge
+from agents.niblit_dev_agent.planning_engine import PlanningEngine
 from agents.niblit_dev_agent.provider_awareness import ProviderAwareness
 from agents.niblit_dev_agent.runtime_awareness import RuntimeAwareness
 from agents.niblit_dev_agent.task_contracts import (
+    CLI_ANALYZE,
     CLI_ARCHITECTURE,
     CLI_PROVIDERS,
     CLI_RUNTIME,
     CLI_STATUS,
+    DEV_AGENT_ANALYZE_TASK_TYPE,
     DEV_AGENT_TASK_TYPE,
 )
 from agents.niblit_dev_agent.telemetry_hooks import DevAgentTelemetryHooks
@@ -31,7 +35,7 @@ log = logging.getLogger("NiblitDevAgent")
 class NiblitDevAgent(BaseAgent):
     """Internal cognitive-engineering runtime agent for Niblit."""
 
-    HANDLED_TASK_TYPES = [DEV_AGENT_TASK_TYPE]
+    HANDLED_TASK_TYPES = [DEV_AGENT_TASK_TYPE, DEV_AGENT_ANALYZE_TASK_TYPE]
 
     def __init__(
         self,
@@ -76,12 +80,24 @@ class NiblitDevAgent(BaseAgent):
         self._event_subscriber = EventSubscriber(self._event_bus, self._telemetry_hooks)
         self._event_subscriber.subscribe()
 
+        # Phase-2 components ──────────────────────────────────────────────────
+        self._planning_engine = PlanningEngine(
+            architecture_indexer=self._architecture_indexer,
+            telemetry=self._telemetry_hooks,
+        )
+        self._filesystem_guard = FilesystemGuard(
+            repo_root=root,
+            telemetry=self._telemetry_hooks,
+        )
+
         self._startup_snapshot = self._runtime_awareness.get_runtime_snapshot()
         self._telemetry_hooks.increment("dev_agent_startups_total", 1)
         self._telemetry_hooks.gauge(
             "dev_agent_startup_threads",
             float(self._startup_snapshot.get("active_threads", {}).get("count", 0)),
         )
+
+    # ── Phase-1 snapshot accessors ────────────────────────────────────────────
 
     def get_runtime_snapshot(self) -> dict[str, Any]:
         with self._telemetry_hooks.timed("dev_agent_runtime_snapshot_ms"):
@@ -106,8 +122,47 @@ class NiblitDevAgent(BaseAgent):
             "deployment_mode": self.get_runtime_snapshot().get("deployment_mode", "unknown"),
         }
 
+    # ── Phase-2 analysis / planning accessors ─────────────────────────────────
+
+    def analyze_scope(self, scope: str) -> dict[str, Any]:
+        """Run architecture-aware scope analysis."""
+        provider = self.get_provider_snapshot()
+        runtime = self.get_runtime_snapshot()
+        self._planning_engine.update_snapshots(
+            provider_snapshot=provider,
+            runtime_snapshot=runtime,
+        )
+        return self._planning_engine.analyze_scope(scope)
+
+    def plan_task(
+        self,
+        scope: str,
+        description: str = "",
+        affected_modules: list[str] | None = None,
+        task_type: str = "analysis",
+    ) -> dict[str, Any]:
+        """Plan a governed development task; return contract as dict."""
+        provider = self.get_provider_snapshot()
+        runtime = self.get_runtime_snapshot()
+        self._planning_engine.update_snapshots(
+            provider_snapshot=provider,
+            runtime_snapshot=runtime,
+        )
+        contract = self._planning_engine.plan_task(
+            scope=scope,
+            description=description,
+            affected_modules=affected_modules,
+            task_type=task_type,
+        )
+        return contract.to_dict()
+
+    # ── CLI handler ───────────────────────────────────────────────────────────
+
     def handle_cli(self, text: str) -> str:
-        action = (text or "").strip().lower() or CLI_STATUS
+        # Split into action + optional argument
+        parts = (text or "").strip().split(maxsplit=1)
+        action = parts[0].lower() if parts else CLI_STATUS
+        arg = parts[1] if len(parts) > 1 else ""
 
         if action == CLI_STATUS:
             st = self.get_status()
@@ -117,6 +172,7 @@ class NiblitDevAgent(BaseAgent):
                 f"  state: {st.get('state')}\n"
                 f"  task_types: {', '.join(st.get('task_types', []))}\n"
                 f"  events_seen: {ev.get('events_total', 0)}\n"
+                f"  workflow_suggestions: {ev.get('workflow_suggestions_total', 0)}\n"
                 f"  deployment_mode: {st.get('deployment_mode', 'unknown')}"
             )
 
@@ -154,15 +210,38 @@ class NiblitDevAgent(BaseAgent):
                 f"  scan_duration_ms: {arch.get('scan_duration_ms', 0)}"
             )
 
+        if action == CLI_ANALYZE:
+            scope = arg.strip() or "niblit_core"
+            analysis = self.analyze_scope(scope)
+            touched = analysis.get("touched_modules", [])
+            provider_ctx = analysis.get("provider_context", {})
+            runtime_ctx = analysis.get("runtime_context", {})
+            return (
+                f"NiblitDevAgent Analysis: '{scope}'\n"
+                f"  analysis_duration_ms: {analysis.get('analysis_duration_ms', 0)}\n"
+                f"  touched_modules: {len(touched)}\n"
+                f"  touched: {touched[:5]}{'...' if len(touched) > 5 else ''}\n"
+                f"  runtime_mode: {runtime_ctx.get('runtime_mode', 'unknown')}\n"
+                f"  deployment_mode: {runtime_ctx.get('deployment_mode', 'unknown')}\n"
+                f"  provider: {provider_ctx.get('active_provider', 'unknown')}"
+            )
+
         return (
-            "Usage: dev-agent <status|runtime|providers|architecture>\n"
-            "Examples: dev-agent status, dev-agent runtime"
+            "Usage: dev-agent <status|runtime|providers|architecture|analyze [scope]>\n"
+            "Examples: dev-agent status, dev-agent analyze modules/local_brain.py"
         )
 
     def _execute(self, task: Task, event_bus: Any) -> dict[str, Any]:
         _ = event_bus
         query = str(task.payload.get("query", CLI_STATUS)).strip().lower()
-        if query in {CLI_STATUS, CLI_RUNTIME, CLI_PROVIDERS, CLI_ARCHITECTURE}:
+        if query == DEV_AGENT_ANALYZE_TASK_TYPE or task.task_type == DEV_AGENT_ANALYZE_TASK_TYPE:
+            scope = str(task.payload.get("scope", "niblit_core"))
+            return {
+                "query": CLI_ANALYZE,
+                "scope": scope,
+                "result": self.analyze_scope(scope),
+            }
+        if query in {CLI_STATUS, CLI_RUNTIME, CLI_PROVIDERS, CLI_ARCHITECTURE, CLI_ANALYZE}:
             return {
                 "query": query,
                 "result": self.handle_cli(query),
