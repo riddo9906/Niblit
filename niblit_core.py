@@ -8910,12 +8910,22 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     _llm_provider_manager = getattr(
                         getattr(self, "brain", None), "llm_provider_manager", None
                     )
+                    _router_v2 = None
+                    try:
+                        from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
+
+                        _router_v2 = NiblitUnifiedRuntimeRouterV2(
+                            local_brain=getattr(self, "local_brain", None)
+                        )
+                    except Exception:
+                        _router_v2 = None
                     nda = _NiblitDevAgent(
                         core=self,
                         runtime_manager=rm,
                         event_bus=getattr(rm, "event_bus", None),
                         telemetry=getattr(self, "telemetry", None),
                         local_brain=getattr(self, "local_brain", None),
+                        router_v2=_router_v2,
                         llm_provider_manager=_llm_provider_manager,
                     )
                     for tt in nda.HANDLED_TASK_TYPES:

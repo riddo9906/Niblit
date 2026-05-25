@@ -137,7 +137,7 @@ def test_niblit_dev_agent_cli_status_and_runtime_snapshot():
         local_brain=_StubLocalBrain(),
         router_v2=_StubRouterV2(),
         llm_provider_manager=_StubProviderManager(),
-        repo_root="/home/runner/work/Niblit/Niblit",
+        repo_root=str(Path(__file__).resolve().parent),
     )
 
     status_text = agent.handle_cli("status")
