@@ -8911,14 +8911,19 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         getattr(self, "brain", None), "llm_provider_manager", None
                     )
                     _router_v2 = None
+                    _router_v2_cls = None
                     try:
                         from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
-
-                        _router_v2 = NiblitUnifiedRuntimeRouterV2(
-                            local_brain=getattr(self, "local_brain", None)
-                        )
-                    except Exception:
-                        _router_v2 = None
+                        _router_v2_cls = NiblitUnifiedRuntimeRouterV2
+                    except ImportError:
+                        _router_v2_cls = None
+                    if _router_v2_cls is not None:
+                        try:
+                            _router_v2 = _router_v2_cls(
+                                local_brain=getattr(self, "local_brain", None)
+                            )
+                        except Exception:
+                            _router_v2 = None
                     nda = _NiblitDevAgent(
                         core=self,
                         runtime_manager=rm,

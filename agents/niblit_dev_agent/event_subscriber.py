@@ -45,14 +45,14 @@ class EventSubscriber:
         et = event_type.lower()
         if "provider" in et or "llm" in et:
             return "provider"
-        if "deploy" in et or "runtime_mode" in et:
+        if et.startswith("system_") or "boot" in et or "runtime" in et:
+            return "runtime"
+        if "deploy" in et or "environment" in et or "profile" in et:
             return "deployment"
         if "metric" in et or "telemetry" in et:
             return "telemetry"
         if "task" in et or "plan" in et or "orchestr" in et:
             return "orchestration"
-        if et.startswith("system_") or "boot" in et or "runtime" in et:
-            return "runtime"
         if "error" in et or "warn" in et:
             return "warning"
         return "other"

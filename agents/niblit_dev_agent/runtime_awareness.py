@@ -96,6 +96,20 @@ class RuntimeAwareness:
                 loaded.append(attr)
         return loaded
 
+    def _runtime_mode(self) -> str:
+        if self._core is None:
+            return "normal"
+        coordinator = getattr(self._core, "runtime_coordinator", None)
+        if coordinator is None or not hasattr(coordinator, "status"):
+            return "normal"
+        try:
+            status = coordinator.status()
+        except Exception:
+            return "normal"
+        if not isinstance(status, dict):
+            return "normal"
+        return str(status.get("runtime_mode", "normal"))
+
     def get_runtime_snapshot(self) -> dict[str, Any]:
         threads = list(threading.enumerate())
         thread_info = {
@@ -122,13 +136,7 @@ class RuntimeAwareness:
                 "telemetry_available": self._telemetry is not None,
                 "router_v2_available": True,
                 "local_brain_available": bool(local_status),
-                "runtime_mode": str(
-                    getattr(getattr(self._core, "runtime_coordinator", None), "status", lambda: {})().get(
-                        "runtime_mode", "normal"
-                    )
-                    if self._core is not None
-                    else "normal"
-                ),
+                "runtime_mode": self._runtime_mode(),
             },
             "runtime_manager": runtime_manager_stats,
             "event_bus": event_bus_stats,
