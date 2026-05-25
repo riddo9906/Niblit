@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Any
 
 from agents.niblit_dev_agent.architecture_indexer import ArchitectureIndexer
@@ -212,7 +213,30 @@ class PlanningEngine:
 
     @staticmethod
     def _overlap(modules: list[str], sensitive: frozenset[str]) -> list[str]:
-        return [m for m in modules if any(s in m or m in s for s in sensitive)]
+        """Return modules that match any sensitive path via path-component comparison."""
+        result = []
+        for m in modules:
+            m_path = Path(m)
+            for s in sensitive:
+                s_path = Path(s)
+                # Direct equality or one is relative ancestor of the other
+                try:
+                    m_path.relative_to(s_path)
+                    result.append(m)
+                    break
+                except ValueError:
+                    pass
+                try:
+                    s_path.relative_to(m_path)
+                    result.append(m)
+                    break
+                except ValueError:
+                    pass
+                # Same stem/filename comparison as a final fallback
+                if m_path.name == s_path.name and m_path.name:
+                    result.append(m)
+                    break
+        return result
 
     def _assess_runtime(
         self, modules: list[str], arch: dict[str, Any]

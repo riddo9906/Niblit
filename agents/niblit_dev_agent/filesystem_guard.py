@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 from pathlib import Path
 from typing import Any
 
@@ -69,9 +68,20 @@ class FilesystemGuard:
         return target
 
     def _is_protected(self, relpath: str) -> bool:
-        for protected in _PROTECTED_PATHS:
-            if relpath == protected or relpath.startswith(protected + os.sep):
-                return True
+        try:
+            candidate = Path(relpath)
+            for protected in _PROTECTED_PATHS:
+                p = Path(protected)
+                # Exact match or candidate is inside a protected directory
+                if candidate == p:
+                    return True
+                try:
+                    candidate.relative_to(p)
+                    return True
+                except ValueError:
+                    pass
+        except Exception:
+            pass
         return False
 
     def _validate_path(self, relpath: str, force: bool = False) -> None:

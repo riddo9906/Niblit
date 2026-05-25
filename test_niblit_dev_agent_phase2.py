@@ -16,6 +16,7 @@ from agents.niblit_dev_agent.planning_engine import PlanningEngine
 from agents.niblit_dev_agent.task_contracts import (
     APPROVAL_PENDING,
     EXEC_PLANNING,
+    EXEC_QUEUED,
     DevTaskContract,
     ImpactAssessment,
 )
@@ -89,7 +90,7 @@ def _make_indexer(tmp_root: Path) -> ArchitectureIndexer:
 def test_dev_task_contract_defaults():
     c = DevTaskContract(scope="test_scope")
     assert c.approval_state == APPROVAL_PENDING
-    assert c.execution_state == EXEC_PLANNING or c.execution_state == "queued"
+    assert c.execution_state == EXEC_QUEUED
     assert isinstance(c.task_id, str) and len(c.task_id) > 0
     assert c.runtime_impact.affected is False
 

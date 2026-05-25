@@ -58,11 +58,11 @@ class EventSubscriber:
     def _react(self, entry: dict[str, Any]) -> None:
         """Generate governed workflow suggestions in response to notable events."""
         etype = entry["type"]
-        et = etype.lower()
+        etype_lower = etype.lower()
 
         suggestion: dict[str, Any] | None = None
 
-        if "provider" in et and ("fail" in et or "error" in et or "unavailable" in et):
+        if "provider" in etype_lower and ("fail" in etype_lower or "error" in etype_lower or "unavailable" in etype_lower):
             suggestion = {
                 "trigger": etype,
                 "workflow": "provider_fallback_check",
@@ -73,7 +73,7 @@ class EventSubscriber:
                 "governed_task_type": "provider_health_remediation",
                 "severity": "high",
             }
-        elif "test" in et and "fail" in et:
+        elif "test" in etype_lower and "fail" in etype_lower:
             suggestion = {
                 "trigger": etype,
                 "workflow": "test_failure_triage",
@@ -84,7 +84,7 @@ class EventSubscriber:
                 "governed_task_type": "test_failure_analysis",
                 "severity": "medium",
             }
-        elif "runtime" in et and ("degrad" in et or "warn" in et or "error" in et):
+        elif "runtime" in etype_lower and ("degrad" in etype_lower or "warn" in etype_lower or "error" in etype_lower):
             suggestion = {
                 "trigger": etype,
                 "workflow": "runtime_health_check",
@@ -95,7 +95,7 @@ class EventSubscriber:
                 "governed_task_type": "runtime_degradation_analysis",
                 "severity": "high",
             }
-        elif "deploy" in et and ("mismatch" in et or "fail" in et or "conflict" in et):
+        elif "deploy" in etype_lower and ("mismatch" in etype_lower or "fail" in etype_lower or "conflict" in etype_lower):
             suggestion = {
                 "trigger": etype,
                 "workflow": "deployment_audit",
@@ -106,7 +106,7 @@ class EventSubscriber:
                 "governed_task_type": "deployment_mismatch_remediation",
                 "severity": "medium",
             }
-        elif "route" in et and ("inconsist" in et or "fail" in et):
+        elif "route" in etype_lower and ("inconsist" in etype_lower or "fail" in etype_lower):
             suggestion = {
                 "trigger": etype,
                 "workflow": "router_inspection",
@@ -117,7 +117,7 @@ class EventSubscriber:
                 "governed_task_type": "router_inconsistency_analysis",
                 "severity": "medium",
             }
-        elif "architect" in et and "conflict" in et:
+        elif "architect" in etype_lower and "conflict" in etype_lower:
             suggestion = {
                 "trigger": etype,
                 "workflow": "architecture_conflict_resolution",
@@ -140,18 +140,18 @@ class EventSubscriber:
 
     @staticmethod
     def _categorize_event(event_type: str) -> str:
-        et = event_type.lower()
-        if "provider" in et or "llm" in et:
+        etype_lower = event_type.lower()
+        if "provider" in etype_lower or "llm" in etype_lower:
             return "provider"
-        if et.startswith("system_") or "boot" in et or "runtime" in et:
+        if etype_lower.startswith("system_") or "boot" in etype_lower or "runtime" in etype_lower:
             return "runtime"
-        if "deploy" in et or "environment" in et or "profile" in et:
+        if "deploy" in etype_lower or "environment" in etype_lower or "profile" in etype_lower:
             return "deployment"
-        if "metric" in et or "telemetry" in et:
+        if "metric" in etype_lower or "telemetry" in etype_lower:
             return "telemetry"
-        if "task" in et or "plan" in et or "orchestr" in et:
+        if "task" in etype_lower or "plan" in etype_lower or "orchestr" in etype_lower:
             return "orchestration"
-        if "error" in et or "warn" in et:
+        if "error" in etype_lower or "warn" in etype_lower:
             return "warning"
         return "other"
 
