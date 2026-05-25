@@ -2578,6 +2578,10 @@ class NiblitCore:
             "NiblitDevAgent scope analysis: runtime + provider + architecture impact", "dev_agent", priority=75
         )
         self.command_registry.register(
+            "dev-agent approve", lambda t="": self._cmd_dev_agent("approve " + t),
+            "NiblitDevAgent approval gate for staged execution tasks", "dev_agent", priority=75
+        )
+        self.command_registry.register(
             "sa-scripts", self._cmd_sa_scripts,
             "List every repo script with its function", "structural_awareness", priority=74
         )

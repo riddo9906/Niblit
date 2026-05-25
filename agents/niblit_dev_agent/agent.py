@@ -9,22 +9,28 @@ from pathlib import Path
 from typing import Any
 
 from agents.base_agent import BaseAgent
+from agents.niblit_dev_agent.approval_manager import ApprovalManager
 from agents.niblit_dev_agent.architecture_indexer import ArchitectureIndexer
 from agents.niblit_dev_agent.context_engine import ContextEngine
 from agents.niblit_dev_agent.event_subscriber import EventSubscriber
 from agents.niblit_dev_agent.filesystem_guard import FilesystemGuard
+from agents.niblit_dev_agent.governed_executor import GovernedExecutor
 from agents.niblit_dev_agent.memory_bridge import MemoryBridge
 from agents.niblit_dev_agent.planning_engine import PlanningEngine
 from agents.niblit_dev_agent.provider_awareness import ProviderAwareness
+from agents.niblit_dev_agent.rollback_manager import RollbackManager
 from agents.niblit_dev_agent.runtime_awareness import RuntimeAwareness
 from agents.niblit_dev_agent.task_contracts import (
     CLI_ANALYZE,
+    CLI_APPROVE,
     CLI_ARCHITECTURE,
     CLI_PROVIDERS,
     CLI_RUNTIME,
     CLI_STATUS,
     DEV_AGENT_ANALYZE_TASK_TYPE,
+    DEV_AGENT_EXECUTE_TASK_TYPE,
     DEV_AGENT_TASK_TYPE,
+    DevTaskContract,
 )
 from agents.niblit_dev_agent.telemetry_hooks import DevAgentTelemetryHooks
 from core.task_queue import Task
@@ -35,7 +41,11 @@ log = logging.getLogger("NiblitDevAgent")
 class NiblitDevAgent(BaseAgent):
     """Internal cognitive-engineering runtime agent for Niblit."""
 
-    HANDLED_TASK_TYPES = [DEV_AGENT_TASK_TYPE, DEV_AGENT_ANALYZE_TASK_TYPE]
+    HANDLED_TASK_TYPES = [
+        DEV_AGENT_TASK_TYPE,
+        DEV_AGENT_ANALYZE_TASK_TYPE,
+        DEV_AGENT_EXECUTE_TASK_TYPE,
+    ]
 
     def __init__(
         self,
@@ -88,6 +98,18 @@ class NiblitDevAgent(BaseAgent):
         self._filesystem_guard = FilesystemGuard(
             repo_root=root,
             telemetry=self._telemetry_hooks,
+        )
+        self._rollback_manager = RollbackManager(
+            repo_root=root,
+            telemetry=self._telemetry_hooks,
+        )
+        self._approval_manager = ApprovalManager(telemetry=self._telemetry_hooks)
+        self._governed_executor = GovernedExecutor(
+            approval_manager=self._approval_manager,
+            filesystem_guard=self._filesystem_guard,
+            rollback_manager=self._rollback_manager,
+            telemetry=self._telemetry_hooks,
+            event_bus=self._event_bus,
         )
 
         self._startup_snapshot = self._runtime_awareness.get_runtime_snapshot()
@@ -156,6 +178,52 @@ class NiblitDevAgent(BaseAgent):
         )
         return contract.to_dict()
 
+    def stage_task(
+        self,
+        *,
+        scope: str,
+        description: str,
+        affected_modules: list[str],
+        staged_mutations: list[dict[str, Any]],
+        restart_required: bool = False,
+    ) -> dict[str, Any]:
+        """Create a staged plan that requires explicit approval before execution."""
+        contract = DevTaskContract.from_dict(
+            self.plan_task(
+                scope=scope,
+                description=description,
+                affected_modules=affected_modules,
+            )
+        )
+        plan_id = contract.task_id
+        for mutation in staged_mutations:
+            op = str(mutation.get("operation", "write"))
+            relpath = str(mutation.get("relpath", ""))
+            if op == "delete":
+                self._filesystem_guard.stage_delete(plan_id, relpath)
+            else:
+                self._filesystem_guard.stage_write(
+                    plan_id,
+                    relpath,
+                    str(mutation.get("content", "")),
+                )
+
+        manifest = self._filesystem_guard.mutation_manifest(
+            plan_id=plan_id,
+            contract=contract,
+            affected_runtime_systems=list(affected_modules),
+            restart_required=restart_required,
+        )
+        staged_plan = self._filesystem_guard.staged_plan(plan_id)
+        staged_record = self._approval_manager.stage_task(
+            contract,
+            staged_plan={"plan_id": plan_id, **staged_plan},
+            mutation_manifest=manifest,
+            metadata={"description": description},
+        )
+        self._telemetry_hooks.increment("dev_agent_tasks_staged_total", 1)
+        return staged_record
+
     # ── CLI handler ───────────────────────────────────────────────────────────
 
     def handle_cli(self, text: str) -> str:
@@ -173,6 +241,7 @@ class NiblitDevAgent(BaseAgent):
                 f"  task_types: {', '.join(st.get('task_types', []))}\n"
                 f"  events_seen: {ev.get('events_total', 0)}\n"
                 f"  workflow_suggestions: {ev.get('workflow_suggestions_total', 0)}\n"
+                f"  approvals_pending: {len(self._approval_manager.list_pending())}\n"
                 f"  deployment_mode: {st.get('deployment_mode', 'unknown')}"
             )
 
@@ -226,14 +295,71 @@ class NiblitDevAgent(BaseAgent):
                 f"  provider: {provider_ctx.get('active_provider', 'unknown')}"
             )
 
+        if action == CLI_APPROVE:
+            tokens = arg.split()
+            if not tokens:
+                pending = self._approval_manager.list_pending()
+                if not pending:
+                    return "NiblitDevAgent Approvals\n  pending: 0"
+                task_ids = [str(r.get("task_id", "")) for r in pending][:10]
+                return (
+                    "NiblitDevAgent Approvals\n"
+                    f"  pending: {len(pending)}\n"
+                    f"  task_ids: {task_ids}"
+                )
+
+            task_id = tokens[0]
+            runtime_risk_ack = "--ack-risk" in tokens
+            rollback_confirm = "--confirm-rollback" in tokens
+            allow_protected = "--allow-protected" in tokens
+            if not runtime_risk_ack or not rollback_confirm:
+                return (
+                    "Approval rejected: explicit acknowledgements required.\n"
+                    "Usage: dev-agent approve <task_id> --ack-risk --confirm-rollback [--allow-protected]"
+                )
+            try:
+                approved = self._approval_manager.approve_task(
+                    task_id,
+                    approver="dev-agent-cli",
+                    runtime_risk_acknowledged=runtime_risk_ack,
+                    rollback_confirmed=rollback_confirm,
+                    metadata={"allow_protected_writes": allow_protected},
+                )
+                if self._runtime_manager is not None:
+                    self._runtime_manager.submit_task(
+                        DEV_AGENT_EXECUTE_TASK_TYPE,
+                        payload={"task_id": task_id},
+                        priority="high",
+                        source="dev_agent_approval",
+                    )
+                    self._runtime_manager.dispatch_pending(max_tasks=1)
+                return (
+                    "NiblitDevAgent Approval\n"
+                    f"  task_id: {task_id}\n"
+                    f"  approved: {approved.get('runtime_risk_acknowledged', False)}\n"
+                    "  execution: queued via RuntimeManager"
+                )
+            except Exception as exc:
+                return f"NiblitDevAgent Approval Error: {exc}"
+
         return (
-            "Usage: dev-agent <status|runtime|providers|architecture|analyze [scope]>\n"
-            "Examples: dev-agent status, dev-agent analyze modules/local_brain.py"
+            "Usage: dev-agent <status|runtime|providers|architecture|analyze [scope]|approve ...>\n"
+            "Examples: dev-agent status, dev-agent analyze modules/local_brain.py, "
+            "dev-agent approve <task_id> --ack-risk --confirm-rollback"
         )
 
     def _execute(self, task: Task, event_bus: Any) -> dict[str, Any]:
         _ = event_bus
         query = str(task.payload.get("query", CLI_STATUS)).strip().lower()
+        if task.task_type == DEV_AGENT_EXECUTE_TASK_TYPE or query == DEV_AGENT_EXECUTE_TASK_TYPE:
+            task_id = str(task.payload.get("task_id", ""))
+            if not task_id:
+                return {"error": "missing_task_id"}
+            return {
+                "query": DEV_AGENT_EXECUTE_TASK_TYPE,
+                "task_id": task_id,
+                "result": self._governed_executor.execute_approved_task(task_id),
+            }
         if query == DEV_AGENT_ANALYZE_TASK_TYPE or task.task_type == DEV_AGENT_ANALYZE_TASK_TYPE:
             scope = str(task.payload.get("scope", "niblit_core"))
             return {
@@ -241,7 +367,7 @@ class NiblitDevAgent(BaseAgent):
                 "scope": scope,
                 "result": self.analyze_scope(scope),
             }
-        if query in {CLI_STATUS, CLI_RUNTIME, CLI_PROVIDERS, CLI_ARCHITECTURE, CLI_ANALYZE}:
+        if query in {CLI_STATUS, CLI_RUNTIME, CLI_PROVIDERS, CLI_ARCHITECTURE, CLI_ANALYZE, CLI_APPROVE}:
             return {
                 "query": query,
                 "result": self.handle_cli(query),

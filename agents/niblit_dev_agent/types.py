@@ -78,3 +78,41 @@ class WorkflowSuggestion(TypedDict, total=False):
     description: str
     governed_task_type: str
     severity: str
+    approval_required: bool
+    staged_execution_plan: dict[str, Any]
+
+
+# ── Phase-3 types ─────────────────────────────────────────────────────────────
+
+
+class MutationManifestDict(TypedDict, total=False):
+    task_id: str
+    affected_files: list[str]
+    affected_runtime_systems: list[str]
+    provider_runtime_implications: str
+    deployment_runtime_implications: str
+    memory_implications: str
+    telemetry_implications: str
+    rollback_required: bool
+    restart_required: bool
+    risk_classification: str
+    metadata: dict[str, Any]
+
+
+class ApprovalRecord(TypedDict, total=False):
+    task_id: str
+    contract: DevTaskContractDict
+    staged_plan: dict[str, Any]
+    mutation_manifest: MutationManifestDict
+    approval_metadata: dict[str, Any]
+    runtime_risk_acknowledged: bool
+    rollback_confirmed: bool
+    staged_at: float
+
+
+class ExecutionResult(TypedDict, total=False):
+    task_id: str
+    execution_result: dict[str, Any]
+    rollback_plan: dict[str, Any]
+    diff_aware: dict[str, Any]
+    duration_ms: float

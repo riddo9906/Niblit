@@ -72,6 +72,15 @@ class EventSubscriber:
                 ),
                 "governed_task_type": "provider_health_remediation",
                 "severity": "high",
+                "approval_required": True,
+                "staged_execution_plan": self._staged_proposal(
+                    scope="modules/llm_provider_manager.py",
+                    affected_modules=[
+                        "modules/llm_provider_manager.py",
+                        "modules/runtime_router_v2.py",
+                    ],
+                    protected_runtime_fix=True,
+                ),
             }
         elif "test" in etype_lower and "fail" in etype_lower:
             suggestion = {
@@ -83,6 +92,11 @@ class EventSubscriber:
                 ),
                 "governed_task_type": "test_failure_analysis",
                 "severity": "medium",
+                "approval_required": True,
+                "staged_execution_plan": self._staged_proposal(
+                    scope="tests",
+                    affected_modules=["tests", "test_*.py"],
+                ),
             }
         elif "runtime" in etype_lower and ("degrad" in etype_lower or "warn" in etype_lower or "error" in etype_lower):
             suggestion = {
@@ -94,6 +108,12 @@ class EventSubscriber:
                 ),
                 "governed_task_type": "runtime_degradation_analysis",
                 "severity": "high",
+                "approval_required": True,
+                "staged_execution_plan": self._staged_proposal(
+                    scope="core/runtime_manager.py",
+                    affected_modules=["core/runtime_manager.py", "core/event_bus.py"],
+                    protected_runtime_fix=True,
+                ),
             }
         elif "deploy" in etype_lower and ("mismatch" in etype_lower or "fail" in etype_lower or "conflict" in etype_lower):
             suggestion = {
@@ -105,6 +125,11 @@ class EventSubscriber:
                 ),
                 "governed_task_type": "deployment_mismatch_remediation",
                 "severity": "medium",
+                "approval_required": True,
+                "staged_execution_plan": self._staged_proposal(
+                    scope="deployment",
+                    affected_modules=["Dockerfile", "render.yaml", "vercel.json", "fly.toml"],
+                ),
             }
         elif "route" in etype_lower and ("inconsist" in etype_lower or "fail" in etype_lower):
             suggestion = {
@@ -116,6 +141,11 @@ class EventSubscriber:
                 ),
                 "governed_task_type": "router_inconsistency_analysis",
                 "severity": "medium",
+                "approval_required": True,
+                "staged_execution_plan": self._staged_proposal(
+                    scope="modules/runtime_router_v2.py",
+                    affected_modules=["modules/runtime_router_v2.py", "modules/local_brain.py"],
+                ),
             }
         elif "architect" in etype_lower and "conflict" in etype_lower:
             suggestion = {
@@ -127,6 +157,12 @@ class EventSubscriber:
                 ),
                 "governed_task_type": "architecture_conflict_resolution",
                 "severity": "high",
+                "approval_required": True,
+                "staged_execution_plan": self._staged_proposal(
+                    scope="niblit_core.py",
+                    affected_modules=["niblit_core.py", "core/runtime_manager.py"],
+                    protected_runtime_fix=True,
+                ),
             }
 
         if suggestion is not None:
@@ -137,6 +173,22 @@ class EventSubscriber:
                 etype,
                 suggestion["workflow"],
             )
+
+    @staticmethod
+    def _staged_proposal(
+        *,
+        scope: str,
+        affected_modules: list[str],
+        protected_runtime_fix: bool = False,
+    ) -> dict[str, Any]:
+        return {
+            "scope": scope,
+            "affected_modules": list(affected_modules),
+            "mutations": [],
+            "approval_required": True,
+            "protected_runtime_fix": protected_runtime_fix,
+            "plan_type": "staged_remediation",
+        }
 
     @staticmethod
     def _categorize_event(event_type: str) -> str:
@@ -178,4 +230,3 @@ class EventSubscriber:
         out = list(self._workflow_suggestions)
         self._workflow_suggestions.clear()
         return out
-

@@ -11,6 +11,7 @@ from typing import Any
 
 DEV_AGENT_TASK_TYPE = "dev_agent_inspect"
 DEV_AGENT_ANALYZE_TASK_TYPE = "dev_agent_analyze"
+DEV_AGENT_EXECUTE_TASK_TYPE = "dev_agent_execute"
 
 # ── CLI action identifiers ─────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ CLI_RUNTIME = "runtime"
 CLI_PROVIDERS = "providers"
 CLI_ARCHITECTURE = "architecture"
 CLI_ANALYZE = "analyze"
+CLI_APPROVE = "approve"
 
 VALID_CLI_ACTIONS = {
     CLI_STATUS,
@@ -26,6 +28,7 @@ VALID_CLI_ACTIONS = {
     CLI_PROVIDERS,
     CLI_ARCHITECTURE,
     CLI_ANALYZE,
+    CLI_APPROVE,
 }
 
 # ── Approval / execution states ───────────────────────────────────────────────
@@ -37,6 +40,7 @@ APPROVAL_DENIED = "denied"
 EXEC_QUEUED = "queued"
 EXEC_PLANNING = "planning"
 EXEC_APPROVED = "approved"
+EXEC_STAGED = "staged"
 EXEC_EXECUTING = "executing"
 EXEC_COMPLETED = "completed"
 EXEC_ROLLED_BACK = "rolled_back"

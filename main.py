@@ -126,6 +126,7 @@ COMMANDS = [
     "dev-agent providers",
     "dev-agent architecture",
     "dev-agent analyze",
+    "dev-agent approve",
 ]
 
 def timestamp():
