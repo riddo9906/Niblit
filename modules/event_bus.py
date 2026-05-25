@@ -132,6 +132,10 @@ EVENT_TRADE_REFLECTION_INGESTED    = "trade_reflection.ingested"       # reflect
 EVENT_MARKET_EPISODE_INGESTED      = "market_episode.ingested"         # market episode JSONL record ingested
 EVENT_RUNTIME_MODE_CHANGED         = "runtime_mode.changed"            # governance mode transition
 
+# Knowledge-Gap Cognition Layer
+EVENT_COGNITION_GAP_DETECTED       = "cognition.gap.detected"           # gap signal escalated
+EVENT_COGNITION_SYNTHESIS_COMPLETE = "cognition.synthesis.complete"     # Llama3 synthesis produced
+
 
 @dataclass
 class NiblitEvent:

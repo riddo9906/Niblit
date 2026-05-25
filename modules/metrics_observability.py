@@ -166,6 +166,24 @@ class TelemetryCollector:
             "snapshot_at": datetime.now(timezone.utc).isoformat() + "Z",
         }
 
+
+# ── Process-level singleton ────────────────────────────────────────────────────
+
+import threading as _threading  # noqa: E402 (kept local to avoid circular imports)
+
+_telemetry_collector: TelemetryCollector | None = None
+_telemetry_lock = _threading.Lock()
+
+
+def get_telemetry_collector() -> TelemetryCollector:
+    """Return the module-level :class:`TelemetryCollector` singleton."""
+    global _telemetry_collector
+    with _telemetry_lock:
+        if _telemetry_collector is None:
+            _telemetry_collector = TelemetryCollector()
+    return _telemetry_collector
+
+
 # Example usage
 if __name__ == "__main__":
     import asyncio

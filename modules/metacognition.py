@@ -213,6 +213,44 @@ class Metacognition:
             "recommendation":         rec,
         }
 
+        # ── Cognitive escalation on low metacognitive coverage (additive) ───
+        # When knowledge quality is Early or Developing, escalate through
+        # RouterV2 → LocalBrain → Llama3 for targeted gap synthesis.
+        if quality in ("Early", "Developing"):
+            try:
+                from modules.knowledge_gap_cognition import (
+                    get_cognition_escalation_layer,
+                    KnowledgeGapSignal,
+                    GAP_CLASS_METACOGNITION,
+                )
+                # Identify the most uncertain category as the synthesis target
+                categories = self.knowledge_map.get("categories", {})
+                _uncertain = self.knowledge_map.get("uncertain", [])
+                _focus_topic = (
+                    _uncertain[0].split(":")[0] if _uncertain
+                    else (max(categories, key=categories.get) if categories else "general knowledge")
+                )
+                _cel = get_cognition_escalation_layer()
+                _gap = KnowledgeGapSignal(
+                    gap_class=GAP_CLASS_METACOGNITION,
+                    topic=_focus_topic,
+                    reason="low_metacognitive_coverage",
+                    context={
+                        "knowledge_quality": quality,
+                        "confidence_pct": f"{pct:.1f}",
+                        "uncertain_count": n_uncert,
+                        "low_count": n_low,
+                    },
+                    confidence=weighted,
+                    source_module="metacognition",
+                )
+                _cresult = _cel.escalate(_gap)
+                if _cresult.get("success") and _cresult.get("synthesis"):
+                    evaluation["cognition_synthesis"] = _cresult["synthesis"][:400]
+                    evaluation["cognition_trace_id"] = _cresult.get("trace_id", "")
+            except Exception:
+                pass
+
         log.info(f"✅ [META] Evaluation: {evaluation['overall_confidence']} confidence "
                  f"(high={n_high}, med={n_medium}, low={n_low}, unc={n_uncert})")
         return evaluation
