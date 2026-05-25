@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""NiblitDevAgent phase-1 runtime scaffold and registration surface."""
+
+from __future__ import annotations
+
+import logging
+import os
+from pathlib import Path
+from typing import Any
+
+from agents.base_agent import BaseAgent
+from agents.niblit_dev_agent.architecture_indexer import ArchitectureIndexer
+from agents.niblit_dev_agent.context_engine import ContextEngine
+from agents.niblit_dev_agent.event_subscriber import EventSubscriber
+from agents.niblit_dev_agent.memory_bridge import MemoryBridge
+from agents.niblit_dev_agent.provider_awareness import ProviderAwareness
+from agents.niblit_dev_agent.runtime_awareness import RuntimeAwareness
+from agents.niblit_dev_agent.task_contracts import (
+    CLI_ARCHITECTURE,
+    CLI_PROVIDERS,
+    CLI_RUNTIME,
+    CLI_STATUS,
+    DEV_AGENT_TASK_TYPE,
+)
+from agents.niblit_dev_agent.telemetry_hooks import DevAgentTelemetryHooks
+from core.task_queue import Task
+
+log = logging.getLogger("NiblitDevAgent")
+
+
+class NiblitDevAgent(BaseAgent):
+    """Internal cognitive-engineering runtime agent for Niblit."""
+
+    HANDLED_TASK_TYPES = [DEV_AGENT_TASK_TYPE]
+
+    def __init__(
+        self,
+        *,
+        core: Any | None = None,
+        runtime_manager: Any | None = None,
+        event_bus: Any | None = None,
+        telemetry: Any | None = None,
+        local_brain: Any | None = None,
+        router_v2: Any | None = None,
+        llm_provider_manager: Any | None = None,
+        repo_root: str | None = None,
+    ) -> None:
+        super().__init__("niblit_dev_agent")
+        self._core = core
+        self._runtime_manager = runtime_manager
+        self._event_bus = event_bus or getattr(runtime_manager, "event_bus", None)
+        self._telemetry_hooks = DevAgentTelemetryHooks(telemetry=telemetry)
+
+        root = repo_root or str(Path(__file__).resolve().parents[2])
+        self._architecture_indexer = ArchitectureIndexer(root)
+        self._provider_awareness = ProviderAwareness(
+            local_brain=local_brain,
+            router_v2=router_v2,
+            llm_provider_manager=llm_provider_manager,
+        )
+        self._memory_bridge = MemoryBridge(authority="niblit_dev_agent")
+        self._runtime_awareness = RuntimeAwareness(
+            core=core,
+            runtime_manager=runtime_manager,
+            event_bus=self._event_bus,
+            telemetry=telemetry,
+            local_brain=local_brain,
+        )
+        self._context_engine = ContextEngine(
+            runtime_awareness=self._runtime_awareness,
+            provider_awareness=self._provider_awareness,
+            architecture_indexer=self._architecture_indexer,
+            memory_bridge=self._memory_bridge,
+            telemetry=self._telemetry_hooks,
+        )
+        self._event_subscriber = EventSubscriber(self._event_bus, self._telemetry_hooks)
+        self._event_subscriber.subscribe()
+
+        self._startup_snapshot = self._runtime_awareness.get_runtime_snapshot()
+        self._telemetry_hooks.increment("dev_agent_startups_total", 1)
+        self._telemetry_hooks.gauge(
+            "dev_agent_startup_threads",
+            float(self._startup_snapshot.get("active_threads", {}).get("count", 0)),
+        )
+
+    def get_runtime_snapshot(self) -> dict[str, Any]:
+        with self._telemetry_hooks.timed("dev_agent_runtime_snapshot_ms"):
+            return self._runtime_awareness.get_runtime_snapshot()
+
+    def get_provider_snapshot(self) -> dict[str, Any]:
+        with self._telemetry_hooks.timed("dev_agent_provider_snapshot_ms"):
+            return self._provider_awareness.get_provider_snapshot()
+
+    def get_architecture_summary(self) -> dict[str, Any]:
+        with self._telemetry_hooks.timed("dev_agent_architecture_snapshot_ms"):
+            return self._architecture_indexer.index()
+
+    def get_status(self) -> dict[str, Any]:
+        return {
+            **super().get_status(),
+            "task_types": list(self.HANDLED_TASK_TYPES),
+            "event_metrics": self._event_subscriber.metrics(),
+            "telemetry": {
+                "available": bool(self._telemetry_hooks.snapshot()),
+            },
+            "deployment_mode": self.get_runtime_snapshot().get("deployment_mode", "unknown"),
+        }
+
+    def handle_cli(self, text: str) -> str:
+        action = (text or "").strip().lower() or CLI_STATUS
+
+        if action == CLI_STATUS:
+            st = self.get_status()
+            ev = st.get("event_metrics", {})
+            return (
+                "NiblitDevAgent\n"
+                f"  state: {st.get('state')}\n"
+                f"  task_types: {', '.join(st.get('task_types', []))}\n"
+                f"  events_seen: {ev.get('events_total', 0)}\n"
+                f"  deployment_mode: {st.get('deployment_mode', 'unknown')}"
+            )
+
+        if action == CLI_RUNTIME:
+            rt = self.get_runtime_snapshot()
+            topo = rt.get("runtime_topology", {})
+            threads = rt.get("active_threads", {})
+            return (
+                "NiblitDevAgent Runtime\n"
+                f"  deployment_mode: {rt.get('deployment_mode', 'unknown')}\n"
+                f"  runtime_manager: {topo.get('runtime_manager_available', False)}\n"
+                f"  event_bus: {topo.get('event_bus_available', False)}\n"
+                f"  telemetry: {topo.get('telemetry_available', False)}\n"
+                f"  local_brain: {topo.get('local_brain_available', False)}\n"
+                f"  threads: {threads.get('count', 0)}"
+            )
+
+        if action == CLI_PROVIDERS:
+            providers = self.get_provider_snapshot()
+            return (
+                "NiblitDevAgent Providers\n"
+                f"  active: {providers.get('active_provider', 'unknown')}\n"
+                f"  fallback_available: {providers.get('fallback_available', False)}\n"
+                f"  health: {providers.get('provider_health', {})}\n"
+                f"  last_route: {providers.get('router_last_route', {})}"
+            )
+
+        if action == CLI_ARCHITECTURE:
+            arch = self.get_architecture_summary()
+            return (
+                "NiblitDevAgent Architecture\n"
+                f"  runtime_modules: {len(arch.get('runtime_modules', []))}\n"
+                f"  deployment_boundaries: {len(arch.get('deployment_boundaries', []))}\n"
+                f"  event_runtime_systems: {len(arch.get('event_runtime_systems', []))}\n"
+                f"  scan_duration_ms: {arch.get('scan_duration_ms', 0)}"
+            )
+
+        return (
+            "Usage: dev-agent <status|runtime|providers|architecture>\n"
+            "Examples: dev-agent status, dev-agent runtime"
+        )
+
+    def _execute(self, task: Task, event_bus: Any) -> dict[str, Any]:
+        _ = event_bus
+        query = str(task.payload.get("query", CLI_STATUS)).strip().lower()
+        if query in {CLI_STATUS, CLI_RUNTIME, CLI_PROVIDERS, CLI_ARCHITECTURE}:
+            return {
+                "query": query,
+                "result": self.handle_cli(query),
+                "context": self._context_engine.build_context() if query == CLI_STATUS else {},
+            }
+        return self._context_engine.build_context()
+
+
+def get_default_repo_root() -> str:
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))

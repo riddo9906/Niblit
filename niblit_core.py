@@ -1324,11 +1324,13 @@ try:
     from agents.testing_agent import TestingAgent as _TestingAgent
     from agents.reflection_agent import ReflectionAgent as _ReflectionAgent
     from agents.architecture_agent import ArchitectureAgent as _ArchitectureAgent
+    from agents.niblit_dev_agent import NiblitDevAgent as _NiblitDevAgent
     _PHASE2_AGENTS_AVAILABLE = True
 except Exception as _e:
     log.debug(f"Phase-2 agents not available: {_e}")
     _PlannerAgent = _ResearchAgent = _CodingAgent = None  # type: ignore[assignment,misc]
     _TestingAgent = _ReflectionAgent = _ArchitectureAgent = None  # type: ignore[assignment,misc]
+    _NiblitDevAgent = None  # type: ignore[assignment,misc]
     _PHASE2_AGENTS_AVAILABLE = False
 
 # ── NotificationQueue (additive) ─────────────────────────────────────────────
@@ -1983,6 +1985,7 @@ class NiblitCore:
         self.niblit_runtime: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
         self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
+        self.niblit_dev_agent: Optional[Any] = None  # initialised in _init_agents
         self.phase2_agents: dict = {}  # {task_type: agent_instance}
         # ── Additive: Game engine ─────────────────────────────────────────
         self.game_engine: Optional[Any] = None  # initialised in _init_optional_services
@@ -2553,6 +2556,22 @@ class NiblitCore:
         self.command_registry.register(
             "sa-awareness", self._cmd_sa_awareness,
             "All structural awareness in one view", "structural_awareness", priority=75
+        )
+        self.command_registry.register(
+            "dev-agent status", lambda t="": self._cmd_dev_agent("status"),
+            "NiblitDevAgent status and runtime registration summary", "dev_agent", priority=75
+        )
+        self.command_registry.register(
+            "dev-agent runtime", lambda t="": self._cmd_dev_agent("runtime"),
+            "NiblitDevAgent runtime topology snapshot", "dev_agent", priority=75
+        )
+        self.command_registry.register(
+            "dev-agent providers", lambda t="": self._cmd_dev_agent("providers"),
+            "NiblitDevAgent provider-awareness snapshot", "dev_agent", priority=75
+        )
+        self.command_registry.register(
+            "dev-agent architecture", lambda t="": self._cmd_dev_agent("architecture"),
+            "NiblitDevAgent lightweight architecture index", "dev_agent", priority=75
         )
         self.command_registry.register(
             "sa-scripts", self._cmd_sa_scripts,
@@ -5801,6 +5820,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "  agents pending         — Show pending tasks"
         )
 
+    def _cmd_dev_agent(self, cmd: str = "") -> str:
+        """Inspect NiblitDevAgent runtime/provider/architecture snapshots."""
+        agent = getattr(self, "niblit_dev_agent", None)
+        if agent is None:
+            return (
+                "[dev-agent] NiblitDevAgent not initialised.\n"
+                "It is registered during Phase-2 runtime manager startup."
+            )
+        action = (cmd or "status").strip().lower()
+        return str(agent.handle_cli(action))
+
     # ── Self-enhancement command (additive) ───────────────────────────────────
 
     def _cmd_self_enhance(self, cmd: str = "") -> str:
@@ -8874,6 +8904,30 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     log.debug("[INIT] ArchitectureAgent registered (%s)", aarch.HANDLED_TASK_TYPES)
                 except Exception as _e:
                     log.debug("[INIT] ArchitectureAgent registration failed: %s", _e)
+
+            if _NiblitDevAgent is not None:
+                try:
+                    _llm_provider_manager = getattr(
+                        getattr(self, "brain", None), "llm_provider_manager", None
+                    )
+                    nda = _NiblitDevAgent(
+                        core=self,
+                        runtime_manager=rm,
+                        event_bus=getattr(rm, "event_bus", None),
+                        telemetry=getattr(self, "telemetry", None),
+                        local_brain=getattr(self, "local_brain", None),
+                        llm_provider_manager=_llm_provider_manager,
+                    )
+                    for tt in nda.HANDLED_TASK_TYPES:
+                        rm.register_agent(tt, nda.handle)
+                    self.niblit_dev_agent = nda
+                    self.phase2_agents[nda.HANDLED_TASK_TYPES[0]] = nda
+                    agents_registered += 1
+                    self.startup_report.add("niblit_dev_agent", "ready")
+                    log.debug("[INIT] NiblitDevAgent registered (%s)", nda.HANDLED_TASK_TYPES)
+                except Exception as _e:
+                    log.debug("[INIT] NiblitDevAgent registration failed: %s", _e)
+                    self.startup_report.add("niblit_dev_agent", "degraded", str(_e))
 
             # ── Start background dispatch loop ────────────────────────────────
             rm.start_loop(poll_interval=2.0)

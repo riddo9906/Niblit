@@ -121,6 +121,10 @@ COMMANDS = [
     "reload_params",
     "run_selfheal",
     "refresh-topics",
+    "dev-agent status",
+    "dev-agent runtime",
+    "dev-agent providers",
+    "dev-agent architecture",
 ]
 
 def timestamp():

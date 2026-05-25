@@ -14,22 +14,25 @@ Import from here::
     )
 """
 
-from agents.base_agent import BaseAgent, AgentState
-from agents.planner_agent import PlannerAgent
-from agents.research_agent import ResearchAgent
-from agents.coding_agent import CodingAgent
-from agents.testing_agent import TestingAgent
-from agents.reflection_agent import ReflectionAgent
 from agents.architecture_agent import ArchitectureAgent
+from agents.base_agent import AgentState, BaseAgent
+from agents.coding_agent import CodingAgent
+from agents.niblit_dev_agent import NiblitDevAgent
+from agents.planner_agent import PlannerAgent
+from agents.reflection_agent import ReflectionAgent
+from agents.research_agent import ResearchAgent
+from agents.testing_agent import TestingAgent
 
 __all__ = [
-    "BaseAgent", "AgentState",
+    "BaseAgent",
+    "AgentState",
     "PlannerAgent",
     "ResearchAgent",
     "CodingAgent",
     "TestingAgent",
     "ReflectionAgent",
     "ArchitectureAgent",
+    "NiblitDevAgent",
 ]
 if __name__ == "__main__":
     print('Running __init__.py')
