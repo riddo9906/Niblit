@@ -23,6 +23,10 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("Metacognition")
+_QUALITY_HIGH = "High"
+_QUALITY_GOOD = "Good"
+_QUALITY_DEVELOPING = "Developing"
+_QUALITY_EARLY = "Early"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -183,20 +187,20 @@ class Metacognition:
 
         # Quality label bands
         if pct >= 70:
-            quality = "High"
+            quality = _QUALITY_HIGH
         elif pct >= 40:
-            quality = "Good"
+            quality = _QUALITY_GOOD
         elif pct >= 20:
-            quality = "Developing"
+            quality = _QUALITY_DEVELOPING
         else:
-            quality = "Early"
+            quality = _QUALITY_EARLY
 
         # Recommendation tailored to quality band
-        if quality == "High":
+        if quality == _QUALITY_HIGH:
             rec = "Knowledge base is well-established; focus on edge-case topics to push further"
-        elif quality == "Good":
+        elif quality == _QUALITY_GOOD:
             rec = "Good coverage; continue learning to raise medium-confidence facts to high"
-        elif quality == "Developing":
+        elif quality == _QUALITY_DEVELOPING:
             rec = "Keep running autonomous learning cycles to build confidence across more domains"
         else:
             rec = "Run 'autonomous-learn start' to begin building a solid knowledge foundation"
@@ -216,7 +220,7 @@ class Metacognition:
         # ── Cognitive escalation on low metacognitive coverage (additive) ───
         # When knowledge quality is Early or Developing, escalate through
         # RouterV2 → LocalBrain → Llama3 for targeted gap synthesis.
-        if quality in ("Early", "Developing"):
+        if quality in (_QUALITY_EARLY, _QUALITY_DEVELOPING):
             try:
                 from modules.knowledge_gap_cognition import (
                     get_cognition_escalation_layer,

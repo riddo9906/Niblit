@@ -59,9 +59,10 @@ log = logging.getLogger("Niblit.KnowledgeGapCognition")
 
 # ── Feature flags & thresholds ─────────────────────────────────────────────────
 
-_ENABLED: bool = os.getenv("NIBLIT_COGNITION_ESCALATION_ENABLED", "1").strip() not in ("0", "false")
+_ENABLED: bool = os.getenv("NIBLIT_COGNITION_ESCALATION_ENABLED", "1").strip().lower() not in ("0", "false")
 _MAX_BUDGET: int = max(1, int(os.getenv("NIBLIT_COGNITION_MAX_BUDGET", "3")))
 _CONFIDENCE_FLOOR: float = float(os.getenv("NIBLIT_COGNITION_CONFIDENCE_FLOOR", "0.4"))
+_MIN_SYNTHESIS_WORD_COUNT: float = 80.0
 
 # ── Gap class constants ────────────────────────────────────────────────────────
 
@@ -254,9 +255,17 @@ class CognitionEscalationLayer:
     def reset_cycle_budget(self, cycle_id: int = 0) -> None:
         """Reset per-cycle budget counter (call at ALE cycle start)."""
         with self._lock:
-            if cycle_id != self._budget_reset_cycle:
-                self._budget_used = 0
-                self._budget_reset_cycle = cycle_id
+            self._reset_cycle_budget_unlocked(cycle_id)
+
+    def _reset_cycle_budget_unlocked(self, cycle_id: int = 0) -> None:
+        """Reset per-cycle budget counter (caller must hold self._lock).
+
+        Kept separate from :meth:`reset_cycle_budget` to avoid lock re-entry
+        deadlocks when budget checks happen inside other lock-protected paths.
+        """
+        if cycle_id != self._budget_reset_cycle:
+            self._budget_used = 0
+            self._budget_reset_cycle = cycle_id
 
     # ── Main escalation entry point ────────────────────────────────────────────
 
@@ -300,7 +309,7 @@ class CognitionEscalationLayer:
 
         # Budget guard — prevent runaway loops
         with self._lock:
-            self.reset_cycle_budget(cycle_id)
+            self._reset_cycle_budget_unlocked(cycle_id)
             if self._budget_used >= _MAX_BUDGET:
                 log.debug(
                     "[CognitionEscalation] Budget exhausted (used=%d, max=%d) — skipping %r",
@@ -326,7 +335,7 @@ class CognitionEscalationLayer:
             prompt = prompt_builder(gap)
 
             # Canonical routing: RuntimeRouterV2 → LocalBrain.route_inference()
-            synthesis = router.generate(prompt=prompt, context=gap.context.get("prior_knowledge") or None)
+            synthesis = router.generate(prompt=prompt, context=gap.context.get("prior_knowledge"))
 
             if not synthesis or synthesis.strip() == "[RuntimeRouterV2] empty response":
                 raise RuntimeError("empty synthesis response")
@@ -380,7 +389,7 @@ class CognitionEscalationLayer:
         if not synthesis:
             return 0.0
         word_count = len(synthesis.split())
-        length_score = min(1.0, word_count / 80.0)  # 80+ words = full score
+        length_score = min(1.0, word_count / _MIN_SYNTHESIS_WORD_COUNT)
         # Penalise if synthesis just echoes the topic verbatim
         topic_words = set(gap.topic.lower().split())
         synth_words = set(synthesis.lower().split())
