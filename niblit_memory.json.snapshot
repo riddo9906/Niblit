@@ -5529,7 +5529,7 @@
         "created_at": "2026-05-15T11:47:29.416161+00:00",
         "version": "1.0.0",
         "schema_version": "2.0",
-        "last_load_source": "snapshot:/tmp/workspace/riddo9906/Niblit/niblit_memory.json.snapshot",
+        "last_load_source": "primary:/tmp/workspace/riddo9906/Niblit/niblit_memory.json",
         "replay_metadata": {
             "trace_id": "",
             "lineage": []

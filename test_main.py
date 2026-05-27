@@ -11,10 +11,8 @@ Run with::
 NiblitCore and NiblitIO are stubbed so no real services are started.
 """
 
-import sys
 import signal
-import threading
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -281,6 +279,13 @@ class TestCliToolMode:
         assert args.tool_call == "echo_tool"
         assert args.tool_arguments == '{"x":1}'
 
+    def test_parse_args_headless_and_cli(self):
+        import main
+
+        args = main.parse_args(["--headless", "--cli"])
+        assert args.headless is True
+        assert args.cli is True
+
     def test_parse_tool_arguments_valid_json_object(self):
         import main
 
@@ -336,6 +341,26 @@ class TestCliToolMode:
 
         args = main.parse_args([])
         assert main._run_tool_cli_mode(args) == -1
+
+
+class TestDesktopLaunchDecision:
+    def test_should_launch_desktop_false_when_headless_flag(self):
+        import main
+
+        args = main.parse_args(["--headless"])
+        assert main._should_launch_desktop(args, ui_supported=True) is False
+
+    def test_should_launch_desktop_false_for_one_shot(self):
+        import main
+
+        args = main.parse_args(["-c", "status"])
+        assert main._should_launch_desktop(args, ui_supported=True) is False
+
+    def test_should_launch_desktop_true_for_default_interactive(self):
+        import main
+
+        args = main.parse_args([])
+        assert main._should_launch_desktop(args, ui_supported=True) is True
 
 
 if __name__ == "__main__":

@@ -221,6 +221,18 @@ def parse_args(argv=None):
         default="{}",
         help="JSON object arguments for --tool-call (default: '{}')",
     )
+    p.add_argument(
+        "--headless",
+        action="store_true",
+        default=False,
+        help="Disable desktop UI auto-launch and run CLI only",
+    )
+    p.add_argument(
+        "--cli",
+        action="store_true",
+        default=False,
+        help="Force interactive CLI shell (skip desktop UI)",
+    )
     return p.parse_args(argv)
 
 
@@ -276,6 +288,25 @@ def _run_tool_cli_mode(args, io=None) -> int:
     except Exception as exc:
         err(f"[TOOL-CALL ERROR] {exc}")
         return 2
+
+
+def _should_launch_desktop(args, *, ui_supported=None) -> bool:
+    """Return True when desktop UI should auto-launch for this invocation."""
+    if getattr(args, "one_shot", None) is not None:
+        return False
+    if getattr(args, "list_tools", False) or getattr(args, "tool_call", None):
+        return False
+    if getattr(args, "headless", False) or getattr(args, "cli", False):
+        return False
+    if os.getenv("NIBLIT_HEADLESS", "").strip().lower() in ("1", "true", "yes"):
+        return False
+    if ui_supported is not None:
+        return bool(ui_supported)
+    try:
+        from modules.desktop_runtime_shell import desktop_ui_supported
+        return bool(desktop_ui_supported())
+    except Exception:
+        return False
 
 # ─────────────────────────────
 # DEBUG PRINT
@@ -977,6 +1008,20 @@ def main(argv=None):
             except Exception:
                 pass
         sys.exit(0)
+
+    # ── Desktop shell auto-launch (native UI; CLI fallback preserved) ────────
+    if _should_launch_desktop(_args):
+        try:
+            from modules.desktop_runtime_shell import launch_desktop_shell
+            launched = launch_desktop_shell(core=core, io=io)
+            if launched:
+                try:
+                    core.shutdown()
+                except Exception:
+                    pass
+                return
+        except Exception as _ui_exc:
+            io.error(f"{timestamp()} [DESKTOP UI ERROR] {_ui_exc} — falling back to CLI")
 
     # ── Interactive shell ─────────────────────────────────────────────────────
     try:
