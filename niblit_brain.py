@@ -66,6 +66,9 @@ _CHAT_HISTORY_MSG_LIMIT: int = int(os.environ.get("NIBLIT_BRAIN_CHAT_HISTORY_LIM
 _CHAT_HISTORY_CONTENT_CHARS: int = int(
     os.environ.get("NIBLIT_BRAIN_CHAT_HISTORY_CONTENT_CHARS", "800")
 )
+_DEFAULT_CLOUD_MAX_TOKENS: int = int(
+    os.environ.get("NIBLIT_CLOUD_MAX_TOKENS", os.environ.get("NIBLIT_LOCAL_MAX_NEW", "512"))
+)
 
 # Control characters that corrupt GGUF tokenisers when injected into prompts.
 # We keep \t (0x09) and \n (0x0a) which are meaningful for formatting.
@@ -502,7 +505,7 @@ class NiblitCloudBrain:
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        max_tokens: int = 200,
+        max_tokens: int = _DEFAULT_CLOUD_MAX_TOKENS,
     ) -> str:
         """Send a generation request to the cloud server and return the text.
 
@@ -575,7 +578,7 @@ class NiblitCloudBrain:
         prompt: str,
         context: str = "",
         system_prompt: Optional[str] = None,
-        max_tokens: int = 200,
+        max_tokens: int = _DEFAULT_CLOUD_MAX_TOKENS,
     ) -> str:
         """Convenience wrapper: prepend *context* then call :meth:`chat`."""
         full = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt

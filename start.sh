@@ -28,7 +28,7 @@
 #                             Default: /home/riddo9906/llama.cpp/build/bin/llama-server
 #   NIBLIT_GGUF_MODEL_PATH    Path to the GGUF model file.
 #                             Default: /home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
-#   NIBLIT_GGUF_N_CTX         Context size passed to llama-server. Default: 4096
+#   NIBLIT_GGUF_N_CTX         Context size passed to llama-server. Default: 16384
 #   NIBLIT_GGUF_N_THREADS     CPU threads for llama-server. Default: 2
 #   PORT                      Port for uvicorn. Default: 8080
 
@@ -70,7 +70,7 @@ if _is_local_url "$LLAMA_URL"; then
             --host 127.0.0.1 \
             --port "$LLAMA_PORT" \
             --model "$MODEL_FILE" \
-            --ctx-size "${NIBLIT_GGUF_N_CTX:-4096}" \
+            --ctx-size "${NIBLIT_GGUF_N_CTX:-${NIBLIT_RUNTIME_CONTEXT_TARGET:-16384}}" \
             --threads "${NIBLIT_GGUF_N_THREADS:-2}" \
             -np 1 \
             --log-disable &

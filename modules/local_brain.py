@@ -11,7 +11,7 @@ Supports three execution backends for GGUF quantized models:
 
       /home/riddo9906/llama.cpp/build/bin/llama-server \\
           -m /home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\
-          --port 8080 --host 127.0.0.1 -c 2048 -t 4
+          --port 8080 --host 127.0.0.1 -c 16384 -t 4
 
   Then set ``NIBLIT_GGUF_BACKEND=http`` (or ``auto``).
 
@@ -46,8 +46,8 @@ NIBLIT_LOCAL_MODEL          Path to a ``.gguf`` file **or** a HuggingFace
                             files.  Default: ``/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf``
 NIBLIT_GGUF_MODEL_PATH      Explicit path to a local ``.gguf`` file
                             (takes priority over NIBLIT_LOCAL_MODEL).
-NIBLIT_LOCAL_MAX_NEW        Max new tokens (default: 200)
-NIBLIT_GGUF_N_CTX           Context length (default: 2048)
+NIBLIT_LOCAL_MAX_NEW        Max new tokens (default: 512)
+NIBLIT_GGUF_N_CTX           Context length (default: 16384)
 NIBLIT_GGUF_N_THREADS       CPU threads (default: auto)
 NIBLIT_GGUF_CHAT_TEMPLATE   Chat template: ``qwen`` (default / ChatML),
                             ``llama2``, ``alpaca``, or ``raw``.
@@ -102,6 +102,18 @@ _MODEL_NAME      = (
     or "/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
 )
 _GGUF_MODEL_PATH = os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
+_DEFAULT_RUNTIME_CONTEXT_TARGET = int(
+    os.environ.get(
+        "NIBLIT_RUNTIME_CONTEXT_TARGET",
+        os.environ.get("NIBLIT_GGUF_N_CTX", "16384"),
+    )
+)
+_DEFAULT_RUNTIME_MAX_NEW = int(
+    os.environ.get(
+        "NIBLIT_RUNTIME_MAX_TOKENS",
+        os.environ.get("NIBLIT_LOCAL_MAX_NEW", "512"),
+    )
+)
 _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
 _DEFAULT_LOCAL_PRESET = "qwen"
@@ -168,8 +180,12 @@ class _LocalBrainConfig:
     """
 
     def __init__(self) -> None:
-        self.max_new_tokens: int = int(os.environ.get("NIBLIT_LOCAL_MAX_NEW", "200"))
-        self.gguf_n_ctx: int = int(os.environ.get("NIBLIT_GGUF_N_CTX", "2048"))
+        self.max_new_tokens: int = int(
+            os.environ.get("NIBLIT_LOCAL_MAX_NEW", str(_DEFAULT_RUNTIME_MAX_NEW))
+        )
+        self.gguf_n_ctx: int = int(
+            os.environ.get("NIBLIT_GGUF_N_CTX", str(_DEFAULT_RUNTIME_CONTEXT_TARGET))
+        )
         # Backend selector: 'auto' | 'http' | 'subprocess' | 'python'
         self.gguf_backend: str = os.environ.get("NIBLIT_GGUF_BACKEND", "http").strip().lower()
         # Path to the llama.cpp CLI binary (llama-cli / main).
@@ -1653,6 +1669,7 @@ class QwenLocalBrain:
         context: Optional[str] = None,
         tools: Optional[list] = None,
         max_new_tokens: Optional[int] = None,
+        context_policy: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Unified inference routing pipeline.
 
@@ -1678,6 +1695,8 @@ class QwenLocalBrain:
             Optional tool schemas for function-calling (HTTP backend only).
         max_new_tokens:
             Per-call token budget override.
+        context_policy:
+            Optional context-policy metadata propagated by RuntimeRouterV2.
 
         Returns
         -------
@@ -1708,6 +1727,7 @@ class QwenLocalBrain:
                     "tool_calls": [],
                     "backend": "none",
                     "error": self._load_error or "model not loaded",
+                    "context_policy": context_policy or {},
                 }
 
         # 3. Re-validate HTTP backend health (TTL-cached).
@@ -1730,9 +1750,20 @@ class QwenLocalBrain:
                         "tool_calls": [],
                         "backend": "none",
                         "error": "server unreachable",
+                        "context_policy": context_policy or {},
                     }
 
         n_tokens = max_new_tokens or self.max_new_tokens
+        policy: Dict[str, Any] = {
+            "target_context_window": int(
+                (context_policy or {}).get("target_context_window", self.gguf_n_ctx)
+            ),
+            "resolved_context_window": self.gguf_n_ctx,
+            "requested_max_new_tokens": max_new_tokens,
+            "resolved_max_new_tokens": n_tokens,
+        }
+        if context_policy:
+            policy.update(context_policy)
 
         # 4. Execute with tool schemas (HTTP backend only).
         if tools and self._backend_in_use == "http" and self._server_url:
@@ -1786,6 +1817,7 @@ class QwenLocalBrain:
                         "tool_calls": tool_calls_out,
                         "backend": "http",
                         "error": None,
+                        "context_policy": policy,
                     }
                 except urllib.error.HTTPError as exc:
                     if exc.code == 404:
@@ -1795,6 +1827,7 @@ class QwenLocalBrain:
                         "tool_calls": [],
                         "backend": "http",
                         "error": str(exc),
+                        "context_policy": policy,
                     }
                 except Exception as exc:
                     return {
@@ -1802,6 +1835,7 @@ class QwenLocalBrain:
                         "tool_calls": [],
                         "backend": "http",
                         "error": str(exc),
+                        "context_policy": policy,
                     }
             # All tool-call endpoints returned 404; fall through to plain generate.
 
@@ -1818,6 +1852,7 @@ class QwenLocalBrain:
             "tool_calls": [],
             "backend": self._backend_in_use or "python",
             "error": None,
+            "context_policy": policy,
         }
 
     def _canonical_server_base_url(self, url: str) -> str:
@@ -1899,7 +1934,7 @@ class QwenLocalBrain:
             "Start it in a separate shell session with:\n"
             "  llama-server \\\n"
             "      -m /home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \\\n"
-            "      --port 8080 --host 127.0.0.1 -c 2048 -t 4\n"
+            "      --port 8080 --host 127.0.0.1 -c 16384 -t 4\n"
             "Then set: export NIBLIT_GGUF_BACKEND=http"
         )
         log.info("[LocalBrain] http backend unavailable: %s", self._load_error)
@@ -2377,13 +2412,23 @@ class QwenLocalBrain:
                 except OSError:
                     pass
 
-    def ask(self, prompt: str, context: str = "", system_prompt: Optional[str] = None) -> str:
+    def ask(
+        self,
+        prompt: str,
+        context: str = "",
+        system_prompt: Optional[str] = None,
+        max_new_tokens: Optional[int] = None,
+    ) -> str:
         """Convenience wrapper: prepend context and apply local copilot system prompt."""
         full_prompt = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt
         sys_prompt = system_prompt or _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
-        return self.generate(full_prompt, system_prompt=sys_prompt)
+        return self.generate(
+            full_prompt,
+            max_new_tokens=max_new_tokens,
+            system_prompt=sys_prompt,
+        )
 
-    def chat(self, prompt: str) -> str:
+    def chat(self, prompt: str, max_new_tokens: Optional[int] = None) -> str:
         """Lightweight chat wrapper using the short system prompt.
 
         Intended for casual / conversational messages where the full copilot
@@ -2391,7 +2436,11 @@ class QwenLocalBrain:
         window.  Uses ``_SHORT_CHAT_SYSTEM_PROMPT`` (≈20 tokens) instead,
         leaving far more room for the model's actual reply.
         """
-        return self.generate(prompt.strip(), system_prompt=_SHORT_CHAT_SYSTEM_PROMPT)
+        return self.generate(
+            prompt.strip(),
+            max_new_tokens=max_new_tokens,
+            system_prompt=_SHORT_CHAT_SYSTEM_PROMPT,
+        )
 
     def generate_with_tools(
         self,

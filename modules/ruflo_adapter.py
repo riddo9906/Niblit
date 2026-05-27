@@ -27,6 +27,9 @@ log = logging.getLogger("RufloAdapter")
 _DEFAULT_CHAT_PATH = "/v1/chat/completions"
 _DEFAULT_TIMEOUT = 60
 _DEFAULT_API_FORMAT = "openai"
+_DEFAULT_MAX_TOKENS = int(
+    os.getenv("NIBLIT_PROVIDER_MAX_TOKENS", os.getenv("NIBLIT_LOCAL_MAX_NEW", "512"))
+)
 
 
 def _normalize_url(value: str) -> str:
@@ -61,7 +64,12 @@ class RufloAdapter:
         """Return True when a Ruflo API URL is configured."""
         return bool(self.api_url)
 
-    def generate(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def generate(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         """Send a generation request and return plain text on success."""
         if not self.is_available():
             return None

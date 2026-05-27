@@ -39,6 +39,9 @@ _manager_lock = threading.Lock()
 
 VALID_PROVIDERS = ("hf", "anthropic", "qwen", "ruflo")
 DEFAULT_PROVIDER = "qwen"
+_DEFAULT_MAX_TOKENS = int(
+    os.getenv("NIBLIT_PROVIDER_MAX_TOKENS", os.getenv("NIBLIT_LOCAL_MAX_NEW", "512"))
+)
 
 
 def get_llm_provider_manager() -> LLMProviderManager:
@@ -149,7 +152,7 @@ class LLMProviderManager:
         self,
         prompt: str,
         system: str = "",
-        max_tokens: int = 500,
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
     ) -> str | None:
         """Generate a response using the active provider, falling back to the other.
 
@@ -190,7 +193,12 @@ class LLMProviderManager:
             cl = self._claude
         return cl is not None and getattr(cl, "is_available", lambda: False)()
 
-    def _ask_hf(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def _ask_hf(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         hf = self._hf_brain
         if hf is None:
             hf = self._lazy_hf()
@@ -201,7 +209,12 @@ class LLMProviderManager:
         result = hf.ask_single(prompt)
         return result if result and result.strip() else None
 
-    def _ask_anthropic(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def _ask_anthropic(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         cl = self._claude
         if cl is None:
             cl = self._lazy_claude()
@@ -226,7 +239,12 @@ class LLMProviderManager:
             rf = self._ruflo
         return rf is not None and getattr(rf, "is_available", lambda: False)()
 
-    def _ask_qwen(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def _ask_qwen(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         lb = self._local_brain
         if lb is None:
             lb = self._lazy_local_brain()
@@ -246,7 +264,12 @@ class LLMProviderManager:
             return None
         return text
 
-    def _ask_ruflo(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def _ask_ruflo(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         rf = self._ruflo
         if rf is None:
             rf = self._lazy_ruflo()
