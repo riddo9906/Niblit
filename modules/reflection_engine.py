@@ -66,6 +66,7 @@ log = logging.getLogger(__name__)
 
 _ENABLED: bool = os.getenv("NIBLIT_RE_ENABLED", "1").strip() not in ("0", "false")
 _CADENCE: int = int(os.getenv("NIBLIT_RE_CADENCE", "20"))
+_REFLECTION_HEALTH_ESCALATION_THRESHOLD: float = 0.5
 
 _EMA = 0.15
 
@@ -323,6 +324,34 @@ class ReflectionEngine:
             )
         except Exception:
             pass
+
+        # ── Cognitive escalation on low health (additive) ────────────────────
+        # When reflection health is below threshold, synthesise improvement
+        # guidance through the governed RouterV2 → LocalBrain path.
+        if report.overall_health < _REFLECTION_HEALTH_ESCALATION_THRESHOLD:
+            try:
+                from modules.knowledge_gap_cognition import (
+                    get_cognition_escalation_layer,
+                    KnowledgeGapSignal,
+                    GAP_CLASS_REFLECTION,
+                )
+                _cel = get_cognition_escalation_layer()
+                _gap = KnowledgeGapSignal(
+                    gap_class=GAP_CLASS_REFLECTION,
+                    topic="system_reflection_improvement",
+                    reason="low_reflection_health",
+                    context={
+                        "health": report.overall_health,
+                        "failures": report.failures_detected[:5],
+                        "drifts": report.strategy_drifts[:3],
+                        "proposals": report.adaptation_proposals[:3],
+                    },
+                    confidence=report.overall_health,
+                    source_module="reflection_engine",
+                )
+                _cel.escalate(_gap)
+            except Exception:
+                pass
 
         # Emit event
         try:

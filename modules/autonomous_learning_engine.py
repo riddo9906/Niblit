@@ -829,6 +829,56 @@ class AutonomousLearningEngine:
             # Forward raw results to Step 4 (reflection) so it has full content.
             self._last_research_results = results
 
+            # ── Knowledge-gap escalation (additive) ─────────────────────────
+            # When all research backends return nothing, escalate through
+            # RuntimeRouterV2 → LocalBrain → Llama3 for cognitive synthesis.
+            if not results and topic:
+                try:
+                    from modules.knowledge_gap_cognition import (
+                        get_cognition_escalation_layer,
+                        KnowledgeGapSignal,
+                        GAP_CLASS_RESEARCH,
+                    )
+                    _cel = get_cognition_escalation_layer()
+                    _cel.reset_cycle_budget(self._cycle_count)
+                    _gap = KnowledgeGapSignal(
+                        gap_class=GAP_CLASS_RESEARCH,
+                        topic=topic,
+                        reason="empty_research_results",
+                        context={
+                            "prior_knowledge": str(
+                                self.knowledge_db.recall(topic, limit=3)
+                                if self.knowledge_db and hasattr(self.knowledge_db, "recall")
+                                else ""
+                            )[:400],
+                        },
+                        confidence=0.0,
+                        source_module="autonomous_learning_engine",
+                    )
+                    _result = _cel.escalate(_gap, cycle_id=self._cycle_count)
+                    if _result.get("success") and _result.get("synthesis"):
+                        _synth = _result["synthesis"]
+                        results.append(_synth[:600])
+                        self._last_research_results = results
+                        if self.knowledge_db:
+                            try:
+                                self.knowledge_db.add_fact(
+                                    f"ale_cognition_synthesis:{topic.replace(' ', '_')}:{int(time.time())}",
+                                    {
+                                        "topic": topic,
+                                        "synthesis": _synth[:600],
+                                        "source": "knowledge_gap_cognition",
+                                        "trace_id": _result.get("trace_id", ""),
+                                        "step": "step1_cognition_escalation",
+                                    },
+                                    tags=["ale_cognition", "knowledge_gap", "autonomous", topic.split()[0].lower()],
+                                )
+                            except Exception:
+                                pass
+                        log.info("[ALE] Cognition synthesis filled gap for %r", topic)
+                except Exception as _cge:
+                    log.debug("[ALE] Knowledge-gap cognition escalation failed: %s", _cge)
+
             # Log to knowledge base
             if self.knowledge_db:
                 try:
@@ -1802,6 +1852,28 @@ class AutonomousLearningEngine:
         # Filter out error-only responses
         valid = [r for r in (results or []) if isinstance(r, dict) and "error" not in r]
         if not valid:
+            # ── Cognitive escalation when Serpex returns nothing ─────────────
+            try:
+                from modules.knowledge_gap_cognition import (
+                    get_cognition_escalation_layer,
+                    KnowledgeGapSignal,
+                    GAP_CLASS_RESEARCH,
+                )
+                _cel = get_cognition_escalation_layer()
+                _gap = KnowledgeGapSignal(
+                    gap_class=GAP_CLASS_RESEARCH,
+                    topic=topic,
+                    reason="serpex_no_valid_results",
+                    confidence=0.0,
+                    source_module="ale_serpex_research",
+                )
+                _cresult = _cel.escalate(_gap, cycle_id=self._cycle_count)
+                if _cresult.get("success") and _cresult.get("synthesis"):
+                    self._last_research_results.append(_cresult["synthesis"][:600])
+                    log.debug("[SERPEX RESEARCH] Cognition synthesis used as fallback for %r", topic)
+                    return f"[SerpexResearch] No valid results for {topic!r} — cognition synthesis used"
+            except Exception as _ce:
+                log.debug("[SERPEX RESEARCH] Cognition escalation fallback failed: %s", _ce)
             return f"[SerpexResearch] No valid results for {topic!r}"
 
         stored = 0
@@ -4825,6 +4897,11 @@ class AutonomousLearningEngine:
             if llm_summary:
                 summary += f"\n{llm_summary}"
 
+            # ── Governed Training Pipeline: Llama3-driven gap cognition ──────
+            governed_summary = self._run_governed_training_pipeline()
+            if governed_summary:
+                summary += f"\n{governed_summary}"
+
             self.learning_history["brain_training_cycles"] = (
                 self.learning_history.get("brain_training_cycles", 0) + 1
             )
@@ -4871,6 +4948,62 @@ class AutonomousLearningEngine:
             return agent.run_training_cycle()
         except Exception as exc:
             log.debug("[ALE] LLMTrainingAgent step failed: %s", exc)
+            return ""
+
+    def _run_governed_training_pipeline(self) -> str:
+        """Run the GovernedTrainingPipeline for detected knowledge gaps.
+
+        This is an additive step that routes ALE-detected knowledge gaps
+        through the governed Llama3 cognition pipeline:
+            gap → synthesis → reflection → evaluation → governance → BrainTrainer
+
+        Gated by NIBLIT_TRAINING_ENABLED=1.  When disabled, returns "" silently.
+        """
+        import os
+        if os.environ.get("NIBLIT_TRAINING_ENABLED", "0") == "0":
+            return ""
+
+        try:
+            from modules.governed_training_pipeline import get_governed_training_pipeline
+
+            # Resolve router and evaluation_engine from the core.
+            router = None
+            eval_engine = None
+            runtime_manager = None
+            event_bus = None
+            core = getattr(self, "core", None)
+            if core:
+                router = getattr(core, "router", None) or getattr(core, "_router", None)
+                eval_engine = getattr(core, "evaluation_engine", None)
+                runtime_manager = getattr(core, "runtime_manager", None)
+                event_bus = getattr(core, "event_bus", None)
+
+            pipeline = get_governed_training_pipeline(
+                router=router,
+                brain_trainer=self.brain_trainer,
+                evaluation_engine=eval_engine,
+                runtime_manager=runtime_manager,
+                event_bus=event_bus,
+                ale=self,
+            )
+
+            # Use the same gap detection ALE already has.
+            gaps = self.detect_knowledge_gaps(max_gaps=5)
+            if not gaps:
+                return ""
+
+            cycle_id = self.learning_history.get("brain_training_cycles", 0)
+            results = pipeline.run_for_gaps(gaps, ale_cycle_id=cycle_id)
+
+            committed = sum(r.candidates_committed for r in results)
+            if committed:
+                return (
+                    f"GovernedPipeline: {len(results)} gaps processed, "
+                    f"{committed} training candidates committed"
+                )
+            return ""
+        except Exception as exc:
+            log.debug("[ALE] GovernedTrainingPipeline step failed: %s", exc)
             return ""
 
     # ─────────────────────────────────────────────
@@ -6349,6 +6482,35 @@ class AutonomousLearningEngine:
                 pass
         if gaps:
             log.info("[ALE] Knowledge gaps detected (%d): %s", len(gaps), gaps[:3])
+            # ── Cognitive escalation for the worst gap (additive) ────────────
+            # Submit the first gap for immediate semantic synthesis via Llama3
+            # through the canonical RouterV2 → LocalBrain path.
+            try:
+                from modules.knowledge_gap_cognition import (
+                    get_cognition_escalation_layer,
+                    KnowledgeGapSignal,
+                    GAP_CLASS_SYNTHESIS,
+                )
+                _cel = get_cognition_escalation_layer()
+                _priority_gap = gaps[0]
+                _gap = KnowledgeGapSignal(
+                    gap_class=GAP_CLASS_SYNTHESIS,
+                    topic=_priority_gap,
+                    reason="detect_knowledge_gaps_coverage_below_threshold",
+                    context={
+                        "all_gaps": gaps[:5],
+                        "prior_knowledge": str(
+                            self.knowledge_db.recall(_priority_gap, limit=2)
+                            if self.knowledge_db and hasattr(self.knowledge_db, "recall")
+                            else ""
+                        )[:300],
+                    },
+                    confidence=0.1,
+                    source_module="ale_detect_knowledge_gaps",
+                )
+                _cel.escalate(_gap, cycle_id=self._cycle_count)
+            except Exception as _ge:
+                log.debug("[ALE] Gap cognition escalation in detect_knowledge_gaps failed: %s", _ge)
         return gaps
 
     def submit_agent_tasks_for_gaps(self) -> int:

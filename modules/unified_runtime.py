@@ -19,6 +19,9 @@ from pathlib import Path
 from typing import Any
 
 log = logging.getLogger("Niblit.UnifiedRuntime")
+_DEFAULT_PROVIDER_MAX_TOKENS = int(
+    os.getenv("NIBLIT_PROVIDER_MAX_TOKENS", os.getenv("NIBLIT_LOCAL_MAX_NEW", "512"))
+)
 
 MAX_EVENT_BUFFER = 2000
 MAX_TELEMETRY_HISTORY = 200
@@ -128,7 +131,7 @@ class ProviderRuntimeManager:
             "streaming": False,
             "reasoning": "medium",
             "cost_tier": "low",
-            "max_context": 8192,
+            "max_context": 16384,
             "provider_type": "local",
         },
         "local_llama": {
@@ -136,7 +139,7 @@ class ProviderRuntimeManager:
             "streaming": False,
             "reasoning": "medium",
             "cost_tier": "low",
-            "max_context": 8192,
+            "max_context": 16384,
             "provider_type": "local",
         },
         "hf": {
@@ -284,7 +287,7 @@ class ProviderRuntimeManager:
         context_window: int | None = None,
         local_first: bool = True,
         offline_mode: bool = False,
-        max_tokens: int = 500,
+        max_tokens: int = _DEFAULT_PROVIDER_MAX_TOKENS,
     ) -> dict[str, Any]:
         selected, scores = self._route_provider(
             task_type=task_type,
@@ -315,10 +318,21 @@ class ProviderRuntimeManager:
 
                     rr = NiblitUnifiedRuntimeRouterV2()
                     sig = inspect.signature(rr.generate)
+                    kwargs: dict[str, Any] = {"prompt": prompt, "context": context}
                     if "max_tokens" in sig.parameters:
-                        text = rr.generate(prompt=prompt, context=context, max_tokens=max_tokens)
-                    else:
-                        text = rr.generate(prompt=prompt, context=context)
+                        kwargs["max_tokens"] = max_tokens
+                    if "context_policy" in sig.parameters:
+                        kwargs["context_policy"] = {
+                            "target_context_window": context_window
+                            or int(
+                                os.getenv(
+                                    "NIBLIT_RUNTIME_CONTEXT_TARGET",
+                                    os.getenv("NIBLIT_GGUF_N_CTX", "16384"),
+                                )
+                            ),
+                            "runtime_source": "unified_runtime",
+                        }
+                    text = rr.generate(**kwargs)
                 except Exception:
                     text = ""
             if not text:

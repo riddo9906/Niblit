@@ -1425,6 +1425,8 @@ class KnowledgeDB:
             "learning_queue": [],
             "preferences": {"mood": "neutral", "verbosity": "medium"},
             "events": [],
+            "relationships": [],
+            "relationship_index": {},
             "meta": {},
         }
 
@@ -1556,6 +1558,8 @@ class KnowledgeDB:
         with self.lock:
             self.data.update(loaded)
             self.data.setdefault("meta", {})
+            self.data.setdefault("relationships", [])
+            self.data.setdefault("relationship_index", {})
             self.data["meta"]["schema_version"] = "2.0"
             self.data["meta"]["last_load_source"] = source
             self.data.setdefault("quarantine", [])
@@ -1745,15 +1749,119 @@ class KnowledgeDB:
         # the same fact is re-confirmed by a separate source.
         with self.lock:
             self.data.setdefault("facts", [])
-            self.data["facts"].append({
+            fact = {
                 "key": key,
                 "value": value,
                 "tags": tags or [],
                 "ts": int(time.time()),
                 "confidence": 1.0,
                 "access_count": 0,
-            })
+            }
+            self.data["facts"].append(fact)
+            self._index_relationships_for_fact(fact)
         self._save(blocking=False)
+
+    def _extract_relationship_entities(self, raw: str, *, max_entities: int = 6) -> List[str]:
+        """Extract stable entity-like tokens from free-form text."""
+        text = (raw or "").lower()
+        tokens = re.findall(r"\b[a-z][a-z0-9_\-\.]{2,}\b", text)
+        stop = {
+            "with", "from", "into", "that", "this", "those", "these", "about", "after",
+            "before", "through", "while", "where", "when", "which", "using", "used",
+            "have", "has", "had", "then", "than", "into", "onto", "your", "their",
+            "there", "were", "will", "would", "could", "should", "being", "been",
+        }
+        entities: List[str] = []
+        seen: set[str] = set()
+        for token in tokens:
+            if token in stop:
+                continue
+            if token.isdigit():
+                continue
+            if token in seen:
+                continue
+            seen.add(token)
+            entities.append(token)
+            if len(entities) >= max_entities:
+                break
+        return entities
+
+    def _relationship_type_for_tags(self, tags: List[str]) -> str:
+        tagset = {str(t).lower() for t in (tags or [])}
+        if {"architecture", "runtime", "router"} & tagset:
+            return "architecture_link"
+        if {"market", "trading", "finance"} & tagset:
+            return "market_cognition_link"
+        if {"research", "knowledge"} & tagset:
+            return "semantic_link"
+        return "related_to"
+
+    def _index_relationships_for_fact(self, fact: Dict[str, Any]) -> None:
+        """Build lightweight governed relationship index for semantic recall."""
+        if not isinstance(fact, dict):
+            return
+        key = str(fact.get("key", "")).strip()
+        value = fact.get("value", "")
+        tags = [str(t) for t in (fact.get("tags") or [])]
+        if not key:
+            return
+        key_entities = self._extract_relationship_entities(key, max_entities=3)
+        value_entities = self._extract_relationship_entities(str(value), max_entities=6)
+        entities = key_entities + [e for e in value_entities if e not in key_entities]
+        if len(entities) < 2:
+            return
+        rel_type = self._relationship_type_for_tags(tags)
+        ts = int(time.time())
+        self.data.setdefault("relationships", [])
+        self.data.setdefault("relationship_index", {})
+        rels = self.data["relationships"]
+        rel_index = self.data["relationship_index"]
+        for i, src in enumerate(entities):
+            for dst in entities[i + 1:]:
+                edge = {
+                    "src": src,
+                    "dst": dst,
+                    "type": rel_type,
+                    "fact_key": key,
+                    "tags": tags[:6],
+                    "ts": ts,
+                }
+                rels.append(edge)
+                rel_index.setdefault(src, [])
+                rel_index.setdefault(dst, [])
+                rel_index[src].append(edge)
+                rel_index[dst].append(edge)
+        if len(rels) > 5000:
+            self.data["relationships"] = rels[-5000:]
+
+    def get_relationships(self, entity: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Return indexed semantic relationships for an entity."""
+        normalized = str(entity or "").strip().lower()
+        if not normalized:
+            return []
+        with self.lock:
+            rel_index = self.data.get("relationship_index", {})
+            matches = list(rel_index.get(normalized, []))
+        matches.sort(key=lambda x: x.get("ts", 0), reverse=True)
+        return matches[:limit]
+
+    def relationship_summary(self, limit: int = 100) -> Dict[str, Any]:
+        """Return compact relationship graph stats for runtime cognition."""
+        with self.lock:
+            rels = list(self.data.get("relationships", []))
+        top = rels[-limit:]
+        type_counts: Dict[str, int] = {}
+        entities: set[str] = set()
+        for edge in top:
+            t = str(edge.get("type", "related_to"))
+            type_counts[t] = type_counts.get(t, 0) + 1
+            entities.add(str(edge.get("src", "")))
+            entities.add(str(edge.get("dst", "")))
+        return {
+            "edges": len(top),
+            "entities": len({e for e in entities if e}),
+            "types": type_counts,
+        }
 
     def reinforce(self, key: str, amount: float = 0.1) -> bool:
         """Boost the confidence of an existing fact when re-confirmed.
@@ -1935,7 +2043,7 @@ class KnowledgeDB:
 
         with self.lock:
             self.data.setdefault("facts", [])
-            self.data["facts"].append({
+            fact = {
                 "key": key,
                 "value": summary,
                 "tags": tags,
@@ -1943,7 +2051,9 @@ class KnowledgeDB:
                 "ts": int(time.time()),
                 "confidence": confidence,
                 "access_count": 0,
-            })
+            }
+            self.data["facts"].append(fact)
+            self._index_relationships_for_fact(fact)
         self._save(blocking=False)
 
     def list_facts(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:

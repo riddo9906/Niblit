@@ -79,8 +79,8 @@ class ModelDescriptor:
 
 _MODELS: List[ModelDescriptor] = [
     ModelDescriptor("qwen",  "Qwen 2.5 0.5B",    is_local=True,  max_tokens=2048,  complexity_threshold=0.5, ram_requirement_mb=800),
-    ModelDescriptor("llama3","Llama 3.2 1B",      is_local=True,  max_tokens=4096,  complexity_threshold=0.75, ram_requirement_mb=2000),
-    ModelDescriptor("cloud", "Cloud LLM (Ollama)",is_local=False, max_tokens=8192,  complexity_threshold=0.9, ram_requirement_mb=0),
+    ModelDescriptor("llama3","Llama 3.2 1B",      is_local=True,  max_tokens=16384, complexity_threshold=0.75, ram_requirement_mb=2000),
+    ModelDescriptor("cloud", "Cloud LLM (Ollama)",is_local=False, max_tokens=16384, complexity_threshold=0.9, ram_requirement_mb=0),
     ModelDescriptor("gpt",   "Remote GPT",        is_local=False, max_tokens=16384, complexity_threshold=1.0, ram_requirement_mb=0),
     ModelDescriptor("tft",   "TFT Forecast",      is_local=True,  max_tokens=0,     complexity_threshold=0.0, ram_requirement_mb=100),
 ]

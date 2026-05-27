@@ -580,466 +580,466 @@ def _chat_label(text: str, align: str = "left", color=(1, 1, 1, 1)):
 
 if _kivy_available:
 
-  class NiblitKivyApp(App):
-    """Niblit AIOS Dashboard application."""
+    class NiblitKivyApp(App):
+        """Niblit AIOS Dashboard application."""
 
-    search_providers = ListProperty(SEARCH_PROVIDERS)
+        search_providers = ListProperty(SEARCH_PROVIDERS)
 
-    def build(self):
-        Builder.load_string(KV)
-        self.title = "Niblit AIOS"
-        Window.clearcolor = (0.08, 0.08, 0.10, 1)
+        def build(self):
+            Builder.load_string(KV)
+            self.title = "Niblit AIOS"
+            Window.clearcolor = (0.08, 0.08, 0.10, 1)
 
-        # Determine initial mode
-        if _proot_available:
-            _env = get_proot_env()
-            _default_mode = "local" if _env.status == STATUS_READY else "api"
-        else:
-            _default_mode = "api"
-        self._mode: str = os.getenv("NIBLIT_MODE", _default_mode)
-
-        # proot / bootstrap singletons
-        self._proot     = get_proot_env()     if _proot_available else None
-        self._bootstrap = get_apk_bootstrap() if _proot_available else None
-
-        # Interactive shell state
-        self._shell_proc   = None
-        self._shell_thread = None
-
-        root = NiblitDashboardRoot()
-        self._root = root
-
-        # Set initial mode spinner
-        root.ids.chat_panel.ids.mode_spinner.text = self._mode
-
-        # Permissions + initial status check
-        if PLYER_OK:
-            Clock.schedule_once(self._request_permissions, 0.5)
-        Clock.schedule_once(self._initial_status_check, 0.8)
-
-        return root
-
-    # ── Permission request ────────────────────────────────────────────────────
-
-    def _request_permissions(self, *_) -> None:
-        try:
-            _plyer_permissions.request_permissions([
-                "android.permission.READ_EXTERNAL_STORAGE",
-                "android.permission.WRITE_EXTERNAL_STORAGE",
-                "android.permission.INTERNET",
-            ])
-        except Exception:
-            pass
-
-    # ── Initial status check ──────────────────────────────────────────────────
-
-    def _initial_status_check(self, *_) -> None:
-        if self._proot and self._proot.status == STATUS_READY:
-            self._set_conn("🟢 Local proot mode — fully offline capable")
-            self._bootstrap_log("✅ Environment already bootstrapped — ready!\n")
-        elif self._proot:
-            self._set_conn("⚠️  First run — see ⚙ Setup panel")
-            self._bootstrap_log(
-                "First launch detected.\n"
-                "Tap '▶ Run Setup' in the ⚙ Setup panel to bootstrap\n"
-                "the offline Linux environment (Alpine Linux + Python3).\n"
-            )
-            # Auto-start bootstrap on first launch (shown in the Setup panel)
-            Clock.schedule_once(lambda _: self.show_setup_panel(), 1)
-            Clock.schedule_once(lambda _: self.start_bootstrap(), 1.2)
-        else:
-            self._set_conn(f"🌐 API mode — checking {_API_URL}…")
-            threading.Thread(target=self._ping_api, daemon=True).start()
-
-    # ── Command dispatch (from sidebar) ──────────────────────────────────────
-
-    def handle_command(self, cmd_key: str, cmd_type: str) -> None:
-        pb = self._root.ids.sidebar.ids.panel_box
-        if cmd_type == "status":
-            self._fetch_status()
-        elif cmd_type == "panel":
-            self._fetch_memory()
-        elif cmd_type == "input":
-            cfg = next((c for c in COMMANDS if c["key"] == cmd_key), {})
-            bub = InputBubble(label_text=cfg.get("input_label", "Input:"))
-            bub._cmd_key = cmd_key
-            pb.add_widget(bub)
-        elif cmd_type == "search":
-            self.show_search()
-        elif cmd_type == "terminal":
-            self.show_terminal()
-        elif cmd_type == "setup":
-            self.show_setup_panel()
-        elif cmd_type == "file":
-            FilePickerModal().open()
-        elif cmd_type == "action":
-            self._run_action_cmd(cmd_key)
-
-    def handle_input_submit(self, cmd_key: str, text: str) -> None:
-        """Called when an InputBubble is submitted."""
-        if not text.strip():
-            return
-        if cmd_key == "learn_about":
-            self._chat_append(f"You: learn about {text}", align="right",
-                              color=(0.4, 0.8, 1, 1))
-            self._set_conn("Learning…")
-            threading.Thread(
-                target=self._dispatch_command, args=(f"learn about {text}",),
-                daemon=True
-            ).start()
-        elif cmd_key == "self-research":
-            self._chat_append(f"You: self-research {text}", align="right",
-                              color=(0.4, 0.8, 1, 1))
-            self._set_conn("Researching…")
-            threading.Thread(
-                target=self._dispatch_command, args=(f"self-research {text}",),
-                daemon=True
-            ).start()
-
-    def handle_file_selected(self, path: str) -> None:
-        self._chat_append(f"[File selected] {path}", color=(0.7, 0.7, 0.7, 1))
-
-    # ── Action commands (reflect, self-idea, etc.) ────────────────────────────
-
-    def _run_action_cmd(self, cmd_key: str) -> None:
-        self._chat_append(f"You: {cmd_key}", align="right", color=(0.4, 0.8, 1, 1))
-        self._set_conn(f"Running {cmd_key}…")
-        threading.Thread(
-            target=self._dispatch_command, args=(cmd_key,), daemon=True
-        ).start()
-
-    # ── Mode change ───────────────────────────────────────────────────────────
-
-    def on_mode_change(self, mode: str) -> None:
-        self._mode = mode
-        if mode == "local":
-            if self._proot and self._proot.status == STATUS_READY:
-                self._set_conn("🟢 Local proot mode")
+            # Determine initial mode
+            if _proot_available:
+                _env = get_proot_env()
+                _default_mode = "local" if _env.status == STATUS_READY else "api"
             else:
-                self._set_conn("⚠️  proot not ready — run Setup first")
-        else:
-            self._set_conn(f"🌐 API mode — {_API_URL}")
-            threading.Thread(target=self._ping_api, daemon=True).start()
+                _default_mode = "api"
+            self._mode: str = os.getenv("NIBLIT_MODE", _default_mode)
 
-    # ── Chat ──────────────────────────────────────────────────────────────────
+            # proot / bootstrap singletons
+            self._proot     = get_proot_env()     if _proot_available else None
+            self._bootstrap = get_apk_bootstrap() if _proot_available else None
 
-    def send_chat(self, text: str) -> None:
-        chat_input = self._root.ids.chat_panel.ids.chat_input
-        text = text.strip()
-        if not text:
-            return
-        chat_input.text = ""
-        self._chat_append(f"You: {text}", align="right", color=(0.4, 0.8, 1, 1))
-        self._set_conn("Thinking…")
-        threading.Thread(
-            target=self._dispatch_command, args=(text,), daemon=True
-        ).start()
+            # Interactive shell state
+            self._shell_proc   = None
+            self._shell_thread = None
 
-    def _dispatch_command(self, text: str) -> None:
-        """Route a command to local proot or remote API depending on mode."""
-        if self._mode == "local" and self._proot and self._proot.is_ready:
-            reply = self._local_command(text)
-        else:
-            reply = self._api_command(text)
-        Clock.schedule_once(lambda dt, r=reply: self._on_reply(r))
+            root = NiblitDashboardRoot()
+            self._root = root
 
-    def _local_command(self, text: str) -> str:
-        """Run text as a Niblit command inside proot."""
-        escaped = text.replace("'", "'\\''").replace('"', '\\"')
-        cmd = (
-            "cd /root/niblit && python3 -c \""
-            "import sys; sys.path.insert(0,'.'); "
-            "from niblit_core import NiblitCore; "
-            f"c=NiblitCore(); print(c.handle('{escaped}'))\""
-        )
-        rc, out, err = self._proot.run(cmd, timeout=120)
-        return out.strip() or err.strip() or "[No response from local Niblit]"
+            # Set initial mode spinner
+            root.ids.chat_panel.ids.mode_spinner.text = self._mode
 
-    def _api_command(self, text: str) -> str:
-        if not _requests_available:
-            return "[requests not installed — API mode unavailable]"
-        try:
-            headers = {"Content-Type": "application/json"}
-            if _API_KEY:
-                headers["X-API-Key"] = _API_KEY
-            resp = _requests.post(
-                f"{_API_URL}/chat",
-                json={"text": text},
-                headers=headers,
-                timeout=_TIMEOUT,
-            )
-            resp.raise_for_status()
-            return resp.json().get("reply", "[no reply]")
-        except Exception as exc:
-            return f"[API error: {exc}]"
+            # Permissions + initial status check
+            if PLYER_OK:
+                Clock.schedule_once(self._request_permissions, 0.5)
+            Clock.schedule_once(self._initial_status_check, 0.8)
 
-    def _on_reply(self, reply: str) -> None:
-        self._chat_append(f"Niblit: {reply}", color=(1, 0.8, 0.3, 1))
-        self._set_conn("Ready")
+            return root
 
-    # ── Status / Memory ───────────────────────────────────────────────────────
+        # ── Permission request ────────────────────────────────────────────────────
 
-    def _fetch_status(self) -> None:
-        self._set_conn("Fetching status…")
-        threading.Thread(target=self._do_fetch_status, daemon=True).start()
+        def _request_permissions(self, *_) -> None:
+            try:
+                _plyer_permissions.request_permissions([
+                    "android.permission.READ_EXTERNAL_STORAGE",
+                    "android.permission.WRITE_EXTERNAL_STORAGE",
+                    "android.permission.INTERNET",
+                ])
+            except Exception:
+                pass
 
-    def _do_fetch_status(self) -> None:
-        reply = self._dispatch_command_sync("status")
-        Clock.schedule_once(lambda dt, r=reply: (
-            self._expand_sidebar_panel(f"Status:\n{r}"),
-            self._set_conn("Ready"),
-        ))
+        # ── Initial status check ──────────────────────────────────────────────────
 
-    def _fetch_memory(self) -> None:
-        self._set_conn("Loading memory…")
-        threading.Thread(target=self._do_fetch_memory, daemon=True).start()
+        def _initial_status_check(self, *_) -> None:
+            if self._proot and self._proot.status == STATUS_READY:
+                self._set_conn("🟢 Local proot mode — fully offline capable")
+                self._bootstrap_log("✅ Environment already bootstrapped — ready!\n")
+            elif self._proot:
+                self._set_conn("⚠️  First run — see ⚙ Setup panel")
+                self._bootstrap_log(
+                    "First launch detected.\n"
+                    "Tap '▶ Run Setup' in the ⚙ Setup panel to bootstrap\n"
+                    "the offline Linux environment (Alpine Linux + Python3).\n"
+                )
+                # Auto-start bootstrap on first launch (shown in the Setup panel)
+                Clock.schedule_once(lambda _: self.show_setup_panel(), 1)
+                Clock.schedule_once(lambda _: self.start_bootstrap(), 1.2)
+            else:
+                self._set_conn(f"🌐 API mode — checking {_API_URL}…")
+                threading.Thread(target=self._ping_api, daemon=True).start()
 
-    def _do_fetch_memory(self) -> None:
-        if self._mode == "local" and self._proot and self._proot.is_ready:
-            rc, out, _ = self._proot.run(
+        # ── Command dispatch (from sidebar) ──────────────────────────────────────
+
+        def handle_command(self, cmd_key: str, cmd_type: str) -> None:
+            pb = self._root.ids.sidebar.ids.panel_box
+            if cmd_type == "status":
+                self._fetch_status()
+            elif cmd_type == "panel":
+                self._fetch_memory()
+            elif cmd_type == "input":
+                cfg = next((c for c in COMMANDS if c["key"] == cmd_key), {})
+                bub = InputBubble(label_text=cfg.get("input_label", "Input:"))
+                bub._cmd_key = cmd_key
+                pb.add_widget(bub)
+            elif cmd_type == "search":
+                self.show_search()
+            elif cmd_type == "terminal":
+                self.show_terminal()
+            elif cmd_type == "setup":
+                self.show_setup_panel()
+            elif cmd_type == "file":
+                FilePickerModal().open()
+            elif cmd_type == "action":
+                self._run_action_cmd(cmd_key)
+
+        def handle_input_submit(self, cmd_key: str, text: str) -> None:
+            """Called when an InputBubble is submitted."""
+            if not text.strip():
+                return
+            if cmd_key == "learn_about":
+                self._chat_append(f"You: learn about {text}", align="right",
+                                  color=(0.4, 0.8, 1, 1))
+                self._set_conn("Learning…")
+                threading.Thread(
+                    target=self._dispatch_command, args=(f"learn about {text}",),
+                    daemon=True
+                ).start()
+            elif cmd_key == "self-research":
+                self._chat_append(f"You: self-research {text}", align="right",
+                                  color=(0.4, 0.8, 1, 1))
+                self._set_conn("Researching…")
+                threading.Thread(
+                    target=self._dispatch_command, args=(f"self-research {text}",),
+                    daemon=True
+                ).start()
+
+        def handle_file_selected(self, path: str) -> None:
+            self._chat_append(f"[File selected] {path}", color=(0.7, 0.7, 0.7, 1))
+
+        # ── Action commands (reflect, self-idea, etc.) ────────────────────────────
+
+        def _run_action_cmd(self, cmd_key: str) -> None:
+            self._chat_append(f"You: {cmd_key}", align="right", color=(0.4, 0.8, 1, 1))
+            self._set_conn(f"Running {cmd_key}…")
+            threading.Thread(
+                target=self._dispatch_command, args=(cmd_key,), daemon=True
+            ).start()
+
+        # ── Mode change ───────────────────────────────────────────────────────────
+
+        def on_mode_change(self, mode: str) -> None:
+            self._mode = mode
+            if mode == "local":
+                if self._proot and self._proot.status == STATUS_READY:
+                    self._set_conn("🟢 Local proot mode")
+                else:
+                    self._set_conn("⚠️  proot not ready — run Setup first")
+            else:
+                self._set_conn(f"🌐 API mode — {_API_URL}")
+                threading.Thread(target=self._ping_api, daemon=True).start()
+
+        # ── Chat ──────────────────────────────────────────────────────────────────
+
+        def send_chat(self, text: str) -> None:
+            chat_input = self._root.ids.chat_panel.ids.chat_input
+            text = text.strip()
+            if not text:
+                return
+            chat_input.text = ""
+            self._chat_append(f"You: {text}", align="right", color=(0.4, 0.8, 1, 1))
+            self._set_conn("Thinking…")
+            threading.Thread(
+                target=self._dispatch_command, args=(text,), daemon=True
+            ).start()
+
+        def _dispatch_command(self, text: str) -> None:
+            """Route a command to local proot or remote API depending on mode."""
+            if self._mode == "local" and self._proot and self._proot.is_ready:
+                reply = self._local_command(text)
+            else:
+                reply = self._api_command(text)
+            Clock.schedule_once(lambda dt, r=reply: self._on_reply(r))
+
+        def _local_command(self, text: str) -> str:
+            """Run text as a Niblit command inside proot."""
+            escaped = text.replace("'", "'\\''").replace('"', '\\"')
+            cmd = (
                 "cd /root/niblit && python3 -c \""
                 "import sys; sys.path.insert(0,'.'); "
-                "from niblit_memory import KnowledgeDB; "
-                "db=KnowledgeDB(); "
-                "facts=db.list_facts(10); "
-                "print(f'Facts: {len(facts)}'); "
-                "[print(' •', f.get(\\\"key\\\",\\\"\\\")[:60]) for f in facts[:6]]\"",
-                timeout=60,
+                "from niblit_core import NiblitCore; "
+                f"c=NiblitCore(); print(c.handle('{escaped}'))\""
             )
-            text = out.strip() or "[Memory unavailable]"
-        else:
+            rc, out, err = self._proot.run(cmd, timeout=120)
+            return out.strip() or err.strip() or "[No response from local Niblit]"
+
+        def _api_command(self, text: str) -> str:
             if not _requests_available:
-                text = "[requests not installed]"
+                return "[requests not installed — API mode unavailable]"
+            try:
+                headers = {"Content-Type": "application/json"}
+                if _API_KEY:
+                    headers["X-API-Key"] = _API_KEY
+                resp = _requests.post(
+                    f"{_API_URL}/chat",
+                    json={"text": text},
+                    headers=headers,
+                    timeout=_TIMEOUT,
+                )
+                resp.raise_for_status()
+                return resp.json().get("reply", "[no reply]")
+            except Exception as exc:
+                return f"[API error: {exc}]"
+
+        def _on_reply(self, reply: str) -> None:
+            self._chat_append(f"Niblit: {reply}", color=(1, 0.8, 0.3, 1))
+            self._set_conn("Ready")
+
+        # ── Status / Memory ───────────────────────────────────────────────────────
+
+        def _fetch_status(self) -> None:
+            self._set_conn("Fetching status…")
+            threading.Thread(target=self._do_fetch_status, daemon=True).start()
+
+        def _do_fetch_status(self) -> None:
+            reply = self._dispatch_command_sync("status")
+            Clock.schedule_once(lambda dt, r=reply: (
+                self._expand_sidebar_panel(f"Status:\n{r}"),
+                self._set_conn("Ready"),
+            ))
+
+        def _fetch_memory(self) -> None:
+            self._set_conn("Loading memory…")
+            threading.Thread(target=self._do_fetch_memory, daemon=True).start()
+
+        def _do_fetch_memory(self) -> None:
+            if self._mode == "local" and self._proot and self._proot.is_ready:
+                rc, out, _ = self._proot.run(
+                    "cd /root/niblit && python3 -c \""
+                    "import sys; sys.path.insert(0,'.'); "
+                    "from niblit_memory import KnowledgeDB; "
+                    "db=KnowledgeDB(); "
+                    "facts=db.list_facts(10); "
+                    "print(f'Facts: {len(facts)}'); "
+                    "[print(' •', f.get(\\\"key\\\",\\\"\\\")[:60]) for f in facts[:6]]\"",
+                    timeout=60,
+                )
+                text = out.strip() or "[Memory unavailable]"
             else:
-                try:
-                    headers = {"X-API-Key": _API_KEY} if _API_KEY else {}
-                    resp = _requests.get(f"{_API_URL}/memory", headers=headers,
-                                         timeout=_TIMEOUT)
-                    resp.raise_for_status()
-                    facts = resp.json().get("facts", [])
-                    text = f"Facts: {len(facts)}\n" + "\n".join(
-                        f" • {f.get('key','')[:60]}" for f in facts[:6]
-                    )
-                except Exception as exc:
-                    text = f"[Memory error: {exc}]"
-        Clock.schedule_once(lambda dt, t=text: (
-            self._expand_sidebar_panel(f"Memory:\n{t}"),
-            self._set_conn("Ready"),
-        ))
+                if not _requests_available:
+                    text = "[requests not installed]"
+                else:
+                    try:
+                        headers = {"X-API-Key": _API_KEY} if _API_KEY else {}
+                        resp = _requests.get(f"{_API_URL}/memory", headers=headers,
+                                             timeout=_TIMEOUT)
+                        resp.raise_for_status()
+                        facts = resp.json().get("facts", [])
+                        text = f"Facts: {len(facts)}\n" + "\n".join(
+                            f" • {f.get('key','')[:60]}" for f in facts[:6]
+                        )
+                    except Exception as exc:
+                        text = f"[Memory error: {exc}]"
+            Clock.schedule_once(lambda dt, t=text: (
+                self._expand_sidebar_panel(f"Memory:\n{t}"),
+                self._set_conn("Ready"),
+            ))
 
-    def _dispatch_command_sync(self, cmd: str) -> str:
-        if self._mode == "local" and self._proot and self._proot.is_ready:
-            return self._local_command(cmd)
-        return self._api_command(cmd)
+        def _dispatch_command_sync(self, cmd: str) -> str:
+            if self._mode == "local" and self._proot and self._proot.is_ready:
+                return self._local_command(cmd)
+            return self._api_command(cmd)
 
-    # ── Search ────────────────────────────────────────────────────────────────
+        # ── Search ────────────────────────────────────────────────────────────────
 
-    def do_search(self, query: str, provider: str) -> None:
-        if not query.strip():
-            return
-        self.hide_search()
-        self._chat_append(f"🔍 Search [{provider}]: {query}", color=(0.6, 0.85, 1, 1))
-        self._set_conn(f"Searching via {provider}…")
-        threading.Thread(
-            target=self._do_search_thread, args=(query, provider), daemon=True
-        ).start()
-
-    def _do_search_thread(self, query: str, provider: str) -> None:
-        if self._mode == "local" and self._proot and self._proot.is_ready:
-            cmd = f"search {query}"
-            reply = self._local_command(cmd)
-        else:
-            reply = self._api_command(f"search {query}")
-        Clock.schedule_once(lambda dt, r=reply: self._on_reply(r))
-
-    def show_search(self) -> None:
-        sp = self._root.ids.search_panel
-        sp.height = dp(56)
-        sp.opacity = 1
-
-    def hide_search(self) -> None:
-        sp = self._root.ids.search_panel
-        sp.height = 0
-        sp.opacity = 0
-
-    # ── Terminal ──────────────────────────────────────────────────────────────
-
-    def show_terminal(self) -> None:
-        tp = self._root.ids.terminal_panel
-        tp.height = dp(260)
-        tp.opacity = 1
-
-    def hide_terminal(self) -> None:
-        tp = self._root.ids.terminal_panel
-        tp.height = 0
-        tp.opacity = 0
-
-    def run_term_cmd(self, cmd: str, input_widget=None) -> None:
-        if not cmd.strip():
-            return
-        if input_widget:
-            input_widget.text = ""
-        self._term_write(f"$ {cmd}\n")
-        if self._proot and self._proot.is_ready:
+        def do_search(self, query: str, provider: str) -> None:
+            if not query.strip():
+                return
+            self.hide_search()
+            self._chat_append(f"🔍 Search [{provider}]: {query}", color=(0.6, 0.85, 1, 1))
+            self._set_conn(f"Searching via {provider}…")
             threading.Thread(
-                target=self._exec_term_cmd, args=(cmd,), daemon=True
+                target=self._do_search_thread, args=(query, provider), daemon=True
             ).start()
-        else:
-            self._term_write("[proot not ready — run ⚙ Setup first]\n")
 
-    def _exec_term_cmd(self, cmd: str) -> None:
-        rc, out, err = self._proot.run(cmd, timeout=60)
-        output = (out or "") + (err or "") or f"[exit {rc}]\n"
-        Clock.schedule_once(lambda dt, o=output: self._term_write(o))
+        def _do_search_thread(self, query: str, provider: str) -> None:
+            if self._mode == "local" and self._proot and self._proot.is_ready:
+                cmd = f"search {query}"
+                reply = self._local_command(cmd)
+            else:
+                reply = self._api_command(f"search {query}")
+            Clock.schedule_once(lambda dt, r=reply: self._on_reply(r))
 
-    def clear_terminal(self) -> None:
-        self._root.ids.terminal_panel.ids.term_output.text = "$ "
+        def show_search(self) -> None:
+            sp = self._root.ids.search_panel
+            sp.height = dp(56)
+            sp.opacity = 1
 
-    def open_shell(self) -> None:
-        if not (self._proot and self._proot.is_ready):
-            self._term_write("[proot not ready]\n")
-            return
-        if self._shell_proc and self._shell_proc.poll() is None:
-            self._term_write("[shell already open]\n")
-            return
-        self._term_write("Opening interactive shell…\n")
-        self._shell_proc = self._proot.popen("/bin/sh")
-        if not self._shell_proc:
-            self._term_write("[Failed to open shell]\n")
-            return
-        try:
-            self._shell_proc.stdin.write(". /root/.profile 2>/dev/null; ")
-            self._shell_proc.stdin.flush()
-        except Exception:
-            pass
-        self._shell_thread = threading.Thread(
-            target=self._shell_reader, daemon=True
-        )
-        self._shell_thread.start()
+        def hide_search(self) -> None:
+            sp = self._root.ids.search_panel
+            sp.height = 0
+            sp.opacity = 0
 
-    def _shell_reader(self) -> None:
-        try:
-            for line in iter(self._shell_proc.stdout.readline, ""):
-                Clock.schedule_once(lambda dt, l=line: self._term_write(l))
-        except Exception:
-            pass
-        Clock.schedule_once(lambda dt: self._term_write("\n[shell exited]\n"))
+        # ── Terminal ──────────────────────────────────────────────────────────────
 
-    def run_niblit_status(self) -> None:
-        tp = self._root.ids.terminal_panel.ids.term_input
-        tp.text = (
-            "cd /root/niblit && python3 -c \""
-            "import sys; sys.path.insert(0,'.'); "
-            "from niblit_core import NiblitCore; c=NiblitCore(); print(c._cmd_status(''))\""
-        )
-        self.run_term_cmd(tp.text, tp)
+        def show_terminal(self) -> None:
+            tp = self._root.ids.terminal_panel
+            tp.height = dp(260)
+            tp.opacity = 1
 
-    # ── Bootstrap / Setup panel ───────────────────────────────────────────────
+        def hide_terminal(self) -> None:
+            tp = self._root.ids.terminal_panel
+            tp.height = 0
+            tp.opacity = 0
 
-    def show_setup_panel(self) -> None:
-        sp = self._root.ids.setup_panel
-        sp.height = dp(280)
-        sp.opacity = 1
+        def run_term_cmd(self, cmd: str, input_widget=None) -> None:
+            if not cmd.strip():
+                return
+            if input_widget:
+                input_widget.text = ""
+            self._term_write(f"$ {cmd}\n")
+            if self._proot and self._proot.is_ready:
+                threading.Thread(
+                    target=self._exec_term_cmd, args=(cmd,), daemon=True
+                ).start()
+            else:
+                self._term_write("[proot not ready — run ⚙ Setup first]\n")
 
-    def hide_setup(self) -> None:
-        sp = self._root.ids.setup_panel
-        sp.height = 0
-        sp.opacity = 0
+        def _exec_term_cmd(self, cmd: str) -> None:
+            rc, out, err = self._proot.run(cmd, timeout=60)
+            output = (out or "") + (err or "") or f"[exit {rc}]\n"
+            Clock.schedule_once(lambda dt, o=output: self._term_write(o))
 
-    def start_bootstrap(self) -> None:
-        if not _proot_available or self._bootstrap is None:
-            self._set_setup_label("proot not available on this platform", 0)
-            return
-        self._set_setup_label("Starting setup…", 0)
-        self._bootstrap_log("=" * 36 + "\nStarting Niblit APK bootstrap…\n")
-        self._bootstrap.run(progress_callback=self._bootstrap_cb)
+        def clear_terminal(self) -> None:
+            self._root.ids.terminal_panel.ids.term_output.text = "$ "
 
-    def _bootstrap_cb(self, msg: str, pct: int) -> None:
-        Clock.schedule_once(lambda dt, m=msg, p=pct: self._update_setup_ui(m, p))
-
-    def _update_setup_ui(self, msg: str, pct: int) -> None:
-        self._set_setup_label(msg, max(0, pct))
-        self._bootstrap_log(f"  {msg}\n")
-        if pct == 100:
-            self._set_conn("🟢 Local proot mode — fully offline capable")
-            self._root.ids.chat_panel.ids.mode_spinner.text = "local"
-            self._mode = "local"
-
-    def show_proot_info(self) -> None:
-        lines: list = []
-        if self._proot:
-            info = self._proot.info()
-            lines += [
-                "── proot ──",
-                f"  status  : {info['status']}",
-                f"  storage : {info['storage_dir']}",
-                f"  rootfs  : {info['rootfs_exists']}",
-                f"  binary  : {bool(info['proot_bin'])}",
-                f"  sentinel: {info['setup_sentinel']}",
-            ]
-        if self._bootstrap:
-            bs = self._bootstrap.get_status()
-            lines += [
-                "── bootstrap ──",
-                f"  complete: {bs['bootstrap_complete']}",
-            ]
-            if "bootstrap_info" in bs:
-                bi = bs["bootstrap_info"]
-                lines.append(f"  done at : {bi.get('completed_at','?')}")
-        if not lines:
-            lines = ["proot not available"]
-        self._bootstrap_log("\n".join(lines) + "\n")
-
-    # ── API helpers ───────────────────────────────────────────────────────────
-
-    def _ping_api(self) -> None:
-        if not _requests_available:
-            Clock.schedule_once(
-                lambda dt: self._set_conn("API — requests not installed")
+        def open_shell(self) -> None:
+            if not (self._proot and self._proot.is_ready):
+                self._term_write("[proot not ready]\n")
+                return
+            if self._shell_proc and self._shell_proc.poll() is None:
+                self._term_write("[shell already open]\n")
+                return
+            self._term_write("Opening interactive shell…\n")
+            self._shell_proc = self._proot.popen("/bin/sh")
+            if not self._shell_proc:
+                self._term_write("[Failed to open shell]\n")
+                return
+            try:
+                self._shell_proc.stdin.write(". /root/.profile 2>/dev/null; ")
+                self._shell_proc.stdin.flush()
+            except Exception:
+                pass
+            self._shell_thread = threading.Thread(
+                target=self._shell_reader, daemon=True
             )
-            return
-        try:
-            resp = _requests.get(f"{_API_URL}/health", timeout=5)
-            label = (f"🟢 API online — {_API_URL}" if resp.status_code == 200
-                     else f"🔴 API error {resp.status_code}")
-        except Exception:
-            label = f"🔴 API offline — {_API_URL}"
-        Clock.schedule_once(lambda dt, l=label: self._set_conn(l))
+            self._shell_thread.start()
 
-    # ── UI helpers ────────────────────────────────────────────────────────────
+        def _shell_reader(self) -> None:
+            try:
+                for line in iter(self._shell_proc.stdout.readline, ""):
+                    Clock.schedule_once(lambda dt, l=line: self._term_write(l))
+            except Exception:
+                pass
+            Clock.schedule_once(lambda dt: self._term_write("\n[shell exited]\n"))
 
-    def _chat_append(self, text: str, align: str = "left",
-                     color=(1, 1, 1, 1)) -> None:
-        cb = self._root.ids.chat_panel.ids.chat_box
-        cb.add_widget(_chat_label(text, align=align, color=color))
-        scroll = self._root.ids.chat_panel.ids.chat_scroll
-        Clock.schedule_once(lambda dt: setattr(scroll, "scroll_y", 0))
+        def run_niblit_status(self) -> None:
+            tp = self._root.ids.terminal_panel.ids.term_input
+            tp.text = (
+                "cd /root/niblit && python3 -c \""
+                "import sys; sys.path.insert(0,'.'); "
+                "from niblit_core import NiblitCore; c=NiblitCore(); print(c._cmd_status(''))\""
+            )
+            self.run_term_cmd(tp.text, tp)
 
-    def _set_conn(self, text: str) -> None:
-        self._root.ids.chat_panel.ids.conn_label.text = text
+        # ── Bootstrap / Setup panel ───────────────────────────────────────────────
 
-    def _term_write(self, text: str) -> None:
-        tp = self._root.ids.terminal_panel
-        tp.ids.term_output.text += text
-        Clock.schedule_once(
-            lambda dt: setattr(tp.ids.term_scroll, "scroll_y", 0)
-        )
+        def show_setup_panel(self) -> None:
+            sp = self._root.ids.setup_panel
+            sp.height = dp(280)
+            sp.opacity = 1
 
-    def _set_setup_label(self, text: str, pct: int) -> None:
-        sp = self._root.ids.setup_panel
-        sp.ids.setup_status_label.text = text
-        sp.ids.setup_progress.value = pct
+        def hide_setup(self) -> None:
+            sp = self._root.ids.setup_panel
+            sp.height = 0
+            sp.opacity = 0
 
-    def _bootstrap_log(self, text: str) -> None:
-        sp = self._root.ids.setup_panel
-        sp.ids.setup_log.text += text
-        if len(sp.ids.setup_log.text) > 8000:
-            sp.ids.setup_log.text = sp.ids.setup_log.text[-6000:]
+        def start_bootstrap(self) -> None:
+            if not _proot_available or self._bootstrap is None:
+                self._set_setup_label("proot not available on this platform", 0)
+                return
+            self._set_setup_label("Starting setup…", 0)
+            self._bootstrap_log("=" * 36 + "\nStarting Niblit APK bootstrap…\n")
+            self._bootstrap.run(progress_callback=self._bootstrap_cb)
 
-    def _expand_sidebar_panel(self, text: str) -> None:
-        pb = self._root.ids.sidebar.ids.panel_box
-        panel = ExpandedPanel(panel_text=text)
-        pb.add_widget(panel)
+        def _bootstrap_cb(self, msg: str, pct: int) -> None:
+            Clock.schedule_once(lambda dt, m=msg, p=pct: self._update_setup_ui(m, p))
+
+        def _update_setup_ui(self, msg: str, pct: int) -> None:
+            self._set_setup_label(msg, max(0, pct))
+            self._bootstrap_log(f"  {msg}\n")
+            if pct == 100:
+                self._set_conn("🟢 Local proot mode — fully offline capable")
+                self._root.ids.chat_panel.ids.mode_spinner.text = "local"
+                self._mode = "local"
+
+        def show_proot_info(self) -> None:
+            lines: list = []
+            if self._proot:
+                info = self._proot.info()
+                lines += [
+                    "── proot ──",
+                    f"  status  : {info['status']}",
+                    f"  storage : {info['storage_dir']}",
+                    f"  rootfs  : {info['rootfs_exists']}",
+                    f"  binary  : {bool(info['proot_bin'])}",
+                    f"  sentinel: {info['setup_sentinel']}",
+                ]
+            if self._bootstrap:
+                bs = self._bootstrap.get_status()
+                lines += [
+                    "── bootstrap ──",
+                    f"  complete: {bs['bootstrap_complete']}",
+                ]
+                if "bootstrap_info" in bs:
+                    bi = bs["bootstrap_info"]
+                    lines.append(f"  done at : {bi.get('completed_at','?')}")
+            if not lines:
+                lines = ["proot not available"]
+            self._bootstrap_log("\n".join(lines) + "\n")
+
+        # ── API helpers ───────────────────────────────────────────────────────────
+
+        def _ping_api(self) -> None:
+            if not _requests_available:
+                Clock.schedule_once(
+                    lambda dt: self._set_conn("API — requests not installed")
+                )
+                return
+            try:
+                resp = _requests.get(f"{_API_URL}/health", timeout=5)
+                label = (f"🟢 API online — {_API_URL}" if resp.status_code == 200
+                         else f"🔴 API error {resp.status_code}")
+            except Exception:
+                label = f"🔴 API offline — {_API_URL}"
+            Clock.schedule_once(lambda dt, l=label: self._set_conn(l))
+
+        # ── UI helpers ────────────────────────────────────────────────────────────
+
+        def _chat_append(self, text: str, align: str = "left",
+                         color=(1, 1, 1, 1)) -> None:
+            cb = self._root.ids.chat_panel.ids.chat_box
+            cb.add_widget(_chat_label(text, align=align, color=color))
+            scroll = self._root.ids.chat_panel.ids.chat_scroll
+            Clock.schedule_once(lambda dt: setattr(scroll, "scroll_y", 0))
+
+        def _set_conn(self, text: str) -> None:
+            self._root.ids.chat_panel.ids.conn_label.text = text
+
+        def _term_write(self, text: str) -> None:
+            tp = self._root.ids.terminal_panel
+            tp.ids.term_output.text += text
+            Clock.schedule_once(
+                lambda dt: setattr(tp.ids.term_scroll, "scroll_y", 0)
+            )
+
+        def _set_setup_label(self, text: str, pct: int) -> None:
+            sp = self._root.ids.setup_panel
+            sp.ids.setup_status_label.text = text
+            sp.ids.setup_progress.value = pct
+
+        def _bootstrap_log(self, text: str) -> None:
+            sp = self._root.ids.setup_panel
+            sp.ids.setup_log.text += text
+            if len(sp.ids.setup_log.text) > 8000:
+                sp.ids.setup_log.text = sp.ids.setup_log.text[-6000:]
+
+        def _expand_sidebar_panel(self, text: str) -> None:
+            pb = self._root.ids.sidebar.ids.panel_box
+            panel = ExpandedPanel(panel_text=text)
+            pb.add_widget(panel)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

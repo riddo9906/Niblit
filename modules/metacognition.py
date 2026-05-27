@@ -23,6 +23,10 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("Metacognition")
+_QUALITY_HIGH = "High"
+_QUALITY_GOOD = "Good"
+_QUALITY_DEVELOPING = "Developing"
+_QUALITY_EARLY = "Early"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -183,20 +187,20 @@ class Metacognition:
 
         # Quality label bands
         if pct >= 70:
-            quality = "High"
+            quality = _QUALITY_HIGH
         elif pct >= 40:
-            quality = "Good"
+            quality = _QUALITY_GOOD
         elif pct >= 20:
-            quality = "Developing"
+            quality = _QUALITY_DEVELOPING
         else:
-            quality = "Early"
+            quality = _QUALITY_EARLY
 
         # Recommendation tailored to quality band
-        if quality == "High":
+        if quality == _QUALITY_HIGH:
             rec = "Knowledge base is well-established; focus on edge-case topics to push further"
-        elif quality == "Good":
+        elif quality == _QUALITY_GOOD:
             rec = "Good coverage; continue learning to raise medium-confidence facts to high"
-        elif quality == "Developing":
+        elif quality == _QUALITY_DEVELOPING:
             rec = "Keep running autonomous learning cycles to build confidence across more domains"
         else:
             rec = "Run 'autonomous-learn start' to begin building a solid knowledge foundation"
@@ -212,6 +216,44 @@ class Metacognition:
             "knowledge_quality":      quality,
             "recommendation":         rec,
         }
+
+        # ── Cognitive escalation on low metacognitive coverage (additive) ───
+        # When knowledge quality is Early or Developing, escalate through
+        # RouterV2 → LocalBrain → Llama3 for targeted gap synthesis.
+        if quality in (_QUALITY_EARLY, _QUALITY_DEVELOPING):
+            try:
+                from modules.knowledge_gap_cognition import (
+                    get_cognition_escalation_layer,
+                    KnowledgeGapSignal,
+                    GAP_CLASS_METACOGNITION,
+                )
+                # Identify the most uncertain category as the synthesis target
+                categories = self.knowledge_map.get("categories", {})
+                _uncertain = self.knowledge_map.get("uncertain", [])
+                _focus_topic = (
+                    _uncertain[0].split(":")[0] if _uncertain
+                    else (max(categories, key=categories.get) if categories else "general knowledge")
+                )
+                _cel = get_cognition_escalation_layer()
+                _gap = KnowledgeGapSignal(
+                    gap_class=GAP_CLASS_METACOGNITION,
+                    topic=_focus_topic,
+                    reason="low_metacognitive_coverage",
+                    context={
+                        "knowledge_quality": quality,
+                        "confidence_pct": f"{pct:.1f}",
+                        "uncertain_count": n_uncert,
+                        "low_count": n_low,
+                    },
+                    confidence=weighted,
+                    source_module="metacognition",
+                )
+                _cresult = _cel.escalate(_gap)
+                if _cresult.get("success") and _cresult.get("synthesis"):
+                    evaluation["cognition_synthesis"] = _cresult["synthesis"][:400]
+                    evaluation["cognition_trace_id"] = _cresult.get("trace_id", "")
+            except Exception:
+                pass
 
         log.info(f"✅ [META] Evaluation: {evaluation['overall_confidence']} confidence "
                  f"(high={n_high}, med={n_medium}, low={n_low}, unc={n_uncert})")

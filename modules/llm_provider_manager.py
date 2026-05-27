@@ -29,6 +29,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from typing import Any
 
 log = logging.getLogger("LLMProviderManager")
@@ -39,6 +40,9 @@ _manager_lock = threading.Lock()
 
 VALID_PROVIDERS = ("hf", "anthropic", "qwen", "ruflo")
 DEFAULT_PROVIDER = "qwen"
+_DEFAULT_MAX_TOKENS = int(
+    os.getenv("NIBLIT_PROVIDER_MAX_TOKENS", os.getenv("NIBLIT_LOCAL_MAX_NEW", "512"))
+)
 
 
 def get_llm_provider_manager() -> LLMProviderManager:
@@ -81,6 +85,15 @@ class LLMProviderManager:
         self._claude: Any | None = None
         self._local_brain: Any | None = None
         self._ruflo: Any | None = None
+        self._provider_metrics: dict[str, dict[str, float]] = {
+            p: {"calls": 0.0, "quality": 0.0, "latency_ms": 0.0} for p in VALID_PROVIDERS
+        }
+        self._provider_capabilities: dict[str, dict[str, float]] = {
+            "qwen": {"long_context": 0.95, "cognition": 0.90, "latency": 0.85},
+            "hf": {"long_context": 0.80, "cognition": 0.75, "latency": 0.70},
+            "anthropic": {"long_context": 0.92, "cognition": 0.95, "latency": 0.60},
+            "ruflo": {"long_context": 0.78, "cognition": 0.72, "latency": 0.88},
+        }
 
     # ── wiring (called by niblit_core / niblit_brain after init) ─────────────
 
@@ -141,6 +154,8 @@ class LLMProviderManager:
                 if self._ruflo is not None and ruflo_ok
                 else "n/a"
             ),
+            "provider_rankings": self.provider_rankings(prefer_long_context=True),
+            "provider_metrics": {k: dict(v) for k, v in self._provider_metrics.items()},
         }
 
     # ── main ask() entry point ────────────────────────────────────────────────
@@ -149,7 +164,7 @@ class LLMProviderManager:
         self,
         prompt: str,
         system: str = "",
-        max_tokens: int = 500,
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
     ) -> str | None:
         """Generate a response using the active provider, falling back to the other.
 
@@ -161,18 +176,92 @@ class LLMProviderManager:
             "qwen": self._ask_qwen,
             "ruflo": self._ask_ruflo,
         }
-        order = [self.active] + [p for p in VALID_PROVIDERS if p != self.active]
+        order = self._ranked_provider_order(prompt=prompt, prefer_long_context=max_tokens >= 1024)
 
         for idx, provider_name in enumerate(order):
             fn = providers[provider_name]
             try:
+                ts = time.time()
                 result = fn(prompt, system=system, max_tokens=max_tokens)
+                latency_ms = max(0.0, (time.time() - ts) * 1000.0)
+                self.record_provider_feedback(
+                    provider_name,
+                    quality_score=1.0 if result else 0.0,
+                    latency_ms=latency_ms,
+                )
                 if result:
                     return result
             except Exception as exc:
                 role = "Primary" if idx == 0 else "Fallback"
                 log.debug("[LLMProviderManager] %s (%s) error: %s", role, provider_name, exc)
         return None
+
+    def record_provider_feedback(
+        self,
+        provider: str,
+        *,
+        quality_score: float,
+        latency_ms: float | None = None,
+    ) -> None:
+        """Record runtime evaluation feedback for provider ranking."""
+        if provider not in VALID_PROVIDERS:
+            return
+        q = max(0.0, min(1.0, float(quality_score)))
+        with self._lock:
+            m = self._provider_metrics.setdefault(
+                provider, {"calls": 0.0, "quality": 0.0, "latency_ms": 0.0}
+            )
+            calls = m["calls"] + 1.0
+            m["quality"] = ((m["quality"] * m["calls"]) + q) / calls
+            if latency_ms is not None:
+                lat = max(0.0, float(latency_ms))
+                m["latency_ms"] = (
+                    ((m["latency_ms"] * m["calls"]) + lat) / calls if m["calls"] > 0 else lat
+                )
+            m["calls"] = calls
+
+    def provider_rankings(self, *, prompt: str = "", prefer_long_context: bool = False) -> dict[str, float]:
+        """Return governance-aware provider scores for current request shape."""
+        return {p: s for p, s in self._ranked_provider_scores(prompt, prefer_long_context)}
+
+    def _ranked_provider_order(self, prompt: str, prefer_long_context: bool) -> list[str]:
+        ranked = [p for p, _ in self._ranked_provider_scores(prompt, prefer_long_context)]
+        if self.active in ranked:
+            ranked.remove(self.active)
+            ranked.insert(0, self.active)
+        return ranked
+
+    def _ranked_provider_scores(
+        self,
+        prompt: str,
+        prefer_long_context: bool,
+    ) -> list[tuple[str, float]]:
+        availability = {
+            "hf": self._hf_available(),
+            "anthropic": self._anthropic_available(),
+            "qwen": self._qwen_available(),
+            "ruflo": self._ruflo_available(),
+        }
+        scores: list[tuple[str, float]] = []
+        prompt_len = len(prompt or "")
+        for provider in VALID_PROVIDERS:
+            if not availability.get(provider, False):
+                continue
+            caps = self._provider_capabilities.get(provider, {})
+            metrics = self._provider_metrics.get(provider, {})
+            quality = float(metrics.get("quality", 0.0) or 0.0)
+            latency_ms = float(metrics.get("latency_ms", 0.0) or 0.0)
+            latency_score = 1.0 / (1.0 + (latency_ms / 1200.0)) if latency_ms > 0 else caps.get("latency", 0.7)
+            long_ctx_weight = 0.35 if (prefer_long_context or prompt_len > 900) else 0.15
+            score = (
+                caps.get("cognition", 0.7) * 0.45
+                + max(caps.get("long_context", 0.7), long_ctx_weight) * 0.20
+                + quality * 0.20
+                + latency_score * 0.15
+            )
+            scores.append((provider, round(score, 4)))
+        scores.sort(key=lambda item: item[1], reverse=True)
+        return scores
 
     # ── private helpers ───────────────────────────────────────────────────────
 
@@ -190,7 +279,12 @@ class LLMProviderManager:
             cl = self._claude
         return cl is not None and getattr(cl, "is_available", lambda: False)()
 
-    def _ask_hf(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def _ask_hf(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         hf = self._hf_brain
         if hf is None:
             hf = self._lazy_hf()
@@ -201,7 +295,12 @@ class LLMProviderManager:
         result = hf.ask_single(prompt)
         return result if result and result.strip() else None
 
-    def _ask_anthropic(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def _ask_anthropic(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         cl = self._claude
         if cl is None:
             cl = self._lazy_claude()
@@ -226,7 +325,12 @@ class LLMProviderManager:
             rf = self._ruflo
         return rf is not None and getattr(rf, "is_available", lambda: False)()
 
-    def _ask_qwen(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def _ask_qwen(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         lb = self._local_brain
         if lb is None:
             lb = self._lazy_local_brain()
@@ -246,7 +350,12 @@ class LLMProviderManager:
             return None
         return text
 
-    def _ask_ruflo(self, prompt: str, system: str = "", max_tokens: int = 500) -> str | None:
+    def _ask_ruflo(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
         rf = self._ruflo
         if rf is None:
             rf = self._lazy_ruflo()

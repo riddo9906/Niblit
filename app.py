@@ -1741,6 +1741,11 @@ class OpenAIMessage(BaseModel):
     content: str
 
 
+_OPENAI_DEFAULT_MAX_TOKENS = int(
+    os.environ.get("NIBLIT_OPENAI_MAX_TOKENS", os.environ.get("NIBLIT_LOCAL_MAX_NEW", "512"))
+)
+
+
 class OpenAIChatRequest(BaseModel):
     """OpenAI-compatible chat completion request.
 
@@ -1752,7 +1757,7 @@ class OpenAIChatRequest(BaseModel):
 
     model: str = "niblit"
     messages: List[OpenAIMessage] = []
-    max_tokens: int = 200
+    max_tokens: int = _OPENAI_DEFAULT_MAX_TOKENS
     temperature: float = 0.7
     stream: bool = False
     stop: Optional[List[str]] = None
@@ -1823,10 +1828,15 @@ def openai_chat_completions(request: Request, body: OpenAIChatRequest):
     local_brain = getattr(core, "local_brain", None) if core else None
     if local_brain is not None and local_brain.is_available():
         try:
+            max_new_tokens = max(1, int(body.max_tokens))
             if system_prompt:
-                reply = local_brain.ask(user_message, system_prompt=system_prompt)
+                reply = local_brain.ask(
+                    user_message,
+                    system_prompt=system_prompt,
+                    max_new_tokens=max_new_tokens,
+                )
             else:
-                reply = local_brain.chat(user_message)
+                reply = local_brain.chat(user_message, max_new_tokens=max_new_tokens)
         except Exception as exc:
             log.warning("openai_chat_completions local_brain error: %s", exc)
             reply = ""

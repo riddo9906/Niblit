@@ -390,6 +390,16 @@ class SelfResearcher:
         self.hybrid_manager = hybrid_manager
         self.self_monitor = self_monitor
         self.kernel = kernel
+        self.runtime_router = (
+            self.registry.get("runtime_router_v2")
+            or self.registry.get("runtime_router")
+            or None
+        )
+        self._research_governance: Dict[str, Any] = {
+            "knowledge_gap_threshold": 0.35,
+            "max_router_synthesis_chars": 1800,
+            "escalation_events": 0,
+        }
 
     # ─────────────────────────────────────────────
     @property
@@ -799,6 +809,56 @@ class SelfResearcher:
         except Exception as e:
             log.debug(f"KnowledgeDB storage skipped: {e}")
 
+    def _detect_knowledge_gap(self, query: str, results: List[Any]) -> Dict[str, Any]:
+        """Estimate whether current research quality warrants cognition escalation."""
+        if not results:
+            return {"gap_score": 1.0, "escalate": True, "reason": "no_results"}
+        query_terms = {w for w in re.findall(r"\b\w+\b", query.lower()) if len(w) > 2}
+        snippets = [str(r)[:400].lower() for r in results[:5]]
+        coverage = 0.0
+        for snippet in snippets:
+            if not query_terms:
+                coverage += 0.5
+            else:
+                overlap = sum(1 for term in query_terms if term in snippet)
+                coverage += (overlap / max(1, len(query_terms)))
+        coverage /= max(1, len(snippets))
+        gap_score = max(0.0, min(1.0, 1.0 - coverage))
+        threshold = float(self._research_governance.get("knowledge_gap_threshold", 0.35))
+        escalate = gap_score >= threshold
+        return {
+            "gap_score": round(gap_score, 3),
+            "escalate": escalate,
+            "reason": "low_coverage" if escalate else "sufficient",
+        }
+
+    def _router_cognition_synthesis(self, query: str, results: List[Any]) -> Optional[str]:
+        """Synthesize findings via governed Router V2 / LocalBrain inference path."""
+        router = self.runtime_router
+        if router is None or not hasattr(router, "generate"):
+            return None
+        evidence = "\n".join(str(r)[:300] for r in results[:6])
+        prompt = (
+            "Provide a concise research synthesis with uncertainty notes.\n"
+            "Rules: use only evidence, no autonomous actions, no hidden assumptions.\n"
+            f"Query: {query}\n"
+            f"Evidence:\n{evidence[:int(self._research_governance.get('max_router_synthesis_chars', 1800))]}"
+        )
+        try:
+            synthesized = router.generate(
+                prompt=prompt,
+                context="self_researcher_governed_synthesis",
+            )
+            text = str(synthesized or "").strip()
+            if text:
+                self._research_governance["escalation_events"] = int(
+                    self._research_governance.get("escalation_events", 0)
+                ) + 1
+                return text
+        except Exception as exc:
+            log.debug("[SelfResearcher] governed router synthesis failed: %s", exc)
+        return None
+
     # ─────────────────────────────────────────────
     # MAIN SEARCH METHOD - FLEXIBLE PARAMETERS
     # ─────────────────────────────────────────────
@@ -1015,6 +1075,27 @@ class SelfResearcher:
                     collected_results = [synthesized]
             except Exception as e:
                 log.debug(f"LLM synthesis failed: {e}")
+
+        # 6b️⃣ GOVERNED COGNITION ESCALATION — Router V2 + LocalBrain authority
+        if collected_results:
+            gap = self._detect_knowledge_gap(query, collected_results)
+            if gap.get("escalate"):
+                escalated = self._router_cognition_synthesis(query, collected_results)
+                if escalated:
+                    collected_results = [escalated]
+                    try:
+                        if self.db and hasattr(self.db, "add_fact"):
+                            self.db.add_fact(
+                                f"research_gap_escalation:{query}:{int(time.time())}",
+                                {
+                                    "query": query,
+                                    "gap": gap,
+                                    "path": "router_v2_localbrain",
+                                },
+                                tags=["research", "governed_escalation", "cognition"],
+                            )
+                    except Exception:
+                        pass
 
         # 7️⃣ FALLBACK
         no_real_data = not collected_results

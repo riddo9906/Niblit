@@ -46,21 +46,29 @@ log = logging.getLogger("NiblitBrain")
 # ── KB text safety ────────────────────────────────────────────────────────────
 
 # Maximum character length of a single KB text snippet injected into a prompt.
-# Keeps individual facts well within the context window of small (0.5B) models.
-_KB_TEXT_MAX_CHARS = int(os.environ.get("NIBLIT_KB_TEXT_MAX_CHARS", "512"))
+# At 16K ctx: 1500 chars ≈ 375 tokens gives richer per-fact context.
+# Override with NIBLIT_KB_TEXT_MAX_CHARS (default 1500 at 16K, 512 for legacy).
+_KB_TEXT_MAX_CHARS = int(os.environ.get("NIBLIT_KB_TEXT_MAX_CHARS", "1500"))
 
 # Maximum total characters of KB context prepended to each think() prompt.
-# 1500 chars ≈ 375 tokens; leaves room for the system prompt + user message
-# + response in a 2048-token context window.
-_CONTEXT_MAX_CHARS = int(os.environ.get("NIBLIT_BRAIN_CONTEXT_MAX_CHARS", "1500"))
+# At 16K ctx: 6000 chars ≈ 1500 tokens; leaves ample room for system prompt,
+# chat history, user message, and response generation.
+# Override with NIBLIT_BRAIN_CONTEXT_MAX_CHARS (default 6000 at 16K).
+_CONTEXT_MAX_CHARS = int(os.environ.get("NIBLIT_BRAIN_CONTEXT_MAX_CHARS", "6000"))
 
 # Chat-history injection into the local-brain (brain_router) path.
-# How many recent messages to inject (one user message + one assistant reply =
-# one exchange, so 6 messages = 3 exchanges).
-_CHAT_HISTORY_MSG_LIMIT: int = 6
-# Per-message character cap for history injection.  Keeps the total prefix
-# under ~2 KB even with 6 messages, safely within a 2048-token context.
-_CHAT_HISTORY_CONTENT_CHARS: int = 300
+# At 16K ctx: 20 messages (10 exchanges) enables deeper long-horizon cognition.
+# Override with NIBLIT_BRAIN_CHAT_HISTORY_LIMIT.
+_CHAT_HISTORY_MSG_LIMIT: int = int(os.environ.get("NIBLIT_BRAIN_CHAT_HISTORY_LIMIT", "20"))
+# Per-message character cap for history injection.  At 16K ctx: 800 chars
+# allows richer message content while keeping the history block bounded.
+# Override with NIBLIT_BRAIN_CHAT_HISTORY_CONTENT_CHARS.
+_CHAT_HISTORY_CONTENT_CHARS: int = int(
+    os.environ.get("NIBLIT_BRAIN_CHAT_HISTORY_CONTENT_CHARS", "800")
+)
+_DEFAULT_CLOUD_MAX_TOKENS: int = int(
+    os.environ.get("NIBLIT_CLOUD_MAX_TOKENS", os.environ.get("NIBLIT_LOCAL_MAX_NEW", "512"))
+)
 
 # Control characters that corrupt GGUF tokenisers when injected into prompts.
 # We keep \t (0x09) and \n (0x0a) which are meaningful for formatting.
@@ -497,7 +505,7 @@ class NiblitCloudBrain:
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
-        max_tokens: int = 200,
+        max_tokens: int = _DEFAULT_CLOUD_MAX_TOKENS,
     ) -> str:
         """Send a generation request to the cloud server and return the text.
 
@@ -570,7 +578,7 @@ class NiblitCloudBrain:
         prompt: str,
         context: str = "",
         system_prompt: Optional[str] = None,
-        max_tokens: int = 200,
+        max_tokens: int = _DEFAULT_CLOUD_MAX_TOKENS,
     ) -> str:
         """Convenience wrapper: prepend *context* then call :meth:`chat`."""
         full = (context.strip() + "\n\n" + prompt.strip()) if context.strip() else prompt
@@ -663,13 +671,19 @@ class BrainTrainer:
 
     # pylint: disable=too-many-arguments,too-many-positional-arguments
     def __init__(self, memory, knowledge_db=None, self_teacher=None,
-                 hybrid_manager=None, self_monitor=None, kernel=None):
+                 hybrid_manager=None, self_monitor=None, kernel=None,
+                 evaluation_engine=None, quality_feedback=None,
+                 provider_manager=None, runtime_telemetry_provider=None):
         self.memory = memory
         self.knowledge_db = knowledge_db
         self.self_teacher = self_teacher
         self.hybrid_manager = hybrid_manager
         self.self_monitor = self_monitor
         self.kernel = kernel
+        self.evaluation_engine = evaluation_engine
+        self.quality_feedback = quality_feedback
+        self.provider_manager = provider_manager
+        self.runtime_telemetry_provider = runtime_telemetry_provider
         self._pairs: list = []          # in-memory training pairs
         self._facts: list = []          # in-memory knowledge facts
         # Per-domain cognitive data store: domain → list of update dicts
@@ -949,6 +963,41 @@ class BrainTrainer:
 
         log.debug("[BrainTrainer] cognitive domain updated live: %s", domain)
 
+    def ingest_evaluation_feedback(
+        self,
+        query: str,
+        response: str,
+        quality_score: float,
+        *,
+        provider: str = "",
+        telemetry: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Feed evaluation/telemetry outcomes back into learning memory."""
+        score = max(0.0, min(1.0, float(quality_score)))
+        record = {
+            "query": _sanitize_text(query, max_chars=200),
+            "response": _sanitize_text(response, max_chars=200),
+            "quality_score": score,
+            "provider": str(provider or "unknown"),
+            "telemetry": telemetry or {},
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        self.ingest_research("evaluation_feedback", str(record))
+        if self.knowledge_db and hasattr(self.knowledge_db, "add_fact"):
+            try:
+                self.knowledge_db.add_fact(
+                    f"brain_trainer:evaluation:{int(datetime.datetime.now().timestamp())}",
+                    record,
+                    tags=["brain_trainer", "evaluation", "quality_feedback"],
+                )
+            except Exception:
+                pass
+        if provider:
+            self.update_cognitive_domain(
+                "responses",
+                f"provider={provider} quality={score:.2f}",
+            )
+
     def get_cognitive_summary(self) -> dict:
         """Return per-domain counts and latest update timestamps."""
         with self._lock:
@@ -999,6 +1048,38 @@ class BrainTrainer:
         after = len(self._pairs) + len(self._facts)
         added = after - before
         cognitive_total = sum(len(v) for v in self._cognitive.values())
+        # Integrate evaluation + quality loop signals into trainer memory
+        try:
+            if self.evaluation_engine and hasattr(self.evaluation_engine, "get_history"):
+                history = self.evaluation_engine.get_history()
+                if history:
+                    latest = history[-1]
+                    self.ingest_evaluation_feedback(
+                        latest.get("user_input", ""),
+                        "",
+                        float(latest.get("quality_score", 0.5)),
+                        provider=str(latest.get("chosen_advisor", "")),
+                    )
+        except Exception as _eval_err:
+            log.debug("[BrainTrainer] evaluation ingest failed: %s", _eval_err)
+        try:
+            if self.quality_feedback and hasattr(self.quality_feedback, "status"):
+                q_status = self.quality_feedback.status()
+                self.update_cognitive_domain(
+                    "reasoning",
+                    f"quality_recent_avg={q_status.get('recent_avg_score')} total={q_status.get('total_scores')}",
+                )
+        except Exception as _qf_err:
+            log.debug("[BrainTrainer] quality feedback ingest failed: %s", _qf_err)
+        try:
+            if self.runtime_telemetry_provider and hasattr(self.runtime_telemetry_provider, "status"):
+                telem = self.runtime_telemetry_provider.status()
+                self.update_cognitive_domain(
+                    "communication",
+                    f"runtime_telemetry={_sanitize_text(str(telem), max_chars=180)}",
+                )
+        except Exception as _rt_err:
+            log.debug("[BrainTrainer] runtime telemetry ingest failed: %s", _rt_err)
         summary = (
             f"BrainTrainer cycle: {added} new items ingested, "
             f"total={after}, cognitive_updates={cognitive_total}"

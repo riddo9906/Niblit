@@ -1130,7 +1130,9 @@ class CodeGenerator:
     """
 
     def __init__(self, db: Any = None, deploy_path: Optional[str] = None, searchcode_search=None,
-                 hybrid_manager: Any = None, self_monitor: Any = None):
+                 hybrid_manager: Any = None, self_monitor: Any = None,
+                 runtime_router: Any = None, local_brain: Any = None,
+                 evaluation_engine: Any = None, dev_agent_governance: Any = None):
         # Use the canonical niblit_memory singleton when no db is provided
         if db is None:
             try:
@@ -1142,6 +1144,10 @@ class CodeGenerator:
         self.searchcode_search = searchcode_search
         self.hybrid_manager = hybrid_manager
         self.self_monitor = self_monitor
+        self.runtime_router = runtime_router
+        self.local_brain = local_brain
+        self.evaluation_engine = evaluation_engine
+        self.dev_agent_governance = dev_agent_governance
         self._gen_history: deque = deque(maxlen=50)
         # Where to save autonomously-generated .py files.  Defaults to the
         # Niblit build directory when running on Termux.
@@ -1200,6 +1206,39 @@ class CodeGenerator:
             log.debug("[CodeGenerator] quality_check error: %s", exc)
             return {"passed": True, "score": 100, "issues": [], "summary": str(exc)}
 
+    def _build_governed_manifest(
+        self,
+        *,
+        language: str,
+        template: str,
+        name: str,
+        code: str,
+        context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Create rollback-safe generation manifest metadata."""
+        return {
+            "version": "governed-v1",
+            "language": language,
+            "template": template,
+            "name": name,
+            "generated_at": int(time.time()),
+            "runtime_authority": "runtime_router_v2/local_brain",
+            "governance": {
+                "approval_required": True,
+                "auto_apply": False,
+                "rollback_ready": True,
+            },
+            "context": {
+                "framework": context.get("framework"),
+                "runtime_target": context.get("runtime_target"),
+                "architecture_scope": context.get("architecture_scope", "module"),
+            },
+            "fingerprint": {
+                "chars": len(code),
+                "lines": code.count("\n") + (1 if code else 0),
+            },
+        }
+
     # ──────────────────────────────────────────────────────
     # CORE GENERATION
     # ──────────────────────────────────────────────────────
@@ -1222,6 +1261,8 @@ class CodeGenerator:
             "success": False,
             "code": "",
             "error": None,
+            "manifest": {},
+            "governance": {"approval_required": True, "auto_apply": False},
         }
 
         if lang not in _TEMPLATES:
@@ -1271,6 +1312,14 @@ class CodeGenerator:
             code = tpl.format(**ctx)
             result["code"] = code
             result["success"] = True
+            manifest = self._build_governed_manifest(
+                language=lang,
+                template=template,
+                name=str(ctx.get("name", "unnamed")),
+                code=code,
+                context=ctx,
+            )
+            result["manifest"] = manifest
             self._stats["generated"] += 1
             self._store(lang, template, code, ctx.get("name", "unnamed"))
             log.info("[CodeGenerator] Generated %s/%s for '%s'", lang, template, ctx["name"])
@@ -1280,6 +1329,7 @@ class CodeGenerator:
                 "language": lang,
                 "template": template,
                 "name": ctx.get("name", "unnamed"),
+                "manifest": manifest,
                 "ts": time.time(),
             })
             # Upsert to hybrid_manager if available
@@ -1560,6 +1610,7 @@ class CodeGenerator:
             "source": "template",
             "structure_issues": [],
             "structure_valid": True,
+            "manifest": {},
         }
 
         # ── LLM-powered generation ──────────────────────────────────────────
@@ -1574,6 +1625,13 @@ class CodeGenerator:
                     result["source"] = "llm"
                     result["structure_issues"] = check["issues"]
                     result["structure_valid"] = check["valid"]
+                    result["manifest"] = self._build_governed_manifest(
+                        language=lang,
+                        template="llm",
+                        name=str(kwargs.get("name", "llm_generated")),
+                        code=fixed,
+                        context=kwargs,
+                    )
                     self._stats["generated"] += 1
                     name = kwargs.get("name", "llm_generated")
                     self._store(lang, "llm", fixed, name)
@@ -1584,6 +1642,37 @@ class CodeGenerator:
                     return result
             except Exception as exc:
                 log.debug("[CodeGenerator] LLM generation failed: %s", exc)
+
+        # ── Router V2 cognition fallback (governed path) ─────────────────────
+        if self.runtime_router is not None and hasattr(self.runtime_router, "generate"):
+            try:
+                router_prompt = (
+                    f"Generate {lang} code for: {purpose}\n"
+                    "Constraints: safe, production-ready, no autonomous file mutation.\n"
+                    f"Research context:\n{str(research_context)[:600]}"
+                )
+                router_code = self.runtime_router.generate(
+                    prompt=router_prompt,
+                    context="code_generator_governed_fallback",
+                )
+                if router_code and len(str(router_code)) > _MIN_LLM_CODE_LENGTH:
+                    fixed = self.ensure_structure(lang, str(router_code))
+                    check = self.validate_structure(lang, fixed)
+                    result["code"] = fixed
+                    result["success"] = True
+                    result["source"] = "router_v2"
+                    result["structure_issues"] = check["issues"]
+                    result["structure_valid"] = check["valid"]
+                    result["manifest"] = self._build_governed_manifest(
+                        language=lang,
+                        template="router_v2",
+                        name=str(kwargs.get("name", "router_generated")),
+                        code=fixed,
+                        context=kwargs,
+                    )
+                    return result
+            except Exception as exc:
+                log.debug("[CodeGenerator] Router fallback generation failed: %s", exc)
 
         # ── Template fallback ───────────────────────────────────────────────
         template = kwargs.pop("template", "module")
