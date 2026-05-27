@@ -348,7 +348,7 @@ class NiblitRouter:
         # BIOS/UEFI integration (additive)
         "bios",
         # Kernel integration — sysctl, modules, dmesg (additive)
-        "krnl", "kernel",
+        "krnl",
         # Device control — sandboxed command execution + serial/G-code (additive)
         "ctrl", "cmd exec",
         # Device mesh — LAN discovery + spread (additive)
@@ -5005,15 +5005,6 @@ Ask me about:
             return f"[Memory dump visibility change failed: {exc}]"
 
     # ─────────────────────────────────
-    # KNOWLEDGE RECALL & ACQUIRED DATA
-    # ─────────────────────────────────
-    def _handle_knowledge(self, cmd):
-        """Route recall / acquired-data / knowledge-stats / ale-processes commands."""
-        if not self.core:
-            return "[Core not available — cannot access KnowledgeDB]"
-        return safe_call(self.core.handle, cmd)
-
-    # ─────────────────────────────────
     # LOOP VISIBILITY
     # ─────────────────────────────────
     def _handle_loops(self, cmd: str) -> str:
@@ -5049,8 +5040,20 @@ Ask me about:
             return safe_call(core._cmd_routing_status) or "Routing status unavailable"
 
     # ─────────────────────────────────
-    # GITHUB SYNC
+    # UNIFIED RUNTIME CLI DISPATCH
     # ─────────────────────────────────
+    def _handle_unified_runtime_cmd(self, cmd: str) -> str:
+        """Forward 'runtime provider' and 'runtime infer' to UnifiedRuntime.CommandRuntime.
+
+        This ensures CLI and desktop-shell parity for runtime sub-commands.
+        """
+        try:
+            from modules.unified_runtime import get_unified_runtime
+            ur = get_unified_runtime()
+            state = ur._state  # type: ignore[attr-defined]
+            return ur.command_runtime.dispatch(command=cmd, core=self.core, state=state)
+        except Exception as exc:
+            return f"[unified-runtime] not available: {exc}"
     def _handle_github(self, cmd):
         """Route github sync commands."""
         if not self.core:
@@ -6372,6 +6375,14 @@ Ask me about:
                 return sa.runtime_dashboard(core=self.core, router=self)
             return self.handle_command("status")
 
+        # Unified runtime provider switch: 'runtime provider <name>'
+        if lower.startswith("runtime provider "):
+            return self._handle_unified_runtime_cmd(cmd)
+
+        # Unified runtime inference: 'runtime infer <prompt>'
+        if lower.startswith("runtime infer "):
+            return self._handle_unified_runtime_cmd(cmd)
+
         if lower in ("how do i work", "operational flow", "my flow", "loop flow", "sa-flow"):
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
@@ -6738,8 +6749,8 @@ Ask me about:
         if lower in ("bios",) or lower.startswith("bios "):
             return self._handle_bios(cmd)
 
-        # KERNEL INTEGRATION (additive)
-        if lower in ("krnl", "kernel") or lower.startswith("krnl ") or lower.startswith("kernel "):
+        # KERNEL INTEGRATION (sysctl/modules/dmesg) — krnl prefix only (additive)
+        if lower == "krnl" or lower.startswith("krnl "):
             return self._handle_krnl(cmd)
 
         # DEVICE CONTROL / SANDBOXED CMD EXECUTION (additive)

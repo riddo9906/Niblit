@@ -80,6 +80,7 @@ class DesktopRuntimeShell:
 
         self._subscribe_event_bus()
         self._install_log_handler()
+        self._emit_startup_telemetry()
 
         root = tk.Tk()
         root.title("Niblit AIOS Desktop Cognitive Runtime")
@@ -239,6 +240,25 @@ class DesktopRuntimeShell:
             self._chat_reply_queue.put_nowait((text, str(reply)))
         except Exception:
             return
+
+    def _emit_startup_telemetry(self) -> None:
+        """Emit a runtime event and increment telemetry when the desktop shell starts."""
+        try:
+            from modules.event_bus import NiblitEvent, get_event_bus
+            bus = get_event_bus()
+            bus.publish(NiblitEvent(
+                type="runtime.desktop.launched",
+                source="DesktopRuntimeShell",
+                payload={"mode": self._mode, "platform": platform.system().lower()},
+            ))
+        except Exception as exc:
+            log.debug("Desktop startup event_bus emission failed: %s", exc)
+        try:
+            telemetry = getattr(self.core, "telemetry", None)
+            if telemetry is not None:
+                telemetry.increment_counter("desktop_shell_launches_total")
+        except Exception as exc:
+            log.debug("Desktop startup telemetry failed: %s", exc)
 
     def _subscribe_event_bus(self) -> None:
         if self._event_bus_subscribed:

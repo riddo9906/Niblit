@@ -136,6 +136,9 @@ EVENT_RUNTIME_MODE_CHANGED         = "runtime_mode.changed"            # governa
 EVENT_COGNITION_GAP_DETECTED       = "cognition.gap.detected"           # gap signal escalated
 EVENT_COGNITION_SYNTHESIS_COMPLETE = "cognition.synthesis.complete"     # Llama3 synthesis produced
 
+# Runtime command observability
+EVENT_COMMAND_EXECUTED = "command.executed"   # emitted after any runtime CLI command completes
+
 
 @dataclass
 class NiblitEvent:
@@ -236,6 +239,40 @@ class EventBus:
         """Return a copy of publish-count statistics keyed by event type."""
         with self._lock:
             return dict(self._counts)
+
+    def observability_report(self) -> dict[str, Any]:
+        """Return an observability snapshot showing event counts, last-seen, and subscriber counts.
+
+        Useful for runtime debugging: shows which events were emitted, how many
+        times, when they were last seen, and how many handlers are registered.
+        This does NOT replace EventBus — it surfaces its internal state.
+        """
+        with self._lock:
+            counts = dict(self._counts)
+            last_seen = {
+                etype: ev.timestamp
+                for etype, ev in self._last.items()
+            }
+            subscriber_counts = {
+                etype: len(handlers)
+                for etype, handlers in self._handlers.items()
+            }
+        all_types = sorted(
+            set(counts) | set(last_seen) | set(subscriber_counts)
+        )
+        rows = []
+        for etype in all_types:
+            rows.append({
+                "event_type": etype,
+                "emitted": counts.get(etype, 0),
+                "subscribers": subscriber_counts.get(etype, 0),
+                "last_seen_ts": last_seen.get(etype),
+            })
+        return {
+            "total_event_types": len(all_types),
+            "total_emissions": sum(counts.values()),
+            "events": rows,
+        }
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

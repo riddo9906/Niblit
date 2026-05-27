@@ -2582,6 +2582,14 @@ class NiblitCore:
             "NiblitDevAgent approval gate for staged execution tasks", "dev_agent", priority=75
         )
         self.command_registry.register(
+            "dev-agent execute", lambda t="": self._cmd_dev_agent("execute " + t),
+            "NiblitDevAgent execute an approved staged task by task_id", "dev_agent", priority=75
+        )
+        self.command_registry.register(
+            "dev-agent rollback", lambda t="": self._cmd_dev_agent("rollback " + t),
+            "NiblitDevAgent rollback an executed task by task_id", "dev_agent", priority=75
+        )
+        self.command_registry.register(
             "sa-scripts", self._cmd_sa_scripts,
             "List every repo script with its function", "structural_awareness", priority=74
         )
@@ -5829,15 +5837,27 @@ SW Categories: {stats.get('software_study_categories', 0)}
         )
 
     def _cmd_dev_agent(self, cmd: str = "") -> str:
-        """Inspect NiblitDevAgent runtime/provider/architecture snapshots."""
+        """Inspect NiblitDevAgent runtime/provider/architecture snapshots.
+
+        Routes all dev-agent CLI actions through NiblitDevAgent.handle_cli()
+        which emits telemetry spans and EventBus events for each command.
+        """
         agent = getattr(self, "niblit_dev_agent", None)
         if agent is None:
             return (
                 "[dev-agent] NiblitDevAgent not initialised.\n"
                 "It is registered during Phase-2 runtime manager startup."
             )
-        action = (cmd or "status").strip().lower()
-        return str(agent.handle_cli(action))
+        action = (cmd or "status").strip()
+        # Emit telemetry span via TelemetryCollector if available
+        telemetry = getattr(self, "telemetry", None)
+        if telemetry is not None:
+            try:
+                telemetry.increment_counter("dev_agent_commands_total")
+            except Exception:
+                pass
+        result = str(agent.handle_cli(action))
+        return result
 
     # ── Self-enhancement command (additive) ───────────────────────────────────
 
