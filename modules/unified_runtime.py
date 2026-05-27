@@ -14,6 +14,7 @@ import logging
 import os
 import threading
 import time
+from collections import deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -84,6 +85,9 @@ class RuntimeEventBus:
         self._seq = 0
         self._counts: dict[str, int] = {}
         self._handlers: list[Any] = []
+        self._dropped_events = 0
+        self._unconsumed_events = 0
+        self._timestamps: deque[float] = deque(maxlen=1024)
 
     def subscribe(self, handler: Any) -> None:
         with self._lock:
@@ -104,11 +108,16 @@ class RuntimeEventBus:
                 self._events = self._events[-MAX_EVENT_BUFFER:]
             self._counts[event_type] = self._counts.get(event_type, 0) + 1
             handlers = list(self._handlers)
+            self._timestamps.append(time.time())
+            if not handlers:
+                self._unconsumed_events += 1
 
         for handler in handlers:
             try:
                 handler(event)
             except Exception as exc:
+                with self._lock:
+                    self._dropped_events += 1
                 log.debug("RuntimeEventBus handler error: %s", exc)
         return event
 
@@ -119,7 +128,15 @@ class RuntimeEventBus:
 
     def stats(self) -> dict[str, Any]:
         with self._lock:
-            return {"event_counts": dict(self._counts), "last_event_id": self._seq}
+            now = time.time()
+            throughput = sum(1 for ts in self._timestamps if now - ts <= 60.0)
+            return {
+                "event_counts": dict(self._counts),
+                "last_event_id": self._seq,
+                "dropped_events": self._dropped_events,
+                "unconsumed_events": self._unconsumed_events,
+                "throughput_last_minute": throughput,
+            }
 
 
 class ProviderRuntimeManager:
@@ -400,6 +417,10 @@ class RuntimeTelemetryManager:
                 facts_count = None
 
         ale_data: dict[str, Any] | None = None
+        event_observability: dict[str, Any] = {}
+        module_event_observability: dict[str, Any] = {}
+        cognition_metrics: dict[str, Any] = {}
+        live_ingestion: dict[str, Any] = {}
         if core is not None:
             ale = getattr(core, "autonomous_engine", None)
             if ale is not None:
@@ -408,6 +429,32 @@ class RuntimeTelemetryManager:
                     "cycle": int(getattr(ale, "_cycle_count", 0)),
                     "topic": ale.get_current_topic() if hasattr(ale, "get_current_topic") else None,
                 }
+            try:
+                rm = getattr(core, "runtime_manager", None)
+                if rm is not None and hasattr(rm, "event_bus") and hasattr(rm.event_bus, "observability_report"):
+                    event_observability = rm.event_bus.observability_report()
+            except Exception:
+                event_observability = {}
+        try:
+            from modules.event_bus import get_event_bus
+
+            bus = get_event_bus()
+            if hasattr(bus, "observability_report"):
+                module_event_observability = bus.observability_report()
+        except Exception:
+            module_event_observability = {}
+        try:
+            from modules.knowledge_gap_cognition import get_cognition_escalation_layer
+
+            cognition_metrics = get_cognition_escalation_layer().metrics()
+        except Exception:
+            cognition_metrics = {}
+        try:
+            from modules.governed_live_cognition import get_governed_live_cognition_collector
+
+            live_ingestion = get_governed_live_cognition_collector().status()
+        except Exception:
+            live_ingestion = {}
 
         snap = {
             "stream_format": "niblit.runtime.stream.v1",
@@ -419,7 +466,11 @@ class RuntimeTelemetryManager:
             "facts_count": facts_count,
             "ale": ale_data,
             "event_bus": event_stats,
+            "event_observability": event_observability,
+            "module_event_observability": module_event_observability,
             "provider_health": provider_status.get("health", {}),
+            "cognition": cognition_metrics,
+            "live_ingestion": live_ingestion,
             "deployment": dict(state.deployment),
         }
         with self._lock:
@@ -510,6 +561,7 @@ class NiblitUnifiedRuntime:
     def __init__(self, state_file: Path | None = None) -> None:
         self._lock = threading.RLock()
         self._event_bus = RuntimeEventBus()
+        self._module_bus_bridge_installed = False
         self.provider_runtime = ProviderRuntimeManager(self._event_bus)
         self.telemetry_runtime = RuntimeTelemetryManager()
         self.deployment_runtime = DeploymentRuntimeManager()
@@ -519,6 +571,7 @@ class NiblitUnifiedRuntime:
         )
         self._state = RuntimeState()
         self._load_state()
+        self._bridge_module_event_bus()
         self._event_bus.emit("boot.sequence", "NiblitUnifiedRuntime", {"state_file": str(self._state_file)})
 
     def _load_state(self) -> None:
@@ -573,6 +626,24 @@ class NiblitUnifiedRuntime:
         self._event_bus.emit("runtime.ready", "NiblitUnifiedRuntime", {"active_provider": out["state"]["active_provider"]})
         return out
 
+    def _bridge_module_event_bus(self) -> None:
+        if self._module_bus_bridge_installed:
+            return
+        try:
+            from modules.event_bus import get_event_bus
+
+            def _handle(event: Any) -> None:
+                payload = dict(getattr(event, "payload", {}) or {})
+                if payload.get("_runtime_unified_seen"):
+                    return
+                payload["_runtime_unified_seen"] = True
+                self._event_bus.emit(str(getattr(event, "type", "event")), str(getattr(event, "source", "modules")), payload)
+
+            get_event_bus().subscribe_all(_handle)
+            self._module_bus_bridge_installed = True
+        except Exception as exc:
+            log.debug("Failed installing module event bus bridge: %s", exc)
+
     def dispatch_command(self, *, command: str, core: Any | None) -> str:
         with self._lock:
             out = self.command_runtime.dispatch(command=command, core=core, state=self._state)
@@ -584,6 +655,9 @@ class NiblitUnifiedRuntime:
 
     def events(self, *, since: int = 0, limit: int = 100) -> list[dict[str, Any]]:
         return self._event_bus.events(since=since, limit=limit)
+
+    def ingest_external_event(self, *, event_type: str, source: str, payload: dict[str, Any] | None = None) -> None:
+        self._event_bus.emit(event_type, source, payload)
 
     def stream_frame(self, *, core: Any | None = None, since: int = 0) -> dict[str, Any]:
         status = self._update_from_status(core=core)

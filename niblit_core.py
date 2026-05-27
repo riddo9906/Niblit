@@ -8835,6 +8835,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         try:
             rm = _RuntimeManager()
             self.runtime_manager = rm
+            self.event_bus = rm.event_bus
 
             # Build a shared brain_trainer reference (used by ReflectionAgent)
             _brain_trainer = (

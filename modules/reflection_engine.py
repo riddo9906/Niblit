@@ -359,7 +359,16 @@ class ReflectionEngine:
             get_event_bus().publish(NiblitEvent(
                 type=EVENT_REFLECTION_COMPLETE,
                 source="reflection_engine",
-                payload={"health": report.overall_health, "failures": len(report.failures_detected)},
+                payload={
+                    "health": report.overall_health,
+                    "failures": len(report.failures_detected),
+                    "trace_id": f"reflection-{int(time.time())}",
+                    "runtime_id": "reflection_engine",
+                    "cognition_id": "reflection",
+                    "source_module": "reflection_engine",
+                    "event_category": "reflection",
+                    "event_priority": "normal",
+                },
             ))
         except Exception:
             pass

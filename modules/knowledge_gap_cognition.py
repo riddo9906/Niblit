@@ -454,7 +454,11 @@ class CognitionEscalationLayer:
                 "gap_class": gap.gap_class,
                 "topic": gap.topic,
                 "trace_id": gap.trace_id,
+                "runtime_id": "knowledge_gap_cognition",
+                "cognition_id": gap.trace_id,
                 "source_module": gap.source_module,
+                "event_category": "cognition",
+                "event_priority": "high" if event_type.endswith("detected") else "normal",
             }
             if extra:
                 payload.update(extra)

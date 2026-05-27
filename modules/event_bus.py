@@ -172,6 +172,7 @@ class EventBus:
 
     def __init__(self) -> None:
         self._handlers: dict[str, list[_Handler]] = {}
+        self._wildcard_handlers: list[_Handler] = []
         self._last: dict[str, NiblitEvent] = {}
         self._counts: dict[str, int] = {}
         self._lock = threading.Lock()
@@ -195,6 +196,12 @@ class EventBus:
             getattr(handler, "__qualname__", repr(handler)),
         )
 
+    def subscribe_all(self, handler: _Handler) -> None:
+        """Register *handler* for every published event."""
+        with self._lock:
+            if handler not in self._wildcard_handlers:
+                self._wildcard_handlers.append(handler)
+
     def unsubscribe(self, event_type: str, handler: _Handler) -> None:
         """Remove *handler* from *event_type* subscriptions (silent if absent)."""
         with self._lock:
@@ -214,10 +221,11 @@ class EventBus:
         """
         with self._lock:
             handlers = list(self._handlers.get(event.type, []))
+            wildcard_handlers = list(self._wildcard_handlers)
             self._last[event.type] = event
             self._counts[event.type] = self._counts.get(event.type, 0) + 1
 
-        for handler in handlers:
+        for handler in handlers + wildcard_handlers:
             try:
                 handler(event)
             except Exception as exc:
@@ -257,6 +265,8 @@ class EventBus:
                 etype: len(handlers)
                 for etype, handlers in self._handlers.items()
             }
+            if self._wildcard_handlers:
+                subscriber_counts["*"] = len(self._wildcard_handlers)
         all_types = sorted(
             set(counts) | set(last_seen) | set(subscriber_counts)
         )

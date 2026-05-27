@@ -390,6 +390,8 @@ class SelfResearcher:
         self.hybrid_manager = hybrid_manager
         self.self_monitor = self_monitor
         self.kernel = kernel
+        self.runtime_manager = self.registry.get("runtime_manager")
+        self.brain_trainer = self.registry.get("brain_trainer")
         self.runtime_router = (
             self.registry.get("runtime_router_v2")
             or self.registry.get("runtime_router")
@@ -859,6 +861,17 @@ class SelfResearcher:
             log.debug("[SelfResearcher] governed router synthesis failed: %s", exc)
         return None
 
+    @staticmethod
+    def _classify_live_source(query: str) -> str:
+        lowered = str(query or "").lower()
+        if any(token in lowered for token in ("market", "price", "equity", "stock", "forex", "crypto")):
+            return "financial_feed"
+        if any(token in lowered for token in ("runtime", "telemetry", "eventbus", "event bus", "governance")):
+            return "runtime_telemetry_stream"
+        if _is_code_query(lowered):
+            return "technical_documentation"
+        return "research_feed"
+
     # ─────────────────────────────────────────────
     # MAIN SEARCH METHOD - FLEXIBLE PARAMETERS
     # ─────────────────────────────────────────────
@@ -1096,6 +1109,31 @@ class SelfResearcher:
                             )
                     except Exception:
                         pass
+
+        # 6c️⃣ GOVERNED LIVE COGNITION INGESTION — fresh data → RouterV2 → memory
+        if collected_results:
+            try:
+                from modules.governed_live_cognition import (
+                    get_governed_live_cognition_collector,
+                )
+
+                collector = get_governed_live_cognition_collector()
+                live_result = collector.ingest(
+                    query=query,
+                    items=collected_results[:max_results],
+                    source_type=self._classify_live_source(query),
+                    source_module="self_researcher",
+                    router=self.runtime_router,
+                    knowledge_db=self.knowledge_db,
+                    brain_trainer=self.brain_trainer,
+                    runtime_id=getattr(self.runtime_manager, "runtime_id", ""),
+                )
+                if live_result.get("success"):
+                    self._research_governance["live_ingestion_events"] = int(
+                        self._research_governance.get("live_ingestion_events", 0)
+                    ) + 1
+            except Exception as exc:
+                log.debug("[SelfResearcher] governed live ingestion failed: %s", exc)
 
         # 7️⃣ FALLBACK
         no_real_data = not collected_results

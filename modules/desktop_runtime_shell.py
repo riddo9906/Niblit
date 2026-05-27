@@ -50,6 +50,9 @@ class DesktopRuntimeShell:
         self._runtime_event_cursor = 0
         self._runtime_events: deque[str] = deque(maxlen=250)
         self._event_bus_events: deque[str] = deque(maxlen=250)
+        self._cognition_feed: deque[str] = deque(maxlen=120)
+        self._retrieval_feed: deque[str] = deque(maxlen=120)
+        self._memory_synthesis_feed: deque[str] = deque(maxlen=120)
         self._chat_log: deque[str] = deque(maxlen=300)
         self._log_lines: deque[str] = deque(maxlen=400)
         self._log_queue: queue.Queue[str] = queue.Queue(maxsize=1000)
@@ -430,9 +433,15 @@ class DesktopRuntimeShell:
                 new_events = self._runtime.events(since=self._runtime_event_cursor, limit=200)
                 for ev in new_events:
                     self._runtime_event_cursor = max(self._runtime_event_cursor, int(ev.get("id", 0)))
-                    self._runtime_events.append(
-                        f"{ev.get('type', 'event')} | {ev.get('source', 'runtime')} | {str(ev.get('payload', {}))[:240]}"
-                    )
+                    event_type = str(ev.get("type", "event"))
+                    line = f"{event_type} | {ev.get('source', 'runtime')} | {str(ev.get('payload', {}))[:240]}"
+                    self._runtime_events.append(line)
+                    if any(token in event_type for token in ("cognition", "reflection", "response.complete")):
+                        self._cognition_feed.append(line)
+                    if any(token in event_type for token in ("live.ingestion", "research", "knowledge_gap", "knowledge")):
+                        self._retrieval_feed.append(line)
+                    if any(token in event_type for token in ("memory", "synthesis", "trade_reflection", "market_episode")):
+                        self._memory_synthesis_feed.append(line)
             except Exception as exc:
                 self._runtime_events.append(f"runtime.error | desktop | {exc}")
 
@@ -465,6 +474,9 @@ class DesktopRuntimeShell:
                     f"- Command history: {len(runtime_state.get('command_history', []))}",
                     f"- Runtime events buffered: {len(self._runtime_events)}",
                     f"- EventBus stream size: {len(self._event_bus_events)}",
+                    f"- Cognition feed size: {len(self._cognition_feed)}",
+                    f"- Retrieval feed size: {len(self._retrieval_feed)}",
+                    f"- Memory synthesis feed size: {len(self._memory_synthesis_feed)}",
                 ]
             ),
         )
@@ -522,6 +534,8 @@ class DesktopRuntimeShell:
         token_total = int(token_usage.get("total", token_usage.get("used", 0)) or 0) if isinstance(token_usage, dict) else 0
         counts = events_stats.get("event_counts", {}) or {}
         event_total = int(sum(int(v) for v in counts.values())) if counts else 0
+        observability = telemetry.get("event_observability", {}) or {}
+        module_observability = telemetry.get("module_event_observability", {}) or {}
         return "\n".join(
             [
                 "Telemetry Graphs",
@@ -529,12 +543,18 @@ class DesktopRuntimeShell:
                 self._bar("facts", facts, unit=25),
                 self._bar("events", event_total, unit=10),
                 self._bar("tokens", token_total, unit=200),
+                self._bar("dropped", int(observability.get("dropped_events", 0) or 0), unit=1),
+                self._bar("unconsumed", int(observability.get("unconsumed_events", 0) or 0), unit=1),
                 f"provider_health: {telemetry.get('provider_health', {})}",
+                f"core_event_observability: {observability}",
+                f"module_event_observability: {module_observability}",
             ]
         )
 
     def _memory_feed_text(self) -> str:
-        lines = ["Memory Activity Feed"]
+        lines = ["Memory Activity Feed", "Recent memory synthesis:"]
+        if self._memory_synthesis_feed:
+            lines.extend(f"- {line}" for line in list(self._memory_synthesis_feed)[-8:])
         try:
             facts = self.core.db.list_facts(limit=20)
             for f in facts[:20]:
@@ -638,6 +658,9 @@ class DesktopRuntimeShell:
                 f"telemetry: {telemetry}",
                 f"event_counts: {event_counts}",
                 f"last_event_id: {events_stats.get('last_event_id') if isinstance(events_stats, dict) else 'n/a'}",
+                f"dropped_events: {events_stats.get('dropped_events') if isinstance(events_stats, dict) else 'n/a'}",
+                f"unconsumed_events: {events_stats.get('unconsumed_events') if isinstance(events_stats, dict) else 'n/a'}",
+                f"throughput_last_minute: {events_stats.get('throughput_last_minute') if isinstance(events_stats, dict) else 'n/a'}",
             ]
         )
 

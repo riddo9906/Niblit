@@ -267,10 +267,21 @@ class EvaluationEngine:
         # Publish response.complete event.
         if _EVENT_BUS_AVAILABLE and _get_event_bus is not None:
             try:
+                payload = record.to_dict()
+                payload.update(
+                    {
+                        "trace_id": f"eval-{record.ts}-{chosen_advisor}",
+                        "runtime_id": "evaluation_engine",
+                        "cognition_id": chosen_advisor,
+                        "source_module": "evaluation_engine",
+                        "event_category": "evaluation",
+                        "event_priority": "normal",
+                    }
+                )
                 _get_event_bus().publish(_NiblitEvent(
                     type=EVENT_RESPONSE_COMPLETE,
                     source="evaluation_engine",
-                    payload=record.to_dict(),
+                    payload=payload,
                 ))
             except Exception:
                 pass
