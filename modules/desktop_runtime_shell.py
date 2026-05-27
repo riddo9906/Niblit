@@ -15,6 +15,16 @@ from typing import Any
 log = logging.getLogger("Niblit.DesktopShell")
 
 
+def _is_wsl() -> bool:
+    """Return True when running inside Windows Subsystem for Linux."""
+    try:
+        with open("/proc/version", encoding="utf-8") as _fh:
+            content = _fh.read().lower()
+            return "microsoft" in content or "wsl" in content
+    except Exception:
+        return False
+
+
 def desktop_ui_supported() -> bool:
     """Return True when launching a desktop UI is likely viable."""
     if os.getenv("NIBLIT_HEADLESS", "").strip().lower() in {"1", "true", "yes"}:
@@ -23,6 +33,10 @@ def desktop_ui_supported() -> bool:
         return False
     system = platform.system().lower()
     if system in {"windows", "darwin"}:
+        return True
+    # WSL2 with WSLg (Windows 11 21H2+) provides a display server automatically.
+    # Always attempt UI launch on WSL so WSLg users get the desktop shell.
+    if _is_wsl():
         return True
     return bool(os.getenv("DISPLAY") or os.getenv("WAYLAND_DISPLAY"))
 
@@ -62,12 +76,22 @@ class DesktopRuntimeShell:
     def run(self) -> bool:
         """Launch the desktop shell. Returns True when launched."""
         if not desktop_ui_supported():
+            _hint = (
+                " On WSL, set DISPLAY (e.g. DISPLAY=:0) or use WSL2 with WSLg."
+                if _is_wsl()
+                else " Set DISPLAY or WAYLAND_DISPLAY to point at a running display server."
+            )
+            log.warning(
+                "Desktop UI unavailable: no display server detected.%s "
+                "Use --headless or NIBLIT_HEADLESS=1 to suppress this and run CLI only.",
+                _hint,
+            )
             return False
         try:
             import tkinter as tk
             from tkinter import ttk
         except Exception as exc:
-            log.debug("Tkinter unavailable: %s", exc)
+            log.warning("Tkinter unavailable (%s) — falling back to CLI shell.", exc)
             return False
 
         try:
