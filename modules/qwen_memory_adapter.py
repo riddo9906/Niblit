@@ -37,6 +37,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("Niblit.QwenMemoryAdapter")
 
+try:
+    from niblit_memory import KnowledgeDB  # type: ignore[import]
+except Exception:  # pragma: no cover
+    KnowledgeDB = None  # type: ignore[assignment,misc]
+
 # Max chars of a single fact value passed to Qwen for review.
 _FACT_REVIEW_MAX_CHARS: int = 400
 # Max chars of the full memory summary Qwen sees when coaching.
@@ -146,7 +151,8 @@ class QwenMemoryAdapter:
         if self.knowledge_db is not None:
             return self.knowledge_db
         try:
-            from niblit_memory import KnowledgeDB
+            if KnowledgeDB is None:
+                return None
             return KnowledgeDB()
         except Exception:
             return None

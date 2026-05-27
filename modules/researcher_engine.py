@@ -269,7 +269,7 @@ class ResearcherEngine:
             raw = self.web_search(query)
             if raw:
                 cleaned = self.clean(str(raw))
-                if len(cleaned) >= 10:
+                if cleaned:
                     best_result = cleaned
                     break
 

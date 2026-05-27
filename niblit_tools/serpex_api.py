@@ -38,6 +38,7 @@ logger = logging.getLogger("Niblit.SearchAPI")
 
 # ── shared ScrapySearchEngine singleton ─────────────────────────────────────
 _scrapy_engine = None
+_ResearchAgent = None
 
 
 def _get_scrapy_engine() -> Any:
@@ -50,6 +51,18 @@ def _get_scrapy_engine() -> Any:
         except Exception as exc:
             logger.debug("ScrapySearchEngine unavailable: %s", exc)
     return _scrapy_engine
+
+
+def _get_research_agent_cls() -> Any:
+    """Return ResearchAgent class when available (cached for patchability/tests)."""
+    global _ResearchAgent
+    if _ResearchAgent is None:
+        try:
+            from niblit_agents.research_agent import ResearchAgent  # noqa: PLC0415
+            _ResearchAgent = ResearchAgent
+        except Exception as exc:
+            logger.debug("[niblit_serpex_search] ResearchAgent unavailable: %s", exc)
+    return _ResearchAgent
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -153,15 +166,10 @@ def niblit_serpex_search(query: str, category: str = "web") -> List[Dict[str, An
     """
     # Lazy import breaks the circular dependency:
     # niblit_agents.research_agent → niblit_tools.serpex_api → research_agent.
-    _ResearchAgent = None
-    try:
-        from niblit_agents.research_agent import ResearchAgent as _ResearchAgent  # noqa: PLC0415
-    except Exception as exc:
-        logger.debug("[niblit_serpex_search] ResearchAgent unavailable: %s", exc)
-
-    if _ResearchAgent is not None:
+    research_agent_cls = _get_research_agent_cls()
+    if research_agent_cls is not None:
         try:
-            agent = _ResearchAgent()
+            agent = research_agent_cls()
             if category == "news":
                 return agent.search_news(query)
             return agent.search_web(query)
@@ -210,4 +218,3 @@ NIBLIT_SERPEX_TOOL: Dict[str, Any] = {
 
 if __name__ == "__main__":
     print("niblit_tools/serpex_api.py — Scrapy-backed search (DuckDuckGo)")
-
