@@ -46,21 +46,26 @@ log = logging.getLogger("NiblitBrain")
 # ── KB text safety ────────────────────────────────────────────────────────────
 
 # Maximum character length of a single KB text snippet injected into a prompt.
-# Keeps individual facts well within the context window of small (0.5B) models.
-_KB_TEXT_MAX_CHARS = int(os.environ.get("NIBLIT_KB_TEXT_MAX_CHARS", "512"))
+# At 16K ctx: 1500 chars ≈ 375 tokens gives richer per-fact context.
+# Override with NIBLIT_KB_TEXT_MAX_CHARS (default 1500 at 16K, 512 for legacy).
+_KB_TEXT_MAX_CHARS = int(os.environ.get("NIBLIT_KB_TEXT_MAX_CHARS", "1500"))
 
 # Maximum total characters of KB context prepended to each think() prompt.
-# 1500 chars ≈ 375 tokens; leaves room for the system prompt + user message
-# + response in a 2048-token context window.
-_CONTEXT_MAX_CHARS = int(os.environ.get("NIBLIT_BRAIN_CONTEXT_MAX_CHARS", "1500"))
+# At 16K ctx: 6000 chars ≈ 1500 tokens; leaves ample room for system prompt,
+# chat history, user message, and response generation.
+# Override with NIBLIT_BRAIN_CONTEXT_MAX_CHARS (default 6000 at 16K).
+_CONTEXT_MAX_CHARS = int(os.environ.get("NIBLIT_BRAIN_CONTEXT_MAX_CHARS", "6000"))
 
 # Chat-history injection into the local-brain (brain_router) path.
-# How many recent messages to inject (one user message + one assistant reply =
-# one exchange, so 6 messages = 3 exchanges).
-_CHAT_HISTORY_MSG_LIMIT: int = 6
-# Per-message character cap for history injection.  Keeps the total prefix
-# under ~2 KB even with 6 messages, safely within a 2048-token context.
-_CHAT_HISTORY_CONTENT_CHARS: int = 300
+# At 16K ctx: 20 messages (10 exchanges) enables deeper long-horizon cognition.
+# Override with NIBLIT_BRAIN_CHAT_HISTORY_LIMIT.
+_CHAT_HISTORY_MSG_LIMIT: int = int(os.environ.get("NIBLIT_BRAIN_CHAT_HISTORY_LIMIT", "20"))
+# Per-message character cap for history injection.  At 16K ctx: 800 chars
+# allows richer message content while keeping the history block bounded.
+# Override with NIBLIT_BRAIN_CHAT_HISTORY_CONTENT_CHARS.
+_CHAT_HISTORY_CONTENT_CHARS: int = int(
+    os.environ.get("NIBLIT_BRAIN_CHAT_HISTORY_CONTENT_CHARS", "800")
+)
 
 # Control characters that corrupt GGUF tokenisers when injected into prompts.
 # We keep \t (0x09) and \n (0x0a) which are meaningful for formatting.

@@ -136,7 +136,7 @@ class ProviderRuntimeManager:
             "streaming": False,
             "reasoning": "medium",
             "cost_tier": "low",
-            "max_context": 8192,
+            "max_context": 16384,
             "provider_type": "local",
         },
         "hf": {

@@ -55,6 +55,7 @@ Singleton via ``get_chat_completions()``.
 from __future__ import annotations
 
 import logging
+import os
 import time
 import threading
 from dataclasses import dataclass, field
@@ -63,10 +64,14 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger("Niblit.ChatCompletions")
 
 # Maximum number of conversation turns to include in each request.
-_MAX_HISTORY = 20
+# At 16K ctx: 40 turns (20 exchanges) enables deep long-horizon continuity.
+# Override with NIBLIT_CHAT_MAX_HISTORY.
+_MAX_HISTORY: int = int(os.environ.get("NIBLIT_CHAT_MAX_HISTORY", "40"))
 
 # Maximum characters in the knowledge context block sent to the LLM.
-_MAX_CONTEXT_CHARS = 3000
+# At 16K ctx: 8000 chars ≈ 2000 tokens for richer semantic context injection.
+# Override with NIBLIT_CHAT_MAX_CONTEXT_CHARS.
+_MAX_CONTEXT_CHARS: int = int(os.environ.get("NIBLIT_CHAT_MAX_CONTEXT_CHARS", "8000"))
 
 # Niblit's identity / persona preamble used as the system message.
 _SYSTEM_PERSONA = (
