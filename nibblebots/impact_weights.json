@@ -2,9 +2,9 @@
   "bare_except": {
     "crash_visibility": 2.0,
     "debuggability": 2.0,
-    "risk_logic_change": 0.0289,
-    "sdal_observability": 1.2725,
-    "system_stability": 0.9543
+    "risk_logic_change": 0.0267,
+    "sdal_observability": 1.3679,
+    "system_stability": 1.0259
   },
   "bare_except_pass": {
     "auditability": 0.6,
