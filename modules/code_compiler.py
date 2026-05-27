@@ -22,7 +22,7 @@ import sys
 import tempfile
 import time
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 log = logging.getLogger("CodeCompiler")
 
@@ -47,6 +47,15 @@ _EXT: Dict[str, str] = {
     "sh": ".sh",
     "javascript": ".js",
     "js": ".js",
+}
+
+_LANGUAGE_FAMILIES: Dict[str, str] = {
+    "python": "interpreted",
+    "python3": "interpreted",
+    "bash": "script",
+    "sh": "script",
+    "javascript": "interpreted",
+    "js": "interpreted",
 }
 
 
@@ -115,6 +124,7 @@ class CodeCompiler:
             "successes": 0,
             "failures": 0,
         }
+        self._compile_telemetry: list[Dict[str, Any]] = []
         log.debug("[CodeCompiler] Initialized — timeout=%ds", timeout)
 
     # ──────────────────────────────────────────────────────
@@ -300,6 +310,42 @@ class CodeCompiler:
             "stats": self._stats,
             "timeout": self.timeout,
             "available_languages": self.available_languages(),
+            "telemetry_samples": len(self._compile_telemetry),
+        }
+
+    def compile_telemetry(self, limit: int = 30) -> List[Dict[str, Any]]:
+        """Return recent structured compile telemetry for governance checks."""
+        return list(self._compile_telemetry[-max(1, int(limit)):])
+
+    def interpret_compile_error(
+        self,
+        language: str,
+        error_text: str,
+        *,
+        code_snippet: str = "",
+    ) -> Dict[str, Any]:
+        """Interpret compiler/runtime errors with lightweight cognition metadata."""
+        lang = language.lower()
+        err = (error_text or "").lower()
+        interpretation = "unknown_error"
+        if "syntax" in err or "invalid" in err:
+            interpretation = "syntax_chain_failure"
+        elif "timeout" in err:
+            interpretation = "runtime_timeout"
+        elif "not found" in err:
+            interpretation = "runtime_dependency_missing"
+        hint = {
+            "syntax_chain_failure": "Run CodeErrorFixer grouped syntax pass before retry.",
+            "runtime_timeout": "Reduce workload or raise timeout with governance approval.",
+            "runtime_dependency_missing": "Ensure interpreter/toolchain is present in runtime profile.",
+            "unknown_error": "Inspect stderr and stage guided repair.",
+        }[interpretation]
+        return {
+            "language": lang,
+            "interpretation": interpretation,
+            "hint": hint,
+            "error_excerpt": (error_text or "")[:200],
+            "code_excerpt": (code_snippet or "")[:200],
         }
 
     # ──────────────────────────────────────────────────────
@@ -460,7 +506,26 @@ class CodeCompiler:
             )
 
         self._store_result(result)
+        self._record_compile_telemetry(lang=lang, cmd=cmd, result=result)
         return result
+
+    def _record_compile_telemetry(self, *, lang: str, cmd: list, result: ExecutionResult) -> None:
+        telemetry = {
+            "ts": int(time.time()),
+            "language": lang,
+            "family": _LANGUAGE_FAMILIES.get(lang, "unknown"),
+            "command": cmd[:3],
+            "success": bool(result.success),
+            "returncode": int(result.returncode),
+            "elapsed_ms": float(result.elapsed_ms),
+            "error_interpretation": self.interpret_compile_error(
+                lang,
+                result.error or result.stderr or "",
+            ) if not result.success else None,
+        }
+        self._compile_telemetry.append(telemetry)
+        if len(self._compile_telemetry) > 300:
+            self._compile_telemetry = self._compile_telemetry[-300:]
 
     def _store_result(self, result: ExecutionResult) -> None:
         """Store execution result in KnowledgeDB."""

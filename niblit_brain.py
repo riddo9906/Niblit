@@ -671,13 +671,19 @@ class BrainTrainer:
 
     # pylint: disable=too-many-arguments,too-many-positional-arguments
     def __init__(self, memory, knowledge_db=None, self_teacher=None,
-                 hybrid_manager=None, self_monitor=None, kernel=None):
+                 hybrid_manager=None, self_monitor=None, kernel=None,
+                 evaluation_engine=None, quality_feedback=None,
+                 provider_manager=None, runtime_telemetry_provider=None):
         self.memory = memory
         self.knowledge_db = knowledge_db
         self.self_teacher = self_teacher
         self.hybrid_manager = hybrid_manager
         self.self_monitor = self_monitor
         self.kernel = kernel
+        self.evaluation_engine = evaluation_engine
+        self.quality_feedback = quality_feedback
+        self.provider_manager = provider_manager
+        self.runtime_telemetry_provider = runtime_telemetry_provider
         self._pairs: list = []          # in-memory training pairs
         self._facts: list = []          # in-memory knowledge facts
         # Per-domain cognitive data store: domain → list of update dicts
@@ -957,6 +963,41 @@ class BrainTrainer:
 
         log.debug("[BrainTrainer] cognitive domain updated live: %s", domain)
 
+    def ingest_evaluation_feedback(
+        self,
+        query: str,
+        response: str,
+        quality_score: float,
+        *,
+        provider: str = "",
+        telemetry: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Feed evaluation/telemetry outcomes back into learning memory."""
+        score = max(0.0, min(1.0, float(quality_score)))
+        record = {
+            "query": _sanitize_text(query, max_chars=200),
+            "response": _sanitize_text(response, max_chars=200),
+            "quality_score": score,
+            "provider": str(provider or "unknown"),
+            "telemetry": telemetry or {},
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        self.ingest_research("evaluation_feedback", str(record))
+        if self.knowledge_db and hasattr(self.knowledge_db, "add_fact"):
+            try:
+                self.knowledge_db.add_fact(
+                    f"brain_trainer:evaluation:{int(datetime.datetime.now().timestamp())}",
+                    record,
+                    tags=["brain_trainer", "evaluation", "quality_feedback"],
+                )
+            except Exception:
+                pass
+        if provider:
+            self.update_cognitive_domain(
+                "responses",
+                f"provider={provider} quality={score:.2f}",
+            )
+
     def get_cognitive_summary(self) -> dict:
         """Return per-domain counts and latest update timestamps."""
         with self._lock:
@@ -1007,6 +1048,38 @@ class BrainTrainer:
         after = len(self._pairs) + len(self._facts)
         added = after - before
         cognitive_total = sum(len(v) for v in self._cognitive.values())
+        # Integrate evaluation + quality loop signals into trainer memory
+        try:
+            if self.evaluation_engine and hasattr(self.evaluation_engine, "get_history"):
+                history = self.evaluation_engine.get_history()
+                if history:
+                    latest = history[-1]
+                    self.ingest_evaluation_feedback(
+                        latest.get("user_input", ""),
+                        "",
+                        float(latest.get("quality_score", 0.5)),
+                        provider=str(latest.get("chosen_advisor", "")),
+                    )
+        except Exception as _eval_err:
+            log.debug("[BrainTrainer] evaluation ingest failed: %s", _eval_err)
+        try:
+            if self.quality_feedback and hasattr(self.quality_feedback, "status"):
+                q_status = self.quality_feedback.status()
+                self.update_cognitive_domain(
+                    "reasoning",
+                    f"quality_recent_avg={q_status.get('recent_avg_score')} total={q_status.get('total_scores')}",
+                )
+        except Exception as _qf_err:
+            log.debug("[BrainTrainer] quality feedback ingest failed: %s", _qf_err)
+        try:
+            if self.runtime_telemetry_provider and hasattr(self.runtime_telemetry_provider, "status"):
+                telem = self.runtime_telemetry_provider.status()
+                self.update_cognitive_domain(
+                    "communication",
+                    f"runtime_telemetry={_sanitize_text(str(telem), max_chars=180)}",
+                )
+        except Exception as _rt_err:
+            log.debug("[BrainTrainer] runtime telemetry ingest failed: %s", _rt_err)
         summary = (
             f"BrainTrainer cycle: {added} new items ingested, "
             f"total={after}, cognitive_updates={cognitive_total}"

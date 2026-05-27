@@ -24,7 +24,7 @@ import ast
 import re
 import time
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("CodeErrorFixer")
 
@@ -215,6 +215,47 @@ class CodeErrorFixer:
         }
         log.debug("[CodeErrorFixer] Initialized")
 
+    def group_error_signals(self, error_msg: str) -> List[Dict[str, Any]]:
+        """Group multi-error messages into repair-ready semantic buckets."""
+        text = str(error_msg or "")
+        if not text.strip():
+            return []
+        parts = [p.strip() for p in re.split(r"\n+|;\s+", text) if p.strip()]
+        groups: Dict[str, Dict[str, Any]] = {}
+        for part in parts:
+            lower = part.lower()
+            if "syntax" in lower or "invalid" in lower:
+                key = "syntax_chain"
+            elif "indent" in lower or "tab" in lower:
+                key = "indentation_chain"
+            elif "nameerror" in lower or "undefined" in lower:
+                key = "symbol_chain"
+            elif "typeerror" in lower:
+                key = "type_chain"
+            else:
+                key = "runtime_chain"
+            bucket = groups.setdefault(key, {"group": key, "messages": []})
+            bucket["messages"].append(part[:240])
+        return list(groups.values())
+
+    def stage_governed_repair(
+        self,
+        language: str,
+        code: str,
+        error_msg: str,
+    ) -> Dict[str, Any]:
+        """Create governed, approval-safe repair stage metadata."""
+        grouped = self.group_error_signals(error_msg)
+        high_risk = any(g["group"] in {"runtime_chain", "symbol_chain"} for g in grouped)
+        return {
+            "language": language.lower(),
+            "groups": grouped,
+            "approval_required": high_risk,
+            "auto_apply_allowed": not high_risk,
+            "rollback_required": True,
+            "code_excerpt": code[:240],
+        }
+
     # ─────────────────────────────────────────────────────────────────────────
     # PUBLIC API
     # ─────────────────────────────────────────────────────────────────────────
@@ -354,6 +395,7 @@ class CodeErrorFixer:
 
         if not syntax_check.get("valid", True):
             error_msg = syntax_check.get("error", "syntax error") or ""
+            stage = self.stage_governed_repair(lang, code, error_msg)
             fixed_code, success, explanation = self.fix_syntax_errors(lang, code, error_msg, compiler)
 
             if not success:
@@ -361,7 +403,7 @@ class CodeErrorFixer:
                 return ExecutionResult(
                     success=False,
                     language=lang,
-                    error=f"AutoFix failed: {explanation}",
+                    error=f"AutoFix failed: {explanation} | staged={stage['groups'][:2]}",
                 )
             code = fixed_code
             log.info("[CodeErrorFixer] fix_and_compile: applied fix (%s)", explanation)
