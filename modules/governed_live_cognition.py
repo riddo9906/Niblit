@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import threading
 import time
+import uuid
 from typing import Any
 
 log = logging.getLogger("GovernedLiveCognition")
@@ -44,9 +44,7 @@ class GovernedLiveCognitionCollector:
         runtime_id: str = "",
     ) -> dict[str, Any]:
         normalized = self._normalize_items(items)
-        trace_id = hashlib.sha1(
-            f"{source_type}:{query}:{time.time()}".encode("utf-8", errors="replace")
-        ).hexdigest()[:16]
+        trace_id = uuid.uuid4().hex[:16]
         cognition_id = f"cog-{trace_id[:10]}"
         result = {
             "success": False,
