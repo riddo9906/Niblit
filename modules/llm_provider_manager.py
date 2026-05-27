@@ -3,13 +3,13 @@
 modules/llm_provider_manager.py — Runtime LLM provider selector for Niblit.
 
 Priority:
-    1. Qwen Local Brain (QwenLocalBrain)         ← PRIMARY (default)
+    1. Llama3 Local Brain (QwenLocalBrain preset) ← PRIMARY (default)
     2. HuggingFace Router (HFBrain / HFAdapter)  ← FALLBACK
     3. Anthropic Claude (ClaudeEngine)           ← FALLBACK
     4. Ruflo HTTP Bridge (RufloAdapter)          ← OPTIONAL FALLBACK
 
 The active provider can be switched at runtime via the ``llm-provider``
-CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic|qwen|ruflo`` in
+CLI command or by setting ``NIBLIT_LLM_PROVIDER=hf|anthropic|qwen|llama3|ruflo`` in
 the environment before startup.
 
 Usage::
@@ -38,8 +38,8 @@ log = logging.getLogger("LLMProviderManager")
 _manager: LLMProviderManager | None = None
 _manager_lock = threading.Lock()
 
-VALID_PROVIDERS = ("hf", "anthropic", "qwen", "ruflo")
-DEFAULT_PROVIDER = "qwen"
+VALID_PROVIDERS = ("hf", "anthropic", "qwen", "llama3", "ruflo")
+DEFAULT_PROVIDER = "llama3"
 _DEFAULT_MAX_TOKENS = int(
     os.getenv("NIBLIT_PROVIDER_MAX_TOKENS", os.getenv("NIBLIT_LOCAL_MAX_NEW", "512"))
 )
@@ -65,9 +65,10 @@ class LLMProviderManager:
     ``"anthropic"``  Anthropic Messages API via
                      :class:`~niblit_models.claude_engine.ClaudeEngine`
                      (requires ``ANTHROPIC_API_KEY``).
-    ``"qwen"``       Local Qwen brain via
-                     :class:`~modules.local_brain.QwenLocalBrain`
-                     (local model, no cloud API key required).
+    ``"qwen"``       Local local-brain compatibility alias.
+    ``"llama3"``     Local Llama3 preset via
+                      :class:`~modules.local_brain.QwenLocalBrain`
+                      (local model, no cloud API key required).
     ``"ruflo"``      Ruflo HTTP bridge via :class:`~modules.ruflo_adapter.RufloAdapter`
                      (requires ``RUFLO_API_URL`` and optional auth/model vars).
 
@@ -89,7 +90,8 @@ class LLMProviderManager:
             p: {"calls": 0.0, "quality": 0.0, "latency_ms": 0.0} for p in VALID_PROVIDERS
         }
         self._provider_capabilities: dict[str, dict[str, float]] = {
-            "qwen": {"long_context": 0.95, "cognition": 0.90, "latency": 0.85},
+            "qwen": {"long_context": 0.78, "cognition": 0.70, "latency": 0.90},
+            "llama3": {"long_context": 0.96, "cognition": 0.95, "latency": 0.82},
             "hf": {"long_context": 0.80, "cognition": 0.75, "latency": 0.70},
             "anthropic": {"long_context": 0.92, "cognition": 0.95, "latency": 0.60},
             "ruflo": {"long_context": 0.78, "cognition": 0.72, "latency": 0.88},
@@ -137,6 +139,7 @@ class LLMProviderManager:
             "hf": hf_ok,
             "anthropic": ant_ok,
             "qwen": qwen_ok,
+            "llama3": qwen_ok,
             "ruflo": ruflo_ok,
             "hf_model": getattr(self._hf_brain, "model", "n/a") if hf_ok else "n/a",
             "anthropic_model": (
@@ -145,6 +148,11 @@ class LLMProviderManager:
                 else "n/a"
             ),
             "qwen_model": (
+                getattr(self._local_brain, "model_name", "n/a")
+                if self._local_brain is not None
+                else "n/a"
+            ),
+            "llama3_model": (
                 getattr(self._local_brain, "model_name", "n/a")
                 if self._local_brain is not None
                 else "n/a"
@@ -174,6 +182,7 @@ class LLMProviderManager:
             "hf": self._ask_hf,
             "anthropic": self._ask_anthropic,
             "qwen": self._ask_qwen,
+            "llama3": self._ask_llama3,
             "ruflo": self._ask_ruflo,
         }
         order = self._ranked_provider_order(prompt=prompt, prefer_long_context=max_tokens >= 1024)
@@ -240,6 +249,7 @@ class LLMProviderManager:
             "hf": self._hf_available(),
             "anthropic": self._anthropic_available(),
             "qwen": self._qwen_available(),
+            "llama3": self._qwen_available(),
             "ruflo": self._ruflo_available(),
         }
         scores: list[tuple[str, float]] = []
@@ -331,20 +341,53 @@ class LLMProviderManager:
         system: str = "",
         max_tokens: int = _DEFAULT_MAX_TOKENS,
     ) -> str | None:
-        lb = self._local_brain
-        if lb is None:
-            lb = self._lazy_local_brain()
-            self._local_brain = lb
+        lb = self._resolve_local_brain()
         if lb is None:
             return None
+        return self._call_local_brain(lb, prompt=prompt, system=system, max_tokens=max_tokens)
+
+    def _ask_llama3(
+        self,
+        prompt: str,
+        system: str = "",
+        max_tokens: int = _DEFAULT_MAX_TOKENS,
+    ) -> str | None:
+        lb = self._resolve_local_brain(preset="llama3")
+        if lb is None:
+            return None
+        return self._call_local_brain(lb, prompt=prompt, system=system, max_tokens=max_tokens)
+
+    def _resolve_local_brain(self, preset: str | None = None) -> Any | None:
+        if preset == "llama3":
+            try:
+                from modules.local_brain import swap_local_brain  # type: ignore[import]
+                lb = swap_local_brain("llama3")
+                self._local_brain = lb
+                return lb
+            except Exception:
+                pass
+        lb = self._local_brain
+        if lb is None:
+            self._local_brain = self._lazy_local_brain()
+            lb = self._local_brain
+        return lb
+
+    @staticmethod
+    def _call_local_brain(
+        lb: Any,
+        *,
+        prompt: str,
+        system: str,
+        max_tokens: int,
+    ) -> str | None:
         result = None
         if hasattr(lb, "generate"):
             result = lb.generate(prompt, max_new_tokens=max_tokens, system_prompt=system or None)
         elif hasattr(lb, "ask"):
             result = lb.ask(prompt, context=system or "")
-        if not result or not result.strip():
+        if not result or not str(result).strip():
             return None
-        text = result.strip()
+        text = str(result).strip()
         lower = text.lower()
         if lower.startswith("[localbrain ") and ("unavailable" in lower or "error" in lower):
             return None

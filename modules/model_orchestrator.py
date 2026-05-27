@@ -9,8 +9,8 @@ Model roster
 ------------
 Model           | Role                        | Env flag
 ----------------|-----------------------------|-----------------------
-Qwen 0.5B       | Fast routing / light tasks  | always available (local)
 Llama 3.2 1B    | Reasoning / medium tasks    | NIBLIT_LLAMA_ENABLED=1
+Qwen 0.5B       | Fast fallback / light tasks | always available (local)
 Remote GPT      | Deep synthesis / complex    | OPENAI_API_KEY set
 TFT adapter     | Market forecasting          | always available (EWMA)
 Cloud LLM       | Remote LLM (Ollama etc.)    | NIBLIT_CLOUD_LLM_URL set
@@ -36,7 +36,7 @@ Output
 Configuration (env vars)
 ------------------------
     NIBLIT_MO_ENABLED         — "0" to disable (default 1)
-    NIBLIT_LLAMA_ENABLED      — "1" to include Llama 3.2 in roster (default 0)
+    NIBLIT_LLAMA_ENABLED      — "1" to include Llama 3.2 in roster (default 1)
     OPENAI_API_KEY            — set to enable remote GPT delegation
     NIBLIT_CLOUD_LLM_URL      — Ollama / LMStudio / custom URL
 
@@ -60,7 +60,7 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger(__name__)
 
 _ENABLED: bool = os.getenv("NIBLIT_MO_ENABLED", "1").strip() not in ("0", "false")
-_LLAMA_ENABLED: bool = os.getenv("NIBLIT_LLAMA_ENABLED", "0").strip() == "1"
+_LLAMA_ENABLED: bool = os.getenv("NIBLIT_LLAMA_ENABLED", "1").strip() == "1"
 _GPT_AVAILABLE: bool = bool(os.getenv("OPENAI_API_KEY", "").strip())
 _CLOUD_URL: str = os.getenv("NIBLIT_CLOUD_LLM_URL", "").strip()
 
@@ -78,12 +78,24 @@ class ModelDescriptor:
 
 
 _MODELS: List[ModelDescriptor] = [
-    ModelDescriptor("qwen",  "Qwen 2.5 0.5B",    is_local=True,  max_tokens=2048,  complexity_threshold=0.5, ram_requirement_mb=800),
     ModelDescriptor("llama3","Llama 3.2 1B",      is_local=True,  max_tokens=16384, complexity_threshold=0.75, ram_requirement_mb=2000),
+    ModelDescriptor("qwen",  "Qwen 2.5 0.5B",    is_local=True,  max_tokens=2048,  complexity_threshold=0.5, ram_requirement_mb=800),
     ModelDescriptor("cloud", "Cloud LLM (Ollama)",is_local=False, max_tokens=16384, complexity_threshold=0.9, ram_requirement_mb=0),
     ModelDescriptor("gpt",   "Remote GPT",        is_local=False, max_tokens=16384, complexity_threshold=1.0, ram_requirement_mb=0),
     ModelDescriptor("tft",   "TFT Forecast",      is_local=True,  max_tokens=0,     complexity_threshold=0.0, ram_requirement_mb=100),
 ]
+
+_LLAMA_PRIORITY_INTENTS = {
+    "reasoning",
+    "reflection",
+    "runtime_analysis",
+    "telemetry_interpretation",
+    "architecture_reasoning",
+    "memory_synthesis",
+    "ale_interpretation",
+    "knowledge_gap_synthesis",
+    "summarization",
+}
 
 
 # ── ModelSelection ────────────────────────────────────────────────────────────
@@ -156,6 +168,13 @@ class ModelOrchestrator:
         # Forecasting intent always uses TFT
         if req_forecast or intent in ("forecasting", "trading"):
             return self._make_selection("tft", reason="forecasting task", fallback="qwen")
+
+        if _LLAMA_ENABLED and intent in _LLAMA_PRIORITY_INTENTS:
+            return self._make_selection(
+                "llama3",
+                reason=f"llama-priority intent ({intent})",
+                fallback="qwen",
+            )
 
         # Get resource constraints
         rec = self._get_resource_rec()

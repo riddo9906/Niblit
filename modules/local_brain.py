@@ -67,7 +67,7 @@ NIBLIT_LLAMA_SERVER_TIMEOUT HTTP timeout in seconds for llama-server calls.
 
 Model switching
 ---------------
-NIBLIT_ACTIVE_LOCAL_MODEL   Active local model preset: ``qwen`` (default)
+NIBLIT_ACTIVE_LOCAL_MODEL   Active local model preset: ``llama3`` (default)
                             or ``llama3``.  Used by ``swap_local_brain()``
                             at startup; can be changed at runtime via the
                             ``local-model switch <preset>`` command.
@@ -116,7 +116,7 @@ _DEFAULT_RUNTIME_MAX_NEW = int(
 )
 _GGUF_N_THREADS_STR = os.environ.get("NIBLIT_GGUF_N_THREADS", "").strip()
 _GGUF_N_THREADS  = int(_GGUF_N_THREADS_STR) if _GGUF_N_THREADS_STR.isdigit() else None
-_DEFAULT_LOCAL_PRESET = "qwen"
+_DEFAULT_LOCAL_PRESET = "llama3"
 _FORBIDDEN_MODEL_ROOTS = ("/root/models",)
 if any(_MODEL_NAME.startswith(root) for root in _FORBIDDEN_MODEL_ROOTS):
     log.warning("[LocalBrain] Ignoring forbidden model path at import: %s", _MODEL_NAME)
@@ -164,7 +164,7 @@ def _resolve_default_llama_server_url() -> str:
 
 
 def _active_local_preset() -> str:
-    """Return the active local preset key (defaults to qwen)."""
+    """Return the active local preset key (defaults to llama3)."""
     preset = os.environ.get("NIBLIT_ACTIVE_LOCAL_MODEL", _DEFAULT_LOCAL_PRESET).strip().lower()
     return preset if preset in _LOCAL_MODEL_PRESETS else _DEFAULT_LOCAL_PRESET
 
@@ -538,7 +538,7 @@ def _os_fallback_model(preset: str) -> str:
 def _resolve_portable_model_path(preset: str) -> str:
     normalized = preset.strip().lower()
     if normalized not in {"qwen", "llama3"}:
-        normalized = "qwen"
+        normalized = _DEFAULT_LOCAL_PRESET
     candidates = [
         os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip(),
         os.environ.get("NIBLIT_MODEL_QWEN", "").strip() if normalized == "qwen" else os.environ.get("NIBLIT_MODEL_LLAMA3", "").strip(),
