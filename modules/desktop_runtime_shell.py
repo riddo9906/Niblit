@@ -62,12 +62,15 @@ class DesktopRuntimeShell:
     def run(self) -> bool:
         """Launch the desktop shell. Returns True when launched."""
         if not desktop_ui_supported():
+            log.warning(
+                "Desktop UI not supported in this environment; falling back to CLI mode."
+            )
             return False
         try:
             import tkinter as tk
             from tkinter import ttk
         except Exception as exc:
-            log.debug("Tkinter unavailable: %s", exc)
+            log.warning("Tkinter unavailable: %s — falling back to CLI mode.", exc)
             return False
 
         try:

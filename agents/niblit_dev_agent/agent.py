@@ -330,14 +330,14 @@ class NiblitDevAgent(BaseAgent):
         if self._event_bus is None:
             return
         try:
-            from modules.event_bus import EVENT_EXECUTION_COMPLETE, NiblitEvent
+            from modules.event_bus import EVENT_COMMAND_EXECUTED, NiblitEvent
             self._event_bus.publish(NiblitEvent(
-                type=EVENT_EXECUTION_COMPLETE,
+                type=EVENT_COMMAND_EXECUTED,
                 source="niblit_dev_agent",
                 payload={
                     "command": f"dev-agent {action}",
                     "result_length": len(result),
-                    "success": not result.startswith("[") or "Error" not in result,
+                    "success": "Error" not in result and "failed" not in result.lower(),
                 },
             ))
         except Exception:
