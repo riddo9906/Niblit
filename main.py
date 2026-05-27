@@ -291,7 +291,11 @@ def _run_tool_cli_mode(args, io=None) -> int:
 
 
 def _should_launch_desktop(args, *, ui_supported=None) -> bool:
-    """Return True when desktop UI should auto-launch for this invocation."""
+    """Return True when desktop UI should auto-launch for this invocation.
+
+    UI is the primary execution mode.  Pass ``--headless`` / ``--cli`` or set
+    ``NIBLIT_HEADLESS=1`` to opt out and use the terminal shell instead.
+    """
     if getattr(args, "one_shot", None) is not None:
         return False
     if getattr(args, "list_tools", False) or getattr(args, "tool_call", None):
@@ -302,11 +306,10 @@ def _should_launch_desktop(args, *, ui_supported=None) -> bool:
         return False
     if ui_supported is not None:
         return bool(ui_supported)
-    try:
-        from modules.desktop_runtime_shell import desktop_ui_supported
-        return bool(desktop_ui_supported())
-    except Exception:
-        return False
+    # UI is the primary mode — always attempt to launch.  DesktopRuntimeShell.run()
+    # handles the case where a display server is unavailable and returns False,
+    # which triggers the CLI fallback below.
+    return True
 
 # ─────────────────────────────
 # DEBUG PRINT
