@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from modules.cognitive_episode import CognitiveEpisodeManager, RuntimeSignificanceEngine
+from modules.legacy_cognition_recovery import LegacyCognitionRecoveryAnalyzer
 
 log = logging.getLogger("Niblit.UnifiedRuntime")
 _DEFAULT_PROVIDER_MAX_TOKENS = int(
@@ -74,6 +75,7 @@ class RuntimeState:
     cognitive_compression: dict[str, Any] = field(default_factory=dict)
     cognitive_datasets: dict[str, Any] = field(default_factory=dict)
     confidence_summary: dict[str, Any] = field(default_factory=dict)
+    cognition_recovery: dict[str, Any] = field(default_factory=dict)
     last_updated_at: float = field(default_factory=_utc_ts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -591,6 +593,7 @@ class NiblitUnifiedRuntime:
         self.deployment_runtime = DeploymentRuntimeManager()
         self.command_runtime = CommandRuntime(self._event_bus, self.provider_runtime)
         self.cognitive_runtime = CognitiveEpisodeManager(runtime_id=self.runtime_id)
+        self.legacy_cognition_recovery = LegacyCognitionRecoveryAnalyzer()
         self._state_file = state_file or Path(
             os.environ.get("NIBLIT_UNIFIED_RUNTIME_STATE", os.path.join(os.getcwd(), "niblit_unified_runtime_state.json"))
         )
@@ -631,6 +634,12 @@ class NiblitUnifiedRuntime:
             self._state.cognitive_compression = dict(cognitive_status.get("compression", {}))
             self._state.cognitive_datasets = dict(cognitive_status.get("datasets", {}))
             self._state.confidence_summary = dict(cognitive_status.get("confidence_summary", {}))
+            self._state.cognition_recovery = self.legacy_cognition_recovery.build_report(
+                core=core,
+                cognitive_status=cognitive_status,
+                event_stats=self._event_bus.stats(),
+                state_file=str(self._state_file),
+            )
             ms = provider_status.get("manager_status", {})
             loaded_models = [
                 str(ms.get("qwen_model", "")),
@@ -657,6 +666,7 @@ class NiblitUnifiedRuntime:
                 "telemetry": telemetry,
                 "events": self._event_bus.stats(),
                 "cognition": cognitive_status,
+                "legacy_cognition": dict(self._state.cognition_recovery),
             }
 
     def boot(self, core: Any | None = None) -> dict[str, Any]:
@@ -723,6 +733,13 @@ class NiblitUnifiedRuntime:
 
     def dispatch_command(self, *, command: str, core: Any | None) -> str:
         with self._lock:
+            lower = command.strip().lower()
+            if lower in {"runtime cognition recovery", "runtime cognition map", "runtime legacy cognition"}:
+                status = self._update_from_status(core=core)
+                return json.dumps(status.get("legacy_cognition", {}), indent=2, sort_keys=True)
+            if lower in {"runtime causality", "runtime causality status"}:
+                status = self._update_from_status(core=core)
+                return json.dumps(status.get("cognition", {}).get("causality", {}), indent=2, sort_keys=True)
             out = self.command_runtime.dispatch(command=command, core=core, state=self._state)
             self._save_state()
             return out
@@ -761,6 +778,8 @@ class NiblitUnifiedRuntime:
             "dataset": status["cognition"].get("datasets", {}),
             "compression": status["cognition"].get("compression", {}),
             "confidence": status["cognition"].get("confidence_summary", {}),
+            "causality": status["cognition"].get("causality", {}),
+            "legacy_cognition": status.get("legacy_cognition", {}),
         }
 
 

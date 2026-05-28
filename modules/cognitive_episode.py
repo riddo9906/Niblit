@@ -54,6 +54,8 @@ class CognitiveEpisode:
     confidence_breakdown: dict[str, float] = field(default_factory=dict)
     governance_flags: list[str] = field(default_factory=list)
     dataset_candidates: list[dict[str, Any]] = field(default_factory=list)
+    causal_influences: dict[str, float] = field(default_factory=dict)
+    metaevaluation: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -295,6 +297,48 @@ class CognitiveDatasetBuilder:
             return list(self._pending[-max(1, min(limit, 200)) :])
 
 
+class CausalCognitionTracker:
+    """Runtime causal aggregation across finalized cognitive episodes."""
+
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._episodes_seen = 0
+        self._influence_totals: dict[str, float] = defaultdict(float)
+        self._outcome_totals: dict[str, float] = defaultdict(float)
+        self._downstream_counter: Counter[str] = Counter()
+        self._provider_counter: Counter[str] = Counter()
+        self._runtime_mode_counter: Counter[str] = Counter()
+
+    def observe_episode(self, episode: CognitiveEpisode) -> None:
+        with self._lock:
+            self._episodes_seen += 1
+            for key, value in episode.causal_influences.items():
+                self._influence_totals[key] += float(value)
+            self._outcome_totals["evaluation_score"] += float(episode.evaluation_score)
+            self._outcome_totals["confidence_score"] += float(episode.confidence_score)
+            self._outcome_totals["anomaly_score"] += float(episode.anomaly_score)
+            if episode.downstream_effect:
+                self._downstream_counter[str(episode.downstream_effect)] += 1
+            self._provider_counter[str(episode.provider_used or "unknown")] += 1
+            self._runtime_mode_counter[str(episode.runtime_mode or "api")] += 1
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            total = max(1, self._episodes_seen)
+            return {
+                "episodes_seen": self._episodes_seen,
+                "average_influence": {
+                    key: round(val / total, 4) for key, val in self._influence_totals.items()
+                },
+                "average_outcomes": {
+                    key: round(val / total, 4) for key, val in self._outcome_totals.items()
+                },
+                "top_downstream_effects": self._downstream_counter.most_common(8),
+                "top_providers": self._provider_counter.most_common(6),
+                "runtime_modes": dict(self._runtime_mode_counter),
+            }
+
+
 class CognitiveEpisodeManager:
     """Canonical episode aggregation over runtime events."""
 
@@ -323,6 +367,7 @@ class CognitiveEpisodeManager:
         self._compression: dict[str, Any] = {}
         self._dataset_builder = CognitiveDatasetBuilder()
         self._confidence_summary: dict[str, Any] = {}
+        self._causal_tracker = CausalCognitionTracker()
 
     @staticmethod
     def _topic(payload: dict[str, Any], event_type: str) -> str:
@@ -401,6 +446,65 @@ class CognitiveEpisodeManager:
             "market_interpretation_confidence": round(market, 4),
             "reflection_confidence": round(reflection, 4),
             "synthesis_confidence": synthesis,
+        }
+
+    @staticmethod
+    def _compute_causal_influences(episode: CognitiveEpisode) -> dict[str, float]:
+        retrieval = min(1.0, len(episode.retrievals) / 6.0)
+        provider = 0.9 if episode.provider_used and episode.provider_used != "unknown" else 0.35
+        memory = 0.85 if episode.memory_written else 0.3
+        reflection = min(1.0, len(episode.reflection.split()) / 50.0) if episode.reflection else 0.15
+        evaluation = max(0.0, min(1.0, float(episode.evaluation_score)))
+        market = 0.8 if episode.market_context else 0.2
+        runtime_mode = 0.75 if episode.runtime_mode in {"api", "agent"} else 0.55
+        outcome = max(0.0, min(1.0, float(episode.confidence_score)))
+        downstream = min(1.0, len(str(episode.downstream_effect or "").split()) / 8.0)
+        return {
+            "provider_influence": round(provider, 4),
+            "memory_influence": round(memory, 4),
+            "retrieval_influence": round(retrieval, 4),
+            "reflection_influence": round(reflection, 4),
+            "evaluation_influence": round(evaluation, 4),
+            "market_influence": round(market, 4),
+            "runtime_mode_influence": round(runtime_mode, 4),
+            "cognition_outcome_influence": round(outcome, 4),
+            "downstream_adaptive_effect": round(downstream, 4),
+        }
+
+    @staticmethod
+    def _compute_metaevaluation(episode: CognitiveEpisode) -> dict[str, float]:
+        cb = episode.confidence_breakdown
+        evaluation = float(episode.evaluation_score)
+        provider_quality = cb.get("provider_confidence", 0.0)
+        memory_quality = cb.get("memory_confidence", 0.0)
+        reasoning_quality = cb.get("reasoning_confidence", 0.0)
+        reflection_quality = cb.get("reflection_confidence", 0.0)
+        market_quality = cb.get("market_interpretation_confidence", 0.0)
+        runtime_coherence = max(
+            0.0,
+            min(
+                1.0,
+                (cb.get("synthesis_confidence", 0.0) * 0.6)
+                + ((1.0 - min(1.0, episode.anomaly_score)) * 0.4),
+            ),
+        )
+        adaptive_quality = max(0.0, min(1.0, (evaluation * 0.65) + (reflection_quality * 0.35)))
+        dataset_usefulness = min(
+            1.0, (len(episode.dataset_candidates) / 3.0) + (evaluation * 0.2)
+        )
+        usefulness = max(0.0, min(1.0, (evaluation * 0.7) + (cb.get("synthesis_confidence", 0.0) * 0.3)))
+        return {
+            "reasoning_quality": round(reasoning_quality, 4),
+            "memory_quality": round(memory_quality, 4),
+            "provider_quality": round(provider_quality, 4),
+            "reflection_quality": round(reflection_quality, 4),
+            "cognition_usefulness": round(usefulness, 4),
+            "market_interpretation_quality": round(market_quality, 4),
+            "adaptive_learning_quality": round(adaptive_quality, 4),
+            "hallucination_probability": round(max(0.0, min(1.0, episode.anomaly_score)), 4),
+            "runtime_coherence": round(runtime_coherence, 4),
+            "episode_usefulness": round(usefulness, 4),
+            "dataset_usefulness": round(dataset_usefulness, 4),
         }
 
     def observe_event(self, event: dict[str, Any], runtime_mode: str = "api") -> dict[str, Any] | None:
@@ -495,6 +599,9 @@ class CognitiveEpisodeManager:
             episode.confidence_score = episode.confidence_breakdown.get("synthesis_confidence", 0.0)
             episode.timestamp_lineage["closed_at"] = _iso_now()
             episode.dataset_candidates = self._dataset_builder.observe_episode(episode)
+            episode.causal_influences = self._compute_causal_influences(episode)
+            episode.metaevaluation = self._compute_metaevaluation(episode)
+            self._causal_tracker.observe_episode(episode)
             data = episode.to_dict()
             self._episodes.append(data)
             if len(self._episodes) > self.max_episodes:
@@ -626,9 +733,9 @@ class CognitiveEpisodeManager:
                 "datasets": self._dataset_builder.status(),
                 "pending_dataset_candidates": self._dataset_builder.pending(limit=12),
                 "confidence_summary": dict(self._confidence_summary),
+                "causality": self._causal_tracker.snapshot(),
             }
 
     def episodes(self, limit: int = 50) -> list[dict[str, Any]]:
         with self._lock:
             return list(self._episodes[-max(1, min(limit, self.max_episodes)) :])
-

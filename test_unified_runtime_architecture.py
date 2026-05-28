@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -121,6 +122,45 @@ def test_unified_runtime_promotes_high_signal_episodes(tmp_path: Path) -> None:
     assert episodes
     assert episodes[-1]["trace_id"] == "trace-1"
     assert episodes[-1]["confidence_breakdown"]["synthesis_confidence"] > 0
+
+
+def test_unified_runtime_episode_includes_causality_and_metaevaluation(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    rt.ingest_external_event(
+        event_type="response.complete",
+        source="evaluation_engine",
+        payload={
+            "trace_id": "trace-causal-1",
+            "cognition_id": "cog-causal-1",
+            "topic": "provider influence",
+            "evaluation_score": 0.78,
+            "quality_score": 0.78,
+            "provider": "qwen",
+            "memory_id": "mem-causal-1",
+            "runtime_mode": "api",
+            "event_priority": "high",
+            "decision_lineage": ["retrieval", "reflection", "evaluation"],
+            "downstream_effect": "learning.cycle.complete",
+        },
+    )
+    episodes = rt.episodes(limit=10)
+    assert episodes
+    latest = episodes[-1]
+    assert "causal_influences" in latest
+    assert "provider_influence" in latest["causal_influences"]
+    assert "metaevaluation" in latest
+    assert "runtime_coherence" in latest["metaevaluation"]
+    state = rt.state(core=None)
+    assert "causality" in state["cognition"]
+
+
+def test_unified_runtime_cognition_recovery_command(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    raw = rt.dispatch_command(command="runtime cognition recovery", core=None)
+    data = json.loads(raw)
+    assert "A_historical_cognition_topology_map" in data
+    assert "F_causal_cognition_architecture" in data
+    assert "K_actual_implementation" in data
 
 
 def test_unified_runtime_filters_repetitive_noise(tmp_path: Path) -> None:
