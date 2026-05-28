@@ -14,10 +14,13 @@ import logging
 import os
 import threading
 import time
+import uuid
 from collections import deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+
+from modules.cognitive_episode import CognitiveEpisodeManager, RuntimeSignificanceEngine
 
 log = logging.getLogger("Niblit.UnifiedRuntime")
 _DEFAULT_PROVIDER_MAX_TOKENS = int(
@@ -46,6 +49,7 @@ class RuntimeEvent:
     source: str
     payload: dict[str, Any] = field(default_factory=dict)
     ts: float = field(default_factory=_utc_ts)
+    significance: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         out = asdict(self)
@@ -65,6 +69,11 @@ class RuntimeState:
     telemetry_snapshots: list[dict[str, Any]] = field(default_factory=list)
     runtime_config: dict[str, Any] = field(default_factory=dict)
     deployment: dict[str, Any] = field(default_factory=dict)
+    cognitive_episodes: list[dict[str, Any]] = field(default_factory=list)
+    cognitive_reflections: list[dict[str, Any]] = field(default_factory=list)
+    cognitive_compression: dict[str, Any] = field(default_factory=dict)
+    cognitive_datasets: dict[str, Any] = field(default_factory=dict)
+    confidence_summary: dict[str, Any] = field(default_factory=dict)
     last_updated_at: float = field(default_factory=_utc_ts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -88,6 +97,7 @@ class RuntimeEventBus:
         self._dropped_events = 0
         self._unconsumed_events = 0
         self._timestamps: deque[float] = deque(maxlen=1024)
+        self._significance = RuntimeSignificanceEngine()
 
     def subscribe(self, handler: Any) -> None:
         with self._lock:
@@ -96,12 +106,15 @@ class RuntimeEventBus:
 
     def emit(self, event_type: str, source: str, payload: dict[str, Any] | None = None) -> RuntimeEvent:
         with self._lock:
+            signaled_payload = dict(payload or {})
+            significance = self._significance.score_event(event_type, source, signaled_payload)
             self._seq += 1
             event = RuntimeEvent(
                 id=self._seq,
                 type=event_type,
                 source=source,
-                payload=dict(payload or {}),
+                payload=signaled_payload,
+                significance=significance,
             )
             self._events.append(event)
             if len(self._events) > MAX_EVENT_BUFFER:
@@ -136,6 +149,7 @@ class RuntimeEventBus:
                 "dropped_events": self._dropped_events,
                 "unconsumed_events": self._unconsumed_events,
                 "throughput_last_minute": throughput,
+                "significance": self._significance.summary(),
             }
 
 
@@ -406,7 +420,15 @@ class RuntimeTelemetryManager:
         self._lock = threading.RLock()
         self._history: list[dict[str, Any]] = []
 
-    def snapshot(self, *, core: Any, state: RuntimeState, provider_status: dict[str, Any], event_stats: dict[str, Any]) -> dict[str, Any]:
+    def snapshot(
+        self,
+        *,
+        core: Any,
+        state: RuntimeState,
+        provider_status: dict[str, Any],
+        event_stats: dict[str, Any],
+        cognitive_status: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         import threading as _threading
 
         facts_count = None
@@ -470,6 +492,7 @@ class RuntimeTelemetryManager:
             "module_event_observability": module_event_observability,
             "provider_health": provider_status.get("health", {}),
             "cognition": cognition_metrics,
+            "cognitive_runtime": dict(cognitive_status or {}),
             "live_ingestion": live_ingestion,
             "deployment": dict(state.deployment),
         }
@@ -560,19 +583,26 @@ class NiblitUnifiedRuntime:
 
     def __init__(self, state_file: Path | None = None) -> None:
         self._lock = threading.RLock()
+        self.runtime_id = f"unified-{uuid.uuid4().hex[:12]}"
         self._event_bus = RuntimeEventBus()
         self._module_bus_bridge_installed = False
         self.provider_runtime = ProviderRuntimeManager(self._event_bus)
         self.telemetry_runtime = RuntimeTelemetryManager()
         self.deployment_runtime = DeploymentRuntimeManager()
         self.command_runtime = CommandRuntime(self._event_bus, self.provider_runtime)
+        self.cognitive_runtime = CognitiveEpisodeManager(runtime_id=self.runtime_id)
         self._state_file = state_file or Path(
             os.environ.get("NIBLIT_UNIFIED_RUNTIME_STATE", os.path.join(os.getcwd(), "niblit_unified_runtime_state.json"))
         )
         self._state = RuntimeState()
         self._load_state()
+        self._event_bus.subscribe(self._observe_runtime_event)
         self._bridge_module_event_bus()
-        self._event_bus.emit("boot.sequence", "NiblitUnifiedRuntime", {"state_file": str(self._state_file)})
+        self._event_bus.emit(
+            "boot.sequence",
+            "NiblitUnifiedRuntime",
+            {"state_file": str(self._state_file), "runtime_id": self.runtime_id, "trace_id": f"{self.runtime_id}:boot"},
+        )
 
     def _load_state(self) -> None:
         try:
@@ -595,6 +625,12 @@ class NiblitUnifiedRuntime:
             self._state.active_provider = provider_status.get("active_provider", self._state.active_provider)
             self._state.deployment = self.deployment_runtime.detect()
             self._state.runtime_mode = self._state.deployment.get("runtime_mode", self._state.runtime_mode)
+            cognitive_status = self.cognitive_runtime.status()
+            self._state.cognitive_episodes = list(cognitive_status.get("episodes", []))
+            self._state.cognitive_reflections = list(cognitive_status.get("reflections", []))
+            self._state.cognitive_compression = dict(cognitive_status.get("compression", {}))
+            self._state.cognitive_datasets = dict(cognitive_status.get("datasets", {}))
+            self._state.confidence_summary = dict(cognitive_status.get("confidence_summary", {}))
             ms = provider_status.get("manager_status", {})
             loaded_models = [
                 str(ms.get("qwen_model", "")),
@@ -608,6 +644,7 @@ class NiblitUnifiedRuntime:
                 state=self._state,
                 provider_status=provider_status,
                 event_stats=self._event_bus.stats(),
+                cognitive_status=cognitive_status,
             )
             self._state.telemetry_snapshots.append(dict(telemetry))
             if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
@@ -619,12 +656,46 @@ class NiblitUnifiedRuntime:
                 "providers": provider_status,
                 "telemetry": telemetry,
                 "events": self._event_bus.stats(),
+                "cognition": cognitive_status,
             }
 
     def boot(self, core: Any | None = None) -> dict[str, Any]:
         out = self._update_from_status(core=core)
-        self._event_bus.emit("runtime.ready", "NiblitUnifiedRuntime", {"active_provider": out["state"]["active_provider"]})
+        self._event_bus.emit(
+            "runtime.ready",
+            "NiblitUnifiedRuntime",
+            {
+                "active_provider": out["state"]["active_provider"],
+                "runtime_id": self.runtime_id,
+                "trace_id": f"{self.runtime_id}:ready",
+                "runtime_mode": out["state"]["runtime_mode"],
+            },
+        )
         return out
+
+    def _observe_runtime_event(self, event: RuntimeEvent) -> None:
+        try:
+            event_dict = event.to_dict()
+            payload = dict(event_dict.get("payload", {}) or {})
+            payload.setdefault("runtime_id", self.runtime_id)
+            if not payload.get("trace_id"):
+                payload["trace_id"] = f"{self.runtime_id}:{event.type}:{event.id}"
+            payload.setdefault("runtime_mode", self._state.runtime_mode)
+            event_dict["payload"] = payload
+            episode = self.cognitive_runtime.observe_event(event_dict, runtime_mode=self._state.runtime_mode)
+            if episode:
+                with self._lock:
+                    self._state.cognitive_sessions.append(
+                        {
+                            "episode_id": episode.get("episode_id"),
+                            "topic": episode.get("topic"),
+                            "confidence_score": episode.get("confidence_score"),
+                            "timestamp": episode.get("timestamp_lineage", {}).get("closed_at"),
+                        }
+                    )
+                    self._state.cognitive_sessions = self._state.cognitive_sessions[-60:]
+        except Exception as exc:
+            log.debug("Failed observing runtime event: %s", exc)
 
     def _bridge_module_event_bus(self) -> None:
         if self._module_bus_bridge_installed:
@@ -637,6 +708,12 @@ class NiblitUnifiedRuntime:
                 if payload.get("_runtime_unified_seen"):
                     return
                 payload["_runtime_unified_seen"] = True
+                payload.setdefault("runtime_id", self.runtime_id)
+                payload.setdefault("runtime_mode", self._state.runtime_mode)
+                payload.setdefault(
+                    "trace_id",
+                    payload.get("trace_id") or f"{self.runtime_id}:{getattr(event, 'type', 'event')}:{int(time.time() * 1000)}",
+                )
                 self._event_bus.emit(str(getattr(event, "type", "event")), str(getattr(event, "source", "modules")), payload)
 
             get_event_bus().subscribe_all(_handle)
@@ -656,8 +733,18 @@ class NiblitUnifiedRuntime:
     def events(self, *, since: int = 0, limit: int = 100) -> list[dict[str, Any]]:
         return self._event_bus.events(since=since, limit=limit)
 
+    def episodes(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        return self.cognitive_runtime.episodes(limit=limit)
+
+    def reflections(self) -> list[dict[str, Any]]:
+        return self.cognitive_runtime.status().get("reflections", [])
+
     def ingest_external_event(self, *, event_type: str, source: str, payload: dict[str, Any] | None = None) -> None:
-        self._event_bus.emit(event_type, source, payload)
+        enriched = dict(payload or {})
+        enriched.setdefault("runtime_id", self.runtime_id)
+        enriched.setdefault("runtime_mode", self._state.runtime_mode)
+        enriched.setdefault("trace_id", enriched.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}")
+        self._event_bus.emit(event_type, source, enriched)
 
     def stream_frame(self, *, core: Any | None = None, since: int = 0) -> dict[str, Any]:
         status = self._update_from_status(core=core)
@@ -669,6 +756,11 @@ class NiblitUnifiedRuntime:
             "telemetry": status["telemetry"],
             "events": self._event_bus.events(since=since, limit=200),
             "provider": status["providers"],
+            "episodes": status["cognition"].get("episodes", []),
+            "reflections": status["cognition"].get("reflections", []),
+            "dataset": status["cognition"].get("datasets", {}),
+            "compression": status["cognition"].get("compression", {}),
+            "confidence": status["cognition"].get("confidence_summary", {}),
         }
 
 

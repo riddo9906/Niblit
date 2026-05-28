@@ -21,6 +21,7 @@ def test_event_bus_emit_and_replay() -> None:
     assert len(events) == 2
     assert events[0]["type"] == "provider.started"
     assert events[1]["type"] == "provider.failed"
+    assert "significance" in events[0]
 
 
 def test_event_bus_since_cursor() -> None:
@@ -97,6 +98,40 @@ def test_unified_runtime_stream_frame_shape(tmp_path: Path) -> None:
     assert "state" in frame
     assert "telemetry" in frame
     assert "events" in frame
+    assert "episodes" in frame
+    assert "confidence" in frame
+
+
+def test_unified_runtime_promotes_high_signal_episodes(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    rt.ingest_external_event(
+        event_type="reflection.complete",
+        source="reflection_engine",
+        payload={
+            "trace_id": "trace-1",
+            "cognition_id": "cog-1",
+            "topic": "provider routing quality",
+            "reflection_summary": "Provider effectiveness drift detected and memory usefulness degraded.",
+            "evaluation_score": 0.84,
+            "provider": "qwen",
+            "memory_id": "mem-1",
+        },
+    )
+    episodes = rt.episodes(limit=10)
+    assert episodes
+    assert episodes[-1]["trace_id"] == "trace-1"
+    assert episodes[-1]["confidence_breakdown"]["synthesis_confidence"] > 0
+
+
+def test_unified_runtime_filters_repetitive_noise(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    for _ in range(8):
+        rt.ingest_external_event(
+            event_type="telemetry.tick",
+            source="telemetry",
+            payload={"event_priority": "normal"},
+        )
+    assert rt.episodes(limit=20) == []
 
 
 @pytest.fixture()
@@ -119,8 +154,16 @@ def server_client():
         "providers": {"health": {}},
         "telemetry": {"threads": 2, "facts_count": 1},
         "events": {"event_counts": {"boot.sequence": 1}},
+        "cognition": {
+            "episodes": [{"episode_id": "ep-1", "topic": "runtime ready"}],
+            "reflections": [{"type": "session", "summary": "stable"}],
+            "datasets": {"pending_candidates": 1},
+            "compression": {"semantic_clusters": []},
+            "confidence_summary": {"synthesis_confidence": 0.75},
+        },
     }
     runtime.events.return_value = [{"id": 1, "type": "boot.sequence", "source": "runtime", "payload": {}}]
+    runtime.episodes.return_value = [{"episode_id": "ep-1", "topic": "runtime ready"}]
     runtime.stream_frame.return_value = {
         "stream_format": "niblit.runtime.stream.v1",
         "type": "runtime.frame",
@@ -128,6 +171,11 @@ def server_client():
         "telemetry": {"threads": 2, "facts_count": 1},
         "events": [{"id": 1, "type": "telemetry.update", "source": "runtime", "payload": {}}],
         "provider": {"active_provider": "qwen"},
+        "episodes": [{"episode_id": "ep-1"}],
+        "reflections": [{"type": "session"}],
+        "dataset": {"pending_candidates": 1},
+        "compression": {"semantic_clusters": []},
+        "confidence": {"synthesis_confidence": 0.75},
     }
 
     with patch("server.get_core", return_value=mock_core), patch("server.get_unified_runtime", return_value=runtime):
@@ -154,6 +202,16 @@ def test_server_runtime_events_endpoint(server_client) -> None:
     data = resp.json()
     assert "events" in data
     assert isinstance(data["events"], list)
+
+
+def test_server_runtime_episodes_endpoint(server_client) -> None:
+    client, runtime = server_client
+    resp = client.get("/api/runtime/episodes?limit=10")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "episodes" in data
+    assert "reflections" in data
+    runtime.episodes.assert_called()
 
 
 def test_server_chat_uses_runtime_dispatch(server_client) -> None:

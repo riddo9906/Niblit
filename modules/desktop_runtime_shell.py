@@ -158,6 +158,9 @@ class DesktopRuntimeShell:
         self._tasks_text = self._mk_text(tab("Background Tasks"))
         self._orchestration_text = self._mk_text(tab("Orchestration Graph"))
         self._metrics_text = self._mk_text(tab("Cognitive Metrics"))
+        self._timeline_text = self._mk_text(tab("Cognitive Timeline"))
+        self._reflection_viewer_text = self._mk_text(tab("Reflection Viewer"))
+        self._dataset_text = self._mk_text(tab("Dataset Signals"))
 
         self._append(self._chat_text, "Niblit Desktop Cognitive Runtime ready.")
 
@@ -423,6 +426,7 @@ class DesktopRuntimeShell:
         providers = {}
         telemetry = {}
         events_stats = {}
+        cognition = {}
         if self._runtime is not None:
             try:
                 snap = self._runtime.state(core=self.core)
@@ -430,6 +434,7 @@ class DesktopRuntimeShell:
                 providers = snap.get("providers", {})
                 telemetry = snap.get("telemetry", {})
                 events_stats = snap.get("events", {})
+                cognition = snap.get("cognition", {})
                 new_events = self._runtime.events(since=self._runtime_event_cursor, limit=200)
                 for ev in new_events:
                     self._runtime_event_cursor = max(self._runtime_event_cursor, int(ev.get("id", 0)))
@@ -518,7 +523,10 @@ class DesktopRuntimeShell:
         self._replace(self._models_text, self._model_status_text())
         self._replace(self._tasks_text, self._tasks_text_value())
         self._replace(self._orchestration_text, self._orchestration_graph_text())
-        self._replace(self._metrics_text, self._metrics_text_value(telemetry, events_stats))
+        self._replace(self._metrics_text, self._metrics_text_value(telemetry, events_stats, cognition))
+        self._replace(self._timeline_text, self._timeline_text_value(cognition))
+        self._replace(self._reflection_viewer_text, self._reflection_text_value(cognition))
+        self._replace(self._dataset_text, self._dataset_text_value(cognition))
 
     @staticmethod
     def _bar(label: str, value: int, unit: int = 1, width: int = 20) -> str:
@@ -650,19 +658,68 @@ class DesktopRuntimeShell:
         )
 
     @staticmethod
-    def _metrics_text_value(telemetry: dict[str, Any], events_stats: dict[str, Any]) -> str:
+    def _metrics_text_value(telemetry: dict[str, Any], events_stats: dict[str, Any], cognition: dict[str, Any]) -> str:
         event_counts = events_stats.get("event_counts", {}) if isinstance(events_stats, dict) else {}
+        significance = events_stats.get("significance", {}) if isinstance(events_stats, dict) else {}
+        confidence = cognition.get("confidence_summary", {}) if isinstance(cognition, dict) else {}
         return "\n".join(
             [
                 "Cognitive Metrics Display",
                 f"telemetry: {telemetry}",
                 f"event_counts: {event_counts}",
+                f"significance: {significance}",
+                f"confidence: {confidence}",
                 f"last_event_id: {events_stats.get('last_event_id') if isinstance(events_stats, dict) else 'n/a'}",
                 f"dropped_events: {events_stats.get('dropped_events') if isinstance(events_stats, dict) else 'n/a'}",
                 f"unconsumed_events: {events_stats.get('unconsumed_events') if isinstance(events_stats, dict) else 'n/a'}",
                 f"throughput_last_minute: {events_stats.get('throughput_last_minute') if isinstance(events_stats, dict) else 'n/a'}",
             ]
         )
+
+    @staticmethod
+    def _timeline_text_value(cognition: dict[str, Any]) -> str:
+        lines = ["Unified Cognitive Timeline"]
+        episodes = cognition.get("episodes", []) if isinstance(cognition, dict) else []
+        if not episodes:
+            lines.append("No cognitive episodes yet.")
+            return "\n".join(lines)
+        for item in episodes[-10:]:
+            ts = item.get("timestamp_lineage", {}).get("closed_at") or item.get("timestamp_lineage", {}).get("last_event_at")
+            lines.append(
+                f"- {ts} | {item.get('topic', 'episode')} | "
+                f"sig={item.get('significance', {}).get('classification', 'low')} | "
+                f"conf={float(item.get('confidence_score', 0.0) or 0.0):.2f} | "
+                f"eval={float(item.get('evaluation_score', 0.0) or 0.0):.2f}"
+            )
+        return "\n".join(lines)
+
+    @staticmethod
+    def _reflection_text_value(cognition: dict[str, Any]) -> str:
+        lines = ["Long-Horizon Reflection Viewer"]
+        reflections = cognition.get("reflections", []) if isinstance(cognition, dict) else []
+        if not reflections:
+            lines.append("No reflections available.")
+            return "\n".join(lines)
+        for item in reflections:
+            lines.append(f"- {item.get('type')}: {item.get('summary')}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _dataset_text_value(cognition: dict[str, Any]) -> str:
+        lines = ["Dataset Generation Indicators"]
+        dataset = cognition.get("datasets", {}) if isinstance(cognition, dict) else {}
+        compression = cognition.get("compression", {}) if isinstance(cognition, dict) else {}
+        pending = cognition.get("pending_dataset_candidates", []) if isinstance(cognition, dict) else []
+        lines.append(f"dataset: {dataset}")
+        lines.append(f"compression: {compression}")
+        if pending:
+            lines.append("pending_candidates:")
+            for item in pending[:6]:
+                prompt = str(item.get("prompt", ""))[:120]
+                lines.append(f"- {prompt}")
+        else:
+            lines.append("pending_candidates: none")
+        return "\n".join(lines)
 
 
 def launch_desktop_shell(core: Any, io: Any | None = None) -> bool:

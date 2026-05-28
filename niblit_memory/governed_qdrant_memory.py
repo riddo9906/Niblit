@@ -267,6 +267,40 @@ class GovernedQdrantMemoryCluster:
             "by_state": by_state,
             "by_runtime_mode": by_runtime_mode,
             "drift": detect_memory_drift(records),
+            "compression_candidates": self.compression_candidates(records=records),
+        }
+
+    def compression_candidates(self, *, records: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        """Return governed semantic compression candidates without deleting memory."""
+        with self._lock:
+            catalog_records = list(records if records is not None else self._catalog.values())
+        clusters: dict[str, list[str]] = {}
+        stale: list[str] = []
+        preserve: list[str] = []
+        now = int(time.time())
+        for record in catalog_records:
+            summary = str(record.get("summary") or record.get("content_text") or "").lower()
+            tokens = sorted({token for token in summary.split() if len(token) > 3})[:4]
+            cluster_key = "|".join(tokens) or record.get("memory_type", "memory")
+            clusters.setdefault(cluster_key, []).append(str(record.get("memory_id")))
+            importance = float(record.get("importance_score", 0.0) or 0.0)
+            last_accessed = int(record.get("last_accessed_at") or record.get("created_at") or now)
+            if (now - last_accessed) > 86400 and importance < 0.45:
+                stale.append(str(record.get("memory_id")))
+            if importance >= 0.75 or str((record.get("replay_metadata") or {}).get("trace_id", "")).strip():
+                preserve.append(str(record.get("memory_id")))
+        semantic_clusters = [
+            {"cluster": key, "memory_ids": ids[:8], "count": len(ids)}
+            for key, ids in clusters.items()
+            if len(ids) > 1
+        ]
+        return {
+            "semantic_clusters": semantic_clusters[:12],
+            "duplicate_collapse": [item for item in semantic_clusters if item["count"] > 2][:8],
+            "stale_candidates": stale[:12],
+            "preserve_high_value": preserve[:12],
+            "auto_delete": False,
+            "governance_required": True,
         }
 
 
