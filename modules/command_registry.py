@@ -232,18 +232,18 @@ class CanonicalRuntimeCapabilityRegistry:
             return f"[UNAVAILABLE] {metadata.prefix} — {reason}"
         if not callable(metadata.handler):
             return None
+        remaining = (text or "")[len(matched_name):].strip()
         try:
-            remaining = (text or "")[len(matched_name):].strip()
             result = metadata.handler(remaining)
-            self.stats["total_executed"] += 1
-            self.stats["by_category"][metadata.category] = self.stats["by_category"].get(metadata.category, 0) + 1
-            return result
         except Exception as exc:
             log.error("Command execution failed: %s", exc, exc_info=True)
             self.stats["total_executed"] += 1
             self.stats["total_failed"] += 1
             self.stats["by_category"][metadata.category] = self.stats["by_category"].get(metadata.category, 0) + 1
             return f"[ERROR] Command failed: {exc}"
+        self.stats["total_executed"] += 1
+        self.stats["by_category"][metadata.category] = self.stats["by_category"].get(metadata.category, 0) + 1
+        return result
 
     def get_help(
         self,

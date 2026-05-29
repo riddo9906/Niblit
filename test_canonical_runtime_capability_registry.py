@@ -197,8 +197,12 @@ def test_get_stats_initial_state_has_full_success_rate() -> None:
 
 def test_get_stats_tracks_successes_and_failures() -> None:
     registry = CanonicalRuntimeCapabilityRegistry()
+
+    def _exploding(_text: str = "") -> str:
+        raise RuntimeError("boom")
+
     registry.register("good", lambda _text="": "ok", "Good", "core")
-    registry.register("bad", lambda _text="": (_ for _ in ()).throw(RuntimeError("boom")), "Bad", "core")
+    registry.register("bad", _exploding, "Bad", "core")
 
     registry.execute("good", surface="cli")
     registry.execute("good", surface="cli")
@@ -211,8 +215,11 @@ def test_get_stats_tracks_successes_and_failures() -> None:
 
 
 def test_execute_returns_error_string_on_failure() -> None:
+    def _kaboom(_text: str = "") -> str:
+        raise ValueError("kaboom")
+
     registry = CanonicalRuntimeCapabilityRegistry()
-    registry.register("explode", lambda _text="": (_ for _ in ()).throw(ValueError("kaboom")), "Explode", "core")
+    registry.register("explode", _kaboom, "Explode", "core")
     result = registry.execute("explode", surface="cli")
     assert result is not None
     assert "[ERROR]" in result
