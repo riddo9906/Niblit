@@ -10783,6 +10783,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "my modules               — List loaded Python modules and their wiring status\n"
             "my commands              — Enumerate every registered command with handler and priority\n"
             "dashboard                — Full runtime dashboard: threads, loops, memory, ALE, modules\n"
+            "runtime cognition recovery | runtime causality — Runtime cognition recovery map / causality snapshot\n"
             "operational flow         — Explain how routing, background loops, and memory connect\n"
             "resource usage           — Show RAM usage, CPU percent, and process uptime\n"
             "\n--- SLSA ENGINE ---\n"
