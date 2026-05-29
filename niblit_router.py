@@ -7727,10 +7727,10 @@ Ask me about:
                 if marker in curated_help or marker.rstrip() in curated_help:
                     continue
                 desc = getattr(metadata, "description", "") or "Registered command"
-                missing.append(f"{prefix:<30} — {desc}")
+                missing.append(f"{prefix:<34} — {desc}")
             if missing:
                 commands.extend([
-                    "=== LIVE REGISTERED COMMANDS (NEW / MISSING FROM CURATED HELP) ===",
+                    "--- LIVE REGISTERED COMMANDS (NEW / MISSING FROM CURATED HELP) ---",
                     *missing,
                     "",
                 ])

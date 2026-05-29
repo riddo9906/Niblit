@@ -10823,7 +10823,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     continue
                 desc = getattr(metadata, "description", "")
                 missing_entries.append(
-                    f"{prefix:<28} — {desc or 'Registered command'}"
+                    f"{prefix:<34} — {desc or 'Registered command'}"
                 )
             if missing_entries:
                 dynamic_help = (
