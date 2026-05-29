@@ -5102,7 +5102,7 @@ Ask me about:
     # UNIFIED RUNTIME CLI DISPATCH
     # ─────────────────────────────────
     def _handle_unified_runtime_cmd(self, cmd: str) -> str:
-        """Forward 'runtime provider' and 'runtime infer' to UnifiedRuntime.CommandRuntime.
+        """Forward unified runtime/retrieval commands to UnifiedRuntime.CommandRuntime.
 
         This ensures CLI and desktop-shell parity for runtime sub-commands.
         """
@@ -6446,6 +6446,14 @@ Ask me about:
 
         # Unified runtime inference: 'runtime infer <prompt>'
         if lower.startswith("runtime infer "):
+            return self._handle_unified_runtime_cmd(cmd)
+        if (
+            lower.startswith("retrieval ")
+            or lower.startswith("memory-retrieval ")
+            or lower.startswith("adaptive-retrieval ")
+            or lower.startswith("cognition-retrieval ")
+            or lower in {"retrieval", "memory-retrieval", "adaptive-retrieval", "cognition-retrieval"}
+        ):
             return self._handle_unified_runtime_cmd(cmd)
 
         if lower in ("how do i work", "operational flow", "my flow", "loop flow", "sa-flow"):

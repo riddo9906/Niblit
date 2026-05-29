@@ -119,6 +119,10 @@ _SHELL_COMMANDS = [
     "orchestrate audit", "orchestrate self-heal", "orchestrate pipeline",
     "llm-provider list", "llm-provider status",
     "runtime status", "runtime provider", "runtime infer",
+    "retrieval status", "retrieval inspect", "retrieval contradictions",
+    "retrieval mastery", "retrieval sources", "retrieval gaps",
+    "retrieval reflections", "retrieval curriculum", "retrieval lineage",
+    "retrieval confidence", "retrieval causality",
 ]
 
 

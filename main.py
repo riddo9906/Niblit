@@ -126,6 +126,17 @@ LEGACY_COMMANDS = [
     "dev-agent architecture",
     "dev-agent analyze",
     "dev-agent approve",
+    "retrieval status",
+    "retrieval inspect",
+    "retrieval contradictions",
+    "retrieval mastery",
+    "retrieval sources",
+    "retrieval gaps",
+    "retrieval reflections",
+    "retrieval curriculum",
+    "retrieval lineage",
+    "retrieval confidence",
+    "retrieval causality",
 ]
 
 def timestamp():

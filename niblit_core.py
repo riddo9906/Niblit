@@ -2556,6 +2556,48 @@ class NiblitCore:
             execution_authority="CanonicalRuntimeCapabilityRegistry.detailed_report",
             source_authority="modules/command_registry.py",
         )
+        self.command_registry.register(
+            "retrieval status",
+            lambda _text="": self._dispatch_unified_runtime_command("retrieval status"),
+            "Show adaptive retrieval runtime telemetry and cognition status",
+            "runtime",
+            priority=98,
+            aliases=("memory-retrieval status", "adaptive-retrieval status", "cognition-retrieval status"),
+            cognition_classification="runtime",
+            execution_authority="NiblitUnifiedRuntime.dispatch_command",
+            source_authority="modules/adaptive_retrieval_cognition.py",
+        )
+        self.command_registry.register(
+            "retrieval inspect",
+            lambda text="": self._dispatch_unified_runtime_command(f"retrieval inspect {text}".strip()),
+            "Inspect topic-specific retrieval mastery, gaps, and lineage",
+            "runtime",
+            priority=98,
+            cognition_classification="runtime",
+            execution_authority="NiblitUnifiedRuntime.dispatch_command",
+            source_authority="modules/adaptive_retrieval_cognition.py",
+        )
+        for _cmd, _desc in (
+            ("retrieval contradictions", "Show unresolved contradiction clusters and source conflicts"),
+            ("retrieval mastery", "Show topic mastery progression and confidence evolution"),
+            ("retrieval sources", "Show governed source reliability scoring"),
+            ("retrieval gaps", "Show unresolved retrieval knowledge gaps"),
+            ("retrieval reflections", "Show retrieval-linked reflection/evaluation context"),
+            ("retrieval curriculum", "Show adaptive curriculum recommendations"),
+            ("retrieval lineage", "Show retrieval/document/episode lineage chain"),
+            ("retrieval confidence", "Show retrieval confidence and synthesis telemetry"),
+            ("retrieval causality", "Show causal cognition influence weights from retrieval"),
+        ):
+            self.command_registry.register(
+                _cmd,
+                lambda _text="", _c=_cmd: self._dispatch_unified_runtime_command(_c),
+                _desc,
+                "runtime",
+                priority=98,
+                cognition_classification="runtime",
+                execution_authority="NiblitUnifiedRuntime.dispatch_command",
+                source_authority="modules/adaptive_retrieval_cognition.py",
+            )
 
         # Autonomous Learning Commands
         self.command_registry.register(
