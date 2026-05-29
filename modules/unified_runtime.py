@@ -711,9 +711,9 @@ class NiblitUnifiedRuntime:
         if self._module_bus_bridge_installed:
             return
         try:
-            from modules.event_bus import get_event_bus
+            from modules.event_bus import EVENT_MARKET_REGIME_FORECAST, get_event_bus
 
-            def _handle(event: Any) -> None:
+            def _bridge_module_event(event: Any, *, lineage: str | None = None) -> None:
                 payload = dict(getattr(event, "payload", {}) or {})
                 if payload.get("_runtime_unified_seen"):
                     return
@@ -724,9 +724,21 @@ class NiblitUnifiedRuntime:
                     "trace_id",
                     payload.get("trace_id") or f"{self.runtime_id}:{getattr(event, 'type', 'event')}:{int(time.time() * 1000)}",
                 )
+                if lineage:
+                    payload.setdefault("lineage_channel", lineage)
                 self._event_bus.emit(str(getattr(event, "type", "event")), str(getattr(event, "source", "modules")), payload)
 
-            get_event_bus().subscribe_all(_handle)
+            def _handle(event: Any) -> None:
+                if str(getattr(event, "type", "")) == EVENT_MARKET_REGIME_FORECAST:
+                    return
+                _bridge_module_event(event)
+
+            def _handle_market_forecast(event: Any) -> None:
+                _bridge_module_event(event, lineage="explicit.market_regime_forecast")
+
+            bus = get_event_bus()
+            bus.subscribe_all(_handle)
+            bus.subscribe(EVENT_MARKET_REGIME_FORECAST, _handle_market_forecast)
             self._module_bus_bridge_installed = True
         except Exception as exc:
             log.debug("Failed installing module event bus bridge: %s", exc)

@@ -407,6 +407,12 @@ class CognitiveEpisodeManager:
             "liquidity",
             "macro_sentiment",
             "execution_environment",
+            "horizon_short",
+            "horizon_medium",
+            "horizon_long",
+            "scenario_probabilities",
+            "uncertainty",
+            "action_recommendations",
         ):
             if key in payload:
                 out[key] = payload.get(key)

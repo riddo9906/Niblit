@@ -130,6 +130,7 @@ EVENT_ATTENTION_ALLOCATED       = "attention.allocated"
 EVENT_EXECUTION_ENVELOPE_PUBLISHED = "execution_envelope.published"   # schema-v2 envelope written to disk
 EVENT_TRADE_REFLECTION_INGESTED    = "trade_reflection.ingested"       # reflection JSONL record ingested
 EVENT_MARKET_EPISODE_INGESTED      = "market_episode.ingested"         # market episode JSONL record ingested
+EVENT_MARKET_REGIME_FORECAST       = "market_regime.forecast"          # predictive world-model forecast emitted
 EVENT_RUNTIME_MODE_CHANGED         = "runtime_mode.changed"            # governance mode transition
 
 # Knowledge-Gap Cognition Layer
