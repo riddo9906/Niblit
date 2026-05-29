@@ -84,7 +84,9 @@ class DesktopRuntimeShell:
         """Launch the desktop shell. Returns True when launched."""
         if not desktop_ui_supported():
             _hint = (
-                " On WSL, set DISPLAY (e.g. DISPLAY=:0) or use WSL2 with WSLg."
+                " On WSL, WSLg should enable UI automatically. If UI was disabled via "
+                "--headless/NIBLIT_HEADLESS or unavailable in your distro, re-enable UI "
+                "and/or set DISPLAY (e.g. DISPLAY=:0)."
                 if _is_wsl()
                 else " Set DISPLAY or WAYLAND_DISPLAY to point at a running display server."
             )
