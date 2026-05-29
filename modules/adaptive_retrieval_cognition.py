@@ -7,14 +7,14 @@ import json
 import logging
 import re
 import time
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
 log = logging.getLogger("Niblit.AdaptiveRetrievalCognition")
 
 _ALIAS_PREFIXES = ("retrieval", "memory-retrieval", "adaptive-retrieval", "cognition-retrieval")
-_STATUS_SUBCOMMANDS = {
+_RETRIEVAL_SUBCOMMANDS = {
     "status",
     "inspect",
     "contradictions",
@@ -95,7 +95,7 @@ class AdaptiveRetrievalCognition:
                 rest = text[len(prefix) :].strip()
                 sub = rest.split(None, 1)[0].lower() if rest else "status"
                 arg = rest.split(None, 1)[1].strip() if len(rest.split(None, 1)) > 1 else ""
-                if sub in _STATUS_SUBCOMMANDS:
+                if sub in _RETRIEVAL_SUBCOMMANDS:
                     return sub, arg
                 return "status", rest
         return "", ""
@@ -329,7 +329,7 @@ class AdaptiveRetrievalCognition:
             for right in ranked[i + 1 :]:
                 rt = str(right.get("text", "")).lower()
                 overlap = left_tokens.intersection(set(re.findall(r"[a-zA-Z]{4,}", rt)))
-                if len(overlap) < 4:
+                if len(overlap) < 2:
                     continue
                 l_pos = any(t in lt for t in pos)
                 l_neg = any(t in lt for t in neg)

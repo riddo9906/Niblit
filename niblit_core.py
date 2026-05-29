@@ -2577,6 +2577,9 @@ class NiblitCore:
             execution_authority="NiblitUnifiedRuntime.dispatch_command",
             source_authority="modules/adaptive_retrieval_cognition.py",
         )
+        def _retrieval_forwarder(_command: str):
+            return lambda _text="": self._dispatch_unified_runtime_command(_command)
+
         for _cmd, _desc in (
             ("retrieval contradictions", "Show unresolved contradiction clusters and source conflicts"),
             ("retrieval mastery", "Show topic mastery progression and confidence evolution"),
@@ -2590,7 +2593,7 @@ class NiblitCore:
         ):
             self.command_registry.register(
                 _cmd,
-                lambda _text="", _c=_cmd: self._dispatch_unified_runtime_command(_c),
+                _retrieval_forwarder(_cmd),
                 _desc,
                 "runtime",
                 priority=98,
