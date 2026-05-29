@@ -10807,6 +10807,30 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "loop-errors              — Display all errors captured by the LoopTracer since startup"
         )
 
+        # Ensure newly added live registry commands are visible even when this
+        # long-form curated help text has not yet been manually updated.
+        dynamic_help = ""
+        registry = getattr(self, "command_registry", None)
+        if registry and hasattr(registry, "list_commands"):
+            missing_entries = []
+            help_lookup = f"\n{base_help.lower()}\n"
+            for metadata in registry.list_commands():
+                prefix = getattr(metadata, "prefix", "").strip()
+                if not prefix:
+                    continue
+                marker = f"\n{prefix.lower()} "
+                if marker in help_lookup or marker.rstrip() in help_lookup:
+                    continue
+                desc = getattr(metadata, "description", "")
+                missing_entries.append(
+                    f"{prefix:<28} — {desc or 'Registered command'}"
+                )
+            if missing_entries:
+                dynamic_help = (
+                    "\n\n--- LIVE REGISTERED COMMANDS (NEW / MISSING FROM CURATED HELP) ---\n"
+                    + "\n".join(missing_entries)
+                )
+
         if self.orchestrator_available:
             orchestrator_help = (
                 "\n\n--- ORCHESTRATOR ---\n"
@@ -10817,9 +10841,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 "orchestrate pipeline    — Run the complete full-upgrade pipeline end-to-end\n"
                 "hf-task <prompt>        — Execute a HuggingFace task with the given prompt"
             )
-            return base_help + orchestrator_help
+            return base_help + dynamic_help + orchestrator_help
 
-        return base_help
+        return base_help + dynamic_help
 
 
     def get_loop_errors(self) -> List[Dict]:

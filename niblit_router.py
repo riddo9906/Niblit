@@ -7714,6 +7714,26 @@ Ask me about:
             "civilization findings        — Show accumulated research insights",
             "",
         ]
+
+        registry = getattr(getattr(self, "core", None), "command_registry", None)
+        if registry and hasattr(registry, "list_commands"):
+            curated_help = "\n".join(commands).lower()
+            missing = []
+            for metadata in registry.list_commands():
+                prefix = getattr(metadata, "prefix", "").strip()
+                if not prefix:
+                    continue
+                marker = f"\n{prefix.lower()} "
+                if marker in curated_help or marker.rstrip() in curated_help:
+                    continue
+                desc = getattr(metadata, "description", "") or "Registered command"
+                missing.append(f"{prefix:<30} — {desc}")
+            if missing:
+                commands.extend([
+                    "=== LIVE REGISTERED COMMANDS (NEW / MISSING FROM CURATED HELP) ===",
+                    *missing,
+                    "",
+                ])
         return "\n".join(commands)
 
 
