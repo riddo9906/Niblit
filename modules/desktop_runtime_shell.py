@@ -91,7 +91,7 @@ class DesktopRuntimeShell:
                 else " Set DISPLAY or WAYLAND_DISPLAY to point at a running display server."
             )
             log.warning(
-                "Desktop UI unavailable: no display server detected.%s "
+                "Desktop UI unavailable: no display server detected. %s "
                 "Use --headless or NIBLIT_HEADLESS=1 to suppress this and run CLI only.",
                 _hint,
             )
