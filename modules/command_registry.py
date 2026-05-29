@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import difflib
 import logging
 from collections import defaultdict
 from collections.abc import Callable
@@ -239,7 +240,9 @@ class CanonicalRuntimeCapabilityRegistry:
             return result
         except Exception as exc:
             log.error("Command execution failed: %s", exc, exc_info=True)
+            self.stats["total_executed"] += 1
             self.stats["total_failed"] += 1
+            self.stats["by_category"][metadata.category] = self.stats["by_category"].get(metadata.category, 0) + 1
             return f"[ERROR] Command failed: {exc}"
 
     def get_help(
@@ -274,12 +277,13 @@ class CanonicalRuntimeCapabilityRegistry:
         return "\n".join(lines).rstrip()
 
     def get_stats(self) -> dict[str, Any]:
+        executed = self.stats["total_executed"]
+        failed = self.stats["total_failed"]
+        success_rate = 1.0 if executed == 0 else (executed - failed) / executed
         return {
             **self.stats,
             "registered_commands": len(self.commands),
-            "success_rate": (
-                self.stats["total_executed"] - self.stats["total_failed"]
-            ) / max(self.stats["total_executed"], 1),
+            "success_rate": success_rate,
         }
 
     def list_commands(
@@ -358,8 +362,6 @@ class CanonicalRuntimeCapabilityRegistry:
         surface: str = "discoverability",
         include_unavailable: bool = False,
     ) -> list[str]:
-        import difflib
-
         names = self.command_names(
             context=context,
             surface=surface,
@@ -418,7 +420,7 @@ class CanonicalRuntimeCapabilityRegistry:
         visible = surface in metadata.visibility_surfaces
         if surface == "desktop" and not metadata.desktop_visible:
             visible = False
-        reason = ""
+        reason = "" if visible else f"not visible on surface '{surface}'"
         available = visible
         if available and metadata.runtime_modes:
             runtime_mode = str(context.get("runtime_mode", "") or "").lower()
