@@ -2132,6 +2132,28 @@ def api_runtime_events(request: Request, since: int = 0, limit: int = 100):
     )
 
 
+@app.get("/api/runtime/episodes")
+def api_runtime_episodes(request: Request, limit: int = 50):
+    """Replay cognitive episodes and long-horizon reflections."""
+    if rate_limited(request):
+        return render_response(request, {"error": "rate limit reached"}, status=429)
+    runtime = _get_unified_runtime()
+    if runtime is None:
+        return render_response(request, {"episodes": [], "reflections": [], "dataset": {}, "compression": {}})
+    state = runtime.state(core=get_core())
+    cognition = state.get("cognition", {})
+    return render_response(
+        request,
+        {
+            "episodes": runtime.episodes(limit=limit),
+            "reflections": cognition.get("reflections", []),
+            "dataset": cognition.get("datasets", {}),
+            "compression": cognition.get("compression", {}),
+            "confidence": cognition.get("confidence_summary", {}),
+        },
+    )
+
+
 @app.websocket("/ws/runtime")
 async def ws_runtime(websocket: WebSocket):
     """Live unified runtime stream in canonical format."""

@@ -2582,6 +2582,14 @@ class NiblitCore:
             "NiblitDevAgent approval gate for staged execution tasks", "dev_agent", priority=75
         )
         self.command_registry.register(
+            "dev-agent execute", lambda t="": self._cmd_dev_agent("execute " + t),
+            "NiblitDevAgent execute an approved staged task by task_id", "dev_agent", priority=75
+        )
+        self.command_registry.register(
+            "dev-agent rollback", lambda t="": self._cmd_dev_agent("rollback " + t),
+            "NiblitDevAgent rollback an executed task by task_id", "dev_agent", priority=75
+        )
+        self.command_registry.register(
             "sa-scripts", self._cmd_sa_scripts,
             "List every repo script with its function", "structural_awareness", priority=74
         )
@@ -5829,15 +5837,27 @@ SW Categories: {stats.get('software_study_categories', 0)}
         )
 
     def _cmd_dev_agent(self, cmd: str = "") -> str:
-        """Inspect NiblitDevAgent runtime/provider/architecture snapshots."""
+        """Inspect NiblitDevAgent runtime/provider/architecture snapshots.
+
+        Routes all dev-agent CLI actions through NiblitDevAgent.handle_cli()
+        which emits telemetry spans and EventBus events for each command.
+        """
         agent = getattr(self, "niblit_dev_agent", None)
         if agent is None:
             return (
                 "[dev-agent] NiblitDevAgent not initialised.\n"
                 "It is registered during Phase-2 runtime manager startup."
             )
-        action = (cmd or "status").strip().lower()
-        return str(agent.handle_cli(action))
+        action = (cmd or "status").strip()
+        # Emit telemetry span via TelemetryCollector if available
+        telemetry = getattr(self, "telemetry", None)
+        if telemetry is not None:
+            try:
+                telemetry.increment_counter("dev_agent_commands_total")
+            except Exception:
+                pass
+        result = str(agent.handle_cli(action))
+        return result
 
     # ── Self-enhancement command (additive) ───────────────────────────────────
 
@@ -8815,6 +8835,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         try:
             rm = _RuntimeManager()
             self.runtime_manager = rm
+            self.event_bus = rm.event_bus
 
             # Build a shared brain_trainer reference (used by ReflectionAgent)
             _brain_trainer = (
@@ -10673,6 +10694,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "autonomous-learn status             — View cycle count, current topic, step timings, KB facts\n"
             "autonomous-learn add-topic <topic>  — Inject a new topic into the ALE rotation queue\n"
             "autonomous-learn code-status        — Show code-generation literacy loop status\n"
+            "autonomous-learn self-learn         — Run the structural self-learn sequence now\n"
+            "autonomous-learn evolve-sequence    — Run the structured evolve sequence now\n"
+            "autonomous-learn command-awareness  — Study all registered commands\n"
+            "autonomous-learn command-exec       — Execute safe diagnostic commands\n"
+            "autonomous-learn topic-seed         — Derive and seed new topics into ALE queues\n"
             "autonomous-learn serpex-research    — Trigger ALE Step 27: Serpex live web research\n"
             "autonomous-learn serpex-search <q>  — Ad-hoc Serpex web search → KnowledgeDB\n"
             "\n--- ALE PIPELINE (28 STEPS, RUNS CONTINUOUSLY) ---\n"
@@ -10762,8 +10788,47 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "my modules               — List loaded Python modules and their wiring status\n"
             "my commands              — Enumerate every registered command with handler and priority\n"
             "dashboard                — Full runtime dashboard: threads, loops, memory, ALE, modules\n"
+            "runtime cognition recovery | runtime causality — Runtime cognition recovery map / causality snapshot\n"
             "operational flow         — Explain how routing, background loops, and memory connect\n"
             "resource usage           — Show RAM usage, CPU percent, and process uptime\n"
+            "\n--- STRUCTURAL AWARENESS (SA) ---\n"
+            "sa-structure             — Structural inventory shortcut\n"
+            "sa-threads               — Thread inventory shortcut\n"
+            "sa-loops                 — Loop status shortcut\n"
+            "sa-modules               — Loaded modules shortcut\n"
+            "sa-commands              — Registered commands shortcut\n"
+            "sa-dashboard             — Runtime dashboard shortcut\n"
+            "sa-flow                  — Operational flow shortcut\n"
+            "sa-resources             — Resource usage shortcut\n"
+            "sa-scripts               — Runtime scripts/automation status\n"
+            "sa-awareness             — Unified structural awareness view\n"
+            "\n--- DEV AGENT ---\n"
+            "dev-agent status         — Dev-agent status snapshot\n"
+            "dev-agent runtime        — Dev-agent runtime context and lanes\n"
+            "dev-agent providers      — Provider/tooling status for dev-agent\n"
+            "dev-agent architecture   — Dev-agent architecture overview\n"
+            "dev-agent analyze <task> — Plan/analyze a development task\n"
+            "dev-agent approve <id>   — Approve a staged dev-agent mutation\n"
+            "dev-agent execute <id>   — Execute an approved dev-agent mutation\n"
+            "dev-agent rollback [id]  — Roll back the latest or specified mutation\n"
+            "\n--- BUILD ---\n"
+            "scan build [subdir]      — Scan files in the Niblit build directory\n"
+            "read build file <name>   — Read a build-directory file by filename/path\n"
+            "build summary            — Summary of the build directory\n"
+            "build path               — Show Niblit build path and sync status\n"
+            "\n--- FILE TREE ---\n"
+            "tree scan <path>         — Recursively list a directory tree\n"
+            "tree read <path>         — Read a file at any path\n"
+            "tree write <path> <txt>  — Write content to a file path\n"
+            "tree edit <path> A||B    — Replace text A with B in a file\n"
+            "\n--- DEPLOYMENT ---\n"
+            "import improvements      — Import evolved improvements into runtime memory\n"
+            "deploy improvements      — Alias for import improvements\n"
+            "hot reload improvements  — Alias for deploy improvements\n"
+            "deploy-bridge [cmd]      — Deployment bridge status/save/load\n"
+            "autonomous-network [cmd] — Autonomous network status/start/stop/reflect\n"
+            "module-autonomy [cmd]    — Module autonomy status/start/stop/module\n"
+            "coherence                — Temporal coherence status and signal snapshot\n"
             "\n--- SLSA ENGINE ---\n"
             "slsa-status              — Show SLSA engine running state and last artifact built\n"
             "start_slsa [topics]      — Start SLSA knowledge-artifact generation\n"
@@ -10785,6 +10850,30 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "loop-errors              — Display all errors captured by the LoopTracer since startup"
         )
 
+        # Ensure newly added live registry commands are visible even when this
+        # long-form curated help text has not yet been manually updated.
+        dynamic_help = ""
+        registry = getattr(self, "command_registry", None)
+        if registry and hasattr(registry, "list_commands"):
+            missing_entries = []
+            help_lookup = f"\n{base_help.lower()}\n"
+            for metadata in registry.list_commands():
+                prefix = getattr(metadata, "prefix", "").strip()
+                if not prefix:
+                    continue
+                marker = f"\n{prefix.lower()} "
+                if marker in help_lookup or marker.rstrip() in help_lookup:
+                    continue
+                desc = getattr(metadata, "description", "")
+                missing_entries.append(
+                    f"{prefix:<34} — {desc or 'Registered command'}"
+                )
+            if missing_entries:
+                dynamic_help = (
+                    "\n\n--- LIVE REGISTERED COMMANDS (NEW / MISSING FROM CURATED HELP) ---\n"
+                    + "\n".join(missing_entries)
+                )
+
         if self.orchestrator_available:
             orchestrator_help = (
                 "\n\n--- ORCHESTRATOR ---\n"
@@ -10795,9 +10884,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 "orchestrate pipeline    — Run the complete full-upgrade pipeline end-to-end\n"
                 "hf-task <prompt>        — Execute a HuggingFace task with the given prompt"
             )
-            return base_help + orchestrator_help
+            return base_help + dynamic_help + orchestrator_help
 
-        return base_help
+        return base_help + dynamic_help
 
 
     def get_loop_errors(self) -> List[Dict]:

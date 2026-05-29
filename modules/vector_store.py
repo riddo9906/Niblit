@@ -470,7 +470,7 @@ class VectorStore:
         self._qdrant_collection_dim: Optional[int] = None
         self._qdrant_dim_mismatch_logged: bool = False
         self._faiss_index: Optional[Any] = None
-        self._faiss_items: List[Dict[str, Any]] = []   # parallel list of {id, text}
+        self._faiss_items: List[Dict[str, Any]] = []   # parallel list of {id, text, vector}
         self._memory_backend = _InMemoryBackend()
         self._effective_embedding_dim: Optional[int] = None
         self._effective_dim_fallback_logged: bool = False
@@ -748,26 +748,54 @@ class VectorStore:
             return False
         try:
             import numpy as np
-            if self._faiss_index.ntotal >= _MAX_STORED_ITEMS:
+
+            # Replace existing document with same ID (dedup/upsert semantics)
+            existing_idx = next(
+                (i for i, item in enumerate(self._faiss_items) if item.get("id") == doc_id),
+                -1,
+            )
+            if existing_idx >= 0:
+                self._faiss_items[existing_idx] = {"id": doc_id, "text": text, "vector": vector}
+                self._rebuild_faiss_index()
+                return True
+
+            if self._faiss_index.ntotal >= _MAX_STORED_ITEMS and self._faiss_items:
                 log.debug("[VectorStore/FAISS] capacity reached, dropping oldest")
-                if self._faiss_items:
-                    self._faiss_items.pop(0)
-                    # FAISS IndexFlatIP doesn't support removal; rebuild
-                    vecs = []
-                    for item in self._faiss_items:
-                        v = self._embedder.encode(item["text"])
-                        if v is not None:
-                            vecs.append(v)
-                    self._faiss_index.reset()
-                    if vecs:
-                        self._faiss_index.add(np.array(vecs, dtype="float32"))
+                self._faiss_items.pop(0)
+                # FAISS IndexFlatIP doesn't support removal; rebuild.
+                self._rebuild_faiss_index()
+
             vec_np = np.array([vector], dtype="float32")
             self._faiss_index.add(vec_np)
-            self._faiss_items.append({"id": doc_id, "text": text})
+            self._faiss_items.append({"id": doc_id, "text": text, "vector": vector})
             return True
         except Exception as exc:
             log.debug("[VectorStore/FAISS] add failed: %s", exc)
             return False
+
+    def _rebuild_faiss_index(self) -> None:
+        """Rebuild FAISS index from ``_faiss_items`` (used for removals/replacements)."""
+        if not _NP_AVAILABLE or self._faiss_index is None:
+            return
+        try:
+            import numpy as np
+            vecs: List[List[float]] = []
+            rebuilt_items: List[Dict[str, Any]] = []
+            for item in self._faiss_items:
+                v = item.get("vector")
+                if v is None:
+                    v = self._embedder.encode(item.get("text", ""))
+                if v is None:
+                    continue
+                item["vector"] = v
+                rebuilt_items.append(item)
+                vecs.append(v)
+            self._faiss_items = rebuilt_items
+            self._faiss_index.reset()
+            if vecs:
+                self._faiss_index.add(np.array(vecs, dtype="float32"))
+        except Exception as exc:
+            log.debug("[VectorStore/FAISS] rebuild failed: %s", exc)
 
     def _search_qdrant(
         self, vector: Optional[List[float]], query_text: str, top_k: int

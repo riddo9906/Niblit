@@ -83,6 +83,7 @@ _DECAY_DAYS_INACTIVE = float(os.environ.get("NIBLIT_DECAY_DAYS_INACTIVE", "7.0")
 _DECAY_FACTOR = float(os.environ.get("NIBLIT_DECAY_FACTOR", "0.95"))
 _DECAY_PRUNE_THRESHOLD = float(os.environ.get("NIBLIT_DECAY_PRUNE_THRESHOLD", "0.10"))
 _MAINTENANCE_EVERY = int(os.environ.get("NIBLIT_COGNITION_MAINTENANCE_EVERY", "5"))
+_AUTO_WIRE = object()
 
 # ── Optional dependency imports (graceful degradation) ────────────────────────
 try:
@@ -192,7 +193,7 @@ class CognitionCore:
     def __init__(
         self,
         reasoning_engine: Optional[Any] = None,
-        memory_graph: Optional[Any] = None,
+        memory_graph: Any = _AUTO_WIRE,
         goal_engine: Optional[Any] = None,
         knowledge_db: Optional[Any] = None,
         decay_days_inactive: float = _DECAY_DAYS_INACTIVE,
@@ -211,15 +212,16 @@ class CognitionCore:
         else:
             self.reasoning_engine = None
 
-        if memory_graph is not None:
-            self.memory_graph: Optional[Any] = memory_graph
-        elif _MEMORY_GRAPH_AVAILABLE and _get_memory_graph is not None:
-            try:
-                self.memory_graph = _get_memory_graph()
-            except Exception:  # pragma: no cover
+        if memory_graph is _AUTO_WIRE:
+            if _MEMORY_GRAPH_AVAILABLE and _get_memory_graph is not None:
+                try:
+                    self.memory_graph: Optional[Any] = _get_memory_graph()
+                except Exception:  # pragma: no cover
+                    self.memory_graph = None
+            else:
                 self.memory_graph = None
         else:
-            self.memory_graph = None
+            self.memory_graph = memory_graph
 
         if goal_engine is not None:
             self.goal_engine: Optional[Any] = goal_engine

@@ -37,6 +37,7 @@ Usage::
 import logging
 import threading
 import time
+import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from core.event_bus import Event, EventBus, EventType
@@ -67,18 +68,26 @@ class RuntimeManager:
         history_limit: int = 1000,
         queue_max_size: int = 0,
     ) -> None:
+        self.runtime_id = f"runtime-{uuid.uuid4().hex[:12]}"
         self.event_bus = EventBus(history_limit=history_limit)
         self.task_queue = TaskQueue(max_size=queue_max_size)
         self.orchestrator = Orchestrator(self.event_bus, self.task_queue)
+        self._module_bus = None
+        self._module_bus_attached = False
 
         self._running = False
         self._loop_thread: Optional[threading.Thread] = None
+        self._attach_runtime_bridges()
 
         # Publish system-started event
         self.event_bus.publish(Event(
             type=EventType.SYSTEM_STARTED,
             payload={"time": time.time()},
             source="runtime_manager",
+            runtime_id=self.runtime_id,
+            source_module="runtime_manager",
+            event_category="runtime",
+            event_priority="high",
         ))
 
     # ── agent registration ────────────────────────────────────────────────────
@@ -177,13 +186,143 @@ class RuntimeManager:
     def get_stats(self) -> Dict[str, Any]:
         return {
             "running": self._running,
+            "runtime_id": self.runtime_id,
             "orchestrator": self.orchestrator.get_stats(),
             "event_history": len(self.event_bus.get_history()),
+            "event_diagnostics": self.event_bus.observability_report(),
         }
 
     def subscribe(self, event_type: EventType, handler: Callable) -> None:
         """Shortcut to subscribe an event handler via the runtime."""
         self.event_bus.subscribe(event_type, handler)
+
+    def _attach_runtime_bridges(self) -> None:
+        """Best-effort bridge into the canonical modules event stream + UI runtime."""
+        try:
+            from modules.event_bus import get_event_bus
+
+            self._module_bus = get_event_bus()
+            self._module_bus.subscribe_all(self._mirror_modules_event)
+            self.event_bus.subscribe_all(self._mirror_core_event)
+            self._module_bus_attached = True
+        except Exception as exc:
+            log.debug("[RuntimeManager] module event bridge unavailable: %s", exc)
+
+    def _lineage_payload(self, payload: Dict[str, Any] | None, event_type: str, source: str) -> Dict[str, Any]:
+        data = dict(payload or {})
+        data.setdefault("trace_id", data.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}")
+        data.setdefault("runtime_id", self.runtime_id)
+        data.setdefault("cognition_id", data.get("cognition_id", ""))
+        data.setdefault("source_module", source)
+        data.setdefault("event_category", data.get("event_category") or self._categorize(event_type))
+        data.setdefault("event_priority", data.get("event_priority", "normal"))
+        return data
+
+    @staticmethod
+    def _categorize(event_type: str) -> str:
+        etype = str(event_type or "").lower()
+        if "provider" in etype:
+            return "provider"
+        if "memory" in etype or "knowledge" in etype:
+            return "memory"
+        if "reflect" in etype or "cognition" in etype:
+            return "cognition"
+        if "learn" in etype or "train" in etype:
+            return "learning"
+        if "metric" in etype or "telemetry" in etype:
+            return "telemetry"
+        if "task" in etype or "plan" in etype:
+            return "orchestration"
+        return "runtime"
+
+    @staticmethod
+    def _core_to_module_event_type(event_type: str) -> str:
+        mapping = {
+            EventType.LEARNING_CYCLE_COMPLETED.value: "learning.cycle.complete",
+            EventType.REFLECTION_COMPLETED.value: "reflection.complete",
+            EventType.KNOWLEDGE_UPDATED.value: "knowledge.updated",
+            EventType.TASK_CREATED.value: "task.created",
+            EventType.TASK_COMPLETED.value: "task.completed",
+            EventType.TASK_FAILED.value: "task.failed",
+            EventType.SYSTEM_STARTED.value: "runtime.system.started",
+            EventType.SYSTEM_STOPPING.value: "runtime.system.stopping",
+            EventType.ERROR_OCCURRED.value: "runtime.error",
+            EventType.METRIC_RECORDED.value: "telemetry.metric.recorded",
+        }
+        return mapping.get(event_type, event_type.replace("_", "."))
+
+    @staticmethod
+    def _module_to_core_event_type(event_type: str) -> EventType | str:
+        mapping = {
+            "learning.cycle.complete": EventType.LEARNING_CYCLE_COMPLETED,
+            "reflection.complete": EventType.REFLECTION_COMPLETED,
+            "knowledge.updated": EventType.KNOWLEDGE_UPDATED,
+            "task.created": EventType.TASK_CREATED,
+            "task.completed": EventType.TASK_COMPLETED,
+            "task.failed": EventType.TASK_FAILED,
+            "runtime.system.started": EventType.SYSTEM_STARTED,
+            "runtime.system.stopping": EventType.SYSTEM_STOPPING,
+            "runtime.error": EventType.ERROR_OCCURRED,
+            "telemetry.metric.recorded": EventType.METRIC_RECORDED,
+        }
+        return mapping.get(event_type, event_type)
+
+    def _emit_to_unified_runtime(self, event_type: str, source: str, payload: Dict[str, Any]) -> None:
+        try:
+            from modules.unified_runtime import get_unified_runtime
+
+            runtime = get_unified_runtime()
+            if hasattr(runtime, "ingest_external_event"):
+                runtime.ingest_external_event(event_type=event_type, source=source, payload=payload)
+        except Exception:
+            return
+
+    def _mirror_core_event(self, event: Event) -> None:
+        if getattr(event, "bridge_origin", "") == "modules":
+            return
+        payload = self._lineage_payload(event.payload, event.type_name, event.source)
+        payload["_bridge_origin"] = "core"
+        module_event_type = self._core_to_module_event_type(event.type_name)
+        if self._module_bus is not None:
+            try:
+                from modules.event_bus import NiblitEvent
+
+                self._module_bus.publish(
+                    NiblitEvent(
+                        type=module_event_type,
+                        source=event.source,
+                        payload=payload,
+                    )
+                )
+            except Exception:
+                pass
+        self._emit_to_unified_runtime(module_event_type, event.source, payload)
+
+    def _mirror_modules_event(self, event: Any) -> None:
+        payload = dict(getattr(event, "payload", {}) or {})
+        if payload.get("_bridge_origin") == "core":
+            return
+        event_type = str(getattr(event, "type", "event"))
+        source = str(getattr(event, "source", "modules"))
+        lineage = self._lineage_payload(payload, event_type, source)
+        try:
+            self.event_bus.publish(
+                Event(
+                    type=self._module_to_core_event_type(event_type),
+                    payload={**lineage, "_bridge_origin": "modules"},
+                    source=source,
+                    runtime_id=self.runtime_id,
+                    trace_id=str(lineage.get("trace_id", "")),
+                    cognition_id=str(lineage.get("cognition_id", "")),
+                    source_module=str(lineage.get("source_module", source)),
+                    event_category=str(lineage.get("event_category", self._categorize(event_type))),
+                    event_priority=str(lineage.get("event_priority", "normal")),
+                    bridge_origin="modules",
+                )
+            )
+        except Exception:
+            pass
+        self._emit_to_unified_runtime(event_type, source, lineage)
 
 
 if __name__ == "__main__":

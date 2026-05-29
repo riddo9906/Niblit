@@ -309,11 +309,24 @@ class StructuralAwareness:
     def command_report(self, router: Any = None) -> str:
         """Return a structured list of all registered commands.
 
-        Tries the router help_text() first, then the core CommandRegistry.
+        Tries the core CommandRegistry first, then router help_text().
         """
         lines = ["📋 **Registered Commands**:\n"]
+        core = self.core
+        if core and hasattr(core, "command_registry") and core.command_registry:
+            try:
+                registry = core.command_registry
+                if hasattr(registry, "detailed_report"):
+                    return registry.detailed_report()
+                commands = registry.list_commands()
+                for cmd in commands:
+                    cmd_name = getattr(cmd, "prefix", str(cmd))
+                    lines.append(f"  • {cmd_name}")
+                return "\n".join(lines)
+            except Exception as e:
+                lines.append(f"  (command_registry failed: {e})")
 
-        # Try router help_text
+        # Fallback: router help_text
         r = router or (getattr(self.core, "router", None) if self.core else None)
         if r and hasattr(r, "help_text"):
             try:
@@ -321,17 +334,6 @@ class StructuralAwareness:
                 return "📋 **Full Command Reference**:\n\n" + help_str
             except Exception as e:
                 lines.append(f"  (router.help_text() failed: {e})")
-
-        # Fallback: core command_registry
-        core = self.core
-        if core and hasattr(core, "command_registry") and core.command_registry:
-            try:
-                commands = core.command_registry.list_commands()
-                for cmd in commands:
-                    lines.append(f"  • {cmd}")
-                return "\n".join(lines)
-            except Exception as e:
-                lines.append(f"  (command_registry failed: {e})")
 
         lines.append("  (No command registry available — use 'help' for commands)")
         return "\n".join(lines)

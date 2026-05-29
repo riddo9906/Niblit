@@ -178,6 +178,8 @@ class PatternGraphBuilder:
 
     def _neighbors(self, node: str) -> List[Dict[str, str]]:
         if _NX:
+            if not self._g.has_node(node):
+                return []
             return [
                 {"target": t, "relation": self._g.get_edge_data(node, t).get("relation", "")}
                 for t in self._g.successors(node)

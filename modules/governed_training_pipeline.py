@@ -267,19 +267,26 @@ class GovernedTrainingPipeline:
                     synthesis_prompt,
                     max_tokens=600,
                 )
-                synthesis_text = str(result.get("text") or result.get("response") or "").strip()
+                if isinstance(result, dict):
+                    synthesis_text = str(result.get("text") or result.get("response") or "").strip()
+                else:
+                    synthesis_text = str(result or "").strip()
             except Exception as exc:
                 log.debug("[Pipeline] Router synthesis failed: %s", exc)
 
-        # Fallback: direct LocalBrain
+        # Fallback: instantiate RouterV2 and continue through LocalBrain.route_inference()
         if not synthesis_text:
             try:
-                from modules.local_brain import get_local_brain
-                lb = get_local_brain()
-                r = lb.generate(synthesis_prompt, max_tokens=600)
-                synthesis_text = str(r.get("text") or r.get("response") or "").strip()
+                from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
+                fallback_router = NiblitUnifiedRuntimeRouterV2()
+                r = fallback_router.generate(
+                    prompt=synthesis_prompt,
+                    max_tokens=600,
+                    context_policy={"preferred_model": "llama3"},
+                )
+                synthesis_text = str(r or "").strip()
             except Exception as exc:
-                log.debug("[Pipeline] LocalBrain fallback failed: %s", exc)
+                log.debug("[Pipeline] Router fallback failed: %s", exc)
 
         if not synthesis_text:
             return PipelineStageResult(

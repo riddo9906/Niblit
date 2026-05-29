@@ -306,10 +306,18 @@ def _should_launch_desktop(args, *, ui_supported=None) -> bool:
         return False
     if ui_supported is not None:
         return bool(ui_supported)
-    # UI is the primary mode — always attempt to launch.  DesktopRuntimeShell.run()
-    # handles the case where a display server is unavailable and returns False,
-    # which triggers the CLI fallback below.
-    return True
+    try:
+        from modules.desktop_runtime_shell import desktop_ui_supported
+
+        return bool(desktop_ui_supported())
+    except Exception as exc:
+        logging.getLogger(__name__).debug(
+            "desktop_ui_supported probe failed; attempting desktop launch anyway: %s",
+            exc,
+        )
+        # If desktop capability probing fails, still attempt UI launch and rely
+        # on DesktopRuntimeShell.run() to gracefully fall back to CLI.
+        return True
 
 # ─────────────────────────────
 # DEBUG PRINT

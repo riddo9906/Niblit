@@ -186,19 +186,19 @@ def test_swap_local_brain_invalid_preset():
         swap_local_brain("nonexistent-model")
 
 
-def test_get_local_brain_defaults_to_qwen_when_active_preset_unset(monkeypatch):
+def test_get_local_brain_defaults_to_llama3_when_active_preset_unset(monkeypatch):
     monkeypatch.delenv("NIBLIT_ACTIVE_LOCAL_MODEL", raising=False)
     reset_local_brain()
     lb = get_local_brain()
-    assert lb.gguf_chat_template == "qwen"
+    assert lb.gguf_chat_template == "llama3"
     reset_local_brain()
 
 
-def test_get_local_brain_invalid_active_preset_falls_back_to_qwen(monkeypatch):
+def test_get_local_brain_invalid_active_preset_falls_back_to_llama3(monkeypatch):
     monkeypatch.setenv("NIBLIT_ACTIVE_LOCAL_MODEL", "invalid-preset")
     reset_local_brain()
     lb = get_local_brain()
-    assert lb.gguf_chat_template == "qwen"
+    assert lb.gguf_chat_template == "llama3"
     reset_local_brain()
 
 

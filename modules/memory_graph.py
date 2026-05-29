@@ -172,9 +172,14 @@ class MemoryGraph:
     def __init__(self, persist_path: str = "") -> None:
         self._nodes: Dict[str, ConceptNode] = {}
         self._lock = threading.Lock()
+        _default_persist_path = os.path.join(
+            os.path.expanduser("~"),
+            ".niblit",
+            "niblit_memory_graph.pkl",
+        )
         self._persist_path: str = persist_path or os.getenv(
             "NIBLIT_MEMORY_GRAPH_PATH",
-            os.path.join(os.path.dirname(__file__), "..", "niblit_memory_graph.pkl"),
+            _default_persist_path,
         )
         self._total_adds: int = 0
         self._load()

@@ -98,6 +98,7 @@ class BrainRouter:
         self.cloud_brain = cloud_brain
         self.memory_retriever = memory_retriever
         self.mode = mode
+        self._router = None
         self._lock = threading.Lock()
         self._routing_stats: Dict[str, int] = {
             "local": 0, "memory_augmented": 0, "cloud": 0, "hybrid": 0,
@@ -159,11 +160,27 @@ class BrainRouter:
 
     # ── Routing strategies ────────────────────────────────────────────────────
 
+    def _router_generate(self, prompt: str, context: str = "") -> str:
+        """Canonical local path: RuntimeRouterV2 → LocalBrain.route_inference()."""
+        try:
+            if self._router is None:
+                from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
+                self._router = NiblitUnifiedRuntimeRouterV2(self.local_brain)
+            return str(self._router.generate(prompt=prompt, context=context))
+        except Exception as exc:
+            log.debug("[BrainRouter] router path failed: %s", exc)
+            if self.local_brain and self.local_brain.is_available():
+                try:
+                    return self.local_brain.ask(prompt, context=context)
+                except Exception as inner_exc:
+                    log.debug("[BrainRouter] local fallback failed: %s", inner_exc)
+            return ""
+
     def _local_first(self, prompt: str, context: str = "") -> str:
         """Fast path: local Qwen brain only."""
         if self.local_brain and self.local_brain.is_available():
             try:
-                return self.local_brain.ask(prompt, context=context)
+                return self._router_generate(prompt, context=context)
             except Exception as exc:
                 log.debug("[BrainRouter] local_first failed: %s", exc)
         # Escalate to cloud if local not ready
@@ -180,7 +197,7 @@ class BrainRouter:
 
         if self.local_brain and self.local_brain.is_available():
             try:
-                return self.local_brain.ask(prompt, context=retrieved)
+                return self._router_generate(prompt, context=retrieved)
             except Exception as exc:
                 log.debug("[BrainRouter] memory_augmented local failed: %s", exc)
 
@@ -202,7 +219,7 @@ class BrainRouter:
         # Cloud failed → fall back to local
         if self.local_brain and self.local_brain.is_available():
             try:
-                return self.local_brain.ask(prompt)
+                return self._router_generate(prompt)
             except Exception as exc:
                 log.debug("[BrainRouter] cloud_escalation→local fallback failed: %s", exc)
         return ""
@@ -212,7 +229,7 @@ class BrainRouter:
         local_draft = ""
         if self.local_brain and self.local_brain.is_available():
             try:
-                local_draft = self.local_brain.ask(prompt, context=context)
+                local_draft = self._router_generate(prompt, context=context)
             except Exception as exc:
                 log.debug("[BrainRouter] hybrid local draft failed: %s", exc)
 

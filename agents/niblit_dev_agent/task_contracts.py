@@ -21,6 +21,8 @@ CLI_PROVIDERS = "providers"
 CLI_ARCHITECTURE = "architecture"
 CLI_ANALYZE = "analyze"
 CLI_APPROVE = "approve"
+CLI_EXECUTE = "execute"
+CLI_ROLLBACK = "rollback"
 
 VALID_CLI_ACTIONS = {
     CLI_STATUS,
@@ -29,6 +31,8 @@ VALID_CLI_ACTIONS = {
     CLI_ARCHITECTURE,
     CLI_ANALYZE,
     CLI_APPROVE,
+    CLI_EXECUTE,
+    CLI_ROLLBACK,
 }
 
 # ── Approval / execution states ───────────────────────────────────────────────

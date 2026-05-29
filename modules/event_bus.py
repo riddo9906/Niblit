@@ -130,11 +130,15 @@ EVENT_ATTENTION_ALLOCATED       = "attention.allocated"
 EVENT_EXECUTION_ENVELOPE_PUBLISHED = "execution_envelope.published"   # schema-v2 envelope written to disk
 EVENT_TRADE_REFLECTION_INGESTED    = "trade_reflection.ingested"       # reflection JSONL record ingested
 EVENT_MARKET_EPISODE_INGESTED      = "market_episode.ingested"         # market episode JSONL record ingested
+EVENT_MARKET_REGIME_FORECAST       = "market_regime.forecast"          # predictive world-model forecast emitted
 EVENT_RUNTIME_MODE_CHANGED         = "runtime_mode.changed"            # governance mode transition
 
 # Knowledge-Gap Cognition Layer
 EVENT_COGNITION_GAP_DETECTED       = "cognition.gap.detected"           # gap signal escalated
 EVENT_COGNITION_SYNTHESIS_COMPLETE = "cognition.synthesis.complete"     # Llama3 synthesis produced
+
+# Runtime command observability
+EVENT_COMMAND_EXECUTED = "command.executed"   # emitted after any runtime CLI command completes
 
 
 @dataclass
@@ -169,6 +173,7 @@ class EventBus:
 
     def __init__(self) -> None:
         self._handlers: dict[str, list[_Handler]] = {}
+        self._wildcard_handlers: list[_Handler] = []
         self._last: dict[str, NiblitEvent] = {}
         self._counts: dict[str, int] = {}
         self._lock = threading.Lock()
@@ -192,6 +197,12 @@ class EventBus:
             getattr(handler, "__qualname__", repr(handler)),
         )
 
+    def subscribe_all(self, handler: _Handler) -> None:
+        """Register *handler* for every published event."""
+        with self._lock:
+            if handler not in self._wildcard_handlers:
+                self._wildcard_handlers.append(handler)
+
     def unsubscribe(self, event_type: str, handler: _Handler) -> None:
         """Remove *handler* from *event_type* subscriptions (silent if absent)."""
         with self._lock:
@@ -211,10 +222,11 @@ class EventBus:
         """
         with self._lock:
             handlers = list(self._handlers.get(event.type, []))
+            wildcard_handlers = list(self._wildcard_handlers)
             self._last[event.type] = event
             self._counts[event.type] = self._counts.get(event.type, 0) + 1
 
-        for handler in handlers:
+        for handler in handlers + wildcard_handlers:
             try:
                 handler(event)
             except Exception as exc:
@@ -236,6 +248,42 @@ class EventBus:
         """Return a copy of publish-count statistics keyed by event type."""
         with self._lock:
             return dict(self._counts)
+
+    def observability_report(self) -> dict[str, Any]:
+        """Return an observability snapshot showing event counts, last-seen, and subscriber counts.
+
+        Useful for runtime debugging: shows which events were emitted, how many
+        times, when they were last seen, and how many handlers are registered.
+        This does NOT replace EventBus — it surfaces its internal state.
+        """
+        with self._lock:
+            counts = dict(self._counts)
+            last_seen = {
+                etype: ev.timestamp
+                for etype, ev in self._last.items()
+            }
+            subscriber_counts = {
+                etype: len(handlers)
+                for etype, handlers in self._handlers.items()
+            }
+            if self._wildcard_handlers:
+                subscriber_counts["*"] = len(self._wildcard_handlers)
+        all_types = sorted(
+            set(counts) | set(last_seen) | set(subscriber_counts)
+        )
+        rows = []
+        for etype in all_types:
+            rows.append({
+                "event_type": etype,
+                "emitted": counts.get(etype, 0),
+                "subscribers": subscriber_counts.get(etype, 0),
+                "last_seen_ts": last_seen.get(etype),
+            })
+        return {
+            "total_event_types": len(all_types),
+            "total_emissions": sum(counts.values()),
+            "events": rows,
+        }
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

@@ -1227,6 +1227,25 @@ def api_runtime_events(since: int = 0, limit: int = 100):
     return JSONResponse({"events": runtime.events(since=since, limit=limit), "since": since, "limit": limit})
 
 
+@app.get("/api/runtime/episodes")
+def api_runtime_episodes(limit: int = 50):
+    """Replay cognitive episodes and governed reflection summaries."""
+    runtime = _get_unified_runtime()
+    if runtime is None:
+        return JSONResponse({"episodes": [], "reflections": [], "dataset": {}, "compression": {}})
+    state = runtime.state(core=get_core())
+    cognition = state.get("cognition", {})
+    return JSONResponse(
+        {
+            "episodes": runtime.episodes(limit=limit),
+            "reflections": cognition.get("reflections", []),
+            "dataset": cognition.get("datasets", {}),
+            "compression": cognition.get("compression", {}),
+            "confidence": cognition.get("confidence_summary", {}),
+        }
+    )
+
+
 @app.websocket("/ws/runtime")
 async def ws_runtime(websocket: WebSocket):
     """Live runtime stream for telemetry + events in canonical stream format."""

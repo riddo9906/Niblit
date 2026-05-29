@@ -341,11 +341,45 @@ class PredictiveWorldModel:
 
     def _emit_event(self, output: WorldModelOutput) -> None:
         try:
-            from modules.event_bus import get_event_bus, NiblitEvent, EVENT_WORLD_MODEL_UPDATED
-            get_event_bus().publish(NiblitEvent(
+            from modules.event_bus import (
+                EVENT_MARKET_REGIME_FORECAST,
+                EVENT_WORLD_MODEL_UPDATED,
+                NiblitEvent,
+                get_event_bus,
+            )
+
+            bus = get_event_bus()
+            bus.publish(NiblitEvent(
                 type=EVENT_WORLD_MODEL_UPDATED,
                 source="predictive_world_model",
                 payload={"regime": output.regime, "uncertainty": output.overall_uncertainty},
+            ))
+            output_payload = output.to_dict()
+            horizons = output_payload.get("horizons", {})
+            scenarios = output_payload.get("scenarios", [])
+            scenario_probabilities = {}
+            for item in scenarios:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name", "")).strip()
+                if not name:
+                    continue
+                probability = item.get("probability")
+                try:
+                    scenario_probabilities[name] = float(probability if probability is not None else 0.0)
+                except (TypeError, ValueError):
+                    scenario_probabilities[name] = 0.0
+            bus.publish(NiblitEvent(
+                type=EVENT_MARKET_REGIME_FORECAST,
+                source="predictive_world_model",
+                payload={
+                    **output_payload,
+                    "horizon_short": horizons.get("short"),
+                    "horizon_medium": horizons.get("medium"),
+                    "horizon_long": horizons.get("long"),
+                    "scenario_probabilities": scenario_probabilities,
+                    "uncertainty": output_payload.get("overall_uncertainty"),
+                },
             ))
         except Exception:
             pass

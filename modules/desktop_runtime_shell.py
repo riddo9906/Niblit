@@ -64,25 +64,34 @@ class DesktopRuntimeShell:
         self._runtime_event_cursor = 0
         self._runtime_events: deque[str] = deque(maxlen=250)
         self._event_bus_events: deque[str] = deque(maxlen=250)
+        self._cognition_feed: deque[str] = deque(maxlen=120)
+        self._retrieval_feed: deque[str] = deque(maxlen=120)
+        self._memory_synthesis_feed: deque[str] = deque(maxlen=120)
         self._chat_log: deque[str] = deque(maxlen=300)
         self._log_lines: deque[str] = deque(maxlen=400)
         self._log_queue: queue.Queue[str] = queue.Queue(maxsize=1000)
         self._chat_reply_queue: queue.Queue[tuple[str, str]] = queue.Queue(maxsize=100)
+        self._command_history: list[str] = []
+        self._history_index: int = 0
         self._mode = os.getenv("NIBLIT_RUNTIME_MODE", "api").strip().lower() or "api"
         self._stop = False
         self._event_bus_subscribed = False
         self._log_handler: _UILogHandler | None = None
+        self._activity_frames = ("◐", "◓", "◑", "◒")
+        self._activity_idx = 0
 
     def run(self) -> bool:
         """Launch the desktop shell. Returns True when launched."""
         if not desktop_ui_supported():
             _hint = (
-                " On WSL, set DISPLAY (e.g. DISPLAY=:0) or use WSL2 with WSLg."
+                " On WSL, WSLg should enable UI automatically. If UI was disabled via "
+                "--headless/NIBLIT_HEADLESS or unavailable in your distro, re-enable UI "
+                "and/or set DISPLAY (e.g. DISPLAY=:0)."
                 if _is_wsl()
                 else " Set DISPLAY or WAYLAND_DISPLAY to point at a running display server."
             )
             log.warning(
-                "Desktop UI unavailable: no display server detected.%s "
+                "Desktop UI unavailable: no display server detected. %s "
                 "Use --headless or NIBLIT_HEADLESS=1 to suppress this and run CLI only.",
                 _hint,
             )
@@ -104,20 +113,21 @@ class DesktopRuntimeShell:
 
         self._subscribe_event_bus()
         self._install_log_handler()
+        self._emit_startup_telemetry()
 
         root = tk.Tk()
         root.title("Niblit AIOS Desktop Cognitive Runtime")
         root.geometry("1440x900")
-        root.configure(bg="#0c0f17")
+        root.configure(bg="#080b14")
 
         style = ttk.Style(root)
         style.theme_use("clam")
-        style.configure("Niblit.TFrame", background="#0f1422")
-        style.configure("Niblit.TLabel", background="#0f1422", foreground="#9fb4d4")
-        style.configure("NiblitValue.TLabel", background="#0f1422", foreground="#53f3c4")
-        style.configure("Niblit.TNotebook", background="#0f1422", borderwidth=0)
-        style.configure("Niblit.TNotebook.Tab", background="#182235", foreground="#a2bddf")
-        style.map("Niblit.TNotebook.Tab", background=[("selected", "#223553")])
+        style.configure("Niblit.TFrame", background="#0f1527")
+        style.configure("Niblit.TLabel", background="#0f1527", foreground="#b2c7e6")
+        style.configure("NiblitValue.TLabel", background="#0f1527", foreground="#6af7d1")
+        style.configure("Niblit.TNotebook", background="#0f1527", borderwidth=0)
+        style.configure("Niblit.TNotebook.Tab", background="#1b2740", foreground="#b7c9e8", padding=(10, 6))
+        style.map("Niblit.TNotebook.Tab", background=[("selected", "#2a3f63")])
 
         top = ttk.Frame(root, style="Niblit.TFrame")
         top.pack(fill="x", padx=12, pady=10)
@@ -127,6 +137,8 @@ class DesktopRuntimeShell:
         self._ale_var = tk.StringVar(value="ALE: n/a")
         self._threads_var = tk.StringVar(value="threads: n/a")
         self._facts_var = tk.StringVar(value="facts: n/a")
+        self._llama_var = tk.StringVar(value="llama3: n/a")
+        self._activity_var = tk.StringVar(value="◐")
         self._mode_var = tk.StringVar(value=self._mode)
 
         ttk.Label(top, text="Niblit AIOS", style="NiblitValue.TLabel").pack(side="left", padx=(0, 12))
@@ -135,6 +147,8 @@ class DesktopRuntimeShell:
         ttk.Label(top, textvariable=self._ale_var, style="Niblit.TLabel").pack(side="left", padx=(0, 10))
         ttk.Label(top, textvariable=self._threads_var, style="Niblit.TLabel").pack(side="left", padx=(0, 10))
         ttk.Label(top, textvariable=self._facts_var, style="Niblit.TLabel").pack(side="left", padx=(0, 10))
+        ttk.Label(top, textvariable=self._llama_var, style="Niblit.TLabel").pack(side="left", padx=(0, 10))
+        ttk.Label(top, textvariable=self._activity_var, style="NiblitValue.TLabel").pack(side="left", padx=(0, 10))
         ttk.Label(top, text="mode", style="Niblit.TLabel").pack(side="left", padx=(12, 4))
         mode_box = ttk.Combobox(top, textvariable=self._mode_var, values=["api", "local", "normal"], width=9, state="readonly")
         mode_box.pack(side="left")
@@ -145,6 +159,7 @@ class DesktopRuntimeShell:
 
         notebook = ttk.Notebook(main, style="Niblit.TNotebook")
         notebook.pack(fill="both", expand=True)
+        self._notebook = notebook
 
         def tab(name: str):
             frm = ttk.Frame(notebook, style="Niblit.TFrame")
@@ -166,6 +181,9 @@ class DesktopRuntimeShell:
         self._tasks_text = self._mk_text(tab("Background Tasks"))
         self._orchestration_text = self._mk_text(tab("Orchestration Graph"))
         self._metrics_text = self._mk_text(tab("Cognitive Metrics"))
+        self._timeline_text = self._mk_text(tab("Cognitive Timeline"))
+        self._reflection_viewer_text = self._mk_text(tab("Reflection Viewer"))
+        self._dataset_text = self._mk_text(tab("Dataset Signals"))
 
         self._append(self._chat_text, "Niblit Desktop Cognitive Runtime ready.")
 
@@ -180,31 +198,40 @@ class DesktopRuntimeShell:
         self._cleanup()
         return True
 
-    @staticmethod
-    def _mk_text(parent: Any) -> Any:
+    def _mk_text(self, parent: Any) -> Any:
         from tkinter import scrolledtext
 
         t = scrolledtext.ScrolledText(
             parent,
             wrap="word",
-            bg="#0b0f1a",
-            fg="#a8c3e2",
-            insertbackground="#4ef3c4",
+            bg="#0b1020",
+            fg="#c4d8f0",
+            insertbackground="#6af7d1",
+            selectbackground="#2f4e74",
+            selectforeground="#ecf5ff",
+            relief="flat",
+            borderwidth=0,
             font=("Consolas", 10),
         )
         t.pack(fill="both", expand=True, padx=8, pady=8)
+        t._last_text = ""
+        self._install_text_interactions(t)
         t.configure(state="disabled")
         return t
 
     def _mk_chat_input(self, root: Any, tk: Any, main_frame: Any) -> None:
-        row = tk.Frame(main_frame, bg="#0f1422")
+        row = tk.Frame(main_frame, bg="#0f1527")
         row.pack(fill="x", pady=(8, 0))
         self._chat_entry = tk.Text(
             row,
             height=3,
-            bg="#121a2a",
+            bg="#111a30",
             fg="#d8e7f9",
-            insertbackground="#4ef3c4",
+            insertbackground="#6af7d1",
+            selectbackground="#2f4e74",
+            selectforeground="#ecf5ff",
+            relief="flat",
+            borderwidth=0,
             font=("Segoe UI", 11),
         )
         self._chat_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
@@ -221,18 +248,78 @@ class DesktopRuntimeShell:
         )
         btn.pack(side="left")
         self._chat_entry.bind("<Control-Return>", lambda _e: self._submit_chat())
+        self._chat_entry.bind("<Up>", self._chat_history_up)
+        self._chat_entry.bind("<Down>", self._chat_history_down)
         root.bind("<Control-Return>", lambda _e: self._submit_chat())
+        self._install_input_context_menu(self._chat_entry, tk)
+
+    def _chat_history_up(self, _event: Any) -> str:
+        if not self._command_history:
+            return "break"
+        self._history_index = max(0, self._history_index - 1)
+        self._chat_entry.delete("1.0", "end")
+        self._chat_entry.insert("1.0", self._command_history[self._history_index])
+        return "break"
+
+    def _chat_history_down(self, _event: Any) -> str:
+        if not self._command_history:
+            return "break"
+        self._history_index = min(len(self._command_history), self._history_index + 1)
+        self._chat_entry.delete("1.0", "end")
+        if self._history_index < len(self._command_history):
+            self._chat_entry.insert("1.0", self._command_history[self._history_index])
+        return "break"
+
+    @staticmethod
+    def _install_input_context_menu(widget: Any, tk: Any) -> None:
+        menu = tk.Menu(widget, tearoff=0)
+        menu.add_command(label="Cut", command=lambda: widget.event_generate("<<Cut>>"))
+        menu.add_command(label="Copy", command=lambda: widget.event_generate("<<Copy>>"))
+        menu.add_command(label="Paste", command=lambda: widget.event_generate("<<Paste>>"))
+        menu.add_separator()
+        menu.add_command(label="Select All", command=lambda: widget.tag_add("sel", "1.0", "end"))
+
+        def _show(event: Any) -> None:
+            menu.tk_popup(event.x_root, event.y_root)
+
+        widget.bind("<Button-3>", _show)
+
+    @staticmethod
+    def _install_text_interactions(widget: Any) -> None:
+        import tkinter as tk
+
+        menu = tk.Menu(widget, tearoff=0)
+        menu.add_command(label="Copy", command=lambda: widget.event_generate("<<Copy>>"))
+        menu.add_command(label="Select All", command=lambda: widget.tag_add("sel", "1.0", "end"))
+
+        def _show(event: Any) -> None:
+            menu.tk_popup(event.x_root, event.y_root)
+
+        widget.bind("<Button-3>", _show)
+        widget.bind("<Control-c>", lambda _e: widget.event_generate("<<Copy>>"))
 
     def _append(self, widget: Any, text: str) -> None:
+        near_bottom = float(widget.yview()[1]) >= 0.98 if widget.yview() else True
         widget.configure(state="normal")
         widget.insert("end", text.rstrip() + "\n")
-        widget.see("end")
+        if near_bottom:
+            widget.see("end")
         widget.configure(state="disabled")
 
     def _replace(self, widget: Any, text: str) -> None:
+        normalized = text.rstrip() + "\n"
+        if getattr(widget, "_last_text", None) == normalized:
+            return
+        y_pos = widget.yview()[0] if widget.yview() else 0.0
+        near_bottom = float(widget.yview()[1]) >= 0.98 if widget.yview() else True
         widget.configure(state="normal")
         widget.delete("1.0", "end")
-        widget.insert("1.0", text.rstrip() + "\n")
+        widget.insert("1.0", normalized)
+        widget._last_text = normalized
+        if near_bottom:
+            widget.see("end")
+        else:
+            widget.yview_moveto(y_pos)
         widget.configure(state="disabled")
 
     def _on_mode_change(self, _event: Any = None) -> None:
@@ -245,6 +332,8 @@ class DesktopRuntimeShell:
         if not text:
             return
         self._chat_entry.delete("1.0", "end")
+        self._command_history.append(text)
+        self._history_index = len(self._command_history)
         self._chat_log.append(f"You: {text}")
         self._append(self._chat_text, f"You: {text}")
         threading.Thread(target=self._run_chat_command, args=(text,), daemon=True).start()
@@ -263,6 +352,25 @@ class DesktopRuntimeShell:
             self._chat_reply_queue.put_nowait((text, str(reply)))
         except Exception:
             return
+
+    def _emit_startup_telemetry(self) -> None:
+        """Emit a runtime event and increment telemetry when the desktop shell starts."""
+        try:
+            from modules.event_bus import NiblitEvent, get_event_bus
+            bus = get_event_bus()
+            bus.publish(NiblitEvent(
+                type="runtime.desktop.launched",
+                source="DesktopRuntimeShell",
+                payload={"mode": self._mode, "platform": platform.system().lower()},
+            ))
+        except Exception as exc:
+            log.debug("Desktop startup event_bus emission failed: %s", exc)
+        try:
+            telemetry = getattr(self.core, "telemetry", None)
+            if telemetry is not None:
+                telemetry.increment_counter("desktop_shell_launches_total")
+        except Exception as exc:
+            log.debug("Desktop startup telemetry failed: %s", exc)
 
     def _subscribe_event_bus(self) -> None:
         if self._event_bus_subscribed:
@@ -308,7 +416,9 @@ class DesktopRuntimeShell:
             return
         self._drain_queues()
         self._refresh_runtime()
-        root.after(1400, lambda: self._refresh_loop(root))
+        self._activity_idx = (self._activity_idx + 1) % len(self._activity_frames)
+        self._activity_var.set(self._activity_frames[self._activity_idx])
+        root.after(700, lambda: self._refresh_loop(root))
 
     def _drain_queues(self) -> None:
         while True:
@@ -339,6 +449,7 @@ class DesktopRuntimeShell:
         providers = {}
         telemetry = {}
         events_stats = {}
+        cognition = {}
         if self._runtime is not None:
             try:
                 snap = self._runtime.state(core=self.core)
@@ -346,18 +457,28 @@ class DesktopRuntimeShell:
                 providers = snap.get("providers", {})
                 telemetry = snap.get("telemetry", {})
                 events_stats = snap.get("events", {})
+                cognition = snap.get("cognition", {})
                 new_events = self._runtime.events(since=self._runtime_event_cursor, limit=200)
                 for ev in new_events:
                     self._runtime_event_cursor = max(self._runtime_event_cursor, int(ev.get("id", 0)))
-                    self._runtime_events.append(
-                        f"{ev.get('type', 'event')} | {ev.get('source', 'runtime')} | {str(ev.get('payload', {}))[:240]}"
-                    )
+                    event_type = str(ev.get("type", "event"))
+                    line = f"{event_type} | {ev.get('source', 'runtime')} | {str(ev.get('payload', {}))[:240]}"
+                    self._runtime_events.append(line)
+                    if any(token in event_type for token in ("cognition", "reflection", "response.complete")):
+                        self._cognition_feed.append(line)
+                    if any(token in event_type for token in ("live.ingestion", "research", "knowledge_gap", "knowledge")):
+                        self._retrieval_feed.append(line)
+                    if any(token in event_type for token in ("memory", "synthesis", "trade_reflection", "market_episode")):
+                        self._memory_synthesis_feed.append(line)
             except Exception as exc:
                 self._runtime_events.append(f"runtime.error | desktop | {exc}")
 
         active_provider = runtime_state.get("active_provider", "unknown")
+        active_model = runtime_state.get("active_local_model", "unknown")
         mode = runtime_state.get("runtime_mode", self._mode)
         ale = telemetry.get("ale") or {}
+        runtime_tasks = telemetry.get("runtime_tasks") or {}
+        tokens = telemetry.get("token_usage") or telemetry.get("tokens") or {}
         threads = telemetry.get("threads")
         facts = telemetry.get("facts_count")
         self._runtime_status_var.set(f"mode={mode}")
@@ -365,6 +486,7 @@ class DesktopRuntimeShell:
         self._ale_var.set(f"ALE: {'running' if ale.get('running') else 'stopped'} #{ale.get('cycle', 0)}")
         self._threads_var.set(f"threads: {threads if threads is not None else 'n/a'}")
         self._facts_var.set(f"facts: {facts if facts is not None else 'n/a'}")
+        self._llama_var.set(f"llama3: {'active' if 'llama' in str(active_model).lower() or 'llama' in str(active_provider).lower() else 'standby'}")
 
         self._replace(
             self._runtime_text,
@@ -373,11 +495,16 @@ class DesktopRuntimeShell:
                     "Live Cognitive Runtime Panel",
                     f"- Runtime mode: {mode}",
                     f"- Active provider: {active_provider}",
+                    f"- Active local model: {active_model}",
                     f"- Deployment: {runtime_state.get('deployment', {})}",
                     f"- Loaded models: {runtime_state.get('loaded_models', [])}",
                     f"- Active agents: {runtime_state.get('active_agents', [])}",
                     f"- Command history: {len(runtime_state.get('command_history', []))}",
                     f"- Runtime events buffered: {len(self._runtime_events)}",
+                    f"- EventBus stream size: {len(self._event_bus_events)}",
+                    f"- Cognition feed size: {len(self._cognition_feed)}",
+                    f"- Retrieval feed size: {len(self._retrieval_feed)}",
+                    f"- Memory synthesis feed size: {len(self._memory_synthesis_feed)}",
                 ]
             ),
         )
@@ -400,8 +527,11 @@ class DesktopRuntimeShell:
                 [
                     "Provider/Runtime Monitor",
                     f"- Active: {providers.get('active_provider', active_provider)}",
+                    f"- Local preset: {providers.get('active_local_model', active_model)}",
                     f"- Health: {providers.get('health', {})}",
                     f"- Manager status: {providers.get('manager_status', {})}",
+                    f"- Token usage: {tokens}",
+                    f"- Task stream: {runtime_tasks}",
                     f"- Event counts: {events_stats.get('event_counts', {})}",
                 ]
             ),
@@ -416,7 +546,10 @@ class DesktopRuntimeShell:
         self._replace(self._models_text, self._model_status_text())
         self._replace(self._tasks_text, self._tasks_text_value())
         self._replace(self._orchestration_text, self._orchestration_graph_text())
-        self._replace(self._metrics_text, self._metrics_text_value(telemetry, events_stats))
+        self._replace(self._metrics_text, self._metrics_text_value(telemetry, events_stats, cognition))
+        self._replace(self._timeline_text, self._timeline_text_value(cognition))
+        self._replace(self._reflection_viewer_text, self._reflection_text_value(cognition))
+        self._replace(self._dataset_text, self._dataset_text_value(cognition))
 
     @staticmethod
     def _bar(label: str, value: int, unit: int = 1, width: int = 20) -> str:
@@ -428,20 +561,31 @@ class DesktopRuntimeShell:
     def _telemetry_graph_text(self, telemetry: dict[str, Any], events_stats: dict[str, Any]) -> str:
         threads = int(telemetry.get("threads", 0) or 0)
         facts = int(telemetry.get("facts_count", 0) or 0)
+        token_usage = telemetry.get("token_usage") or telemetry.get("tokens") or {}
+        token_total = int(token_usage.get("total", token_usage.get("used", 0)) or 0) if isinstance(token_usage, dict) else 0
         counts = events_stats.get("event_counts", {}) or {}
         event_total = int(sum(int(v) for v in counts.values())) if counts else 0
+        observability = telemetry.get("event_observability", {}) or {}
+        module_observability = telemetry.get("module_event_observability", {}) or {}
         return "\n".join(
             [
                 "Telemetry Graphs",
                 self._bar("threads", threads, unit=2),
                 self._bar("facts", facts, unit=25),
                 self._bar("events", event_total, unit=10),
+                self._bar("tokens", token_total, unit=200),
+                self._bar("dropped", int(observability.get("dropped_events", 0) or 0), unit=1),
+                self._bar("unconsumed", int(observability.get("unconsumed_events", 0) or 0), unit=1),
                 f"provider_health: {telemetry.get('provider_health', {})}",
+                f"core_event_observability: {observability}",
+                f"module_event_observability: {module_observability}",
             ]
         )
 
     def _memory_feed_text(self) -> str:
-        lines = ["Memory Activity Feed"]
+        lines = ["Memory Activity Feed", "Recent memory synthesis:"]
+        if self._memory_synthesis_feed:
+            lines.extend(f"- {line}" for line in list(self._memory_synthesis_feed)[-8:])
         try:
             facts = self.core.db.list_facts(limit=20)
             for f in facts[:20]:
@@ -537,16 +681,68 @@ class DesktopRuntimeShell:
         )
 
     @staticmethod
-    def _metrics_text_value(telemetry: dict[str, Any], events_stats: dict[str, Any]) -> str:
+    def _metrics_text_value(telemetry: dict[str, Any], events_stats: dict[str, Any], cognition: dict[str, Any]) -> str:
         event_counts = events_stats.get("event_counts", {}) if isinstance(events_stats, dict) else {}
+        significance = events_stats.get("significance", {}) if isinstance(events_stats, dict) else {}
+        confidence = cognition.get("confidence_summary", {}) if isinstance(cognition, dict) else {}
         return "\n".join(
             [
                 "Cognitive Metrics Display",
                 f"telemetry: {telemetry}",
                 f"event_counts: {event_counts}",
+                f"significance: {significance}",
+                f"confidence: {confidence}",
                 f"last_event_id: {events_stats.get('last_event_id') if isinstance(events_stats, dict) else 'n/a'}",
+                f"dropped_events: {events_stats.get('dropped_events') if isinstance(events_stats, dict) else 'n/a'}",
+                f"unconsumed_events: {events_stats.get('unconsumed_events') if isinstance(events_stats, dict) else 'n/a'}",
+                f"throughput_last_minute: {events_stats.get('throughput_last_minute') if isinstance(events_stats, dict) else 'n/a'}",
             ]
         )
+
+    @staticmethod
+    def _timeline_text_value(cognition: dict[str, Any]) -> str:
+        lines = ["Unified Cognitive Timeline"]
+        episodes = cognition.get("episodes", []) if isinstance(cognition, dict) else []
+        if not episodes:
+            lines.append("No cognitive episodes yet.")
+            return "\n".join(lines)
+        for item in episodes[-10:]:
+            ts = item.get("timestamp_lineage", {}).get("closed_at") or item.get("timestamp_lineage", {}).get("last_event_at")
+            lines.append(
+                f"- {ts} | {item.get('topic', 'episode')} | "
+                f"sig={item.get('significance', {}).get('classification', 'low')} | "
+                f"conf={float(item.get('confidence_score', 0.0) or 0.0):.2f} | "
+                f"eval={float(item.get('evaluation_score', 0.0) or 0.0):.2f}"
+            )
+        return "\n".join(lines)
+
+    @staticmethod
+    def _reflection_text_value(cognition: dict[str, Any]) -> str:
+        lines = ["Long-Horizon Reflection Viewer"]
+        reflections = cognition.get("reflections", []) if isinstance(cognition, dict) else []
+        if not reflections:
+            lines.append("No reflections available.")
+            return "\n".join(lines)
+        for item in reflections:
+            lines.append(f"- {item.get('type')}: {item.get('summary')}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _dataset_text_value(cognition: dict[str, Any]) -> str:
+        lines = ["Dataset Generation Indicators"]
+        dataset = cognition.get("datasets", {}) if isinstance(cognition, dict) else {}
+        compression = cognition.get("compression", {}) if isinstance(cognition, dict) else {}
+        pending = cognition.get("pending_dataset_candidates", []) if isinstance(cognition, dict) else []
+        lines.append(f"dataset: {dataset}")
+        lines.append(f"compression: {compression}")
+        if pending:
+            lines.append("pending_candidates:")
+            for item in pending[:6]:
+                prompt = str(item.get("prompt", ""))[:120]
+                lines.append(f"- {prompt}")
+        else:
+            lines.append("pending_candidates: none")
+        return "\n".join(lines)
 
 
 def launch_desktop_shell(core: Any, io: Any | None = None) -> bool:

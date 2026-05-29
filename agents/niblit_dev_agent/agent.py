@@ -24,7 +24,9 @@ from agents.niblit_dev_agent.task_contracts import (
     CLI_ANALYZE,
     CLI_APPROVE,
     CLI_ARCHITECTURE,
+    CLI_EXECUTE,
     CLI_PROVIDERS,
+    CLI_ROLLBACK,
     CLI_RUNTIME,
     CLI_STATUS,
     DEV_AGENT_ANALYZE_TASK_TYPE,
@@ -232,8 +234,15 @@ class NiblitDevAgent(BaseAgent):
         action = parts[0].lower() if parts else CLI_STATUS
         arg = parts[1] if len(parts) > 1 else ""
 
+        result = self._dispatch_cli(action, arg)
+        self._emit_command_event(action, result)
+        return result
+
+    def _dispatch_cli(self, action: str, arg: str) -> str:
+        """Dispatch a parsed CLI action and return the response string."""
         if action == CLI_STATUS:
-            st = self.get_status()
+            with self._telemetry_hooks.timed("dev_agent_cli_status_ms"):
+                st = self.get_status()
             ev = st.get("event_metrics", {})
             return (
                 "NiblitDevAgent\n"
@@ -246,7 +255,8 @@ class NiblitDevAgent(BaseAgent):
             )
 
         if action == CLI_RUNTIME:
-            rt = self.get_runtime_snapshot()
+            with self._telemetry_hooks.timed("dev_agent_cli_runtime_ms"):
+                rt = self.get_runtime_snapshot()
             topo = rt.get("runtime_topology", {})
             threads = rt.get("active_threads", {})
             return (
@@ -260,7 +270,8 @@ class NiblitDevAgent(BaseAgent):
             )
 
         if action == CLI_PROVIDERS:
-            providers = self.get_provider_snapshot()
+            with self._telemetry_hooks.timed("dev_agent_cli_providers_ms"):
+                providers = self.get_provider_snapshot()
             return (
                 "NiblitDevAgent Providers\n"
                 f"  active: {providers.get('active_provider', 'unknown')}\n"
@@ -270,7 +281,8 @@ class NiblitDevAgent(BaseAgent):
             )
 
         if action == CLI_ARCHITECTURE:
-            arch = self.get_architecture_summary()
+            with self._telemetry_hooks.timed("dev_agent_cli_architecture_ms"):
+                arch = self.get_architecture_summary()
             return (
                 "NiblitDevAgent Architecture\n"
                 f"  runtime_modules: {len(arch.get('runtime_modules', []))}\n"
@@ -281,7 +293,8 @@ class NiblitDevAgent(BaseAgent):
 
         if action == CLI_ANALYZE:
             scope = arg.strip() or "niblit_core"
-            analysis = self.analyze_scope(scope)
+            with self._telemetry_hooks.timed("dev_agent_cli_analyze_ms"):
+                analysis = self.analyze_scope(scope)
             touched = analysis.get("touched_modules", [])
             provider_ctx = analysis.get("provider_context", {})
             runtime_ctx = analysis.get("runtime_context", {})
@@ -296,57 +309,140 @@ class NiblitDevAgent(BaseAgent):
             )
 
         if action == CLI_APPROVE:
-            tokens = arg.split()
-            if not tokens:
-                pending = self._approval_manager.list_pending()
-                if not pending:
-                    return "NiblitDevAgent Approvals\n  pending: 0"
-                task_ids = [str(r.get("task_id", "")) for r in pending][:10]
-                return (
-                    "NiblitDevAgent Approvals\n"
-                    f"  pending: {len(pending)}\n"
-                    f"  task_ids: {task_ids}"
-                )
+            return self._cli_approve(arg)
 
-            task_id = tokens[0]
-            runtime_risk_ack = "--ack-risk" in tokens
-            rollback_confirm = "--confirm-rollback" in tokens
-            allow_protected = "--allow-protected" in tokens
-            if not runtime_risk_ack or not rollback_confirm:
-                return (
-                    "Approval rejected: explicit acknowledgements required.\n"
-                    "Usage: dev-agent approve <task_id> --ack-risk --confirm-rollback [--allow-protected]"
-                )
-            try:
-                approved = self._approval_manager.approve_task(
-                    task_id,
-                    approver="dev-agent-cli",
-                    runtime_risk_acknowledged=runtime_risk_ack,
-                    rollback_confirmed=rollback_confirm,
-                    metadata={"allow_protected_writes": allow_protected},
-                )
-                if self._runtime_manager is not None:
-                    self._runtime_manager.submit_task(
-                        DEV_AGENT_EXECUTE_TASK_TYPE,
-                        payload={"task_id": task_id},
-                        priority="high",
-                        source="dev_agent_approval",
-                    )
-                    self._runtime_manager.dispatch_pending(max_tasks=1)
-                return (
-                    "NiblitDevAgent Approval\n"
-                    f"  task_id: {task_id}\n"
-                    f"  approved: {approved.get('runtime_risk_acknowledged', False)}\n"
-                    "  execution: queued via RuntimeManager"
-                )
-            except Exception as exc:
-                return f"NiblitDevAgent Approval Error: {exc}"
+        if action == CLI_EXECUTE:
+            return self._cli_execute(arg)
+
+        if action == CLI_ROLLBACK:
+            return self._cli_rollback(arg)
 
         return (
-            "Usage: dev-agent <status|runtime|providers|architecture|analyze [scope]|approve ...>\n"
+            "Usage: dev-agent <status|runtime|providers|architecture|analyze [scope]"
+            "|approve ...|execute <task_id>|rollback <task_id>>\n"
             "Examples: dev-agent status, dev-agent analyze modules/local_brain.py, "
-            "dev-agent approve <task_id> --ack-risk --confirm-rollback"
+            "dev-agent approve <task_id> --ack-risk --confirm-rollback, "
+            "dev-agent execute <task_id>, dev-agent rollback <task_id>"
         )
+
+    def _emit_command_event(self, action: str, result: str) -> None:
+        """Publish a command.executed event to the EventBus for observability."""
+        if self._event_bus is None:
+            return
+        try:
+            from modules.event_bus import EVENT_COMMAND_EXECUTED, NiblitEvent
+            self._event_bus.publish(NiblitEvent(
+                type=EVENT_COMMAND_EXECUTED,
+                source="niblit_dev_agent",
+                payload={
+                    "command": f"dev-agent {action}",
+                    "result_length": len(result),
+                    "success": "Error" not in result and "failed" not in result.lower(),
+                },
+            ))
+        except Exception:
+            pass
+
+    def _cli_approve(self, arg: str) -> str:
+        """Handle the 'approve' sub-command."""
+        tokens = arg.split()
+        if not tokens:
+            pending = self._approval_manager.list_pending()
+            if not pending:
+                return "NiblitDevAgent Approvals\n  pending: 0"
+            task_ids = [str(r.get("task_id", "")) for r in pending][:10]
+            return (
+                "NiblitDevAgent Approvals\n"
+                f"  pending: {len(pending)}\n"
+                f"  task_ids: {task_ids}"
+            )
+
+        task_id = tokens[0]
+        runtime_risk_ack = "--ack-risk" in tokens
+        rollback_confirm = "--confirm-rollback" in tokens
+        allow_protected = "--allow-protected" in tokens
+        if not runtime_risk_ack or not rollback_confirm:
+            return (
+                "Approval rejected: explicit acknowledgements required.\n"
+                "Usage: dev-agent approve <task_id> --ack-risk --confirm-rollback [--allow-protected]"
+            )
+        try:
+            approved = self._approval_manager.approve_task(
+                task_id,
+                approver="dev-agent-cli",
+                runtime_risk_acknowledged=runtime_risk_ack,
+                rollback_confirmed=rollback_confirm,
+                metadata={"allow_protected_writes": allow_protected},
+            )
+            if self._runtime_manager is not None:
+                self._runtime_manager.submit_task(
+                    DEV_AGENT_EXECUTE_TASK_TYPE,
+                    payload={"task_id": task_id},
+                    priority="high",
+                    source="dev_agent_approval",
+                )
+                self._runtime_manager.dispatch_pending(max_tasks=1)
+            self._telemetry_hooks.increment("dev_agent_approvals_total", 1)
+            return (
+                "NiblitDevAgent Approval\n"
+                f"  task_id: {task_id}\n"
+                f"  approved: {approved.get('runtime_risk_acknowledged', False)}\n"
+                "  execution: queued via RuntimeManager"
+            )
+        except Exception as exc:
+            return f"NiblitDevAgent Approval Error: {exc}"
+
+    def _cli_execute(self, arg: str) -> str:
+        """Handle 'dev-agent execute <task_id>' — run an approved task immediately."""
+        task_id = arg.strip()
+        if not task_id:
+            pending = self._approval_manager.list_pending()
+            approved_ids = [
+                str(r.get("task_id", ""))
+                for r in pending
+                if r.get("state") == "approved"
+            ]
+            if not approved_ids:
+                return "NiblitDevAgent Execute\n  no approved tasks pending"
+            return (
+                "NiblitDevAgent Execute\n"
+                f"  approved_tasks: {approved_ids[:10]}\n"
+                "Usage: dev-agent execute <task_id>"
+            )
+        try:
+            with self._telemetry_hooks.timed("dev_agent_cli_execute_ms"):
+                exec_result = self._governed_executor.execute_approved_task(task_id)
+            self._telemetry_hooks.increment("dev_agent_executions_total", 1)
+            status = exec_result.get("status", "unknown")
+            return (
+                "NiblitDevAgent Execute\n"
+                f"  task_id: {task_id}\n"
+                f"  status: {status}\n"
+                f"  mutations_applied: {exec_result.get('mutations_applied', 0)}"
+            )
+        except Exception as exc:
+            return f"NiblitDevAgent Execute Error: {exc}"
+
+    def _cli_rollback(self, arg: str) -> str:
+        """Handle 'dev-agent rollback <task_id>' — rollback an executed task."""
+        task_id = arg.strip()
+        if not task_id:
+            return (
+                "NiblitDevAgent Rollback\n"
+                "Usage: dev-agent rollback <task_id>"
+            )
+        try:
+            with self._telemetry_hooks.timed("dev_agent_cli_rollback_ms"):
+                rb_result = self._rollback_manager.rollback(task_id)
+            self._telemetry_hooks.increment("dev_agent_rollbacks_total", 1)
+            status = rb_result.get("status", "unknown") if isinstance(rb_result, dict) else str(rb_result)
+            return (
+                "NiblitDevAgent Rollback\n"
+                f"  task_id: {task_id}\n"
+                f"  status: {status}"
+            )
+        except Exception as exc:
+            return f"NiblitDevAgent Rollback Error: {exc}"
 
     def _execute(self, task: Task, event_bus: Any) -> dict[str, Any]:
         _ = event_bus

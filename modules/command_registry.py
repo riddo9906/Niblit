@@ -155,6 +155,24 @@ class CommandRegistry:
             ) / max(self.stats["total_executed"], 1)
         }
 
+    def list_commands(self) -> List[CommandMetadata]:
+        """Return registered commands sorted by priority and prefix."""
+        return sorted(
+            self.commands.values(),
+            key=lambda metadata: (-metadata.priority, metadata.prefix),
+        )
+
+    def detailed_report(self) -> str:
+        """Return a detailed live registry report with handler + priority."""
+        lines = ["📋 **Registered Commands (live registry)**\n"]
+        for metadata in self.list_commands():
+            handler_name = getattr(metadata.handler, "__name__", type(metadata.handler).__name__)
+            lines.append(
+                f"  • {metadata.prefix:<34} — {metadata.description} "
+                f"[cat={metadata.category}, priority={metadata.priority}, handler={handler_name}]"
+            )
+        return "\n".join(lines)
+
 
 # Example usage
 if __name__ == "__main__":

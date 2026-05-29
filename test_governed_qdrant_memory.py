@@ -100,6 +100,25 @@ def test_governed_cluster_write_recall_lifecycle_and_observability() -> None:
     snapshot = cluster.observability_snapshot()
     assert snapshot["records"] >= 1
     assert "reflection_memory" in snapshot["by_collection"]
+    assert snapshot["compression_candidates"]["auto_delete"] is False
+
+
+def test_governed_cluster_reports_semantic_compression_candidates() -> None:
+    cluster = GovernedQdrantMemoryCluster(vector_store_factory=_StubVectorStore)
+    cluster.write_memory(
+        "provider routing drift requires reflection memory",
+        memory_type="reflection_memory",
+        payload={"importance_score": 0.2, "replay_metadata": {"trace_id": ""}},
+    )
+    cluster.write_memory(
+        "provider routing drift requires reflection memory summary",
+        memory_type="reflection_memory",
+        payload={"importance_score": 0.25, "replay_metadata": {"trace_id": ""}},
+    )
+    report = cluster.compression_candidates()
+    assert report["governance_required"] is True
+    assert report["auto_delete"] is False
+    assert report["semantic_clusters"]
 
 
 def test_collection_blueprints_include_required_memory_collections() -> None:

@@ -14,9 +14,14 @@ import logging
 import os
 import threading
 import time
+import uuid
+from collections import deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+
+from modules.cognitive_episode import CognitiveEpisodeManager, RuntimeSignificanceEngine
+from modules.legacy_cognition_recovery import LegacyCognitionRecoveryAnalyzer
 
 log = logging.getLogger("Niblit.UnifiedRuntime")
 _DEFAULT_PROVIDER_MAX_TOKENS = int(
@@ -45,6 +50,7 @@ class RuntimeEvent:
     source: str
     payload: dict[str, Any] = field(default_factory=dict)
     ts: float = field(default_factory=_utc_ts)
+    significance: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         out = asdict(self)
@@ -64,6 +70,12 @@ class RuntimeState:
     telemetry_snapshots: list[dict[str, Any]] = field(default_factory=list)
     runtime_config: dict[str, Any] = field(default_factory=dict)
     deployment: dict[str, Any] = field(default_factory=dict)
+    cognitive_episodes: list[dict[str, Any]] = field(default_factory=list)
+    cognitive_reflections: list[dict[str, Any]] = field(default_factory=list)
+    cognitive_compression: dict[str, Any] = field(default_factory=dict)
+    cognitive_datasets: dict[str, Any] = field(default_factory=dict)
+    confidence_summary: dict[str, Any] = field(default_factory=dict)
+    cognition_recovery: dict[str, Any] = field(default_factory=dict)
     last_updated_at: float = field(default_factory=_utc_ts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -84,6 +96,10 @@ class RuntimeEventBus:
         self._seq = 0
         self._counts: dict[str, int] = {}
         self._handlers: list[Any] = []
+        self._dropped_events = 0
+        self._unconsumed_events = 0
+        self._timestamps: deque[float] = deque(maxlen=1024)
+        self._significance = RuntimeSignificanceEngine()
 
     def subscribe(self, handler: Any) -> None:
         with self._lock:
@@ -92,23 +108,31 @@ class RuntimeEventBus:
 
     def emit(self, event_type: str, source: str, payload: dict[str, Any] | None = None) -> RuntimeEvent:
         with self._lock:
+            signaled_payload = dict(payload or {})
+            significance = self._significance.score_event(event_type, source, signaled_payload)
             self._seq += 1
             event = RuntimeEvent(
                 id=self._seq,
                 type=event_type,
                 source=source,
-                payload=dict(payload or {}),
+                payload=signaled_payload,
+                significance=significance,
             )
             self._events.append(event)
             if len(self._events) > MAX_EVENT_BUFFER:
                 self._events = self._events[-MAX_EVENT_BUFFER:]
             self._counts[event_type] = self._counts.get(event_type, 0) + 1
             handlers = list(self._handlers)
+            self._timestamps.append(time.time())
+            if not handlers:
+                self._unconsumed_events += 1
 
         for handler in handlers:
             try:
                 handler(event)
             except Exception as exc:
+                with self._lock:
+                    self._dropped_events += 1
                 log.debug("RuntimeEventBus handler error: %s", exc)
         return event
 
@@ -119,7 +143,16 @@ class RuntimeEventBus:
 
     def stats(self) -> dict[str, Any]:
         with self._lock:
-            return {"event_counts": dict(self._counts), "last_event_id": self._seq}
+            now = time.time()
+            throughput = sum(1 for ts in self._timestamps if now - ts <= 60.0)
+            return {
+                "event_counts": dict(self._counts),
+                "last_event_id": self._seq,
+                "dropped_events": self._dropped_events,
+                "unconsumed_events": self._unconsumed_events,
+                "throughput_last_minute": throughput,
+                "significance": self._significance.summary(),
+            }
 
 
 class ProviderRuntimeManager:
@@ -389,7 +422,15 @@ class RuntimeTelemetryManager:
         self._lock = threading.RLock()
         self._history: list[dict[str, Any]] = []
 
-    def snapshot(self, *, core: Any, state: RuntimeState, provider_status: dict[str, Any], event_stats: dict[str, Any]) -> dict[str, Any]:
+    def snapshot(
+        self,
+        *,
+        core: Any,
+        state: RuntimeState,
+        provider_status: dict[str, Any],
+        event_stats: dict[str, Any],
+        cognitive_status: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         import threading as _threading
 
         facts_count = None
@@ -400,6 +441,10 @@ class RuntimeTelemetryManager:
                 facts_count = None
 
         ale_data: dict[str, Any] | None = None
+        event_observability: dict[str, Any] = {}
+        module_event_observability: dict[str, Any] = {}
+        cognition_metrics: dict[str, Any] = {}
+        live_ingestion: dict[str, Any] = {}
         if core is not None:
             ale = getattr(core, "autonomous_engine", None)
             if ale is not None:
@@ -408,6 +453,32 @@ class RuntimeTelemetryManager:
                     "cycle": int(getattr(ale, "_cycle_count", 0)),
                     "topic": ale.get_current_topic() if hasattr(ale, "get_current_topic") else None,
                 }
+            try:
+                rm = getattr(core, "runtime_manager", None)
+                if rm is not None and hasattr(rm, "event_bus") and hasattr(rm.event_bus, "observability_report"):
+                    event_observability = rm.event_bus.observability_report()
+            except Exception:
+                event_observability = {}
+        try:
+            from modules.event_bus import get_event_bus
+
+            bus = get_event_bus()
+            if hasattr(bus, "observability_report"):
+                module_event_observability = bus.observability_report()
+        except Exception:
+            module_event_observability = {}
+        try:
+            from modules.knowledge_gap_cognition import get_cognition_escalation_layer
+
+            cognition_metrics = get_cognition_escalation_layer().metrics()
+        except Exception:
+            cognition_metrics = {}
+        try:
+            from modules.governed_live_cognition import get_governed_live_cognition_collector
+
+            live_ingestion = get_governed_live_cognition_collector().status()
+        except Exception:
+            live_ingestion = {}
 
         snap = {
             "stream_format": "niblit.runtime.stream.v1",
@@ -419,7 +490,12 @@ class RuntimeTelemetryManager:
             "facts_count": facts_count,
             "ale": ale_data,
             "event_bus": event_stats,
+            "event_observability": event_observability,
+            "module_event_observability": module_event_observability,
             "provider_health": provider_status.get("health", {}),
+            "cognition": cognition_metrics,
+            "cognitive_runtime": dict(cognitive_status or {}),
+            "live_ingestion": live_ingestion,
             "deployment": dict(state.deployment),
         }
         with self._lock:
@@ -509,17 +585,27 @@ class NiblitUnifiedRuntime:
 
     def __init__(self, state_file: Path | None = None) -> None:
         self._lock = threading.RLock()
+        self.runtime_id = f"unified-{uuid.uuid4().hex[:12]}"
         self._event_bus = RuntimeEventBus()
+        self._module_bus_bridge_installed = False
         self.provider_runtime = ProviderRuntimeManager(self._event_bus)
         self.telemetry_runtime = RuntimeTelemetryManager()
         self.deployment_runtime = DeploymentRuntimeManager()
         self.command_runtime = CommandRuntime(self._event_bus, self.provider_runtime)
+        self.cognitive_runtime = CognitiveEpisodeManager(runtime_id=self.runtime_id)
+        self.legacy_cognition_recovery = LegacyCognitionRecoveryAnalyzer()
         self._state_file = state_file or Path(
             os.environ.get("NIBLIT_UNIFIED_RUNTIME_STATE", os.path.join(os.getcwd(), "niblit_unified_runtime_state.json"))
         )
         self._state = RuntimeState()
         self._load_state()
-        self._event_bus.emit("boot.sequence", "NiblitUnifiedRuntime", {"state_file": str(self._state_file)})
+        self._event_bus.subscribe(self._observe_runtime_event)
+        self._bridge_module_event_bus()
+        self._event_bus.emit(
+            "boot.sequence",
+            "NiblitUnifiedRuntime",
+            {"state_file": str(self._state_file), "runtime_id": self.runtime_id, "trace_id": f"{self.runtime_id}:boot"},
+        )
 
     def _load_state(self) -> None:
         try:
@@ -542,6 +628,18 @@ class NiblitUnifiedRuntime:
             self._state.active_provider = provider_status.get("active_provider", self._state.active_provider)
             self._state.deployment = self.deployment_runtime.detect()
             self._state.runtime_mode = self._state.deployment.get("runtime_mode", self._state.runtime_mode)
+            cognitive_status = self.cognitive_runtime.status()
+            self._state.cognitive_episodes = list(cognitive_status.get("episodes", []))
+            self._state.cognitive_reflections = list(cognitive_status.get("reflections", []))
+            self._state.cognitive_compression = dict(cognitive_status.get("compression", {}))
+            self._state.cognitive_datasets = dict(cognitive_status.get("datasets", {}))
+            self._state.confidence_summary = dict(cognitive_status.get("confidence_summary", {}))
+            self._state.cognition_recovery = self.legacy_cognition_recovery.build_report(
+                core=core,
+                cognitive_status=cognitive_status,
+                event_stats=self._event_bus.stats(),
+                state_file=str(self._state_file),
+            )
             ms = provider_status.get("manager_status", {})
             loaded_models = [
                 str(ms.get("qwen_model", "")),
@@ -555,6 +653,7 @@ class NiblitUnifiedRuntime:
                 state=self._state,
                 provider_status=provider_status,
                 event_stats=self._event_bus.stats(),
+                cognitive_status=cognitive_status,
             )
             self._state.telemetry_snapshots.append(dict(telemetry))
             if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
@@ -566,15 +665,93 @@ class NiblitUnifiedRuntime:
                 "providers": provider_status,
                 "telemetry": telemetry,
                 "events": self._event_bus.stats(),
+                "cognition": cognitive_status,
+                "legacy_cognition": dict(self._state.cognition_recovery),
             }
 
     def boot(self, core: Any | None = None) -> dict[str, Any]:
         out = self._update_from_status(core=core)
-        self._event_bus.emit("runtime.ready", "NiblitUnifiedRuntime", {"active_provider": out["state"]["active_provider"]})
+        self._event_bus.emit(
+            "runtime.ready",
+            "NiblitUnifiedRuntime",
+            {
+                "active_provider": out["state"]["active_provider"],
+                "runtime_id": self.runtime_id,
+                "trace_id": f"{self.runtime_id}:ready",
+                "runtime_mode": out["state"]["runtime_mode"],
+            },
+        )
         return out
+
+    def _observe_runtime_event(self, event: RuntimeEvent) -> None:
+        try:
+            event_dict = event.to_dict()
+            payload = dict(event_dict.get("payload", {}) or {})
+            payload.setdefault("runtime_id", self.runtime_id)
+            if not payload.get("trace_id"):
+                payload["trace_id"] = f"{self.runtime_id}:{event.type}:{event.id}"
+            payload.setdefault("runtime_mode", self._state.runtime_mode)
+            event_dict["payload"] = payload
+            episode = self.cognitive_runtime.observe_event(event_dict, runtime_mode=self._state.runtime_mode)
+            if episode:
+                with self._lock:
+                    self._state.cognitive_sessions.append(
+                        {
+                            "episode_id": episode.get("episode_id"),
+                            "topic": episode.get("topic"),
+                            "confidence_score": episode.get("confidence_score"),
+                            "timestamp": episode.get("timestamp_lineage", {}).get("closed_at"),
+                        }
+                    )
+                    self._state.cognitive_sessions = self._state.cognitive_sessions[-60:]
+        except Exception as exc:
+            log.debug("Failed observing runtime event: %s", exc)
+
+    def _bridge_module_event_bus(self) -> None:
+        if self._module_bus_bridge_installed:
+            return
+        try:
+            from modules.event_bus import EVENT_MARKET_REGIME_FORECAST, get_event_bus
+
+            def _bridge_module_event(event: Any, *, lineage: str | None = None) -> None:
+                payload = dict(getattr(event, "payload", {}) or {})
+                if payload.get("_runtime_unified_seen"):
+                    return
+                payload["_runtime_unified_seen"] = True
+                payload.setdefault("runtime_id", self.runtime_id)
+                payload.setdefault("runtime_mode", self._state.runtime_mode)
+                payload.setdefault(
+                    "trace_id",
+                    payload.get("trace_id") or f"{self.runtime_id}:{getattr(event, 'type', 'event')}:{int(time.time() * 1000)}",
+                )
+                if lineage:
+                    payload.setdefault("lineage_channel", lineage)
+                self._event_bus.emit(str(getattr(event, "type", "event")), str(getattr(event, "source", "modules")), payload)
+
+            def _handle(event: Any) -> None:
+                if str(getattr(event, "type", "")) == EVENT_MARKET_REGIME_FORECAST:
+                    return
+                _bridge_module_event(event)
+
+            def _handle_market_forecast(event: Any) -> None:
+                _bridge_module_event(event, lineage="explicit.market_regime_forecast")
+
+            bus = get_event_bus()
+            bus.subscribe_all(_handle)
+            bus.subscribe(EVENT_MARKET_REGIME_FORECAST, _handle_market_forecast)
+            self._module_bus_bridge_installed = True
+        except Exception as exc:
+            log.debug("Failed installing module event bus bridge: %s", exc)
 
     def dispatch_command(self, *, command: str, core: Any | None) -> str:
         with self._lock:
+            lower = command.strip().lower()
+            if lower in {"runtime cognition recovery", "runtime cognition map", "runtime legacy cognition"}:
+                status = self._update_from_status(core=core)
+                return json.dumps(status.get("legacy_cognition", {}), indent=2, sort_keys=True)
+            if lower in {"runtime causality", "runtime causality status"}:
+                status = self._update_from_status(core=core)
+                return json.dumps(status.get("cognition", {}).get("causality", {}), indent=2, sort_keys=True)
             out = self.command_runtime.dispatch(command=command, core=core, state=self._state)
             self._save_state()
             return out
@@ -584,6 +761,19 @@ class NiblitUnifiedRuntime:
 
     def events(self, *, since: int = 0, limit: int = 100) -> list[dict[str, Any]]:
         return self._event_bus.events(since=since, limit=limit)
+
+    def episodes(self, *, limit: int = 50) -> list[dict[str, Any]]:
+        return self.cognitive_runtime.episodes(limit=limit)
+
+    def reflections(self) -> list[dict[str, Any]]:
+        return self.cognitive_runtime.status().get("reflections", [])
+
+    def ingest_external_event(self, *, event_type: str, source: str, payload: dict[str, Any] | None = None) -> None:
+        enriched = dict(payload or {})
+        enriched.setdefault("runtime_id", self.runtime_id)
+        enriched.setdefault("runtime_mode", self._state.runtime_mode)
+        enriched.setdefault("trace_id", enriched.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}")
+        self._event_bus.emit(event_type, source, enriched)
 
     def stream_frame(self, *, core: Any | None = None, since: int = 0) -> dict[str, Any]:
         status = self._update_from_status(core=core)
@@ -595,6 +785,13 @@ class NiblitUnifiedRuntime:
             "telemetry": status["telemetry"],
             "events": self._event_bus.events(since=since, limit=200),
             "provider": status["providers"],
+            "episodes": status["cognition"].get("episodes", []),
+            "reflections": status["cognition"].get("reflections", []),
+            "dataset": status["cognition"].get("datasets", {}),
+            "compression": status["cognition"].get("compression", {}),
+            "confidence": status["cognition"].get("confidence_summary", {}),
+            "causality": status["cognition"].get("causality", {}),
+            "legacy_cognition": status.get("legacy_cognition", {}),
         }
 
 
