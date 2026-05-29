@@ -17,6 +17,7 @@ Import from here::
 from agents.architecture_agent import ArchitectureAgent
 from agents.base_agent import AgentState, BaseAgent
 from agents.coding_agent import CodingAgent
+from agents.document_cognition_agent import DocumentCognitionAgent
 from agents.niblit_dev_agent import NiblitDevAgent
 from agents.planner_agent import PlannerAgent
 from agents.reflection_agent import ReflectionAgent
@@ -29,6 +30,7 @@ __all__ = [
     "PlannerAgent",
     "ResearchAgent",
     "CodingAgent",
+    "DocumentCognitionAgent",
     "TestingAgent",
     "ReflectionAgent",
     "ArchitectureAgent",

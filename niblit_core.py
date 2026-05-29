@@ -1324,12 +1324,14 @@ try:
     from agents.testing_agent import TestingAgent as _TestingAgent
     from agents.reflection_agent import ReflectionAgent as _ReflectionAgent
     from agents.architecture_agent import ArchitectureAgent as _ArchitectureAgent
+    from agents.document_cognition_agent import DocumentCognitionAgent as _DocumentCognitionAgent
     from agents.niblit_dev_agent import NiblitDevAgent as _NiblitDevAgent
     _PHASE2_AGENTS_AVAILABLE = True
 except Exception as _e:
     log.debug(f"Phase-2 agents not available: {_e}")
     _PlannerAgent = _ResearchAgent = _CodingAgent = None  # type: ignore[assignment,misc]
     _TestingAgent = _ReflectionAgent = _ArchitectureAgent = None  # type: ignore[assignment,misc]
+    _DocumentCognitionAgent = None  # type: ignore[assignment,misc]
     _NiblitDevAgent = None  # type: ignore[assignment,misc]
     _PHASE2_AGENTS_AVAILABLE = False
 
@@ -2575,6 +2577,14 @@ class NiblitCore:
         self.command_registry.register(
             "autonomous-learn code-status", self._cmd_autonomous_code_status,
             "Show ALE code-generation literacy loop status (langs, last file)", "autonomous", priority=98
+        )
+        self.command_registry.register(
+            "document-cognition",
+            self._cmd_document_cognition,
+            "Governed PDF cognition: scan approved directories, ingest PDFs, and persist governed memory",
+            "knowledge",
+            priority=94,
+            aliases=("pdf-cognition",),
         )
 
         # Knowledge recall & acquired data commands
@@ -6063,6 +6073,77 @@ SW Categories: {stats.get('software_study_categories', 0)}
         result = str(agent.handle_cli(action))
         return result
 
+    def _cmd_document_cognition(self, cmd: str = "") -> str:
+        """Run governed PDF document cognition through the runtime manager."""
+        from modules.governed_document_cognition import get_governed_document_cognition
+
+        collector = get_governed_document_cognition()
+        args = [part for part in (cmd or "").strip().split() if part]
+        sub = (args[0].lower() if args else "status")
+
+        if sub in {"status"}:
+            try:
+                return json.dumps(collector.status(), indent=2, sort_keys=True)
+            except Exception as exc:
+                return f"[document-cognition] status error: {exc}"
+
+        if sub in {"ingest", "scan", "start"}:
+            directory = "/home"
+            max_documents = 25
+            recursive = True
+            for token in args[1:]:
+                if token.startswith("--limit="):
+                    try:
+                        max_documents = max(1, int(token.split("=", 1)[1]))
+                    except Exception:
+                        continue
+                elif token == "--no-recursive":
+                    recursive = False
+                elif token.startswith("--"):
+                    continue
+                else:
+                    directory = token
+
+            rm = getattr(self, "runtime_manager", None)
+            if rm is None:
+                result = collector.ingest_directory(
+                    directory=directory,
+                    recursive=recursive,
+                    max_documents=max_documents,
+                    router=getattr(self, "runtime_router_v2", None),
+                    knowledge_db=getattr(self, "db", None),
+                    evaluation_engine=getattr(self, "evaluation_engine", None),
+                    runtime_id="",
+                    source_module="niblit_core",
+                )
+                return json.dumps(result, indent=2, sort_keys=True)
+
+            try:
+                task = rm.submit_task(
+                    "document_cognition",
+                    payload={
+                        "directory": directory,
+                        "recursive": recursive,
+                        "max_documents": max_documents,
+                    },
+                    priority="normal",
+                    source="document-cognition",
+                )
+                rm.dispatch_pending(max_tasks=1)
+                if task.status == "completed":
+                    return json.dumps(task.result or {}, indent=2, sort_keys=True)
+                if task.status == "failed":
+                    return f"[document-cognition] task failed: {task.error}"
+                return f"document-cognition task queued ({task.task_id[:8]})"
+            except Exception as exc:
+                return f"[document-cognition] submit error: {exc}"
+
+        return (
+            "document-cognition commands:\n"
+            "  document-cognition status\n"
+            "  document-cognition ingest [directory] [--limit=N] [--no-recursive]\n"
+        )
+
     # ── Self-enhancement command (additive) ───────────────────────────────────
 
     def _cmd_self_enhance(self, cmd: str = "") -> str:
@@ -9139,6 +9220,29 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     log.debug("[INIT] ArchitectureAgent registered (%s)", aarch.HANDLED_TASK_TYPES)
                 except Exception as _e:
                     log.debug("[INIT] ArchitectureAgent registration failed: %s", _e)
+
+            if _DocumentCognitionAgent is not None:
+                try:
+                    _router_v2 = None
+                    try:
+                        from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
+
+                        _router_v2 = NiblitUnifiedRuntimeRouterV2(
+                            local_brain=getattr(self, "local_brain", None)
+                        )
+                    except Exception:
+                        _router_v2 = None
+                    dca = _DocumentCognitionAgent(
+                        core=self,
+                        router_v2=_router_v2,
+                    )
+                    for tt in dca.HANDLED_TASK_TYPES:
+                        rm.register_agent(tt, dca.handle)
+                    self.phase2_agents[dca.HANDLED_TASK_TYPES[0]] = dca
+                    agents_registered += 1
+                    log.debug("[INIT] DocumentCognitionAgent registered (%s)", dca.HANDLED_TASK_TYPES)
+                except Exception as _e:
+                    log.debug("[INIT] DocumentCognitionAgent registration failed: %s", _e)
 
             if _NiblitDevAgent is not None:
                 try:
