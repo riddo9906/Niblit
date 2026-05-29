@@ -76,6 +76,8 @@ class RuntimeState:
     cognitive_datasets: dict[str, Any] = field(default_factory=dict)
     confidence_summary: dict[str, Any] = field(default_factory=dict)
     cognition_recovery: dict[str, Any] = field(default_factory=dict)
+    capabilities: list[dict[str, Any]] = field(default_factory=list)
+    capability_summary: dict[str, Any] = field(default_factory=dict)
     last_updated_at: float = field(default_factory=_utc_ts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -220,6 +222,7 @@ class ProviderRuntimeManager:
             for name in self._providers
         }
         self._active_provider = os.environ.get("NIBLIT_LLM_PROVIDER", "qwen").strip().lower() or "qwen"
+        self._last_capability_status: dict[str, bool] = {}
 
     def register_provider(self, name: str, capabilities: dict[str, Any]) -> None:
         pname = name.strip().lower()
@@ -264,9 +267,17 @@ class ProviderRuntimeManager:
             for p in ("qwen", "hf", "anthropic", "ruflo"):
                 if p in self._health:
                     ok = bool(s.get(p, True))
+                    previous_ok = self._last_capability_status.get(p)
                     self._health[p]["healthy"] = ok
                     if not ok and not self._health[p].get("last_error"):
                         self._health[p]["last_error"] = "unavailable"
+                    if previous_ok is None or previous_ok != ok:
+                        self._last_capability_status[p] = ok
+                        self._event_bus.emit(
+                            "provider.capability.changed",
+                            "ProviderRuntimeManager",
+                            {"provider": p, "healthy": ok, "active_provider": self._active_provider},
+                        )
             return {
                 "active_provider": self._active_provider,
                 "providers": {k: dict(v) for k, v in self._providers.items()},
@@ -624,6 +635,7 @@ class NiblitUnifiedRuntime:
 
     def _update_from_status(self, *, core: Any) -> dict[str, Any]:
         with self._lock:
+            previous_mode = self._state.runtime_mode
             provider_status = self.provider_runtime.status()
             self._state.active_provider = provider_status.get("active_provider", self._state.active_provider)
             self._state.deployment = self.deployment_runtime.detect()
@@ -648,6 +660,23 @@ class NiblitUnifiedRuntime:
                 str(ms.get("ruflo_model", "")),
             ]
             self._state.loaded_models = [m for m in loaded_models if m and m != "n/a"]
+            registry = getattr(core, "command_registry", None) if core is not None else None
+            if registry is not None and hasattr(registry, "capability_snapshot"):
+                capability_context = {"surface": "runtime"}
+                if hasattr(core, "_command_registry_context"):
+                    capability_context.update(core._command_registry_context())  # pylint: disable=protected-access
+                capabilities = registry.capability_snapshot(
+                    context=capability_context,
+                    surface="runtime",
+                    include_unavailable=True,
+                )
+                self._state.capabilities = capabilities
+                self._state.capability_summary = {
+                    "total": len(capabilities),
+                    "available": sum(1 for item in capabilities if item.get("available")),
+                    "unavailable": sum(1 for item in capabilities if not item.get("available")),
+                    "categories": sorted({str(item.get("category", "misc")) for item in capabilities}),
+                }
             telemetry = self.telemetry_runtime.snapshot(
                 core=core,
                 state=self._state,
@@ -658,6 +687,12 @@ class NiblitUnifiedRuntime:
             self._state.telemetry_snapshots.append(dict(telemetry))
             if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
                 self._state.telemetry_snapshots = self._state.telemetry_snapshots[-MAX_TELEMETRY_HISTORY:]
+            if previous_mode != self._state.runtime_mode:
+                self._event_bus.emit(
+                    "runtime.mode.changed",
+                    "NiblitUnifiedRuntime",
+                    {"previous_mode": previous_mode, "runtime_mode": self._state.runtime_mode},
+                )
             self._event_bus.emit("telemetry.update", "RuntimeTelemetryManager", telemetry)
             self._save_state()
             return {
@@ -792,6 +827,8 @@ class NiblitUnifiedRuntime:
             "confidence": status["cognition"].get("confidence_summary", {}),
             "causality": status["cognition"].get("causality", {}),
             "legacy_cognition": status.get("legacy_cognition", {}),
+            "capabilities": status["state"].get("capabilities", []),
+            "capability_summary": status["state"].get("capability_summary", {}),
         }
 
 

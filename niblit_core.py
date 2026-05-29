@@ -2072,6 +2072,8 @@ class NiblitCore:
                 try:
                     self.router = NiblitRouter(self, self.db, self)
                     self.router.start()
+                    if self.command_registry and hasattr(self.router, "register_capabilities"):
+                        self.router.register_capabilities(self.command_registry)
                     log.info("✅ NiblitRouter (Phase 0) ready")
                 except Exception as _re:
                     log.debug("Minimal router init failed: %s", _re)
@@ -2110,7 +2112,10 @@ class NiblitCore:
         try:
             # 1. CommandRegistry
             if CommandRegistry:
-                self.command_registry = CommandRegistry()
+                self.command_registry = CommandRegistry(
+                    event_emitter=self._emit_capability_event,
+                    context_provider=self._command_registry_context,
+                )
                 self._register_commands()
                 log.info("[IMPROVEMENTS] ✅ CommandRegistry initialized")
         except Exception as e:
@@ -2376,6 +2381,81 @@ class NiblitCore:
             pass
         log.info("[INIT-PROGRESS] %s", msg)
 
+    def _command_registry_context(self) -> dict:
+        """Return live runtime context for capability visibility decisions."""
+        runtime_mode = os.environ.get("NIBLIT_RUNTIME_MODE", "api").strip().lower() or "api"
+        active_provider = ""
+        provider_health = {}
+        try:
+            from modules.unified_runtime import get_unified_runtime
+
+            runtime = get_unified_runtime()
+            state = runtime.state(core=self)
+            runtime_state = state.get("state", {})
+            runtime_mode = str(runtime_state.get("runtime_mode", runtime_mode) or runtime_mode).lower()
+            active_provider = str(runtime_state.get("active_provider", "") or "").lower()
+            provider_health = dict((state.get("providers", {}) or {}).get("health", {}) or {})
+        except Exception:
+            pass
+        if not active_provider:
+            try:
+                from modules.llm_provider_manager import get_llm_provider_manager
+
+                active_provider = str((get_llm_provider_manager().status() or {}).get("active", "") or "").lower()
+            except Exception:
+                active_provider = ""
+        return {
+            "core": self,
+            "runtime_mode": runtime_mode,
+            "active_provider": active_provider,
+            "provider_health": provider_health,
+            "dev_agent_available": getattr(self, "niblit_dev_agent", None) is not None,
+            "event_bus_available": getattr(getattr(self, "runtime_manager", None), "event_bus", None) is not None,
+            "cloud_runtime_available": bool(os.environ.get("NIBLIT_CLOUD_RUNTIME_URL", "").strip()),
+            "reflection_available": getattr(self, "reflection", None) is not None or getattr(self, "metacognition", None) is not None,
+            "local_brain_available": getattr(self, "local_brain", None) is not None,
+        }
+
+    def _emit_capability_event(self, event_type: str, payload: dict) -> None:
+        """Mirror capability lifecycle events into canonical runtime event streams."""
+        data = dict(payload or {})
+        data.setdefault("runtime_mode", os.environ.get("NIBLIT_RUNTIME_MODE", "api").strip().lower() or "api")
+        data.setdefault("source_module", "niblit_core")
+        try:
+            from modules.event_bus import NiblitEvent, get_event_bus
+
+            get_event_bus().publish(NiblitEvent(type=event_type, source="CanonicalRuntimeCapabilityRegistry", payload=data))
+        except Exception:
+            pass
+        try:
+            from modules.unified_runtime import get_unified_runtime
+
+            get_unified_runtime().ingest_external_event(
+                event_type=event_type,
+                source="CanonicalRuntimeCapabilityRegistry",
+                payload=data,
+            )
+        except Exception:
+            pass
+
+    def _dispatch_unified_runtime_command(self, command: str) -> str:
+        """Dispatch a runtime-native capability via the unified runtime."""
+        try:
+            from modules.unified_runtime import get_unified_runtime
+
+            return get_unified_runtime().dispatch_command(command=command, core=self)
+        except Exception as exc:
+            return f"[runtime unavailable] {exc}"
+
+    def _cmd_runtime_capabilities(self, _text: str = "") -> str:
+        """Show the canonical runtime capability registry snapshot."""
+        if not self.command_registry:
+            return "[capability registry unavailable]"
+        return self.command_registry.detailed_report(
+            context={**self._command_registry_context(), "surface": "runtime"},
+            surface="runtime",
+        )
+
     def _register_commands(self):
         """Register commands with CommandRegistry."""
         # pylint: disable=too-many-statements
@@ -2384,7 +2464,13 @@ class NiblitCore:
 
         # Core commands (no LLM)
         self.command_registry.register(
-            "help", self._cmd_help, "Show the complete Niblit command reference", "core", priority=100
+            "help",
+            self._cmd_help,
+            "Show the complete Niblit command reference",
+            "core",
+            priority=100,
+            aliases=("commands",),
+            cognition_classification="discoverability",
         )
         self.command_registry.register(
             "status", self._cmd_status, "Show overall system status (modules, threads, memory)", "core", priority=100
@@ -2403,6 +2489,70 @@ class NiblitCore:
         )
         self.command_registry.register(
             "time", self._cmd_time, "Display current date and time", "core", priority=100
+        )
+        self.command_registry.register(
+            "memory",
+            lambda _text="": (
+                "\n".join(str(e) for e in self.db.recent_interactions(50))
+                if hasattr(self.db, "recent_interactions")
+                else "[Memory API missing]"
+            ),
+            "Show recent interaction memory entries",
+            "core",
+            priority=100,
+        )
+        self.command_registry.register(
+            "dump",
+            lambda _text="": f"[DUMP] Loop cycles: {self._dump_loop_count}, Memory: {self._get_memory_count()}",
+            "Show dump-loop stats and last snapshot info",
+            "core",
+            priority=99,
+        )
+        self.command_registry.register(
+            "runtime status",
+            lambda _text="": self._dispatch_unified_runtime_command("runtime status"),
+            "Show unified runtime state, active provider, deployment, and command activity",
+            "runtime",
+            priority=100,
+            aliases=("live status",),
+            cognition_classification="runtime",
+            execution_authority="NiblitUnifiedRuntime.dispatch_command",
+            source_authority="modules/unified_runtime.py",
+        )
+        self.command_registry.register(
+            "runtime provider",
+            lambda text="": self._dispatch_unified_runtime_command(f"runtime provider {text}".strip()),
+            "Switch the active runtime provider through the unified runtime",
+            "runtime",
+            priority=99,
+            cognition_classification="runtime",
+            execution_authority="NiblitUnifiedRuntime.dispatch_command",
+            source_authority="modules/unified_runtime.py",
+            provider_requirements=("qwen", "local_llama", "hf", "anthropic", "ruflo", "openai_compatible"),
+        )
+        self.command_registry.register(
+            "runtime infer",
+            lambda text="": self._dispatch_unified_runtime_command(f"runtime infer {text}".strip()),
+            "Run inference through the unified runtime provider router",
+            "runtime",
+            priority=99,
+            cognition_classification="runtime",
+            execution_authority="NiblitUnifiedRuntime.dispatch_command",
+            source_authority="modules/unified_runtime.py",
+            dynamic_availability=lambda ctx: (
+                bool((ctx.get("active_provider") or "").strip()),
+                "no active provider" if not (ctx.get("active_provider") or "").strip() else "",
+            ),
+        )
+        self.command_registry.register(
+            "runtime capabilities",
+            self._cmd_runtime_capabilities,
+            "Enumerate canonical runtime capabilities with authority and availability",
+            "runtime",
+            priority=98,
+            cognition_classification="discoverability",
+            execution_authority="CanonicalRuntimeCapabilityRegistry.detailed_report",
+            source_authority="modules/command_registry.py",
         )
 
         # Autonomous Learning Commands
@@ -2523,35 +2673,60 @@ class NiblitCore:
         # Structural awareness commands — short-form aliases
         self.command_registry.register(
             "sa-structure", self._cmd_sa_structure,
-            "Full structural inventory: modules, adapters, engines, memory", "structural_awareness", priority=75
+            "Full structural inventory: modules, adapters, engines, memory",
+            "structural_awareness",
+            priority=75,
+            aliases=("my structure", "show structure", "niblit structure", "struct"),
         )
         self.command_registry.register(
             "sa-threads", self._cmd_sa_threads,
-            "List every active thread with name, state, and daemon flag", "structural_awareness", priority=75
+            "List every active thread with name, state, and daemon flag",
+            "structural_awareness",
+            priority=75,
+            aliases=("my threads", "active threads", "threads"),
         )
         self.command_registry.register(
             "sa-loops", self._cmd_sa_loops,
-            "Show all background loops with interval and running state", "structural_awareness", priority=75
+            "Show all background loops with interval and running state",
+            "structural_awareness",
+            priority=75,
+            aliases=("my loops", "active loops", "loops", "background loops"),
         )
         self.command_registry.register(
             "sa-modules", self._cmd_sa_modules,
-            "List all loaded Python modules and their wiring status", "structural_awareness", priority=75
+            "List all loaded Python modules and their wiring status",
+            "structural_awareness",
+            priority=75,
+            aliases=("my modules", "loaded modules", "modules"),
         )
         self.command_registry.register(
             "sa-commands", self._cmd_sa_commands,
-            "Enumerate every registered command with handler and priority", "structural_awareness", priority=75
+            "Enumerate every registered command with handler, source authority, and availability",
+            "structural_awareness",
+            priority=75,
+            aliases=("my commands", "all commands"),
+            cognition_classification="discoverability",
         )
         self.command_registry.register(
             "sa-dashboard", self._cmd_sa_dashboard,
-            "Full runtime dashboard: threads, loops, memory, ALE, modules", "structural_awareness", priority=75
+            "Full runtime dashboard: threads, loops, memory, ALE, modules",
+            "structural_awareness",
+            priority=75,
+            aliases=("dashboard",),
         )
         self.command_registry.register(
             "sa-flow", self._cmd_sa_flow,
-            "Explain how CLI routing, background loops, and memory all connect", "structural_awareness", priority=75
+            "Explain how CLI routing, background loops, and memory all connect",
+            "structural_awareness",
+            priority=75,
+            aliases=("how do i work", "operational flow", "my flow", "loop flow"),
         )
         self.command_registry.register(
             "sa-resources", self._cmd_sa_resources,
-            "Show RAM usage, CPU percent, and process uptime", "structural_awareness", priority=75
+            "Show RAM usage, CPU percent, and process uptime",
+            "structural_awareness",
+            priority=75,
+            aliases=("resource usage", "my resources", "memory usage"),
         )
         self.command_registry.register(
             "sa-awareness", self._cmd_sa_awareness,
@@ -2559,35 +2734,59 @@ class NiblitCore:
         )
         self.command_registry.register(
             "dev-agent status", lambda t="": self._cmd_dev_agent("status"),
-            "NiblitDevAgent status and runtime registration summary", "dev_agent", priority=75
+            "NiblitDevAgent status and runtime registration summary",
+            "dev_agent",
+            priority=75,
+            dynamic_availability=lambda ctx: (bool(ctx.get("dev_agent_available")), "dev-agent unavailable"),
         )
         self.command_registry.register(
             "dev-agent runtime", lambda t="": self._cmd_dev_agent("runtime"),
-            "NiblitDevAgent runtime topology snapshot", "dev_agent", priority=75
+            "NiblitDevAgent runtime topology snapshot",
+            "dev_agent",
+            priority=75,
+            dynamic_availability=lambda ctx: (bool(ctx.get("dev_agent_available")), "dev-agent unavailable"),
         )
         self.command_registry.register(
             "dev-agent providers", lambda t="": self._cmd_dev_agent("providers"),
-            "NiblitDevAgent provider-awareness snapshot", "dev_agent", priority=75
+            "NiblitDevAgent provider-awareness snapshot",
+            "dev_agent",
+            priority=75,
+            dynamic_availability=lambda ctx: (bool(ctx.get("dev_agent_available")), "dev-agent unavailable"),
         )
         self.command_registry.register(
             "dev-agent architecture", lambda t="": self._cmd_dev_agent("architecture"),
-            "NiblitDevAgent lightweight architecture index", "dev_agent", priority=75
+            "NiblitDevAgent lightweight architecture index",
+            "dev_agent",
+            priority=75,
+            dynamic_availability=lambda ctx: (bool(ctx.get("dev_agent_available")), "dev-agent unavailable"),
         )
         self.command_registry.register(
             "dev-agent analyze", lambda t="": self._cmd_dev_agent("analyze " + t),
-            "NiblitDevAgent scope analysis: runtime + provider + architecture impact", "dev_agent", priority=75
+            "NiblitDevAgent scope analysis: runtime + provider + architecture impact",
+            "dev_agent",
+            priority=75,
+            dynamic_availability=lambda ctx: (bool(ctx.get("dev_agent_available")), "dev-agent unavailable"),
         )
         self.command_registry.register(
             "dev-agent approve", lambda t="": self._cmd_dev_agent("approve " + t),
-            "NiblitDevAgent approval gate for staged execution tasks", "dev_agent", priority=75
+            "NiblitDevAgent approval gate for staged execution tasks",
+            "dev_agent",
+            priority=75,
+            dynamic_availability=lambda ctx: (bool(ctx.get("dev_agent_available")), "dev-agent unavailable"),
         )
         self.command_registry.register(
             "dev-agent execute", lambda t="": self._cmd_dev_agent("execute " + t),
-            "NiblitDevAgent execute an approved staged task by task_id", "dev_agent", priority=75
+            "NiblitDevAgent execute an approved staged task by task_id",
+            "dev_agent",
+            priority=75,
+            dynamic_availability=lambda ctx: (bool(ctx.get("dev_agent_available")), "dev-agent unavailable"),
         )
         self.command_registry.register(
             "dev-agent rollback", lambda t="": self._cmd_dev_agent("rollback " + t),
-            "NiblitDevAgent rollback an executed task by task_id", "dev_agent", priority=75
+            "NiblitDevAgent rollback an executed task by task_id",
+            "dev_agent",
+            priority=75,
+            dynamic_availability=lambda ctx: (bool(ctx.get("dev_agent_available")), "dev-agent unavailable"),
         )
         self.command_registry.register(
             "sa-scripts", self._cmd_sa_scripts,
@@ -3797,6 +3996,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _cmd_sa_commands(self, _text: str = "") -> str:
         """Show all registered commands."""
+        if self.command_registry:
+            return self.command_registry.detailed_report(
+                context={**self._command_registry_context(), "surface": "discoverability"},
+                surface="discoverability",
+            )
         if self.structural_awareness:
             return self.structural_awareness.command_report(router=self.router)
         if self.router and hasattr(self.router, "help_text"):
@@ -7025,6 +7229,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 try:
                     self.router = NiblitRouter(self, self.db, self)
                     self.router.start()
+                    if self.command_registry and hasattr(self.router, "register_capabilities"):
+                        self.router.register_capabilities(self.command_registry)
                 except Exception as e:
                     log.debug(f"NiblitRouter failed: {e}")
                     self.router = None
@@ -10029,7 +10235,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # ============================
         if self.command_registry:
             try:
-                result = self.command_registry.execute(ltext)
+                result = self.command_registry.execute(
+                    text,
+                    context={**self._command_registry_context(), "surface": "cli"},
+                    surface="cli",
+                )
                 if result:
                     log.debug("[COMMAND_REGISTRY] Command executed")
                     self._trigger_learning(text, result)
@@ -10665,6 +10875,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def help_text(self) -> str:
         """Return the complete Niblit command reference."""
+        if self.command_registry:
+            return self.command_registry.get_help(
+                context={**self._command_registry_context(), "surface": "help"},
+                surface="help",
+                include_unavailable=True,
+            )
         base_help = (
             "=== NIBLIT COMMAND REFERENCE ===\n\n"
             "--- CORE ---\n"

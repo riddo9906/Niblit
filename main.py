@@ -15,16 +15,16 @@ longer print to the terminal mid-typing.
 """
 
 import argparse
+import datetime
+import difflib
 import json
 import logging
 import os
-import sys
 import signal
-import traceback
-import difflib
-import datetime
+import sys
 import threading
 import time
+import traceback
 
 # ── Centralised logging configuration ──────────────────────────────────────
 # Set up the root logger ONCE here, before any module imports.  Individual
@@ -47,7 +47,6 @@ except ImportError:
 
 from niblit_core import NiblitCore
 from niblit_io import NiblitIO
-from niblit_router import safe_call
 
 DEFAULT_INIT_WAIT_MAX_SECONDS = 600.0  # 10 min default; override via NIBLIT_INIT_WAIT_MAX_SECONDS
 TOOL_NO_OUTPUT_MESSAGE = "[Tool returned no output]"
@@ -56,7 +55,7 @@ TOOL_NO_OUTPUT_MESSAGE = "[Tool returned no output]"
 # Import the shared notification queue so we can surface background output
 # ONLY after the user presses Enter (never during typing).
 try:
-    from core.notification_queue import notif_queue, install_queue_log_handler
+    from core.notification_queue import install_queue_log_handler, notif_queue
     _NOTIF_QUEUE_AVAILABLE = True
 except ImportError:
     notif_queue = None  # type: ignore[assignment]
@@ -103,7 +102,7 @@ DEBUG_MODE = True
 # ─────────────────────────────
 # COMMAND LIST (for suggestions only)
 # ─────────────────────────────
-COMMANDS = [
+LEGACY_COMMANDS = [
     "help",
     "status",
     "memory",
@@ -132,8 +131,27 @@ COMMANDS = [
 def timestamp():
     return datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
-def suggest_command(user_input):
-    matches = difflib.get_close_matches(user_input, COMMANDS, n=3, cutoff=0.5)
+def _command_vocabulary(core=None):
+    names = set(LEGACY_COMMANDS)
+    names.update({"exit", "quit", "debug on", "debug off", "session summary", "notifications history", "sidecar status", "unified status"})
+    registry = getattr(core, "command_registry", None) if core is not None else None
+    if registry is not None and hasattr(registry, "command_names"):
+        try:
+            names.update(
+                registry.command_names(
+                    context={"surface": "cli"},
+                    surface="cli",
+                    include_aliases=True,
+                    include_unavailable=True,
+                )
+            )
+        except Exception:
+            pass
+    return sorted(name for name in names if name)
+
+
+def suggest_command(user_input, core=None):
+    matches = difflib.get_close_matches(user_input, _command_vocabulary(core), n=3, cutoff=0.5)
     # Never suggest a command that is identical to what the user already typed —
     # difflib returns exact matches too, which creates spurious "Did you mean X?"
     # messages right after X was successfully executed.
@@ -478,11 +496,11 @@ def _cmd_show_notifications(core=None, io=None):
 
     # Deduplicate repeated identical messages (e.g. repeated serpapi warnings)
     # preserving chronological first-occurrence order.
-    _seen_dedup: "dict[str, int]" = {}
+    _seen_dedup: dict[str, int] = {}
     for m in msgs:
         _seen_dedup[m] = _seen_dedup.get(m, 0) + 1
-    deduped: "list[str]" = []
-    _already_added: "set[str]" = set()
+    deduped: list[str] = []
+    _already_added: set[str] = set()
     for m in msgs:
         if m not in _already_added:
             count = _seen_dedup[m]
@@ -614,6 +632,88 @@ def _cmd_session_summary(export_path: str = "") -> str:
     return summary
 
 
+def _sync_cli_capability_registry(core, io):
+    """Register CLI-only capabilities in the canonical capability registry."""
+    registry = getattr(core, "command_registry", None)
+    if registry is None:
+        return
+    registry.register(
+        "notifications",
+        lambda _text="": _cmd_show_notifications(core, io),
+        "Drain background notifications captured by the CLI shell",
+        "runtime",
+        priority=98,
+        source_authority="main.py",
+        execution_authority="main.run_shell",
+        visibility_surfaces={"cli", "help", "discoverability"},
+    )
+    registry.register(
+        "notifications history",
+        lambda _text="": _cmd_notifications_history(),
+        "Replay recent notification history from the CLI shell",
+        "runtime",
+        priority=97,
+        source_authority="main.py",
+        execution_authority="main.run_shell",
+        visibility_surfaces={"cli", "help", "discoverability"},
+    )
+    registry.register(
+        "sidecar status",
+        lambda _text="": (
+            __import__("modules.niblit_sidecar", fromlist=["get_sidecar"]).get_sidecar().status_line()
+            if __import__("modules.niblit_sidecar", fromlist=["get_sidecar"]).get_sidecar() is not None
+            else "Sidecar not running."
+        ),
+        "Show sidecar socket readiness for secondary CLI clients",
+        "runtime",
+        priority=96,
+        source_authority="main.py",
+        execution_authority="main.run_shell",
+        visibility_surfaces={"cli", "help", "discoverability"},
+    )
+    registry.register(
+        "session summary",
+        lambda text="": _cmd_session_summary(text),
+        "Summarize or export this interactive CLI session",
+        "runtime",
+        priority=96,
+        source_authority="main.py",
+        execution_authority="main.run_shell",
+        visibility_surfaces={"cli", "help", "discoverability"},
+    )
+    registry.register(
+        "debug on",
+        None,
+        "Enable verbose CLI debug output for the current session",
+        "runtime",
+        priority=95,
+        source_authority="main.py",
+        execution_authority="main.run_shell",
+        visibility_surfaces={"cli", "help", "discoverability"},
+    )
+    registry.register(
+        "debug off",
+        None,
+        "Disable verbose CLI debug output for the current session",
+        "runtime",
+        priority=95,
+        source_authority="main.py",
+        execution_authority="main.run_shell",
+        visibility_surfaces={"cli", "help", "discoverability"},
+    )
+    registry.register(
+        "exit",
+        None,
+        "Exit the interactive CLI shell",
+        "runtime",
+        priority=95,
+        aliases=("quit",),
+        source_authority="main.py",
+        execution_authority="main.run_shell",
+        visibility_surfaces={"cli", "help", "discoverability"},
+    )
+
+
 # ─────────────────────────────
 # COMMAND SHELL
 # ─────────────────────────────
@@ -621,39 +721,11 @@ def run_shell(core, io):
     global DEBUG_MODE, _active_core, SESSION_START
     _active_core = core  # expose to signal handlers
     SESSION_START = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    _sync_cli_capability_registry(core, io)
 
     io.out(f"{timestamp()} READY\n")
 
     DIRECT_COMMANDS = {
-        "help": lambda: core.help_text(),
-
-        "status": lambda: (
-            f"[STATUS]\n"
-            f"LLM enabled: {core.llm_enabled}\n"
-            f"Memory entries: "
-            f"{len(core.db.recent_interactions(50)) if hasattr(core.db, 'recent_interactions') else 'N/A'}"
-        ),
-
-        "memory": lambda: (
-            "\n".join(str(e) for e in core.db.recent_interactions(50))
-            if hasattr(core.db, "recent_interactions")
-            else "[Memory API missing]"
-        ),
-
-        "self-heal": lambda: safe_call(
-            getattr(core, "self_healer", None),
-            "run_cycle",
-            "[SELF-HEAL NOT AVAILABLE]"
-        ),
-
-        "self-teach": lambda: safe_call(
-            getattr(core, "self_teacher", None),
-            "teach",
-            "[SELF-TEACH NOT AVAILABLE]"
-        ),
-
-        "threads": lambda: list_threads(),
-
         # ── Sidecar status (additive) ──────────────────────────────────────
         "sidecar status": lambda: (
             __import__("modules.niblit_sidecar", fromlist=["get_sidecar"])
@@ -767,8 +839,8 @@ def run_shell(core, io):
             # Suggestion engine.
             # Only run when the input is NOT already a known command — suggesting
             # close matches after a command that executed successfully is confusing.
-            if cmd not in COMMANDS:
-                sug = suggest_command(cmd)
+            if cmd not in _command_vocabulary(core):
+                sug = suggest_command(cmd, core)
                 if sug:
                     io.out(f"Did you mean: {sug[0]} ?")
 
