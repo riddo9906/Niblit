@@ -50,6 +50,9 @@ from typing import Any, Dict, List, Optional
 
 REALITY_JOURNAL_WINDOW: int = int(os.environ.get("REALITY_JOURNAL_WINDOW", "20"))
 REALITY_TRADE_WINDOW: int = int(os.environ.get("REALITY_TRADE_WINDOW", "50"))
+SNAPSHOT_WRITE_ENABLED: bool = (
+    os.environ.get("NIBLIT_SNAPSHOT_WRITE_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
+)
 
 _JOURNAL_FILE = Path(__file__).parent / "outcome_journal.jsonl"
 _TRADE_KB_FILE = Path(__file__).parent.parent / "niblit_trade_knowledge.json"
@@ -299,6 +302,8 @@ def get_cached_snapshot() -> Optional[Dict[str, Any]]:
 
 
 def _cache_snapshot(snapshot: Dict[str, Any]) -> None:
+    if not SNAPSHOT_WRITE_ENABLED:
+        return
     try:
         _CACHE_FILE.write_text(
             json.dumps(snapshot, indent=2), encoding="utf-8"
