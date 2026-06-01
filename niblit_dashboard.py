@@ -532,7 +532,7 @@ if _kivy_available:
                 pb.add_widget(btn)
 
         def on_command_selected(self, _key: str, _cmd_type: str) -> None:
-            """Dispatch the selected command key and type to the root widget."""
+            """Kivy event stub satisfied by the parent binding declared in KV."""
             return None
 
     class ChatPanel(BoxLayout):

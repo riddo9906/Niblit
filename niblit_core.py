@@ -2407,15 +2407,14 @@ class NiblitCore:
                 active_provider = str((get_llm_provider_manager().status() or {}).get("active", "") or "").lower()
             except Exception:
                 active_provider = ""
+        runtime_manager = getattr(self, "runtime_manager", None)
         return {
             "core": self,
             "runtime_mode": runtime_mode,
             "active_provider": active_provider,
             "provider_health": provider_health,
             "dev_agent_available": getattr(self, "niblit_dev_agent", None) is not None,
-            "event_bus_available": (
-                getattr(getattr(self, "runtime_manager", None), "event_bus", None) is not None
-            ),
+            "event_bus_available": getattr(runtime_manager, "event_bus", None) is not None,
             "cloud_runtime_available": bool(os.environ.get("NIBLIT_CLOUD_RUNTIME_URL", "").strip()),
             "reflection_available": (
                 getattr(self, "reflection", None) is not None
