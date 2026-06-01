@@ -124,6 +124,9 @@ class HypothesisEngine:
         self._source_index: dict[str, list[str]] = {}
         self._market_graph_chains: list[dict[str, Any]] = []
         self._source_map = self._build_source_map()
+        # Suppress runtime bus emissions during bulk snapshot ingestion to prevent
+        # O(N²) event amplification in _observe_runtime_event during boot.
+        self._ingesting_snapshot: bool = False
 
     @staticmethod
     def _build_source_map() -> dict[str, dict[str, Any]]:
@@ -361,24 +364,27 @@ class HypothesisEngine:
         cognitive_status = cognitive_status or {}
         market_status = market_status or {}
         retrieval_status = retrieval_status or {}
-        episodes = cognitive_status.get("episodes", []) if isinstance(cognitive_status, dict) else []
-        for episode in episodes[-6:]:
-            self.observe_runtime_event("cognitive_episode.snapshot", "cognitive_episode", dict(episode or {}))
-        market_timeline = market_status.get("market_cognition_timeline", []) if isinstance(market_status, dict) else []
-        for item in market_timeline[-6:]:
-            self.observe_runtime_event("market.snapshot", "adaptive_market_cognition", dict(item or {}))
-        contradictions = retrieval_status.get("contradictions", []) if isinstance(retrieval_status, dict) else []
-        for item in contradictions[-6:]:
-            payload = dict(item or {})
-            payload.setdefault("summary", payload.get("reason") or payload.get("topic") or "retrieval contradiction")
-            self.observe_runtime_event("retrieval.contradiction.detected", "adaptive_retrieval_cognition", payload)
-        if isinstance(reflection_report, dict) and reflection_report:
-            self.observe_runtime_event("reflection.snapshot", "reflection_engine", dict(reflection_report))
-        for rec in (evaluation_history or [])[-6:]:
-            self.observe_runtime_event("evaluation.snapshot", "evaluation_engine", dict(rec or {}))
-        for evt in (lean_events or [])[-8:]:
-            self.observe_runtime_event(str(evt.get("type") or "lean.event"), "lean_algo_manager", dict(evt.get("payload") or {}))
-
+        self._ingesting_snapshot = True
+        try:
+            episodes = cognitive_status.get("episodes", []) if isinstance(cognitive_status, dict) else []
+            for episode in episodes[-6:]:
+                self.observe_runtime_event("cognitive_episode.snapshot", "cognitive_episode", dict(episode or {}))
+            market_timeline = market_status.get("market_cognition_timeline", []) if isinstance(market_status, dict) else []
+            for item in market_timeline[-6:]:
+                self.observe_runtime_event("market.snapshot", "adaptive_market_cognition", dict(item or {}))
+            contradictions = retrieval_status.get("contradictions", []) if isinstance(retrieval_status, dict) else []
+            for item in contradictions[-6:]:
+                payload = dict(item or {})
+                payload.setdefault("summary", payload.get("reason") or payload.get("topic") or "retrieval contradiction")
+                self.observe_runtime_event("retrieval.contradiction.detected", "adaptive_retrieval_cognition", payload)
+            if isinstance(reflection_report, dict) and reflection_report:
+                self.observe_runtime_event("reflection.snapshot", "reflection_engine", dict(reflection_report))
+            for rec in (evaluation_history or [])[-6:]:
+                self.observe_runtime_event("evaluation.snapshot", "evaluation_engine", dict(rec or {}))
+            for evt in (lean_events or [])[-8:]:
+                self.observe_runtime_event(str(evt.get("type") or "lean.event"), "lean_algo_manager", dict(evt.get("payload") or {}))
+        finally:
+            self._ingesting_snapshot = False
     def ingest_evidence(
         self,
         *,
@@ -943,6 +949,8 @@ class HypothesisEngine:
         return investigations
 
     def _emit(self, event_type: str, payload: dict[str, Any]) -> None:
+        if self._ingesting_snapshot:
+            return
         if self._emit_runtime_event is None:
             return
         try:
