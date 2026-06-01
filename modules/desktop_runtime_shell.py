@@ -74,6 +74,7 @@ class DesktopRuntimeShell:
         self._command_history: list[str] = []
         self._history_index: int = 0
         self._mode = os.getenv("NIBLIT_RUNTIME_MODE", "api").strip().lower() or "api"
+        self._capability_snapshot: list[dict[str, Any]] = []
         self._stop = False
         self._event_bus_subscribed = False
         self._log_handler: _UILogHandler | None = None
@@ -140,6 +141,8 @@ class DesktopRuntimeShell:
         self._llama_var = tk.StringVar(value="llama3: n/a")
         self._activity_var = tk.StringVar(value="◐")
         self._mode_var = tk.StringVar(value=self._mode)
+        self._capability_search_var = tk.StringVar(value="")
+        self._capability_category_var = tk.StringVar(value="all")
 
         ttk.Label(top, text="Niblit AIOS", style="NiblitValue.TLabel").pack(side="left", padx=(0, 12))
         ttk.Label(top, textvariable=self._runtime_status_var, style="NiblitValue.TLabel").pack(side="left", padx=(0, 10))
@@ -153,6 +156,17 @@ class DesktopRuntimeShell:
         mode_box = ttk.Combobox(top, textvariable=self._mode_var, values=["api", "local", "normal"], width=9, state="readonly")
         mode_box.pack(side="left")
         mode_box.bind("<<ComboboxSelected>>", self._on_mode_change)
+        ttk.Label(top, text="palette", style="Niblit.TLabel").pack(side="left", padx=(12, 4))
+        palette_entry = tk.Entry(
+            top,
+            textvariable=self._capability_search_var,
+            bg="#111a30",
+            fg="#d8e7f9",
+            insertbackground="#6af7d1",
+            relief="flat",
+            width=24,
+        )
+        palette_entry.pack(side="left")
 
         main = ttk.Frame(root, style="Niblit.TFrame")
         main.pack(fill="both", expand=True, padx=12, pady=(0, 12))
@@ -168,6 +182,7 @@ class DesktopRuntimeShell:
 
         self._chat_text = self._mk_text(tab("Chat"))
         self._mk_chat_input(root, tk, main)
+        self._capability_text = self._mk_capability_explorer(tab("Capability Explorer"), tk, ttk)
         self._runtime_text = self._mk_text(tab("Live Runtime Panel"))
         self._ale_text = self._mk_text(tab("ALE Cycle Monitor"))
         self._provider_text = self._mk_text(tab("Provider/Runtime Monitor"))
@@ -184,6 +199,7 @@ class DesktopRuntimeShell:
         self._timeline_text = self._mk_text(tab("Cognitive Timeline"))
         self._reflection_viewer_text = self._mk_text(tab("Reflection Viewer"))
         self._dataset_text = self._mk_text(tab("Dataset Signals"))
+        self._history_text = self._mk_text(tab("Command History"))
 
         self._append(self._chat_text, "Niblit Desktop Cognitive Runtime ready.")
 
@@ -252,6 +268,33 @@ class DesktopRuntimeShell:
         self._chat_entry.bind("<Down>", self._chat_history_down)
         root.bind("<Control-Return>", lambda _e: self._submit_chat())
         self._install_input_context_menu(self._chat_entry, tk)
+
+    def _mk_capability_explorer(self, parent: Any, tk: Any, ttk: Any) -> Any:
+        wrapper = ttk.Frame(parent, style="Niblit.TFrame")
+        wrapper.pack(fill="both", expand=True)
+        toolbar = tk.Frame(wrapper, bg="#0f1527")
+        toolbar.pack(fill="x", padx=8, pady=(8, 0))
+        tk.Label(toolbar, text="Search", bg="#0f1527", fg="#b2c7e6").pack(side="left")
+        search = tk.Entry(
+            toolbar,
+            textvariable=self._capability_search_var,
+            bg="#111a30",
+            fg="#d8e7f9",
+            insertbackground="#6af7d1",
+            relief="flat",
+            width=28,
+        )
+        search.pack(side="left", padx=(6, 10))
+        tk.Label(toolbar, text="Category", bg="#0f1527", fg="#b2c7e6").pack(side="left")
+        self._capability_category_box = ttk.Combobox(
+            toolbar,
+            textvariable=self._capability_category_var,
+            values=["all"],
+            width=20,
+            state="readonly",
+        )
+        self._capability_category_box.pack(side="left", padx=(6, 10))
+        return self._mk_text(wrapper)
 
     def _chat_history_up(self, _event: Any) -> str:
         if not self._command_history:
@@ -326,6 +369,15 @@ class DesktopRuntimeShell:
         mode = (self._mode_var.get() or "api").strip().lower()
         self._mode = mode
         os.environ["NIBLIT_RUNTIME_MODE"] = mode
+        if self._runtime is not None:
+            try:
+                self._runtime.ingest_external_event(
+                    event_type="runtime.mode.changed",
+                    source="DesktopRuntimeShell",
+                    payload={"runtime_mode": mode},
+                )
+            except Exception:
+                pass
 
     def _submit_chat(self) -> None:
         text = self._chat_entry.get("1.0", "end").strip()
@@ -481,12 +533,18 @@ class DesktopRuntimeShell:
         tokens = telemetry.get("token_usage") or telemetry.get("tokens") or {}
         threads = telemetry.get("threads")
         facts = telemetry.get("facts_count")
+        self._capability_snapshot = list(runtime_state.get("capabilities", []) or [])
         self._runtime_status_var.set(f"mode={mode}")
         self._provider_var.set(f"provider: {active_provider}")
         self._ale_var.set(f"ALE: {'running' if ale.get('running') else 'stopped'} #{ale.get('cycle', 0)}")
         self._threads_var.set(f"threads: {threads if threads is not None else 'n/a'}")
         self._facts_var.set(f"facts: {facts if facts is not None else 'n/a'}")
         self._llama_var.set(f"llama3: {'active' if 'llama' in str(active_model).lower() or 'llama' in str(active_provider).lower() else 'standby'}")
+
+        self._replace(
+            self._capability_text,
+            self._capability_text_value(runtime_state),
+        )
 
         self._replace(
             self._runtime_text,
@@ -550,6 +608,10 @@ class DesktopRuntimeShell:
         self._replace(self._timeline_text, self._timeline_text_value(cognition))
         self._replace(self._reflection_viewer_text, self._reflection_text_value(cognition))
         self._replace(self._dataset_text, self._dataset_text_value(cognition))
+        self._replace(
+            self._history_text,
+            "\n".join(["Command History", *[f"- {cmd}" for cmd in self._command_history[-80:]]]) or "Command History\nNo commands yet.",
+        )
 
     @staticmethod
     def _bar(label: str, value: int, unit: int = 1, width: int = 20) -> str:
@@ -592,6 +654,47 @@ class DesktopRuntimeShell:
                 lines.append(f"- {f.get('key', 'fact')}: {str(f.get('value', ''))[:120]}")
         except Exception as exc:
             lines.append(f"[memory unavailable] {exc}")
+        return "\n".join(lines)
+
+    def _capability_text_value(self, runtime_state: dict[str, Any]) -> str:
+        lines = ["Canonical Capability Explorer"]
+        capabilities = list(runtime_state.get("capabilities", []) or self._capability_snapshot)
+        summary = dict(runtime_state.get("capability_summary", {}) or {})
+        if hasattr(self, "_capability_category_box"):
+            categories = ["all", *sorted({str(item.get("category", "misc")) for item in capabilities})]
+            self._capability_category_box.configure(values=categories)
+            if self._capability_category_var.get() not in categories:
+                self._capability_category_var.set("all")
+        search = (self._capability_search_var.get() or "").strip().lower()
+        category = (self._capability_category_var.get() or "all").strip().lower()
+        lines.append(
+            f"summary: total={summary.get('total', len(capabilities))} "
+            f"available={summary.get('available', 0)} unavailable={summary.get('unavailable', 0)}"
+        )
+        lines.append(f"filters: search='{search or '*'}' category='{category}'")
+        filtered = []
+        for item in capabilities:
+            name = str(item.get("name", ""))
+            desc = str(item.get("description", ""))
+            aliases = ", ".join(item.get("aliases", []) or [])
+            if category != "all" and str(item.get("category", "")).lower() != category:
+                continue
+            haystack = " ".join([name, desc, aliases]).lower()
+            if search and search not in haystack:
+                continue
+            filtered.append(item)
+        if not filtered:
+            lines.append("No capabilities match the current filters.")
+            return "\n".join(lines)
+        for item in filtered[:200]:
+            status = "available" if item.get("available") else f"unavailable ({item.get('availability_reason') or 'runtime gated'})"
+            lines.append(
+                f"- {item.get('name')} [{item.get('category')}] — {status}\n"
+                f"  source={item.get('source_authority')} exec={item.get('execution_authority')}\n"
+                f"  {item.get('description')}"
+            )
+            if item.get("aliases"):
+                lines.append(f"  aliases: {', '.join(item.get('aliases', []))}")
         return "\n".join(lines)
 
     def _trading_feed_text(self) -> str:

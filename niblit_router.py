@@ -566,6 +566,65 @@ class NiblitRouter:
     def start(self):
         log.debug("NiblitRouter started.")
 
+    def register_capabilities(self, registry) -> None:
+        """Register router-owned discoverability metadata into the canonical registry."""
+        if registry is None:
+            return
+        known = set(getattr(registry, "commands", {}).keys())
+        for prefix in self.COMMAND_PREFIXES:
+            normalized = str(prefix or "").strip().lower()
+            if not normalized or normalized in known:
+                continue
+            registry.register(
+                normalized,
+                None,
+                self._describe_prefix(normalized),
+                self._category_for_prefix(normalized),
+                priority=40,
+                source_authority="niblit_router.py",
+                execution_authority="NiblitRouter.handle_command",
+                cognition_classification="routing",
+                runtime_availability="router-discovered",
+                visibility_surfaces={"cli", "api", "desktop", "runtime", "help", "discoverability"},
+            )
+            known.add(normalized)
+
+    @staticmethod
+    def _category_for_prefix(prefix: str) -> str:
+        head = prefix.split()[0]
+        mapping = {
+            "llm-provider": "providers",
+            "toggle-llm": "providers",
+            "qwen": "providers",
+            "llama3": "providers",
+            "brain": "providers",
+            "search": "internet",
+            "summary": "internet",
+            "self-research": "internet",
+            "help": "core",
+            "status": "core",
+            "health": "core",
+            "time": "core",
+            "commands": "discoverability",
+            "my": "discoverability",
+            "sa-commands": "discoverability",
+            "runtime": "runtime",
+            "dev-agent": "dev_agent",
+            "lean": "trading",
+            "trading": "trading",
+            "stream": "trading",
+            "github": "github",
+            "refresh-topics": "autonomous",
+            "autonomous-learn": "autonomous",
+            "ale": "autonomous",
+            "notifications": "runtime",
+        }
+        return mapping.get(head, head.replace("-", "_"))
+
+    @staticmethod
+    def _describe_prefix(prefix: str) -> str:
+        return f"Router capability family for '{prefix}'"
+
     # ─────────────────────────────────
     def log_event(self, msg):
         ts = timestamp()
@@ -5043,7 +5102,7 @@ Ask me about:
     # UNIFIED RUNTIME CLI DISPATCH
     # ─────────────────────────────────
     def _handle_unified_runtime_cmd(self, cmd: str) -> str:
-        """Forward 'runtime provider' and 'runtime infer' to UnifiedRuntime.CommandRuntime.
+        """Forward unified runtime/retrieval commands to UnifiedRuntime.CommandRuntime.
 
         This ensures CLI and desktop-shell parity for runtime sub-commands.
         """
@@ -6364,6 +6423,12 @@ Ask me about:
             return "[StructuralAwareness not available]"
 
         if lower in ("my commands", "all commands", "sa-commands"):
+            registry = getattr(self.core, "command_registry", None) if self.core else None
+            if registry is not None:
+                context = {"surface": "discoverability"}
+                if hasattr(self.core, "_command_registry_context"):
+                    context.update(self.core._command_registry_context())  # pylint: disable=protected-access
+                return registry.detailed_report(context=context, surface="discoverability")
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
                 return sa.command_report(router=self)
@@ -6381,6 +6446,14 @@ Ask me about:
 
         # Unified runtime inference: 'runtime infer <prompt>'
         if lower.startswith("runtime infer "):
+            return self._handle_unified_runtime_cmd(cmd)
+        if (
+            lower.startswith("retrieval ")
+            or lower.startswith("memory-retrieval ")
+            or lower.startswith("adaptive-retrieval ")
+            or lower.startswith("cognition-retrieval ")
+            or lower in {"retrieval", "memory-retrieval", "adaptive-retrieval", "cognition-retrieval"}
+        ):
             return self._handle_unified_runtime_cmd(cmd)
 
         if lower in ("how do i work", "operational flow", "my flow", "loop flow", "sa-flow"):
@@ -7225,6 +7298,12 @@ Ask me about:
     # ─────────────────────────────────
     def help_text(self):
         """Return comprehensive help text covering every command in Niblit."""
+        registry = getattr(self.core, "command_registry", None) if self.core else None
+        if registry is not None:
+            context = {"surface": "help"}
+            if hasattr(self.core, "_command_registry_context"):
+                context.update(self.core._command_registry_context())  # pylint: disable=protected-access
+            return registry.get_help(context=context, surface="help", include_unavailable=True)
         commands = [
             "╔══════════════════════════════════════════════════════════════════════╗",
             "║                     NIBLIT — FULL COMMAND REFERENCE                  ║",

@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from modules.adaptive_retrieval_cognition import AdaptiveRetrievalCognition
 from modules.cognitive_episode import CognitiveEpisodeManager, RuntimeSignificanceEngine
 from modules.legacy_cognition_recovery import LegacyCognitionRecoveryAnalyzer
 
@@ -33,6 +34,7 @@ MAX_TELEMETRY_HISTORY = 200
 MAX_COMMAND_HISTORY = 500
 CMD_PREFIX_RUNTIME_PROVIDER = "runtime provider "
 CMD_PREFIX_RUNTIME_INFER = "runtime infer "
+_RETRIEVAL_PREFIXES = ("retrieval", "memory-retrieval", "adaptive-retrieval", "cognition-retrieval")
 
 
 def _utc_ts() -> float:
@@ -76,6 +78,8 @@ class RuntimeState:
     cognitive_datasets: dict[str, Any] = field(default_factory=dict)
     confidence_summary: dict[str, Any] = field(default_factory=dict)
     cognition_recovery: dict[str, Any] = field(default_factory=dict)
+    capabilities: list[dict[str, Any]] = field(default_factory=list)
+    capability_summary: dict[str, Any] = field(default_factory=dict)
     last_updated_at: float = field(default_factory=_utc_ts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -209,9 +213,10 @@ class ProviderRuntimeManager:
         },
     }
 
-    def __init__(self, event_bus: RuntimeEventBus) -> None:
+    def __init__(self, event_bus: RuntimeEventBus, adaptive_retrieval: AdaptiveRetrievalCognition | None = None) -> None:
         self._lock = threading.RLock()
         self._event_bus = event_bus
+        self._adaptive_retrieval = adaptive_retrieval
         self._providers: dict[str, dict[str, Any]] = {
             name: dict(caps) for name, caps in self._DEFAULT_CAPS.items()
         }
@@ -220,6 +225,7 @@ class ProviderRuntimeManager:
             for name in self._providers
         }
         self._active_provider = os.environ.get("NIBLIT_LLM_PROVIDER", "qwen").strip().lower() or "qwen"
+        self._last_capability_status: dict[str, bool] = {}
 
     def register_provider(self, name: str, capabilities: dict[str, Any]) -> None:
         pname = name.strip().lower()
@@ -264,9 +270,17 @@ class ProviderRuntimeManager:
             for p in ("qwen", "hf", "anthropic", "ruflo"):
                 if p in self._health:
                     ok = bool(s.get(p, True))
+                    previous_ok = self._last_capability_status.get(p)
                     self._health[p]["healthy"] = ok
                     if not ok and not self._health[p].get("last_error"):
                         self._health[p]["last_error"] = "unavailable"
+                    if previous_ok is None or previous_ok != ok:
+                        self._last_capability_status[p] = ok
+                        self._event_bus.emit(
+                            "provider.capability.changed",
+                            "ProviderRuntimeManager",
+                            {"provider": p, "healthy": ok, "active_provider": self._active_provider},
+                        )
             return {
                 "active_provider": self._active_provider,
                 "providers": {k: dict(v) for k, v in self._providers.items()},
@@ -315,6 +329,7 @@ class ProviderRuntimeManager:
         self,
         prompt: str,
         *,
+        core: Any | None = None,
         task_type: str = "general",
         context: str = "",
         context_window: int | None = None,
@@ -328,6 +343,37 @@ class ProviderRuntimeManager:
             offline_mode=offline_mode,
             context_window=context_window,
         )
+        retrieval_bundle = None
+        if self._adaptive_retrieval is not None:
+            try:
+                retrieval_bundle = self._adaptive_retrieval.build_retrieval_bundle(
+                    query=prompt,
+                    core=core,
+                    runtime_mode="api",
+                )
+                bias = retrieval_bundle.provider_routing_bias or {}
+                reasoning_boost = float(bias.get("reasoning_boost", 0.0) or 0.0)
+                local_boost = float(bias.get("local_boost", 0.0) or 0.0)
+                confidence_penalty = float(bias.get("confidence_penalty", 0.0) or 0.0)
+                adjusted_scores: list[dict[str, Any]] = []
+                for row in scores:
+                    provider = str(row.get("provider", ""))
+                    caps = self._providers.get(provider, {})
+                    adjusted = float(row.get("score", 0.0))
+                    if caps.get("reasoning") == "high":
+                        adjusted += reasoning_boost
+                    if caps.get("local"):
+                        adjusted += local_boost
+                    adjusted -= confidence_penalty
+                    adjusted_scores.append({"provider": provider, "score": round(adjusted, 3)})
+                adjusted_scores.sort(key=lambda x: x["score"], reverse=True)
+                if adjusted_scores:
+                    selected = adjusted_scores[0]["provider"]
+                    scores = adjusted_scores
+                if retrieval_bundle.context:
+                    context = f"{context}\n\n{retrieval_bundle.context}".strip()
+            except Exception as exc:
+                log.debug("adaptive retrieval bundle failed: %s", exc)
         started = time.perf_counter()
         self._event_bus.emit("provider.started", "ProviderRuntimeManager", {"provider": selected, "task_type": task_type})
         self._event_bus.emit(
@@ -394,6 +440,11 @@ class ProviderRuntimeManager:
             self._event_bus.emit("provider.failed", "ProviderRuntimeManager", {"provider": selected, "error": error})
         else:
             self._event_bus.emit("provider.completed", "ProviderRuntimeManager", {"provider": selected, "latency_ms": latency_ms})
+        if self._adaptive_retrieval is not None:
+            try:
+                self._adaptive_retrieval.update_runtime_outcome(query=prompt, response_text=text, error=error)
+            except Exception as exc:
+                log.debug("adaptive retrieval runtime update failed: %s", exc)
 
         return {
             "stream_format": "niblit.runtime.stream.v1",
@@ -406,6 +457,7 @@ class ProviderRuntimeManager:
                 "latency_ms": latency_ms,
                 "provider_health": self._health.get(selected, {}),
                 "task_type": task_type,
+                "adaptive_retrieval": retrieval_bundle.telemetry if retrieval_bundle is not None else {},
             },
             "tokens": {
                 "prompt_tokens": None,
@@ -572,8 +624,14 @@ class CommandRuntime:
             )
         if lower.startswith(CMD_PREFIX_RUNTIME_INFER):
             prompt = text[len(CMD_PREFIX_RUNTIME_INFER) :].strip()
-            result = self._provider_runtime.generate(prompt=prompt, task_type="general", local_first=True)
+            result = self._provider_runtime.generate(prompt=prompt, core=core, task_type="general", local_first=True)
             return result.get("text") or f"[runtime error] {result.get('error', 'inference failed')}"
+        if lower.startswith(_RETRIEVAL_PREFIXES) or lower in _RETRIEVAL_PREFIXES:
+            adaptive = getattr(self._provider_runtime, "_adaptive_retrieval", None)
+            if adaptive is None:
+                return "[adaptive-retrieval] unavailable"
+            rendered = adaptive.render_command(text)
+            return rendered or "[adaptive-retrieval] unknown command"
 
         if core is None:
             return "[error] core unavailable"
@@ -588,7 +646,8 @@ class NiblitUnifiedRuntime:
         self.runtime_id = f"unified-{uuid.uuid4().hex[:12]}"
         self._event_bus = RuntimeEventBus()
         self._module_bus_bridge_installed = False
-        self.provider_runtime = ProviderRuntimeManager(self._event_bus)
+        self.adaptive_retrieval = AdaptiveRetrievalCognition(self._event_bus.emit)
+        self.provider_runtime = ProviderRuntimeManager(self._event_bus, adaptive_retrieval=self.adaptive_retrieval)
         self.telemetry_runtime = RuntimeTelemetryManager()
         self.deployment_runtime = DeploymentRuntimeManager()
         self.command_runtime = CommandRuntime(self._event_bus, self.provider_runtime)
@@ -624,6 +683,7 @@ class NiblitUnifiedRuntime:
 
     def _update_from_status(self, *, core: Any) -> dict[str, Any]:
         with self._lock:
+            previous_mode = self._state.runtime_mode
             provider_status = self.provider_runtime.status()
             self._state.active_provider = provider_status.get("active_provider", self._state.active_provider)
             self._state.deployment = self.deployment_runtime.detect()
@@ -648,6 +708,23 @@ class NiblitUnifiedRuntime:
                 str(ms.get("ruflo_model", "")),
             ]
             self._state.loaded_models = [m for m in loaded_models if m and m != "n/a"]
+            registry = getattr(core, "command_registry", None) if core is not None else None
+            if registry is not None and hasattr(registry, "capability_snapshot"):
+                capability_context = {"surface": "runtime"}
+                if hasattr(core, "_command_registry_context"):
+                    capability_context.update(core._command_registry_context())  # pylint: disable=protected-access
+                capabilities = registry.capability_snapshot(
+                    context=capability_context,
+                    surface="runtime",
+                    include_unavailable=True,
+                )
+                self._state.capabilities = capabilities
+                self._state.capability_summary = {
+                    "total": len(capabilities),
+                    "available": sum(1 for item in capabilities if item.get("available")),
+                    "unavailable": sum(1 for item in capabilities if not item.get("available")),
+                    "categories": sorted({str(item.get("category", "misc")) for item in capabilities}),
+                }
             telemetry = self.telemetry_runtime.snapshot(
                 core=core,
                 state=self._state,
@@ -655,17 +732,26 @@ class NiblitUnifiedRuntime:
                 event_stats=self._event_bus.stats(),
                 cognitive_status=cognitive_status,
             )
+            telemetry["adaptive_retrieval"] = self.adaptive_retrieval.status()
             self._state.telemetry_snapshots.append(dict(telemetry))
             if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
                 self._state.telemetry_snapshots = self._state.telemetry_snapshots[-MAX_TELEMETRY_HISTORY:]
+            if previous_mode != self._state.runtime_mode:
+                self._event_bus.emit(
+                    "runtime.mode.changed",
+                    "NiblitUnifiedRuntime",
+                    {"previous_mode": previous_mode, "runtime_mode": self._state.runtime_mode},
+                )
             self._event_bus.emit("telemetry.update", "RuntimeTelemetryManager", telemetry)
             self._save_state()
+            cognition_payload = dict(cognitive_status)
+            cognition_payload["adaptive_retrieval"] = self.adaptive_retrieval.status()
             return {
                 "state": self._state.to_dict(),
                 "providers": provider_status,
                 "telemetry": telemetry,
                 "events": self._event_bus.stats(),
-                "cognition": cognitive_status,
+                "cognition": cognition_payload,
                 "legacy_cognition": dict(self._state.cognition_recovery),
             }
 
@@ -792,6 +878,8 @@ class NiblitUnifiedRuntime:
             "confidence": status["cognition"].get("confidence_summary", {}),
             "causality": status["cognition"].get("causality", {}),
             "legacy_cognition": status.get("legacy_cognition", {}),
+            "capabilities": status["state"].get("capabilities", []),
+            "capability_summary": status["state"].get("capability_summary", {}),
         }
 
 

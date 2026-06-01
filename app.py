@@ -303,6 +303,12 @@ _SHELL_COMMANDS = list(_DIRECT_CMD_KEYS) + [
     "orchestrate verify", "orchestrate pipeline", "hf-task",
     # debug
     "debug on", "debug off",
+    # unified runtime + adaptive retrieval cognition
+    "runtime status", "runtime provider", "runtime infer",
+    "retrieval status", "retrieval inspect", "retrieval contradictions",
+    "retrieval mastery", "retrieval sources", "retrieval gaps",
+    "retrieval reflections", "retrieval curriculum", "retrieval lineage",
+    "retrieval confidence", "retrieval causality",
 ]
 
 

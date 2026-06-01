@@ -317,7 +317,10 @@ class StructuralAwareness:
             try:
                 registry = core.command_registry
                 if hasattr(registry, "detailed_report"):
-                    return registry.detailed_report()
+                    context = {}
+                    if hasattr(core, "_command_registry_context"):
+                        context = {**core._command_registry_context(), "surface": "discoverability"}  # pylint: disable=protected-access
+                    return registry.detailed_report(context=context, surface="discoverability")
                 commands = registry.list_commands()
                 for cmd in commands:
                     cmd_name = getattr(cmd, "prefix", str(cmd))
