@@ -804,17 +804,8 @@ class HypothesisEngine:
     def _topic_key(topic: str) -> str:
         return (topic or "").strip().lower() or "general"
 
-    def _find_existing(self, *, topic: str, statement: str, origin_stream: str) -> HypothesisRecord | None:
-        fingerprint = f"{self._topic_key(topic)}::{_clip(statement, 160).lower()}::{origin_stream}"
-        with self._lock:
-            for item in self._hypotheses.values():
-                probe = f"{self._topic_key(item.topic)}::{_clip(item.statement, 160).lower()}::{item.origin_stream}"
-                if probe == fingerprint and item.status not in {_STATUS_SUPERSEDED, _STATUS_DEPRECATED}:
-                    return item
-        return None
-
     def _find_existing_locked(self, *, topic: str, statement: str, origin_stream: str) -> HypothesisRecord | None:
-        """Like _find_existing but assumes the caller already holds self._lock."""
+        """Find an existing hypothesis; caller must hold self._lock."""
         fingerprint = f"{self._topic_key(topic)}::{_clip(statement, 160).lower()}::{origin_stream}"
         for item in self._hypotheses.values():
             probe = f"{self._topic_key(item.topic)}::{_clip(item.statement, 160).lower()}::{item.origin_stream}"
