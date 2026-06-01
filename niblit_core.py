@@ -2601,6 +2601,31 @@ class NiblitCore:
                 execution_authority="NiblitUnifiedRuntime.dispatch_command",
                 source_authority="modules/adaptive_retrieval_cognition.py",
             )
+        def _market_intelligence_forwarder(_command: str):
+            return lambda _text="": self._dispatch_unified_runtime_command(_command)
+
+        for _cmd, _desc in (
+            ("market intelligence", "Show the adaptive market cognition snapshot"),
+            ("market intelligence timeline", "Show the market cognition timeline and replayable experiences"),
+            ("market intelligence retrievals", "Show similar-market retrieval history and governed memory hits"),
+            ("market intelligence risk", "Show canonical risk intelligence and regime uncertainty"),
+            ("market intelligence confidence", "Show confidence evolution and calibration"),
+            ("market intelligence reflections", "Show market reflection summaries"),
+            ("market intelligence causality", "Show market causal lineage across condition to outcome"),
+            ("market intelligence dqi", "Show Decision Quality Index longitudinal evolution"),
+            ("market intelligence memory", "Show market memory retrievals from governed cognition"),
+            ("market intelligence contradictions", "Show unresolved market contradictions"),
+        ):
+            self.command_registry.register(
+                _cmd,
+                _market_intelligence_forwarder(_cmd),
+                _desc,
+                "runtime",
+                priority=98,
+                cognition_classification="runtime",
+                execution_authority="NiblitUnifiedRuntime.dispatch_command",
+                source_authority="modules/adaptive_market_cognition.py",
+            )
 
         # Autonomous Learning Commands
         self.command_registry.register(
@@ -11154,6 +11179,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "my commands              — Enumerate every registered command with handler and priority\n"
             "dashboard                — Full runtime dashboard: threads, loops, memory, ALE, modules\n"
             "runtime cognition recovery | runtime causality — Runtime cognition recovery map / causality snapshot\n"
+            "market intelligence | market intelligence timeline | market intelligence retrievals | market intelligence risk | market intelligence confidence | market intelligence reflections | market intelligence causality | market intelligence dqi | market intelligence memory | market intelligence contradictions\n"
             "operational flow         — Explain how routing, background loops, and memory connect\n"
             "resource usage           — Show RAM usage, CPU percent, and process uptime\n"
             "\n--- STRUCTURAL AWARENESS (SA) ---\n"
