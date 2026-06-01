@@ -198,6 +198,10 @@ class DesktopRuntimeShell:
         self._metrics_text = self._mk_text(tab("Cognitive Metrics"))
         self._timeline_text = self._mk_text(tab("Cognitive Timeline"))
         self._reflection_viewer_text = self._mk_text(tab("Reflection Viewer"))
+        self._market_intelligence_text = self._mk_text(tab("Market Intelligence"))
+        self._hypothesis_intelligence_text = self._mk_text(tab("Hypothesis Intelligence"))
+        self._market_knowledge_graph_text = self._mk_text(tab("Market Knowledge Graph"))
+        self._contradiction_dashboard_text = self._mk_text(tab("Contradiction Dashboard"))
         self._dataset_text = self._mk_text(tab("Dataset Signals"))
         self._history_text = self._mk_text(tab("Command History"))
 
@@ -607,6 +611,10 @@ class DesktopRuntimeShell:
         self._replace(self._metrics_text, self._metrics_text_value(telemetry, events_stats, cognition))
         self._replace(self._timeline_text, self._timeline_text_value(cognition))
         self._replace(self._reflection_viewer_text, self._reflection_text_value(cognition))
+        self._replace(self._market_intelligence_text, self._market_intelligence_text_value(runtime_state))
+        self._replace(self._hypothesis_intelligence_text, self._hypothesis_intelligence_text_value(runtime_state))
+        self._replace(self._market_knowledge_graph_text, self._market_knowledge_graph_text_value(runtime_state))
+        self._replace(self._contradiction_dashboard_text, self._contradiction_dashboard_text_value(runtime_state))
         self._replace(self._dataset_text, self._dataset_text_value(cognition))
         self._replace(
             self._history_text,
@@ -845,6 +853,136 @@ class DesktopRuntimeShell:
                 lines.append(f"- {prompt}")
         else:
             lines.append("pending_candidates: none")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _market_intelligence_text_value(runtime_state: dict[str, Any]) -> str:
+        lines = ["Market Intelligence"]
+        market = runtime_state.get("market_intelligence", {}) if isinstance(runtime_state, dict) else {}
+        if not market:
+            lines.append("No market intelligence available.")
+            return "\n".join(lines)
+        lines.append(f"experience_count: {market.get('experience_count', 0)}")
+        market_last_bundle = market.get("last_bundle")
+        last_bundle = market_last_bundle if isinstance(market_last_bundle, dict) else {}
+        if last_bundle:
+            lines.append(f"last_query: {last_bundle.get('query', 'n/a')}")
+            lines.append(f"last_dqi: {last_bundle.get('telemetry', {}).get('dqi_score', 'n/a')}")
+            lines.append(f"last_risk: {last_bundle.get('telemetry', {}).get('risk_score', 'n/a')}")
+        timeline = market.get("market_cognition_timeline", []) if isinstance(market, dict) else []
+        if timeline:
+            lines.append("market_cognition_timeline:")
+            for item in timeline[-5:]:
+                lines.append(
+                    f"- {item.get('timestamp')} | {item.get('topic')} | "
+                    f"regime={item.get('regime')} risk={item.get('risk_score')} dqi={item.get('dqi_score')}"
+                )
+        retrievals = market.get("similar_market_retrievals", [])
+        if retrievals:
+            lines.append("similar_market_retrievals:")
+            for item in retrievals[-4:]:
+                lines.append(
+                    f"- {item.get('query')} | hits={item.get('similar_market_hits')} "
+                    f"memory={item.get('memory_hits')} risk={item.get('risk_score')}"
+                )
+        dqi_scores = market.get("dqi_scores", [])
+        if dqi_scores:
+            lines.append("dqi_scores:")
+            for item in dqi_scores[-4:]:
+                lines.append(f"- {item.get('topic')} | dqi={item.get('latest')} outcome={item.get('outcome_quality')}")
+        risk = market.get("risk_intelligence", [])
+        if risk:
+            lines.append("risk_intelligence:")
+            for item in risk[-4:]:
+                lines.append(
+                    f"- {item.get('topic')} | risk={item.get('risk_score')} "
+                    f"vol={item.get('volatility_state')} uncertainty={item.get('regime_uncertainty')}"
+                )
+        reflections = market.get("reflection_summaries", [])
+        if reflections:
+            lines.append("reflection_summaries:")
+            for item in reflections[-3:]:
+                lines.append(f"- {item.get('summary')}")
+        memory_hits = market.get("market_memory_retrievals", [])
+        if memory_hits:
+            lines.append("market_memory_retrievals:")
+            for item in memory_hits[-3:]:
+                lines.append(f"- {item.get('summary')}")
+        contradictions = market.get("unresolved_market_contradictions", [])
+        if contradictions:
+            lines.append("unresolved_market_contradictions:")
+            for item in contradictions[-3:]:
+                lines.append(f"- {item.get('summary')}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _hypothesis_intelligence_text_value(runtime_state: dict[str, Any]) -> str:
+        lines = ["Hypothesis Intelligence"]
+        panel = runtime_state.get("hypothesis_intelligence", {}) if isinstance(runtime_state, dict) else {}
+        if not panel:
+            lines.append("No hypothesis intelligence available.")
+            return "\n".join(lines)
+        summary = panel.get("summary", {}) if isinstance(panel, dict) else {}
+        lines.append(f"hypothesis_count: {summary.get('hypothesis_count', 0)}")
+        lines.append(f"status_counts: {summary.get('status_counts', {})}")
+        lines.append(f"origin_counts: {summary.get('origin_counts', {})}")
+        lines.append(f"evidence_count: {summary.get('evidence_count', 0)}")
+        lines.append(f"unresolved_contradiction_count: {summary.get('unresolved_contradiction_count', 0)}")
+        beliefs = panel.get("beliefs", [])
+        if beliefs:
+            lines.append("beliefs:")
+            for item in beliefs[-6:]:
+                lines.append(
+                    f"- {item.get('hypothesis_id')} | {item.get('topic')} | "
+                    f"status={item.get('status')} conf={item.get('confidence')}"
+                )
+        directed = panel.get("directed_questions", [])
+        if directed:
+            lines.append("directed_questions:")
+            for item in directed[-5:]:
+                lines.append(f"- [{item.get('type')}] {item.get('question')}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _market_knowledge_graph_text_value(runtime_state: dict[str, Any]) -> str:
+        lines = ["Market Knowledge Graph"]
+        graph = runtime_state.get("market_knowledge_graph", {}) if isinstance(runtime_state, dict) else {}
+        if not graph:
+            lines.append("No market knowledge graph available.")
+            return "\n".join(lines)
+        lines.append(f"chain_model: {graph.get('chain_model', 'n/a')}")
+        lines.append(f"chain_count: {graph.get('chain_count', 0)}")
+        lines.append(f"nodes: {len(graph.get('nodes', []))}")
+        lines.append(f"edges: {len(graph.get('edges', []))}")
+        nodes = graph.get("nodes", [])
+        if nodes:
+            lines.append("nodes_sample:")
+            for item in nodes[-8:]:
+                lines.append(f"- {item.get('stage')}: {item.get('label')}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _contradiction_dashboard_text_value(runtime_state: dict[str, Any]) -> str:
+        lines = ["Contradiction Dashboard"]
+        dashboard = runtime_state.get("contradiction_dashboard", {}) if isinstance(runtime_state, dict) else {}
+        if not dashboard:
+            lines.append("No contradiction dashboard available.")
+            return "\n".join(lines)
+        lines.append(f"status_counts: {dashboard.get('status_counts', {})}")
+        contradictions = dashboard.get("unresolved_contradictions", [])
+        lines.append(f"unresolved_total: {len(contradictions)}")
+        if contradictions:
+            lines.append("unresolved_contradictions:")
+            for item in contradictions[-8:]:
+                lines.append(
+                    f"- {item.get('contradiction_id')} | hyp={item.get('hypothesis_id')} | "
+                    f"{item.get('summary')}"
+                )
+        directed = dashboard.get("directed_questions", [])
+        if directed:
+            lines.append("next_investigations:")
+            for item in directed[-6:]:
+                lines.append(f"- [{item.get('type')}] {item.get('question')}")
         return "\n".join(lines)
 
 

@@ -7303,7 +7303,12 @@ Ask me about:
             context = {"surface": "help"}
             if hasattr(self.core, "_command_registry_context"):
                 context.update(self.core._command_registry_context())  # pylint: disable=protected-access
-            return registry.get_help(context=context, surface="help", include_unavailable=True)
+            try:
+                registry_help = registry.get_help(context=context, surface="help", include_unavailable=True)
+                if isinstance(registry_help, str) and registry_help.strip():
+                    return registry_help
+            except (AttributeError, TypeError, ValueError) as exc:
+                log.debug("Command registry help unavailable, falling back to static help: %s", exc)
         commands = [
             "╔══════════════════════════════════════════════════════════════════════╗",
             "║                     NIBLIT — FULL COMMAND REFERENCE                  ║",

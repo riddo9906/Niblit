@@ -66,7 +66,7 @@ try:
     from kivy.core.window import Window
     from kivy.lang import Builder
     from kivy.metrics import dp
-    from kivy.properties import ListProperty, ObjectProperty, StringProperty
+    from kivy.properties import ListProperty, StringProperty
     from kivy.uix.boxlayout import BoxLayout
     from kivy.uix.button import Button
     from kivy.uix.filechooser import FileChooserListView
@@ -79,6 +79,15 @@ try:
     _kivy_available = True
 except ImportError:
     _kivy_available = False
+
+if _kivy_available:
+    _KIVY_WIDGET_REGISTRATIONS = (
+        FileChooserListView,
+        ProgressBar,
+        ScrollView,
+        Spinner,
+        TextInput,
+    )
 
 try:
     from plyer import permissions as _plyer_permissions
@@ -492,16 +501,19 @@ if _kivy_available:
         """Root horizontal layout: sidebar + main area."""
 
         def on_command_selected(self, cmd_key: str, cmd_type: str) -> None:
+            """Forward sidebar command selections into the running dashboard app."""
             app = App.get_running_app()
             app.handle_command(cmd_key, cmd_type)
 
     class SideBarPanel(BoxLayout):
         """Scrollable sidebar that lists all available commands."""
 
-        def on_kv_post(self, base_widget) -> None:
+        def on_kv_post(self, _base_widget) -> None:
+            """Build sidebar buttons after the KV tree has created widget ids."""
             Clock.schedule_once(self._build_buttons, 0.1)
 
         def _build_buttons(self, *_) -> None:
+            """Populate the sidebar with the canonical command registry entries."""
             pb = self.ids.panel_box
             pb.clear_widgets()
             for cmd in COMMANDS:
@@ -519,8 +531,9 @@ if _kivy_available:
                 )
                 pb.add_widget(btn)
 
-        def on_command_selected(self, key: str, cmd_type: str) -> None:
-            pass  # event dispatched to NiblitDashboardRoot
+        def on_command_selected(self, _key: str, _cmd_type: str) -> None:
+            """Kivy event stub satisfied by the parent binding declared in KV."""
+            return None
 
     class ChatPanel(BoxLayout):
         """Chat area with mode selector and message history."""
@@ -536,24 +549,29 @@ if _kivy_available:
         """Collapsible search bar."""
 
     class FilePickerModal(ModalView):
+        """Modal file chooser used to route uploads into the dashboard workflow."""
         current_path = StringProperty(os.getcwd())
 
         def do_select(self, selection) -> None:
+            """Send the chosen file path back to the app and close the picker."""
             if selection:
                 App.get_running_app().handle_file_selected(selection[0])
                 self.dismiss()
 
     class InputBubble(BoxLayout):
+        """Inline prompt bubble for commands that require one extra text input."""
         label_text = StringProperty("Input:")
-        _cmd_key   = StringProperty("")
+        cmd_key = StringProperty("")
 
         def submit(self, text: str) -> None:
-            App.get_running_app().handle_input_submit(self._cmd_key, text)
+            """Submit typed input back to the command dispatcher and remove the bubble."""
+            App.get_running_app().handle_input_submit(self.cmd_key, text)
             # Remove bubble after submit
             if self.parent:
                 self.parent.remove_widget(self)
 
     class ExpandedPanel(BoxLayout):
+        """Sidebar expansion panel for status, memory, and inspection results."""
         panel_text = StringProperty("")
 
 
@@ -585,9 +603,20 @@ if _kivy_available:
 
         search_providers = ListProperty(SEARCH_PROVIDERS)
 
-        def build(self):
-            Builder.load_string(KV)
+        def __init__(self, **kwargs):
+            """Initialise persistent UI/runtime state before the KV tree is built."""
+            super().__init__(**kwargs)
             self.title = "Niblit AIOS"
+            self._mode: str = "api"
+            self._proot = None
+            self._bootstrap = None
+            self._shell_proc = None
+            self._shell_thread = None
+            self._root = None
+
+        def build(self):
+            """Create the dashboard root layout and attach runtime-backed panels."""
+            Builder.load_string(KV)
             Window.clearcolor = (0.08, 0.08, 0.10, 1)
 
             # Determine initial mode
@@ -654,6 +683,7 @@ if _kivy_available:
         # ── Command dispatch (from sidebar) ──────────────────────────────────────
 
         def handle_command(self, cmd_key: str, cmd_type: str) -> None:
+            """Open the UI surface or action mapped to a sidebar command selection."""
             pb = self._root.ids.sidebar.ids.panel_box
             if cmd_type == "status":
                 self._fetch_status()
@@ -662,7 +692,7 @@ if _kivy_available:
             elif cmd_type == "input":
                 cfg = next((c for c in COMMANDS if c["key"] == cmd_key), {})
                 bub = InputBubble(label_text=cfg.get("input_label", "Input:"))
-                bub._cmd_key = cmd_key
+                bub.cmd_key = cmd_key
                 pb.add_widget(bub)
             elif cmd_type == "search":
                 self.show_search()
@@ -697,11 +727,13 @@ if _kivy_available:
                 ).start()
 
         def handle_file_selected(self, path: str) -> None:
+            """Echo the chosen file path into the chat transcript."""
             self._chat_append(f"[File selected] {path}", color=(0.7, 0.7, 0.7, 1))
 
         # ── Action commands (reflect, self-idea, etc.) ────────────────────────────
 
         def _run_action_cmd(self, cmd_key: str) -> None:
+            """Dispatch immediate action commands without extra input collection."""
             self._chat_append(f"You: {cmd_key}", align="right", color=(0.4, 0.8, 1, 1))
             self._set_conn(f"Running {cmd_key}…")
             threading.Thread(
@@ -711,6 +743,7 @@ if _kivy_available:
         # ── Mode change ───────────────────────────────────────────────────────────
 
         def on_mode_change(self, mode: str) -> None:
+            """Switch the dashboard between local proot and remote API execution."""
             self._mode = mode
             if mode == "local":
                 if self._proot and self._proot.status == STATUS_READY:
@@ -724,6 +757,7 @@ if _kivy_available:
         # ── Chat ──────────────────────────────────────────────────────────────────
 
         def send_chat(self, text: str) -> None:
+            """Queue a chat message for local or remote command execution."""
             chat_input = self._root.ids.chat_panel.ids.chat_input
             text = text.strip()
             if not text:
@@ -752,7 +786,7 @@ if _kivy_available:
                 "from niblit_core import NiblitCore; "
                 f"c=NiblitCore(); print(c.handle('{escaped}'))\""
             )
-            rc, out, err = self._proot.run(cmd, timeout=120)
+            _, out, err = self._proot.run(cmd, timeout=120)
             return out.strip() or err.strip() or "[No response from local Niblit]"
 
         def _api_command(self, text: str) -> str:
@@ -796,7 +830,7 @@ if _kivy_available:
 
         def _do_fetch_memory(self) -> None:
             if self._mode == "local" and self._proot and self._proot.is_ready:
-                rc, out, _ = self._proot.run(
+                _, out, _ = self._proot.run(
                     "cd /root/niblit && python3 -c \""
                     "import sys; sys.path.insert(0,'.'); "
                     "from niblit_memory import KnowledgeDB; "
@@ -835,16 +869,18 @@ if _kivy_available:
         # ── Search ────────────────────────────────────────────────────────────────
 
         def do_search(self, query: str, provider: str) -> None:
+            """Submit a search request and preserve the selected provider in the UI."""
             if not query.strip():
                 return
             self.hide_search()
             self._chat_append(f"🔍 Search [{provider}]: {query}", color=(0.6, 0.85, 1, 1))
             self._set_conn(f"Searching via {provider}…")
             threading.Thread(
-                target=self._do_search_thread, args=(query, provider), daemon=True
+                target=self._do_search_thread, args=(query,), daemon=True
             ).start()
 
-        def _do_search_thread(self, query: str, provider: str) -> None:
+        def _do_search_thread(self, query: str) -> None:
+            """Execute a search request in the active runtime without blocking the UI."""
             if self._mode == "local" and self._proot and self._proot.is_ready:
                 cmd = f"search {query}"
                 reply = self._local_command(cmd)
@@ -853,11 +889,13 @@ if _kivy_available:
             Clock.schedule_once(lambda dt, r=reply: self._on_reply(r))
 
         def show_search(self) -> None:
+            """Expand the search controls above the chat panel."""
             sp = self._root.ids.search_panel
             sp.height = dp(56)
             sp.opacity = 1
 
         def hide_search(self) -> None:
+            """Collapse the search controls to restore chat space."""
             sp = self._root.ids.search_panel
             sp.height = 0
             sp.opacity = 0
@@ -865,16 +903,19 @@ if _kivy_available:
         # ── Terminal ──────────────────────────────────────────────────────────────
 
         def show_terminal(self) -> None:
+            """Expose the embedded proot terminal panel."""
             tp = self._root.ids.terminal_panel
             tp.height = dp(260)
             tp.opacity = 1
 
         def hide_terminal(self) -> None:
+            """Hide the embedded terminal while keeping its session state intact."""
             tp = self._root.ids.terminal_panel
             tp.height = 0
             tp.opacity = 0
 
         def run_term_cmd(self, cmd: str, input_widget=None) -> None:
+            """Run a one-shot shell command inside proot and stream output to the panel."""
             if not cmd.strip():
                 return
             if input_widget:
@@ -893,9 +934,11 @@ if _kivy_available:
             Clock.schedule_once(lambda dt, o=output: self._term_write(o))
 
         def clear_terminal(self) -> None:
+            """Reset the terminal transcript to a clean prompt."""
             self._root.ids.terminal_panel.ids.term_output.text = "$ "
 
         def open_shell(self) -> None:
+            """Open or reuse an interactive proot shell session for the dashboard."""
             if not (self._proot and self._proot.is_ready):
                 self._term_write("[proot not ready]\n")
                 return
@@ -926,6 +969,7 @@ if _kivy_available:
             Clock.schedule_once(lambda dt: self._term_write("\n[shell exited]\n"))
 
         def run_niblit_status(self) -> None:
+            """Populate the terminal input with a local status command and execute it."""
             tp = self._root.ids.terminal_panel.ids.term_input
             tp.text = (
                 "cd /root/niblit && python3 -c \""
@@ -937,16 +981,19 @@ if _kivy_available:
         # ── Bootstrap / Setup panel ───────────────────────────────────────────────
 
         def show_setup_panel(self) -> None:
+            """Expand the setup panel that drives first-run bootstrap tasks."""
             sp = self._root.ids.setup_panel
             sp.height = dp(280)
             sp.opacity = 1
 
         def hide_setup(self) -> None:
+            """Collapse the setup panel without stopping bootstrap work."""
             sp = self._root.ids.setup_panel
             sp.height = 0
             sp.opacity = 0
 
         def start_bootstrap(self) -> None:
+            """Start the APK bootstrap flow that prepares the local proot runtime."""
             if not _proot_available or self._bootstrap is None:
                 self._set_setup_label("proot not available on this platform", 0)
                 return
@@ -966,6 +1013,7 @@ if _kivy_available:
                 self._mode = "local"
 
         def show_proot_info(self) -> None:
+            """Append current proot and bootstrap state details to the setup log."""
             lines: list = []
             if self._proot:
                 info = self._proot.info()
@@ -1053,5 +1101,7 @@ if __name__ == "__main__":
             "  pip install kivy\n"
             "Then run:  python niblit_dashboard.py"
         )
-    NiblitKivyApp().run()
-
+    app_cls = globals().get("NiblitKivyApp")
+    if app_cls is None:
+        raise SystemExit("Kivy app failed to initialise")
+    app_cls().run()

@@ -20,8 +20,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from modules.adaptive_market_cognition import AdaptiveMarketCognitionLayer
 from modules.adaptive_retrieval_cognition import AdaptiveRetrievalCognition
 from modules.cognitive_episode import CognitiveEpisodeManager, RuntimeSignificanceEngine
+from modules.hypothesis_engine import HypothesisEngine
 from modules.legacy_cognition_recovery import LegacyCognitionRecoveryAnalyzer
 
 log = logging.getLogger("Niblit.UnifiedRuntime")
@@ -78,6 +80,10 @@ class RuntimeState:
     cognitive_datasets: dict[str, Any] = field(default_factory=dict)
     confidence_summary: dict[str, Any] = field(default_factory=dict)
     cognition_recovery: dict[str, Any] = field(default_factory=dict)
+    market_intelligence: dict[str, Any] = field(default_factory=dict)
+    hypothesis_intelligence: dict[str, Any] = field(default_factory=dict)
+    market_knowledge_graph: dict[str, Any] = field(default_factory=dict)
+    contradiction_dashboard: dict[str, Any] = field(default_factory=dict)
     capabilities: list[dict[str, Any]] = field(default_factory=list)
     capability_summary: dict[str, Any] = field(default_factory=dict)
     last_updated_at: float = field(default_factory=_utc_ts)
@@ -213,10 +219,16 @@ class ProviderRuntimeManager:
         },
     }
 
-    def __init__(self, event_bus: RuntimeEventBus, adaptive_retrieval: AdaptiveRetrievalCognition | None = None) -> None:
+    def __init__(
+        self,
+        event_bus: RuntimeEventBus,
+        adaptive_retrieval: AdaptiveRetrievalCognition | None = None,
+        market_cognition: AdaptiveMarketCognitionLayer | None = None,
+    ) -> None:
         self._lock = threading.RLock()
         self._event_bus = event_bus
         self._adaptive_retrieval = adaptive_retrieval
+        self._market_cognition = market_cognition
         self._providers: dict[str, dict[str, Any]] = {
             name: dict(caps) for name, caps in self._DEFAULT_CAPS.items()
         }
@@ -344,6 +356,7 @@ class ProviderRuntimeManager:
             context_window=context_window,
         )
         retrieval_bundle = None
+        market_bundle = None
         if self._adaptive_retrieval is not None:
             try:
                 retrieval_bundle = self._adaptive_retrieval.build_retrieval_bundle(
@@ -352,9 +365,9 @@ class ProviderRuntimeManager:
                     runtime_mode="api",
                 )
                 bias = retrieval_bundle.provider_routing_bias or {}
-                reasoning_boost = float(bias.get("reasoning_boost", 0.0) or 0.0)
-                local_boost = float(bias.get("local_boost", 0.0) or 0.0)
-                confidence_penalty = float(bias.get("confidence_penalty", 0.0) or 0.0)
+                reasoning_boost = float(bias.get("reasoning_boost") or 0.0)
+                local_boost = float(bias.get("local_boost") or 0.0)
+                confidence_penalty = float(bias.get("confidence_penalty") or 0.0)
                 adjusted_scores: list[dict[str, Any]] = []
                 for row in scores:
                     provider = str(row.get("provider", ""))
@@ -374,6 +387,37 @@ class ProviderRuntimeManager:
                     context = f"{context}\n\n{retrieval_bundle.context}".strip()
             except Exception as exc:
                 log.debug("adaptive retrieval bundle failed: %s", exc)
+        if self._market_cognition is not None:
+            try:
+                market_bundle = self._market_cognition.build_market_retrieval_bundle(
+                    query=prompt,
+                    core=core,
+                    runtime_mode="api",
+                )
+                bias = market_bundle.provider_routing_bias or {}
+                reasoning_boost = float(bias.get("reasoning_boost", 0.0) or 0.0)
+                local_boost = float(bias.get("local_boost", 0.0) or 0.0)
+                confidence_penalty = float(bias.get("confidence_penalty", 0.0) or 0.0)
+                adjusted_scores: list[dict[str, Any]] = []
+                for row in scores:
+                    provider = str(row.get("provider", ""))
+                    caps = self._providers.get(provider, {})
+                    adjusted = float(row.get("score", 0.0))
+                    if caps.get("reasoning") == "high":
+                        adjusted += reasoning_boost
+                    if caps.get("local"):
+                        adjusted += local_boost
+                    if caps.get("reasoning") == "low":
+                        adjusted -= confidence_penalty
+                    adjusted_scores.append({"provider": provider, "score": round(adjusted, 3)})
+                adjusted_scores.sort(key=lambda x: x["score"], reverse=True)
+                if adjusted_scores:
+                    selected = adjusted_scores[0]["provider"]
+                    scores = adjusted_scores
+                if market_bundle.context:
+                    context = f"{context}\n\n{market_bundle.context}".strip()
+            except Exception as exc:
+                log.debug("adaptive market cognition bundle failed: %s", exc)
         started = time.perf_counter()
         self._event_bus.emit("provider.started", "ProviderRuntimeManager", {"provider": selected, "task_type": task_type})
         self._event_bus.emit(
@@ -445,6 +489,11 @@ class ProviderRuntimeManager:
                 self._adaptive_retrieval.update_runtime_outcome(query=prompt, response_text=text, error=error)
             except Exception as exc:
                 log.debug("adaptive retrieval runtime update failed: %s", exc)
+        if self._market_cognition is not None:
+            try:
+                self._market_cognition.update_runtime_outcome(query=prompt, response_text=text, error=error)
+            except Exception as exc:
+                log.debug("adaptive market cognition runtime update failed: %s", exc)
 
         return {
             "stream_format": "niblit.runtime.stream.v1",
@@ -458,6 +507,7 @@ class ProviderRuntimeManager:
                 "provider_health": self._health.get(selected, {}),
                 "task_type": task_type,
                 "adaptive_retrieval": retrieval_bundle.telemetry if retrieval_bundle is not None else {},
+                "market_intelligence": market_bundle.telemetry if market_bundle is not None else {},
             },
             "tokens": {
                 "prompt_tokens": None,
@@ -647,7 +697,13 @@ class NiblitUnifiedRuntime:
         self._event_bus = RuntimeEventBus()
         self._module_bus_bridge_installed = False
         self.adaptive_retrieval = AdaptiveRetrievalCognition(self._event_bus.emit)
-        self.provider_runtime = ProviderRuntimeManager(self._event_bus, adaptive_retrieval=self.adaptive_retrieval)
+        self.market_cognition = AdaptiveMarketCognitionLayer(self._event_bus.emit)
+        self.hypothesis_engine = HypothesisEngine(self._event_bus.emit)
+        self.provider_runtime = ProviderRuntimeManager(
+            self._event_bus,
+            adaptive_retrieval=self.adaptive_retrieval,
+            market_cognition=self.market_cognition,
+        )
         self.telemetry_runtime = RuntimeTelemetryManager()
         self.deployment_runtime = DeploymentRuntimeManager()
         self.command_runtime = CommandRuntime(self._event_bus, self.provider_runtime)
@@ -700,6 +756,23 @@ class NiblitUnifiedRuntime:
                 event_stats=self._event_bus.stats(),
                 state_file=str(self._state_file),
             )
+            self._state.market_intelligence = self.market_cognition.status(core=core)
+            retrieval_status = self.adaptive_retrieval.status()
+            self.hypothesis_engine.ingest_snapshot_sources(
+                cognitive_status=cognitive_status,
+                market_status=self._state.market_intelligence,
+                retrieval_status=retrieval_status,
+                reflection_report=(cognitive_status.get("reflections", [])[-1] if cognitive_status.get("reflections") else {}),
+                evaluation_history=[],
+                lean_events=[],
+            )
+            self._state.hypothesis_intelligence = self.hypothesis_engine.status(core=core)
+            self._state.market_knowledge_graph = self._state.hypothesis_intelligence.get("market_knowledge_graph", {})
+            self._state.contradiction_dashboard = {
+                "unresolved_contradictions": self._state.hypothesis_intelligence.get("unresolved_contradictions", []),
+                "status_counts": self._state.hypothesis_intelligence.get("summary", {}).get("status_counts", {}),
+                "directed_questions": self._state.hypothesis_intelligence.get("directed_questions", []),
+            }
             ms = provider_status.get("manager_status", {})
             loaded_models = [
                 str(ms.get("qwen_model", "")),
@@ -732,7 +805,18 @@ class NiblitUnifiedRuntime:
                 event_stats=self._event_bus.stats(),
                 cognitive_status=cognitive_status,
             )
-            telemetry["adaptive_retrieval"] = self.adaptive_retrieval.status()
+            telemetry["adaptive_retrieval"] = retrieval_status
+            telemetry["market_intelligence"] = {
+                "experience_count": self._state.market_intelligence.get("experience_count", 0),
+                "dqi_scores": self._state.market_intelligence.get("dqi_scores", [])[-5:],
+                "risk_intelligence": self._state.market_intelligence.get("risk_intelligence", [])[-5:],
+            }
+            telemetry["hypothesis_intelligence"] = {
+                "hypothesis_count": self._state.hypothesis_intelligence.get("summary", {}).get("hypothesis_count", 0),
+                "unresolved_contradictions": self._state.hypothesis_intelligence.get("summary", {}).get(
+                    "unresolved_contradiction_count", 0
+                ),
+            }
             self._state.telemetry_snapshots.append(dict(telemetry))
             if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
                 self._state.telemetry_snapshots = self._state.telemetry_snapshots[-MAX_TELEMETRY_HISTORY:]
@@ -745,7 +829,9 @@ class NiblitUnifiedRuntime:
             self._event_bus.emit("telemetry.update", "RuntimeTelemetryManager", telemetry)
             self._save_state()
             cognition_payload = dict(cognitive_status)
-            cognition_payload["adaptive_retrieval"] = self.adaptive_retrieval.status()
+            cognition_payload["adaptive_retrieval"] = retrieval_status
+            cognition_payload["market_intelligence"] = dict(self._state.market_intelligence)
+            cognition_payload["hypothesis_intelligence"] = dict(self._state.hypothesis_intelligence)
             return {
                 "state": self._state.to_dict(),
                 "providers": provider_status,
@@ -779,6 +865,13 @@ class NiblitUnifiedRuntime:
             payload.setdefault("runtime_mode", self._state.runtime_mode)
             event_dict["payload"] = payload
             episode = self.cognitive_runtime.observe_event(event_dict, runtime_mode=self._state.runtime_mode)
+            self.market_cognition.observe_event(
+                event.type,
+                event.source,
+                payload,
+                significance=event.significance,
+            )
+            self.hypothesis_engine.observe_runtime_event(event.type, event.source, payload)
             if episode:
                 with self._lock:
                     self._state.cognitive_sessions.append(
@@ -838,6 +931,14 @@ class NiblitUnifiedRuntime:
             if lower in {"runtime causality", "runtime causality status"}:
                 status = self._update_from_status(core=core)
                 return json.dumps(status.get("cognition", {}).get("causality", {}), indent=2, sort_keys=True)
+            rendered_hypothesis = self.hypothesis_engine.render_command(command, core=core)
+            if rendered_hypothesis:
+                self._save_state()
+                return rendered_hypothesis
+            rendered_market = self.market_cognition.render_command(command, core=core)
+            if rendered_market:
+                self._save_state()
+                return rendered_market
             out = self.command_runtime.dispatch(command=command, core=core, state=self._state)
             self._save_state()
             return out
@@ -877,6 +978,7 @@ class NiblitUnifiedRuntime:
             "compression": status["cognition"].get("compression", {}),
             "confidence": status["cognition"].get("confidence_summary", {}),
             "causality": status["cognition"].get("causality", {}),
+            "market_intelligence": status["state"].get("market_intelligence", {}),
             "legacy_cognition": status.get("legacy_cognition", {}),
             "capabilities": status["state"].get("capabilities", []),
             "capability_summary": status["state"].get("capability_summary", {}),

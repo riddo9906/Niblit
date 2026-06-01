@@ -71,6 +71,7 @@ def test_provider_runtime_generate_normalized_shape() -> None:
     assert out["type"] == "inference.result"
     assert "telemetry" in out
     assert "provider" in out
+    assert "market_intelligence" in out["telemetry"]
 
 
 def test_unified_runtime_dispatch_runtime_status(tmp_path: Path) -> None:
@@ -161,6 +162,93 @@ def test_unified_runtime_cognition_recovery_command(tmp_path: Path) -> None:
     assert "A_historical_cognition_topology_map" in data
     assert "F_causal_cognition_architecture" in data
     assert "K_actual_implementation" in data
+
+
+def test_unified_runtime_market_intelligence_command(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    rt.ingest_external_event(
+        event_type="market_regime.forecast",
+        source="predictive_world_model",
+        payload={
+            "trace_id": "market-trace-1",
+            "topic": "btc volatile breakout",
+            "symbol": "BTCUSDT",
+            "regime": "volatile",
+            "volatility_regime": "high",
+            "confidence_score": 0.62,
+            "evaluation_score": 0.58,
+            "signal": "breakout",
+            "signal_strength": 0.71,
+            "drawdown": 0.22,
+            "exposure": 0.48,
+            "concentration_risk": 0.34,
+            "uncertainty": 0.67,
+        },
+    )
+    raw = rt.dispatch_command(command="market intelligence", core=None)
+    data = json.loads(raw)
+    assert data["experience_count"] >= 1
+    assert data["market_cognition_timeline"]
+    assert data["risk_intelligence"]
+    assert data["dqi_scores"]
+
+
+def test_unified_runtime_hypothesis_commands_and_state(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    rt.ingest_external_event(
+        event_type="trade_reflection.ingested",
+        source="lean_algo_manager",
+        payload={
+            "trace_id": "hyp-trace-1",
+            "topic": "btc trend failure",
+            "regime": "volatile",
+            "signal": "breakout",
+            "confidence_score": 0.44,
+            "evaluation_score": 0.36,
+            "summary": "mixed outcomes under high volatility",
+            "contradictions": [{"summary": "conflicting outcomes"}],
+        },
+    )
+    listed = json.loads(rt.dispatch_command(command="hypothesis list", core=None))
+    assert isinstance(listed, list)
+    assert listed
+    hid = listed[0]["hypothesis_id"]
+    shown = json.loads(rt.dispatch_command(command=f"hypothesis show {hid}", core=None))
+    assert shown["hypothesis_id"] == hid
+    status = json.loads(rt.dispatch_command(command="hypothesis status", core=None))
+    assert "summary" in status
+    state = rt.state(core=None)["state"]
+    assert "hypothesis_intelligence" in state
+    assert "market_knowledge_graph" in state
+    assert "contradiction_dashboard" in state
+
+
+def test_unified_runtime_state_and_stream_include_market_intelligence(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    rt.ingest_external_event(
+        event_type="trade_reflection.ingested",
+        source="reflection_engine",
+        payload={
+            "trace_id": "market-stream-1",
+            "topic": "eth drawdown replay",
+            "symbol": "ETHUSDT",
+            "regime": "bear",
+            "volatility_regime": "medium",
+            "reflection_summary": "Risk controls mattered more than confidence.",
+            "confidence_score": 0.44,
+            "evaluation_score": 0.69,
+            "drawdown": 0.31,
+            "exposure": 0.27,
+            "concentration_risk": 0.12,
+            "uncertainty": 0.55,
+        },
+    )
+    state = rt.state(core=None)
+    assert "market_intelligence" in state["state"]
+    assert state["state"]["market_intelligence"]["experience_count"] >= 1
+    frame = rt.stream_frame(core=None, since=0)
+    assert "market_intelligence" in frame
+    assert frame["market_intelligence"]["experience_count"] >= 1
 
 
 def test_unified_runtime_filters_repetitive_noise(tmp_path: Path) -> None:
