@@ -857,7 +857,8 @@ class DesktopRuntimeShell:
             lines.append("No market intelligence available.")
             return "\n".join(lines)
         lines.append(f"experience_count: {market.get('experience_count', 0)}")
-        last_bundle = market.get("last_bundle", {}) if isinstance(market.get("last_bundle"), dict) else {}
+        market_last_bundle = market.get("last_bundle")
+        last_bundle = market_last_bundle if isinstance(market_last_bundle, dict) else {}
         if last_bundle:
             lines.append(f"last_query: {last_bundle.get('query', 'n/a')}")
             lines.append(f"last_dqi: {last_bundle.get('telemetry', {}).get('dqi_score', 'n/a')}")

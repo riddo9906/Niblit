@@ -361,9 +361,9 @@ class ProviderRuntimeManager:
                     runtime_mode="api",
                 )
                 bias = retrieval_bundle.provider_routing_bias or {}
-                reasoning_boost = float(bias.get("reasoning_boost", 0.0) or 0.0)
-                local_boost = float(bias.get("local_boost", 0.0) or 0.0)
-                confidence_penalty = float(bias.get("confidence_penalty", 0.0) or 0.0)
+                reasoning_boost = float(bias.get("reasoning_boost") or 0.0)
+                local_boost = float(bias.get("local_boost") or 0.0)
+                confidence_penalty = float(bias.get("confidence_penalty") or 0.0)
                 adjusted_scores: list[dict[str, Any]] = []
                 for row in scores:
                     provider = str(row.get("provider", ""))

@@ -652,6 +652,7 @@ class AdaptiveMarketCognitionLayer:
     def _flush_knowledge_db(self, core: Any) -> None:
         db = getattr(core, "db", None)
         if db is None or not hasattr(db, "add_fact"):
+            log.debug("adaptive market cognition knowledge DB flush skipped: add_fact unavailable")
             return
         with self._lock:
             pending = list(self._pending_kb_facts)
@@ -699,8 +700,12 @@ class AdaptiveMarketCognitionLayer:
 
     def _confidence_evolution(self, similar: list[dict[str, Any]], history: list[dict[str, Any]]) -> dict[str, Any]:
         latest = history[-1] if history else {}
-        avg_conf = sum(_clamp(item.get("confidence_score")) for item in similar) / max(1, len(similar)) if similar else _clamp(latest.get("confidence"))
-        avg_eval = sum(_clamp(item.get("evaluation_score")) for item in similar) / max(1, len(similar)) if similar else _clamp(latest.get("evaluation"))
+        if similar:
+            avg_conf = sum(_clamp(item.get("confidence_score")) for item in similar) / max(1, len(similar))
+            avg_eval = sum(_clamp(item.get("evaluation_score")) for item in similar) / max(1, len(similar))
+        else:
+            avg_conf = _clamp(latest.get("confidence"))
+            avg_eval = _clamp(latest.get("evaluation"))
         return {
             "confidence": round(avg_conf, 4),
             "evaluation": round(avg_eval, 4),
