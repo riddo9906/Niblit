@@ -89,8 +89,6 @@ if _kivy_available:
         TextInput,
     )
 
-NiblitKivyApp = None
-
 try:
     from plyer import permissions as _plyer_permissions
     PLYER_OK = True
@@ -533,9 +531,9 @@ if _kivy_available:
                 )
                 pb.add_widget(btn)
 
-        def on_command_selected(self, key: str, cmd_type: str) -> None:
+        def on_command_selected(self, _key: str, _cmd_type: str) -> None:
             """Dispatch the selected command key and type to the root widget."""
-            pass  # event dispatched to NiblitDashboardRoot
+            return None
 
     class ChatPanel(BoxLayout):
         """Chat area with mode selector and message history."""
@@ -1103,6 +1101,7 @@ if __name__ == "__main__":
             "  pip install kivy\n"
             "Then run:  python niblit_dashboard.py"
         )
-    if NiblitKivyApp is None:
+    app_cls = globals().get("NiblitKivyApp")
+    if app_cls is None:
         raise SystemExit("Kivy app failed to initialise")
-    NiblitKivyApp().run()
+    app_cls().run()
