@@ -8,6 +8,7 @@ import logging
 import re
 import threading
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -689,10 +690,11 @@ class AdaptiveMarketCognitionLayer:
             }
         risk_score = sum(_clamp(item.get("risk_score")) for item in items) / max(1, len(items))
         regime_uncertainty = sum(_clamp(item.get("risk_state", {}).get("regime_uncertainty")) for item in items) / max(1, len(items))
+        volatility_counter = Counter(str(item.get("volatility_regime", "unknown")) for item in items)
         return {
             "risk_score": round(risk_score, 4),
             "regime_uncertainty": round(regime_uncertainty, 4),
-            "volatility_state": max((str(item.get("volatility_regime", "unknown")) for item in items), key=len, default="unknown"),
+            "volatility_state": volatility_counter.most_common(1)[0][0] if volatility_counter else "unknown",
         }
 
     def _confidence_evolution(self, similar: list[dict[str, Any]], history: list[dict[str, Any]]) -> dict[str, Any]:
