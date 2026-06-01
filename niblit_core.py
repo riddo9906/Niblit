@@ -1987,6 +1987,7 @@ class NiblitCore:
         self.niblit_runtime: Optional[Any] = None  # initialised in _init_optional_services
         # ── Additive: Phase-2 agent architecture (RuntimeManager + agents) ─
         self.runtime_manager: Optional[Any] = None  # initialised in _init_optional_services
+        self.event_bus: Optional[Any] = None
         self.niblit_dev_agent: Optional[Any] = None  # initialised in _init_agents
         self.phase2_agents: dict = {}  # {task_type: agent_instance}
         # ── Additive: Game engine ─────────────────────────────────────────
@@ -2412,9 +2413,14 @@ class NiblitCore:
             "active_provider": active_provider,
             "provider_health": provider_health,
             "dev_agent_available": getattr(self, "niblit_dev_agent", None) is not None,
-            "event_bus_available": getattr(getattr(self, "runtime_manager", None), "event_bus", None) is not None,
+            "event_bus_available": (
+                getattr(getattr(self, "runtime_manager", None), "event_bus", None) is not None
+            ),
             "cloud_runtime_available": bool(os.environ.get("NIBLIT_CLOUD_RUNTIME_URL", "").strip()),
-            "reflection_available": getattr(self, "reflection", None) is not None or getattr(self, "metacognition", None) is not None,
+            "reflection_available": (
+                getattr(self, "reflection", None) is not None
+                or getattr(self, "metacognition", None) is not None
+            ),
             "local_brain_available": getattr(self, "local_brain", None) is not None,
         }
 
@@ -2426,7 +2432,13 @@ class NiblitCore:
         try:
             from modules.event_bus import NiblitEvent, get_event_bus
 
-            get_event_bus().publish(NiblitEvent(type=event_type, source="CanonicalRuntimeCapabilityRegistry", payload=data))
+            get_event_bus().publish(
+                NiblitEvent(
+                    type=event_type,
+                    source="CanonicalRuntimeCapabilityRegistry",
+                    payload=data,
+                )
+            )
         except Exception:
             pass
         try:
@@ -2630,7 +2642,10 @@ class NiblitCore:
             return lambda _text="": self._dispatch_unified_runtime_command(_command)
 
         for _cmd, _desc in (
-            ("hypothesis status", "Show current hypothesis beliefs, support, contradictions, uncertainty, and investigations"),
+            (
+                "hypothesis status",
+                "Show current hypothesis beliefs, support, contradictions, uncertainty, and investigations",
+            ),
             ("hypothesis list", "List canonical hypotheses and lifecycle state"),
         ):
             self.command_registry.register(
@@ -6170,6 +6185,68 @@ SW Categories: {stats.get('software_study_categories', 0)}
         result = str(agent.handle_cli(action))
         return result
 
+    def _document_cognition_status(self, collector: Any) -> str:
+        """Return the governed document cognition status payload."""
+        try:
+            return json.dumps(collector.status(), indent=2, sort_keys=True)
+        except Exception as exc:
+            return f"[document-cognition] status error: {exc}"
+
+    def _parse_document_cognition_options(self, tokens: list[str]) -> dict[str, Any]:
+        """Parse ingest arguments while preserving CLI defaults."""
+        options = {
+            "directory": "/home",
+            "max_documents": 25,
+            "recursive": True,
+        }
+        for token in tokens:
+            if token.startswith("--limit="):
+                try:
+                    options["max_documents"] = max(1, int(token.split("=", 1)[1]))
+                except Exception:
+                    continue
+            elif token == "--no-recursive":
+                options["recursive"] = False
+            elif not token.startswith("--"):
+                options["directory"] = token
+        return options
+
+    def _run_document_cognition_direct(self, collector: Any, options: dict[str, Any]) -> str:
+        """Run ingestion directly when RuntimeManager is unavailable."""
+        result = collector.ingest_directory(
+            directory=options["directory"],
+            recursive=options["recursive"],
+            max_documents=options["max_documents"],
+            router=getattr(self, "runtime_router_v2", None),
+            knowledge_db=getattr(self, "db", None),
+            evaluation_engine=getattr(self, "evaluation_engine", None),
+            runtime_id="",
+            source_module="niblit_core",
+        )
+        return json.dumps(result, indent=2, sort_keys=True)
+
+    def _submit_document_cognition_task(self, rm: Any, options: dict[str, Any]) -> str:
+        """Queue ingestion through RuntimeManager and return a stable status message."""
+        try:
+            task = rm.submit_task(
+                "document_cognition",
+                payload={
+                    "directory": options["directory"],
+                    "recursive": options["recursive"],
+                    "max_documents": options["max_documents"],
+                },
+                priority="normal",
+                source="document-cognition",
+            )
+            rm.dispatch_pending(max_tasks=1)
+            if task.status == "completed":
+                return json.dumps(task.result or {}, indent=2, sort_keys=True)
+            if task.status == "failed":
+                return f"[document-cognition] task failed: {task.error}"
+            return f"document-cognition task queued ({task.task_id[:8]})"
+        except Exception as exc:
+            return f"[document-cognition] submit error: {exc}"
+
     def _cmd_document_cognition(self, cmd: str = "") -> str:
         """Run governed PDF document cognition through the runtime manager."""
         from modules.governed_document_cognition import get_governed_document_cognition
@@ -6179,61 +6256,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
         sub = (args[0].lower() if args else "status")
 
         if sub in {"status"}:
-            try:
-                return json.dumps(collector.status(), indent=2, sort_keys=True)
-            except Exception as exc:
-                return f"[document-cognition] status error: {exc}"
+            return self._document_cognition_status(collector)
 
         if sub in {"ingest", "scan", "start"}:
-            directory = "/home"
-            max_documents = 25
-            recursive = True
-            for token in args[1:]:
-                if token.startswith("--limit="):
-                    try:
-                        max_documents = max(1, int(token.split("=", 1)[1]))
-                    except Exception:
-                        continue
-                elif token == "--no-recursive":
-                    recursive = False
-                elif token.startswith("--"):
-                    continue
-                else:
-                    directory = token
-
+            options = self._parse_document_cognition_options(args[1:])
             rm = getattr(self, "runtime_manager", None)
             if rm is None:
-                result = collector.ingest_directory(
-                    directory=directory,
-                    recursive=recursive,
-                    max_documents=max_documents,
-                    router=getattr(self, "runtime_router_v2", None),
-                    knowledge_db=getattr(self, "db", None),
-                    evaluation_engine=getattr(self, "evaluation_engine", None),
-                    runtime_id="",
-                    source_module="niblit_core",
-                )
-                return json.dumps(result, indent=2, sort_keys=True)
-
-            try:
-                task = rm.submit_task(
-                    "document_cognition",
-                    payload={
-                        "directory": directory,
-                        "recursive": recursive,
-                        "max_documents": max_documents,
-                    },
-                    priority="normal",
-                    source="document-cognition",
-                )
-                rm.dispatch_pending(max_tasks=1)
-                if task.status == "completed":
-                    return json.dumps(task.result or {}, indent=2, sort_keys=True)
-                if task.status == "failed":
-                    return f"[document-cognition] task failed: {task.error}"
-                return f"document-cognition task queued ({task.task_id[:8]})"
-            except Exception as exc:
-                return f"[document-cognition] submit error: {exc}"
+                return self._run_document_cognition_direct(collector, options)
+            return self._submit_document_cognition_task(rm, options)
 
         return (
             "document-cognition commands:\n"
@@ -9199,6 +9229,200 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         self._init_agents()
 
+    def _register_phase2_agent_instance(
+        self,
+        rm: Any,
+        agent: Any,
+        *,
+        primary_attr: Optional[str] = None,
+    ) -> None:
+        """Register a Phase-2 agent on the runtime manager and local registry."""
+        for task_type in agent.HANDLED_TASK_TYPES:
+            rm.register_agent(task_type, agent.handle)
+        if primary_attr:
+            setattr(self, primary_attr, agent)
+        self.phase2_agents[agent.HANDLED_TASK_TYPES[0]] = agent
+
+    def _build_runtime_router_v2(self) -> Optional[Any]:
+        """Build the unified runtime router used by runtime-aware agents."""
+        try:
+            from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
+
+            return NiblitUnifiedRuntimeRouterV2(
+                local_brain=getattr(self, "local_brain", None)
+            )
+        except Exception:
+            return None
+
+    def _init_planner_agent(self, rm: Any) -> int:
+        """Register PlannerAgent task handlers when available."""
+        if _PlannerAgent is None:
+            return 0
+        try:
+            agent = _PlannerAgent(
+                task_queue=rm.task_queue,
+                llm=getattr(self, "llm", None),
+            )
+            self._register_phase2_agent_instance(rm, agent)
+            log.debug("[INIT] PlannerAgent registered (%s)", agent.HANDLED_TASK_TYPES)
+            return 1
+        except Exception as exc:
+            log.debug("[INIT] PlannerAgent registration failed: %s", exc)
+            return 0
+
+    def _init_research_agent(self, rm: Any) -> int:
+        """Register ResearchAgent task handlers when available."""
+        if _ResearchAgent is None:
+            return 0
+        try:
+            agent = _ResearchAgent(
+                internet_manager=getattr(self, "internet", None),
+                github_code_search=getattr(self, "github_code_search", None),
+                stackoverflow_search=getattr(self, "stackoverflow_search", None),
+                knowledge_db=self.db,
+            )
+            self._register_phase2_agent_instance(rm, agent)
+            log.debug("[INIT] ResearchAgent registered (%s)", agent.HANDLED_TASK_TYPES)
+            return 1
+        except Exception as exc:
+            log.debug("[INIT] ResearchAgent registration failed: %s", exc)
+            return 0
+
+    def _init_coding_agent(self, rm: Any) -> int:
+        """Register CodingAgent task handlers when available."""
+        if _CodingAgent is None:
+            return 0
+        try:
+            agent = _CodingAgent(
+                hf_llm=getattr(self, "llm", None),
+                code_generator=getattr(self, "code_generator", None),
+                knowledge_db=self.db,
+            )
+            self._register_phase2_agent_instance(rm, agent)
+            log.debug("[INIT] CodingAgent registered (%s)", agent.HANDLED_TASK_TYPES)
+            return 1
+        except Exception as exc:
+            log.debug("[INIT] CodingAgent registration failed: %s", exc)
+            return 0
+
+    def _init_testing_agent(self, rm: Any) -> int:
+        """Register TestingAgent task handlers when available."""
+        if _TestingAgent is None:
+            return 0
+        try:
+            agent = _TestingAgent(
+                code_compiler=getattr(self, "code_compiler", None),
+                code_error_fixer=getattr(self, "code_error_fixer", None),
+            )
+            self._register_phase2_agent_instance(rm, agent)
+            log.debug("[INIT] TestingAgent registered (%s)", agent.HANDLED_TASK_TYPES)
+            return 1
+        except Exception as exc:
+            log.debug("[INIT] TestingAgent registration failed: %s", exc)
+            return 0
+
+    def _init_reflection_agent(self, rm: Any, brain_trainer: Any) -> int:
+        """Register ReflectionAgent task handlers when available."""
+        if _ReflectionAgent is None:
+            return 0
+        try:
+            agent = _ReflectionAgent(
+                knowledge_db=self.db,
+                brain_trainer=brain_trainer,
+            )
+            self._register_phase2_agent_instance(rm, agent)
+            log.debug("[INIT] ReflectionAgent registered (%s)", agent.HANDLED_TASK_TYPES)
+            return 1
+        except Exception as exc:
+            log.debug("[INIT] ReflectionAgent registration failed: %s", exc)
+            return 0
+
+    def _init_architecture_agent(self, rm: Any) -> int:
+        """Register ArchitectureAgent task handlers when available."""
+        if _ArchitectureAgent is None:
+            return 0
+        try:
+            agent = _ArchitectureAgent(
+                build_scanner=getattr(self, "build_scanner", None),
+                github_code_search=getattr(self, "github_code_search", None),
+                knowledge_db=self.db,
+            )
+            self._register_phase2_agent_instance(rm, agent)
+            log.debug("[INIT] ArchitectureAgent registered (%s)", agent.HANDLED_TASK_TYPES)
+            return 1
+        except Exception as exc:
+            log.debug("[INIT] ArchitectureAgent registration failed: %s", exc)
+            return 0
+
+    def _init_document_cognition_agent(self, rm: Any) -> int:
+        """Register the governed document cognition agent when available."""
+        if _DocumentCognitionAgent is None:
+            return 0
+        try:
+            agent = _DocumentCognitionAgent(
+                core=self,
+                router_v2=self._build_runtime_router_v2(),
+            )
+            self._register_phase2_agent_instance(rm, agent)
+            log.debug(
+                "[INIT] DocumentCognitionAgent registered (%s)",
+                agent.HANDLED_TASK_TYPES,
+            )
+            return 1
+        except Exception as exc:
+            log.debug("[INIT] DocumentCognitionAgent registration failed: %s", exc)
+            return 0
+
+    def _init_niblit_dev_agent(self, rm: Any) -> int:
+        """Register NiblitDevAgent with runtime manager and event bus wiring."""
+        if _NiblitDevAgent is None:
+            return 0
+        try:
+            llm_provider_manager = getattr(
+                getattr(self, "brain", None),
+                "llm_provider_manager",
+                None,
+            )
+            agent = _NiblitDevAgent(
+                core=self,
+                runtime_manager=rm,
+                event_bus=getattr(rm, "event_bus", None),
+                telemetry=getattr(self, "telemetry", None),
+                local_brain=getattr(self, "local_brain", None),
+                router_v2=self._build_runtime_router_v2(),
+                llm_provider_manager=llm_provider_manager,
+            )
+            self._register_phase2_agent_instance(
+                rm,
+                agent,
+                primary_attr="niblit_dev_agent",
+            )
+            self.startup_report.add("niblit_dev_agent", "ready")
+            log.debug("[INIT] NiblitDevAgent registered (%s)", agent.HANDLED_TASK_TYPES)
+            return 1
+        except Exception as exc:
+            log.debug("[INIT] NiblitDevAgent registration failed: %s", exc)
+            self.startup_report.add("niblit_dev_agent", "degraded", str(exc))
+            return 0
+
+    def _register_phase2_agents(self, rm: Any) -> int:
+        """Instantiate and register all available Phase-2 agents."""
+        brain_trainer = (
+            getattr(self.brain, "brain_trainer", None)
+            if getattr(self, "brain", None)
+            else None
+        )
+        agents_registered = 0
+        agents_registered += self._init_planner_agent(rm)
+        agents_registered += self._init_research_agent(rm)
+        agents_registered += self._init_coding_agent(rm)
+        agents_registered += self._init_testing_agent(rm)
+        agents_registered += self._init_reflection_agent(rm, brain_trainer)
+        agents_registered += self._init_architecture_agent(rm)
+        agents_registered += self._init_document_cognition_agent(rm)
+        agents_registered += self._init_niblit_dev_agent(rm)
+        return agents_registered
+
     def _init_agents(self) -> None:
         """Initialise the Phase-2 agent architecture (additive).
 
@@ -9220,165 +9444,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             rm = _RuntimeManager()
             self.runtime_manager = rm
             self.event_bus = rm.event_bus
-
-            # Build a shared brain_trainer reference (used by ReflectionAgent)
-            _brain_trainer = (
-                getattr(self.brain, "brain_trainer", None)
-                if getattr(self, "brain", None) else None
-            )
-
-            # ── Instantiate agents ────────────────────────────────────────────
-            agents_registered: int = 0
-
-            if _PlannerAgent is not None:
-                try:
-                    pa = _PlannerAgent(
-                        task_queue=rm.task_queue,
-                        llm=getattr(self, "llm", None),
-                    )
-                    for tt in pa.HANDLED_TASK_TYPES:
-                        rm.register_agent(tt, pa.handle)
-                    self.phase2_agents[pa.HANDLED_TASK_TYPES[0]] = pa
-                    agents_registered += 1
-                    log.debug("[INIT] PlannerAgent registered (%s)", pa.HANDLED_TASK_TYPES)
-                except Exception as _e:
-                    log.debug("[INIT] PlannerAgent registration failed: %s", _e)
-
-            if _ResearchAgent is not None:
-                try:
-                    ra = _ResearchAgent(
-                        internet_manager=getattr(self, "internet", None),
-                        github_code_search=getattr(self, "github_code_search", None),
-                        stackoverflow_search=getattr(self, "stackoverflow_search", None),
-                        knowledge_db=self.db,
-                    )
-                    for tt in ra.HANDLED_TASK_TYPES:
-                        rm.register_agent(tt, ra.handle)
-                    self.phase2_agents[ra.HANDLED_TASK_TYPES[0]] = ra
-                    agents_registered += 1
-                    log.debug("[INIT] ResearchAgent registered (%s)", ra.HANDLED_TASK_TYPES)
-                except Exception as _e:
-                    log.debug("[INIT] ResearchAgent registration failed: %s", _e)
-
-            if _CodingAgent is not None:
-                try:
-                    ca = _CodingAgent(
-                        hf_llm=getattr(self, "llm", None),
-                        code_generator=getattr(self, "code_generator", None),
-                        knowledge_db=self.db,
-                    )
-                    for tt in ca.HANDLED_TASK_TYPES:
-                        rm.register_agent(tt, ca.handle)
-                    self.phase2_agents[ca.HANDLED_TASK_TYPES[0]] = ca
-                    agents_registered += 1
-                    log.debug("[INIT] CodingAgent registered (%s)", ca.HANDLED_TASK_TYPES)
-                except Exception as _e:
-                    log.debug("[INIT] CodingAgent registration failed: %s", _e)
-
-            if _TestingAgent is not None:
-                try:
-                    ta = _TestingAgent(
-                        code_compiler=getattr(self, "code_compiler", None),
-                        code_error_fixer=getattr(self, "code_error_fixer", None),
-                    )
-                    for tt in ta.HANDLED_TASK_TYPES:
-                        rm.register_agent(tt, ta.handle)
-                    self.phase2_agents[ta.HANDLED_TASK_TYPES[0]] = ta
-                    agents_registered += 1
-                    log.debug("[INIT] TestingAgent registered (%s)", ta.HANDLED_TASK_TYPES)
-                except Exception as _e:
-                    log.debug("[INIT] TestingAgent registration failed: %s", _e)
-
-            if _ReflectionAgent is not None:
-                try:
-                    rfa = _ReflectionAgent(
-                        knowledge_db=self.db,
-                        brain_trainer=_brain_trainer,
-                    )
-                    for tt in rfa.HANDLED_TASK_TYPES:
-                        rm.register_agent(tt, rfa.handle)
-                    self.phase2_agents[rfa.HANDLED_TASK_TYPES[0]] = rfa
-                    agents_registered += 1
-                    log.debug("[INIT] ReflectionAgent registered (%s)", rfa.HANDLED_TASK_TYPES)
-                except Exception as _e:
-                    log.debug("[INIT] ReflectionAgent registration failed: %s", _e)
-
-            if _ArchitectureAgent is not None:
-                try:
-                    aarch = _ArchitectureAgent(
-                        build_scanner=getattr(self, "build_scanner", None),
-                        github_code_search=getattr(self, "github_code_search", None),
-                        knowledge_db=self.db,
-                    )
-                    for tt in aarch.HANDLED_TASK_TYPES:
-                        rm.register_agent(tt, aarch.handle)
-                    self.phase2_agents[aarch.HANDLED_TASK_TYPES[0]] = aarch
-                    agents_registered += 1
-                    log.debug("[INIT] ArchitectureAgent registered (%s)", aarch.HANDLED_TASK_TYPES)
-                except Exception as _e:
-                    log.debug("[INIT] ArchitectureAgent registration failed: %s", _e)
-
-            if _DocumentCognitionAgent is not None:
-                try:
-                    _router_v2 = None
-                    try:
-                        from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
-
-                        _router_v2 = NiblitUnifiedRuntimeRouterV2(
-                            local_brain=getattr(self, "local_brain", None)
-                        )
-                    except Exception:
-                        _router_v2 = None
-                    dca = _DocumentCognitionAgent(
-                        core=self,
-                        router_v2=_router_v2,
-                    )
-                    for tt in dca.HANDLED_TASK_TYPES:
-                        rm.register_agent(tt, dca.handle)
-                    self.phase2_agents[dca.HANDLED_TASK_TYPES[0]] = dca
-                    agents_registered += 1
-                    log.debug("[INIT] DocumentCognitionAgent registered (%s)", dca.HANDLED_TASK_TYPES)
-                except Exception as _e:
-                    log.debug("[INIT] DocumentCognitionAgent registration failed: %s", _e)
-
-            if _NiblitDevAgent is not None:
-                try:
-                    _llm_provider_manager = getattr(
-                        getattr(self, "brain", None), "llm_provider_manager", None
-                    )
-                    _router_v2 = None
-                    _router_v2_cls = None
-                    try:
-                        from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
-                        _router_v2_cls = NiblitUnifiedRuntimeRouterV2
-                    except ImportError:
-                        _router_v2_cls = None
-                    if _router_v2_cls is not None:
-                        try:
-                            _router_v2 = _router_v2_cls(
-                                local_brain=getattr(self, "local_brain", None)
-                            )
-                        except Exception:
-                            _router_v2 = None
-                    nda = _NiblitDevAgent(
-                        core=self,
-                        runtime_manager=rm,
-                        event_bus=getattr(rm, "event_bus", None),
-                        telemetry=getattr(self, "telemetry", None),
-                        local_brain=getattr(self, "local_brain", None),
-                        router_v2=_router_v2,
-                        llm_provider_manager=_llm_provider_manager,
-                    )
-                    for tt in nda.HANDLED_TASK_TYPES:
-                        rm.register_agent(tt, nda.handle)
-                    self.niblit_dev_agent = nda
-                    self.phase2_agents[nda.HANDLED_TASK_TYPES[0]] = nda
-                    agents_registered += 1
-                    self.startup_report.add("niblit_dev_agent", "ready")
-                    log.debug("[INIT] NiblitDevAgent registered (%s)", nda.HANDLED_TASK_TYPES)
-                except Exception as _e:
-                    log.debug("[INIT] NiblitDevAgent registration failed: %s", _e)
-                    self.startup_report.add("niblit_dev_agent", "degraded", str(_e))
+            agents_registered = self._register_phase2_agents(rm)
 
             # ── Start background dispatch loop ────────────────────────────────
             rm.start_loop(poll_interval=2.0)
@@ -11206,7 +11272,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "my commands              — Enumerate every registered command with handler and priority\n"
             "dashboard                — Full runtime dashboard: threads, loops, memory, ALE, modules\n"
             "runtime cognition recovery | runtime causality — Runtime cognition recovery map / causality snapshot\n"
-            "market intelligence | market intelligence timeline | market intelligence retrievals | market intelligence risk | market intelligence confidence | market intelligence reflections | market intelligence causality | market intelligence dqi | market intelligence memory | market intelligence contradictions\n"
+            "market intelligence | market intelligence timeline | market intelligence retrievals\n"
+            "market intelligence risk | market intelligence confidence | market intelligence reflections\n"
+            "market intelligence causality | market intelligence dqi | market intelligence memory\n"
+            "market intelligence contradictions\n"
             "hypothesis status | hypothesis list | hypothesis show <id|topic>\n"
             "operational flow         — Explain how routing, background loops, and memory connect\n"
             "resource usage           — Show RAM usage, CPU percent, and process uptime\n"
