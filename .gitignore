@@ -24,6 +24,8 @@ niblit_data.sqlite
 # Runtime and temporary files
 niblit_memory.json
 niblit_memory.json.backup
+niblit_memory.json.snapshot
+*.json.snapshot
 niblit_diagnostics.json
 niblit_live_test_report.json
 niblit_identity.json

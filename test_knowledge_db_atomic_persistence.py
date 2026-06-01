@@ -27,6 +27,7 @@ def test_atomic_commit_manager_rotates_backup_and_snapshot(tmp_path):
         payload={"facts": [{"key": "new"}], "meta": {"schema_version": "2.0"}},
         backup_path=str(backup),
         snapshot_path=str(snapshot),
+        snapshot_write_enabled=True,
     )
 
     current = json.loads(primary.read_text(encoding="utf-8"))
@@ -54,8 +55,29 @@ def test_knowledge_db_single_writer_flush_preserves_valid_json(tmp_path):
     assert isinstance(parsed.get("learning_queue"), list)
     assert parsed.get("meta", {}).get("schema_version") == "2.0"
     assert mem.with_suffix(".json.backup").exists()
-    assert mem.with_suffix(".json.snapshot").exists()
+    assert not mem.with_suffix(".json.snapshot").exists()
     db.shutdown()
+
+
+def test_atomic_commit_manager_skips_snapshot_when_guard_disabled(tmp_path):
+    from niblit_memory import AtomicCommitManager
+
+    primary = tmp_path / "kb.json"
+    backup = tmp_path / "kb.json.backup"
+    snapshot = tmp_path / "kb.json.snapshot"
+    primary.write_text(json.dumps({"facts": [{"key": "old"}]}), encoding="utf-8")
+
+    manager = AtomicCommitManager()
+    manager.commit_json(
+        path=str(primary),
+        payload={"facts": [{"key": "new"}], "meta": {"schema_version": "2.0"}},
+        backup_path=str(backup),
+        snapshot_path=str(snapshot),
+    )
+
+    assert json.loads(primary.read_text(encoding="utf-8"))["facts"][0]["key"] == "new"
+    assert json.loads(backup.read_text(encoding="utf-8"))["facts"][0]["key"] == "old"
+    assert not snapshot.exists()
 
 
 def test_replay_safe_hooks_populate_lineage_fields():

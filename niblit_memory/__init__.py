@@ -1063,6 +1063,7 @@ class AtomicCommitManager:
         payload: Dict[str, Any],
         backup_path: Optional[str] = None,
         snapshot_path: Optional[str] = None,
+        snapshot_write_enabled: bool = False,
     ) -> Dict[str, Any]:
         serialized = json.dumps(payload, indent=4, ensure_ascii=False)
         # Validate serialised output before touching disk.
@@ -1073,7 +1074,7 @@ class AtomicCommitManager:
             except Exception as exc:
                 _kdb_log.debug("KnowledgeDB backup snapshot copy failed: %s", exc)
         self._atomic_write_text(path, serialized)
-        if snapshot_path:
+        if snapshot_path and snapshot_write_enabled:
             try:
                 self._atomic_write_text(snapshot_path, serialized)
             except Exception as exc:
@@ -1284,10 +1285,12 @@ class RuntimePersistenceCoordinator:
         payload_supplier,
         debounce_seconds: float = 0.25,
         qdrant_sync_enabled: bool = False,
+        snapshot_write_enabled: bool = False,
     ) -> None:
         self.path = path
         self.backup_path = backup_path
         self.snapshot_path = snapshot_path
+        self.snapshot_write_enabled = bool(snapshot_write_enabled)
         self.payload_supplier = payload_supplier
         self.mutation_queue = MemoryMutationQueue()
         self.debounce = SaveDebounceController(debounce_seconds)
@@ -1317,6 +1320,7 @@ class RuntimePersistenceCoordinator:
             payload=payload,
             backup_path=self.backup_path,
             snapshot_path=self.snapshot_path,
+            snapshot_write_enabled=self.snapshot_write_enabled,
         )
         self.debounce.mark_commit()
         self.qdrant_bridge.sync_after_commit(payload)
@@ -1438,6 +1442,7 @@ class KnowledgeDB:
             payload_supplier=self._snapshot_for_persistence,
             debounce_seconds=max(0.05, min(float(self.autosave_interval) / 20.0, 2.0)),
             qdrant_sync_enabled=False,
+            snapshot_write_enabled=False,
         )
         self._worker = GovernedPersistenceWorker(self._persistence)
         atexit.register(self.shutdown)
