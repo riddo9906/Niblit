@@ -137,6 +137,9 @@ LEGACY_COMMANDS = [
     "retrieval lineage",
     "retrieval confidence",
     "retrieval causality",
+    "hypothesis status",
+    "hypothesis list",
+    "hypothesis show",
 ]
 
 def timestamp():

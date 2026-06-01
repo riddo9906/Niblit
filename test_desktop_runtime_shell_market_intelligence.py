@@ -27,3 +27,39 @@ def test_market_intelligence_text_value_renders_core_sections() -> None:
     assert "dqi_scores" in rendered
     assert "risk_intelligence" in rendered
     assert "reflection_summaries" in rendered
+
+
+def test_hypothesis_tabs_render_from_runtime_state() -> None:
+    runtime_state = {
+        "hypothesis_intelligence": {
+            "summary": {
+                "hypothesis_count": 3,
+                "status_counts": {"emerging": 2, "unresolved_contradiction": 1},
+                "origin_counts": {"market_cognition": 2, "reflection_cognition": 1},
+                "evidence_count": 7,
+                "unresolved_contradiction_count": 1,
+            },
+            "beliefs": [{"hypothesis_id": "hyp-1", "topic": "btc regime", "status": "emerging", "confidence": 0.62}],
+            "directed_questions": [{"type": "missing_data", "question": "Which data reduces uncertainty?"}],
+        },
+        "market_knowledge_graph": {
+            "chain_model": "Regime→Signal→Confidence→Risk→Outcome→Reflection→Evaluation",
+            "chain_count": 4,
+            "nodes": [{"stage": "Regime", "label": "volatile"}],
+            "edges": [{"from": "a", "to": "b", "label": "Regime→Signal"}],
+        },
+        "contradiction_dashboard": {
+            "status_counts": {"unresolved_contradiction": 1},
+            "unresolved_contradictions": [{"contradiction_id": "hcon-1", "hypothesis_id": "hyp-1", "summary": "mixed outcomes"}],
+            "directed_questions": [{"type": "contradiction_resolution", "question": "Why mixed outcomes?"}],
+        },
+    }
+    hypothesis = DesktopRuntimeShell._hypothesis_intelligence_text_value(runtime_state)
+    graph = DesktopRuntimeShell._market_knowledge_graph_text_value(runtime_state)
+    contradictions = DesktopRuntimeShell._contradiction_dashboard_text_value(runtime_state)
+    assert "Hypothesis Intelligence" in hypothesis
+    assert "hypothesis_count" in hypothesis
+    assert "Market Knowledge Graph" in graph
+    assert "chain_model" in graph
+    assert "Contradiction Dashboard" in contradictions
+    assert "unresolved_total" in contradictions

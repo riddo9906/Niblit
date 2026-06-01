@@ -193,6 +193,36 @@ def test_unified_runtime_market_intelligence_command(tmp_path: Path) -> None:
     assert data["dqi_scores"]
 
 
+def test_unified_runtime_hypothesis_commands_and_state(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    rt.ingest_external_event(
+        event_type="trade_reflection.ingested",
+        source="lean_algo_manager",
+        payload={
+            "trace_id": "hyp-trace-1",
+            "topic": "btc trend failure",
+            "regime": "volatile",
+            "signal": "breakout",
+            "confidence_score": 0.44,
+            "evaluation_score": 0.36,
+            "summary": "mixed outcomes under high volatility",
+            "contradictions": [{"summary": "conflicting outcomes"}],
+        },
+    )
+    listed = json.loads(rt.dispatch_command(command="hypothesis list", core=None))
+    assert isinstance(listed, list)
+    assert listed
+    hid = listed[0]["hypothesis_id"]
+    shown = json.loads(rt.dispatch_command(command=f"hypothesis show {hid}", core=None))
+    assert shown["hypothesis_id"] == hid
+    status = json.loads(rt.dispatch_command(command="hypothesis status", core=None))
+    assert "summary" in status
+    state = rt.state(core=None)["state"]
+    assert "hypothesis_intelligence" in state
+    assert "market_knowledge_graph" in state
+    assert "contradiction_dashboard" in state
+
+
 def test_unified_runtime_state_and_stream_include_market_intelligence(tmp_path: Path) -> None:
     rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
     rt.ingest_external_event(

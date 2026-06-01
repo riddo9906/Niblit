@@ -363,5 +363,14 @@ class TestDesktopLaunchDecision:
         assert main._should_launch_desktop(args, ui_supported=True) is True
 
 
+class TestHypothesisCommandSuggestions:
+    def test_hypothesis_commands_present_in_legacy_vocabulary(self):
+        import main
+
+        assert "hypothesis status" in main.LEGACY_COMMANDS
+        assert "hypothesis list" in main.LEGACY_COMMANDS
+        assert "hypothesis show" in main.LEGACY_COMMANDS
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

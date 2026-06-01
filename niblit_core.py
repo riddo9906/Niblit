@@ -2626,6 +2626,33 @@ class NiblitCore:
                 execution_authority="NiblitUnifiedRuntime.dispatch_command",
                 source_authority="modules/adaptive_market_cognition.py",
             )
+        def _hypothesis_forwarder(_command: str):
+            return lambda _text="": self._dispatch_unified_runtime_command(_command)
+
+        for _cmd, _desc in (
+            ("hypothesis status", "Show current hypothesis beliefs, support, contradictions, uncertainty, and investigations"),
+            ("hypothesis list", "List canonical hypotheses and lifecycle state"),
+        ):
+            self.command_registry.register(
+                _cmd,
+                _hypothesis_forwarder(_cmd),
+                _desc,
+                "runtime",
+                priority=98,
+                cognition_classification="runtime",
+                execution_authority="NiblitUnifiedRuntime.dispatch_command",
+                source_authority="modules/hypothesis_engine.py",
+            )
+        self.command_registry.register(
+            "hypothesis show",
+            lambda text="": self._dispatch_unified_runtime_command(f"hypothesis show {text}".strip()),
+            "Show a specific hypothesis by ID or topic",
+            "runtime",
+            priority=98,
+            cognition_classification="runtime",
+            execution_authority="NiblitUnifiedRuntime.dispatch_command",
+            source_authority="modules/hypothesis_engine.py",
+        )
 
         # Autonomous Learning Commands
         self.command_registry.register(
@@ -11180,6 +11207,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             "dashboard                — Full runtime dashboard: threads, loops, memory, ALE, modules\n"
             "runtime cognition recovery | runtime causality — Runtime cognition recovery map / causality snapshot\n"
             "market intelligence | market intelligence timeline | market intelligence retrievals | market intelligence risk | market intelligence confidence | market intelligence reflections | market intelligence causality | market intelligence dqi | market intelligence memory | market intelligence contradictions\n"
+            "hypothesis status | hypothesis list | hypothesis show <id|topic>\n"
             "operational flow         — Explain how routing, background loops, and memory connect\n"
             "resource usage           — Show RAM usage, CPU percent, and process uptime\n"
             "\n--- STRUCTURAL AWARENESS (SA) ---\n"
