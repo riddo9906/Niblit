@@ -374,9 +374,9 @@ class AdaptiveMarketCognitionLayer:
             "market intelligence contradictions": "unresolved_market_contradictions",
         }
         status = self.status(core=core)
-        for key, field in mapping.items():
+        for key, field_name in mapping.items():
             if lower == key:
-                return json.dumps(status.get(field, []), indent=2, sort_keys=True)
+                return json.dumps(status.get(field_name, []), indent=2, sort_keys=True)
         return ""
 
     def _finalize_experience(
