@@ -118,6 +118,8 @@ class HypothesisEngine:
         self._hypotheses: dict[str, HypothesisRecord] = {}
         self._topic_index: dict[str, list[str]] = {}
         self._evidence: dict[str, HypothesisEvidence] = {}
+        # dedup key: (hypothesis_id, source_type, source_id) → evidence_id
+        self._evidence_dedup: dict[tuple[str, str, str], str] = {}
         self._contradictions: dict[str, HypothesisContradiction] = {}
         self._source_index: dict[str, list[str]] = {}
         self._market_graph_chains: list[dict[str, Any]] = []
@@ -181,9 +183,8 @@ class HypothesisEngine:
         topic_key = self._topic_key(topic)
         if status not in _ALLOWED_STATUS:
             status = _STATUS_EMERGING
-        existing = self._find_existing(topic=topic, statement=statement, origin_stream=origin_stream)
-        if existing is not None:
-            return existing.to_dict()
+        # Prepare the candidate record before acquiring the lock so we do
+        # minimal work inside the critical section.
         hid = f"hyp-{uuid.uuid4().hex[:10]}"
         record = HypothesisRecord(
             hypothesis_id=hid,
@@ -198,6 +199,11 @@ class HypothesisEngine:
         )
         record.audit.append({"ts": _iso_now(), "op": "create", "status": record.status, "confidence": record.confidence})
         with self._lock:
+            # Existence check and registration are now atomic under one lock
+            # scope to prevent duplicate creation under concurrent ingestion.
+            existing = self._find_existing_locked(topic=topic, statement=statement, origin_stream=origin_stream)
+            if existing is not None:
+                return existing.to_dict()
             self._hypotheses[hid] = record
             self._topic_index.setdefault(topic_key, [])
             self._topic_index[topic_key].append(hid)
@@ -397,6 +403,14 @@ class HypothesisEngine:
             hid = str(created.get("hypothesis_id", ""))
         if not hid:
             return ""
+        # Deduplicate evidence by (hypothesis_id, source_type, source_id) so
+        # repeated runtime snapshots do not inflate evidence counts or distort
+        # confidence recalibration.
+        dedup_key = (hid, source_type, source_id)
+        with self._lock:
+            existing_eid = self._evidence_dedup.get(dedup_key)
+        if existing_eid is not None:
+            return existing_eid
         impact, delta = self._impact_from_payload(payload)
         evidence_id = f"hev-{uuid.uuid4().hex[:12]}"
         evidence = HypothesisEvidence(
@@ -412,6 +426,7 @@ class HypothesisEngine:
         )
         with self._lock:
             self._evidence[evidence_id] = evidence
+            self._evidence_dedup[dedup_key] = evidence_id
             self._source_index.setdefault(source_type, [])
             self._source_index[source_type].append(evidence_id)
             record = self._hypotheses.get(hid)
@@ -448,10 +463,23 @@ class HypothesisEngine:
             record = self._hypotheses.get(hypothesis_id)
             if record is None:
                 return None
+            # Deduplicate: if an unresolved contradiction with the same
+            # (hypothesis_id, source, clipped summary) already exists, reuse it
+            # instead of creating a duplicate on repeated snapshot replays.
+            clipped_summary = _clip(summary, 280)
+            for cid in record.contradiction_ids:
+                existing_con = self._contradictions.get(cid)
+                if (
+                    existing_con is not None
+                    and existing_con.state == "unresolved"
+                    and existing_con.source == source
+                    and existing_con.summary == clipped_summary
+                ):
+                    return existing_con.to_dict()
             contradiction = HypothesisContradiction(
                 contradiction_id=f"hcon-{uuid.uuid4().hex[:10]}",
                 hypothesis_id=hypothesis_id,
-                summary=_clip(summary, 280),
+                summary=clipped_summary,
                 source=source,
                 evidence_ids=list(evidence_ids or []),
             )
@@ -785,13 +813,39 @@ class HypothesisEngine:
                     return item
         return None
 
+    def _find_existing_locked(self, *, topic: str, statement: str, origin_stream: str) -> HypothesisRecord | None:
+        """Like _find_existing but assumes the caller already holds self._lock."""
+        fingerprint = f"{self._topic_key(topic)}::{_clip(statement, 160).lower()}::{origin_stream}"
+        for item in self._hypotheses.values():
+            probe = f"{self._topic_key(item.topic)}::{_clip(item.statement, 160).lower()}::{item.origin_stream}"
+            if probe == fingerprint and item.status not in {_STATUS_SUPERSEDED, _STATUS_DEPRECATED}:
+                return item
+        return None
+
     def _classify_stream(self, *, event_type: str, source: str, payload: dict[str, Any]) -> str:
-        lowered = f"{event_type} {source} {json.dumps(payload, sort_keys=True, default=str)}".lower()
-        if any(token in lowered for token in ("market", "trade", "regime", "dqi", "risk")):
+        # Check event_type and source first to avoid serialising the full
+        # payload on every runtime event (hot path).
+        type_source = f"{event_type} {source}".lower()
+        if any(token in type_source for token in ("market", "trade", "regime", "dqi", "risk")):
             return _STREAM_MARKET
-        if any(token in lowered for token in ("document", "pdf", "citation", "curriculum", "lineage")):
+        if any(token in type_source for token in ("document", "pdf", "citation", "curriculum", "lineage")):
             return _STREAM_DOCUMENT
-        if any(token in lowered for token in ("reflection", "evaluation", "outcome", "metaevaluation")):
+        if any(token in type_source for token in ("reflection", "evaluation", "outcome", "metaevaluation")):
+            return _STREAM_REFLECTION
+        # Fall back to targeted payload-field inspection only when the
+        # event_type/source alone is not sufficient.
+        topic = str(payload.get("topic") or "").lower()
+        provider = str(payload.get("provider") or "").lower()
+        symbol = str(payload.get("symbol") or "").lower()
+        market_ctx = str(payload.get("market_context") or "").lower()
+        reflection_summary = str(payload.get("reflection_summary") or "").lower()
+        eval_score = payload.get("evaluation_score")
+        combined = f"{topic} {provider} {symbol} {market_ctx} {reflection_summary}"
+        if any(token in combined for token in ("market", "trade", "regime", "dqi", "risk")):
+            return _STREAM_MARKET
+        if any(token in combined for token in ("document", "pdf", "citation", "curriculum", "lineage")):
+            return _STREAM_DOCUMENT
+        if eval_score is not None or any(token in combined for token in ("reflection", "evaluation", "outcome", "metaevaluation")):
             return _STREAM_REFLECTION
         return _STREAM_RUNTIME
 
@@ -842,8 +896,17 @@ class HypothesisEngine:
 
     @staticmethod
     def _looks_like_contradiction(event_type: str, payload: dict[str, Any]) -> bool:
-        lowered = f"{event_type} {json.dumps(payload, sort_keys=True, default=str)}".lower()
-        return bool(payload.get("contradictions")) or "contradiction" in lowered or "mixed outcomes" in lowered
+        if payload.get("contradictions"):
+            return True
+        # Check targeted fields to avoid full payload serialisation.
+        event_lower = event_type.lower()
+        if "contradiction" in event_lower or "mixed" in event_lower:
+            return True
+        for key in ("summary", "reflection_summary", "reason", "error", "decision"):
+            val = str(payload.get(key) or "").lower()
+            if "contradiction" in val or "mixed outcomes" in val:
+                return True
+        return bool(payload.get("contradiction"))
 
     def _infer_hypothesis_for_payload(self, payload: dict[str, Any]) -> str:
         topic = self._topic_from_payload(payload, fallback="")

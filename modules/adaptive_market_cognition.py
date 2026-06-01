@@ -125,9 +125,17 @@ class AdaptiveMarketCognitionLayer:
         significance: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         payload = dict(payload or {})
-        lowered = f"{event_type} {source} {json.dumps(payload, sort_keys=True, default=str)}".lower()
-        if not any(token in lowered for token in _MARKET_EVENT_TOKENS):
-            return None
+        # Classify from event_type/source plus targeted payload fields first to
+        # avoid JSON-serialising the full payload on every runtime event.
+        type_source = f"{event_type} {source}".lower()
+        if not any(token in type_source for token in _MARKET_EVENT_TOKENS):
+            # Check a small set of relevant payload fields before giving up.
+            quick = " ".join(
+                str(payload.get(k) or "").lower()
+                for k in ("topic", "symbol", "regime", "market_context", "reflection_summary", "decision")
+            )
+            if not any(token in quick for token in _MARKET_EVENT_TOKENS):
+                return None
         trace_id = str(payload.get("trace_id") or f"market:{event_type}:{int(time.time() * 1000)}")
         with self._lock:
             experience = self._open.setdefault(
