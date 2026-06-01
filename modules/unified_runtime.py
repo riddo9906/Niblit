@@ -871,7 +871,11 @@ class NiblitUnifiedRuntime:
                 payload,
                 significance=event.significance,
             )
-            self.hypothesis_engine.observe_runtime_event(event.type, event.source, payload)
+            # Prevent feedback loops: HypothesisEngine emits hypothesis.* events
+            # onto the same runtime bus; re-ingesting those back into
+            # HypothesisEngine causes recursive event amplification.
+            if not (event.type.startswith("hypothesis.") or event.source == "HypothesisEngine"):
+                self.hypothesis_engine.observe_runtime_event(event.type, event.source, payload)
             if episode:
                 with self._lock:
                     self._state.cognitive_sessions.append(
