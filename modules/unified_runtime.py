@@ -864,14 +864,22 @@ class NiblitUnifiedRuntime:
                 payload["trace_id"] = f"{self.runtime_id}:{event.type}:{event.id}"
             payload.setdefault("runtime_mode", self._state.runtime_mode)
             event_dict["payload"] = payload
-            episode = self.cognitive_runtime.observe_event(event_dict, runtime_mode=self._state.runtime_mode)
-            self.market_cognition.observe_event(
-                event.type,
-                event.source,
-                payload,
-                significance=event.significance,
-            )
-            self.hypothesis_engine.observe_runtime_event(event.type, event.source, payload)
+            # Prevent feedback amplification: HypothesisEngine emits hypothesis.*
+            # events onto the same bus during observe_runtime_event. Without this
+            # guard every non-hypothesis event generates O(N) synchronous nested
+            # handler calls through cognitive_runtime and market_cognition, causing
+            # O(N²) total work during boot's ingest_snapshot_sources phase.
+            is_hypothesis_feedback = event.type.startswith("hypothesis.") or event.source == "HypothesisEngine"
+            episode = None
+            if not is_hypothesis_feedback:
+                episode = self.cognitive_runtime.observe_event(event_dict, runtime_mode=self._state.runtime_mode)
+                self.market_cognition.observe_event(
+                    event.type,
+                    event.source,
+                    payload,
+                    significance=event.significance,
+                )
+                self.hypothesis_engine.observe_runtime_event(event.type, event.source, payload)
             if episode:
                 with self._lock:
                     self._state.cognitive_sessions.append(
