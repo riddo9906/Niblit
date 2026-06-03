@@ -853,8 +853,8 @@ DASHBOARD_HTML = r"""<!doctype html>
     .sb-cmd:hover{background:var(--surface2);color:var(--text);border-color:var(--border)}
     .sb-cmd .c-label{font-family:var(--mono);font-size:11.5px;color:var(--primary)}
     .sb-cmd:hover .c-label{color:var(--accent)}
-    .sb-cmd .c-desc{font-size:10px;color:var(--text-dim);white-space:nowrap;
-                    overflow:hidden;text-overflow:ellipsis}
+    .sb-cmd .c-desc{font-size:10px;color:var(--text-dim);white-space:normal;
+                    overflow:visible;text-overflow:clip;line-height:1.35}
 
     /* ══ MAIN ══ */
     #main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -1036,14 +1036,14 @@ DASHBOARD_HTML = r"""<!doctype html>
     #palette-results{max-height:380px;overflow-y:auto}
     .pal-item{
       padding:10px 18px;cursor:pointer;border-bottom:1px solid var(--border);
-      display:flex;align-items:center;gap:12px;transition:background .1s;
+      display:flex;align-items:flex-start;gap:12px;transition:background .1s;
     }
     .pal-item:hover,.pal-item.active{background:var(--surface2)}
     .pal-item:last-child{border-bottom:none}
     .pal-icon{font-size:16px;flex-shrink:0;width:22px;text-align:center}
     .pal-info{flex:1;min-width:0}
     .pal-cmd{font-family:var(--mono);font-size:12.5px;color:var(--primary);font-weight:600}
-    .pal-desc{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pal-desc{font-size:11px;color:var(--text-muted);white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
     .pal-group{font-size:10px;color:var(--text-dim);flex-shrink:0;background:var(--surface2);
                padding:2px 7px;border-radius:8px}
     .pal-hint{padding:10px 18px;font-size:11px;color:var(--text-muted);text-align:center}
@@ -1269,7 +1269,15 @@ GROUPS.forEach(g => g.commands.forEach(c => ALL_CMDS.push({...c, group:g.group, 
     g.commands.forEach(c => {
       const item = document.createElement('div');
       item.className = 'sb-cmd';
-      item.innerHTML = `<div class="c-label">${c.label}</div><div class="c-desc">${c.desc}</div>`;
+      const label = document.createElement('div');
+      label.className = 'c-label';
+      label.textContent = c.label || '';
+      const desc = document.createElement('div');
+      desc.className = 'c-desc';
+      desc.textContent = c.desc || '';
+      desc.title = c.desc || '';
+      item.appendChild(label);
+      item.appendChild(desc);
       item.onclick = () => {
         if(c.is_search){ document.getElementById('top-search').focus(); return; }
         if(c.has_input){
@@ -1331,9 +1339,26 @@ function renderPalette(q){
   matches.slice(0, 25).forEach((c, i) => {
     const item = document.createElement('div');
     item.className = 'pal-item' + (i === palActive ? ' active' : '');
-    item.innerHTML = `<span class="pal-icon">${c.icon}</span>`
-      + `<div class="pal-info"><div class="pal-cmd">${c.label}</div><div class="pal-desc">${c.desc}</div></div>`
-      + `<span class="pal-group">${c.group}</span>`;
+    const icon = document.createElement('span');
+    icon.className = 'pal-icon';
+    icon.textContent = c.icon || '';
+    const info = document.createElement('div');
+    info.className = 'pal-info';
+    const cmd = document.createElement('div');
+    cmd.className = 'pal-cmd';
+    cmd.textContent = c.label || '';
+    const desc = document.createElement('div');
+    desc.className = 'pal-desc';
+    desc.textContent = c.desc || '';
+    desc.title = c.desc || '';
+    info.appendChild(cmd);
+    info.appendChild(desc);
+    const group = document.createElement('span');
+    group.className = 'pal-group';
+    group.textContent = c.group || '';
+    item.appendChild(icon);
+    item.appendChild(info);
+    item.appendChild(group);
     item.onclick = () => { runPaletteItem(c); };
     res.appendChild(item);
   });

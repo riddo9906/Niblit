@@ -2392,9 +2392,7 @@ class NiblitCore:
         provider_health = dict(context.get("provider_health", {}) or {})
         if not provider_health:
             try:
-                from modules.llm_provider_manager import get_llm_provider_manager
-
-                manager_status = get_llm_provider_manager().status() or {}
+                manager_status = self._provider_status_snapshot()
                 provider_health = {
                     provider: {"healthy": bool(manager_status.get(provider, False))}
                     for provider in ("hf", "anthropic", "qwen", "llama3", "ruflo")
@@ -2412,6 +2410,34 @@ class NiblitCore:
         )
         return context
 
+    def _provider_status_snapshot(self) -> dict:
+        """Read provider status without triggering provider initialization."""
+        try:
+            from modules.llm_provider_manager import get_llm_provider_manager
+
+            manager = get_llm_provider_manager()
+            cached = (
+                getattr(manager, "_cached_status", None)
+                or getattr(manager, "_status_cache", None)
+                or {}
+            )
+            if cached:
+                return dict(cached)
+            hf = getattr(manager, "_hf_brain", None)
+            claude = getattr(manager, "_claude", None)
+            local = getattr(manager, "_local_brain", None)
+            ruflo = getattr(manager, "_ruflo", None)
+            return {
+                "active": str(getattr(manager, "active", "") or "").lower(),
+                "hf": hf is not None and bool(getattr(hf, "enabled", False)) and bool(getattr(hf, "token", None)),
+                "anthropic": claude is not None and bool(getattr(claude, "is_available", lambda: False)()),
+                "qwen": local is not None,
+                "llama3": local is not None,
+                "ruflo": ruflo is not None and bool(getattr(ruflo, "is_available", lambda: False)()),
+            }
+        except Exception:
+            return {}
+
     def _command_registry_snapshot(self) -> dict:
         """Return a static capability snapshot for command-registry consumers."""
         runtime_manager = getattr(self, "runtime_manager", None)
@@ -2419,9 +2445,7 @@ class NiblitCore:
         active_provider = ""
         provider_health: dict[str, dict[str, bool]] = {}
         try:
-            from modules.llm_provider_manager import get_llm_provider_manager
-
-            manager_status = get_llm_provider_manager().status() or {}
+            manager_status = self._provider_status_snapshot()
             active_provider = str(manager_status.get("active", "") or "").lower()
             provider_health = {
                 provider: {"healthy": bool(manager_status.get(provider, False))}
@@ -2429,19 +2453,17 @@ class NiblitCore:
             }
         except Exception:
             pass
-        command_definitions = []
         registry = getattr(self, "command_registry", None)
-        if registry is not None and hasattr(registry, "commands"):
-            for metadata in (registry.commands or {}).values():
-                command_definitions.append(
-                    {
-                        "name": metadata.prefix,
-                        "aliases": list(metadata.aliases),
-                        "description": metadata.description,
-                        "category": metadata.category,
-                        "visibility_surfaces": sorted(metadata.visibility_surfaces),
-                    }
-                )
+        command_definitions = [
+            {
+                "name": metadata.prefix,
+                "aliases": list(metadata.aliases),
+                "description": metadata.description,
+                "category": metadata.category,
+                "visibility_surfaces": sorted(metadata.visibility_surfaces),
+            }
+            for metadata in (getattr(registry, "commands", {}) or {}).values()
+        ] if registry is not None else []
         return {
             "core": self,
             "runtime_mode": runtime_mode,

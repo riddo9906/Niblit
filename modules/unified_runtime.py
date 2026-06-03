@@ -269,8 +269,30 @@ class ProviderRuntimeManager:
         try:
             from modules.llm_provider_manager import get_llm_provider_manager
 
-            s = get_llm_provider_manager().status()
-            return dict(s or {})
+            manager = get_llm_provider_manager()
+            cached = (
+                getattr(manager, "_cached_status", None)
+                or getattr(manager, "_status_cache", None)
+                or {}
+            )
+            if cached:
+                return dict(cached)
+            hf = getattr(manager, "_hf_brain", None)
+            claude = getattr(manager, "_claude", None)
+            local = getattr(manager, "_local_brain", None)
+            ruflo = getattr(manager, "_ruflo", None)
+            return {
+                "active": str(getattr(manager, "active", "") or "").lower(),
+                "hf": hf is not None and bool(getattr(hf, "enabled", False)) and bool(getattr(hf, "token", None)),
+                "anthropic": claude is not None and bool(getattr(claude, "is_available", lambda: False)()),
+                "qwen": local is not None,
+                "llama3": local is not None,
+                "ruflo": ruflo is not None and bool(getattr(ruflo, "is_available", lambda: False)()),
+                "qwen_model": getattr(local, "model_name", "n/a") if local is not None else "n/a",
+                "hf_model": getattr(hf, "model", "n/a") if hf is not None else "n/a",
+                "anthropic_model": getattr(claude, "_model", "n/a") if claude is not None else "n/a",
+                "ruflo_model": getattr(ruflo, "model", "n/a") if ruflo is not None else "n/a",
+            }
         except Exception:
             return {}
 
