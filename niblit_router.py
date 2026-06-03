@@ -6426,8 +6426,8 @@ Ask me about:
             registry = getattr(self.core, "command_registry", None) if self.core else None
             if registry is not None:
                 context = {"surface": "discoverability"}
-                if hasattr(self.core, "_command_registry_context"):
-                    context.update(self.core._command_registry_context())  # pylint: disable=protected-access
+                if hasattr(self.core, "_command_registry_snapshot"):
+                    context.update(self.core._command_registry_snapshot())  # pylint: disable=protected-access
                 return registry.detailed_report(context=context, surface="discoverability")
             sa = self.core and getattr(self.core, "structural_awareness", None)
             if sa:
@@ -7301,8 +7301,8 @@ Ask me about:
         registry = getattr(self.core, "command_registry", None) if self.core else None
         if registry is not None:
             context = {"surface": "help"}
-            if hasattr(self.core, "_command_registry_context"):
-                context.update(self.core._command_registry_context())  # pylint: disable=protected-access
+            if hasattr(self.core, "_command_registry_snapshot"):
+                context.update(self.core._command_registry_snapshot())  # pylint: disable=protected-access
             try:
                 registry_help = registry.get_help(context=context, surface="help", include_unavailable=True)
                 if isinstance(registry_help, str) and registry_help.strip():

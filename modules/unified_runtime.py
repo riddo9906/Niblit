@@ -784,8 +784,8 @@ class NiblitUnifiedRuntime:
             registry = getattr(core, "command_registry", None) if core is not None else None
             if registry is not None and hasattr(registry, "capability_snapshot"):
                 capability_context = {"surface": "runtime"}
-                if hasattr(core, "_command_registry_context"):
-                    capability_context.update(core._command_registry_context())  # pylint: disable=protected-access
+                if hasattr(core, "_command_registry_snapshot"):
+                    capability_context.update(core._command_registry_snapshot())  # pylint: disable=protected-access
                 capabilities = registry.capability_snapshot(
                     context=capability_context,
                     surface="runtime",
