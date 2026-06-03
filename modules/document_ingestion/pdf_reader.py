@@ -98,7 +98,7 @@ class PDFReader:
                 take = min(remaining_capacity, len(words) - cursor)
                 if take <= 0:
                     break
-                segment = words[cursor: cursor + take]
+                segment = words[cursor:cursor + take]
                 bucket.append(" ".join(segment))
                 bucket_words += len(segment)
                 cursor += take

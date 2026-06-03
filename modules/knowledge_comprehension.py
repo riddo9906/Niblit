@@ -45,9 +45,10 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-import time
 import threading
+import time
 from collections import Counter
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 log = logging.getLogger("KnowledgeComprehension")
@@ -389,7 +390,7 @@ class KnowledgeComprehension:
         source = str(payload.get("source") or "").strip()
         pages = [p for p in list(payload.get("pages") or []) if str((p or {}).get("text") or "").strip()]
         chunks = [c for c in list(payload.get("chunks") or []) if str((c or {}).get("text") or "").strip()]
-        topic = (source.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)[0] or "user_pdf").strip()
+        topic = ((Path(source).stem if source else "user_pdf") or "user_pdf").strip()
         safe_topic = re.sub(r"[^a-zA-Z0-9_\-]+", "_", topic).strip("_") or "user_pdf"
         topic_tag = (safe_topic.split("_", 1)[0] or "user_pdf").lower()
         snippets = [str(chunk.get("text") or "").strip() for chunk in chunks if str(chunk.get("text") or "").strip()]

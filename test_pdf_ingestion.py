@@ -52,7 +52,7 @@ def test_pdf_reader_falls_back_to_pdfminer(tmp_path, monkeypatch):
     pdf_path = tmp_path / "fallback.pdf"
     pdf_path.write_bytes(b"fake")
     monkeypatch.delitem(sys.modules, "pypdf", raising=False)
-    _install_fake_pdfminer(monkeypatch, "page one text\f\fpage two text")
+    _install_fake_pdfminer(monkeypatch, "page one text\fpage two text")
 
     result = PDFReader().read(str(pdf_path))
 
