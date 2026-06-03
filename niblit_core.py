@@ -2759,6 +2759,22 @@ class NiblitCore:
             priority=94,
             aliases=("pdf-cognition",),
         )
+        self.command_registry.register(
+            "pdf.ingest",
+            self._cmd_pdf_ingest,
+            "Ingest a local PDF into the knowledge comprehension pipeline",
+            "knowledge",
+            priority=94,
+            visibility_surfaces=("cli", "runtime", "desktop"),
+        )
+        self.command_registry.register(
+            "pdf.select_and_ingest",
+            self._cmd_pdf_select_and_ingest,
+            "Open a file picker (Windows) or prompt for path, then ingest PDF into knowledge",
+            "knowledge",
+            priority=94,
+            visibility_surfaces=("cli", "runtime", "desktop"),
+        )
 
         # Knowledge recall & acquired data commands
         self.command_registry.register(
@@ -6307,6 +6323,81 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return f"document-cognition task queued ({task.task_id[:8]})"
         except Exception as exc:
             return f"[document-cognition] submit error: {exc}"
+
+    def _pdf_ingestion_runtime_ready(self) -> tuple[bool, str]:
+        phase = str(getattr(self, "_deferred_init_phase", "pending") or "pending").lower()
+        if phase != "complete":
+            return False, "PDF ingestion unavailable during boot phase"
+        return True, ""
+
+    def _ingest_pdf_file(self, file_path: str) -> str:
+        ready, reason = self._pdf_ingestion_runtime_ready()
+        if not ready:
+            return reason
+
+        target = str(file_path or "").strip().strip("'\"")
+        if not target:
+            return "Usage: pdf.ingest <absolute-or-relative-pdf-path>"
+
+        try:
+            from modules.document_ingestion.pdf_reader import PDFReader
+            from modules.knowledge_comprehension import get_knowledge_comprehension
+        except Exception as exc:
+            return f"[pdf.ingest] import error: {exc}"
+
+        try:
+            payload = PDFReader().read(target)
+            kc = get_knowledge_comprehension(
+                knowledge_db=getattr(self, "db", None),
+                self_teacher=getattr(self, "self_teacher", None),
+                llm=getattr(self, "router", None),
+            )
+            result = kc.ingest_document(payload, source_tag="user_pdf")
+        except Exception as exc:
+            return f"[pdf.ingest] failed: {exc}"
+
+        return (
+            f"pdf.ingest complete: source={result.get('source')} "
+            f"pages={result.get('pages_ingested', 0)} chunks={result.get('chunks_ingested', 0)}"
+        )
+
+    def _cmd_pdf_ingest(self, cmd: str = "") -> str:
+        """Ingest a specific PDF path into the knowledge comprehension pipeline."""
+        return self._ingest_pdf_file(cmd)
+
+    def _cmd_pdf_select_and_ingest(self, _cmd: str = "") -> str:
+        """Select a PDF (Windows picker) and ingest into knowledge."""
+        ready, reason = self._pdf_ingestion_runtime_ready()
+        if not ready:
+            return reason
+
+        selected_path = ""
+        if sys.platform.startswith("win"):
+            try:
+                import tkinter as tk  # pylint: disable=import-outside-toplevel
+                from tkinter import filedialog  # pylint: disable=import-outside-toplevel
+
+                root = tk.Tk()
+                root.withdraw()
+                selected_path = str(
+                    filedialog.askopenfilename(
+                        title="Select PDF for Niblit ingestion",
+                        filetypes=[("PDF files", "*.pdf")],
+                    )
+                    or ""
+                ).strip()
+                root.destroy()
+            except Exception as exc:
+                return f"[pdf.select_and_ingest] file picker error: {exc}"
+        else:
+            if hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
+                selected_path = str(input("Enter PDF path for ingestion: ") or "").strip()
+            else:
+                return "Usage (non-Windows): pdf.ingest <absolute-or-relative-pdf-path>"
+
+        if not selected_path:
+            return "[pdf.select_and_ingest] cancelled"
+        return self._ingest_pdf_file(selected_path)
 
     def _cmd_document_cognition(self, cmd: str = "") -> str:
         """Run governed PDF document cognition through the runtime manager."""

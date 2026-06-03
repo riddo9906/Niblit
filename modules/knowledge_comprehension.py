@@ -46,6 +46,7 @@ import hashlib
 import logging
 import re
 import time
+import threading
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -345,6 +346,7 @@ class KnowledgeComprehension:
 
         self._extractor = ConceptExtractor()
         self._question_gen = SelfQuestionGenerator(llm=llm)
+        self._ingest_lock = threading.RLock()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -375,6 +377,61 @@ class KnowledgeComprehension:
         except Exception as exc:
             log.debug("[Comprehension] process() error: %s", exc)
             return f"[Comprehension error: {exc}]"
+
+    def ingest_document(
+        self,
+        document_payload: Dict[str, Any],
+        *,
+        source_tag: str = "user_pdf",
+    ) -> Dict[str, Any]:
+        """Ingest a structured document payload into comprehension + memory."""
+        payload = dict(document_payload or {})
+        source = str(payload.get("source") or "").strip()
+        pages = [p for p in list(payload.get("pages") or []) if str((p or {}).get("text") or "").strip()]
+        chunks = [c for c in list(payload.get("chunks") or []) if str((c or {}).get("text") or "").strip()]
+        topic = (source.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)[0] or "user_pdf").strip()
+        safe_topic = re.sub(r"[^a-zA-Z0-9_\-]+", "_", topic).strip("_") or "user_pdf"
+        topic_tag = (safe_topic.split("_", 1)[0] or "user_pdf").lower()
+        snippets = [str(chunk.get("text") or "").strip() for chunk in chunks if str(chunk.get("text") or "").strip()]
+
+        with self._ingest_lock:
+            summary = self.process(topic=safe_topic, snippets=snippets) if snippets else "[Comprehension skipped — no chunks]"
+            if self.knowledge_db is not None and hasattr(self.knowledge_db, "add_fact"):
+                ts = int(time.time())
+                doc_key = f"{source_tag}_document:{safe_topic}:{ts}"
+                self.knowledge_db.add_fact(
+                    doc_key,
+                    {
+                        "source": source,
+                        "source_tag": source_tag,
+                        "pages": pages,
+                        "chunks": chunks,
+                        "chunk_count": len(chunks),
+                        "page_count": len(pages),
+                        "comprehension_summary": summary,
+                    },
+                    tags=[source_tag, "document_ingestion", "knowledge_comprehension", topic_tag],
+                )
+                for idx, chunk in enumerate(chunks, start=1):
+                    self.knowledge_db.add_fact(
+                        f"{source_tag}_chunk:{safe_topic}:{idx}",
+                        {
+                            "source": source,
+                            "source_tag": source_tag,
+                            "chunk_id": chunk.get("chunk_id", idx),
+                            "text": str(chunk.get("text") or "").strip(),
+                        },
+                        tags=[source_tag, "document_chunk", topic_tag],
+                    )
+
+        return {
+            "status": "ingested",
+            "source": source,
+            "source_tag": source_tag,
+            "pages_ingested": len(pages),
+            "chunks_ingested": len(chunks),
+            "comprehension_summary": summary,
+        }
 
     def search_graph(
         self,
