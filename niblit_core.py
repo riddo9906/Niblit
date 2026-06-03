@@ -2392,9 +2392,7 @@ class NiblitCore:
         provider_health = dict(context.get("provider_health", {}) or {})
         if not provider_health:
             try:
-                from modules.llm_provider_manager import get_llm_provider_manager
-
-                manager_status = get_llm_provider_manager().status() or {}
+                manager_status = self._provider_status_snapshot()
                 provider_health = {
                     provider: {"healthy": bool(manager_status.get(provider, False))}
                     for provider in ("hf", "anthropic", "qwen", "llama3", "ruflo")
@@ -2412,6 +2410,34 @@ class NiblitCore:
         )
         return context
 
+    def _provider_status_snapshot(self) -> dict:
+        """Read provider status without triggering provider initialization."""
+        try:
+            from modules.llm_provider_manager import get_llm_provider_manager
+
+            manager = get_llm_provider_manager()
+            cached = (
+                getattr(manager, "_cached_status", None)
+                or getattr(manager, "_status_cache", None)
+                or {}
+            )
+            if cached:
+                return dict(cached)
+            hf = getattr(manager, "_hf_brain", None)
+            claude = getattr(manager, "_claude", None)
+            local = getattr(manager, "_local_brain", None)
+            ruflo = getattr(manager, "_ruflo", None)
+            return {
+                "active": str(getattr(manager, "active", "") or "").lower(),
+                "hf": hf is not None and bool(getattr(hf, "enabled", False)) and bool(getattr(hf, "token", None)),
+                "anthropic": claude is not None and bool(getattr(claude, "is_available", lambda: False)()),
+                "qwen": local is not None,
+                "llama3": local is not None,
+                "ruflo": ruflo is not None and bool(getattr(ruflo, "is_available", lambda: False)()),
+            }
+        except Exception:
+            return {}
+
     def _command_registry_snapshot(self) -> dict:
         """Return a static capability snapshot for command-registry consumers."""
         runtime_manager = getattr(self, "runtime_manager", None)
@@ -2419,9 +2445,7 @@ class NiblitCore:
         active_provider = ""
         provider_health: dict[str, dict[str, bool]] = {}
         try:
-            from modules.llm_provider_manager import get_llm_provider_manager
-
-            manager_status = get_llm_provider_manager().status() or {}
+            manager_status = self._provider_status_snapshot()
             active_provider = str(manager_status.get("active", "") or "").lower()
             provider_health = {
                 provider: {"healthy": bool(manager_status.get(provider, False))}
@@ -2429,19 +2453,17 @@ class NiblitCore:
             }
         except Exception:
             pass
-        command_definitions = []
         registry = getattr(self, "command_registry", None)
-        if registry is not None and hasattr(registry, "commands"):
-            for metadata in (registry.commands or {}).values():
-                command_definitions.append(
-                    {
-                        "name": metadata.prefix,
-                        "aliases": list(metadata.aliases),
-                        "description": metadata.description,
-                        "category": metadata.category,
-                        "visibility_surfaces": sorted(metadata.visibility_surfaces),
-                    }
-                )
+        command_definitions = [
+            {
+                "name": metadata.prefix,
+                "aliases": list(metadata.aliases),
+                "description": metadata.description,
+                "category": metadata.category,
+                "visibility_surfaces": sorted(metadata.visibility_surfaces),
+            }
+            for metadata in (getattr(registry, "commands", {}) or {}).values()
+        ] if registry is not None else []
         return {
             "core": self,
             "runtime_mode": runtime_mode,
@@ -2736,6 +2758,22 @@ class NiblitCore:
             "knowledge",
             priority=94,
             aliases=("pdf-cognition",),
+        )
+        self.command_registry.register(
+            "pdf.ingest",
+            self._cmd_pdf_ingest,
+            "Ingest a local PDF into the knowledge comprehension pipeline",
+            "knowledge",
+            priority=94,
+            visibility_surfaces=("cli", "runtime", "desktop"),
+        )
+        self.command_registry.register(
+            "pdf.select_and_ingest",
+            self._cmd_pdf_select_and_ingest,
+            "Open a file picker (Windows) or prompt for path, then ingest PDF into knowledge",
+            "knowledge",
+            priority=94,
+            visibility_surfaces=("cli", "runtime", "desktop"),
         )
 
         # Knowledge recall & acquired data commands
@@ -6285,6 +6323,88 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return f"document-cognition task queued ({task.task_id[:8]})"
         except Exception as exc:
             return f"[document-cognition] submit error: {exc}"
+
+    def _pdf_ingestion_runtime_ready(self) -> tuple[bool, str]:
+        phase = str(getattr(self, "_deferred_init_phase", "pending") or "pending").lower()
+        if phase != "complete":
+            return False, "PDF ingestion unavailable during boot phase"
+        return True, ""
+
+    def _ingest_pdf_file(self, file_path: str) -> str:
+        ready, reason = self._pdf_ingestion_runtime_ready()
+        if not ready:
+            return reason
+
+        target = str(file_path or "").strip().strip("'\"")
+        if not target:
+            return "Usage: pdf.ingest <absolute-or-relative-pdf-path>"
+
+        try:
+            from modules.document_ingestion.pdf_reader import PDFReader
+            from modules.knowledge_comprehension import get_knowledge_comprehension
+        except Exception as exc:
+            return f"[pdf.ingest] import error: {exc}"
+
+        try:
+            payload = PDFReader().read(target)
+            kc = get_knowledge_comprehension(
+                knowledge_db=getattr(self, "db", None),
+                self_teacher=getattr(self, "self_teacher", None),
+                llm=getattr(self, "router", None),
+            )
+            result = kc.ingest_document(payload, source_tag="user_pdf")
+        except Exception as exc:
+            return f"[pdf.ingest] failed: {exc}"
+
+        return (
+            f"pdf.ingest complete: source={result.get('source')} "
+            f"pages={result.get('pages_ingested', 0)} chunks={result.get('chunks_ingested', 0)}"
+        )
+
+    def _cmd_pdf_ingest(self, cmd: str = "") -> str:
+        """Ingest a specific PDF path into the knowledge comprehension pipeline."""
+        return self._ingest_pdf_file(cmd)
+
+    def _cmd_pdf_select_and_ingest(self, _cmd: str = "") -> str:
+        """Select a PDF (Windows picker) and ingest into knowledge."""
+        ready, reason = self._pdf_ingestion_runtime_ready()
+        if not ready:
+            return reason
+
+        selected_path = ""
+        if sys.platform.startswith("win"):
+            root = None
+            try:
+                import tkinter as tk  # pylint: disable=import-outside-toplevel
+                from tkinter import filedialog  # pylint: disable=import-outside-toplevel
+
+                root = tk.Tk()
+                root.withdraw()
+
+                selected_path = str(
+                    filedialog.askopenfilename(
+                        title="Select PDF for Niblit ingestion",
+                        filetypes=[("PDF files", "*.pdf")],
+                    )
+                    or ""
+                ).strip()
+            except Exception as exc:
+                return f"[pdf.select_and_ingest] file picker error: {exc}"
+            finally:
+                if root is not None:
+                    try:
+                        root.destroy()
+                    except Exception:
+                        pass
+        else:
+            if hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
+                selected_path = str(input("Enter PDF path for ingestion: ") or "").strip()
+            else:
+                return "Usage (non-Windows): pdf.ingest <absolute-or-relative-pdf-path>"
+
+        if not selected_path:
+            return "[pdf.select_and_ingest] cancelled"
+        return self._ingest_pdf_file(selected_path)
 
     def _cmd_document_cognition(self, cmd: str = "") -> str:
         """Run governed PDF document cognition through the runtime manager."""

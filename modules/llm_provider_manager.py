@@ -96,6 +96,7 @@ class LLMProviderManager:
             "anthropic": {"long_context": 0.92, "cognition": 0.95, "latency": 0.60},
             "ruflo": {"long_context": 0.78, "cognition": 0.72, "latency": 0.88},
         }
+        self._cached_status: dict[str, Any] = {}
 
     # ── wiring (called by niblit_core / niblit_brain after init) ─────────────
 
@@ -134,7 +135,7 @@ class LLMProviderManager:
         ant_ok = self._anthropic_available()
         qwen_ok = self._qwen_available()
         ruflo_ok = self._ruflo_available()
-        return {
+        data = {
             "active": self.active,
             "hf": hf_ok,
             "anthropic": ant_ok,
@@ -165,6 +166,9 @@ class LLMProviderManager:
             "provider_rankings": self.provider_rankings(prefer_long_context=True),
             "provider_metrics": {k: dict(v) for k, v in self._provider_metrics.items()},
         }
+        with self._lock:
+            self._cached_status = dict(data)
+        return data
 
     # ── main ask() entry point ────────────────────────────────────────────────
 
