@@ -6373,12 +6373,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         selected_path = ""
         if sys.platform.startswith("win"):
+            root = None
             try:
                 import tkinter as tk  # pylint: disable=import-outside-toplevel
                 from tkinter import filedialog  # pylint: disable=import-outside-toplevel
 
                 root = tk.Tk()
                 root.withdraw()
+
                 selected_path = str(
                     filedialog.askopenfilename(
                         title="Select PDF for Niblit ingestion",
@@ -6386,9 +6388,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     )
                     or ""
                 ).strip()
-                root.destroy()
             except Exception as exc:
                 return f"[pdf.select_and_ingest] file picker error: {exc}"
+            finally:
+                if root is not None:
+                    try:
+                        root.destroy()
+                    except Exception:
+                        pass
         else:
             if hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
                 selected_path = str(input("Enter PDF path for ingestion: ") or "").strip()
