@@ -2117,7 +2117,7 @@ class NiblitCore:
             if CommandRegistry:
                 self.command_registry = CommandRegistry(
                     event_emitter=self._emit_capability_event,
-                    context_provider=self._command_registry_context,
+                    context_provider=self._command_registry_snapshot,
                 )
                 self._register_commands()
                 log.info("[IMPROVEMENTS] ✅ CommandRegistry initialized")
@@ -2386,28 +2386,62 @@ class NiblitCore:
 
     def _command_registry_context(self) -> dict:
         """Return live runtime context for capability visibility decisions."""
+        context = self._command_registry_snapshot()
         runtime_mode = os.environ.get("NIBLIT_RUNTIME_MODE", "api").strip().lower() or "api"
-        active_provider = ""
-        provider_health = {}
-        try:
-            from modules.unified_runtime import get_unified_runtime
-
-            runtime = get_unified_runtime()
-            state = runtime.state(core=self)
-            runtime_state = state.get("state", {})
-            runtime_mode = str(runtime_state.get("runtime_mode", runtime_mode) or runtime_mode).lower()
-            active_provider = str(runtime_state.get("active_provider", "") or "").lower()
-            provider_health = dict((state.get("providers", {}) or {}).get("health", {}) or {})
-        except Exception:
-            pass
-        if not active_provider:
+        active_provider = str(context.get("active_provider", "") or "").lower()
+        provider_health = dict(context.get("provider_health", {}) or {})
+        if not provider_health:
             try:
                 from modules.llm_provider_manager import get_llm_provider_manager
 
-                active_provider = str((get_llm_provider_manager().status() or {}).get("active", "") or "").lower()
+                manager_status = get_llm_provider_manager().status() or {}
+                provider_health = {
+                    provider: {"healthy": bool(manager_status.get(provider, False))}
+                    for provider in ("hf", "anthropic", "qwen", "llama3", "ruflo")
+                }
+                if not active_provider:
+                    active_provider = str(manager_status.get("active", "") or "").lower()
             except Exception:
-                active_provider = ""
+                provider_health = {}
+        context.update(
+            {
+                "runtime_mode": runtime_mode,
+                "active_provider": active_provider,
+                "provider_health": provider_health,
+            }
+        )
+        return context
+
+    def _command_registry_snapshot(self) -> dict:
+        """Return a static capability snapshot for command-registry consumers."""
         runtime_manager = getattr(self, "runtime_manager", None)
+        runtime_mode = os.environ.get("NIBLIT_RUNTIME_MODE", "api").strip().lower() or "api"
+        active_provider = ""
+        provider_health: dict[str, dict[str, bool]] = {}
+        try:
+            from modules.llm_provider_manager import get_llm_provider_manager
+
+            manager_status = get_llm_provider_manager().status() or {}
+            active_provider = str(manager_status.get("active", "") or "").lower()
+            provider_health = {
+                provider: {"healthy": bool(manager_status.get(provider, False))}
+                for provider in ("hf", "anthropic", "qwen", "llama3", "ruflo")
+            }
+        except Exception:
+            pass
+        command_definitions = []
+        registry = getattr(self, "command_registry", None)
+        if registry is not None and hasattr(registry, "commands"):
+            for metadata in (registry.commands or {}).values():
+                command_definitions.append(
+                    {
+                        "name": metadata.prefix,
+                        "aliases": list(metadata.aliases),
+                        "description": metadata.description,
+                        "category": metadata.category,
+                        "visibility_surfaces": sorted(metadata.visibility_surfaces),
+                    }
+                )
         return {
             "core": self,
             "runtime_mode": runtime_mode,
@@ -2421,6 +2455,12 @@ class NiblitCore:
                 or getattr(self, "metacognition", None) is not None
             ),
             "local_brain_available": getattr(self, "local_brain", None) is not None,
+            "registry_metadata": {
+                "total_commands": len(command_definitions),
+                "categories": sorted({item["category"] for item in command_definitions}),
+            },
+            "command_definitions": command_definitions,
+            "help_surface": "help",
         }
 
     def _emit_capability_event(self, event_type: str, payload: dict) -> None:
@@ -2465,7 +2505,7 @@ class NiblitCore:
         if not self.command_registry:
             return "[capability registry unavailable]"
         return self.command_registry.detailed_report(
-            context={**self._command_registry_context(), "surface": "runtime"},
+            context={**self._command_registry_snapshot(), "surface": "runtime"},
             surface="runtime",
         )
 
@@ -4119,7 +4159,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         """Show all registered commands."""
         if self.command_registry:
             return self.command_registry.detailed_report(
-                context={**self._command_registry_context(), "surface": "discoverability"},
+                context={**self._command_registry_snapshot(), "surface": "discoverability"},
                 surface="discoverability",
             )
         if self.structural_awareness:
@@ -10503,7 +10543,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             try:
                 result = self.command_registry.execute(
                     text,
-                    context={**self._command_registry_context(), "surface": "cli"},
+                    context={**self._command_registry_snapshot(), "surface": "cli"},
                     surface="cli",
                 )
                 if result:
@@ -11143,7 +11183,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         """Return the complete Niblit command reference."""
         if self.command_registry:
             return self.command_registry.get_help(
-                context={**self._command_registry_context(), "surface": "help"},
+                context={**self._command_registry_snapshot(), "surface": "help"},
                 surface="help",
                 include_unavailable=True,
             )
