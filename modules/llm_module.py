@@ -55,10 +55,9 @@ class HFLLMAdapter:
     """
     Hugging Face LLM adapter with optional Qdrant-backed context enrichment.
 
-    When ``QDRANT_URL`` is set, a :class:`qdrant_client.QdrantClient` is
-    initialised and exposed via :attr:`qdrant_client`.  A
-    :class:`modules.vector_store.VectorStore` (which uses the same Qdrant
-    backend when available) is stored as :attr:`vector_store`.
+    When ``QDRANT_URL`` is set, :class:`modules.vector_store.VectorStore`
+    routes semantic memory operations through
+    :class:`modules.hybrid_qdrant_manager.HybridQdrantManager`.
 
     ``generate_code()`` automatically queries the vector store to pull
     semantically relevant snippets and injects them as extra context for the

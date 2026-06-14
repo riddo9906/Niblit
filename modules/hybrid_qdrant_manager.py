@@ -75,7 +75,6 @@ try:
         Distance,
         NamedSparseVector,
         NamedVector,
-        PointStruct,
         SparseVector,
         VectorParams,
     )
