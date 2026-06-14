@@ -32,7 +32,7 @@ Public API
 
 Configuration (environment variables)
 ──────────────────────────────────────
-  QDRANT_URL                Qdrant cluster URL (default: http://localhost:6333)
+  QDRANT_URL                Qdrant cluster URL (default from central QdrantConfig)
   QDRANT_API_KEY            Optional API key for Qdrant Cloud
   QDRANT_COLLECTION_PREFIX  Prefix prepended to every collection name (default: "niblit")
 
@@ -56,19 +56,15 @@ Usage::
 from __future__ import annotations
 
 import logging
-import os
 import hashlib
 import threading
 import time
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
-log = logging.getLogger("HybridQdrantManager")
+from modules.config.qdrant_config import QdrantConfig
 
-# ── Configuration from environment ────────────────────────────────────────────
-_QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
-_QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", None)
-_COLLECTION_PREFIX = os.environ.get("QDRANT_COLLECTION_PREFIX", "niblit")
+log = logging.getLogger("HybridQdrantManager")
 
 # ── Optional qdrant-client import ─────────────────────────────────────────────
 # We import lazily so the module loads cleanly even when qdrant-client is absent.
@@ -189,25 +185,17 @@ class HybridQdrantManager:
 
     Parameters
     ----------
-    url:
-        Qdrant cluster URL.  Defaults to ``QDRANT_URL`` env var or
-        ``http://localhost:6333``.
-    api_key:
-        Optional API key.  Defaults to ``QDRANT_API_KEY`` env var.
-    collection_prefix:
-        String prepended to collection names.  Defaults to ``QDRANT_COLLECTION_PREFIX``
-        env var or ``"niblit"``.
+    config:
+        Optional Qdrant config bundle.  Defaults to :meth:`QdrantConfig.load`.
     """
 
-    def __init__(
-        self,
-        url: str = _QDRANT_URL,
-        api_key: Optional[str] = _QDRANT_API_KEY,
-        collection_prefix: str = _COLLECTION_PREFIX,
-    ) -> None:
-        self._url = url
-        self._api_key = api_key
-        self._prefix = collection_prefix
+    def __init__(self, config: QdrantConfig | None = None) -> None:
+        config = config or QdrantConfig.load()
+
+        self._url = config.url
+        self._api_key = config.api_key
+        self._prefix = config.prefix
+        self._collection_default = config.collection
         self._lock = threading.Lock()
 
         # Per-model operation counters: {"model_key": {"upsert": int, "query": int}}
@@ -223,32 +211,44 @@ class HybridQdrantManager:
 
         log.info(
             "[HybridQdrantManager] Initialised (url=%s, prefix=%s, qdrant_available=%s)",
-            url, collection_prefix, _QDRANT_AVAILABLE,
+            self._url, self._prefix, _QDRANT_AVAILABLE,
         )
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _get_client(self) -> Optional[Any]:
-        """Return (or lazily create) the QdrantClient.  Returns None on failure."""
+        """Return (or lazily create) QdrantClient."""
         if not _QDRANT_AVAILABLE:
             return None
+
         if self._client is not None:
             return self._client
+
         try:
             kwargs: Dict[str, Any] = {"url": self._url}
+
             if self._api_key:
                 kwargs["api_key"] = self._api_key
+
             self._client = QdrantClient(**kwargs)
-            log.debug("[HybridQdrantManager] QdrantClient connected to %s", self._url)
+            log.debug("[HybridQdrantManager] connected to %s", self._url)
+
         except Exception as exc:
-            log.warning("[HybridQdrantManager] Failed to create QdrantClient: %s", exc)
+            log.warning("[HybridQdrantManager] connection failed: %s", exc)
             self._client = None
+
         return self._client
 
     def _prefixed(self, collection: str) -> str:
-        """Return *collection* with the configured prefix applied once."""
+        """Return collection with prefix applied safely."""
+        collection = collection.strip()
+
         if collection.startswith(self._prefix + "_"):
             return collection
+
+        if collection.startswith("niblit_"):
+            return collection
+
         return f"{self._prefix}_{collection}"
 
     def _ensure_collection(self, full_name: str, models: List[str]) -> bool:
@@ -711,9 +711,7 @@ _manager_lock = threading.Lock()
 
 
 def get_hybrid_manager(
-    url: str = _QDRANT_URL,
-    api_key: Optional[str] = _QDRANT_API_KEY,
-    collection_prefix: str = _COLLECTION_PREFIX,
+    config: QdrantConfig | None = None,
 ) -> HybridQdrantManager:
     """
     Return the process-wide :class:`HybridQdrantManager` singleton.
@@ -724,22 +722,14 @@ def get_hybrid_manager(
 
     Parameters
     ----------
-    url:
-        Qdrant cluster URL.
-    api_key:
-        Optional API key.
-    collection_prefix:
-        Collection name prefix.
+    config:
+        Optional Qdrant config bundle for first initialisation.
     """
     global _manager_instance
     if _manager_instance is None:
         with _manager_lock:
             if _manager_instance is None:
-                _manager_instance = HybridQdrantManager(
-                    url=url,
-                    api_key=api_key,
-                    collection_prefix=collection_prefix,
-                )
+                _manager_instance = HybridQdrantManager(config=config)
     return _manager_instance
 
 

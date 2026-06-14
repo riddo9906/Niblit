@@ -13,6 +13,8 @@ import logging
 import os
 import re
 
+from modules.config.qdrant_config import QdrantConfig
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -89,8 +91,9 @@ class HFLLMAdapter:
                 self.client = None
 
         # ── Qdrant direct client ──────────────────────────────────────────────
-        _url = qdrant_url or os.environ.get("QDRANT_URL", "")
-        _key = qdrant_api_key or os.environ.get("QDRANT_API_KEY", "")
+        qdrant_config = QdrantConfig.load()
+        _url = qdrant_url or qdrant_config.url
+        _key = qdrant_api_key or (qdrant_config.api_key or "")
         self.qdrant_client = None
         if _url and _QDRANT_LIB_AVAILABLE and _QdrantClient is not None:
             try:

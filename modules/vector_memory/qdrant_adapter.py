@@ -6,16 +6,15 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
-import os
 import time
 import uuid
 from typing import Any, Dict, List, Optional
 
+from modules.config.qdrant_config import QdrantConfig
 from modules.embedding_engine import GovernanceViolationError
 
 log = logging.getLogger("Niblit.VectorMemory.QdrantAdapter")
 
-COLLECTION_NAME = os.getenv("NIBLIT_QDRANT_COLLECTION", "advisor_memory")
 VECTOR_DIM = 384
 
 try:
@@ -35,11 +34,12 @@ class QdrantAdapter:
         self,
         url: Optional[str] = None,
         api_key: Optional[str] = None,
-        collection_name: str = COLLECTION_NAME,
+        collection_name: Optional[str] = None,
     ) -> None:
-        self.url = url if url is not None else os.getenv("QDRANT_URL", "http://localhost:6333")
-        self.api_key = api_key if api_key is not None else os.getenv("QDRANT_API_KEY", "")
-        self.collection_name = collection_name
+        config = QdrantConfig.load()
+        self.url = url if url is not None else config.url
+        self.api_key = api_key if api_key is not None else (config.api_key or "")
+        self.collection_name = collection_name or config.collection
         self._client: Optional[Any] = None
 
     def _get_client(self) -> Optional[Any]:

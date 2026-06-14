@@ -7,6 +7,8 @@ import re
 
 import requests
 
+from modules.config.qdrant_config import QdrantConfig
+
 log = logging.getLogger("ResearcherEngine")
 
 SERPEX_API_URL = "https://api.serpex.dev/api/search"
@@ -51,8 +53,14 @@ class ResearcherEngine:
         qdrant_api_key: str = "",
         memory=None,
     ) -> None:
-        _url = qdrant_url or os.environ.get("QDRANT_URL", "")
-        _key = qdrant_api_key or os.environ.get("QDRANT_API_KEY", "")
+        qdrant_config = QdrantConfig.load()
+        _url = qdrant_url or qdrant_config.url
+        _key = qdrant_api_key or (qdrant_config.api_key or "")
+        collection_name = (
+            f"{qdrant_config.prefix}_research"
+            if qdrant_config.prefix
+            else "research"
+        )
 
         # ── Canonical niblit_memory ───────────────────────────────────────────
         self.memory = memory or _GLOBAL_MEMORY
@@ -79,7 +87,7 @@ class ResearcherEngine:
         try:
             from modules.vector_store import VectorStore
             self.vector_store = VectorStore(
-                collection="niblit_research",
+                collection=collection_name,
                 qdrant_url=_url,
                 qdrant_api_key=_key,
             )

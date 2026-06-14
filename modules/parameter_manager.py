@@ -21,7 +21,7 @@ Usage::
     from modules.parameter_manager import parameter_manager
 
     # Read a parameter (checks env → memory → file → defaults in order)
-    val = parameter_manager.get("QDRANT_URL", default="http://localhost:6333")
+    val = parameter_manager.get("QDRANT_URL", default="")
 
     # Override at runtime
     parameter_manager.set("MAX_TOPICS", "20")

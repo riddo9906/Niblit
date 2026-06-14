@@ -19,7 +19,7 @@ Activation::
 
     # Self-hosted Qdrant (Docker)
     # docker run -p 6333:6333 qdrant/qdrant
-    QDRANT_URL=http://localhost:6333
+    QDRANT_URL=https://your-self-hosted-qdrant-url
 
 Usage::
 
@@ -41,6 +41,8 @@ import time
 import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+
+from modules.config.qdrant_config import QdrantConfig
 
 log = logging.getLogger("VectorStore")
 
@@ -449,20 +451,21 @@ class VectorStore:
 
     def __init__(
         self,
-        collection: str = "niblit_knowledge",
+        collection: Optional[str] = None,
         embedding_model: str = _EMBEDDING_MODEL_NAME,
         qdrant_url: Optional[str] = None,
         qdrant_api_key: Optional[str] = None,
     ) -> None:
-        self.collection = collection
+        qdrant_config = QdrantConfig.load()
+        self.collection = collection or qdrant_config.collection
         self._embedder = _EmbeddingService(embedding_model)
         self._qdrant_url: str = (
             qdrant_url if qdrant_url is not None
-            else os.getenv("QDRANT_URL", "")
+            else qdrant_config.url
         )
         self._qdrant_api_key: str = (
             qdrant_api_key if qdrant_api_key is not None
-            else os.getenv("QDRANT_API_KEY", "")
+            else (qdrant_config.api_key or "")
         )
 
         self._backend_name: str = "memory"
@@ -872,10 +875,9 @@ class FusedStorage:
         qdrant_url: str = "",
         collection_name: str = "",
     ) -> None:
-        import os
-        url = qdrant_url or os.getenv("QDRANT_URL", "")
-        if not url and qdrant_host:
-            url = f"http://{qdrant_host}:{qdrant_port}"
+        config = QdrantConfig.load()
+        url = qdrant_url or config.url
+        api_key = config.api_key or ""
 
         self._primary = None
         try:
@@ -884,14 +886,16 @@ class FusedStorage:
                 sqlite_path=sqlite_path,
                 collection_name=collection_name,
                 qdrant_url=url,
+                qdrant_api_key=api_key,
             )
         except Exception as exc:
             log.debug("[FusedStorage] FusedMemoryPrimary unavailable: %s", exc)
             # Minimal fallback: in-memory dict + VectorStore
             self._records_fallback: dict = {}
             self._vs_fallback = VectorStore(
-                collection=collection_name or "niblit_vectors",
+                collection=collection_name or config.collection,
                 qdrant_url=url,
+                qdrant_api_key=api_key,
             )
 
     def insert_record(self, record_id: str, data: dict) -> None:

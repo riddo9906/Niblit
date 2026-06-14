@@ -19,9 +19,10 @@ Idempotency guarantee:
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+
+from modules.config.qdrant_config import QdrantConfig
 
 log = logging.getLogger("Niblit.VectorMemory.ClusterBootstrap")
 
@@ -191,8 +192,9 @@ class ClusterBootstrap:
         url: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> None:
-        self._url = url if url is not None else os.getenv("QDRANT_URL", "http://localhost:6333")
-        self._api_key = api_key if api_key is not None else os.getenv("QDRANT_API_KEY", "")
+        config = QdrantConfig.load()
+        self._url = url if url is not None else config.url
+        self._api_key = api_key if api_key is not None else (config.api_key or "")
         self._client: Optional[Any] = None
 
     def _get_client(self) -> Optional[Any]:
