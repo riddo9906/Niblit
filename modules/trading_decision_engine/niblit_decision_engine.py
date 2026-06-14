@@ -257,9 +257,22 @@ class NiblitDecisionEngine:
         Positive values favour a buy action; negative values favour a sell
         action.  The result is clamped to ``[-1.0, 1.0]``.
 
-        Buy-positive keywords contribute positive weight.
-        Sell-positive keywords contribute negative weight.
-        Loss/error tokens also trigger an additional :data:`_LOSS_PENALTY`.
+        Scoring rules
+        -------------
+        1. Buy-positive keyword matches contribute their positive weight.
+        2. Sell-positive keyword matches contribute their negative weight
+           (``"loss"`` and ``"error"`` are included here at ``-0.50`` each).
+        3. An additional :data:`_LOSS_PENALTY` (``0.50``) is subtracted for
+           every memory that contains ``"loss"`` or ``"error"``.  This is an
+           **intentional double-weight** for these tokens: they appear in
+           ``_SELL_KEYWORDS`` to flag the direction, and then again as the
+           extra penalty to reflect the outsized risk of repeated loss
+           patterns (e.g. a strategy that produced multiple consecutive
+           losses should be penalised more than one that produced a single
+           marginal loss).
+        4. When both buy-positive and sell-positive signals co-exist the
+           magnitude is reduced by :data:`_CONFLICT_REDUCTION` to model
+           uncertainty from conflicting evidence.
         """
         score = 0.0
         has_buy_signal = False

@@ -10,7 +10,7 @@ Output signal map
 | TradingDecision| enter | enter   | exit     | exit     |
 | action         | _long | _short  | _long    | _short   |
 +================+=======+=========+==========+==========+
-| ``"buy"``      | True  | False   | False    | False    |
+| ``"buy"``      | True  | False   | False    | True     |
 | ``"sell"``     | False | True    | True     | False    |
 | ``"hold"``     | False | False   | False    | False    |
 +----------------+-------+---------+----------+----------+
