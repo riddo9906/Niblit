@@ -6,6 +6,12 @@ from typing import Any, Dict
 from modules.memory.graph.memory_graph import MemoryEdge, MemoryGraph, MemoryNode
 from modules.memory.router.memory_router import MemoryRouterCore, RoutedMemory
 
+_EXPLICIT_CAUSAL_WEIGHT = 0.95
+_TRACE_DERIVED_WEIGHT = 0.90
+_TRACE_RELATED_WEIGHT = 0.65
+_FIXED_BY_WEIGHT = 0.90
+_LEADS_TO_WEIGHT = 0.80
+
 
 class GraphMemoryRouter:
     """Bridge MemoryRouterCore, vector storage, and the directed memory graph."""
@@ -65,7 +71,7 @@ class GraphMemoryRouter:
         ]
         for ref_id in causal_refs:
             if self.graph.get_node(ref_id) is not None:
-                self.link(ref_id, new_node.id, "causes", 0.95)
+                self.link(ref_id, new_node.id, "causes", _EXPLICIT_CAUSAL_WEIGHT)
 
         if trace_id:
             for node in self.graph.nodes.values():
@@ -74,7 +80,12 @@ class GraphMemoryRouter:
                 other_trace = str((node.metadata.get("replay_metadata") or {}).get("trace_id", "")).strip()
                 if other_trace == trace_id:
                     relation = "derived_from" if node.id in causal_refs else "relates_to"
-                    self.link(node.id, new_node.id, relation, 0.65 if relation == "relates_to" else 0.9)
+                    self.link(
+                        node.id,
+                        new_node.id,
+                        relation,
+                        _TRACE_RELATED_WEIGHT if relation == "relates_to" else _TRACE_DERIVED_WEIGHT,
+                    )
 
         text = new_node.text.lower()
         if any(token in text for token in ("fix", "fixed", "resolve", "resolved", "patch", "patched")):
@@ -83,14 +94,14 @@ class GraphMemoryRouter:
                     continue
                 other = node.text.lower()
                 if any(token in other for token in ("error", "exception", "failure", "failed", "bug")):
-                    self.link(node.id, new_node.id, "fixed_by", 0.9)
+                    self.link(node.id, new_node.id, "fixed_by", _FIXED_BY_WEIGHT)
         if any(token in text for token in ("outcome", "result", "successful", "success")):
             for node in self.graph.nodes.values():
                 if node.id == new_node.id:
                     continue
                 other = node.text.lower()
                 if any(token in other for token in ("fix", "fixed", "resolve", "resolved", "patch", "patched")):
-                    self.link(node.id, new_node.id, "leads_to", 0.8)
+                    self.link(node.id, new_node.id, "leads_to", _LEADS_TO_WEIGHT)
 
         graph_meta["edge_count"] = self.graph.edge_count(new_node.id)
         new_node.metadata["graph"] = graph_meta

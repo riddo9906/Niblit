@@ -28,6 +28,17 @@ from shared.governance_contract.validators import validate_runtime_contract
 
 log = logging.getLogger("GovernedQdrantMemoryCluster")
 
+_ISOLATION_DECAY = 0.88
+_GOVERNED_SCORE_WEIGHT = 0.55
+_GRAPH_SCORE_WEIGHT = 0.20
+_TEMPORAL_SCORE_WEIGHT = 0.10
+_ACCESS_SCORE_WEIGHT = 0.10
+_CAUSAL_SCORE_WEIGHT = 0.05
+_TEMPORAL_DECAY_WINDOW_SECONDS = 604800.0
+_ACCESS_NORMALIZATION_COUNT = 5.0
+_CAUSAL_SCORE_BASE = 0.35
+_CAUSAL_SCORE_STEP = 0.15
+
 
 class GovernedQdrantMemoryCluster:
     """Governed memory wrapper for Qdrant-backed cognition and replay."""
@@ -216,13 +227,13 @@ class GovernedQdrantMemoryCluster:
             access_score = self._access_score(payload)
             causal_score = self._causal_score(memory_id)
             edge_count = self._graph.edge_count(memory_id)
-            isolation_decay = 0.88 if edge_count == 0 and graph_score <= 0.0 else 1.0
+            isolation_decay = _ISOLATION_DECAY if edge_count == 0 and graph_score <= 0.0 else 1.0
             score = (
-                governed_score * 0.55
-                + graph_score * 0.20
-                + temporal_score * 0.10
-                + access_score * 0.10
-                + causal_score * 0.05
+                governed_score * _GOVERNED_SCORE_WEIGHT
+                + graph_score * _GRAPH_SCORE_WEIGHT
+                + temporal_score * _TEMPORAL_SCORE_WEIGHT
+                + access_score * _ACCESS_SCORE_WEIGHT
+                + causal_score * _CAUSAL_SCORE_WEIGHT
             ) * isolation_decay
             ranked.append(
                 {
@@ -348,7 +359,7 @@ class GovernedQdrantMemoryCluster:
     def _temporal_score(payload: dict[str, Any], *, now_ts: float) -> float:
         touch_ts = float(payload.get("last_accessed_at") or payload.get("last_updated_at") or payload.get("created_at") or now_ts)
         age_seconds = max(0.0, now_ts - touch_ts)
-        return max(0.0, min(1.0, exp(-age_seconds / 604800.0)))
+        return max(0.0, min(1.0, exp(-age_seconds / _TEMPORAL_DECAY_WINDOW_SECONDS)))
 
     @staticmethod
     def _access_score(payload: dict[str, Any]) -> float:
@@ -356,7 +367,7 @@ class GovernedQdrantMemoryCluster:
         access_count = int(graph_meta.get("access_count", 0) or 0)
         if access_count <= 0:
             return 0.0
-        return min(1.0, access_count / 5.0)
+        return min(1.0, access_count / _ACCESS_NORMALIZATION_COUNT)
 
     def _causal_score(self, memory_id: str) -> float:
         relations = [
@@ -368,7 +379,7 @@ class GovernedQdrantMemoryCluster:
         causal = sum(1 for relation in relations if relation in {"causes", "fixed_by", "leads_to", "derived_from"})
         if causal <= 0:
             return 0.1
-        return min(1.0, 0.35 + (0.15 * causal))
+        return min(1.0, _CAUSAL_SCORE_BASE + (_CAUSAL_SCORE_STEP * causal))
 
     def compression_candidates(self, *, records: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         """Return governed semantic compression candidates without deleting memory."""
