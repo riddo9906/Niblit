@@ -60,6 +60,7 @@ import hashlib
 import threading
 import time
 import unicodedata
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from modules.config.qdrant_config import QdrantConfig
@@ -170,6 +171,13 @@ def _is_long(text: str, threshold: int = 256) -> bool:
     return len(text) > threshold
 
 
+@dataclass(frozen=True)
+class RoutedQdrantPoint:
+    collection: str
+    id: int
+    payload: Dict[str, Any]
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # HybridQdrantManager
 # ══════════════════════════════════════════════════════════════════════════════
@@ -240,15 +248,16 @@ class HybridQdrantManager:
         return self._client
 
     def _prefixed(self, collection: str) -> str:
-        """Return collection with prefix applied safely."""
-        collection = collection.strip()
+        """
+        HARD-STANDARDIZED collection naming system.
+        """
+        collection = collection.strip().lower()
         if not collection:
-            collection = (self._collection_default or "niblit_vectors").strip()
+            collection = (self._collection_default or "niblit_vectors").strip().lower()
+
+        collection = collection.replace("-", "_")
 
         if collection.startswith(self._prefix + "_"):
-            return collection
-
-        if collection.startswith("niblit_"):
             return collection
 
         return f"{self._prefix}_{collection}"
@@ -398,6 +407,51 @@ class HybridQdrantManager:
 
     # ── Core operations ───────────────────────────────────────────────────────
 
+    def route_to_collection(self, text: str, meta: Dict[str, Any]) -> RoutedQdrantPoint:
+        """Route a write request into the canonical prefixed collection."""
+        payload = dict(meta.get("payload") or {})
+        payload.setdefault("_text", text[:6000])
+
+        seed = meta.get("doc_id") or text
+        stable_hash = hashlib.sha256(str(seed).encode("utf-8", errors="replace")).digest()
+        point_id = int.from_bytes(stable_hash[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
+
+        collection = self._prefixed(str(meta.get("collection") or self._collection_default or "niblit_vectors"))
+        return RoutedQdrantPoint(collection=collection, id=point_id, payload=payload)
+
+    def insert(self, text: str, meta: Dict[str, Any]) -> bool:
+        """
+        Single controlled write path into Qdrant.
+        """
+        routed = self.route_to_collection(text, meta)
+        models = meta.get("models") or self.select_models(text)
+        models = [m for m in models if m in _MODEL_REGISTRY]
+        if not models:
+            log.warning("[HybridQdrantManager] insert called with no valid models")
+            return False
+
+        if not self._ensure_collection(routed.collection, models):
+            log.warning("[HybridQdrantManager] insert: collection not available (%s)", routed.collection)
+            return False
+
+        client = self._get_client()
+        if client is None:
+            return False
+
+        try:
+            client.upsert(
+                collection_name=routed.collection,
+                points=[{
+                    "id": routed.id,
+                    "vector": meta["vector"],
+                    "payload": routed.payload,
+                }],
+            )
+            return True
+        except Exception as exc:
+            log.warning("[HybridQdrantManager] insert to '%s' failed: %s", routed.collection, exc)
+            return False
+
     def upsert(
         self,
         text: str,
@@ -443,24 +497,6 @@ class HybridQdrantManager:
 
         # Normalise text before embedding so unicode variants hash/embed consistently
         text = _normalize_text(text)
-        full_name = self._prefixed(collection)
-
-        # Ensure collection exists for the requested models
-        if not self._ensure_collection(full_name, models):
-            log.warning("[HybridQdrantManager] upsert: collection not available (%s)", full_name)
-            return False
-
-        client = self._get_client()
-        if client is None:
-            return False
-
-        # Derive a stable integer point ID from doc_id or text hash.
-        # We use SHA-256 (not Python's hash()) to guarantee determinism
-        # across processes and restarts regardless of PYTHONHASHSEED.
-        seed = doc_id if doc_id is not None else text
-        stable_hash = hashlib.sha256(seed.encode("utf-8", errors="replace")).digest()
-        # Use the first 8 bytes as a uint64 within Qdrant's unsigned ID range
-        point_id = int.from_bytes(stable_hash[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
 
         # Build the multi-vector dict: {vector_name: embedding}
         # Dense vectors → NamedVector; sparse vectors → NamedSparseVector.
@@ -498,25 +534,28 @@ class HybridQdrantManager:
             )
             return False
 
-        try:
-            # Unwrap NamedVector/NamedSparseVector back to plain dict for PointStruct
-            # (some qdrant-client versions don't accept Named* in the vector kwarg).
-            plain_vectors = {
-                k: (v.vector if hasattr(v, "vector") else v)
-                for k, v in vectors.items()
-            }
-            point = PointStruct(id=point_id, vector=plain_vectors, payload={**payload, "_text": text[:6000]})
-            t0 = time.time()
-            client.upsert(collection_name=full_name, points=[point])
-            latency_ms = round((time.time() - t0) * 1000, 1)
-            success_count = len(plain_vectors)
-            log.debug(
-                "[HybridQdrantManager] Upserted point %d into '%s' with %d vectors (%.1fms)",
-                point_id, full_name, success_count, latency_ms,
-            )
-        except Exception as exc:
-            log.warning("[HybridQdrantManager] upsert to '%s' failed: %s", full_name, exc)
+        plain_vectors = {
+            k: (v.vector if hasattr(v, "vector") else v)
+            for k, v in vectors.items()
+        }
+        t0 = time.time()
+        if not self.insert(
+            text=text,
+            meta={
+                "collection": collection,
+                "doc_id": doc_id,
+                "models": models,
+                "payload": payload,
+                "vector": plain_vectors,
+            },
+        ):
             return False
+        latency_ms = round((time.time() - t0) * 1000, 1)
+        success_count = len(plain_vectors)
+        log.debug(
+            "[HybridQdrantManager] Upserted into '%s' with %d vectors (%.1fms)",
+            self._prefixed(collection), success_count, latency_ms,
+        )
 
         # Increment per-model stats for each model whose vector was actually embedded
         with self._lock:

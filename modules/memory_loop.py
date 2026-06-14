@@ -9,6 +9,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from modules.embedding_engine import embed
+from modules.hybrid_qdrant_manager import get_hybrid_manager
 from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
 from modules.vector_memory.qdrant_adapter import QdrantAdapter
 
@@ -22,7 +23,7 @@ class NiblitMemoryLoop:
         vector_memory: Optional[QdrantAdapter] = None,
     ) -> None:
         self.router = router or NiblitUnifiedRuntimeRouterV2()
-        self.vector_memory = vector_memory or QdrantAdapter()
+        self.vector_memory = vector_memory or QdrantAdapter(get_hybrid_manager())
 
     @staticmethod
     def _recency_weight(payload: Dict[str, Any]) -> float:
@@ -65,8 +66,7 @@ class NiblitMemoryLoop:
 
     def run(self, user_input: str, context: Optional[str] = None, top_k: int = 5) -> Dict[str, Any]:
         """Execute the full chat memory loop with strict embedding/Qdrant controls."""
-        query_vector = embed(user_input)
-        hits = self.vector_memory.search_memory(query_vector, limit=top_k)
+        hits = self.vector_memory.query(user_input, collection="episodic_memory", top_k=top_k, models=["e5"])
         ranked_hits = self._rerank(hits)
 
         contextual_prompt = user_input
@@ -82,7 +82,16 @@ class NiblitMemoryLoop:
             "created_at": int(time.time()),
             "frequency": 1,
         }
-        self.vector_memory.upsert_memory(memory_id, memory_text, memory_vector, metadata)
+        self.vector_memory.insert_vector(
+            memory_text,
+            {
+                "collection": "episodic_memory",
+                "doc_id": memory_id,
+                "payload": metadata,
+                "vector": memory_vector,
+                "models": ["e5"],
+            },
+        )
 
         return {
             "response": response,

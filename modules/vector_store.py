@@ -3,9 +3,10 @@
 modules/vector_store.py — Vector store abstraction for Niblit (Phase 3).
 
 Provides a unified interface for semantic search over the knowledge base.
-Supports three backends in priority order:
+Supports routed Qdrant access through ``HybridQdrantManager`` plus local
+fallback backends when Qdrant is not configured:
 
-1. **Qdrant** (cloud or self-hosted) — when ``QDRANT_URL`` is set
+1. **Qdrant** (cloud or self-hosted) — routed through ``HybridQdrantManager``
 2. **FAISS** (local in-process) — when ``faiss`` is installed
 3. **In-memory linear scan** — always available, no dependencies
 
@@ -31,7 +32,6 @@ Usage::
 See SETUP.md for full setup instructions.
 """
 
-import hashlib
 import io
 import logging
 import os
@@ -43,6 +43,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from modules.config.qdrant_config import QdrantConfig
+from modules.hybrid_qdrant_manager import get_hybrid_manager
 
 log = logging.getLogger("VectorStore")
 
@@ -67,19 +68,6 @@ try:
 except ImportError:
     _faiss = None  # type: ignore[assignment]
     _FAISS_AVAILABLE = False
-
-try:
-    from qdrant_client import QdrantClient as _QdrantClient
-    from qdrant_client.models import (
-        Distance as _Distance,
-        VectorParams as _VectorParams,
-        PointStruct as _PointStruct,
-    )
-    _QDRANT_AVAILABLE = True
-except ImportError:
-    _QdrantClient = None  # type: ignore[assignment,misc]
-    _QDRANT_AVAILABLE = False
-
 
 _EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
 # Default dim for intfloat/multilingual-e5-small. Override with EMBEDDING_DIM
@@ -469,9 +457,7 @@ class VectorStore:
         )
 
         self._backend_name: str = "memory"
-        self._qdrant_client: Optional[Any] = None
-        self._qdrant_collection_dim: Optional[int] = None
-        self._qdrant_dim_mismatch_logged: bool = False
+        self._hybrid_manager: Optional[Any] = None
         self._faiss_index: Optional[Any] = None
         self._faiss_items: List[Dict[str, Any]] = []   # parallel list of {id, text, vector}
         self._memory_backend = _InMemoryBackend()
@@ -548,7 +534,7 @@ class VectorStore:
     # ── backend selection ─────────────────────────────────────────────────────
 
     def _init_backend(self) -> None:
-        if self._qdrant_url and _QDRANT_AVAILABLE:
+        if self._qdrant_url:
             self._init_qdrant()
         elif _FAISS_AVAILABLE and _NP_AVAILABLE:
             self._init_faiss()
@@ -557,39 +543,13 @@ class VectorStore:
 
     def _init_qdrant(self) -> None:
         try:
-            kwargs: Dict[str, Any] = {"url": self._qdrant_url, "timeout": 10}
-            if self._qdrant_api_key:
-                kwargs["api_key"] = self._qdrant_api_key
-            self._qdrant_client = _QdrantClient(**kwargs)
-            local_dim = self._get_effective_embedding_dim()
-            # Ensure collection exists
-            existing = [c.name for c in self._qdrant_client.get_collections().collections]
-            if self.collection not in existing:
-                self._qdrant_client.create_collection(
-                    collection_name=self.collection,
-                    vectors_config=_VectorParams(
-                        size=local_dim, distance=_Distance.COSINE
-                    ),
-                )
-                log.info("[VectorStore] Created Qdrant collection '%s'", self.collection)
-                self._qdrant_collection_dim = local_dim
-            else:
-                info = self._qdrant_client.get_collection(self.collection)
-                remote_dim = self._extract_qdrant_collection_dim(info)
-                self._qdrant_collection_dim = remote_dim
-                if remote_dim is not None and remote_dim != local_dim:
-                    raise ValueError(
-                        "Qdrant collection dimension mismatch for "
-                        f"'{self.collection}': remote={remote_dim}, local={local_dim}. "
-                        "Set EMBEDDING_MODEL/EMBEDDING_DIM to match, or use a separate collection."
-                    )
+            self._hybrid_manager = get_hybrid_manager()
             self._backend_name = "qdrant"
-            log.info("[VectorStore] Qdrant backend initialised (%s)", self._qdrant_url)
+            log.info("[VectorStore] Qdrant routing delegated to HybridQdrantManager (%s)", self._qdrant_url)
         except Exception as exc:
-            log.debug("[VectorStore] Qdrant init failed (%s) — falling back", exc)
-            self._qdrant_client = None
-            if _FAISS_AVAILABLE and _NP_AVAILABLE:
-                self._init_faiss()
+            log.debug("[VectorStore] Qdrant init failed (%s)", exc)
+            self._hybrid_manager = None
+            self._backend_name = "qdrant"
 
     def _init_faiss(self) -> None:
         try:
@@ -631,7 +591,7 @@ class VectorStore:
         effective_topic = topic.strip() if topic.strip() else text[:80].split("\n")[0].strip()
         vector = self._embedder.encode(text)
 
-        if self._backend_name == "qdrant" and self._qdrant_client is not None:
+        if self._backend_name == "qdrant":
             return self._add_qdrant(doc_id, text, vector, effective_topic)
         if self._backend_name == "faiss" and self._faiss_index is not None:
             return self._add_faiss(doc_id, text, vector)
@@ -676,7 +636,7 @@ class VectorStore:
 
         vector = self._embedder.encode(query)
 
-        if self._backend_name == "qdrant" and self._qdrant_client is not None:
+        if self._backend_name == "qdrant":
             results = self._search_qdrant(vector, query, top_k)
         elif self._backend_name == "faiss" and self._faiss_index is not None:
             results = self._search_faiss(vector, query, top_k)
@@ -696,12 +656,8 @@ class VectorStore:
 
     def count(self) -> int:
         """Return the number of stored documents."""
-        if self._backend_name == "qdrant" and self._qdrant_client is not None:
-            try:
-                info = self._qdrant_client.get_collection(self.collection)
-                return info.vectors_count or 0
-            except Exception:
-                return 0
+        if self._backend_name == "qdrant":
+            return 0
         if self._backend_name == "faiss" and self._faiss_index is not None:
             return self._faiss_index.ntotal
         return self._memory_backend.count()
@@ -711,35 +667,25 @@ class VectorStore:
     def _add_qdrant(
         self, doc_id: str, text: str, vector: Optional[List[float]], topic: str = ""
     ) -> bool:
-        if vector is None:
-            return False
-        if self._qdrant_collection_dim is not None and len(vector) != self._qdrant_collection_dim:
-            if not self._qdrant_dim_mismatch_logged:
-                log.warning(
-                    "[VectorStore] Qdrant upsert skipped: embedding dimension mismatch "
-                    "(collection=%d, vector=%d)",
-                    self._qdrant_collection_dim,
-                    len(vector),
-                )
-                self._qdrant_dim_mismatch_logged = True
+        if vector is None or self._hybrid_manager is None:
             return False
         try:
-            # Use a stable integer ID derived from the doc_id string.
-            # The integer point ID is the sole unique identifier — we do NOT
-            # store the topic-derived doc_id string inside the payload so that
-            # payload fields always contain human-readable text, never opaque IDs.
-            int_id = int(hashlib.md5(doc_id.encode()).hexdigest(), 16) % (2**63)
-            # Store the full text (up to _QDRANT_TEXT_MAX_CHARS) and a short
-            # topic description.  No topic_id or slug field is persisted.
             payload = {
                 "text": text[:_QDRANT_TEXT_MAX_CHARS],
                 "topic": topic[:120] if topic else text[:80].split("\n")[0].strip(),
             }
-            self._qdrant_client.upsert(
-                collection_name=self.collection,
-                points=[_PointStruct(id=int_id, vector=vector, payload=payload)],
+            return bool(
+                self._hybrid_manager.insert(
+                    text=text,
+                    meta={
+                        "collection": self.collection,
+                        "doc_id": doc_id,
+                        "models": ["e5"],
+                        "payload": payload,
+                        "vector": vector,
+                    },
+                )
             )
-            return True
         except Exception as exc:
             log.debug("[VectorStore/Qdrant] add failed: %s", exc)
             return False
@@ -803,21 +749,16 @@ class VectorStore:
     def _search_qdrant(
         self, vector: Optional[List[float]], query_text: str, top_k: int
     ) -> List[Dict[str, Any]]:
-        if vector is None:
+        if vector is None or self._hybrid_manager is None:
             return []
         try:
-            hits = self._qdrant_client.search(
-                collection_name=self.collection,
-                query_vector=vector,
-                limit=top_k,
-                with_payload=True,
-            )
+            hits = self._hybrid_manager.query(query_text, collection=self.collection, top_k=top_k, models=["e5"])
             return [
                 {
-                    "id": str(h.id),
-                    "text": h.payload.get("text", "") if h.payload else "",
-                    "topic": h.payload.get("topic", "") if h.payload else "",
-                    "score": h.score,
+                    "id": str(h.get("id", "")),
+                    "text": (h.get("payload") or {}).get("text", (h.get("payload") or {}).get("_text", "")),
+                    "topic": (h.get("payload") or {}).get("topic", ""),
+                    "score": float(h.get("score", 0.0)),
                 }
                 for h in hits
             ]
@@ -855,9 +796,8 @@ class FusedStorage:
     Compatibility shim that wraps :class:`~modules.fused_memory_primary.FusedMemoryPrimary`
     and exposes the record + vector API expected by :class:`~niblit_memory.NiblitMemory`.
 
-    When ``fused_memory_primary`` is unavailable, falls back to a plain
-    :class:`VectorStore` for vector operations and a basic in-memory dict for
-    structured records.
+    When ``fused_memory_primary`` is unavailable, this shim keeps only the
+    structured-record fallback and disables independent vector ownership.
 
     Args:
         sqlite_path:     SQLite database path.
@@ -892,11 +832,7 @@ class FusedStorage:
             log.debug("[FusedStorage] FusedMemoryPrimary unavailable: %s", exc)
             # Minimal fallback: in-memory dict + VectorStore
             self._records_fallback: dict = {}
-            self._vs_fallback = VectorStore(
-                collection=collection_name or config.collection,
-                qdrant_url=url,
-                qdrant_api_key=api_key,
-            )
+            self._vs_fallback = None  # Qdrant ownership removed
 
     def insert_record(self, record_id: str, data: dict) -> None:
         """Insert or replace a structured record."""
@@ -921,22 +857,13 @@ class FusedStorage:
         """Insert a named vector."""
         if self._primary is not None:
             return self._primary.insert_vector(record_id, vector, payload)
-        try:
-            text = str(payload or record_id)[:500]
-            return self._vs_fallback.add(record_id, text)
-        except Exception:
-            return False
+        return False
 
     def query_vector(self, vector, top_k: int = 5):
         """Search by raw vector."""
         if self._primary is not None:
             return self._primary.query_vector(vector, top_k=top_k)
-        # Fallback: text-based search using string repr
-        try:
-            query_text = " ".join(str(v) for v in list(vector)[:10])
-            return self._vs_fallback.search(query_text, top_k=top_k) or []
-        except Exception:
-            return []
+        return []
 
 
 if __name__ == "__main__":
