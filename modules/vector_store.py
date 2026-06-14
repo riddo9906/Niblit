@@ -560,6 +560,12 @@ class VectorStore:
         except Exception as exc:
             log.warning("[VectorStore] FAISS init failed (%s) — using memory", exc)
 
+    @staticmethod
+    def _qdrant_models_for_vector(vector: Optional[List[float]]) -> Optional[List[str]]:
+        if vector is None:
+            return None
+        return ["e5"] if len(vector) == 384 else None
+
     # ── public API ────────────────────────────────────────────────────────────
 
     @property
@@ -669,6 +675,10 @@ class VectorStore:
     ) -> bool:
         if vector is None or self._hybrid_manager is None:
             return False
+        models = self._qdrant_models_for_vector(vector)
+        if not models:
+            log.debug("[VectorStore/Qdrant] add skipped: unsupported vector dimension")
+            return False
         try:
             payload = {
                 "text": text[:_QDRANT_TEXT_MAX_CHARS],
@@ -680,7 +690,7 @@ class VectorStore:
                     meta={
                         "collection": self.collection,
                         "doc_id": doc_id,
-                        "models": ["e5"],
+                        "models": models,
                         "payload": payload,
                         "vector": vector,
                     },
@@ -751,8 +761,12 @@ class VectorStore:
     ) -> List[Dict[str, Any]]:
         if vector is None or self._hybrid_manager is None:
             return []
+        models = self._qdrant_models_for_vector(vector)
+        if not models:
+            log.debug("[VectorStore/Qdrant] search skipped: unsupported vector dimension")
+            return []
         try:
-            hits = self._hybrid_manager.query(query_text, collection=self.collection, top_k=top_k, models=["e5"])
+            hits = self._hybrid_manager.query(query_text, collection=self.collection, top_k=top_k, models=models)
             return [
                 {
                     "id": str(h.get("id", "")),

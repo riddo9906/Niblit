@@ -66,7 +66,14 @@ class NiblitMemoryLoop:
 
     def run(self, user_input: str, context: Optional[str] = None, top_k: int = 5) -> Dict[str, Any]:
         """Execute the full chat memory loop with strict embedding/Qdrant controls."""
-        hits = self.vector_memory.query(user_input, collection="episodic_memory", top_k=top_k, models=["e5"])
+        query_vector = embed(user_input)
+        routed_models = ["e5"] if len(query_vector) == 384 else None
+        hits = self.vector_memory.query(
+            user_input,
+            collection="episodic_memory",
+            top_k=top_k,
+            models=routed_models,
+        )
         ranked_hits = self._rerank(hits)
 
         contextual_prompt = user_input
@@ -89,7 +96,7 @@ class NiblitMemoryLoop:
                 "doc_id": memory_id,
                 "payload": metadata,
                 "vector": memory_vector,
-                "models": ["e5"],
+                "models": ["e5"] if len(memory_vector) == 384 else None,
             },
         )
 

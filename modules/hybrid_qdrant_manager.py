@@ -249,6 +249,10 @@ class HybridQdrantManager:
     def _prefixed(self, collection: str) -> str:
         """
         HARD-STANDARDIZED collection naming system.
+
+        Collection names are normalized to lowercase, hyphens are converted
+        to underscores, and every collection is forced through the configured
+        prefix so all routing resolves to one deterministic namespace.
         """
         collection = collection.strip().lower()
         if not collection:
@@ -422,6 +426,10 @@ class HybridQdrantManager:
         """
         Single controlled write path into Qdrant.
         """
+        if "vector" not in meta:
+            log.warning("[HybridQdrantManager] insert called without vector payload")
+            return False
+
         routed = self.route_to_collection(text, meta)
         models = meta.get("models") or self.select_models(text)
         models = [m for m in models if m in _MODEL_REGISTRY]
