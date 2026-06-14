@@ -121,6 +121,85 @@ def test_governed_cluster_reports_semantic_compression_candidates() -> None:
     assert report["semantic_clusters"]
 
 
+def test_governed_cluster_builds_memory_graph_lineage() -> None:
+    cluster = GovernedQdrantMemoryCluster(vector_store_factory=_StubVectorStore)
+    error_write = cluster.write_memory(
+        "runtime error during deploy caused workflow failure",
+        memory_type="execution_memory",
+        payload={"replay_metadata": {"trace_id": "trace-graph-1"}},
+    )
+    fix_write = cluster.write_memory(
+        "fix applied for deploy error and workflow recovery",
+        memory_type="execution_memory",
+        payload={
+            "replay_metadata": {
+                "trace_id": "trace-graph-1",
+                "causal_references": [error_write["memory_id"]],
+            }
+        },
+    )
+    outcome_write = cluster.write_memory(
+        "successful outcome after patch validation",
+        memory_type="execution_memory",
+        payload={
+            "replay_metadata": {
+                "trace_id": "trace-graph-1",
+                "causal_references": [fix_write["memory_id"]],
+            }
+        },
+    )
+
+    edges = cluster._graph.edges
+    assert any(edge.source_id == error_write["memory_id"] and edge.target_id == fix_write["memory_id"] for edge in edges)
+    assert any(edge.source_id == fix_write["memory_id"] and edge.target_id == outcome_write["memory_id"] for edge in edges)
+    snapshot = cluster.observability_snapshot()
+    assert snapshot["graph"]["nodes"] == 3
+    assert snapshot["graph"]["causal_edges"] >= 2
+
+
+def test_governed_cluster_recall_expands_via_graph_neighbors() -> None:
+    cluster = GovernedQdrantMemoryCluster(vector_store_factory=_StubVectorStore)
+    error_write = cluster.write_memory(
+        "runtime error during deploy caused workflow failure",
+        memory_type="execution_memory",
+        payload={"replay_metadata": {"trace_id": "trace-graph-2"}},
+    )
+    fix_write = cluster.write_memory(
+        "fix applied for deploy error and workflow recovery",
+        memory_type="execution_memory",
+        payload={
+            "replay_metadata": {
+                "trace_id": "trace-graph-2",
+                "causal_references": [error_write["memory_id"]],
+            }
+        },
+    )
+    outcome_write = cluster.write_memory(
+        "successful outcome after patch validation",
+        memory_type="execution_memory",
+        payload={
+            "replay_metadata": {
+                "trace_id": "trace-graph-2",
+                "causal_references": [fix_write["memory_id"]],
+            }
+        },
+    )
+
+    results = cluster.recall(
+        "deploy error",
+        top_k=3,
+        memory_types=["execution_memory"],
+        governance_state="override",
+    )
+    recalled_ids = [item["memory_id"] for item in results]
+    assert error_write["memory_id"] in recalled_ids
+    assert fix_write["memory_id"] in recalled_ids
+    assert outcome_write["memory_id"] in recalled_ids
+    outcome = next(item for item in results if item["memory_id"] == outcome_write["memory_id"])
+    assert outcome["explanation"]["graph_score"] > 0.0
+    assert outcome["payload"]["graph"]["access_count"] >= 1
+
+
 def test_collection_blueprints_include_required_memory_collections() -> None:
     blueprints = collection_blueprints()
     for required in (

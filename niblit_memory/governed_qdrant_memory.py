@@ -3,18 +3,22 @@
 from __future__ import annotations
 
 import logging
+import hashlib
 import threading
 import time
 from collections.abc import Callable
+from math import exp
 from typing import Any
 
+from modules.memory.graph.memory_graph import MemoryGraph
+from modules.memory.router.graph_router import GraphMemoryRouter
+from modules.memory.router.memory_router import MemoryRouterCore, RoutedMemory
 from shared.governance_contract.memory_contracts import (
     CANONICAL_MEMORY_COLLECTIONS,
     collection_blueprints,
     detect_memory_drift,
     governed_recall_allowed,
     memory_retrieval_score,
-    normalize_memory_payload,
     reconstruct_memory_lineage,
     transition_memory_lifecycle,
     validate_memory_payload,
@@ -47,9 +51,13 @@ class GovernedQdrantMemoryCluster:
         self._vector_store_factory = vector_store_factory
         self._vector_stores: dict[str, Any] = {}
         self._catalog: dict[str, dict[str, Any]] = {}
+        self._vector_id_lookup: dict[str, str] = {}
         self._writes = 0
         self._recalls = 0
         self._lifecycle_runs = 0
+        self._graph = MemoryGraph()
+        self._router_core = MemoryRouterCore(node_identity=node_identity, authority=authority)
+        self._graph_router = GraphMemoryRouter(self._router_core, self._graph, write_callback=self._write_routed_memory)
 
     def _collection_name(self, memory_type: str) -> str:
         return f"{self.collection_prefix}_{memory_type}"
@@ -93,13 +101,13 @@ class GovernedQdrantMemoryCluster:
         runtime_payload = ensure_schema_v2(payload or {})
         runtime_validation = validate_runtime_contract(runtime_payload)
         validation = validate_memory_payload({**(payload or {}), "memory_type": memory_type, "text": text})
-        normalized = normalize_memory_payload(
-            validation["normalized"],
-            text=text,
-            memory_type=memory_type,
-            node_identity=self.node_identity,
-            authority=self.authority,
-        )
+        meta = dict(payload or {})
+        meta["memory_type"] = memory_type
+        meta["schema_v2"] = runtime_payload
+        meta["runtime_contract"] = runtime_validation["normalized"]
+        node = self._graph_router.insert(text, meta)
+        normalized = dict(node.metadata)
+        write_status = dict(normalized.pop("_graph_write", {}))
         normalized["schema_v2"] = runtime_payload
         normalized["runtime_contract"] = runtime_validation["normalized"]
         normalized["lineage"] = {
@@ -111,17 +119,14 @@ class GovernedQdrantMemoryCluster:
             "memory_type": normalized["memory_type"],
         }
         normalized["federation_metadata"] = dict(normalized.get("federation_origin") or {})
-        backend = "none"
-        stored = False
-        store = self._get_vector_store(normalized["memory_type"])
-        if store is not None:
-            try:
-                backend = getattr(store, "backend", "vector")
-                topic = normalized["routing"]["namespace"]
-                result = store.add(normalized["memory_id"], normalized["content_text"] or normalized["summary"], topic=topic)
-                stored = result is not False
-            except Exception as exc:
-                log.debug("Governed memory write degraded to catalog-only for %s: %s", normalized["memory_id"], exc)
+        graph_meta = dict(normalized.get("graph") or {})
+        graph_meta["edge_count"] = self._graph.edge_count(normalized["memory_id"])
+        normalized["graph"] = graph_meta
+        backend = str(write_status.get("backend", "none"))
+        stored = bool(write_status.get("stored", False))
+        graph_node = self._graph.get_node(normalized["memory_id"])
+        if graph_node is not None:
+            graph_node.metadata = dict(normalized)
         with self._lock:
             self._catalog[normalized["memory_id"]] = normalized
             self._writes += 1
@@ -148,6 +153,7 @@ class GovernedQdrantMemoryCluster:
         requested_types = [item for item in (memory_types or list(CANONICAL_MEMORY_COLLECTIONS)) if item in CANONICAL_MEMORY_COLLECTIONS]
         query_tokens = {token for token in query.lower().split() if token}
         candidates: dict[str, float] = {}
+        lexical_candidates: dict[str, float] = {}
         filters = filters or {}
 
         for memory_type in requested_types:
@@ -157,6 +163,7 @@ class GovernedQdrantMemoryCluster:
             try:
                 for hit in store.search(query, top_k=max(top_k * 2, 5)):
                     hit_id = str(hit.get("id") or "")
+                    hit_id = self._vector_id_lookup.get(hit_id, hit_id)
                     if hit_id:
                         candidates[hit_id] = max(candidates.get(hit_id, 0.0), float(hit.get("score", 0.0)))
             except Exception as exc:
@@ -166,7 +173,7 @@ class GovernedQdrantMemoryCluster:
             catalog_values = list(self._catalog.values())
             self._recalls += 1
 
-        ranked: list[dict[str, Any]] = []
+        eligible_records: list[dict[str, Any]] = []
         for payload in catalog_values:
             if payload["memory_type"] not in requested_types:
                 continue
@@ -182,22 +189,60 @@ class GovernedQdrantMemoryCluster:
             lexical_overlap = 0.0
             if query_tokens:
                 lexical_overlap = sum(1 for token in query_tokens if token in content) / float(len(query_tokens))
-            base_score = max(candidates.get(payload["memory_id"], 0.0), lexical_overlap)
-            if base_score <= 0.0 and query_tokens:
+            if lexical_overlap > 0.0:
+                lexical_candidates[payload["memory_id"]] = lexical_overlap
+            eligible_records.append(payload)
+
+        seed_scores = dict(lexical_candidates)
+        for memory_id, score in candidates.items():
+            seed_scores[memory_id] = max(seed_scores.get(memory_id, 0.0), score)
+        expanded = self._graph.expansion_scores(seed_scores, max_depth=2) if seed_scores else {}
+        candidate_ids = set(seed_scores) | set(expanded)
+        now = time.time()
+
+        ranked: list[dict[str, Any]] = []
+        for payload in eligible_records:
+            memory_id = payload["memory_id"]
+            if candidate_ids and memory_id not in candidate_ids:
                 continue
-            score = memory_retrieval_score(payload, base_score=base_score, runtime_mode=runtime_mode)
+            lexical_overlap = lexical_candidates.get(memory_id, 0.0)
+            base_score = max(candidates.get(memory_id, 0.0), lexical_overlap)
+            graph_context = expanded.get(memory_id, {})
+            graph_score = float(graph_context.get("score", 0.0))
+            if base_score <= 0.0 and graph_score <= 0.0 and query_tokens:
+                continue
+            governed_score = memory_retrieval_score(payload, base_score=max(base_score, graph_score), runtime_mode=runtime_mode)
+            temporal_score = self._temporal_score(payload, now_ts=now)
+            access_score = self._access_score(payload)
+            causal_score = self._causal_score(memory_id)
+            edge_count = self._graph.edge_count(memory_id)
+            isolation_decay = 0.88 if edge_count == 0 and graph_score <= 0.0 else 1.0
+            score = (
+                governed_score * 0.55
+                + graph_score * 0.20
+                + temporal_score * 0.10
+                + access_score * 0.10
+                + causal_score * 0.05
+            ) * isolation_decay
             ranked.append(
                 {
                     "memory_id": payload["memory_id"],
                     "collection": payload["memory_type"],
-                    "score": score,
+                    "score": round(max(0.0, min(1.0, score)), 6),
                     "payload": payload,
                     "explanation": {
                         "base_score": round(base_score, 6),
+                        "graph_score": round(graph_score, 6),
+                        "temporal_score": round(temporal_score, 6),
+                        "access_score": round(access_score, 6),
+                        "causal_score": round(causal_score, 6),
                         "coherence_score": payload["coherence_score"],
                         "reinforcement_score": payload["lifecycle"]["reinforcement_score"],
                         "runtime_mode": runtime_mode,
                         "lifecycle_state": payload["lifecycle"]["state"],
+                        "edge_count": edge_count,
+                        "graph_hops": int(graph_context.get("hops", 0)),
+                        "graph_relations": list(graph_context.get("relations", [])),
                     },
                 }
             )
@@ -208,6 +253,13 @@ class GovernedQdrantMemoryCluster:
                 memory_id = item["memory_id"]
                 if memory_id in self._catalog:
                     self._catalog[memory_id]["last_accessed_at"] = ts
+                    graph_meta = dict(self._catalog[memory_id].get("graph") or {})
+                    graph_meta["access_count"] = int(graph_meta.get("access_count", 0)) + 1
+                    graph_meta["last_accessed_at"] = ts
+                    graph_meta["edge_count"] = self._graph.edge_count(memory_id)
+                    self._catalog[memory_id]["graph"] = graph_meta
+        for item in ranked[:top_k]:
+            self._graph.touch_node(item["memory_id"], timestamp=ts)
         return ranked[:top_k]
 
     def apply_lifecycle(self, *, runtime_pressure: float = 0.0, now_ts: int | None = None) -> dict[str, Any]:
@@ -266,9 +318,57 @@ class GovernedQdrantMemoryCluster:
             "by_collection": by_collection,
             "by_state": by_state,
             "by_runtime_mode": by_runtime_mode,
+            "graph": {
+                "nodes": len(self._graph.nodes),
+                "edges": len(self._graph.edges),
+                "causal_edges": sum(1 for edge in self._graph.edges if edge.relation in {"causes", "fixed_by", "leads_to"}),
+            },
             "drift": detect_memory_drift(records),
             "compression_candidates": self.compression_candidates(records=records),
         }
+
+    def _write_routed_memory(self, routed: RoutedMemory, text: str) -> dict[str, Any]:
+        backend = "none"
+        stored = False
+        store = self._get_vector_store(routed.collection)
+        if store is not None:
+            try:
+                backend = getattr(store, "backend", "vector")
+                topic = routed.payload["routing"]["namespace"]
+                result = store.add(routed.id, routed.payload["content_text"] or routed.payload["summary"] or text, topic=topic)
+                stored = result is not False
+                if backend == "qdrant":
+                    point_id = str(int(hashlib.md5(routed.id.encode("utf-8")).hexdigest(), 16) % (2**63))
+                    self._vector_id_lookup[point_id] = routed.id
+            except Exception as exc:
+                log.debug("Governed memory write degraded to catalog-only for %s: %s", routed.id, exc)
+        return {"backend": backend, "stored": stored}
+
+    @staticmethod
+    def _temporal_score(payload: dict[str, Any], *, now_ts: float) -> float:
+        touch_ts = float(payload.get("last_accessed_at") or payload.get("last_updated_at") or payload.get("created_at") or now_ts)
+        age_seconds = max(0.0, now_ts - touch_ts)
+        return max(0.0, min(1.0, exp(-age_seconds / 604800.0)))
+
+    @staticmethod
+    def _access_score(payload: dict[str, Any]) -> float:
+        graph_meta = dict(payload.get("graph") or {})
+        access_count = int(graph_meta.get("access_count", 0) or 0)
+        if access_count <= 0:
+            return 0.0
+        return min(1.0, access_count / 5.0)
+
+    def _causal_score(self, memory_id: str) -> float:
+        relations = [
+            edge.relation
+            for edge in self._graph.get_edges_from(memory_id) + self._graph.get_edges_to(memory_id)
+        ]
+        if not relations:
+            return 0.0
+        causal = sum(1 for relation in relations if relation in {"causes", "fixed_by", "leads_to", "derived_from"})
+        if causal <= 0:
+            return 0.1
+        return min(1.0, 0.35 + (0.15 * causal))
 
     def compression_candidates(self, *, records: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         """Return governed semantic compression candidates without deleting memory."""
