@@ -7,6 +7,8 @@ import re
 
 import requests
 
+from modules.config.qdrant_config import QdrantConfig
+
 log = logging.getLogger("ResearcherEngine")
 
 SERPEX_API_URL = "https://api.serpex.dev/api/search"
@@ -18,23 +20,13 @@ try:
 except Exception:
     _GLOBAL_MEMORY = None  # type: ignore[assignment]
 
-# ── optional Qdrant client (direct access) ────────────────────────────────────
-try:
-    from qdrant_client import QdrantClient as _QdrantClient
-    _QDRANT_LIB_AVAILABLE = True
-except ImportError:
-    _QdrantClient = None  # type: ignore[assignment,misc]
-    _QDRANT_LIB_AVAILABLE = False
-
-
 class ResearcherEngine:
     """
     Web research engine with optional Qdrant-backed result caching.
 
-    When ``QDRANT_URL`` is set, a :class:`qdrant_client.QdrantClient` is
-    initialised and exposed via :attr:`qdrant_client`.  A
-    :class:`modules.vector_store.VectorStore` (which re-uses the same backend)
-    is stored as :attr:`vector_store`.
+    When ``QDRANT_URL`` is set, vector operations are routed through
+    :class:`modules.hybrid_qdrant_manager.HybridQdrantManager` by
+    :class:`modules.vector_store.VectorStore`.
 
     Research workflow
     -----------------
@@ -51,35 +43,29 @@ class ResearcherEngine:
         qdrant_api_key: str = "",
         memory=None,
     ) -> None:
-        _url = qdrant_url or os.environ.get("QDRANT_URL", "")
-        _key = qdrant_api_key or os.environ.get("QDRANT_API_KEY", "")
+        qdrant_config = QdrantConfig.load()
+        _url = qdrant_url or qdrant_config.url
+        _key = qdrant_api_key or (qdrant_config.api_key or "")
+        collection_name = (
+            f"{qdrant_config.prefix}_research"
+            if qdrant_config.prefix
+            else "research"
+        )
 
         # ── Canonical niblit_memory ───────────────────────────────────────────
         self.memory = memory or _GLOBAL_MEMORY
 
-        # ── Qdrant direct client ──────────────────────────────────────────────
+        # ── Qdrant routing handled centrally by HybridQdrantManager ──────────
         self.qdrant_client = None
-        if _url and _QDRANT_LIB_AVAILABLE and _QdrantClient is not None:
-            try:
-                kwargs = {"url": _url, "timeout": 10}
-                if _key:
-                    kwargs["api_key"] = _key
-                self.qdrant_client = _QdrantClient(**kwargs)
-                log.info(
-                    "ResearcherEngine: Qdrant client connected (%s) — collections: %s",
-                    _url,
-                    ", ".join(c.name for c in self.qdrant_client.get_collections().collections),
-                )
-            except Exception as exc:
-                log.warning("ResearcherEngine: Qdrant connection failed: %s", exc)
-                self.qdrant_client = None
+        if _url:
+            log.info("ResearcherEngine: Qdrant routing delegated to HybridQdrantManager (%s)", _url)
 
         # ── VectorStore (uses same Qdrant backend when available) ─────────────
         self.vector_store = None
         try:
             from modules.vector_store import VectorStore
             self.vector_store = VectorStore(
-                collection="niblit_research",
+                collection=collection_name,
                 qdrant_url=_url,
                 qdrant_api_key=_key,
             )

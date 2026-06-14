@@ -6,12 +6,14 @@ Provides:
  - HFLLMAdapter.is_online()
  - HFLLMAdapter.query_llm(messages, model=None, max_tokens=300)
  - HFLLMAdapter.generate_code(language, purpose, context, max_tokens=800)
- - HFLLMAdapter.qdrant_client  — direct QdrantClient instance (or None)
+ - HFLLMAdapter.qdrant_client  — compatibility attribute (always None)
  - HFLLMAdapter.vector_store   — VectorStore instance for semantic context enrichment
 """
 import logging
 import os
 import re
+
+from modules.config.qdrant_config import QdrantConfig
 
 try:
     from dotenv import load_dotenv
@@ -29,14 +31,6 @@ try:
 except Exception:
     InferenceClient = None
     HF_CLIENT_AVAILABLE = False
-
-# ── optional Qdrant client (direct access) ────────────────────────────────────
-try:
-    from qdrant_client import QdrantClient as _QdrantClient
-    _QDRANT_LIB_AVAILABLE = True
-except ImportError:
-    _QdrantClient = None  # type: ignore[assignment,misc]
-    _QDRANT_LIB_AVAILABLE = False
 
 DEFAULT_MODEL = os.getenv("NIBLIT_LLM_MODEL") or "moonshotai/Kimi-K2-Instruct-0905"
 # Maximum characters of research context forwarded to the LLM in generate_code().
@@ -61,10 +55,9 @@ class HFLLMAdapter:
     """
     Hugging Face LLM adapter with optional Qdrant-backed context enrichment.
 
-    When ``QDRANT_URL`` is set, a :class:`qdrant_client.QdrantClient` is
-    initialised and exposed via :attr:`qdrant_client`.  A
-    :class:`modules.vector_store.VectorStore` (which uses the same Qdrant
-    backend when available) is stored as :attr:`vector_store`.
+    When ``QDRANT_URL`` is set, :class:`modules.vector_store.VectorStore`
+    routes semantic memory operations through
+    :class:`modules.hybrid_qdrant_manager.HybridQdrantManager`.
 
     ``generate_code()`` automatically queries the vector store to pull
     semantically relevant snippets and injects them as extra context for the
@@ -88,24 +81,13 @@ class HFLLMAdapter:
             except Exception:
                 self.client = None
 
-        # ── Qdrant direct client ──────────────────────────────────────────────
-        _url = qdrant_url or os.environ.get("QDRANT_URL", "")
-        _key = qdrant_api_key or os.environ.get("QDRANT_API_KEY", "")
+        # ── Qdrant routing handled centrally by HybridQdrantManager ──────────
+        qdrant_config = QdrantConfig.load()
+        _url = qdrant_url or qdrant_config.url
+        _key = qdrant_api_key or (qdrant_config.api_key or "")
         self.qdrant_client = None
-        if _url and _QDRANT_LIB_AVAILABLE and _QdrantClient is not None:
-            try:
-                kwargs = {"url": _url, "timeout": 10}
-                if _key:
-                    kwargs["api_key"] = _key
-                self.qdrant_client = _QdrantClient(**kwargs)
-                log.info(
-                    "HFLLMAdapter: Qdrant client connected (%s) — collections: %s",
-                    _url,
-                    ", ".join(c.name for c in self.qdrant_client.get_collections().collections),
-                )
-            except Exception as exc:
-                log.warning("HFLLMAdapter: Qdrant connection failed: %s", exc)
-                self.qdrant_client = None
+        if _url:
+            log.info("HFLLMAdapter: Qdrant routing delegated to HybridQdrantManager (%s)", _url)
 
         # ── VectorStore (uses same Qdrant backend when available) ─────────────
         self.vector_store = None

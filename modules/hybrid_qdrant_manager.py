@@ -32,7 +32,7 @@ Public API
 
 Configuration (environment variables)
 ──────────────────────────────────────
-  QDRANT_URL                Qdrant cluster URL (default: http://localhost:6333)
+  QDRANT_URL                Qdrant cluster URL (default from central QdrantConfig)
   QDRANT_API_KEY            Optional API key for Qdrant Cloud
   QDRANT_COLLECTION_PREFIX  Prefix prepended to every collection name (default: "niblit")
 
@@ -56,19 +56,16 @@ Usage::
 from __future__ import annotations
 
 import logging
-import os
 import hashlib
 import threading
 import time
 import unicodedata
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-log = logging.getLogger("HybridQdrantManager")
+from modules.config.qdrant_config import QdrantConfig
 
-# ── Configuration from environment ────────────────────────────────────────────
-_QDRANT_URL = os.environ.get("QDRANT_URL", "http://localhost:6333")
-_QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", None)
-_COLLECTION_PREFIX = os.environ.get("QDRANT_COLLECTION_PREFIX", "niblit")
+log = logging.getLogger("HybridQdrantManager")
 
 # ── Optional qdrant-client import ─────────────────────────────────────────────
 # We import lazily so the module loads cleanly even when qdrant-client is absent.
@@ -78,7 +75,6 @@ try:
         Distance,
         NamedSparseVector,
         NamedVector,
-        PointStruct,
         SparseVector,
         VectorParams,
     )
@@ -174,6 +170,13 @@ def _is_long(text: str, threshold: int = 256) -> bool:
     return len(text) > threshold
 
 
+@dataclass(frozen=True)
+class RoutedQdrantPoint:
+    collection: str
+    id: int
+    payload: Dict[str, Any]
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # HybridQdrantManager
 # ══════════════════════════════════════════════════════════════════════════════
@@ -189,25 +192,17 @@ class HybridQdrantManager:
 
     Parameters
     ----------
-    url:
-        Qdrant cluster URL.  Defaults to ``QDRANT_URL`` env var or
-        ``http://localhost:6333``.
-    api_key:
-        Optional API key.  Defaults to ``QDRANT_API_KEY`` env var.
-    collection_prefix:
-        String prepended to collection names.  Defaults to ``QDRANT_COLLECTION_PREFIX``
-        env var or ``"niblit"``.
+    config:
+        Optional Qdrant config bundle.  Defaults to :meth:`QdrantConfig.load`.
     """
 
-    def __init__(
-        self,
-        url: str = _QDRANT_URL,
-        api_key: Optional[str] = _QDRANT_API_KEY,
-        collection_prefix: str = _COLLECTION_PREFIX,
-    ) -> None:
-        self._url = url
-        self._api_key = api_key
-        self._prefix = collection_prefix
+    def __init__(self, config: Optional[QdrantConfig] = None) -> None:
+        config = config or QdrantConfig.load()
+
+        self._url = config.url
+        self._api_key = config.api_key
+        self._prefix = config.prefix
+        self._collection_default = config.collection
         self._lock = threading.Lock()
 
         # Per-model operation counters: {"model_key": {"upsert": int, "query": int}}
@@ -223,32 +218,51 @@ class HybridQdrantManager:
 
         log.info(
             "[HybridQdrantManager] Initialised (url=%s, prefix=%s, qdrant_available=%s)",
-            url, collection_prefix, _QDRANT_AVAILABLE,
+            self._url, self._prefix, _QDRANT_AVAILABLE,
         )
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
     def _get_client(self) -> Optional[Any]:
-        """Return (or lazily create) the QdrantClient.  Returns None on failure."""
+        """Return (or lazily create) QdrantClient."""
         if not _QDRANT_AVAILABLE:
             return None
+
         if self._client is not None:
             return self._client
+
         try:
             kwargs: Dict[str, Any] = {"url": self._url}
+
             if self._api_key:
                 kwargs["api_key"] = self._api_key
+
             self._client = QdrantClient(**kwargs)
-            log.debug("[HybridQdrantManager] QdrantClient connected to %s", self._url)
+            log.debug("[HybridQdrantManager] connected to %s", self._url)
+
         except Exception as exc:
-            log.warning("[HybridQdrantManager] Failed to create QdrantClient: %s", exc)
+            log.warning("[HybridQdrantManager] connection failed: %s", exc)
             self._client = None
+
         return self._client
 
     def _prefixed(self, collection: str) -> str:
-        """Return *collection* with the configured prefix applied once."""
+        """
+        HARD-STANDARDIZED collection naming system.
+
+        Collection names are normalized to lowercase, hyphens are converted
+        to underscores, and every collection is forced through the configured
+        prefix so all routing resolves to one deterministic namespace.
+        """
+        collection = collection.strip().lower()
+        if not collection:
+            collection = (self._collection_default or "niblit_vectors").strip().lower()
+
+        collection = collection.replace("-", "_")
+
         if collection.startswith(self._prefix + "_"):
             return collection
+
         return f"{self._prefix}_{collection}"
 
     def _ensure_collection(self, full_name: str, models: List[str]) -> bool:
@@ -396,6 +410,55 @@ class HybridQdrantManager:
 
     # ── Core operations ───────────────────────────────────────────────────────
 
+    def route_to_collection(self, text: str, meta: Dict[str, Any]) -> RoutedQdrantPoint:
+        """Route a write request into the canonical prefixed collection."""
+        payload = dict(meta.get("payload") or {})
+        payload.setdefault("_text", text[:6000])
+
+        seed = meta.get("doc_id") or text
+        stable_hash = hashlib.sha256(str(seed).encode("utf-8", errors="replace")).digest()
+        point_id = int.from_bytes(stable_hash[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
+
+        collection = self._prefixed(str(meta.get("collection") or self._collection_default or "niblit_vectors"))
+        return RoutedQdrantPoint(collection=collection, id=point_id, payload=payload)
+
+    def insert(self, text: str, meta: Dict[str, Any]) -> bool:
+        """
+        Single controlled write path into Qdrant.
+        """
+        if "vector" not in meta:
+            log.warning("[HybridQdrantManager] insert called without vector payload")
+            return False
+
+        routed = self.route_to_collection(text, meta)
+        models = meta.get("models") or self.select_models(text)
+        models = [m for m in models if m in _MODEL_REGISTRY]
+        if not models:
+            log.warning("[HybridQdrantManager] insert called with no valid models")
+            return False
+
+        if not self._ensure_collection(routed.collection, models):
+            log.warning("[HybridQdrantManager] insert: collection not available (%s)", routed.collection)
+            return False
+
+        client = self._get_client()
+        if client is None:
+            return False
+
+        try:
+            client.upsert(
+                collection_name=routed.collection,
+                points=[{
+                    "id": routed.id,
+                    "vector": meta["vector"],
+                    "payload": routed.payload,
+                }],
+            )
+            return True
+        except Exception as exc:
+            log.warning("[HybridQdrantManager] insert to '%s' failed: %s", routed.collection, exc)
+            return False
+
     def upsert(
         self,
         text: str,
@@ -441,24 +504,6 @@ class HybridQdrantManager:
 
         # Normalise text before embedding so unicode variants hash/embed consistently
         text = _normalize_text(text)
-        full_name = self._prefixed(collection)
-
-        # Ensure collection exists for the requested models
-        if not self._ensure_collection(full_name, models):
-            log.warning("[HybridQdrantManager] upsert: collection not available (%s)", full_name)
-            return False
-
-        client = self._get_client()
-        if client is None:
-            return False
-
-        # Derive a stable integer point ID from doc_id or text hash.
-        # We use SHA-256 (not Python's hash()) to guarantee determinism
-        # across processes and restarts regardless of PYTHONHASHSEED.
-        seed = doc_id if doc_id is not None else text
-        stable_hash = hashlib.sha256(seed.encode("utf-8", errors="replace")).digest()
-        # Use the first 8 bytes as a uint64 within Qdrant's unsigned ID range
-        point_id = int.from_bytes(stable_hash[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
 
         # Build the multi-vector dict: {vector_name: embedding}
         # Dense vectors → NamedVector; sparse vectors → NamedSparseVector.
@@ -496,25 +541,28 @@ class HybridQdrantManager:
             )
             return False
 
-        try:
-            # Unwrap NamedVector/NamedSparseVector back to plain dict for PointStruct
-            # (some qdrant-client versions don't accept Named* in the vector kwarg).
-            plain_vectors = {
-                k: (v.vector if hasattr(v, "vector") else v)
-                for k, v in vectors.items()
-            }
-            point = PointStruct(id=point_id, vector=plain_vectors, payload={**payload, "_text": text[:6000]})
-            t0 = time.time()
-            client.upsert(collection_name=full_name, points=[point])
-            latency_ms = round((time.time() - t0) * 1000, 1)
-            success_count = len(plain_vectors)
-            log.debug(
-                "[HybridQdrantManager] Upserted point %d into '%s' with %d vectors (%.1fms)",
-                point_id, full_name, success_count, latency_ms,
-            )
-        except Exception as exc:
-            log.warning("[HybridQdrantManager] upsert to '%s' failed: %s", full_name, exc)
+        plain_vectors = {
+            k: (v.vector if hasattr(v, "vector") else v)
+            for k, v in vectors.items()
+        }
+        t0 = time.time()
+        if not self.insert(
+            text=text,
+            meta={
+                "collection": collection,
+                "doc_id": doc_id,
+                "models": models,
+                "payload": payload,
+                "vector": plain_vectors,
+            },
+        ):
             return False
+        latency_ms = round((time.time() - t0) * 1000, 1)
+        success_count = len(plain_vectors)
+        log.debug(
+            "[HybridQdrantManager] Upserted into '%s' with %d vectors (%.1fms)",
+            self._prefixed(collection), success_count, latency_ms,
+        )
 
         # Increment per-model stats for each model whose vector was actually embedded
         with self._lock:
@@ -711,9 +759,7 @@ _manager_lock = threading.Lock()
 
 
 def get_hybrid_manager(
-    url: str = _QDRANT_URL,
-    api_key: Optional[str] = _QDRANT_API_KEY,
-    collection_prefix: str = _COLLECTION_PREFIX,
+    config: Optional[QdrantConfig] = None,
 ) -> HybridQdrantManager:
     """
     Return the process-wide :class:`HybridQdrantManager` singleton.
@@ -724,22 +770,14 @@ def get_hybrid_manager(
 
     Parameters
     ----------
-    url:
-        Qdrant cluster URL.
-    api_key:
-        Optional API key.
-    collection_prefix:
-        Collection name prefix.
+    config:
+        Optional Qdrant config bundle for first initialisation.
     """
     global _manager_instance
     if _manager_instance is None:
         with _manager_lock:
             if _manager_instance is None:
-                _manager_instance = HybridQdrantManager(
-                    url=url,
-                    api_key=api_key,
-                    collection_prefix=collection_prefix,
-                )
+                _manager_instance = HybridQdrantManager(config=config)
     return _manager_instance
 
 

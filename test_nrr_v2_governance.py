@@ -3,7 +3,7 @@
 Covers:
 - GovernanceViolationError raised on embedding dimension mismatch
 - GovernanceViolationError raised on non-finite / zero-norm vectors
-- QdrantAdapter.validate_vector governance enforcement
+- QdrantAdapter routing enforcement
 - ClusterBootstrap idempotency (409 = success, existing = governed)
 - initialize_cluster.sh idempotency assertions (static analysis)
 """
@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from modules.embedding_engine import GovernanceViolationError, EmbeddingEngine, EMBEDDING_DIM
-from modules.vector_memory.qdrant_adapter import QdrantAdapter, VECTOR_DIM
+from modules.vector_memory.qdrant_adapter import QdrantAdapter
 from modules.vector_memory.cluster_bootstrap import (
     ClusterBootstrap,
     CollectionSpec,
@@ -97,47 +97,27 @@ class TestEmbeddingEngineValidation(unittest.TestCase):
             engine.embed("   ")
 
 
-class TestQdrantAdapterValidation(unittest.TestCase):
-    """QdrantAdapter.validate_vector raises GovernanceViolationError on contract breach."""
+class TestQdrantAdapterRouting(unittest.TestCase):
+    """QdrantAdapter only proxies through HybridQdrantManager."""
 
-    def test_wrong_dim_raises_governance_error(self):
-        with self.assertRaises(GovernanceViolationError) as ctx:
-            QdrantAdapter.validate_vector([0.5] * 100)
-        self.assertIn(str(VECTOR_DIM), str(ctx.exception))
+    def test_insert_vector_proxies_to_hybrid_manager(self):
+        hybrid = MagicMock()
+        hybrid.insert.return_value = True
+        adapter = QdrantAdapter(hybrid)
+        result = adapter.insert_vector("hello", {"vector": [0.1, 0.2], "collection": "episodic_memory"})
+        self.assertTrue(result)
+        hybrid.insert.assert_called_once_with(
+            "hello",
+            {"vector": [0.1, 0.2], "collection": "episodic_memory"},
+        )
 
-    def test_non_list_raises_governance_error(self):
-        with self.assertRaises(GovernanceViolationError) as ctx:
-            QdrantAdapter.validate_vector("not a list")  # type: ignore[arg-type]
-        self.assertIn("list", str(ctx.exception).lower())
-
-    def test_non_finite_raises_governance_error(self):
-        bad = [1.0] * VECTOR_DIM
-        bad[5] = float("nan")
-        with self.assertRaises(GovernanceViolationError):
-            QdrantAdapter.validate_vector(bad)
-
-    def test_zero_norm_raises_governance_error(self):
-        with self.assertRaises(GovernanceViolationError):
-            QdrantAdapter.validate_vector([0.0] * VECTOR_DIM)
-
-    def test_valid_vector_returns_normalized_list(self):
-        v = _valid_vector(VECTOR_DIM)
-        result = QdrantAdapter.validate_vector(v)
-        self.assertEqual(len(result), VECTOR_DIM)
-        norm = math.sqrt(sum(x * x for x in result))
-        self.assertAlmostEqual(norm, 1.0, places=5)
-
-    def test_upsert_memory_rejects_wrong_dim_without_touching_qdrant(self):
-        adapter = QdrantAdapter()
-        bad_vector = [0.5] * 100  # wrong dim
-        with self.assertRaises(GovernanceViolationError):
-            adapter.upsert_memory("test-id", "test text", bad_vector)
-
-    def test_search_memory_rejects_wrong_dim_without_touching_qdrant(self):
-        adapter = QdrantAdapter()
-        bad_vector = [0.5] * 200  # wrong dim
-        with self.assertRaises(GovernanceViolationError):
-            adapter.search_memory(bad_vector)
+    def test_query_proxies_to_hybrid_manager(self):
+        hybrid = MagicMock()
+        hybrid.query.return_value = [{"id": 1}]
+        adapter = QdrantAdapter(hybrid)
+        result = adapter.query("hello", collection="episodic_memory", top_k=3)
+        self.assertEqual(result, [{"id": 1}])
+        hybrid.query.assert_called_once_with("hello", collection="episodic_memory", top_k=3)
 
 
 class TestClusterBootstrapIdempotency(unittest.TestCase):
