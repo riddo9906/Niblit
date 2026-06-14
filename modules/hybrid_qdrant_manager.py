@@ -243,7 +243,7 @@ class HybridQdrantManager:
         """Return collection with prefix applied safely."""
         collection = collection.strip()
         if not collection:
-            collection = self._collection_default.strip()
+            collection = (self._collection_default or "niblit_vectors").strip()
 
         if collection.startswith(self._prefix + "_"):
             return collection
