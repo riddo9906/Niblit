@@ -189,7 +189,7 @@ class HybridQdrantManager:
         Optional Qdrant config bundle.  Defaults to :meth:`QdrantConfig.load`.
     """
 
-    def __init__(self, config: QdrantConfig | None = None) -> None:
+    def __init__(self, config: Optional[QdrantConfig] = None) -> None:
         config = config or QdrantConfig.load()
 
         self._url = config.url
@@ -242,6 +242,8 @@ class HybridQdrantManager:
     def _prefixed(self, collection: str) -> str:
         """Return collection with prefix applied safely."""
         collection = collection.strip()
+        if not collection:
+            collection = self._collection_default.strip()
 
         if collection.startswith(self._prefix + "_"):
             return collection
@@ -711,7 +713,7 @@ _manager_lock = threading.Lock()
 
 
 def get_hybrid_manager(
-    config: QdrantConfig | None = None,
+    config: Optional[QdrantConfig] = None,
 ) -> HybridQdrantManager:
     """
     Return the process-wide :class:`HybridQdrantManager` singleton.
