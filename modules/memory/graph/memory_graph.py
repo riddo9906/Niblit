@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 @dataclass
@@ -90,7 +90,7 @@ class MemoryGraph:
             if score > 0.0
         }
         while frontier:
-            next_frontier: Dict[str, tuple[float, int]] = {}
+            next_frontier: Dict[str, Tuple[float, int]] = {}
             for node_id, (score, depth) in frontier.items():
                 if depth >= max_depth:
                     continue
