@@ -41,7 +41,7 @@ if ExternalLLMClient:
 # =========================================================
 
 def resolve_path(path: str) -> str:
-    """Resolve relative path to repo root-safe absolute path"""
+    """Resolve relative paths into repo root context"""
     if os.path.isabs(path):
         return path
     return os.path.join(REPO_ROOT, path)
@@ -68,7 +68,7 @@ def save_memory_store(data):
 
 @mcp.tool()
 def read_file(path: str) -> str:
-    """Read a file from the Niblit repo"""
+    """Read file safely from repo"""
     try:
         full_path = resolve_path(path)
         with open(full_path, "r", encoding="utf-8") as f:
@@ -78,43 +78,55 @@ def read_file(path: str) -> str:
 
 
 # =========================================================
-# TOOL: SCAN REPOSITORY (FIXED)
+# TOOL: SCAN REPOSITORY (TOKEN SAFE VERSION)
 # =========================================================
 
 @mcp.tool()
-def scan_repo(root: Optional[str] = None) -> Dict[str, Any]:
-    """Scan full repository structure"""
+def scan_repo(root: Optional[str] = None, max_depth: int = 3) -> Dict[str, Any]:
+    """
+    Lightweight repo scan (SAFE FOR LLM CONTEXT)
 
-    # IMPORTANT FIX: default root fallback
+    FIXES:
+    - prevents token explosion
+    - limits depth
+    - limits file counts
+    """
+
     root = root or REPO_ROOT
-
     tree = {}
 
     for folder, dirs, files in os.walk(root):
 
+        # depth limiter (IMPORTANT FIX)
+        depth = folder.replace(root, "").count(os.sep)
+        if depth > max_depth:
+            continue
+
+        # noise filter
         if ".git" in folder or "__pycache__" in folder:
             continue
 
         tree[folder] = {
-            "dirs": dirs,
-            "files": files
+            "dirs": dirs[:10],     # LIMIT
+            "files": files[:30]    # LIMIT
         }
 
     return {
         "root": root,
-        "folders": len(tree),
-        "total_files": sum(len(v["files"]) for v in tree.values()),
+        "folder_count": len(tree),
+        "total_files_sampled": sum(len(v["files"]) for v in tree.values()),
+        "note": "THIS IS A CONTROLLED SAMPLE VIEW (NOT FULL DUMP)",
         "tree": tree
     }
 
 
 # =========================================================
-# TOOL: ANALYZE SINGLE FILE
+# TOOL: ANALYZE SINGLE FILE (DEEP VIEW)
 # =========================================================
 
 @mcp.tool()
 def analyze_file(path: str) -> Dict[str, Any]:
-    """Extract imports, classes, and functions from a Python file"""
+    """Extract structure from a Python file"""
 
     try:
         full_path = resolve_path(path)
@@ -157,12 +169,11 @@ def analyze_file(path: str) -> Dict[str, Any]:
 
 
 # =========================================================
-# TOOL: ARCHITECTURE ANALYSIS (FIXED)
+# TOOL: ARCHITECTURE ANALYSIS
 # =========================================================
 
 @mcp.tool()
 def analyze_architecture(root: Optional[str] = None) -> Dict[str, Any]:
-    """Build system-wide architecture map"""
 
     root = root or REPO_ROOT
 
@@ -196,12 +207,11 @@ def analyze_architecture(root: Optional[str] = None) -> Dict[str, Any]:
 
 
 # =========================================================
-# TOOL: SYSTEM OVERVIEW (FIXED)
+# TOOL: SYSTEM OVERVIEW (FAST CONTEXT)
 # =========================================================
 
 @mcp.tool()
 def get_system_overview(root: Optional[str] = None) -> Dict[str, Any]:
-    """Lightweight architecture snapshot"""
 
     root = root or REPO_ROOT
 
@@ -223,7 +233,6 @@ def get_system_overview(root: Optional[str] = None) -> Dict[str, Any]:
 
 @mcp.tool()
 def save_memory(key: str, value: Any) -> Dict[str, Any]:
-    """Save persistent MCP memory"""
 
     memory = load_memory_store()
     memory[key] = value
@@ -237,33 +246,28 @@ def save_memory(key: str, value: Any) -> Dict[str, Any]:
 
 @mcp.tool()
 def load_memory(key: str):
-    """Load MCP memory by key"""
-
     memory = load_memory_store()
     return memory.get(key)
 
 
 @mcp.tool()
 def list_memories():
-    """List all saved memory keys"""
-
     memory = load_memory_store()
     return list(memory.keys())
 
 
 # =========================================================
-# TOOL: LOOP REGISTRY
+# TOOL: LOOP STATE REGISTRY
 # =========================================================
 
 @mcp.tool()
 def register_loop_state(loop_name: str, state: Dict[str, Any]) -> Dict[str, Any]:
-    """Register execution state of Niblit loops"""
 
     return {
         "loop": loop_name,
         "state": state,
         "status": "registered",
-        "note": "future MCP traffic controller integration"
+        "note": "future ALE traffic controller integration"
     }
 
 
