@@ -1,0 +1,10 @@
+# .continue/mcpServers/niblit-mcp.yaml
+name: Niblit MCP
+version: 0.1.0
+schema: v1
+
+mcpServers:
+  - name: niblit-mcp
+    command: C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe
+    args:
+      - C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\mcp\\server.py
