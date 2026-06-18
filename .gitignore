@@ -66,6 +66,7 @@ niblit_deployment_bridge.json
 niblit_net_state.json
 .db
 .jsonl
+.json.quarantine.jsonl
 
 # Buildozer (Android build system)
 .buildozer/
@@ -81,3 +82,16 @@ niblit-lean-algos/scripts
 niblit-lean-algos/niblit_bridge/
 .tmp
 niblit_deployment_bridge.json.tmp
+
+#Vitual Environment
+venv/
+niblit-env/
+
+.vscode/settings.json
+niblit_state.json
+niblit_cognitive_identity.json
+niblit_memory.json.quarantine.jsonl
+niblit_audit_cursor.json
+./node_modules/.bin
+.ps
+.map
