@@ -1026,6 +1026,12 @@ class AtomicCommitManager:
         finally:
             os.close(fd)
 
+    def _write_text_direct(self, path: str, text: str) -> None:
+        with open(path, "w", encoding=self.encoding) as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+
     def _atomic_write_text(self, path: str, text: str) -> None:
         abs_path = os.path.abspath(path)
         directory = os.path.dirname(abs_path) or "."
@@ -1042,7 +1048,15 @@ class AtomicCommitManager:
                 tf.write(text)
                 tf.flush()
                 os.fsync(tf.fileno())
-            os.replace(tmp_path, abs_path)
+            try:
+                os.replace(tmp_path, abs_path)
+            except (PermissionError, OSError) as exc:
+                _kdb_log.warning(
+                    "KnowledgeDB atomic replace failed for %s, falling back to direct write: %s",
+                    abs_path,
+                    exc,
+                )
+                self._write_text_direct(abs_path, text)
             self._fsync_directory(abs_path)
         finally:
             if tmp_path and os.path.exists(tmp_path):

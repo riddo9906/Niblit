@@ -30,3 +30,10 @@ def __getattr__(name: str) -> Any:
 
 def __dir__() -> list[str]:
     return sorted(set(globals()) | set(dir(_load_legacy_module())))
+
+
+# Explicit package exports for compatibility with imports such as
+# `from niblit_core import NiblitCore`.
+NiblitCore = _load_legacy_module().NiblitCore
+
+__all__ = ["NiblitCore"]

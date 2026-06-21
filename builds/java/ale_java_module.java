@@ -1,20 +1,21 @@
-package ale_java_object_oriented_patterns_1776642122;
+package ale_java_object_oriented_patterns;
 
 /**
- * AleJavaObjectOrientedPatterns1776642122 — object-oriented patterns 1776642122: 1. IntroductionObject-OrientedDesignPatternscame out from software engineers recognizing recurring problems and formaliz
+ * AleJavaObjectOrientedPatterns — object-oriented patterns: ✅ Researched java object-oriented patterns: 3 result(s) fetched.
+First result: No data found for 'java object-oriented p
  */
-public class AleJavaObjectOrientedPatterns1776642122 {
+public class AleJavaObjectOrientedPatterns {
 
-    public AleJavaObjectOrientedPatterns1776642122() {
+    public AleJavaObjectOrientedPatterns() {
         // constructor
     }
 
     public void run() {
-        System.out.println("ale_java_object_oriented_patterns_1776642122 running");
+        System.out.println("ale_java_object_oriented_patterns running");
     }
 
     public static void main(String[] args) {
-        AleJavaObjectOrientedPatterns1776642122 obj = new AleJavaObjectOrientedPatterns1776642122();
+        AleJavaObjectOrientedPatterns obj = new AleJavaObjectOrientedPatterns();
         obj.run();
     }
 }

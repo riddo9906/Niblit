@@ -1777,6 +1777,7 @@ class NiblitCore:
         self._shutdown_event = threading.Event()
         self._background_threads: List[threading.Thread] = []
         self._event_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._event_loop_thread: Optional[threading.Thread] = None
         self._async_tasks: set = set()
 
         # State
@@ -9773,8 +9774,18 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self._event_loop.run_forever,
                 "AsyncEventLoop"
             )
+            self._event_loop_thread = self._background_threads[-1]
         except Exception as e:
             log.warning(f"Failed to start async loops: {e}")
+
+    def _sleep_with_shutdown(self, seconds: float) -> bool:
+        """Sleep in short intervals while allowing shutdown to interrupt promptly."""
+        remaining = max(0.0, float(seconds))
+        while remaining > 0 and self.running and not self._shutdown_event.is_set():
+            step = min(0.25, remaining)
+            self._shutdown_event.wait(timeout=step)
+            remaining -= step
+        return self.running and not self._shutdown_event.is_set()
 
     def _start_background_loop(self, target: Callable, name: str):
         """Start a background thread and track it."""
@@ -9798,7 +9809,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         log.info("[DUMP LOOP] Monitoring started (delayed start, no initial dump)")
         check_count = 0
 
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             try:
                 current_time = time.time()
                 elapsed = current_time - self._last_dump_check
@@ -9822,11 +9833,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     self._last_dump_check = current_time
                     check_count += 1
 
-                time.sleep(10)
+                if not self._sleep_with_shutdown(10):
+                    break
             except Exception as e:
                 loop_tracer.record("DumpMonitoringLoop", e)
                 log.error(f"[DUMP LOOP] Monitoring error: {e}")
-                time.sleep(10)
+                if not self._sleep_with_shutdown(10):
+                    break
 
         log.info(f"[DUMP LOOP] Monitoring stopped after {self._dump_loop_count} cycles")
 
@@ -9837,17 +9850,20 @@ SW Categories: {stats.get('software_study_categories', 0)}
     async def _async_health_loop(self):
         """Async version of health loop."""
         last = -1
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             uptime = int(time.time() - self.start_ts)
             if uptime // 120 != last:
                 last = uptime // 120
                 mem = self._get_memory_count()
                 log.info(f"[HEALTH] uptime={uptime}s mem={mem}")
-            await asyncio.sleep(5)
+            for _ in range(5):
+                if not self.running or self._shutdown_event.is_set():
+                    break
+                await asyncio.sleep(1)
 
     async def _async_trainer_loop(self):
         """Async version of trainer loop."""
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             try:
                 if self.collector and hasattr(self.collector, "flush_if_needed"):
                     safe_call(self.collector.flush_if_needed)
@@ -9859,7 +9875,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         safe_call(self.trainer.step_if_needed, buf)
             except Exception:
                 pass
-            await asyncio.sleep(90)
+            for _ in range(90):
+                if not self.running or self._shutdown_event.is_set():
+                    break
+                await asyncio.sleep(1)
 
     async def _async_auto_research_loop(self):
         """Async version of auto research loop.
@@ -9867,7 +9886,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         For each queued topic: search → reflect → teach → store ale_learned memory.
         """
         # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             try:
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
                     queued = self.db.get_learning_queue()
@@ -9964,11 +9983,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
                                 pass
             except Exception:
                 pass
-            await asyncio.sleep(150)
+            for _ in range(150):
+                if not self.running or self._shutdown_event.is_set():
+                    break
+                await asyncio.sleep(1)
 
     async def _async_self_heal_loop(self):
         """Async version of self heal loop."""
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             try:
                 if self.self_healer:
                     if hasattr(self.self_healer, "run_cycle"):
@@ -9989,7 +10011,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         safe_call(fn)
             except Exception:
                 pass
-            await asyncio.sleep(300)
+            for _ in range(300):
+                if not self.running or self._shutdown_event.is_set():
+                    break
+                await asyncio.sleep(1)
 
     # ============================
     # SYNC LOOPS
@@ -9998,7 +10023,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     def _health_loop(self):
         """Monitor system health periodically."""
         last = -1
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             try:
                 uptime = int(time.time() - self.start_ts)
                 if uptime // self.config.health_check_interval != last:
@@ -10006,15 +10031,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     mem = self._get_memory_count()
                     if getattr(self, '_loops_verbose', True):
                         log.info(f"[HEALTH] uptime={uptime}s mem={mem}")
-                time.sleep(5)
+                if not self._sleep_with_shutdown(5):
+                    break
             except Exception as e:
                 loop_tracer.record("HealthLoop", e)
                 log.debug(f"Health loop error: {e}")
-                time.sleep(5)
+                if not self._sleep_with_shutdown(5):
+                    break
 
     def _trainer_loop(self):
         """Run training cycles periodically."""
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             try:
                 if self.collector and hasattr(self.collector, "flush_if_needed"):
                     safe_call(self.collector.flush_if_needed)
@@ -10026,7 +10053,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         safe_call(self.trainer.step_if_needed, buf)
             except Exception as e:
                 loop_tracer.record("TrainerLoop", e)
-            time.sleep(90)
+            if not self._sleep_with_shutdown(90):
+                break
 
     def _auto_research_loop(self):
         """Run autonomous research loop periodically.
@@ -10034,14 +10062,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
         For each queued topic: search → reflect → teach → store ale_learned memory.
         """
         # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-nested-blocks
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             try:
                 # Skip if ALE is already running — it covers all research steps
                 # and calling researcher.search() concurrently would saturate
                 # the network stack and serialise on internal locks.
                 _ale = getattr(self, "autonomous_engine", None)
                 if _ale is not None and getattr(_ale, "running", False):
-                    time.sleep(150)
+                    if not self._sleep_with_shutdown(150):
+                        break
                     continue
 
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
@@ -10176,11 +10205,12 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     gc.maybe_run_exam()
             except Exception:
                 pass
-            time.sleep(150)
+            if not self._sleep_with_shutdown(150):
+                break
 
     def _self_heal_loop(self):
         """Run self-healing loop periodically."""
-        while self.running:
+        while self.running and not self._shutdown_event.is_set():
             try:
                 if self.self_healer:
                     if hasattr(self.self_healer, "run_cycle"):
@@ -10201,7 +10231,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         safe_call(fn)
             except Exception as _me:
                 log.debug("[HealLoop] SelfMaintenance error: %s", _me)
-            time.sleep(300)
+            if not self._sleep_with_shutdown(300):
+                break
 
     # ============================
     # ORCHESTRATOR METHODS
@@ -11690,18 +11721,39 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # Stop all background threads with timeout
         total_threads = len(self._background_threads)
         if total_threads > 0:
-            timeout_per_thread = timeout / total_threads
+            timeout_per_thread = timeout / max(total_threads, 1)
             for thread in self._background_threads:
                 try:
-                    thread.join(timeout=timeout_per_thread)
+                    join_timeout = timeout_per_thread
+                    if thread is self._event_loop_thread:
+                        join_timeout = max(join_timeout, 2.0)
+                    thread.join(timeout=join_timeout)
                     if thread.is_alive():
                         log.warning(f"Thread {thread.name} did not shutdown in time")
                 except Exception as e:
                     log.error(f"Error joining thread {thread.name}: {e}")
 
         # Stop async event loop
-        if self._event_loop and self._event_loop.is_running():
-            self._event_loop.call_soon_threadsafe(self._event_loop.stop)
+        if self._event_loop and not self._event_loop.is_closed():
+            for task in list(getattr(self, "_async_tasks", ())):
+                if task and not task.done():
+                    task.cancel()
+            try:
+                if self._event_loop.is_running():
+                    self._event_loop.call_soon_threadsafe(self._event_loop.stop)
+                else:
+                    self._event_loop.stop()
+            except RuntimeError:
+                pass
+            try:
+                if self._event_loop_thread is not None:
+                    self._event_loop_thread.join(timeout=max(2.0, timeout))
+            except Exception:
+                pass
+            try:
+                self._event_loop.close()
+            except RuntimeError:
+                pass
 
         # Shutdown services in reverse order
         services = [

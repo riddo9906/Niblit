@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 
 def _fresh_knowledge_db(path):
@@ -91,6 +92,30 @@ def test_replay_safe_hooks_populate_lineage_fields():
     assert "lineage" in meta["replay_metadata"]
     assert "governance_state" in meta
     assert "runtime_mode" in meta
+
+
+def test_atomic_commit_manager_falls_back_to_direct_write_when_replace_fails(tmp_path, monkeypatch):
+    from niblit_memory import AtomicCommitManager
+    import niblit_memory as memory_module
+
+    primary = tmp_path / "kb.json"
+    manager = AtomicCommitManager()
+
+    original_replace = memory_module.os.replace
+
+    def fail_replace(src, dst):
+        raise PermissionError("simulated replace failure")
+
+    monkeypatch.setattr(memory_module.os, "replace", fail_replace)
+    try:
+        manager.commit_json(
+            path=str(primary),
+            payload={"facts": [], "meta": {"schema_version": "2.0"}},
+        )
+    finally:
+        monkeypatch.setattr(memory_module.os, "replace", original_replace)
+
+    assert json.loads(primary.read_text(encoding="utf-8"))["meta"]["schema_version"] == "2.0"
 
 
 def test_embedding_middleware_returns_deterministic_384_vectors():
