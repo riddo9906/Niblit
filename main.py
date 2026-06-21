@@ -919,7 +919,12 @@ def main(argv=None):
     # Register OS-level signal handlers so that SIGTERM (system kill) and
     # SIGHUP (Termux session close) also trigger a clean shutdown instead
     # of an abrupt process death that loses autonomous-growth data.
-    for sig in (signal.SIGTERM, signal.SIGHUP):
+    signals_to_try = [getattr(signal, "SIGTERM", None)]
+    if hasattr(signal, "SIGHUP"):
+        signals_to_try.append(signal.SIGHUP)
+    for sig in signals_to_try:
+        if sig is None:
+            continue
         try:
             signal.signal(sig, _shutdown_on_signal)
         except (OSError, ValueError):

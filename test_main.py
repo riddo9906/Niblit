@@ -211,6 +211,18 @@ class TestShutdownOnSignal:
 
         core.shutdown.assert_called_once()
 
+    def test_main_skips_missing_sighup_on_windows(self):
+        """main() should not crash when SIGHUP is unavailable on the platform."""
+        import main
+
+        with patch("main.parse_args", return_value=type("Args", (), {"debug": False, "quiet": False, "tool_call": None, "tool_arguments": None, "list_tools": False})()), \
+             patch("main._run_tool_cli_mode", return_value=-1), \
+             patch("main.boot", return_value=(MagicMock(), MagicMock())), \
+             patch("main.time.sleep", side_effect=KeyboardInterrupt), \
+             patch("main.signal.signal", side_effect=lambda *args, **kwargs: None):
+            with pytest.raises(KeyboardInterrupt):
+                main.main([])
+
     def test_handler_calls_sys_exit(self):
         """_shutdown_on_signal must always call sys.exit(0)."""
         import main
