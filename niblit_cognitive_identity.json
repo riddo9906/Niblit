@@ -1,22 +1,23 @@
 {
   "decision_style": "balanced",
-  "risk_tolerance": 0.545,
+  "risk_tolerance": 0.54,
   "response_bias": {
-    "memory": 0.81,
-    "reasoning": 1.01,
-    "goal": 0.81,
-    "llm": 0.81,
-    "quality": 0.81
+    "memory": 0.78,
+    "reasoning": 1.04,
+    "goal": 0.78,
+    "llm": 0.78,
+    "quality": 0.78
   },
   "decision_policy": {
     "exploration_rate": 0.19,
     "risk_preference": "balanced",
     "priority_mode": "goal_first"
   },
-  "total_decisions": 23,
+  "total_decisions": 26,
   "advisor_win_counts": {
     "reasoning": 11,
-    "unknown": 12
+    "unknown": 12,
+    "llm": 3
   },
   "quality_history": [
     0.75,
@@ -24,9 +25,6 @@
     0.75,
     0.75,
     0.75,
-    0.75,
-    0.75,
-    0.75,
     0.0,
     0.261,
     0.261,
@@ -38,7 +36,10 @@
     0.261,
     0.0,
     0.261,
-    0.261
+    0.261,
+    0.211,
+    0.386,
+    0.159
   ],
-  "last_updated": 1777554339.8619258
+  "last_updated": 1781435406.7774148
 }

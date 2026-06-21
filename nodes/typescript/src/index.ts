@@ -20,7 +20,7 @@ import { NiblitClient } from "./niblit-client.js";
 import { emptyEnvelope, sealEnvelope } from "./niblit-state.js";
 import { DefaultNodeRuntimeAdapter } from "./niblit-runtime-adapter.js";
 
-const NIBLIT_URL = process.env.NIBLIT_URL ?? "http://localhost:8000";
+const NIBLIT_URL = process.env.NIBLIT_URL ?? "http://localhost:8000/v1";
 const NIBLIT_API_KEY = process.env.NIBLIT_API_KEY;
 
 async function main() {

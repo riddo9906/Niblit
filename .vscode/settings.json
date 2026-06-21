@@ -1,18 +1,49 @@
 {
+    "workbench.colorTheme": "Visual Studio Dark",
+
+    "diffEditor.maxComputationTime": 0,
+    "git.autofetch": true,
+    "redhat.telemetry.enabled": true,
+
+    "dev.containers.executeInWSL": true,
+
+    "continue.enableNextEdit": false,
+
+    "github.copilot.llm-gateway.serverUrl": "http://localhost:8000/v1",
+
+    "github.copilot.llm-gateway.defaultMaxTokens": 4096,
+
+    "github.copilot.llm-gateway.models": [
+        {
+            "name": "local-llama",
+            "model": "Llama-3.2-1B-Instruct-Q4_K_M.gguf"
+        }
+    ],
+
+    "github.copilot.llm-gateway.defaultModel": "local-llama",
+
     "yaml.schemas": {
-        "file:///c%3A/Users/Riyaad/.vscode/extensions/continue.continue-1.2.22-win32-x64/config-yaml-schema.json": [
-            ".continue/**/*.yaml",
-            "file:///c%3A/Users/Riyaad/Documents/GitHub/Niblit/.continue/mcpServers/niblit-mcp.yaml"
-        ],
-        "file:///c%3A/Users/Riyaad/.vscode/extensions/continue.continue-1.2.24-win32-x64/config-yaml-schema.json": [
+        "file:///c:/Users/Riyaad/.vscode/extensions/continue.continue-1.2.24-win32-x64/config-yaml-schema.json": [
             ".continue/**/*.yaml"
         ],
-        "file:///c:/Users/Riyaad/.vscode/extensions/continue.continue-1.2.22-win32-x64/config-yaml-schema.json": "file:///c%3A/Users/Riyaad/.continue/config.yaml"
+        "file:///c:/Users/Riyaad/.vscode/extensions/continue.continue-1.2.22-win32-x64/config-yaml-schema.json": [
+            ".continue/**/*.yaml"
+        ],
+        "file:///c:/Users/Riyaad/.continue/config.yaml": [
+            ".continue/**/*.yaml"
+        ]
     },
-    "python.testing.pytestArgs": [
-        "."
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
-    "python-envs.defaultEnvManager": "ms-python.python:system"
+
+    "[yaml]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2,
+        "editor.autoIndent": "keep",
+        "diffEditor.ignoreTrimWhitespace": false,
+        "editor.defaultColorDecorators": "never",
+        "editor.quickSuggestions": {
+            "strings": true,
+            "other": true,
+            "comments": false
+        }
+    }
 }

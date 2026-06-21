@@ -330,21 +330,22 @@
     },
     "active_domains": [
       "artificial intelligence",
-      "machine learning"
+      "machine learning",
+      "neural network"
     ],
     "confidence_map": {
       "ale": 0.5,
       "kernel": 0.5,
       "trading": 0.5,
-      "security": 0.4685,
-      "memory": 0.4685,
+      "security": 0.4779,
+      "memory": 0.4779,
       "language": 0.5,
       "research": 0.5,
       "reasoning": 0.5,
       "evolution": 0.5,
       "civilization": 0.5
     },
-    "cycle_count": 1,
+    "cycle_count": 31,
     "evolution_history": []
   }
 }

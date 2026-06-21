@@ -5,6 +5,7 @@
  * Handles retries, timeout, and error normalization.
  */
 
+import fetch from "node-fetch";
 import { NiblitStateEnvelope, sealEnvelope, verifyEnvelope } from "./niblit-state.js";
 
 export interface NiblitClientConfig {
@@ -124,14 +125,13 @@ export class NiblitClient {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (this.apiKey) headers["X-Niblit-Key"] = this.apiKey;
 
-    try {
-      const { default: fetch } = await import("node-fetch");
-      const res = await fetch(url, {
-        method,
-        headers,
-        body: body != null ? JSON.stringify(body) : undefined,
-        signal: controller.signal as Parameters<typeof fetch>[1]["signal"],
-      });
+   try {
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body != null ? JSON.stringify(body) : undefined,
+    signal: controller.signal,
+  });
 
       if (!res.ok) {
         const text = await res.text().catch(() => "");
