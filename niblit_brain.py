@@ -548,30 +548,63 @@ class NiblitCloudBrain:
             except Exception:
                 pass
 
-        # Niblit native /chat fallback
-        text_input = (system_prompt + "\n\n" + prompt) if system_prompt else prompt
-        niblit_payload = _json.dumps({"text": text_input}).encode("utf-8")
-        req = urllib.request.Request(
-            self.base_url + "/chat",
-            data=niblit_payload,
+        bridge_payload = {
+            "message_type": "ai.inference.requested",
+            "source": "niblit",
+            "target": "niblit-cloud-server",
+            "schema_version": "1.0",
+            "correlation_id": os.urandom(4).hex(),
+            "payload": {
+                "model_id": "local",
+                "prompt": prompt,
+                "context": {"system_prompt": system_prompt or ""},
+            },
+        }
+        bridge_req = urllib.request.Request(
+            self.base_url + "/v1/bridge/inference",
+            data=_json.dumps(bridge_payload).encode("utf-8"),
             method="POST",
             headers=self._headers(),
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(bridge_req, timeout=self.timeout) as resp:
                 data = _json.loads(resp.read().decode("utf-8"))
             reply = (
-                data.get("reply")
+                data.get("payload", {}).get("response_text")
+                or data.get("reply")
                 or data.get("response")
                 or data.get("content")
                 or data.get("text")
                 or ""
             )
-            log.debug("[NiblitCloudBrain] /chat → %r", reply[:60])
+            log.debug("[NiblitCloudBrain] /v1/bridge/inference → %r", reply[:60])
             return reply.strip() or "[NiblitCloudBrain: empty reply]"
         except Exception as exc:
-            log.debug("[NiblitCloudBrain] /chat error: %s", exc)
-            return "[NiblitCloudBrain error: unexpected error calling /chat]"
+            log.debug("[NiblitCloudBrain] /v1/bridge/inference error: %s", exc)
+            # Niblit native /chat fallback
+            text_input = (system_prompt + "\n\n" + prompt) if system_prompt else prompt
+            niblit_payload = _json.dumps({"text": text_input}).encode("utf-8")
+            req = urllib.request.Request(
+                self.base_url + "/chat",
+                data=niblit_payload,
+                method="POST",
+                headers=self._headers(),
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    data = _json.loads(resp.read().decode("utf-8"))
+                reply = (
+                    data.get("reply")
+                    or data.get("response")
+                    or data.get("content")
+                    or data.get("text")
+                    or ""
+                )
+                log.debug("[NiblitCloudBrain] /chat → %r", reply[:60])
+                return reply.strip() or "[NiblitCloudBrain: empty reply]"
+            except Exception as exc2:
+                log.debug("[NiblitCloudBrain] /chat error: %s", exc2)
+                return "[NiblitCloudBrain error: unexpected error calling /chat]"
 
     def ask(
         self,
