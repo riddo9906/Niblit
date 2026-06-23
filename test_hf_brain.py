@@ -27,3 +27,26 @@ def test_hf_402_disables_hfbrain(monkeypatch):
 
     assert result is None
     assert brain.enabled is False
+
+
+def test_kb_snapshot_uses_cache(monkeypatch):
+    monkeypatch.setenv("HF_TOKEN", "hf_test_token")
+
+    class CountingDB:
+        def __init__(self):
+            self.calls = 0
+
+        def list_facts(self, _limit=200):
+            self.calls += 1
+            return [{"key": "topic_knowledge:python", "value": "Python is powerful"}]
+
+    db = CountingDB()
+    brain = HFBrain(db=db)
+    brain.chat_memory = None
+
+    first = brain._build_kb_snapshot()
+    second = brain._build_kb_snapshot()
+
+    assert first == "NIBLIT CURRENT KNOWLEDGE TOPICS (from KB ledger):\n• python: Python is powerful"
+    assert second == first
+    assert db.calls == 1

@@ -1,6 +1,8 @@
 # NIBLIT-AIOS: Neural Integrated Baseline for Learning, Intelligence, and Tasking
 ## Artificial Intelligence Operating System
 
+Licensed under the MIT License. See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
+
 Niblit is a **self-improving, autonomous AI operating system** that learns,
 researches, codes, reflects, and fine-tunes itself — running 24/7 on any device,
 including your Android phone via Termux.

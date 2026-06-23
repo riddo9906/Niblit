@@ -1,0 +1,18 @@
+Niblit Notice
+=============
+
+This repository is distributed under the MIT License. A copy of the MIT License
+is available in the LICENSE file at the root of this repository.
+
+Third-party components
+----------------------
+
+- The vendored copy of swift-argument-parser under vendor/swift-argument-parser
+  is licensed under the Apache License 2.0. See
+  vendor/swift-argument-parser/LICENSE.txt for details.
+- Additional third-party dependencies referenced by the Python and Swift package
+  manifests are subject to their own license terms and are not covered by this
+  notice.
+
+The above notice does not replace or supersede the license terms of any
+third-party component included in this repository.

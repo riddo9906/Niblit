@@ -1,0 +1,785 @@
+#!/usr/bin/env python3
+"""
+modules/hybrid_qdrant_manager.py — Multi-Model Qdrant Inference Manager
+────────────────────────────────────────────────────────────────────────
+Manages four complementary inference providers against a single Qdrant
+cluster, routing queries and upserts to the appropriate model(s) based
+on the nature of the text.
+
+Providers
+─────────
+  ColBERT Small V1  (answerdotai/answerai-colbert-small-v1)
+      Late-interaction dense retrieval; best for deep semantic / code / RAG
+      workloads where per-token precision matters.
+
+  BM25  (qdrant/bm25)
+      Sparse keyword model; acts as a reliable lexical fallback that recalls
+      exact terms even when dense embeddings under-rank them.
+
+  intfloat multilingual-e5-small  (intfloat/multilingual-e5-small)
+      Multilingual dense model; supports 100 languages. Used for
+      general dense retrieval, chat context, and multilingual text.
+
+Public API
+──────────
+  get_hybrid_manager()          — module-level singleton getter
+  HybridQdrantManager.upsert()  — insert/update a document using selected models
+  HybridQdrantManager.query()   — search, deduplicate, and re-rank results
+  HybridQdrantManager.upsert_knowledge_item()  — dict-based upsert convenience
+  HybridQdrantManager.select_models()          — route text to appropriate model set
+  HybridQdrantManager.get_stats()              — per-model operation counters
+  HybridQdrantManager.model_stats()            — human-readable stats string
+
+Configuration (environment variables)
+──────────────────────────────────────
+  QDRANT_URL                Qdrant cluster URL (default from central QdrantConfig)
+  QDRANT_API_KEY            Optional API key for Qdrant Cloud
+  QDRANT_COLLECTION_PREFIX  Prefix prepended to every collection name (default: "niblit")
+
+Graceful degradation
+────────────────────
+  All qdrant-client interactions are wrapped in try/except blocks.  If
+  ``qdrant-client`` is not installed or the cluster is unreachable the module
+  continues to function; operations are logged as warnings and return empty
+  results rather than raising.
+
+Usage::
+
+    from modules.hybrid_qdrant_manager import get_hybrid_manager
+
+    mgr = get_hybrid_manager()
+    mgr.upsert("def fibonacci(n): ...", {"lang": "python"}, "code_docs")
+    results = mgr.query("fibonacci implementation", "code_docs", top_k=3)
+    print(mgr.model_stats())
+"""
+
+from __future__ import annotations
+
+import logging
+import hashlib
+import threading
+import time
+import unicodedata
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+
+from modules.config.qdrant_config import QdrantConfig
+
+log = logging.getLogger("HybridQdrantManager")
+
+# ── Optional qdrant-client import ─────────────────────────────────────────────
+# We import lazily so the module loads cleanly even when qdrant-client is absent.
+try:
+    from qdrant_client import QdrantClient  # type: ignore[import]
+    from qdrant_client.models import (  # type: ignore[import]
+        Distance,
+        NamedSparseVector,
+        NamedVector,
+        SparseVector,
+        VectorParams,
+    )
+    _QDRANT_AVAILABLE = True
+except ImportError:
+    _QDRANT_AVAILABLE = False
+    QdrantClient = None  # type: ignore[assignment,misc]
+    log.debug("qdrant-client not installed — HybridQdrantManager running in stub mode")
+
+# ── Optional fastembed import (used by qdrant-client for local embeddings) ────
+try:
+    from fastembed import TextEmbedding, SparseTextEmbedding  # type: ignore[import]
+    _FASTEMBED_AVAILABLE = True
+except ImportError:
+    _FASTEMBED_AVAILABLE = False
+    log.debug("fastembed not installed — will attempt qdrant-client's built-in embedder")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Model registry
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Each entry defines an inference provider that HybridQdrantManager can route to.
+# "vector_name" is the named-vector key used in the multi-vector Qdrant collection.
+# "dim" is the embedding dimensionality (used when creating collections).
+# "distance" is the similarity metric appropriate for the model.
+# "sparse" True → BM25-style sparse vector; False → dense float vector.
+
+_MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {
+    "colbert": {
+        "model_id":    "answerdotai/answerai-colbert-small-v1",
+        "vector_name": "colbert",
+        "dim":         96,        # ColBERT Small V1 single-token projection dim
+        "distance":    "Cosine",
+        "sparse":      False,
+        "description": "Deep semantic / code / RAG late-interaction retrieval",
+    },
+    "bm25": {
+        "model_id":    "qdrant/bm25",
+        "vector_name": "bm25",
+        "dim":         0,         # sparse — no fixed dim
+        "distance":    "Dot",
+        "sparse":      True,
+        "description": "Keyword / lexical BM25 fallback",
+    },
+    "e5": {
+        "model_id":    "intfloat/multilingual-e5-small",
+        "vector_name": "e5",
+        "dim":         384,
+        "distance":    "Cosine",
+        "sparse":      False,
+        "description": "Multilingual dense retrieval (100 languages, chat & general text)",
+    },
+}
+
+_ALL_MODEL_KEYS = list(_MODEL_REGISTRY.keys())  # canonical ordering
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Language / routing helpers
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _contains_non_ascii(text: str) -> bool:
+    """Return True if *text* contains characters outside the ASCII range."""
+    try:
+        text.encode("ascii")
+        return False
+    except UnicodeEncodeError:
+        return True
+
+
+def _normalize_text(text: str) -> str:
+    """Normalize Unicode text before embedding.
+
+    Uses ``unicodedata.normalize`` (NFC form) to canonicalise combining
+    characters so that visually identical strings produce identical embeddings.
+    Also strips leading/trailing whitespace.
+    """
+    return unicodedata.normalize("NFC", text).strip()
+
+
+def _looks_like_code(text: str) -> bool:
+    """Heuristic: does *text* look like source code?"""
+    code_signals = ("def ", "class ", "import ", "return ", "function ", "const ",
+                    "=>", "->", "::", "##", "//", "/*", "*/", "{", "}", ";")
+    sample = text[:300]
+    hits = sum(1 for s in code_signals if s in sample)
+    return hits >= 2
+
+
+def _is_long(text: str, threshold: int = 256) -> bool:
+    """Return True when *text* exceeds *threshold* characters."""
+    return len(text) > threshold
+
+
+@dataclass(frozen=True)
+class RoutedQdrantPoint:
+    collection: str
+    id: int
+    payload: Dict[str, Any]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HybridQdrantManager
+# ══════════════════════════════════════════════════════════════════════════════
+
+class HybridQdrantManager:
+    """
+    Multi-model Qdrant inference manager.
+
+    Maintains a single QdrantClient connection and routes document upserts /
+    queries across up to four inference models.  All Qdrant API calls are
+    wrapped in try/except so the class degrades gracefully when the cluster or
+    the qdrant-client package is unavailable.
+
+    Parameters
+    ----------
+    config:
+        Optional Qdrant config bundle.  Defaults to :meth:`QdrantConfig.load`.
+    """
+
+    def __init__(self, config: Optional[QdrantConfig] = None) -> None:
+        config = config or QdrantConfig.load()
+
+        self._url = config.url
+        self._api_key = config.api_key
+        self._prefix = config.prefix
+        self._collection_default = config.collection
+        self._lock = threading.Lock()
+
+        # Per-model operation counters: {"model_key": {"upsert": int, "query": int}}
+        self._stats: Dict[str, Dict[str, int]] = {
+            k: {"upsert": 0, "query": 0} for k in _ALL_MODEL_KEYS
+        }
+
+        # Lazily initialised QdrantClient — None until first use
+        self._client: Optional[Any] = None
+
+        # Cache of already-created collection names to avoid redundant API calls
+        self._known_collections: set = set()
+
+        log.info(
+            "[HybridQdrantManager] Initialised (url=%s, prefix=%s, qdrant_available=%s)",
+            self._url, self._prefix, _QDRANT_AVAILABLE,
+        )
+
+    # ── Internal helpers ──────────────────────────────────────────────────────
+
+    def _get_client(self) -> Optional[Any]:
+        """Return (or lazily create) QdrantClient."""
+        if not _QDRANT_AVAILABLE:
+            return None
+
+        if self._client is not None:
+            return self._client
+
+        try:
+            kwargs: Dict[str, Any] = {"url": self._url}
+
+            if self._api_key:
+                kwargs["api_key"] = self._api_key
+
+            self._client = QdrantClient(**kwargs)
+            log.debug("[HybridQdrantManager] connected to %s", self._url)
+
+        except Exception as exc:
+            log.warning("[HybridQdrantManager] connection failed: %s", exc)
+            self._client = None
+
+        return self._client
+
+    def _prefixed(self, collection: str) -> str:
+        """
+        HARD-STANDARDIZED collection naming system.
+
+        Collection names are normalized to lowercase, hyphens are converted
+        to underscores, and every collection is forced through the configured
+        prefix so all routing resolves to one deterministic namespace.
+        """
+        collection = collection.strip().lower()
+        if not collection:
+            collection = (self._collection_default or "niblit_vectors").strip().lower()
+
+        collection = collection.replace("-", "_")
+
+        if collection.startswith(self._prefix + "_"):
+            return collection
+
+        return f"{self._prefix}_{collection}"
+
+    def _ensure_collection(self, full_name: str, models: List[str]) -> bool:
+        """
+        Create *full_name* in Qdrant if it does not already exist.
+
+        Builds a multi-vector collection with one named vector per model in
+        *models*.  Sparse (BM25) vectors use ``sparse_vectors_config``; dense
+        vectors are declared in ``vectors_config``.
+
+        Returns True on success, False if Qdrant is unavailable or the call fails.
+        """
+        if full_name in self._known_collections:
+            return True
+
+        client = self._get_client()
+        if client is None:
+            return False
+
+        try:
+            # Check whether the collection already exists
+            existing = [c.name for c in client.get_collections().collections]
+            if full_name in existing:
+                self._known_collections.add(full_name)
+                return True
+
+            # Build vectors_config for dense models
+            dense_configs: Dict[str, Any] = {}
+            sparse_configs: Dict[str, Any] = {}
+
+            for key in models:
+                spec = _MODEL_REGISTRY[key]
+                if spec["sparse"]:
+                    # BM25 sparse vector configuration
+                    try:
+                        from qdrant_client.models import SparseVectorParams  # type: ignore[import]
+                        sparse_configs[spec["vector_name"]] = SparseVectorParams()
+                    except ImportError:
+                        log.debug("[HybridQdrantManager] SparseVectorParams unavailable; skipping BM25 config")
+                else:
+                    dist_map = {"Cosine": Distance.COSINE, "Dot": Distance.DOT, "Euclid": Distance.EUCLID}
+                    dist = dist_map.get(spec["distance"], Distance.COSINE)
+                    dense_configs[spec["vector_name"]] = VectorParams(size=spec["dim"], distance=dist)
+
+            create_kwargs: Dict[str, Any] = {}
+            if dense_configs:
+                create_kwargs["vectors_config"] = dense_configs
+            if sparse_configs:
+                create_kwargs["sparse_vectors_config"] = sparse_configs
+
+            client.create_collection(collection_name=full_name, **create_kwargs)
+            self._known_collections.add(full_name)
+            log.info("[HybridQdrantManager] Created collection '%s' with models %s", full_name, models)
+            return True
+
+        except Exception as exc:
+            log.warning("[HybridQdrantManager] _ensure_collection('%s') failed: %s", full_name, exc)
+            return False
+
+    def _embed(self, model_key: str, text: str) -> Optional[Any]:
+        """
+        Produce an embedding for *text* using the model identified by *model_key*.
+
+        Delegates to qdrant-client's built-in fastembed integration when
+        available.  Returns the raw vector (list[float] or SparseVector) or
+        None on failure.
+        """
+        spec = _MODEL_REGISTRY[model_key]
+        model_id = spec["model_id"]
+
+        if not _FASTEMBED_AVAILABLE:
+            log.debug("[HybridQdrantManager] fastembed unavailable; cannot embed with %s", model_key)
+            return None
+
+        try:
+            if spec["sparse"]:
+                # BM25 sparse embedding via fastembed SparseTextEmbedding
+                embedder = SparseTextEmbedding(model_name=model_id)
+                result = list(embedder.embed([text]))[0]
+                # fastembed returns an object with .indices and .values attributes
+                return SparseVector(indices=list(result.indices), values=list(result.values))
+            else:
+                # Dense embedding via fastembed TextEmbedding
+                embedder = TextEmbedding(model_name=model_id)
+                result = list(embedder.embed([text]))[0]
+                return list(result)
+        except Exception as exc:
+            log.warning("[HybridQdrantManager] Embedding failed for model '%s': %s", model_key, exc)
+            return None
+
+    # ── Model routing ─────────────────────────────────────────────────────────
+
+    def select_models(
+        self,
+        text: str,
+        context: Optional[str] = None,
+    ) -> List[str]:
+        """
+        Return the list of model keys best suited for *text*.
+
+        Routing rules (applied in priority order):
+        1. Non-ASCII / multilingual content       → always include ``e5``
+        2. Source code signals                    → always include ``colbert``
+        3. Long text (>256 chars) for deep search → always include ``colbert``
+        4. Short text / chat                      → always include ``e5``
+        5. BM25 included for all cases as lexical safety net
+
+        The returned list always contains at least one model.  ``context``
+        is an optional string hint (e.g. ``"code"``, ``"chat"``) that can
+        override the automatic detection.
+        """
+        selected: List[str] = []
+
+        ctx = (context or "").lower()
+
+        if ctx == "code" or _looks_like_code(text):
+            selected.append("colbert")
+
+        if ctx == "multilingual" or _contains_non_ascii(text):
+            selected.append("e5")
+
+        if ctx == "chat" or (not _is_long(text) and "colbert" not in selected and "e5" not in selected):
+            selected.append("e5")
+
+        if _is_long(text) and "colbert" not in selected:
+            selected.append("colbert")
+
+        # Always add BM25 as lexical fallback
+        selected.append("bm25")
+
+        # Deduplicate while preserving order, then return
+        seen: set = set()
+        ordered: List[str] = []
+        for k in selected:
+            if k not in seen:
+                seen.add(k)
+                ordered.append(k)
+
+        # Guarantee at least e5 as a fallback if everything else was skipped
+        if not ordered:
+            ordered = ["e5", "bm25"]
+
+        log.debug("[HybridQdrantManager] select_models → %s (len=%d, context=%s)", ordered, len(text), context)
+        return ordered
+
+    # ── Core operations ───────────────────────────────────────────────────────
+
+    def route_to_collection(self, text: str, meta: Dict[str, Any]) -> RoutedQdrantPoint:
+        """Route a write request into the canonical prefixed collection."""
+        payload = dict(meta.get("payload") or {})
+        payload.setdefault("_text", text[:6000])
+
+        seed = meta.get("doc_id") or text
+        stable_hash = hashlib.sha256(str(seed).encode("utf-8", errors="replace")).digest()
+        point_id = int.from_bytes(stable_hash[:8], "big") & 0x7FFF_FFFF_FFFF_FFFF
+
+        collection = self._prefixed(str(meta.get("collection") or self._collection_default or "niblit_vectors"))
+        return RoutedQdrantPoint(collection=collection, id=point_id, payload=payload)
+
+    def insert(self, text: str, meta: Dict[str, Any]) -> bool:
+        """
+        Single controlled write path into Qdrant.
+        """
+        if "vector" not in meta:
+            log.warning("[HybridQdrantManager] insert called without vector payload")
+            return False
+
+        routed = self.route_to_collection(text, meta)
+        models = meta.get("models") or self.select_models(text)
+        models = [m for m in models if m in _MODEL_REGISTRY]
+        if not models:
+            log.warning("[HybridQdrantManager] insert called with no valid models")
+            return False
+
+        if not self._ensure_collection(routed.collection, models):
+            log.warning("[HybridQdrantManager] insert: collection not available (%s)", routed.collection)
+            return False
+
+        client = self._get_client()
+        if client is None:
+            return False
+
+        try:
+            client.upsert(
+                collection_name=routed.collection,
+                points=[{
+                    "id": routed.id,
+                    "vector": meta["vector"],
+                    "payload": routed.payload,
+                }],
+            )
+            return True
+        except Exception as exc:
+            log.warning("[HybridQdrantManager] insert to '%s' failed: %s", routed.collection, exc)
+            return False
+
+    def upsert(
+        self,
+        text: str,
+        payload: Dict[str, Any],
+        collection: str,
+        models: Optional[List[str]] = None,
+        doc_id: Optional[str] = None,
+    ) -> bool:
+        """
+        Upsert *text* into *collection* using each model in *models*.
+
+        Creates the collection in Qdrant if it does not already exist.  If
+        qdrant-client is unavailable the call returns False without raising.
+
+        Parameters
+        ----------
+        text:
+            The document text to embed and store.
+        payload:
+            Arbitrary metadata attached to the Qdrant point.
+        collection:
+            Logical collection name (prefix is applied automatically).
+        models:
+            Subset of model keys to use.  When None, ``select_models`` is
+            called automatically.
+        doc_id:
+            Optional stable ID for the Qdrant point.  Falls back to a
+            hash of *text* when not provided.
+
+        Returns
+        -------
+        bool
+            True if at least one model upserted successfully.
+        """
+        if models is None:
+            models = self.select_models(text)
+
+        # Validate model keys
+        models = [m for m in models if m in _MODEL_REGISTRY]
+        if not models:
+            log.warning("[HybridQdrantManager] upsert called with no valid models")
+            return False
+
+        # Normalise text before embedding so unicode variants hash/embed consistently
+        text = _normalize_text(text)
+
+        # Build the multi-vector dict: {vector_name: embedding}
+        # Dense vectors → NamedVector; sparse vectors → NamedSparseVector.
+        # Using the typed wrappers helps qdrant-client infer the correct wire
+        # format when the collection uses mixed (dense + sparse) vector schemas.
+        vectors: Dict[str, Any] = {}
+        success_count = 0
+
+        for model_key in models:
+            spec = _MODEL_REGISTRY[model_key]
+            vector = self._embed(model_key, text)
+            if vector is None:
+                log.debug("[HybridQdrantManager] Skipping model '%s' (no embedding)", model_key)
+                continue
+            if spec.get("sparse"):
+                # Sparse vector: list of (index, value) pairs or a SparseVector
+                if _QDRANT_AVAILABLE and isinstance(vector, dict):
+                    vectors[spec["vector_name"]] = NamedSparseVector(
+                        name=spec["vector_name"], vector=vector
+                    )
+                else:
+                    vectors[spec["vector_name"]] = vector
+            else:
+                # Dense vector: wrap in NamedVector for explicit named-vector upserts
+                if _QDRANT_AVAILABLE and isinstance(vector, list):
+                    vectors[spec["vector_name"]] = NamedVector(
+                        name=spec["vector_name"], vector=vector
+                    )
+                else:
+                    vectors[spec["vector_name"]] = vector
+
+        if not vectors:
+            log.warning(
+                "[HybridQdrantManager] upsert: no embeddings produced for text (len=%d)", len(text)
+            )
+            return False
+
+        plain_vectors = {
+            k: (v.vector if hasattr(v, "vector") else v)
+            for k, v in vectors.items()
+        }
+        t0 = time.time()
+        if not self.insert(
+            text=text,
+            meta={
+                "collection": collection,
+                "doc_id": doc_id,
+                "models": models,
+                "payload": payload,
+                "vector": plain_vectors,
+            },
+        ):
+            return False
+        latency_ms = round((time.time() - t0) * 1000, 1)
+        success_count = len(plain_vectors)
+        log.debug(
+            "[HybridQdrantManager] Upserted into '%s' with %d vectors (%.1fms)",
+            self._prefixed(collection), success_count, latency_ms,
+        )
+
+        # Increment per-model stats for each model whose vector was actually embedded
+        with self._lock:
+            for model_key in models:
+                spec = _MODEL_REGISTRY[model_key]
+                if spec["vector_name"] in vectors:
+                    self._stats[model_key]["upsert"] += 1
+
+        return success_count > 0
+
+    def query(
+        self,
+        text: str,
+        collection: str,
+        top_k: int = 5,
+        models: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Query *collection* with *text* using each model in *models*.
+
+        Results from all models are merged, deduplicated by point ID (keeping
+        the highest score per ID), and sorted by score descending.
+
+        Parameters
+        ----------
+        text:
+            The query string.
+        collection:
+            Logical collection name.
+        top_k:
+            Maximum number of results to return.
+        models:
+            Subset of model keys to query.  When None, ``select_models``
+            is called automatically.
+
+        Returns
+        -------
+        list of dict
+            Each dict contains at minimum ``id``, ``score``, ``payload``,
+            and ``model`` (the model that produced the top score for that ID).
+        """
+        if models is None:
+            models = self.select_models(text)
+
+        models = [m for m in models if m in _MODEL_REGISTRY]
+        if not models:
+            return []
+
+        full_name = self._prefixed(collection)
+        client = self._get_client()
+        if client is None:
+            return []
+
+        # Accumulate raw results keyed by point ID → best (score, result_dict)
+        best: Dict[int, Tuple[float, Dict[str, Any]]] = {}
+
+        for model_key in models:
+            spec = _MODEL_REGISTRY[model_key]
+            vector = self._embed(model_key, text)
+            if vector is None:
+                log.debug("[HybridQdrantManager] query: skipping model '%s' (no embedding)", model_key)
+                continue
+
+            try:
+                # Use query_points with named vector for multi-vector collections.
+                # Both dense and sparse vectors use the same query_points API;
+                # qdrant-client infers the vector type from the collection schema.
+                results = client.query_points(
+                    collection_name=full_name,
+                    query=vector,
+                    using=spec["vector_name"],
+                    limit=top_k,
+                ).points
+
+                with self._lock:
+                    self._stats[model_key]["query"] += 1
+
+                for hit in results:
+                    hit_id = hit.id
+                    hit_score = hit.score if hasattr(hit, "score") else 0.0
+                    if hit_id not in best or hit_score > best[hit_id][0]:
+                        best[hit_id] = (
+                            hit_score,
+                            {
+                                "id": hit_id,
+                                "score": hit_score,
+                                "payload": hit.payload or {},
+                                "model": model_key,
+                            },
+                        )
+
+            except Exception as exc:
+                log.warning(
+                    "[HybridQdrantManager] query model '%s' on '%s' failed: %s",
+                    model_key, full_name, exc,
+                )
+
+        # Sort by score descending, return top_k
+        ranked = sorted(best.values(), key=lambda t: t[0], reverse=True)
+        return [r for _, r in ranked[:top_k]]
+
+    def upsert_knowledge_item(self, item: Dict[str, Any]) -> bool:
+        """
+        Convenience wrapper for dict-based knowledge items.
+
+        Expects *item* to contain:
+          - ``id``         (str)  — stable document identifier (used only for
+                                    computing the integer point ID; never stored
+                                    as a topic ID in the payload)
+          - ``text``       (str)  — document text to embed
+          - ``payload``    (dict) — metadata to store alongside the vector
+          - ``collection`` (str)  — target collection name
+
+        Optional keys:
+          - ``topic``      (str)  — short human-readable topic description.
+                                    When absent, ``TopicSummariser`` derives it
+                                    from the text automatically.
+          - ``models``     (list) — override model selection
+
+        Returns True if upsert succeeded for at least one model.
+        """
+        doc_id = str(item.get("id", ""))
+        text = str(item.get("text", ""))
+        payload = item.get("payload") or {}
+        collection = str(item.get("collection", "default"))
+        models = item.get("models")  # may be None → auto-select
+
+        if not text.strip():
+            log.warning("[HybridQdrantManager] upsert_knowledge_item: empty text for id='%s'", doc_id)
+            return False
+
+        # Build a short topic description — never store a topic ID or slug.
+        explicit_topic = str(item.get("topic", "")).strip()
+        if not explicit_topic:
+            try:
+                from modules.qdrant_tools import TopicSummariser as _TS  # type: ignore[import]
+                explicit_topic = _TS.summarise(text, hint=doc_id)
+            except Exception:
+                explicit_topic = text[:80].split("\n")[0].strip()
+
+        # Merge the topic description into the payload.  Do NOT add doc_id as
+        # a payload field so that no topic-derived ID is persisted in the point.
+        merged_payload = {**payload, "_topic": explicit_topic}
+
+        return self.upsert(
+            text=text,
+            payload=merged_payload,
+            collection=collection,
+            models=models,
+            doc_id=doc_id if doc_id else None,
+        )
+
+    # ── Statistics ────────────────────────────────────────────────────────────
+
+    def get_stats(self) -> Dict[str, Dict[str, int]]:
+        """
+        Return per-model operation counters.
+
+        Returns
+        -------
+        dict
+            ``{model_key: {"upsert": int, "query": int}}`` for each model.
+        """
+        with self._lock:
+            return {k: dict(v) for k, v in self._stats.items()}
+
+    def model_stats(self) -> str:
+        """Return a formatted multi-line string report of per-model stats."""
+        lines = [
+            "── HybridQdrantManager Model Stats ──",
+            f"  URL:    {self._url}",
+            f"  Prefix: {self._prefix}",
+            f"  Qdrant available: {_QDRANT_AVAILABLE}",
+            "",
+        ]
+        stats = self.get_stats()
+        for key in _ALL_MODEL_KEYS:
+            spec = _MODEL_REGISTRY[key]
+            s = stats.get(key, {"upsert": 0, "query": 0})
+            lines.append(
+                f"  [{key:8s}] upserts={s['upsert']:4d}  queries={s['query']:4d}"
+                f"  — {spec['description']}"
+            )
+        lines.append("")
+        return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Module-level singleton
+# ══════════════════════════════════════════════════════════════════════════════
+
+_manager_instance: Optional[HybridQdrantManager] = None
+_manager_lock = threading.Lock()
+
+
+def get_hybrid_manager(
+    config: Optional[QdrantConfig] = None,
+) -> HybridQdrantManager:
+    """
+    Return the process-wide :class:`HybridQdrantManager` singleton.
+
+    The first call creates the instance using the supplied parameters (or
+    environment variable defaults).  Subsequent calls ignore the parameters and
+    return the already-created instance.
+
+    Parameters
+    ----------
+    config:
+        Optional Qdrant config bundle for first initialisation.
+    """
+    global _manager_instance
+    if _manager_instance is None:
+        with _manager_lock:
+            if _manager_instance is None:
+                _manager_instance = HybridQdrantManager(config=config)
+    return _manager_instance
+
+
+if __name__ == "__main__":
+    print('Running hybrid_qdrant_manager.py')

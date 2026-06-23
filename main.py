@@ -26,8 +26,15 @@ import threading
 import time
 import traceback
 
+# ── Path bootstrap before importing local modules ─────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+os.chdir(BASE_DIR)
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 from niblit_core import NiblitCore
 from niblit_io import NiblitIO
+from modules.structured_logging import configure_runtime_logging, log_exception
 
 # ── Centralised logging configuration ──────────────────────────────────────
 # Set up the root logger ONCE here, before any module imports.  Individual
@@ -39,6 +46,8 @@ logging.basicConfig(
     level=logging.WARNING,
     format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s",
 )
+RUNTIME_LOG_FILE = os.getenv("NIBLIT_RUNTIME_LOG_FILE") or os.path.join(BASE_DIR, "runtime.jsonl")
+RUNTIME_LOGGER = configure_runtime_logging(log_file=RUNTIME_LOG_FILE, level=logging.INFO, name="NiblitRuntime")
 
 # Load .env file when running locally (e.g. Termux).  niblit_core also calls
 # load_dotenv(), but doing it here ensures vars are set before any imports.
@@ -85,14 +94,6 @@ def _shutdown_on_signal(sig, _frame):
         except (AttributeError, RuntimeError, OSError):
             pass
     sys.exit(0)
-
-# ─────────────────────────────
-# DIRECTORY LOCK
-# ─────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-os.chdir(BASE_DIR)
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
 
 # ─────────────────────────────
 # GLOBAL DEBUG FLAG
@@ -183,6 +184,18 @@ def suggest_command(user_input, core=None):
 # ─────────────────────────────
 # CLI ARGUMENT PARSER (Ollama-inspired)
 # ─────────────────────────────
+def _is_low_resource_mode(args=None) -> bool:
+    """Return True when the runtime should skip expensive startup work."""
+    if args is not None and getattr(args, "low_resource", False):
+        return True
+    return os.getenv("NIBLIT_LOW_RESOURCE_MODE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 def parse_args(argv=None):
     """Parse Niblit AIOS command-line arguments.
 
@@ -267,6 +280,12 @@ def parse_args(argv=None):
         action="store_true",
         default=False,
         help="Disable desktop UI auto-launch and run CLI only",
+    )
+    p.add_argument(
+        "--low-resource",
+        action="store_true",
+        default=False,
+        help="Reduce startup work and background activity to save CPU and RAM",
     )
     p.add_argument(
         "--cli",
@@ -442,17 +461,19 @@ def print_notifications(core=None, io=None):
 # BOOT
 # ─────────────────────────────
 def boot():
+    RUNTIME_LOGGER.info("boot start", event="startup", component="main", state="initializing")
     io = NiblitIO()
     io.out(f"{timestamp()} ═══════════════════════════════════════════")
     io.out(f"{timestamp()} ✨  TRUE AUTONOMOUS NIBLIT AIOS BOOT")
     io.out(f"{timestamp()} ═══════════════════════════════════════════")
 
-    # Print service status table so the user immediately knows which keys are set.
-    try:
-        from config import Config as _Config
-        _Config.validate()
-    except Exception:  # pylint: disable=broad-exception-caught
-        pass
+    if not _is_low_resource_mode():
+        # Print service status table so the user immediately knows which keys are set.
+        try:
+            from config import Config as _Config
+            _Config.validate()
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
 
     core = NiblitCore()
     io.out(f"{timestamp()} 🔷 Phase 0 (fast-start) complete — CORE READY")
@@ -485,6 +506,7 @@ def boot():
 
     debug(io, "Active Threads After Boot:")
     debug(io, list_threads())
+    RUNTIME_LOGGER.info("boot complete", event="startup", component="main", state="ready")
 
     return core, io
 
@@ -665,6 +687,8 @@ def _drain_init_messages(init_queue, io) -> int:
         try:
             message = init_queue.get_nowait()
         except Exception:
+            break
+        if not isinstance(message, str):
             break
         io.out(f"{timestamp()} {message}")
         printed += 1
@@ -913,6 +937,7 @@ def run_shell(core, io):
 
         except BaseException as exc:
             io.error(f"{timestamp()} [RUNTIME ERROR] {exc}")
+            log_exception(RUNTIME_LOGGER, "shell", exc, component="main", state="runtime-error")
             traceback.print_exc()
 
 # ─────────────────────────────
@@ -941,10 +966,18 @@ def main(argv=None):
         return 0
 
     # Apply CLI flags before boot
-    if _args.debug:
+    if getattr(_args, "debug", False):
         DEBUG_MODE = True
-    if _args.quiet:
+    if getattr(_args, "quiet", False):
         NiblitIO._quiet = True
+
+    if _is_low_resource_mode(_args):
+        os.environ["NIBLIT_LOW_RESOURCE_MODE"] = "1"
+        os.environ["NIBLIT_SKIP_INIT_WAIT"] = "1"
+        if not getattr(_args, "headless", False) and not getattr(_args, "cli", False):
+            _args.headless = True
+        if not getattr(_args, "quiet", False):
+            _args.quiet = True
 
     # Tool registry CLI mode (LangChain-style function calling)
     _tool_mode_exit = _run_tool_cli_mode(_args)
@@ -968,7 +1001,11 @@ def main(argv=None):
             # some platforms — ignore gracefully.
             pass
 
-    core, io = boot()
+    try:
+        core, io = boot()
+    except Exception as exc:
+        log_exception(RUNTIME_LOGGER, "boot", exc, component="main", state="failed")
+        raise
 
     # ── Block until Phase-1 deferred init is complete ─────────────────────────
     # With phased init, NiblitCore.__init__ returns in < 2s (Phase 0), but
@@ -1112,8 +1149,9 @@ def main(argv=None):
                 pass
 
     # ── One-shot mode: run a single command then exit ─────────────────────────
-    if _args.one_shot is not None:
-        cmd = _args.one_shot.strip()
+    one_shot = getattr(_args, "one_shot", None)
+    if one_shot is not None:
+        cmd = one_shot.strip()
         try:
             cmd_lower = cmd.lower()
             if cmd_lower in ("help",):

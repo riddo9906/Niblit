@@ -198,6 +198,16 @@ class TestRunShellOrdinaryException:
 # Signal handler: _shutdown_on_signal
 # ---------------------------------------------------------------------------
 
+class TestLowResourceMode:
+    def test_low_resource_mode_enabled_by_flag(self, monkeypatch):
+        import main
+
+        monkeypatch.delenv("NIBLIT_LOW_RESOURCE_MODE", raising=False)
+        args = type("Args", (), {"low_resource": True, "one_shot": None, "list_tools": False, "tool_call": None, "headless": False, "cli": False})()
+
+        assert main._is_low_resource_mode(args)
+
+
 class TestShutdownOnSignal:
     def test_handler_calls_core_shutdown(self):
         """_shutdown_on_signal should call _active_core.shutdown() if set."""

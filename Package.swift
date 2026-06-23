@@ -25,10 +25,7 @@ let package = Package(
         .executable(name: "ale-swift-module", targets: ["AleSwiftModule"]),
     ],
     dependencies: [
-        .package(
-            url: "https://github.com/apple/swift-argument-parser",
-            from: "1.3.0"
-        ),
+        .package(path: "vendor/swift-argument-parser"),
         .package(
             url: "https://github.com/apple/swift-crypto",
             from: "3.0.0"

@@ -1,0 +1,1488 @@
+#!/usr/bin/env python3
+"""
+ENHANCED SELF-RESEARCHER MODULE
+Autonomous learning + Knowledge-based conversation without LLM
+
+Research priority order
+-----------------------
+1. Serpex (niblit_agents.ResearchAgent) — validated, relevance-filtered web results
+2. Searchcode (SearchcodeSearch) — structured code search (for code-related queries)
+3. ResearcherEngine — semantic KB cache
+4. Internet (InternetManager) — direct scrape, used only as last-resort fallback
+5. History cache — previously seen results
+
+Auto-research can be paused/resumed via ``stop_auto_research()`` /
+``start_auto_research()``, which map to the ``auto-research stop/start``
+CLI commands.
+"""
+
+from datetime import datetime, timezone
+import json
+import math
+import html
+import re
+import time
+import logging
+from typing import List, Dict, Tuple, Optional, Any
+
+log = logging.getLogger("SelfResearcher")
+
+try:
+    from niblit_agents.research_agent import is_relevant, should_reflect
+except ImportError:  # pragma: no cover – graceful degradation
+    def is_relevant(query: str, text: str, threshold: float = 0.5) -> bool:  # type: ignore[misc]
+        query_terms = set(query.lower().split())
+        if not query_terms:
+            return True
+        text_lower = text.lower()
+        overlap = sum(1 for term in query_terms if term in text_lower)
+        return (overlap / len(query_terms)) >= threshold
+
+    def should_reflect(results: list) -> bool:  # type: ignore[misc]
+        return len(results) > 0
+
+
+# ── Code/programming query detector ─────────────────────────────────────────
+# Keywords that strongly indicate a programming / software-engineering query.
+# Used to gate code-specialised backends (Searchcode, StackOverflow) so they
+# only run when genuinely relevant and don't pollute general knowledge answers.
+#
+# NOTE: multi-word phrases here are matched as substrings against the full
+# lowercased query string, not against the individual word set.  Single-word
+# terms are matched against the word set (word-boundary aware).
+_CODE_QUERY_KEYWORDS = frozenset({
+    "python", "javascript", "typescript", "java", "kotlin", "swift",
+    "golang", "rust", "ruby", "php", "html", "css", "sql",
+    "code", "function", "class", "method", "variable", "import", "module",
+    "library", "package", "framework", "api", "bug", "error", "exception",
+    "debug", "refactor", "compile", "runtime", "syntax", "algorithm",
+    "regex", "git", "bash", "script", "loop", "array",
+    "dictionary", "tuple", "interface", "async", "await",
+    "callback", "promise", "http", "json", "xml",
+    "database", "schema", "orm", "migration", "server",
+    "docker", "kubernetes", "npm", "pip", "gradle", "maven",
+    "stackoverflow", "repository", "commit",
+    "bootstrap", "react", "angular",
+    "vue", "django", "flask", "fastapi", "spring", "express",
+    "webpack", "vite", "eslint", "pytest", "unittest", "lint",
+    "linter", "formatter", "decorator",
+    "inheritance", "polymorphism", "encapsulation", "recursion", "iterator",
+    "generator", "socket",
+    "encryption", "hash", "jwt", "oauth", "ssl", "tls",
+    "programmatically", "implementation", "implement", "integrate",
+    "sdk", "cli", "yaml", "toml",
+})
+
+# Multi-word phrases that individually are ambiguous but together signal code.
+_CODE_QUERY_PHRASES = (
+    "data structure", "stack overflow", "command line",
+    "environment variable", "configuration file", "type hint",
+    "context manager", "pull request", "github", "source code",
+    "programming language", "version control",
+)
+
+_CODE_QUERY_PREFIXES = (
+    "how to code", "how to implement", "how to write", "how to fix",
+    "how to debug", "how to install",
+    "what is the syntax", "what does this code",
+)
+
+
+def _is_code_query(query: str) -> bool:
+    """Return True when *query* is likely about code or software development.
+
+    This is intentionally broad (low false-negative rate) so legitimate code
+    searches are never suppressed, while clearly non-technical general
+    knowledge queries (e.g. "what is a primary color") return False.
+    """
+    lower = query.lower()
+    # Check phrase prefixes first (most precise signal)
+    if any(lower.startswith(p) for p in _CODE_QUERY_PREFIXES):
+        return True
+    # Check multi-word phrases as substrings of the full query
+    if any(phrase in lower for phrase in _CODE_QUERY_PHRASES):
+        return True
+    # Check individual keywords against the word set (word-boundary aware)
+    query_words = set(re.findall(r"\b\w+\b", lower))
+    return bool(query_words & _CODE_QUERY_KEYWORDS)
+
+
+# Known single-word or hyphenated GitHub topic slugs.  These are the only
+# queries we allow through to GitHubDeepResearch.trending_summary(), because
+# GitHub's `topic:` search only works for registered topic slugs — arbitrary
+# multi-word phrases fall back to keyword matching and return irrelevant repos.
+_GITHUB_TOPIC_WORDS: frozenset = frozenset({
+    # AI / ML
+    "machine-learning", "deep-learning", "artificial-intelligence",
+    "neural-network", "nlp", "llm", "reinforcement-learning",
+    "computer-vision", "generative-ai", "transformers",
+    # Platforms / runtimes
+    "python", "javascript", "typescript", "rust", "golang", "java",
+    "kotlin", "swift", "ruby", "php", "cpp", "c",
+    # Frameworks / tools
+    "react", "angular", "vue", "django", "flask", "fastapi",
+    "spring", "rails", "laravel",
+    "docker", "kubernetes", "terraform", "ansible",
+    "pytorch", "tensorflow", "scikit-learn", "huggingface",
+    "langchain", "llamacpp", "ollama",
+    # Topics
+    "robotics", "iot", "embedded", "autonomous-agent",
+    "os-development", "networking", "security",
+    "blockchain", "quantum-computing",
+})
+
+
+def _is_github_topic_query(query: str) -> bool:
+    """Return True when *query* looks like a valid GitHub topic slug.
+
+    GitHub's ``topic:`` search only works for registered single-word or
+    hyphenated topic slugs.  Multi-word phrases like
+    "c advanced programming techniques" are NOT valid GitHub topics —
+    GitHub silently degrades them to broad keyword searches that return
+    unrelated repos.  This guard prevents that noise from entering the KB.
+
+    A query passes when:
+    1. It is ≤ 3 words long, AND
+    2. Its first word (lowercased, spaces→hyphens) appears in the known
+       GitHub topic vocabulary, OR the whole normalised query does.
+    """
+    stripped = query.strip().lower()
+    if not stripped:
+        return False
+    words = stripped.split()
+    # Reject long multi-word phrases — they are not GitHub topic slugs.
+    if len(words) > 3:
+        return False
+    # Check the first word and the full slug against known topics.
+    slug_full = "-".join(words)
+    return words[0] in _GITHUB_TOPIC_WORDS or slug_full in _GITHUB_TOPIC_WORDS
+
+
+class IntentAnalyzer:
+    """Analyzes user queries to understand intent without LLM"""
+
+    INTENT_PATTERNS = {
+        "question": [r"^what\s+", r"^how\s+", r"^why\s+", r"^when\s+", r"^where\s+", r"^who\s+", r"\?$"],
+        "request": [r"^(give|show|tell|explain|describe|list)\s+", r"^can\s+you\s+", r"^please\s+"],
+        "comparison": [r"^(compare|difference|vs|versus|between)", r"^what's\s+the\s+difference"],
+        "definition": [r"^what\s+is\s+", r"^define\s+", r"^meaning\s+of"],
+        "recommendation": [r"^(recommend|suggest|best|better|alternative)", r"^what\s+should"],
+        "technical": [r"(error|bug|issue|problem|fix|debug|crash)", r"(code|function|class|method|api)"],
+        "how_to": [r"^how\s+to\s+", r"^(steps|guide|tutorial)\s+"],
+        "opinion": [r"^(do\s+you\s+think|what\s+do\s+you\s+think|opinion\s+on)", r"^your\s+view"],
+        "learning": [r"^(teach|learn|understand)\s+", r"^explain\s+(how|why|what)"],
+    }
+
+    @staticmethod
+    def extract_intent(query: str) -> Tuple[str, Dict[str, Any]]:
+        """
+        Analyze query and extract intent + metadata
+        Returns: (intent_type, metadata)
+        """
+        query_lower = query.lower().strip()
+        keywords = re.findall(r'\b\w{3,}\b', query_lower)
+
+        # Detect intent type
+        intent_type = "general_question"
+        for itype, patterns in IntentAnalyzer.INTENT_PATTERNS.items():
+            if any(re.search(p, query_lower) for p in patterns):
+                intent_type = itype
+                break
+
+        # Extract subject/topic
+        subject = None
+        if "what is" in query_lower:
+            subject = query_lower.split("what is", 1)[1].strip().rstrip("?").strip()
+        elif "how to" in query_lower:
+            subject = query_lower.split("how to", 1)[1].strip().rstrip("?").strip()
+        elif intent_type == "question":
+            # Extract noun phrase after question word
+            match = re.search(r'^(?:what|how|why|when|where|who)\s+(?:is|are|do|does|can|should|would|could)?\s+(.+?)\??$', query_lower)
+            subject = match.group(1) if match else None
+
+        return intent_type, {
+            "subject": subject,
+            "keywords": keywords[:5],
+            "is_technical": any(kw in keywords for kw in ["error", "bug", "code", "api", "function", "debug"]),
+            "is_definition": intent_type == "definition",
+            "is_how_to": intent_type == "how_to",
+            "raw_query": query
+        }
+
+
+class KnowledgeBasedResponder:
+    """Generates responses using stored knowledge + internet without LLM"""
+
+    def __init__(self, db, internet=None):
+        self.db = db
+        self.internet = internet
+
+    def _search_knowledge_base(self, query: str, max_results: int = 5) -> List[str]:
+        """Search internal knowledge base for relevant facts"""
+        results = []
+        try:
+            if hasattr(self.db, "search_facts"):
+                results = self.db.search_facts(query, max_results) or []
+            elif hasattr(self.db, "list_facts"):
+                all_facts = self.db.list_facts() or []
+                # Simple keyword matching
+                query_words = set(re.findall(r'\b\w{3,}\b', query.lower()))
+                for fact in all_facts:
+                    fact_key = str(fact.get("key", "")).lower()
+                    fact_value = str(fact.get("value", "")).lower()
+                    if any(word in fact_key or word in fact_value for word in query_words):
+                        results.append(fact.get("value"))
+                        if len(results) >= max_results:
+                            break
+        except Exception as e:
+            log.debug(f"Knowledge base search failed: {e}")
+
+        return results[:max_results]
+
+    def _search_learning_log(self, query: str, max_results: int = 3) -> List[str]:
+        """Search learning history for relevant information"""
+        results = []
+        try:
+            if hasattr(self.db, "get_learning_log"):
+                log_entries = self.db.get_learning_log() or []
+                query_words = set(re.findall(r'\b\w{3,}\b', query.lower()))
+
+                for entry in log_entries:
+                    entry_text = str(entry.get("input", "") + " " + entry.get("response", "")).lower()
+                    if any(word in entry_text for word in query_words):
+                        results.append(entry.get("response"))
+                        if len(results) >= max_results:
+                            break
+        except Exception as e:
+            log.debug(f"Learning log search failed: {e}")
+
+        return results[:max_results]
+
+    def generate_response(self, query: str, intent_meta: Dict) -> Optional[str]:
+        """
+        Generate response using:
+        1. Stored knowledge base
+        2. Learning history
+        3. Internet search
+        4. Knowledge synthesis
+        """
+        # Step 1: Search knowledge base
+        kb_results = self._search_knowledge_base(query, max_results=3)
+
+        # Step 2: Search learning log
+        learning_results = self._search_learning_log(query, max_results=2)
+
+        # Step 3: Search internet if needed
+        internet_results = []
+        if self.internet and not kb_results:
+            try:
+                internet_results = self.internet.search(query, max_results=3) or []
+            except Exception as e:
+                log.debug(f"Internet search failed: {e}")
+
+        # Step 4: Combine all sources
+        all_results = kb_results + learning_results + internet_results
+        if not all_results:
+            return None
+
+        # Step 5: Build response based on intent
+        return self._synthesize_response(query, intent_meta, all_results)
+
+    def _synthesize_response(self, query: str, intent_meta: Dict, sources: List[Any]) -> str:
+        """Synthesize final response from multiple sources"""
+        subject = intent_meta.get("subject", "topic")
+        intent_type = intent_meta.get("intent_type", "question")
+
+        # Convert all sources to strings, decoding any HTML entities that may
+        # have been returned from web search results (e.g. &amp; → &).
+        source_texts = []
+        for src in sources:
+            if isinstance(src, dict):
+                src_text = src.get("text", src.get("summary", str(src)))
+            else:
+                src_text = str(src)
+            # Decode HTML entities so the response reads naturally
+            src_text = html.unescape(src_text)
+            source_texts.append(src_text[:200])  # Limit each source to 200 chars
+
+        # Build response based on intent
+        if intent_type == "definition":
+            response = f"Based on stored knowledge and research:\n\n{source_texts[0]}"
+        elif intent_type == "how_to":
+            response = f"Here's what I've learned about {subject}:\n\n" + "\n".join([f"• {t}" for t in source_texts[:3]])
+        elif intent_type == "comparison":
+            response = "Based on my knowledge:\n\n" + "\n".join([f"• {t}" for t in source_texts[:2]])
+        elif intent_type == "technical":
+            response = "Technical information:\n\n" + "\n".join(source_texts[:2])
+        else:
+            response = "From my knowledge base:\n\n" + source_texts[0]
+
+        # Add confidence note
+        if not sources:
+            response += "\n\n[No relevant information found]"
+
+        return response
+
+
+class SelfResearcher:
+    # Seconds to wait between consecutive auto-research queries so the full
+    # ingestion → reflection → KB-store pipeline has time to settle before a
+    # new topic is fetched.
+    _AUTO_RESEARCH_INGEST_WAIT: float = 30.0
+
+    def __init__(self, db, modules_registry=None, research_engine=None, llm_adapter=None,
+                 max_history=100, relevance_threshold=0.7,
+                 hybrid_manager=None, self_monitor=None, kernel=None):
+        self.db = db
+        self.registry = modules_registry or {}
+
+        # Internal Internet holder (dynamic wiring support)
+        self._internet = None
+        if "internet" in self.registry:
+            self._internet = self.registry["internet"]
+        elif hasattr(db, "internet"):
+            self._internet = db.internet
+
+        # ── Modern research backends (preferred over raw internet scraping) ──
+        # These can be injected post-init via the property setters or directly
+        # from the modules registry.  niblit_core injects them after init.
+        self._serpex_agent = self.registry.get("serpex_agent")
+        self._searchcode_search = self.registry.get("searchcode_search")
+        # SemanticAgent for vector-store backed knowledge storage/retrieval
+        self._semantic_agent = self.registry.get("semantic_agent")
+        # Additional specialised backends — injected post-init by niblit_core
+        self._stackoverflow_search = self.registry.get("stackoverflow_search")
+        self._pypi_search = self.registry.get("pypi_search")
+        self._scrapy_agent = self.registry.get("scrapy_agent")
+        self._sqlite_researcher = self.registry.get("sqlite_researcher")
+        self._github_deep_research = self.registry.get("github_deep_research")
+
+        # Optional modules
+        self.engine = research_engine
+        self.llm = llm_adapter
+        self.reflect = self.registry.get("reflect")
+        self.self_teacher = self.registry.get("self_teacher")
+        self.knowledge_db = db
+
+        # Memory / history
+        self.history = []
+        self.responses = []
+        self.max_history = max_history
+        self.relevance_threshold = relevance_threshold
+
+        # Autonomous learning tracking
+        self.learning_patterns = {}
+        self.query_feedback = {}
+
+        # Auto-research enable/disable flag (start/stop commands)
+        self._auto_research_enabled: bool = True
+
+        # vector_store injected post-init by niblit_core
+        self.vector_store = None
+
+        # Knowledge-based responder
+        self.knowledge_responder = KnowledgeBasedResponder(db, self._internet)
+
+        # Intent analyzer
+        self.intent_analyzer = IntentAnalyzer()
+
+        log.info("✅ SelfResearcher initialized with knowledge-based responses + autonomous learning")
+        self.hybrid_manager = hybrid_manager
+        self.self_monitor = self_monitor
+        self.kernel = kernel
+        self.runtime_manager = self.registry.get("runtime_manager")
+        self.brain_trainer = self.registry.get("brain_trainer")
+        self.runtime_router = (
+            self.registry.get("runtime_router_v2")
+            or self.registry.get("runtime_router")
+            or None
+        )
+        self._research_governance: Dict[str, Any] = {
+            "knowledge_gap_threshold": 0.35,
+            "max_router_synthesis_chars": 1800,
+            "escalation_events": 0,
+        }
+
+    # ─────────────────────────────────────────────
+    @property
+    def internet(self):
+        return self._internet
+
+    @internet.setter
+    def internet(self, value):
+        self._internet = value
+        self.knowledge_responder.internet = value
+
+    @property
+    def serpex_agent(self):
+        return self._serpex_agent
+
+    @serpex_agent.setter
+    def serpex_agent(self, value):
+        self._serpex_agent = value
+
+    @property
+    def searchcode_search(self):
+        return self._searchcode_search
+
+    @searchcode_search.setter
+    def searchcode_search(self, value):
+        self._searchcode_search = value
+
+    @property
+    def semantic_agent(self):
+        return self._semantic_agent
+
+    @semantic_agent.setter
+    def semantic_agent(self, value):
+        self._semantic_agent = value
+
+    @property
+    def stackoverflow_search(self):
+        return self._stackoverflow_search
+
+    @stackoverflow_search.setter
+    def stackoverflow_search(self, value):
+        self._stackoverflow_search = value
+
+    @property
+    def pypi_search(self):
+        return self._pypi_search
+
+    @pypi_search.setter
+    def pypi_search(self, value):
+        self._pypi_search = value
+
+    @property
+    def scrapy_agent(self):
+        return self._scrapy_agent
+
+    @scrapy_agent.setter
+    def scrapy_agent(self, value):
+        self._scrapy_agent = value
+
+    @property
+    def sqlite_researcher(self):
+        return self._sqlite_researcher
+
+    @sqlite_researcher.setter
+    def sqlite_researcher(self, value):
+        self._sqlite_researcher = value
+
+    @property
+    def github_deep_research(self):
+        return self._github_deep_research
+
+    @github_deep_research.setter
+    def github_deep_research(self, value):
+        self._github_deep_research = value
+
+    def _ensure_serpex_agent(self) -> None:
+        """Lazy-construct a ResearchAgent if one was not injected at init time."""
+        if self._serpex_agent is not None:
+            return
+        try:
+            from niblit_agents.research_agent import ResearchAgent as _RA
+            self._serpex_agent = _RA()
+            log.debug("[SelfResearcher] Lazily constructed ResearchAgent (Serpex)")
+        except Exception as _e:
+            log.debug("[SelfResearcher] ResearchAgent unavailable: %s", _e)
+
+    # ─────────────────────────────────────────────
+    # AUTO-RESEARCH CONTROL
+    # ─────────────────────────────────────────────
+    def start_auto_research(self) -> str:
+        """Re-enable automatic research after a previous stop."""
+        if self._auto_research_enabled:
+            return "ℹ️  Auto-research is already running"
+        self._auto_research_enabled = True
+        log.info("[AUTO-RESEARCH] Enabled")
+        return "✅ Auto-research started"
+
+    def stop_auto_research(self) -> str:
+        """Pause automatic research (manual ``search()`` calls still work)."""
+        if not self._auto_research_enabled:
+            return "ℹ️  Auto-research is already stopped"
+        self._auto_research_enabled = False
+        log.info("[AUTO-RESEARCH] Disabled")
+        return "⏹️  Auto-research stopped"
+
+    def auto_research_status(self) -> str:
+        """Return a one-line status string."""
+        state = "running ✅" if self._auto_research_enabled else "stopped ⏹️"
+        backends = []
+        if self._serpex_agent:
+            backends.append("Serpex")
+        if self._scrapy_agent:
+            backends.append("Scrapy")
+        if self._searchcode_search:
+            backends.append("Searchcode")
+        if self._stackoverflow_search:
+            backends.append("StackOverflow")
+        if self._pypi_search:
+            backends.append("PyPI")
+        if self._github_deep_research:
+            backends.append("GitHubDeep")
+        if self._sqlite_researcher:
+            backends.append("SQLite")
+        if self._internet:
+            backends.append("Internet")
+        if self._semantic_agent and self._semantic_agent.is_available():
+            backends.append("SemanticStore")
+        return (
+            f"Auto-research: {state} | "
+            f"Backends: {', '.join(backends) or 'none'} | "
+            f"Ingest wait: {self._AUTO_RESEARCH_INGEST_WAIT}s"
+        )
+
+    # ─────────────────────────────────────────────
+    def _compute_similarity(self, vec1, vec2):
+        if not vec1 or not vec2 or len(vec1) != len(vec2):
+            return 0.0
+        dot = sum(a * b for a, b in zip(vec1, vec2))
+        norm1 = math.sqrt(sum(a * a for a in vec1))
+        norm2 = math.sqrt(sum(b * b for b in vec2))
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        return dot / (norm1 * norm2)
+
+    # ─────────────────────────────────────────────
+    def _deduplicate(self, items):
+        """Order-preserving deduplication for mixed str/dict items"""
+        seen = set()
+        result = []
+
+        for item in items:
+            if isinstance(item, str):
+                key = item
+            elif isinstance(item, dict):
+                try:
+                    key = json.dumps(item, sort_keys=True)
+                except (TypeError, ValueError):
+                    key = str(item)
+            else:
+                key = str(item)
+
+            if key not in seen:
+                seen.add(key)
+                result.append(item)
+
+        return result
+
+    # ─────────────────────────────────────────────
+    def _update_history(self, query, results):
+        timestamp = datetime.now(timezone.utc).isoformat()
+        embedding = self.llm.embed(query) if self.llm and hasattr(self.llm, "embed") else None
+
+        entry = {
+            "query": query,
+            "results": results,
+            "timestamp": timestamp,
+            "embedding": embedding
+        }
+
+        self.history.append(entry)
+        self.responses.append({
+            "query": query,
+            "response": results,
+            "timestamp": timestamp
+        })
+
+        self._track_learning_pattern(query, results)
+
+        if len(self.history) > self.max_history:
+            self.history.pop(0)
+
+        if len(self.responses) > self.max_history:
+            self.responses.pop(0)
+
+    # ─────────────────────────────────────────────
+    def _track_learning_pattern(self, query, results):
+        """Track learning patterns for autonomous improvement"""
+        if not results:
+            return
+
+        keywords = set(word.lower() for word in re.findall(r'\b\w{4,}\b', query))
+        pattern_key = "_".join(sorted(keywords))
+
+        if pattern_key not in self.learning_patterns:
+            self.learning_patterns[pattern_key] = {
+                "queries": [],
+                "results_summary": [],
+                "frequency": 0,
+                "avg_quality": 0.0
+            }
+
+        self.learning_patterns[pattern_key]["queries"].append(query)
+        self.learning_patterns[pattern_key]["results_summary"].extend(results[:2])
+        self.learning_patterns[pattern_key]["frequency"] += 1
+
+        avg_len = sum(len(str(r)) for r in results) / len(results) if results else 0
+        self.learning_patterns[pattern_key]["avg_quality"] = avg_len
+
+    # ─────────────────────────────────────────────
+    def _check_history(self, query):
+        """Check if similar query was answered before"""
+        if not self.llm or not hasattr(self.llm, "embed"):
+            return []
+
+        try:
+            query_embedding = self.llm.embed(query)
+            relevant = []
+            for entry in reversed(self.history):
+                if entry.get("embedding"):
+                    sim = self._compute_similarity(query_embedding, entry.get("embedding"))
+                    if sim >= self.relevance_threshold:
+                        relevant.extend(entry["results"])
+            return relevant
+        except Exception as e:
+            log.debug(f"History check failed: {e}")
+            return []
+
+    # ─────────────────────────────────────────────
+    def _feed_to_reflection(self, query, results):
+        """Feed research findings to reflection module"""
+        if not self.reflect:
+            return
+
+        try:
+            insights = self._extract_insights(query, results)
+            # Prefer reflect_on_research(topic, findings) so the compound
+            # "Research Query: ...\n\nInsights: ..." string is never passed
+            # as a search query downstream.
+            if hasattr(self.reflect, "reflect_on_research"):
+                reflection = self.reflect.reflect_on_research(query, insights)
+            else:
+                reflection = self.reflect.collect_and_summarize(query)
+            log.info(f"[REFLECT] Reflection triggered: {reflection}")
+        except Exception as e:
+            log.debug(f"Reflection feedback skipped: {e}")
+
+    # ─────────────────────────────────────────────
+    def _feed_to_teacher(self, query, results):
+        """Feed research findings to self-teacher"""
+        if not self.self_teacher:
+            return
+
+        try:
+            # Pass only the clean query topic, not the full synthesized text,
+            # so that researcher.search() is called with a proper topic string.
+            self.self_teacher.teach(query)
+            log.info(f"[TEACHER] Self-teaching triggered for: {query}")
+        except Exception as e:
+            log.debug(f"Teacher feedback skipped: {e}")
+
+    # ────────────────────────────────────────────��
+    def _extract_insights(self, query, results):
+        """Extract key insights from research results"""
+        insights = []
+        for result in results[:3]:
+            # Extract clean text; never stringify raw dict blobs
+            if isinstance(result, dict):
+                result_str = (
+                    result.get("snippet")
+                    or result.get("text")
+                    or result.get("description")
+                    or result.get("content")
+                    or result.get("summary")
+                    or ""
+                )
+            else:
+                result_str = str(result)
+            sentences = re.split(r'[.!?]+', result_str)
+            important = [s.strip() for s in sentences if len(s.strip()) > 20][:2]
+            insights.extend(important)
+        return " ".join(insights[:5])
+
+    # ─────────────────────────────────────────────
+    def _synthesize_learning(self, query, results):
+        """Synthesize research into learnable content"""
+        if not results:
+            return query
+
+        def _rtext(r):
+            if isinstance(r, dict):
+                return (r.get("snippet") or r.get("text") or r.get("description")
+                        or r.get("content") or r.get("summary") or "")
+            return str(r)
+
+        if self.llm and hasattr(self.llm, "generate"):
+            try:
+                learning_text = " ".join(_rtext(r) for r in results[:3])
+                synthesized = self.llm.generate(
+                    f"Summarize the key learning point from this research for '{query}':\n{learning_text}",
+                    max_tokens=200
+                )
+                return synthesized if synthesized else query
+            except Exception:
+                pass
+
+        return " ".join(_rtext(r) for r in results[:2])
+
+    # ─────────────────────────────────────────────
+    # Minimum RewardModel score required to store a research result.  Results
+    # scoring below this threshold are discarded — they add noise, not signal.
+    # 0.30 is intentionally permissive: the BM25-based RewardModel scores
+    # genuine off-topic content (cookie banners, empty pages, navigation menus)
+    # at ≈0.05–0.20, while even loosely relevant snippets typically score ≥0.30.
+    _STORE_QUALITY_THRESHOLD: float = 0.30
+
+    def _store_research_in_knowledge_db(self, query, results):
+        """Store research results in knowledge database.
+
+        Quality gate (additive): each result is scored by the RewardModel
+        before storage.  Results with a quality score below
+        ``_STORE_QUALITY_THRESHOLD`` are discarded so only genuinely useful
+        snippets enter the knowledge base.  The quality score is passed as the
+        initial ``confidence`` value so the KB can later reinforce or decay
+        facts based on their proven usefulness.
+        """
+        if not self.knowledge_db:
+            return
+
+        # Lazy-load reward model (no heavy dependency)
+        _rm = None
+        try:
+            from modules.reward_model import get_reward_model
+            _rm = get_reward_model()
+        except Exception:
+            pass
+
+        try:
+            ts = int(time.time())
+            stored = 0
+            skipped = 0
+            for i, result in enumerate(results):
+                # Normalise each result to a plain string so store_research()
+                # can produce a fully-structured record (key, value, tags,
+                # source, ts) instead of persisting raw strings via add_fact().
+                if isinstance(result, dict):
+                    text = (
+                        result.get("snippet")
+                        or result.get("text")
+                        or result.get("description")
+                        or result.get("content")
+                        or result.get("summary")
+                        or str(result)
+                    )
+                else:
+                    text = str(result)
+
+                # ── Quality gate ──────────────────────────────────────────────
+                # Score this snippet against the original query.  Skip storage
+                # when the snippet is too loosely related or appears to be
+                # boilerplate noise (e.g. cookie banners, empty pages).
+                quality_score: float = 0.8  # default when scorer unavailable
+                if _rm is not None:
+                    try:
+                        quality_score = float(_rm.score(query, text, []))
+                    except Exception:
+                        pass
+
+                if quality_score < self._STORE_QUALITY_THRESHOLD:
+                    skipped += 1
+                    log.debug(
+                        "[KnowledgeDB] Skipped low-quality snippet (score=%.2f < %.2f) "
+                        "for query %r",
+                        quality_score, self._STORE_QUALITY_THRESHOLD, query,
+                    )
+                    continue
+
+                # Include timestamp + index so each result gets its own unique
+                # key (avoids overwriting the single `research:{query}` entry).
+                self.knowledge_db.store_research(
+                    f"research:{query}:{ts}:{i}",
+                    text,
+                    tags=["research", "web", "autonomous"],
+                    source="self_researcher",
+                    confidence=quality_score,
+                )
+                stored += 1
+
+            if hasattr(self.knowledge_db, "log_event"):
+                self.knowledge_db.log_event(
+                    f"Research completed: {query} ({stored} stored, {skipped} skipped)"
+                )
+
+            log.info(
+                "[KnowledgeDB] %d/%d results stored for query %r (quality gate: %.2f)",
+                stored, len(results), query, self._STORE_QUALITY_THRESHOLD,
+            )
+        except Exception as e:
+            log.debug(f"KnowledgeDB storage skipped: {e}")
+
+    def _detect_knowledge_gap(self, query: str, results: List[Any]) -> Dict[str, Any]:
+        """Estimate whether current research quality warrants cognition escalation."""
+        if not results:
+            return {"gap_score": 1.0, "escalate": True, "reason": "no_results"}
+        query_terms = {w for w in re.findall(r"\b\w+\b", query.lower()) if len(w) > 2}
+        snippets = [str(r)[:400].lower() for r in results[:5]]
+        coverage = 0.0
+        for snippet in snippets:
+            if not query_terms:
+                coverage += 0.5
+            else:
+                overlap = sum(1 for term in query_terms if term in snippet)
+                coverage += (overlap / max(1, len(query_terms)))
+        coverage /= max(1, len(snippets))
+        gap_score = max(0.0, min(1.0, 1.0 - coverage))
+        threshold = float(self._research_governance.get("knowledge_gap_threshold", 0.35))
+        escalate = gap_score >= threshold
+        return {
+            "gap_score": round(gap_score, 3),
+            "escalate": escalate,
+            "reason": "low_coverage" if escalate else "sufficient",
+        }
+
+    def _router_cognition_synthesis(self, query: str, results: List[Any]) -> Optional[str]:
+        """Synthesize findings via governed Router V2 / LocalBrain inference path."""
+        router = self.runtime_router
+        if router is None or not hasattr(router, "generate"):
+            return None
+        evidence = "\n".join(str(r)[:300] for r in results[:6])
+        prompt = (
+            "Provide a concise research synthesis with uncertainty notes.\n"
+            "Rules: use only evidence, no autonomous actions, no hidden assumptions.\n"
+            f"Query: {query}\n"
+            f"Evidence:\n{evidence[:int(self._research_governance.get('max_router_synthesis_chars', 1800))]}"
+        )
+        try:
+            synthesized = router.generate(
+                prompt=prompt,
+                context="self_researcher_governed_synthesis",
+            )
+            text = str(synthesized or "").strip()
+            if text:
+                self._research_governance["escalation_events"] = int(
+                    self._research_governance.get("escalation_events", 0)
+                ) + 1
+                return text
+        except Exception as exc:
+            log.debug("[SelfResearcher] governed router synthesis failed: %s", exc)
+        return None
+
+    @staticmethod
+    def _classify_live_source(query: str) -> str:
+        lowered = str(query or "").lower()
+        if any(token in lowered for token in ("market", "price", "equity", "stock", "forex", "crypto")):
+            return "financial_feed"
+        if any(token in lowered for token in ("runtime", "telemetry", "eventbus", "event bus", "governance")):
+            return "runtime_telemetry_stream"
+        if _is_code_query(lowered):
+            return "technical_documentation"
+        return "research_feed"
+
+    # ─────────────────────────────────────────────
+    # MAIN SEARCH METHOD - FLEXIBLE PARAMETERS
+    # ─────────────────────────────────────────────
+    def search(self, query, max_results=5, **kwargs):
+        """Enhanced search that prefers Serpex and Searchcode over raw internet scraping.
+
+        Source priority
+        ---------------
+        1. History cache — previously seen results (no network cost)
+        2. Serpex (niblit_agents.ResearchAgent) — validated, relevance-filtered web results
+        3. Searchcode (SearchcodeSearch) — open-source code index (code-related queries)
+        4. ResearcherEngine — semantic KB cache / local research engine
+        5. InternetManager — direct web scrape (last-resort fallback only)
+
+        The auto-research ingestion pipeline (reflection → KB store → teacher)
+        runs after results are collected so every successful search immediately
+        enriches the knowledge base.
+
+        Args:
+            query: Search query string
+            max_results: Maximum results to return
+            **kwargs: Optional flags
+                - use_llm (bool): Use LLM synthesis (default True)
+                - learn_in_background (bool): Background LLM learning (default True)
+                - use_history (bool): Check history first (default True)
+                - synthesize (bool): Synthesise results via LLM (default True)
+                - enable_autonomous_learning (bool): Run ingestion pipeline (default True)
+
+        Returns:
+            List of search results
+        """
+        if not query:
+            return []
+
+        self._ensure_serpex_agent()
+        use_llm = kwargs.get('use_llm', True)
+        learn_in_background = kwargs.get('learn_in_background', True)
+        use_history = kwargs.get('use_history', True)
+        synthesize = kwargs.get('synthesize', True)
+        enable_autonomous_learning = kwargs.get('enable_autonomous_learning', True)
+
+        collected_results = []
+
+        # Helper: extract the most meaningful text from a result dict
+        def _result_text(r: Any) -> str:
+            if isinstance(r, dict):
+                return (
+                    r.get("snippet")
+                    or r.get("description")
+                    or r.get("content")
+                    or r.get("text")
+                    or r.get("summary")
+                    or str(r)
+                )
+            return str(r)
+
+        # 1️⃣ HISTORY (zero network cost)
+        if use_history:
+            collected_results.extend(self._check_history(query))
+
+        # 2️⃣ SERPEX — primary modern research backend
+        if self._serpex_agent and hasattr(self._serpex_agent, "search_web"):
+            try:
+                serpex_results = self._serpex_agent.search_web(query)
+                valid = [r for r in (serpex_results or [])
+                         if isinstance(r, dict) and "error" not in r]
+                for r in valid:
+                    snippet = r.get("snippet", "") or r.get("text", "")
+                    if snippet and is_relevant(query, snippet):
+                        collected_results.append(snippet)
+                if valid:
+                    log.debug("[SEARCH] Serpex: %d relevant result(s) for %r", len(valid), query)
+            except Exception as exc:
+                log.debug("Serpex search failed: %s", exc)
+
+        # 2b️⃣ SCRAPY — secondary web search (DuckDuckGo HTML, no API key needed)
+        if self._scrapy_agent and hasattr(self._scrapy_agent, "search_web"):
+            try:
+                scrapy_results = self._scrapy_agent.search_web(query)
+                valid_s = [r for r in (scrapy_results or [])
+                           if isinstance(r, dict) and "error" not in r]
+                for r in valid_s:
+                    snippet = r.get("snippet", "") or r.get("text", "")
+                    if snippet and is_relevant(query, snippet):
+                        collected_results.append(snippet)
+                if valid_s:
+                    log.debug("[SEARCH] Scrapy: %d relevant result(s) for %r", len(valid_s), query)
+            except Exception as exc:
+                log.debug("Scrapy search failed: %s", exc)
+
+        # 3️⃣ SEARCHCODE — code-specific open-source index
+        # Only run for queries that appear to be code / programming related so
+        # that general knowledge queries don't pick up irrelevant source files.
+        if self._searchcode_search and hasattr(self._searchcode_search, "search_code") and _is_code_query(query):
+            try:
+                sc_results = self._searchcode_search.search_code(query, max_results=max_results)
+                for r in (sc_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("snippet", "")
+                        if text and len(text) > 20 and is_relevant(query, text):
+                            collected_results.append(text[:500])
+                if sc_results:
+                    log.debug("[SEARCH] Searchcode: %d result(s) for %r", len(sc_results), query)
+            except Exception as exc:
+                log.debug("Searchcode search failed: %s", exc)
+
+        # 3b️⃣ STACKOVERFLOW — Q&A + code-pattern search
+        # Only run for code/programming queries; general knowledge questions
+        # (e.g. "what is a primary color") would otherwise receive irrelevant
+        # SO programming snippets as the top answer.
+        if self._stackoverflow_search and hasattr(self._stackoverflow_search, "search") and _is_code_query(query):
+            try:
+                so_results = self._stackoverflow_search.search(query, max_results=max_results)
+                for r in (so_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("snippet", "") or r.get("body", "")
+                        if text and len(text) > 20 and is_relevant(query, text):
+                            collected_results.append(text[:500])
+                if so_results:
+                    log.debug("[SEARCH] StackOverflow: %d result(s) for %r", len(so_results), query)
+            except Exception as exc:
+                log.debug("StackOverflow search failed: %s", exc)
+
+        # 3c️⃣ PYPI — Python package intelligence
+        if self._pypi_search and hasattr(self._pypi_search, "search_packages"):
+            try:
+                pypi_results = self._pypi_search.search_packages(query, max_results=max_results)
+                for r in (pypi_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("summary", "") or r.get("description", "")
+                        if text and is_relevant(query, text):
+                            collected_results.append(text[:400])
+                if pypi_results:
+                    log.debug("[SEARCH] PyPI: %d result(s) for %r", len(pypi_results), query)
+            except Exception as exc:
+                log.debug("PyPI search failed: %s", exc)
+
+        # 3d️⃣ GITHUB DEEP RESEARCH — trending repos, PRs, issues
+        # Only run for queries that look like a technology topic (1-3 slug-like
+        # words whose first word is a known tech/framework name).  Generic
+        # multi-word phrases such as "c advanced programming techniques" must
+        # not be sent here — GitHub's topic: search would fall back to keyword
+        # matching and return irrelevant repos that end up polluting the KB.
+        if (self._github_deep_research
+                and hasattr(self._github_deep_research, "trending_summary")
+                and _is_github_topic_query(query)):
+            try:
+                gdr_text = self._github_deep_research.trending_summary(topic=query[:60])
+                # Skip error/status messages (e.g. "No trending repos found for '...'")
+                if (gdr_text and is_relevant(query, gdr_text)
+                        and not gdr_text.startswith("No trending repos found")
+                        and not gdr_text.startswith("No results")
+                        and "(check rate limits)" not in gdr_text):
+                    collected_results.append(gdr_text[:600])
+                    log.debug("[SEARCH] GitHubDeepResearch: got trending summary for %r", query)
+            except Exception as exc:
+                log.debug("GitHubDeepResearch search failed: %s", exc)
+
+        # 4️⃣ ENGINE (ResearcherEngine — semantic KB cache)
+        if self.engine and hasattr(self.engine, "run"):
+            try:
+                r = self.engine.run(query)
+                if isinstance(r, dict):
+                    r = r.get("summary")
+                if r:
+                    collected_results.append(r)
+            except Exception as e:
+                log.debug(f"Engine search failed: {e}")
+
+        # 4b️⃣ SQLITE RESEARCHER — local KB lookup (zero-latency, always offline)
+        if self._sqlite_researcher and hasattr(self._sqlite_researcher, "search_web"):
+            try:
+                sqlite_results = self._sqlite_researcher.search_web(query, max_results=max_results)
+                for r in (sqlite_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("snippet", "") or r.get("text", "")
+                        if text and is_relevant(query, text):
+                            collected_results.append(text[:500])
+                if sqlite_results:
+                    log.debug("[SEARCH] SQLiteResearcher: %d result(s) for %r", len(sqlite_results), query)
+            except Exception as exc:
+                log.debug("SQLiteResearcher search failed: %s", exc)
+
+        # 5️⃣ INTERNET — fallback only when modern backends returned nothing
+        if not collected_results and self._internet and hasattr(self._internet, "search"):
+            try:
+                web_results = self._internet.search(query, max_results=max_results * 3)
+                if web_results:
+                    relevant_web = [
+                        _result_text(r) for r in web_results
+                        if is_relevant(query, _result_text(r))
+                    ]
+                    if not relevant_web:
+                        log.warning(
+                            "[REFLECT] Skipped due to low-quality data — no relevant web results for %r",
+                            query,
+                        )
+                    collected_results.extend(relevant_web)
+            except Exception as e:
+                log.debug(f"Internet search failed: {e}")
+
+        # Remove duplicates
+        collected_results = self._deduplicate(collected_results)
+
+        # 6️⃣ SYNTHESIZE
+        if synthesize and collected_results and use_llm and self.llm and hasattr(self.llm, "generate"):
+            try:
+                combined_text = " ".join(str(item) for item in collected_results)
+                synthesized = self.llm.generate(
+                    f"Using these multiple sources, provide a coherent answer to: {query}\n{combined_text}",
+                    max_tokens=400
+                )
+                if synthesized:
+                    collected_results = [synthesized]
+            except Exception as e:
+                log.debug(f"LLM synthesis failed: {e}")
+
+        # 6b️⃣ GOVERNED COGNITION ESCALATION — Router V2 + LocalBrain authority
+        if collected_results:
+            gap = self._detect_knowledge_gap(query, collected_results)
+            if gap.get("escalate"):
+                escalated = self._router_cognition_synthesis(query, collected_results)
+                if escalated:
+                    collected_results = [escalated]
+                    try:
+                        if self.db and hasattr(self.db, "add_fact"):
+                            self.db.add_fact(
+                                f"research_gap_escalation:{query}:{int(time.time())}",
+                                {
+                                    "query": query,
+                                    "gap": gap,
+                                    "path": "router_v2_localbrain",
+                                },
+                                tags=["research", "governed_escalation", "cognition"],
+                            )
+                    except Exception:
+                        pass
+
+        # 6c️⃣ GOVERNED LIVE COGNITION INGESTION — fresh data → RouterV2 → memory
+        if collected_results:
+            try:
+                from modules.governed_live_cognition import (
+                    get_governed_live_cognition_collector,
+                )
+
+                collector = get_governed_live_cognition_collector()
+                live_result = collector.ingest(
+                    query=query,
+                    items=collected_results[:max_results],
+                    source_type=self._classify_live_source(query),
+                    source_module="self_researcher",
+                    router=self.runtime_router,
+                    knowledge_db=self.knowledge_db,
+                    brain_trainer=self.brain_trainer,
+                    runtime_id=getattr(self.runtime_manager, "runtime_id", ""),
+                )
+                if live_result.get("success"):
+                    self._research_governance["live_ingestion_events"] = int(
+                        self._research_governance.get("live_ingestion_events", 0)
+                    ) + 1
+            except Exception as exc:
+                log.debug("[SelfResearcher] governed live ingestion failed: %s", exc)
+
+        # 7️⃣ FALLBACK
+        no_real_data = not collected_results
+        if no_real_data:
+            collected_results = [f"No data found for '{query}'"]
+
+        # ✨ 8️⃣ AUTONOMOUS LEARNING LOOP (ingestion → reflection → KB)
+        if enable_autonomous_learning and self._auto_research_enabled and not no_real_data:
+            if should_reflect(collected_results):
+                self._feed_to_reflection(query, collected_results)
+                self._feed_to_teacher(query, results=collected_results)
+                self._store_research_in_knowledge_db(query, collected_results)
+            else:
+                log.warning("[REFLECT] Skipped due to low-quality data for query %r", query)
+
+        # ✨ SEMANTIC STORAGE — persist into vector store for future semantic retrieval
+        if self._semantic_agent and collected_results and not no_real_data:
+            try:
+                # Convert mixed results (str/dict) to store-compatible format
+                docs = []
+                for r in collected_results:
+                    if isinstance(r, str) and r:
+                        docs.append({"snippet": r})
+                    elif isinstance(r, dict):
+                        docs.append(r)
+                if docs:
+                    self._semantic_agent.store_knowledge(docs, source="self_researcher", query=query)
+            except Exception as _e:
+                log.debug("[SEARCH] SemanticAgent storage failed: %s", _e)
+
+        # 9️⃣ AUTO-LEARN (persist every result to KB — skip when there was no real data)
+        if not no_real_data:
+            try:
+                for r in collected_results[:max_results]:
+                    # Always store plain text — never raw dicts
+                    r_text = _result_text(r) if not isinstance(r, str) else r
+                    if not r_text:
+                        continue
+                    self.db.add_fact(f"research:{query}", r_text, tags=["research", "web"])
+                    try:
+                        self.db.add_fact(f"research_response:{query}", r_text, tags=["research", "response"])
+                    except Exception:
+                        pass
+            except Exception as e:
+                log.debug(f"Learning storage failed: {e}")
+
+        # 🔟 UPDATE HISTORY
+        self._update_history(query, collected_results[:max_results])
+
+        # 11. BACKGROUND LEARNING (skip when there was no real data)
+        if learn_in_background and not no_real_data and self.llm and hasattr(self.llm, "background_learning"):
+            try:
+                for r in collected_results:
+                    self.llm.background_learning(r)
+            except Exception as e:
+                log.debug(f"Background learning failed: {e}")
+
+        # ── HybridQdrantManager upsert of search results (additive) ──────────────
+        results = collected_results[:max_results]
+        if self.hybrid_manager and results:
+            try:
+                for r in (results if isinstance(results, list) else [results])[:5]:
+                    text = str(r.get("content") or r.get("text") or r.get("summary") or r)[:1000] if isinstance(r, dict) else str(r)[:1000]
+                    self.hybrid_manager.upsert(
+                        text,
+                        {"type": "search_result", "query": query},
+                        collection="niblit_research"
+                    )
+            except Exception as _hq_e:
+                log.debug("[SelfResearcher] hybrid_manager upsert failed: %s", _hq_e)
+
+        return results
+
+    # ─────────────────────────────────────────────
+    # LLM-FREE RESPONSE GENERATION (NEW)
+    # ─────────────────────────────────────────────
+    def answer_without_llm(self, query: str) -> str:
+        """
+        Generate response using knowledge base + internet
+        WITHOUT LLM - for when LLM is disabled
+        """
+        log.info(f"🧠 [NO-LLM] Answering: {query}")
+
+        # Step 1: Analyze intent
+        intent_type, intent_meta = self.intent_analyzer.extract_intent(query)
+        log.info(f"[INTENT] Type: {intent_type} | Subject: {intent_meta.get('subject')}")
+
+        # Step 2: Generate knowledge-based response
+        response = self.knowledge_responder.generate_response(query, {
+            "intent_type": intent_type,
+            **intent_meta
+        })
+
+        if response:
+            # Store for future learning
+            try:
+                self.db.add_fact(f"llm_free_response:{query}", response, tags=["no_llm", "knowledge"])
+                self.db.add_fact(f"intent_type:{query}", intent_type, tags=["intent", "no_llm"])
+            except Exception:
+                pass
+
+            return response
+
+        # Fallback: Simple keyword-based response
+        keywords = intent_meta.get("keywords", [])
+        return f"I don't have specific information about '{query}', but I can research it for you. Key topics: {', '.join(keywords)}"
+
+    # ─────────────────────────────────────────────
+    @property
+    def recent_queries(self):
+        return [h["query"] for h in self.history[-self.max_history:]]
+
+    @property
+    def memory_summary(self):
+        return [{"query": h["query"], "timestamp": h["timestamp"]} for h in self.history]
+
+    @property
+    def stored_responses(self):
+        return self.responses
+
+    @property
+    def learning_insights(self):
+        return {
+            "total_patterns": len(self.learning_patterns),
+            "most_researched": max(self.learning_patterns.items(),
+                                  key=lambda x: x[1]["frequency"],
+                                  default=("None", {}))[0],
+            "patterns": self.learning_patterns
+        }
+
+    # ── Fused Memory API ─────────────────────────────────────────────────────
+
+    def log_finding(
+        self,
+        research_id: str,
+        data: Dict[str, Any],
+        embedding: Optional[List[float]] = None,
+    ) -> None:
+        """Persist an autonomous research finding via the fused memory backend.
+
+        Writes the structured *data* dict to SQLite and, when *embedding* is
+        provided, also upserts the vector into Qdrant/FAISS for later
+        similarity-based retrieval.
+
+        Args:
+            research_id: Unique identifier for this research finding.
+            data:        Arbitrary result/finding dict.
+            embedding:   Optional pre-computed float embedding.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                fused.insert_record(research_id, data)
+                if embedding:
+                    fused.insert_vector(research_id, embedding, payload=data)
+                return
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused log_finding failed: %s", exc)
+        # Fallback: store via existing learning-log path
+        if hasattr(self.db, "store_learning"):
+            self.db.store_learning({"research_id": research_id, **data})
+
+    def get_finding(self, research_id: str) -> Dict[str, Any]:
+        """Retrieve a previously stored research finding by ID.
+
+        Args:
+            research_id: Unique finding identifier.
+
+        Returns:
+            Finding dict, or empty dict when not found.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                rec = fused.get_record(research_id)
+                if rec is not None:
+                    return rec
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused get_finding failed: %s", exc)
+        return {}
+
+    def query_past_findings(
+        self,
+        embedding: List[float],
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Find stored research findings similar to *embedding*.
+
+        Queries the fused Qdrant/FAISS vector index.  Returns at most *top_k*
+        results ordered by similarity.  Falls back to an empty list when the
+        fused backend is unavailable.
+
+        Args:
+            embedding: Query float vector.
+            top_k:     Maximum results.
+
+        Returns:
+            List of result dicts.
+        """
+        fused = getattr(self.db, "fused_memory", None)
+        if fused is not None:
+            try:
+                return fused.query_vector(embedding, top_k=top_k)
+            except Exception as exc:
+                log.debug("[SelfResearcher] fused query_past_findings failed: %s", exc)
+        return []
+
+    # ─────────────────────────────────────────────
+    # CODE RESEARCHER — feeds CodeGenerator with real data
+    # ─────────────────────────────────────────────
+    def research_code(self, language: str, topic: str = "best practices") -> Dict[str, Any]:
+        """Research programming language information, preferring Searchcode over internet scraping.
+
+        Source priority for code research:
+        1. SearchcodeSearch.research_for_code_generation() — structured open-source index
+        2. SearchcodeSearch.discover_patterns() — curated code-pattern queries
+        3. Generic search() fallback (which tries Serpex → engine → internet)
+
+        Args:
+            language: programming language (e.g., "python", "bash", "javascript")
+            topic: specific topic (e.g., "best practices", "design patterns", "stdlib")
+
+        Returns:
+            dict with keys: language, topic, snippets, idioms, sources
+        """
+        all_snippets: List[str] = []
+        sources: List[str] = []
+
+        # 1. Searchcode — structured code search (preferred for code queries)
+        if self._searchcode_search:
+            try:
+                sc_results = self._searchcode_search.research_for_code_generation(
+                    language, topic, max_results=5
+                )
+                for r in (sc_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("snippet", "")
+                        if text and len(text) > 20:
+                            all_snippets.append(text[:500])
+                            sources.append(f"searchcode:{language}:{topic}")
+                log.debug("[CODE RESEARCH] Searchcode: %d snippet(s) for %s/%s",
+                          len(all_snippets), language, topic)
+            except Exception as exc:
+                log.debug("Searchcode code research failed: %s", exc)
+
+        # 2. Searchcode pattern discovery (additional patterns if above returned few)
+        if self._searchcode_search and len(all_snippets) < 3:
+            try:
+                pat_results = self._searchcode_search.discover_patterns(language, topic[:30])
+                for r in (pat_results or []):
+                    if isinstance(r, dict):
+                        text = r.get("text", "") or r.get("snippet", "")
+                        if text and len(text) > 20 and text not in all_snippets:
+                            all_snippets.append(text[:500])
+                            sources.append(f"searchcode_pattern:{language}")
+            except Exception as exc:
+                log.debug("Searchcode pattern discovery failed: %s", exc)
+
+        # 3. Fallback: generic search (Serpex → engine → internet)
+        if len(all_snippets) < 2:
+            queries = [
+                f"{language} {topic} code examples",
+                f"{language} programming best practices",
+            ]
+            for q in queries[:2]:
+                results = self.search(
+                    q,
+                    max_results=3,
+                    use_llm=False,
+                    learn_in_background=False,
+                    use_history=True,
+                    synthesize=False,
+                    enable_autonomous_learning=True,
+                )
+                for r in results:
+                    if r and isinstance(r, str) and len(r) > 20:
+                        all_snippets.append(r)
+                        sources.append(q)
+
+        # Store in KB for future use
+        if all_snippets and self.db:
+            combined = "\n".join(all_snippets[:5])
+            try:
+                self.db.add_fact(
+                    f"code_research:{language}:{topic}",
+                    combined,
+                    tags=["code", "research", language, "searchcode"]
+                )
+                # Queue the specific (language, topic) pair so future research
+                # focuses on the exact sub-topic instead of a broad phrase that
+                # could be mis-routed by GitHub's topic: search.
+                self.db.queue_learning(f"{language} {topic}")
+            except Exception as e:
+                log.debug(f"Code research store failed: {e}")
+
+        log.info(f"[CODE RESEARCH] {language}/{topic}: found {len(all_snippets)} snippet(s)")
+
+        return {
+            "language": language,
+            "topic": topic,
+            "snippets": all_snippets[:5],
+            "idioms": all_snippets[:3],
+            "sources": list(set(sources)),
+            "count": len(all_snippets),
+        }
+
+    def research_code_and_feed_generator(
+        self,
+        language: str,
+        topic: str = "best practices",
+        code_generator=None,
+    ) -> str:
+        """
+        Research a language from the internet, then feed the result to
+        CodeGenerator so it learns from real, up-to-date information.
+
+        Returns a summary string of what was researched and stored.
+        """
+        research = self.research_code(language, topic)
+        snippets = research.get("snippets", [])
+
+        if not snippets:
+            return f"No code research results found for {language}/{topic}"
+
+        # Feed into CodeGenerator knowledge if available
+        if code_generator and hasattr(code_generator, "_store"):
+            for i, snippet in enumerate(snippets[:3]):
+                code_generator._store(  # pylint: disable=protected-access
+                    language, "internet_research", snippet, f"{language}_{topic}_{i}"
+                )
+
+        # Also queue for deep learning — use the specific (lang, topic) pair so
+        # the research pipeline studies the exact sub-topic, not a broad phrase
+        # like "c advanced programming techniques" that would be mis-routed by
+        # GitHub topic search and return irrelevant repos.
+        if self.db:
+            try:
+                self.db.queue_learning(f"{language} {topic}")
+            except Exception:
+                pass
+
+        summary = (
+            f"✅ Researched {language} {topic}: {len(snippets)} result(s) fetched.\n"
+            f"First result: {snippets[0][:120] if snippets else 'none'}..."
+        )
+        log.info(f"[CODE RESEARCH→GENERATOR] {summary[:80]}")
+        return summary
+
+
+# ─────────────────────────────────────────────
+if __name__ == "__main__":
+    print("Running enhanced self_researcher.py with knowledge-based responses")

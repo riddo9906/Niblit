@@ -7,7 +7,8 @@ name = "niblit"
 version = "2.0.0"
 description = "NIBLIT-AIOS — Neural Integrated Baseline for Learning, Intelligence, and Tasking"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.10"
 authors = [
     { name = "Niblit Contributors" },
@@ -25,7 +26,6 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

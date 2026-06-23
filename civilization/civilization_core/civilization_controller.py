@@ -35,6 +35,7 @@ Usage example::
 
 from __future__ import annotations
 
+import importlib
 import logging
 import time
 import uuid
@@ -60,15 +61,26 @@ _ROLE_TOPIC_MAP: Dict[str, str] = {
 }
 
 
+def _load_symbol(module_name: str, attr_name: str) -> Any:
+    """Load a symbol from the package using a resilient import strategy."""
+    for dotted_path in (module_name, f"civilization.{module_name}"):
+        try:
+            module = importlib.import_module(dotted_path)
+            return getattr(module, attr_name)
+        except (ImportError, AttributeError):
+            continue
+    raise ImportError(f"Unable to import {module_name}.{attr_name}")
+
+
 def _make_typed_agent(agent_id: str, role: str) -> Any:
     """Return a typed BaseAgent subclass for *role*, or a plain BaseAgent fallback."""
     try:
-        from civilization.agent_population.research_agent import ResearchAgent
-        from civilization.agent_population.builder_agent import BuilderAgent
-        from civilization.agent_population.planner_agent import PlannerAgent
-        from civilization.agent_population.analyst_agent import AnalystAgent
-        from civilization.agent_population.evolution_agent import EvolutionAgent
-        from civilization.agent_population.base_agent import BaseAgent
+        ResearchAgent = _load_symbol("agent_population.research_agent", "ResearchAgent")
+        BuilderAgent = _load_symbol("agent_population.builder_agent", "BuilderAgent")
+        PlannerAgent = _load_symbol("agent_population.planner_agent", "PlannerAgent")
+        AnalystAgent = _load_symbol("agent_population.analyst_agent", "AnalystAgent")
+        EvolutionAgent = _load_symbol("agent_population.evolution_agent", "EvolutionAgent")
+        BaseAgent = _load_symbol("agent_population.base_agent", "BaseAgent")
 
         _role_map = {
             "researcher": ResearchAgent,
@@ -85,7 +97,7 @@ def _make_typed_agent(agent_id: str, role: str) -> Any:
             role, exc,
         )
         try:
-            from civilization.agent_population.base_agent import BaseAgent
+            BaseAgent = _load_symbol("agent_population.base_agent", "BaseAgent")
             return BaseAgent(agent_id, role)
         except Exception:
             return None
@@ -160,68 +172,68 @@ class CivilizationController:
     def _init_subsystems(self) -> None:
         """Instantiate all civilization subsystems; failures are non-fatal."""
         try:
-            from civilization.civilization_core.population_manager import PopulationManager
+            PopulationManager = _load_symbol("civilization_core.population_manager", "PopulationManager")
             self._pop_manager = PopulationManager()
         except Exception as exc:
             log.debug("CivilizationController: PopulationManager unavailable: %s", exc)
 
         try:
-            from civilization.civilization_core.civilization_scheduler import CivilizationScheduler
+            CivilizationScheduler = _load_symbol("civilization_core.civilization_scheduler", "CivilizationScheduler")
             self._scheduler = CivilizationScheduler()
         except Exception as exc:
             log.debug("CivilizationController: CivilizationScheduler unavailable: %s", exc)
 
         try:
-            from civilization.civilization_core.civilization_metrics import CivilizationMetrics
+            CivilizationMetrics = _load_symbol("civilization_core.civilization_metrics", "CivilizationMetrics")
             self._metrics = CivilizationMetrics()
         except Exception as exc:
             log.debug("CivilizationController: CivilizationMetrics unavailable: %s", exc)
 
         try:
-            from civilization.collaboration_network.message_bus import MessageBus
+            MessageBus = _load_symbol("collaboration_network.message_bus", "MessageBus")
             self._message_bus = MessageBus()
         except Exception as exc:
             log.debug("CivilizationController: MessageBus unavailable: %s", exc)
 
         try:
-            from civilization.governance.reputation_engine import ReputationEngine
+            ReputationEngine = _load_symbol("governance.reputation_engine", "ReputationEngine")
             self._reputation = ReputationEngine()
         except Exception as exc:
             log.debug("CivilizationController: ReputationEngine unavailable: %s", exc)
 
         try:
-            from civilization.evolution_engine.selection_engine import SelectionEngine
-            from civilization.evolution_engine.mutation_engine import MutationEngine
+            SelectionEngine = _load_symbol("evolution_engine.selection_engine", "SelectionEngine")
+            MutationEngine = _load_symbol("evolution_engine.mutation_engine", "MutationEngine")
             self._selector = SelectionEngine()
             self._mutator = MutationEngine()
         except Exception as exc:
             log.debug("CivilizationController: evolution engine unavailable: %s", exc)
 
         try:
-            from civilization.evolution_engine.population_optimizer import PopulationOptimizer
-            from civilization.evolution_engine.architecture_evolver import ArchitectureEvolver
+            PopulationOptimizer = _load_symbol("evolution_engine.population_optimizer", "PopulationOptimizer")
+            ArchitectureEvolver = _load_symbol("evolution_engine.architecture_evolver", "ArchitectureEvolver")
             self._pop_optimizer = PopulationOptimizer()
             self._arch_evolver = ArchitectureEvolver()
         except Exception as exc:
             log.debug("CivilizationController: PopulationOptimizer/ArchitectureEvolver unavailable: %s", exc)
 
         try:
-            from civilization.knowledge_ecosystem.vector_memory import VectorMemory
-            from civilization.knowledge_ecosystem.graph_memory import GraphMemory
-            from civilization.knowledge_ecosystem.embedding_service import EmbeddingService
-            from civilization.knowledge_ecosystem.knowledge_api import KnowledgeAPI
+            VectorMemory = _load_symbol("knowledge_ecosystem.vector_memory", "VectorMemory")
+            GraphMemory = _load_symbol("knowledge_ecosystem.graph_memory", "GraphMemory")
+            EmbeddingService = _load_symbol("knowledge_ecosystem.embedding_service", "EmbeddingService")
+            KnowledgeAPI = _load_symbol("knowledge_ecosystem.knowledge_api", "KnowledgeAPI")
             self._knowledge_api = KnowledgeAPI(VectorMemory(), GraphMemory(), EmbeddingService())
         except Exception as exc:
             log.debug("CivilizationController: KnowledgeAPI unavailable: %s", exc)
 
         try:
-            from civilization.governance.safety_policies import SafetyPolicies
+            SafetyPolicies = _load_symbol("governance.safety_policies", "SafetyPolicies")
             self._safety = SafetyPolicies()
         except Exception as exc:
             log.debug("CivilizationController: SafetyPolicies unavailable: %s", exc)
 
         try:
-            from civilization.governance.audit_system import AuditSystem
+            AuditSystem = _load_symbol("governance.audit_system", "AuditSystem")
             self._audit = AuditSystem()
         except Exception as exc:
             log.debug("CivilizationController: AuditSystem unavailable: %s", exc)
