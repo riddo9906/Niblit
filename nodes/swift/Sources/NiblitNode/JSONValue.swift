@@ -28,10 +28,10 @@ public indirect enum JSONValue: Codable, Equatable, Sendable {
             self = .null
         } else if let value = try? container.decode(Bool.self) {
             self = .bool(value)
-        } else if let value = try? container.decode(Int.self) {
-            self = .int(value)
         } else if let value = try? container.decode(Double.self) {
             self = .double(value)
+        } else if let value = try? container.decode(Int.self) {
+            self = .int(value)
         } else if let value = try? container.decode(String.self) {
             self = .string(value)
         } else if let value = try? container.decode([JSONValue].self) {
