@@ -304,7 +304,7 @@ class NiblitMCPHandler:
 
     # ── MCP method dispatcher ────────────────────────────────────────────────
 
-    def handle(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def handle(self, message: Dict[str, Any]) -> Any:
         """
         Process one MCP JSON-RPC message.
 

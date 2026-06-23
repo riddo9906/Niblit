@@ -14,7 +14,17 @@
 #
 # R0903 too-few-public-methods: Several small data/config classes intentionally
 #   have fewer than 2 public methods.
-disable=import-error,broad-exception-caught,logging-fstring-interpolation,import-outside-toplevel,too-few-public-methods
+#
+# W0212 protected-access: The CLI/debug surface intentionally uses protected
+#   members on the runtime core.
+#
+# W0603 global-statement: The shell entrypoints use globals intentionally.
+#
+# W0108 unnecessary-lambda: The command menu uses lambdas for discoverability.
+#
+# W0706 broad-exception-raised: Some CLI paths intentionally re-raise/handle
+#   control flow exceptions.
+disable=import-error,broad-exception-caught,broad-exception-raised,logging-fstring-interpolation,import-outside-toplevel,too-few-public-methods,protected-access,global-statement,unnecessary-lambda
 
 [FORMAT]
 # Maximum number of characters on a single line.

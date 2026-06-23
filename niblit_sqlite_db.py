@@ -56,7 +56,7 @@ class NiblitSQLiteDB:
         # Use a single shared connection (check_same_thread=False) protected
         # by a mutex.  This works correctly for both file-based and
         # in-memory (':memory:') databases.
-        self._conn_obj = sqlite3.connect(
+        self._conn_obj: sqlite3.Connection = sqlite3.connect(
             self.db_path,
             check_same_thread=False,
             detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
@@ -65,7 +65,9 @@ class NiblitSQLiteDB:
         self._init_schema()
 
     def _conn(self) -> sqlite3.Connection:
-        return self._conn_obj
+        conn = self._conn_obj
+        assert conn is not None
+        return conn
 
     def _init_schema(self) -> None:
         """Create tables if they do not already exist."""

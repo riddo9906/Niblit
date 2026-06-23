@@ -7,7 +7,7 @@ Retains all original command handling and logic 100%.
 """
 
 import logging
-import threading
+import threading as _threading
 import json
 import ast as _ast
 import re
@@ -7096,7 +7096,7 @@ Ask me about:
         # SHUTDOWN
         if lower in ("shutdown", "exit", "quit"):
             if self.core:
-                threading.Thread(target=safe_call, args=(self.core.shutdown,), daemon=True).start()
+                _threading.Thread(target=safe_call, args=(self.core.shutdown,), daemon=True).start()
             return "Shutdown scheduled."
 
         # LLM TOGGLE

@@ -10,6 +10,7 @@ regardless of how pytest resolves the package hierarchy.
 
 import os
 import sys
+from pathlib import Path
 
 
 # Ensure the project root is always on sys.path so that bare imports such as
@@ -18,6 +19,11 @@ import sys
 _project_root = os.path.abspath(os.path.dirname(__file__))
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
+
+# Also expose the repo root for sibling-package imports used by the workspace.
+_repo_root = str(Path(__file__).resolve().parent.parent)
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
 
 # Store the exitstatus from pytest_sessionfinish so we can use it in

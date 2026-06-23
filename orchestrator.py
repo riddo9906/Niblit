@@ -8,10 +8,10 @@ import json
 import logging
 
 try:
-    from dotenv import load_dotenv
+    from dotenv import load_dotenv as _load_dotenv
 except ImportError:
-    def load_dotenv(*args, **kwargs):
-        pass  # python-dotenv not installed — env vars loaded from environment
+    def _load_dotenv(*args, **kwargs):
+        return False  # python-dotenv not installed — env vars loaded from environment
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("NiblitOS")
@@ -20,7 +20,7 @@ log = logging.getLogger("NiblitOS")
 # Load tokens from .env or environment variables
 # --------------------------------------------------------
 def load_tokens():
-    load_dotenv()
+    _load_dotenv()
     tokens = {
         "HF_TOKEN": os.getenv("HF_TOKEN", None),
         "HF_API": os.getenv("HF_API", "https://api-inference.huggingface.co/models"),

@@ -26,6 +26,9 @@ import threading
 import time
 import traceback
 
+from niblit_core import NiblitCore
+from niblit_io import NiblitIO
+
 # ── Centralised logging configuration ──────────────────────────────────────
 # Set up the root logger ONCE here, before any module imports.  Individual
 # modules should only call ``logging.getLogger(name)`` — never
@@ -44,9 +47,6 @@ try:
     load_dotenv()
 except ImportError:
     pass  # python-dotenv not installed — rely on os.environ
-
-from niblit_core import NiblitCore
-from niblit_io import NiblitIO
 
 DEFAULT_INIT_WAIT_MAX_SECONDS = 600.0  # 10 min default; override via NIBLIT_INIT_WAIT_MAX_SECONDS
 TOOL_NO_OUTPUT_MESSAGE = "[Tool returned no output]"
@@ -71,7 +71,7 @@ except ImportError:
 _active_core = None  # set by run_shell so signal handlers can reach it
 
 
-def _shutdown_on_signal(sig, frame):
+def _shutdown_on_signal(sig, _frame):
     """Signal handler: flush autonomous-growth data then exit cleanly."""
     try:
         sig_name = signal.strsignal(sig) or str(sig)
@@ -82,7 +82,7 @@ def _shutdown_on_signal(sig, frame):
     if _active_core is not None:
         try:
             _active_core.shutdown()
-        except Exception:
+        except (AttributeError, RuntimeError, OSError):
             pass
     sys.exit(0)
 
@@ -147,7 +147,16 @@ def timestamp():
 
 def _command_vocabulary(core=None):
     names = set(LEGACY_COMMANDS)
-    names.update({"exit", "quit", "debug on", "debug off", "session summary", "notifications history", "sidecar status", "unified status"})
+    names.update({
+        "exit",
+        "quit",
+        "debug on",
+        "debug off",
+        "session summary",
+        "notifications history",
+        "sidecar status",
+        "unified status",
+    })
     registry = getattr(core, "command_registry", None) if core is not None else None
     if registry is not None and hasattr(registry, "command_names"):
         try:
@@ -159,7 +168,7 @@ def _command_vocabulary(core=None):
                     include_unavailable=True,
                 )
             )
-        except Exception:
+        except BaseException:
             pass
     return sorted(name for name in names if name)
 
@@ -193,7 +202,7 @@ def parse_args(argv=None):
     try:
         from config import settings as _settings  # type: ignore[import]
         _version = getattr(_settings, "VERSION", None) or "AIOS"
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         _version = "AIOS"
 
     p = argparse.ArgumentParser(
@@ -317,7 +326,7 @@ def _run_tool_cli_mode(args, io=None) -> int:
         result = registry.run(args.tool_call, tool_args)
         out(TOOL_NO_OUTPUT_MESSAGE if result is None else str(result))
         return 0
-    except Exception as exc:
+    except BaseException as exc:
         err(f"[TOOL-CALL ERROR] {exc}")
         return 2
 
@@ -342,7 +351,7 @@ def _should_launch_desktop(args, *, ui_supported=None) -> bool:
         from modules.desktop_runtime_shell import desktop_ui_supported
 
         return bool(desktop_ui_supported())
-    except Exception as exc:
+    except BaseException as exc:
         logging.getLogger(__name__).debug(
             "desktop_ui_supported probe failed; attempting desktop launch anyway: %s",
             exc,
@@ -369,12 +378,12 @@ def log_command(io, name, handler):
         if result:
             debug(io, f"COMMAND RESULT ← {name}")
             return result
-        else:
-            debug(io, f"COMMAND EMPTY RESPONSE ← {name}")
-            return "[No output]"
 
-    except Exception as e:
-        io.error(f"{timestamp()} [COMMAND ERROR] {name} → {e}")
+        debug(io, f"COMMAND EMPTY RESPONSE ← {name}")
+        return "[No output]"
+
+    except BaseException as exc:
+        io.error(f"{timestamp()} [COMMAND ERROR] {name} → {exc}")
         traceback.print_exc()
         return "[Command failed]"
 
@@ -442,7 +451,7 @@ def boot():
     try:
         from config import Config as _Config
         _Config.validate()
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         pass
 
     core = NiblitCore()
@@ -483,7 +492,7 @@ def boot():
 # HELPER: show notifications via direct command (additive)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _cmd_show_notifications(core=None, io=None):
+def _cmd_show_notifications(core=None, _io=None):
     """Drain the notification queue and return its contents as a string."""
     msgs = []
 
@@ -646,6 +655,22 @@ def _cmd_session_summary(export_path: str = "") -> str:
     return summary
 
 
+def _drain_init_messages(init_queue, io) -> int:
+    """Drain pending init progress messages and print them to the CLI."""
+    if init_queue is None:
+        return 0
+
+    printed = 0
+    while True:
+        try:
+            message = init_queue.get_nowait()
+        except Exception:
+            break
+        io.out(f"{timestamp()} {message}")
+        printed += 1
+    return printed
+
+
 def _sync_cli_capability_registry(core, io):
     """Register CLI-only capabilities in the canonical capability registry."""
     registry = getattr(core, "command_registry", None)
@@ -774,10 +799,20 @@ def run_shell(core, io):
         "unified status": lambda: (
             "\n".join([
                 "🔗 Unified feedback-loop status:",
-                f"  Layers ready  : {core._unified_loop_status.get('ready', '?')}/{core._unified_loop_status.get('total', '?')}",
-                f"  Verified      : {'✅ Yes' if core._unified_loop_status.get('verified') else '⚠️  No — some layers degraded'}",
-                f"  Degraded      : {', '.join(core._unified_loop_status.get('warnings', [])) or 'none'}",
-            ]) if hasattr(core, "_unified_loop_status")
+                (
+                    f"  Layers ready  : {core._unified_loop_status.get('ready', '?')}/"
+                    f"{core._unified_loop_status.get('total', '?')}"
+                ),
+                (
+                    "  Verified      : "
+                    f"{'✅ Yes' if core._unified_loop_status.get('verified') else '⚠️  No — some layers degraded'}"
+                ),
+                (
+                    "  Degraded      : "
+                    f"{', '.join(core._unified_loop_status.get('warnings', [])) or 'none'}"
+                ),
+            ])
+            if hasattr(core, "_unified_loop_status")
             else "[Unified-loop status not yet available — boot may still be in progress]"
         ),
     }
@@ -796,7 +831,7 @@ def run_shell(core, io):
                 io.out("Shutdown.")
                 try:
                     core.shutdown()
-                except Exception:  # noqa: BLE001
+                except BaseException:
                     pass
                 break
 
@@ -863,7 +898,7 @@ def run_shell(core, io):
             io.out(f"\n{timestamp()} [INTERRUPTED] Saving autonomous growth data...")
             try:
                 core.shutdown()
-            except Exception:
+            except BaseException:
                 pass
             break
 
@@ -872,12 +907,12 @@ def run_shell(core, io):
             io.out(f"\n{timestamp()} [EOF] Input stream closed. Saving state and exiting...")
             try:
                 core.shutdown()
-            except Exception:
+            except BaseException:
                 pass
             break
 
-        except Exception as e:
-            io.error(f"{timestamp()} [RUNTIME ERROR] {e}")
+        except BaseException as exc:
+            io.error(f"{timestamp()} [RUNTIME ERROR] {exc}")
             traceback.print_exc()
 
 # ─────────────────────────────
@@ -903,7 +938,7 @@ def main(argv=None):
     try:
         _args = parse_args(argv)
     except SystemExit:
-        raise  # --help / --version already printed; honour the exit
+        return 0
 
     # Apply CLI flags before boot
     if _args.debug:
@@ -914,14 +949,15 @@ def main(argv=None):
     # Tool registry CLI mode (LangChain-style function calling)
     _tool_mode_exit = _run_tool_cli_mode(_args)
     if _tool_mode_exit >= 0:
-        sys.exit(_tool_mode_exit)
+        raise SystemExit(_tool_mode_exit)
 
     # Register OS-level signal handlers so that SIGTERM (system kill) and
     # SIGHUP (Termux session close) also trigger a clean shutdown instead
     # of an abrupt process death that loses autonomous-growth data.
     signals_to_try = [getattr(signal, "SIGTERM", None)]
-    if hasattr(signal, "SIGHUP"):
-        signals_to_try.append(signal.SIGHUP)
+    sighup_signal = getattr(signal, "SIGHUP", None)
+    if sighup_signal is not None:
+        signals_to_try.append(sighup_signal)
     for sig in signals_to_try:
         if sig is None:
             continue
@@ -987,15 +1023,7 @@ def main(argv=None):
                 _phase = getattr(core, "_deferred_init_phase", "complete")
 
                 # Drain and print any progress messages pushed by the init thread.
-                _printed = 0
-                if _init_pq is not None:
-                    while True:
-                        try:
-                            _msg = _init_pq.get_nowait()
-                            io.out(f"{timestamp()} {_msg}")
-                            _printed += 1
-                        except Exception:
-                            break
+                _printed = _drain_init_messages(_init_pq, io)
 
                 if _phase in ("complete", "failed"):
                     break
@@ -1023,13 +1051,7 @@ def main(argv=None):
             )
 
         # Drain any messages that arrived just before/after we broke out.
-        if _init_pq is not None:
-            while True:
-                try:
-                    _msg = _init_pq.get_nowait()
-                    io.out(f"{timestamp()} {_msg}")
-                except Exception:
-                    break
+        _drain_init_messages(_init_pq, io)
 
         _phase = getattr(core, "_deferred_init_phase", "complete")
         if _phase == "complete":
@@ -1121,7 +1143,7 @@ def main(argv=None):
                     core.shutdown()
                 except Exception:
                     pass
-                return
+                return 0
         except Exception as _ui_exc:
             io.error(f"{timestamp()} [DESKTOP UI ERROR] {_ui_exc} — falling back to CLI")
 
@@ -1147,6 +1169,8 @@ def main(argv=None):
             _stop_sidecar()
         except Exception:
             pass
+
+    return 0
 
 
 if __name__ == "__main__":

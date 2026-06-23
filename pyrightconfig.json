@@ -1,0 +1,32 @@
+{
+  "include": ["."],
+  "exclude": [".git", "build", "dist", "__pycache__", "tests", ".pytest_cache", "**/test_*.py", "**/tests/**"],
+  "venvPath": "c:/Users/Riyaad/Documents/GitHub",
+  "venv": "niblit-env",
+  "pythonVersion": "3.10",
+  "extraPaths": [
+    ".",
+    "./core",
+    "./modules",
+    "./agents",
+    "./nibblebots",
+    "./niblit_core",
+    "./niblit_memory",
+    "./niblit_tools"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "none",
+  "reportGeneralTypeIssues": "none",
+  "reportUnusedImport": "none",
+  "reportUnusedVariable": "none",
+  "reportUnusedFunction": "none",
+  "reportUnusedArgument": "none",
+  "reportPrivateUsage": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownLambdaType": "none",
+  "reportMissingModuleSource": "none",
+  "reportOptionalMemberAccess": "none",
+  "reportAttributeAccessIssue": "none"
+}

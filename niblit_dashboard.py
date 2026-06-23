@@ -620,7 +620,7 @@ if _kivy_available:
             Window.clearcolor = (0.08, 0.08, 0.10, 1)
 
             # Determine initial mode
-            if _proot_available:
+            if _proot_available and get_proot_env is not None:
                 _env = get_proot_env()
                 _default_mode = "local" if _env.status == STATUS_READY else "api"
             else:
@@ -628,8 +628,8 @@ if _kivy_available:
             self._mode: str = os.getenv("NIBLIT_MODE", _default_mode)
 
             # proot / bootstrap singletons
-            self._proot     = get_proot_env()     if _proot_available else None
-            self._bootstrap = get_apk_bootstrap() if _proot_available else None
+            self._proot = get_proot_env() if _proot_available and get_proot_env is not None else None
+            self._bootstrap = get_apk_bootstrap() if _proot_available and get_apk_bootstrap is not None else None
 
             # Interactive shell state
             self._shell_proc   = None

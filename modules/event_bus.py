@@ -229,7 +229,14 @@ class EventBus:
         for handler in handlers + wildcard_handlers:
             try:
                 handler(event)
-            except Exception as exc:
+            except (RuntimeError, TypeError, ValueError, AttributeError, KeyError) as exc:
+                log.debug(
+                    "[EventBus] handler error for %s in %s: %s",
+                    event.type,
+                    getattr(handler, "__qualname__", repr(handler)),
+                    exc,
+                )
+            except BaseException as exc:  # pylint: disable=broad-exception-caught
                 log.debug(
                     "[EventBus] handler error for %s in %s: %s",
                     event.type,

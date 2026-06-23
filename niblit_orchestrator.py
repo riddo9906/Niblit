@@ -89,11 +89,12 @@ def _run_subprocess_streaming(label: str, script_path: str, timeout: int = 180) 
             text=True,
             bufsize=1,
         )
-        for line in proc.stdout:
-            line = line.rstrip("\n")
-            print(line)
-            with open(LOG_FILE, "a") as f:
-                f.write(line + "\n")
+        if proc.stdout is not None:
+            for line in proc.stdout:
+                line = line.rstrip("\n")
+                print(line)
+                with open(LOG_FILE, "a") as f:
+                    f.write(line + "\n")
         proc.wait(timeout=timeout)
         log(f">>> [{label}] Finished with exit code {proc.returncode}")
         return proc.returncode
