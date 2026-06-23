@@ -52,7 +52,7 @@ const os = __importStar(require("node:os"));
 const niblit_client_js_1 = require("./niblit-client.js");
 const niblit_state_js_1 = require("./niblit-state.js");
 const niblit_runtime_adapter_js_1 = require("./niblit-runtime-adapter.js");
-const NIBLIT_URL = process.env.NIBLIT_URL ?? "http://localhost:8000";
+const NIBLIT_URL = process.env.NIBLIT_URL ?? "http://localhost:8000/v1";
 const NIBLIT_API_KEY = process.env.NIBLIT_API_KEY;
 async function main() {
     const client = new niblit_client_js_1.NiblitClient({

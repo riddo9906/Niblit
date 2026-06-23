@@ -63,29 +63,33 @@ class RuntimeLogger:
         self._logger = logger
         self.name = logger.name
 
-    def _emit(self, level: int, msg: str, **kwargs: Any) -> None:
+    def _emit(self, level: int, msg: str, *args: Any, **kwargs: Any) -> None:
         extra = kwargs.pop("extra", {})
         payload = dict(extra)
+        for key in ("exc_info", "stack_info", "stacklevel"):
+            if key in kwargs:
+                kwargs.pop(key)
         payload.update(kwargs)
-        self._logger.log(level, msg, extra=payload)
+        self._logger.log(level, msg, *args, extra=payload)
 
-    def debug(self, msg: str, **kwargs: Any) -> None:
-        self._emit(logging.DEBUG, msg, **kwargs)
+    def debug(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._emit(logging.DEBUG, msg, *args, **kwargs)
 
-    def info(self, msg: str, **kwargs: Any) -> None:
-        self._emit(logging.INFO, msg, **kwargs)
+    def info(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._emit(logging.INFO, msg, *args, **kwargs)
 
-    def warning(self, msg: str, **kwargs: Any) -> None:
-        self._emit(logging.WARNING, msg, **kwargs)
+    def warning(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._emit(logging.WARNING, msg, *args, **kwargs)
 
-    def error(self, msg: str, **kwargs: Any) -> None:
-        self._emit(logging.ERROR, msg, **kwargs)
+    def error(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._emit(logging.ERROR, msg, *args, **kwargs)
 
-    def critical(self, msg: str, **kwargs: Any) -> None:
-        self._emit(logging.CRITICAL, msg, **kwargs)
+    def critical(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        self._emit(logging.CRITICAL, msg, *args, **kwargs)
 
-    def exception(self, msg: str, **kwargs: Any) -> None:
-        self._emit(logging.ERROR, msg, **kwargs)
+    def exception(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("exc_info", True)
+        self._emit(logging.ERROR, msg, *args, **kwargs)
 
     def setLevel(self, level: int) -> None:
         self._logger.setLevel(level)
