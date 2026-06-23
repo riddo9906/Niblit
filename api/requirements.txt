@@ -10,7 +10,7 @@ pydantic>=2.0.0
 python-dotenv>=1.0.0
 requests>=2.28.0
 # Non-blocking HTTP client used by hf_brain, internet_manager, upgrade pipeline
-httpx>=0.24.0
+httpx>=0.28.1
 # Async I/O compatibility layer required by FastAPI on Vercel
 anyio>=4.0.0
 # Fast JSON serialisation used by niblit_memory event sourcing
