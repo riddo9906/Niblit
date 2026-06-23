@@ -36,11 +36,6 @@ let package = Package(
         .library(name: "NiblitNodeCore", targets: ["NiblitNode"]),
     ],
     dependencies: [
-        // CLI argument parsing — mirroring the Rust node's use of clap
-        .package(
-            url: "https://github.com/apple/swift-argument-parser",
-            from: "1.3.0"
-        ),
         // Cross-platform SHA-256 (CryptoKit on Apple, swift-crypto on Linux)
         .package(
             url: "https://github.com/apple/swift-crypto",
@@ -52,7 +47,6 @@ let package = Package(
         .target(
             name: "NiblitNode",
             dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux, .windows])),
             ],
             path: "Sources/NiblitNode"

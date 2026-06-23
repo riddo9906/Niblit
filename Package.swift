@@ -25,10 +25,9 @@ let package = Package(
         .executable(name: "ale-swift-module", targets: ["AleSwiftModule"]),
     ],
     dependencies: [
-        .package(path: "vendor/swift-argument-parser"),
         .package(
             url: "https://github.com/apple/swift-crypto",
-            from: "3.0.0"
+            from: "4.3.1"
         ),
     ],
     targets: [
@@ -36,7 +35,6 @@ let package = Package(
         .target(
             name: "NiblitNode",
             dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux, .windows])),
             ],
             path: "nodes/swift/Sources/NiblitNode"

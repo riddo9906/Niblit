@@ -18,48 +18,104 @@
 // Note: @main lives in Sources/NiblitNodeExec/main.swift so this struct can
 // be part of the library target and imported directly by the test target.
 
-import ArgumentParser
 import Foundation
 
 // MARK: – Command
 
-public struct NiblitNodeCommand: AsyncParsableCommand {
+public struct NiblitNodeCommand {
+    public var url: String
+    public var apiKey: String?
+    public var timeout: Double
+    public var message: [String]
 
-    public static var configuration = CommandConfiguration(
-        commandName: "niblit-node",
-        abstract:    "Niblit Swift deployment node",
-        discussion:  """
-        Connects to the Niblit Python core REST API, exchanges cross-environment
-        state, and either runs a single command or drops into an interactive REPL.
+    public init(
+        url: String = ProcessInfo.processInfo.environment["NIBLIT_URL"] ?? "http://localhost:8000",
+        apiKey: String? = ProcessInfo.processInfo.environment["NIBLIT_API_KEY"],
+        timeout: Double = 20,
+        message: [String] = []
+    ) {
+        self.url = url
+        self.apiKey = apiKey
+        self.timeout = timeout
+        self.message = message
+    }
 
-        Usage examples:
-          NIBLIT_URL=http://localhost:8000 niblit-node
-          NIBLIT_URL=http://localhost:8000 niblit-node "tell me about transformers"
-        """,
-        version:     "1.0.0"
-    )
+    public static func main() async throws {
+        let command = try parseCommandLineArguments(CommandLine.arguments)
+        try await command.run()
+    }
 
-    public init() {}
+    public static func parseCommandLineArguments(_ arguments: [String]) throws -> NiblitNodeCommand {
+        var url = ProcessInfo.processInfo.environment["NIBLIT_URL"] ?? "http://localhost:8000"
+        var apiKey = ProcessInfo.processInfo.environment["NIBLIT_API_KEY"]
+        var timeout: Double = 20
+        var message: [String] = []
 
-    // ── Options ──────────────────────────────────────────────────────────────
+        var index = 0
+        while index < arguments.count {
+            let argument = arguments[index]
+            switch argument {
+            case "--url":
+                guard index + 1 < arguments.count else { throw CLIError.missingValue(for: "--url") }
+                url = arguments[index + 1]
+                index += 1
+            case "--api-key":
+                guard index + 1 < arguments.count else { throw CLIError.missingValue(for: "--api-key") }
+                apiKey = arguments[index + 1]
+                index += 1
+            case "--timeout":
+                guard index + 1 < arguments.count else { throw CLIError.missingValue(for: "--timeout") }
+                guard let parsedTimeout = Double(arguments[index + 1]) else {
+                    throw CLIError.invalidValue(arguments[index + 1], for: "--timeout")
+                }
+                timeout = parsedTimeout
+                index += 1
+            case "--help", "-h":
+                printUsage()
+                throw CLIError.helpRequested
+            default:
+                if argument.hasPrefix("-") {
+                    throw CLIError.unknownOption(argument)
+                }
+                message.append(argument)
+            }
+            index += 1
+        }
 
-    @Option(name: .long, help: "Niblit API base URL.")
-    public var url: String = ProcessInfo.processInfo.environment["NIBLIT_URL"]
-                             ?? "http://localhost:8000"
+        return NiblitNodeCommand(url: url, apiKey: apiKey, timeout: timeout, message: message)
+    }
 
-    @Option(name: .long, help: "Optional API key (X-Niblit-Key header).")
-    public var apiKey: String? = ProcessInfo.processInfo.environment["NIBLIT_API_KEY"]
+    private static func printUsage() {
+        fputs("""
+        Usage:
+          niblit-node [--url URL] [--api-key KEY] [--timeout SECONDS] [message ...]
+        """, stdout)
+    }
 
-    @Option(name: .long, help: "HTTP timeout in seconds.")
-    public var timeout: Double = 20
+    private enum CLIError: Error, CustomStringConvertible {
+        case missingValue(for: String)
+        case invalidValue(String, for: String)
+        case unknownOption(String)
+        case helpRequested
 
-    @Argument(help: "Message to send (non-interactive mode). Omit for REPL.")
-    public var message: [String] = []
+        var description: String {
+            switch self {
+            case .missingValue(let option):
+                return "Missing value for \(option)"
+            case .invalidValue(let value, let option):
+                return "Invalid value '\(value)' for \(option)"
+            case .unknownOption(let option):
+                return "Unknown option \(option)"
+            case .helpRequested:
+                return "Help requested"
+            }
+        }
+    }
 
     // ── Run ──────────────────────────────────────────────────────────────────
 
-    public mutating func run() async throws {
-        let client  = NiblitClient(baseURL: url, apiKey: apiKey, timeoutSeconds: timeout)
+    public func run() async throws {
+        let client  = NiblitClient(baseURL: self.url, apiKey: self.apiKey, timeoutSeconds: self.timeout)
         let adapter = DefaultSwiftRuntimeAdapter(client: client)
 
         // 1 ── Health check ──────────────────────────────────────────────────
@@ -103,9 +159,9 @@ public struct NiblitNodeCommand: AsyncParsableCommand {
         await adapter.reportLevel()
 
         // 4 ── Single-command or interactive mode ────────────────────────────
-        if !message.isEmpty {
+        if !self.message.isEmpty {
             try await runSingleCommand(
-                message:  message.joined(separator: " "),
+                message:  self.message.joined(separator: " "),
                 client:   client,
                 envelope: &envelope
             )
@@ -137,7 +193,7 @@ public struct NiblitNodeCommand: AsyncParsableCommand {
             _ = try? await client.pushState(envelope)
         } catch {
             fputs("[Niblit Swift] Chat error: \(error)\n", stderr)
-            throw ExitCode.failure
+            throw NSError(domain: "NiblitSwift", code: 1, userInfo: [NSLocalizedDescriptionKey: "Chat request failed"])
         }
     }
 
