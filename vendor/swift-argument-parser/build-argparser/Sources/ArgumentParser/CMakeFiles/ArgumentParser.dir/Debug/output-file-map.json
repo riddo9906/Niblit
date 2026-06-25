@@ -1,0 +1,363 @@
+{
+	"" : 
+	{
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Debug\\ArgumentParser.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Completions\\BashCompletionsGenerator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\BashCompletionsGenerator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\BashCompletionsGenerator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\BashCompletionsGenerator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\BashCompletionsGenerator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Completions\\CompletionsGenerator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\CompletionsGenerator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\CompletionsGenerator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\CompletionsGenerator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\CompletionsGenerator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Completions\\FishCompletionsGenerator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\FishCompletionsGenerator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\FishCompletionsGenerator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\FishCompletionsGenerator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\FishCompletionsGenerator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Completions\\ZshCompletionsGenerator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\ZshCompletionsGenerator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\ZshCompletionsGenerator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\ZshCompletionsGenerator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Completions\\ZshCompletionsGenerator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\Argument.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Argument.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Argument.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Argument.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Argument.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\ArgumentDiscussion.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentDiscussion.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentDiscussion.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentDiscussion.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentDiscussion.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\ArgumentHelp.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentHelp.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentHelp.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentHelp.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentHelp.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\ArgumentVisibility.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentVisibility.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentVisibility.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentVisibility.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\ArgumentVisibility.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\CompletionKind.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\CompletionKind.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\CompletionKind.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\CompletionKind.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\CompletionKind.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\Errors.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Errors.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Errors.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Errors.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Errors.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\Flag.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Flag.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Flag.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Flag.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Flag.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\NameSpecification.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\NameSpecification.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\NameSpecification.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\NameSpecification.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\NameSpecification.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\Option.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Option.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Option.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Option.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\Option.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Properties\\OptionGroup.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\OptionGroup.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\OptionGroup.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\OptionGroup.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Properties\\OptionGroup.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Types\\AsyncParsableCommand.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\AsyncParsableCommand.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\AsyncParsableCommand.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\AsyncParsableCommand.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\AsyncParsableCommand.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Types\\CommandConfiguration.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\CommandConfiguration.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\CommandConfiguration.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\CommandConfiguration.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\CommandConfiguration.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Types\\CommandGroup.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\CommandGroup.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\CommandGroup.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\CommandGroup.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\CommandGroup.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Types\\EnumerableFlag.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\EnumerableFlag.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\EnumerableFlag.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\EnumerableFlag.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\EnumerableFlag.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Types\\ExpressibleByArgument.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ExpressibleByArgument.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ExpressibleByArgument.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ExpressibleByArgument.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ExpressibleByArgument.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Types\\ParsableArguments.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ParsableArguments.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ParsableArguments.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ParsableArguments.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ParsableArguments.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsable Types\\ParsableCommand.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ParsableCommand.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ParsableCommand.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ParsableCommand.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsable_Types\\ParsableCommand.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\ArgumentDecoder.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentDecoder.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentDecoder.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentDecoder.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentDecoder.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\ArgumentDefinition.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentDefinition.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentDefinition.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentDefinition.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentDefinition.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\ArgumentSet.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentSet.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentSet.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentSet.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ArgumentSet.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\CommandParser.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\CommandParser.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\CommandParser.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\CommandParser.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\CommandParser.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\InputKey.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\InputKey.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\InputKey.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\InputKey.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\InputKey.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\InputOrigin.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\InputOrigin.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\InputOrigin.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\InputOrigin.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\InputOrigin.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\Name.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\Name.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\Name.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\Name.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\Name.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\Parsed.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\Parsed.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\Parsed.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\Parsed.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\Parsed.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\ParsedValues.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ParsedValues.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ParsedValues.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ParsedValues.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ParsedValues.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\ParserError.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ParserError.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ParserError.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ParserError.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\ParserError.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Parsing\\SplitArguments.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\SplitArguments.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\SplitArguments.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\SplitArguments.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Parsing\\SplitArguments.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Usage\\DumpHelpGenerator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\DumpHelpGenerator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\DumpHelpGenerator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\DumpHelpGenerator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\DumpHelpGenerator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Usage\\HelpCommand.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\HelpCommand.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\HelpCommand.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\HelpCommand.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\HelpCommand.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Usage\\HelpGenerator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\HelpGenerator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\HelpGenerator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\HelpGenerator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\HelpGenerator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Usage\\MessageInfo.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\MessageInfo.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\MessageInfo.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\MessageInfo.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\MessageInfo.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Usage\\UsageGenerator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\UsageGenerator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\UsageGenerator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\UsageGenerator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Usage\\UsageGenerator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Utilities\\CollectionExtensions.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\CollectionExtensions.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\CollectionExtensions.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\CollectionExtensions.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\CollectionExtensions.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Utilities\\Foundation.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Foundation.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Foundation.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Foundation.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Foundation.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Utilities\\Mutex.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Mutex.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Mutex.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Mutex.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Mutex.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Utilities\\Platform.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Platform.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Platform.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Platform.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Platform.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Utilities\\SequenceExtensions.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\SequenceExtensions.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\SequenceExtensions.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\SequenceExtensions.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\SequenceExtensions.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Utilities\\StringExtensions.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\StringExtensions.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\StringExtensions.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\StringExtensions.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\StringExtensions.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Utilities\\SwiftExtensions.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\SwiftExtensions.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\SwiftExtensions.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\SwiftExtensions.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\SwiftExtensions.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Utilities\\Tree.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Tree.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Tree.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Tree.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Utilities\\Tree.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Validators\\AsyncCompletionsValidator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\AsyncCompletionsValidator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\AsyncCompletionsValidator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\AsyncCompletionsValidator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\AsyncCompletionsValidator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Validators\\CodingKeyValidator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\CodingKeyValidator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\CodingKeyValidator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\CodingKeyValidator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\CodingKeyValidator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Validators\\NonsenseFlagsValidator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\NonsenseFlagsValidator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\NonsenseFlagsValidator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\NonsenseFlagsValidator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\NonsenseFlagsValidator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Validators\\ParsableArgumentsValidation.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\ParsableArgumentsValidation.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\ParsableArgumentsValidation.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\ParsableArgumentsValidation.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\ParsableArgumentsValidation.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Validators\\PositionalArgumentsValidator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\PositionalArgumentsValidator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\PositionalArgumentsValidator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\PositionalArgumentsValidator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\PositionalArgumentsValidator.swift.obj.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParser\\Validators\\UniqueNamesValidator.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\UniqueNamesValidator.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\UniqueNamesValidator.swift.obj.dia",
+		"object" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\UniqueNamesValidator.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParser\\CMakeFiles\\ArgumentParser.dir\\Validators\\UniqueNamesValidator.swift.obj.swiftdeps"
+	}
+}

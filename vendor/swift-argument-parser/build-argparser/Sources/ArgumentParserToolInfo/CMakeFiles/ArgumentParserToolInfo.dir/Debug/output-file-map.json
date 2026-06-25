@@ -1,0 +1,13 @@
+{
+	"" : 
+	{
+		"swift-dependencies" : "Sources\\ArgumentParserToolInfo\\CMakeFiles\\ArgumentParserToolInfo.dir\\Debug\\ArgumentParserToolInfo.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParserToolInfo\\ToolInfo.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParserToolInfo\\CMakeFiles\\ArgumentParserToolInfo.dir\\ToolInfo.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParserToolInfo\\CMakeFiles\\ArgumentParserToolInfo.dir\\ToolInfo.swift.obj.dia",
+		"object" : "Sources\\ArgumentParserToolInfo\\CMakeFiles\\ArgumentParserToolInfo.dir\\ToolInfo.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParserToolInfo\\CMakeFiles\\ArgumentParserToolInfo.dir\\ToolInfo.swift.obj.swiftdeps"
+	}
+}

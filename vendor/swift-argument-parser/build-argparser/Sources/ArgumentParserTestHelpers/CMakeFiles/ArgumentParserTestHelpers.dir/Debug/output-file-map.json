@@ -1,0 +1,13 @@
+{
+	"" : 
+	{
+		"swift-dependencies" : "Sources\\ArgumentParserTestHelpers\\CMakeFiles\\ArgumentParserTestHelpers.dir\\Debug\\ArgumentParserTestHelpers.swiftdeps"
+	},
+	"C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\vendor\\swift-argument-parser\\Sources\\ArgumentParserTestHelpers\\TestHelpers.swift" : 
+	{
+		"dependencies" : "Sources\\ArgumentParserTestHelpers\\CMakeFiles\\ArgumentParserTestHelpers.dir\\TestHelpers.swift.obj.d",
+		"diagnostics" : "Sources\\ArgumentParserTestHelpers\\CMakeFiles\\ArgumentParserTestHelpers.dir\\TestHelpers.swift.obj.dia",
+		"object" : "Sources\\ArgumentParserTestHelpers\\CMakeFiles\\ArgumentParserTestHelpers.dir\\TestHelpers.swift.obj",
+		"swift-dependencies" : "Sources\\ArgumentParserTestHelpers\\CMakeFiles\\ArgumentParserTestHelpers.dir\\TestHelpers.swift.obj.swiftdeps"
+	}
+}

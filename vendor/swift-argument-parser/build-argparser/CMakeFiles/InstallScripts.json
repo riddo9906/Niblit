@@ -1,0 +1,12 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/Riyaad/Documents/GitHub/Niblit/vendor/swift-argument-parser/build-argparser/cmake_install.cmake",
+		"C:/Users/Riyaad/Documents/GitHub/Niblit/vendor/swift-argument-parser/build-argparser/Sources/cmake_install.cmake",
+		"C:/Users/Riyaad/Documents/GitHub/Niblit/vendor/swift-argument-parser/build-argparser/Sources/ArgumentParser/cmake_install.cmake",
+		"C:/Users/Riyaad/Documents/GitHub/Niblit/vendor/swift-argument-parser/build-argparser/Sources/ArgumentParserToolInfo/cmake_install.cmake",
+		"C:/Users/Riyaad/Documents/GitHub/Niblit/vendor/swift-argument-parser/build-argparser/Sources/ArgumentParserTestHelpers/cmake_install.cmake",
+		"C:/Users/Riyaad/Documents/GitHub/Niblit/vendor/swift-argument-parser/build-argparser/cmake/modules/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
