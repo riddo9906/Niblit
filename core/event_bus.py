@@ -179,17 +179,23 @@ class EventBus:
         event_type: EventType | str,
         handler: Handler,
     ) -> None:
-        """Register *handler* to be called whenever *event_type* is published."""
+        """Register *handler* to be called whenever *event_type* is published.
+
+        Registering the same handler twice for the same event type is a no-op.
+        """
         event_name = event_type.value if isinstance(event_type, EventType) else str(event_type)
         with self._lock:
-            self._handlers[event_name].append(handler)
+            handlers = self._handlers[event_name]
+            if handler not in handlers:
+                handlers.append(handler)
             self._ensure_handler_stats(handler, event_name)
         log.debug("[EventBus] subscribed %s → %s", handler.__name__, event_name)
 
     def subscribe_all(self, handler: Handler) -> None:
         """Register *handler* to receive every event regardless of type."""
         with self._lock:
-            self._wildcard_handlers.append(handler)
+            if handler not in self._wildcard_handlers:
+                self._wildcard_handlers.append(handler)
             self._ensure_handler_stats(handler, "*")
 
     def unsubscribe(self, event_type: EventType | str, handler: Handler) -> bool:

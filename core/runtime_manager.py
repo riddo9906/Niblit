@@ -53,6 +53,10 @@ _PRIORITY_MAP: Dict[str, Priority] = {
     "critical": Priority.CRITICAL,
 }
 
+# Process-wide guard: only one core↔modules event bridge on the singleton module bus.
+_RUNTIME_BRIDGES_INSTALLED = False
+_RUNTIME_BRIDGES_LOCK = threading.Lock()
+
 
 class RuntimeManager:
     """
@@ -198,13 +202,23 @@ class RuntimeManager:
 
     def _attach_runtime_bridges(self) -> None:
         """Best-effort bridge into the canonical modules event stream + UI runtime."""
+        global _RUNTIME_BRIDGES_INSTALLED  # pylint: disable=global-statement
         try:
             from modules.event_bus import get_event_bus
 
             self._module_bus = get_event_bus()
-            self._module_bus.subscribe_all(self._mirror_modules_event)
-            self.event_bus.subscribe_all(self._mirror_core_event)
-            self._module_bus_attached = True
+            with _RUNTIME_BRIDGES_LOCK:
+                if _RUNTIME_BRIDGES_INSTALLED:
+                    self._module_bus_attached = True
+                    log.debug(
+                        "[RuntimeManager] module event bridge already installed — "
+                        "skipping duplicate subscriptions"
+                    )
+                    return
+                self._module_bus.subscribe_all(self._mirror_modules_event)
+                self.event_bus.subscribe_all(self._mirror_core_event)
+                _RUNTIME_BRIDGES_INSTALLED = True
+                self._module_bus_attached = True
         except Exception as exc:
             log.debug("[RuntimeManager] module event bridge unavailable: %s", exc)
 

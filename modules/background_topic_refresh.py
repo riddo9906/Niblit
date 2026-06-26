@@ -38,6 +38,9 @@ log = logging.getLogger("BackgroundTopicRefresh")
 # Default refresh interval (seconds).  Override via `interval_secs` kwarg.
 DEFAULT_REFRESH_INTERVAL: int = 600  # 10 minutes
 
+_refresh_thread: threading.Thread | None = None
+_refresh_lock = threading.Lock()
+
 def _inject_topics(ale: Any, new_topics: List[str]) -> bool:
     """Inject *new_topics* into *ale* if it supports the required method.
 
@@ -166,22 +169,31 @@ def start_background_refresh(
     threading.Thread
         The started daemon thread.
     """
-    t = threading.Thread(
-        target=background_topic_refresh_loop,
-        kwargs=dict(
-            dtm=dtm,
-            ale=ale,
-            interval_secs=interval_secs,
-            batch_size=batch_size,
-            stop_event=stop_event,
-            initial_delay_secs=initial_delay_secs,
-        ),
-        daemon=True,
-        name="BackgroundTopicRefresh",
-    )
-    t.start()
-    log.info("[BackgroundTopicRefresh] Background thread started (tid=%s)", t.ident)
-    return t
+    global _refresh_thread  # pylint: disable=global-statement
+    with _refresh_lock:
+        if _refresh_thread is not None and _refresh_thread.is_alive():
+            log.debug(
+                "[BackgroundTopicRefresh] Thread already running — skipping duplicate start"
+            )
+            return _refresh_thread
+
+        t = threading.Thread(
+            target=background_topic_refresh_loop,
+            kwargs=dict(
+                dtm=dtm,
+                ale=ale,
+                interval_secs=interval_secs,
+                batch_size=batch_size,
+                stop_event=stop_event,
+                initial_delay_secs=initial_delay_secs,
+            ),
+            daemon=True,
+            name="BackgroundTopicRefresh",
+        )
+        t.start()
+        _refresh_thread = t
+        log.info("[BackgroundTopicRefresh] Background thread started (tid=%s)", t.ident)
+        return t
 
 
 if __name__ == "__main__":

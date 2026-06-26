@@ -912,16 +912,23 @@ class SyncEngine:
         """Spawn a daemon thread running the sync loop.
 
         The thread checks :attr:`_stop_event` so ``stop()`` terminates it.
+        Starting twice is a no-op while the loop thread is still alive.
 
         Returns:
             The started :class:`threading.Thread`.
         """
+        existing = getattr(self, "_bg_thread", None)
+        if existing is not None and existing.is_alive():
+            log.debug("[SyncEngine] Background loop already running")
+            return existing
+
         t = threading.Thread(
             target=self._background_loop,
             name="SyncEngineLoop",
             daemon=True,
         )
         t.start()
+        self._bg_thread = t
         log.info("[SyncEngine] Background loop started (mode=%s)", self.mode)
         return t
 

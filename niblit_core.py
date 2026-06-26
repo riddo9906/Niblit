@@ -1776,6 +1776,8 @@ class NiblitCore:
         self._lock = threading.RLock()
         self._shutdown_event = threading.Event()
         self._background_threads: List[threading.Thread] = []
+        self._background_services_started = False
+        self._topic_refresh_subscribed = False
         self._event_loop: Optional[asyncio.AbstractEventLoop] = None
         self._event_loop_thread: Optional[threading.Thread] = None
         self._async_tasks: set = set()
@@ -7774,25 +7776,23 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     self.startup_report.add("slsa_engine", "degraded", str(e))
 
             self.lifecycle = None
-            if LifecycleEngine:
-                try:
-                    self.lifecycle = LifecycleEngine()
-                except Exception as e:
-                    log.debug(f"LifecycleEngine failed to start: {e}")
-
-            # ============================
-            # AIOS SCHEDULER (priority queue wrapper around LifecycleEngine)
-            # ============================
             self.aios_scheduler = None
-            if _AIOS_SCHEDULER_AVAILABLE and _AIOSScheduler:
+            if _AIOS_SCHEDULER_AVAILABLE and _get_aios_scheduler is not None:
                 try:
                     self.aios_scheduler = _get_aios_scheduler()
+                    # Reuse the scheduler-owned LifecycleEngine — avoid a second instance.
+                    self.lifecycle = getattr(self.aios_scheduler, "_lifecycle", None)
                     self.aios_scheduler.start()
                     log.info("✅ AIOSScheduler initialized (priority task queues active)")
                     self.startup_report.add("aios_scheduler", "ready")
                 except Exception as _ase:
                     log.debug("AIOSScheduler init failed: %s", _ase)
                     self.startup_report.add("aios_scheduler", "degraded", str(_ase))
+            elif LifecycleEngine:
+                try:
+                    self.lifecycle = LifecycleEngine()
+                except Exception as e:
+                    log.debug(f"LifecycleEngine failed to start: {e}")
 
             # ============================
             # AIOS HAL (unified hardware abstraction)
@@ -8622,8 +8622,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
             )
 
         # ── Background topic refresh thread ───────────────────────────────────
+        _topic_refresh_alive = (
+            self._topic_refresh_thread is not None
+            and self._topic_refresh_thread.is_alive()
+        )
         if (_start_background_refresh is not None
-                and self.dynamic_topic_manager is not None):
+                and self.dynamic_topic_manager is not None
+                and not _topic_refresh_alive):
             try:
                 self._topic_refresh_stop_event = threading.Event()
                 self._topic_refresh_thread = _start_background_refresh(
@@ -8646,7 +8651,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             _event_bus = getattr(self, "event_bus", None)
             _dtm_ref = getattr(self, "dynamic_topic_manager", None)
             _ale_ref = getattr(self, "autonomous_engine", None)
-            if _event_bus is not None and _dtm_ref is not None:
+            if _event_bus is not None and _dtm_ref is not None and not self._topic_refresh_subscribed:
                 def _on_learning_cycle(_event: _Event) -> None:
                     try:
                         _new = _dtm_ref.propose_new_topics(batch_size=5)
@@ -8665,6 +8670,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         log.debug("[EventBus] Topic refresh handler error: %s", _ev_exc)
 
                 _event_bus.subscribe(_EventType.LEARNING_CYCLE_COMPLETED, _on_learning_cycle)
+                self._topic_refresh_subscribed = True
                 log.info("✅ Event-bus: LEARNING_CYCLE_COMPLETED → topic refresh handler registered")
         except Exception as _eb_exc:
             log.debug("[INIT] Event-bus topic refresh subscription skipped: %s", _eb_exc)
@@ -9600,6 +9606,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
             log.debug("[INIT] RuntimeManager not available — skipping Phase-2 agent init")
             return
 
+        if getattr(self, "runtime_manager", None) is not None:
+            log.debug("[INIT] RuntimeManager already initialised — skipping duplicate init")
+            return
+
         try:
             rm = _RuntimeManager()
             self.runtime_manager = rm
@@ -9729,10 +9739,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _start_background_services(self):
         """Start background services and loops."""
+        if self._background_services_started:
+            return
         if not self.config.enable_background_loops:
             log.info("Background loops disabled via config")
             return
 
+        self._background_services_started = True
         self._start_sync_loops()
 
         if self.config.enable_async_loops:
@@ -9740,19 +9753,22 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
     def _start_sync_loops(self):
         """Start synchronous background loops."""
-        if self.config.enable_background_loops:
+        if not self.config.enable_background_loops:
+            return
+        # When async loops are enabled they own health/trainer/research/heal work.
+        if not self.config.enable_async_loops:
             self._start_background_loop(self._health_loop, "HealthLoop")
             self._start_background_loop(self._trainer_loop, "TrainerLoop")
             self._start_background_loop(self._auto_research_loop, "ResearchLoop")
             self._start_background_loop(self._self_heal_loop, "HealLoop")
-            self._start_background_loop(self._dump_monitoring_loop, "DumpMonitoringLoop")
-            # Start LCSP v1 sync loop when SyncEngine is available
-            if self.sync_engine is not None:
-                try:
-                    self.sync_engine.start_background_loop()
-                    log.info("[Core] SyncEngine background loop started")
-                except Exception as _se_loop_err:
-                    log.debug("[Core] SyncEngine loop start failed: %s", _se_loop_err)
+        self._start_background_loop(self._dump_monitoring_loop, "DumpMonitoringLoop")
+        # Start LCSP v1 sync loop when SyncEngine is available
+        if self.sync_engine is not None:
+            try:
+                self.sync_engine.start_background_loop()
+                log.info("[Core] SyncEngine background loop started")
+            except Exception as _se_loop_err:
+                log.debug("[Core] SyncEngine loop start failed: %s", _se_loop_err)
 
     def _start_async_loops(self):
         """Start asynchronous background loops."""
@@ -9793,6 +9809,10 @@ SW Categories: {stats.get('software_study_categories', 0)}
             # Prune finished threads before adding a new one so the list
             # does not grow without bound over the process lifetime.
             self._background_threads = [t for t in self._background_threads if t.is_alive()]
+            for existing in self._background_threads:
+                if existing.name == name and existing.is_alive():
+                    log.debug("Background thread %s already running — skipping", name)
+                    return
             thread = threading.Thread(target=target, name=name, daemon=True)
             self._background_threads.append(thread)
             thread.start()
@@ -11695,6 +11715,51 @@ SW Categories: {stats.get('software_study_categories', 0)}
         log.info("✅ Shutdown initiated")
         self.running = False
         self._shutdown_event.set()
+
+        # Stop topic refresh thread
+        if self._topic_refresh_stop_event is not None:
+            try:
+                self._topic_refresh_stop_event.set()
+            except Exception as e:
+                log.debug(f"[SHUTDOWN] topic refresh stop failed: {e}")
+
+        # Stop managed background jobs
+        if self.bg_jobs is not None:
+            try:
+                self.bg_jobs.stop()
+                log.info("[SHUTDOWN] background_jobs stopped")
+            except Exception as e:
+                log.debug(f"[SHUTDOWN] background_jobs stop failed: {e}")
+
+        # Stop parameter manager sync
+        if _PARAMETER_MANAGER_AVAILABLE and _parameter_manager is not None:
+            try:
+                _parameter_manager.stop_background_sync()
+                log.info("[SHUTDOWN] parameter_manager sync stopped")
+            except Exception as e:
+                log.debug(f"[SHUTDOWN] parameter_manager stop failed: {e}")
+
+        # Stop runtime dispatch loop
+        if getattr(self, "runtime_manager", None) is not None:
+            try:
+                self.runtime_manager.stop_loop()
+                log.info("[SHUTDOWN] runtime_manager loop stopped")
+            except Exception as e:
+                log.debug(f"[SHUTDOWN] runtime_manager stop failed: {e}")
+
+        # Stop AIOS scheduler (also stops its LifecycleEngine when attached)
+        if getattr(self, "aios_scheduler", None) is not None:
+            try:
+                self.aios_scheduler.stop()
+                log.info("[SHUTDOWN] aios_scheduler stopped")
+            except Exception as e:
+                log.debug(f"[SHUTDOWN] aios_scheduler stop failed: {e}")
+        elif self.lifecycle is not None and hasattr(self.lifecycle, "stop"):
+            try:
+                self.lifecycle.stop()
+                log.info("[SHUTDOWN] lifecycle stopped")
+            except Exception as e:
+                log.debug(f"[SHUTDOWN] lifecycle stop failed: {e}")
 
         # Stop autonomous engine first
         if self.autonomous_engine and self.autonomous_engine.running:

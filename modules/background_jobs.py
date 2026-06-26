@@ -102,6 +102,15 @@ class BackgroundJobManager:
         """
         job_name = name or getattr(fn, "__name__", "bg_job")
 
+        with self._lock:
+            for existing in self._threads:
+                if existing.name == job_name and existing.is_alive():
+                    log.debug(
+                        "[BackgroundJobs] Job %s already running — skipping duplicate",
+                        job_name,
+                    )
+                    return existing
+
         def _thread_fn() -> None:
             # Optional initial delay
             if initial_delay > 0:
