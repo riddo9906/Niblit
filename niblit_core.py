@@ -8116,11 +8116,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             log.debug("ALECheckpointManager install failed: %s", _ce)
                             self.startup_report.add("ale_checkpoint", "degraded", str(_ce))
 
-                    # Auto-start: ALE runs in a daemon background thread so Niblit
-                    # continuously learns at all times without any manual command.
-                    # Use 'autonomous-learn stop' at the CLI to pause it if needed.
-                    self.autonomous_engine.start()
-                    log.info("🚀 AutonomousLearningEngine auto-started (continuous background learning)")
+                    # Initialize ALE in a loaded-but-idle state. It remains ready
+                    # for explicit start/stop commands without launching a background
+                    # thread during normal startup.
+                    self.autonomous_engine.running = False
+                    log.info("✅ AutonomousLearningEngine initialized (idle until explicitly started)")
                 except Exception as e:
                     log.warning(f"AutonomousLearningEngine init failed: {e}")
                     self.startup_report.add("autonomous_engine", "degraded", str(e))

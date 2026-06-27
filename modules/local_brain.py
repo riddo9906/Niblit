@@ -94,12 +94,22 @@ log = logging.getLogger("Niblit.LocalBrain")
 # These variables are read at import time from environment variables.
 # Use ``set_backend_url()`` (or ``_local_brain_cfg``) to patch them at runtime
 # *after* import, e.g. from tests or fly.toml secrets loaded late.
-_MODEL_NAME      = (
+_WINDOWS_MODEL_ROOT = r"C:\Users\Riyaad\llama_migration\models"
+_WINDOWS_LLAMA_CPP_ROOT = r"C:\Users\Riyaad\llama_migration\llama.cpp"
+
+
+def _default_model_path() -> str:
+    if os.path.exists(_WINDOWS_MODEL_ROOT):
+        return str(Path(_WINDOWS_MODEL_ROOT) / "qwen2.5-0.5b-instruct-q4_k_m.gguf")
+    return "/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+
+
+_MODEL_NAME = (
     os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
     or os.environ.get("NIBLIT_MODEL_QWEN", "").strip()
     or os.environ.get("NIBLIT_LOCAL_MODEL", "").strip()
     or os.environ.get("NIBLIT_QWEN_MODEL_PATH", "").strip()
-    or "/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+    or _default_model_path()
 )
 _GGUF_MODEL_PATH = os.environ.get("NIBLIT_GGUF_MODEL_PATH", "").strip()
 _DEFAULT_RUNTIME_CONTEXT_TARGET = int(
@@ -120,7 +130,7 @@ _DEFAULT_LOCAL_PRESET = "llama3"
 _FORBIDDEN_MODEL_ROOTS = ("/root/models",)
 if any(_MODEL_NAME.startswith(root) for root in _FORBIDDEN_MODEL_ROOTS):
     log.warning("[LocalBrain] Ignoring forbidden model path at import: %s", _MODEL_NAME)
-    _MODEL_NAME = "/home/riddo9906/models/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+    _MODEL_NAME = _default_model_path()
 
 # ── Server-health TTL caching ─────────────────────────────────────────────────
 # Avoids probing the llama-server on every generate() call.  Per-instance cache
@@ -187,7 +197,7 @@ class _LocalBrainConfig:
             os.environ.get("NIBLIT_GGUF_N_CTX", str(_DEFAULT_RUNTIME_CONTEXT_TARGET))
         )
         # Backend selector: 'auto' | 'http' | 'subprocess' | 'python'
-        self.gguf_backend: str = os.environ.get("NIBLIT_GGUF_BACKEND", "http").strip().lower()
+        self.gguf_backend: str = os.environ.get("NIBLIT_GGUF_BACKEND", "auto").strip().lower()
         # Path to the llama.cpp CLI binary (llama-cli / main).
         self.llama_binary: str = os.environ.get("NIBLIT_LLAMA_BINARY", "").strip()
         # llama-server HTTP bridge configuration.
@@ -490,7 +500,10 @@ def _expand_model_path(path: str) -> str:
     value = (path or "").strip()
     if not value:
         return ""
-    return str(Path(value).expanduser())
+    expanded = os.path.expanduser(value)
+    if expanded.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:[\\/]", expanded):
+        return expanded.replace("\\", "/")
+    return expanded.replace("\\", "/")
 
 
 def _is_forbidden_model_path(path: str) -> bool:
@@ -1169,6 +1182,23 @@ _LLAMA_BINARY_CANDIDATES = [
     "/data/data/com.termux/files/home/llama.cpp/main",
 ]
 
+
+def _llama_binary_candidates() -> list[str]:
+    """Return llama.cpp binary candidates including any configured Windows root."""
+    candidates: list[str] = []
+    if _WINDOWS_LLAMA_CPP_ROOT:
+        root = str(Path(_WINDOWS_LLAMA_CPP_ROOT).expanduser())
+        candidates.extend(
+            [
+                str(Path(root) / "build" / "bin" / "llama-cli"),
+                str(Path(root) / "build" / "bin" / "main"),
+                str(Path(root) / "llama-cli"),
+                str(Path(root) / "main"),
+            ]
+        )
+    candidates.extend(list(_LLAMA_BINARY_CANDIDATES))
+    return candidates
+
 _LLAMA_CLI_SESSION_SAFETY_FLAGS = ("--simple-io", "--no-display-prompt", "--silent-prompt")
 _LLAMA_CLI_FLAG_SUPPORT_CACHE: Dict[str, set[str]] = {}
 
@@ -1418,8 +1448,8 @@ def _find_llama_binary(explicit_path: str = "") -> Optional[Path]:
         # Return even if missing so callers can show an actionable message.
         return p
 
-    for candidate in _LLAMA_BINARY_CANDIDATES:
-        if "/" in candidate or "~" in candidate:
+    for candidate in _llama_binary_candidates():
+        if "/" in candidate or "~" in candidate or "\\" in candidate:
             p = Path(candidate).expanduser()
             if _usable(p):
                 return p

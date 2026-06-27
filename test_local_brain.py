@@ -2,6 +2,7 @@
 """Unit tests for modules/local_brain.py."""
 
 import json
+import os
 from types import TracebackType
 from typing import Optional, Type
 import urllib.error
@@ -218,6 +219,19 @@ def test_model_resolution_rejects_root_models_path(monkeypatch):
     monkeypatch.setenv("NIBLIT_GGUF_MODEL_PATH", "/root/models/disallowed.gguf")
     monkeypatch.setenv("NIBLIT_MODEL_QWEN", "/models/qwen-safe.gguf")
     assert _resolve_portable_model_path("qwen") == "/models/qwen-safe.gguf"
+
+
+def test_find_llama_binary_uses_windows_llama_cpp_root(tmp_path, monkeypatch):
+    root = tmp_path / "llama.cpp"
+    binary = root / "build" / "bin" / "llama-cli"
+    binary.parent.mkdir(parents=True, exist_ok=True)
+    binary.write_text("#!/bin/sh\n")
+    os.chmod(binary, 0o755)
+    monkeypatch.setattr("modules.local_brain._WINDOWS_LLAMA_CPP_ROOT", str(root))
+
+    found = __import__("modules.local_brain", fromlist=["_find_llama_binary"])._find_llama_binary("")
+
+    assert found == binary
 
 
 def test_set_backend_url_keeps_active_local_preset(monkeypatch):
