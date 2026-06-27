@@ -948,7 +948,7 @@ except Exception as _e:
     LifecycleEngine = None
 
 try:
-    from slsa_generator_full import SLSAGenerator
+    from modules.slsa_generator import SLSAGenerator
 except Exception as _e:
     log.debug(f"SLSAGenerator (full) not available: {_e}; trying modules.slsa_generator")
     try:

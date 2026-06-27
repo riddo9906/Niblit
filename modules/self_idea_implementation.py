@@ -10,7 +10,10 @@ import time
 import logging
 
 # ✅ SLSA generator
-from slsa_generator_full import SLSAGenerator
+try:
+    from modules.slsa_generator import SLSAGenerator
+except Exception:  # pragma: no cover - compatibility fallback for legacy imports
+    from slsa_generator_full import SLSAGenerator  # type: ignore
 # ✅ Niblit canonical memory
 from niblit_memory import MemoryManager, _is_no_data_placeholder
 

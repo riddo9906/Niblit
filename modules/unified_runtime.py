@@ -683,7 +683,7 @@ class CommandRuntime:
             result = self._provider_runtime.set_active(target)
             state.active_provider = self._provider_runtime.status().get("active_provider", state.active_provider)
             return result
-        if lower == "runtime status":
+        if lower in {"runtime status", "runtime.status"}:
             return json.dumps(
                 {
                     "runtime_mode": state.runtime_mode,

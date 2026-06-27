@@ -54,7 +54,7 @@ class SLSAManager:
                 # Import here to avoid circular imports
                 try:
                     try:
-                        from slsa_generator_full import start_slsa
+                        from modules.slsa_generator import start_slsa
                     except ImportError:
                         from modules.slsa_generator_full import start_slsa
                     self.engine, self.thread = start_slsa(topics=topics)

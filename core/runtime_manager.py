@@ -35,9 +35,11 @@ Usage::
 """
 
 import logging
+import sys
 import threading
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from core.event_bus import Event, EventBus, EventType
@@ -80,8 +82,13 @@ class RuntimeManager:
         self._module_bus_attached = False
         self._service_registry: Dict[str, Any] = {}
         self._service_statuses: Dict[str, Dict[str, Any]] = {}
+        self._service_load_durations_ms: Dict[str, float] = {}
+        self._service_init_order: List[str] = []
+        self._optional_module_report: Dict[str, List[str]] = {"loaded": [], "failed": []}
+        self._singleton_warnings: List[str] = []
 
         self._running = False
+        self.initialize_runtime_services()
         self._loop_thread: Optional[threading.Thread] = None
         self._attach_runtime_bridges()
 
@@ -203,6 +210,40 @@ class RuntimeManager:
         """Shortcut to subscribe an event handler via the runtime."""
         self.event_bus.subscribe(event_type, handler)
 
+    def initialize_runtime_services(self) -> Dict[str, Any]:
+        """Initialize core services in a deterministic order."""
+        self._service_init_order = []
+        self._service_registry = {}
+        self._service_statuses = {}
+        self._service_load_durations_ms = {}
+        self._optional_module_report = {"loaded": [], "failed": []}
+        self._singleton_warnings = []
+
+        self._initialize_service("knowledge_db", lambda: self._build_knowledge_db())
+        self._initialize_service("memory_graph", lambda: self._build_memory_graph())
+        self._initialize_service("knowledge_comprehension", lambda: self._build_knowledge_comprehension())
+        self._initialize_service("reasoning_engine", lambda: self._build_reasoning_engine())
+        self._initialize_service("local_brain", lambda: self._build_local_brain())
+        self._load_optional_modules()
+        return self.get_diagnostics()
+
+    def _initialize_service(self, name: str, factory: Callable[[], Any]) -> Any:
+        if name in self._service_registry:
+            return self._service_registry[name]
+        started_at = time.perf_counter()
+        try:
+            service = factory()
+        except Exception as exc:
+            self._set_service_status(name, "degraded", str(exc))
+            raise
+        elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+        self._service_registry[name] = service
+        self._service_load_durations_ms[name] = round(elapsed_ms, 3)
+        self._service_init_order.append(name)
+        self._bind_module_singleton(name, service)
+        self._set_service_status(name, "ready")
+        return service
+
     def _set_service_status(self, name: str, status: str, detail: Optional[str] = None) -> None:
         entry = self._service_statuses.get(name, {})
         entry["status"] = status
@@ -210,19 +251,53 @@ class RuntimeManager:
             entry["detail"] = detail
         self._service_statuses[name] = entry
 
-    def _get_or_create_service(self, name: str, factory: Callable[[], Any]) -> Any:
-        service = self._service_registry.get(name)
-        if service is not None:
-            return service
+    def _build_knowledge_db(self) -> Any:
+        from modules.storage import KnowledgeDB
+
+        return KnowledgeDB()
+
+    def _build_memory_graph(self) -> Any:
+        from modules.memory_graph import get_memory_graph
+
+        return get_memory_graph()
+
+    def _build_knowledge_comprehension(self) -> Any:
+        from modules.knowledge_comprehension import get_knowledge_comprehension
+
+        return get_knowledge_comprehension(
+            knowledge_db=self.get_knowledge_db(),
+            memory_graph=self.get_memory_graph(),
+        )
+
+    def _build_reasoning_engine(self) -> Any:
+        from modules.reasoning_engine import get_reasoning_engine
+
+        return get_reasoning_engine(
+            knowledge_db=self.get_knowledge_db(),
+            memory_graph=self.get_memory_graph(),
+        )
+
+    def _build_local_brain(self) -> Any:
         try:
-            service = factory()
+            from modules.local_brain import get_local_brain
+
+            return get_local_brain()
         except Exception as exc:
-            self._set_service_status(name, "degraded", str(exc))
-            raise
-        self._service_registry[name] = service
-        self._bind_module_singleton(name, service)
-        self._set_service_status(name, "ready")
-        return service
+            self._set_service_status("local_brain", "degraded", str(exc))
+            return None
+
+    def _load_optional_modules(self) -> None:
+        try:
+            import module_loader
+
+            report = module_loader.load_modules()
+            self._optional_module_report = {
+                "loaded": list(report.get("loaded", [])),
+                "failed": list(report.get("failed", [])),
+            }
+        except Exception as exc:
+            self._optional_module_report = {"loaded": [], "failed": [str(exc)]}
+            self._singleton_warnings.append(f"optional-module-load-failed: {exc}")
 
     def _bind_module_singleton(self, name: str, service: Any) -> None:
         if name == "memory_graph":
@@ -252,9 +327,7 @@ class RuntimeManager:
     def get_knowledge_db(self) -> Any:
         """Return the shared KnowledgeDB instance owned by the runtime."""
         try:
-            from modules.storage import KnowledgeDB
-
-            return self._get_or_create_service("knowledge_db", lambda: KnowledgeDB())
+            return self._initialize_service("knowledge_db", self._build_knowledge_db)
         except Exception as exc:
             self._set_service_status("knowledge_db", "degraded", str(exc))
             raise
@@ -262,12 +335,7 @@ class RuntimeManager:
     def get_memory_graph(self) -> Any:
         """Return the shared MemoryGraph instance owned by the runtime."""
         try:
-            from modules.memory_graph import get_memory_graph
-
-            return self._get_or_create_service(
-                "memory_graph",
-                lambda: get_memory_graph(),
-            )
+            return self._initialize_service("memory_graph", self._build_memory_graph)
         except Exception as exc:
             self._set_service_status("memory_graph", "degraded", str(exc))
             raise
@@ -275,14 +343,9 @@ class RuntimeManager:
     def get_reasoning_engine(self) -> Any:
         """Return the shared ReasoningEngine instance owned by the runtime."""
         try:
-            from modules.reasoning_engine import get_reasoning_engine
-
+            engine = self._initialize_service("reasoning_engine", self._build_reasoning_engine)
             knowledge_db = self.get_knowledge_db()
             memory_graph = self.get_memory_graph()
-            engine = self._get_or_create_service(
-                "reasoning_engine",
-                lambda: get_reasoning_engine(knowledge_db=knowledge_db, memory_graph=memory_graph),
-            )
             if knowledge_db is not None:
                 engine.db = knowledge_db
             if memory_graph is not None:
@@ -297,17 +360,9 @@ class RuntimeManager:
     def get_knowledge_comprehension(self) -> Any:
         """Return the shared KnowledgeComprehension instance owned by the runtime."""
         try:
-            from modules.knowledge_comprehension import get_knowledge_comprehension
-
+            comprehension = self._initialize_service("knowledge_comprehension", self._build_knowledge_comprehension)
             knowledge_db = self.get_knowledge_db()
             memory_graph = self.get_memory_graph()
-            comprehension = self._get_or_create_service(
-                "knowledge_comprehension",
-                lambda: get_knowledge_comprehension(
-                    knowledge_db=knowledge_db,
-                    memory_graph=memory_graph,
-                ),
-            )
             if knowledge_db is not None:
                 comprehension.knowledge_db = knowledge_db
             if memory_graph is not None:
@@ -315,6 +370,14 @@ class RuntimeManager:
             return comprehension
         except Exception as exc:
             self._set_service_status("knowledge_comprehension", "degraded", str(exc))
+            raise
+
+    def get_local_brain(self) -> Any:
+        """Return the shared LocalBrain instance owned by the runtime."""
+        try:
+            return self._initialize_service("local_brain", self._build_local_brain)
+        except Exception as exc:
+            self._set_service_status("local_brain", "degraded", str(exc))
             raise
 
     def get_diagnostics(self) -> Dict[str, Any]:
@@ -325,12 +388,15 @@ class RuntimeManager:
             "memory_graph",
             "reasoning_engine",
             "knowledge_comprehension",
+            "local_brain",
         ]:
             if name in self._service_registry:
                 services[name] = {
                     "status": self._service_statuses.get(name, {}).get("status", "ready"),
                     "detail": self._service_statuses.get(name, {}).get("detail"),
                     "object_type": type(self._service_registry[name]).__name__,
+                    "object_id": id(self._service_registry[name]),
+                    "load_duration_ms": self._service_load_durations_ms.get(name),
                 }
             elif name in self._service_statuses:
                 services[name] = dict(self._service_statuses[name])
@@ -339,8 +405,33 @@ class RuntimeManager:
         return {
             "runtime_id": self.runtime_id,
             "running": self._running,
+            "repository_root": str(Path(__file__).resolve().parent.parent),
+            "resolved_project_root": str(self._resolve_project_root()),
+            "python_executable": sys.executable,
+            "working_directory": str(Path.cwd()),
+            "sys_path_additions": self._sys_path_additions(),
             "services": services,
+            "optional_modules": self._optional_module_report,
+            "failed_modules": self._optional_module_report.get("failed", []),
+            "initialization_state": {
+                "order": list(self._service_init_order),
+                "status": {name: self._service_statuses.get(name, {}).get("status", "unknown") for name in self._service_init_order},
+            },
+            "runtime_ownership": {name: f"RuntimeManager:{id(self._service_registry[name])}" for name in self._service_registry},
+            "duplicate_singleton_warnings": list(self._singleton_warnings),
         }
+
+    def _resolve_project_root(self) -> Path:
+        try:
+            import module_loader
+
+            return Path(module_loader.get_repo_root()).resolve()
+        except Exception:
+            return Path(__file__).resolve().parent.parent
+
+    def _sys_path_additions(self) -> List[str]:
+        root = self._resolve_project_root()
+        return [str(path) for path in [root, root / "modules"] if str(path) in sys.path]
 
     def _attach_runtime_bridges(self) -> None:
         """Best-effort bridge into the canonical modules event stream + UI runtime."""
