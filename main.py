@@ -32,6 +32,18 @@ os.chdir(BASE_DIR)
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+# ── Environment loading (CRITICAL — before niblit_core and other subsystems) ─
+from modules.resilient_boot import (
+    BootStatus,
+    load_environment,
+    print_boot_status_report,
+    probe_event_bus_health,
+    scan_optional_dependencies,
+)
+
+_BOOT_STATUS = BootStatus()
+load_environment(BASE_DIR, _BOOT_STATUS)
+
 from niblit_core import NiblitCore
 from niblit_io import NiblitIO
 from modules.structured_logging import configure_runtime_logging, log_exception
@@ -49,13 +61,9 @@ logging.basicConfig(
 RUNTIME_LOG_FILE = os.getenv("NIBLIT_RUNTIME_LOG_FILE") or os.path.join(BASE_DIR, "runtime.jsonl")
 RUNTIME_LOGGER = configure_runtime_logging(log_file=RUNTIME_LOG_FILE, level=logging.INFO, name="NiblitRuntime")
 
-# Load .env file when running locally (e.g. Termux).  niblit_core also calls
-# load_dotenv(), but doing it here ensures vars are set before any imports.
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # python-dotenv not installed — rely on os.environ
+# Optional dependency scan + event bus probe (non-fatal; after logging is configured).
+scan_optional_dependencies(_BOOT_STATUS)
+probe_event_bus_health(_BOOT_STATUS)
 
 DEFAULT_INIT_WAIT_MAX_SECONDS = 600.0  # 10 min default; override via NIBLIT_INIT_WAIT_MAX_SECONDS
 TOOL_NO_OUTPUT_MESSAGE = "[Tool returned no output]"
@@ -461,6 +469,7 @@ def print_notifications(core=None, io=None):
 # BOOT
 # ─────────────────────────────
 def boot():
+    global _BOOT_STATUS
     RUNTIME_LOGGER.info("boot start", event="startup", component="main", state="initializing")
     io = NiblitIO()
     io.out(f"{timestamp()} ═══════════════════════════════════════════")
@@ -472,10 +481,28 @@ def boot():
         try:
             from config import Config as _Config
             _Config.validate()
-        except Exception:  # pylint: disable=broad-exception-caught
-            pass
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            _BOOT_STATUS.mark_degraded(f"config validation skipped: {exc}")
 
-    core = NiblitCore()
+    core = None
+    try:
+        core = NiblitCore()
+    except Exception as exc:
+        _BOOT_STATUS.core_init_error = str(exc)
+        _BOOT_STATUS.mark_degraded("primary core init failed — retrying low-resource mode")
+        log_exception(RUNTIME_LOGGER, "boot-core", exc, component="main", state="degraded-retry")
+        os.environ["NIBLIT_LOW_RESOURCE_MODE"] = "1"
+        try:
+            core = NiblitCore()
+            _BOOT_STATUS.warnings.append("Core started in low-resource degraded mode")
+        except Exception as retry_exc:
+            log_exception(RUNTIME_LOGGER, "boot-core-retry", retry_exc, component="main", state="failed")
+            io.out(
+                f"{timestamp()} ❌ Core kernel failed to initialise — "
+                f"cannot continue ({retry_exc})"
+            )
+            raise
+
     io.out(f"{timestamp()} 🔷 Phase 0 (fast-start) complete — CORE READY")
 
     # ── Sidecar socket server — start immediately after Phase 0 ─────────────
@@ -483,15 +510,31 @@ def boot():
     # the model is still loading in another terminal session (Session 1 of the
     # two-session Termux setup).  The sidecar blocks each incoming command
     # until mark_ready() is called below (after Phase-1 init finishes).
+    _sidecar = None
     try:
+        from modules.niblit_sidecar import get_sidecar as _get_sidecar
         from modules.niblit_sidecar import start_sidecar as _start_sidecar
+
         _sidecar = _start_sidecar(core_getter=lambda: core)
-        io.out(
-            f"{timestamp()} 🔌 Sidecar socket ready — connect from another terminal:\n"
-            f"          python tools/niblit_ctl.py"
-        )
+        if getattr(_sidecar, "transport", "") == "disabled":
+            _BOOT_STATUS.sidecar_status = "disabled"
+            io.out(
+                f"{timestamp()} ⚪ Sidecar socket: disabled "
+                f"({getattr(_sidecar, '_bind_error', 'unavailable')})"
+            )
+        else:
+            _BOOT_STATUS.sidecar_status = "active"
+            transport = getattr(_sidecar, "transport", "unix")
+            endpoint = getattr(_sidecar, "endpoint", _sidecar.socket_path)
+            io.out(
+                f"{timestamp()} 🔌 Sidecar ready ({transport}://{endpoint}) — "
+                "connect from another terminal:\n"
+                f"          python tools/niblit_ctl.py"
+            )
     except Exception as _sc_exc:
         _sidecar = None
+        _BOOT_STATUS.sidecar_status = "degraded"
+        _BOOT_STATUS.mark_degraded(f"sidecar unavailable: {_sc_exc}")
         io.out(f"{timestamp()} ⚪ Sidecar socket: not available ({_sc_exc})")
 
     # ── Non-blocking background logging (additive enhancement) ──────────────
@@ -501,8 +544,14 @@ def boot():
     # continue to propagate normally (the handler only captures non-main
     # threads).
     if _NOTIF_QUEUE_AVAILABLE and install_queue_log_handler is not None:
-        install_queue_log_handler(level=logging.INFO)
-        io.out(f"{timestamp()} ✅ Background log capture active — notifications shown after Enter")
+        try:
+            install_queue_log_handler(level=logging.INFO)
+            io.out(f"{timestamp()} ✅ Background log capture active — notifications shown after Enter")
+        except Exception as exc:
+            _BOOT_STATUS.mark_degraded(f"notification log handler skipped: {exc}")
+
+    if _BOOT_STATUS.runtime_mode == "degraded":
+        io.out(f"{timestamp()} ⚡ Boot continuing in degraded runtime mode")
 
     debug(io, "Active Threads After Boot:")
     debug(io, list_threads())
@@ -1005,6 +1054,7 @@ def main(argv=None):
         core, io = boot()
     except Exception as exc:
         log_exception(RUNTIME_LOGGER, "boot", exc, component="main", state="failed")
+        print_boot_status_report(None, _BOOT_STATUS)
         raise
 
     # ── Block until Phase-1 deferred init is complete ─────────────────────────
@@ -1147,6 +1197,9 @@ def main(argv=None):
                     _sc.mark_ready()
             except Exception:
                 pass
+
+    # Structured boot status summary (always shown before CLI / one-shot / desktop).
+    print_boot_status_report(io, _BOOT_STATUS)
 
     # ── One-shot mode: run a single command then exit ─────────────────────────
     one_shot = getattr(_args, "one_shot", None)

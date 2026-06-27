@@ -59,10 +59,23 @@ class SidecarClient:
         if self.target.transport == "unix":
             if not self.target.socket_path:
                 raise OSError("UNIX transport requires socket_path")
-            conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            conn.settimeout(timeout)
-            conn.connect(self.target.socket_path)
-            return conn
+            try:
+                from modules.platform_compat import connect_stream_client
+
+                return connect_stream_client(
+                    unix_path=self.target.socket_path,
+                    tcp_host=self.target.host,
+                    tcp_port=self.target.port,
+                    timeout=timeout,
+                )
+            except (AttributeError, OSError):
+                if self.target.host and self.target.port is not None:
+                    conn = socket.create_connection(
+                        (self.target.host, self.target.port), timeout=timeout
+                    )
+                    conn.settimeout(timeout)
+                    return conn
+                raise
 
         if self.target.transport == "tcp":
             if not self.target.host or self.target.port is None:

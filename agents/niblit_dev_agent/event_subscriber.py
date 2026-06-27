@@ -37,7 +37,10 @@ class EventSubscriber:
         return True
 
     def _handle_event(self, event: Event) -> None:
-        etype = event.type.value
+        etype = getattr(event, "type_name", None)
+        if etype is None:
+            raw_type = getattr(event, "type", "unknown")
+            etype = raw_type.value if hasattr(raw_type, "value") else str(raw_type)
         self._event_counts[etype] += 1
         category = self._categorize_event(etype)
         self._category_counts[category] += 1

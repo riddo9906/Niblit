@@ -54,6 +54,8 @@ import threading
 import time
 from typing import Callable, Optional
 
+from modules.platform_compat import create_stream_server
+
 log = logging.getLogger("Niblit.Sidecar")
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -92,6 +94,9 @@ class NiblitSidecar:
     ) -> None:
         self._core_getter = core_getter
         self.socket_path = socket_path
+        self.transport: str = "unix"
+        self.endpoint: str = socket_path
+        self._bind_error: Optional[str] = None
         self._boot_time = time.monotonic()
         self._ready = threading.Event()  # set by mark_ready()
         self._stop_event = threading.Event()
@@ -108,13 +113,18 @@ class NiblitSidecar:
 
     def start(self) -> None:
         """Start the sidecar server thread.  Non-blocking."""
+        if self._thread is not None and self._thread.is_alive():
+            return
         self._thread = threading.Thread(
             target=self._serve,
             name="niblit-sidecar",
             daemon=True,
         )
         self._thread.start()
-        log.info("Niblit sidecar listening on %s", self.socket_path)
+        if self.transport == "disabled":
+            log.warning("Niblit sidecar disabled — %s", self._bind_error or "bind failed")
+        else:
+            log.info("Niblit sidecar listening (%s) on %s", self.transport, self.endpoint)
 
     def mark_ready(self) -> None:
         """Signal that NiblitCore has finished Phase-1 init."""
@@ -129,10 +139,11 @@ class NiblitSidecar:
                 self._server.close()
             except OSError:
                 pass
-        try:
-            os.unlink(self.socket_path)
-        except OSError:
-            pass
+        if self.transport == "unix":
+            try:
+                os.unlink(self.socket_path)
+            except OSError:
+                pass
 
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
@@ -141,22 +152,26 @@ class NiblitSidecar:
 
     def _serve(self) -> None:
         """Main server loop — runs in the sidecar background thread."""
-        # Clean up any stale socket from a previous run
         try:
-            os.unlink(self.socket_path)
-        except FileNotFoundError:
-            pass
-
-        try:
-            srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            srv.bind(self.socket_path)
-            os.chmod(self.socket_path, 0o600)
-            srv.listen(_BACKLOG)
-            srv.settimeout(1.0)  # allows checking _stop_event
-            self._server = srv
-        except OSError as exc:
-            log.error("Niblit sidecar: cannot bind socket %s: %s", self.socket_path, exc)
+            srv, transport, endpoint = create_stream_server(
+                unix_path=self.socket_path,
+                backlog=_BACKLOG,
+            )
+        except (AttributeError, OSError) as exc:
+            self.transport = "disabled"
+            self._bind_error = str(exc)
+            log.error("Niblit sidecar: socket setup failed: %s", exc)
             return
+
+        if srv is None:
+            self.transport = "disabled"
+            self._bind_error = "socket bind failed"
+            return
+
+        self.transport = transport
+        self.endpoint = endpoint
+        srv.settimeout(1.0)
+        self._server = srv
 
         while not self._stop_event.is_set():
             try:
@@ -236,7 +251,8 @@ class NiblitSidecar:
                 "status": "ok",
                 "init_done": self._ready.is_set(),
                 "uptime_s": round(time.monotonic() - self._boot_time, 1),
-                "socket": self.socket_path,
+                "socket": self.endpoint,
+                "transport": self.transport,
             }
 
         if cmd == "__shutdown__":
@@ -282,9 +298,11 @@ class NiblitSidecar:
     # ── Status string ─────────────────────────────────────────────────────────
 
     def status_line(self) -> str:
+        if self.transport == "disabled":
+            return f"Niblit sidecar [DISABLED] ({self._bind_error or 'unavailable'})"
         state = "READY" if self._ready.is_set() else "INIT"
         running = "UP" if self.is_running() else "DOWN"
-        return f"Niblit sidecar [{running}|{state}] socket={self.socket_path}"
+        return f"Niblit sidecar [{running}|{state}] {self.transport}={self.endpoint}"
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────

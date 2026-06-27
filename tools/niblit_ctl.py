@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import socket
 import sys
 import time
 from pathlib import Path
@@ -74,6 +75,8 @@ def _target_from_args(args: argparse.Namespace) -> SidecarTarget:
     transport = args.transport
     if transport == "auto":
         if args.host:
+            transport = "tcp"
+        elif sys.platform == "win32" or not hasattr(socket, "AF_UNIX"):
             transport = "tcp"
         else:
             transport = "unix"

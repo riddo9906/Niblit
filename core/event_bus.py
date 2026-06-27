@@ -122,7 +122,13 @@ class Event:
 
     @property
     def type_name(self) -> str:
-        return self.type.value if isinstance(self.type, EventType) else str(self.type)
+        try:
+            raw = self.type
+            if isinstance(raw, EventType):
+                return raw.value
+            return str(raw)
+        except Exception:
+            return "unknown"
 
     def __repr__(self) -> str:
         return (
@@ -217,10 +223,16 @@ class EventBus:
         Returns:
             Number of handlers called.
         """
+        try:
+            event_name = event.type_name
+        except Exception as exc:
+            log.warning("[EventBus] invalid event type — skipping dispatch: %s", exc)
+            return 0
+
         with self._lock:
             self._counter += 1
             event.event_id = self._counter
-            handlers = list(self._handlers.get(event.type_name, []))
+            handlers = list(self._handlers.get(event_name, []))
             wildcards = list(self._wildcard_handlers)
             # Store in history
             self._history.append(event)
@@ -236,23 +248,36 @@ class EventBus:
                 called += 1
                 self._record_handler_delivery(
                     handler=h,
-                    event_type=event.type_name,
+                    event_type=event_name,
                     latency_ms=(time.monotonic() - started) * 1000.0,
                     success=True,
+                )
+            except AttributeError as exc:
+                # Common enum/string mismatch: handler used event.type.value on a str.
+                self._record_handler_delivery(
+                    handler=h,
+                    event_type=event_name,
+                    latency_ms=(time.monotonic() - started) * 1000.0,
+                    success=False,
+                )
+                log.warning(
+                    "[EventBus] handler %s event-type mismatch (%s) — continuing",
+                    getattr(h, "__name__", h),
+                    exc,
                 )
             except Exception as exc:
                 self._record_handler_delivery(
                     handler=h,
-                    event_type=event.type_name,
+                    event_type=event_name,
                     latency_ms=(time.monotonic() - started) * 1000.0,
                     success=False,
                 )
                 log.warning("[EventBus] handler %s raised: %s", getattr(h, "__name__", h), exc)
         if called == 0:
             with self._lock:
-                self._unconsumed_counts[event.type_name] += 1
+                self._unconsumed_counts[event_name] += 1
 
-        log.debug("[EventBus] published %s → %d handler(s)", event.type_name, called)
+        log.debug("[EventBus] published %s → %d handler(s)", event_name, called)
         return called
 
     # ── helpers ────────────────────────────────────────────────────────────────
