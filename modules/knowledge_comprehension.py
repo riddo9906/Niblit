@@ -859,19 +859,19 @@ def get_knowledge_comprehension(
             concept_synthesizer=concept_synthesizer,
         )
     else:
-        # Fill in any newly-available dependencies
-        if knowledge_db is not None and _comprehension_singleton.knowledge_db is None:
+        # Fill in any newly-available dependencies.
+        if knowledge_db is not None:
             _comprehension_singleton.knowledge_db = knowledge_db
-        if self_teacher is not None and _comprehension_singleton.self_teacher is None:
+        if self_teacher is not None:
             _comprehension_singleton.self_teacher = self_teacher
-        if llm is not None and _comprehension_singleton.llm is None:
+        if llm is not None:
             _comprehension_singleton.llm = llm
             _comprehension_singleton._question_gen.llm = llm
-        if memory_graph is not None and _comprehension_singleton.memory_graph is None:
+        if memory_graph is not None:
             _comprehension_singleton.memory_graph = memory_graph
-        if reward_model is not None and _comprehension_singleton.reward_model is None:
+        if reward_model is not None:
             _comprehension_singleton.reward_model = reward_model
-        if concept_synthesizer is not None and _comprehension_singleton.concept_synthesizer is None:
+        if concept_synthesizer is not None:
             _comprehension_singleton.concept_synthesizer = concept_synthesizer
     return _comprehension_singleton
 

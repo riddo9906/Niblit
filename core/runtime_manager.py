@@ -78,6 +78,8 @@ class RuntimeManager:
         self.orchestrator = Orchestrator(self.event_bus, self.task_queue)
         self._module_bus = None
         self._module_bus_attached = False
+        self._service_registry: Dict[str, Any] = {}
+        self._service_statuses: Dict[str, Dict[str, Any]] = {}
 
         self._running = False
         self._loop_thread: Optional[threading.Thread] = None
@@ -194,11 +196,151 @@ class RuntimeManager:
             "orchestrator": self.orchestrator.get_stats(),
             "event_history": len(self.event_bus.get_history()),
             "event_diagnostics": self.event_bus.observability_report(),
+            "services": self.get_diagnostics().get("services", {}),
         }
 
     def subscribe(self, event_type: EventType, handler: Callable) -> None:
         """Shortcut to subscribe an event handler via the runtime."""
         self.event_bus.subscribe(event_type, handler)
+
+    def _set_service_status(self, name: str, status: str, detail: Optional[str] = None) -> None:
+        entry = self._service_statuses.get(name, {})
+        entry["status"] = status
+        if detail is not None:
+            entry["detail"] = detail
+        self._service_statuses[name] = entry
+
+    def _get_or_create_service(self, name: str, factory: Callable[[], Any]) -> Any:
+        service = self._service_registry.get(name)
+        if service is not None:
+            return service
+        try:
+            service = factory()
+        except Exception as exc:
+            self._set_service_status(name, "degraded", str(exc))
+            raise
+        self._service_registry[name] = service
+        self._bind_module_singleton(name, service)
+        self._set_service_status(name, "ready")
+        return service
+
+    def _bind_module_singleton(self, name: str, service: Any) -> None:
+        if name == "memory_graph":
+            try:
+                import modules.memory_graph as memory_graph_module
+
+                memory_graph_module._graph_singleton = service
+            except Exception:
+                pass
+            return
+        if name == "reasoning_engine":
+            try:
+                import modules.reasoning_engine as reasoning_engine_module
+
+                reasoning_engine_module._INSTANCE = service
+            except Exception:
+                pass
+            return
+        if name == "knowledge_comprehension":
+            try:
+                import modules.knowledge_comprehension as comprehension_module
+
+                comprehension_module._comprehension_singleton = service
+            except Exception:
+                pass
+
+    def get_knowledge_db(self) -> Any:
+        """Return the shared KnowledgeDB instance owned by the runtime."""
+        try:
+            from modules.storage import KnowledgeDB
+
+            return self._get_or_create_service("knowledge_db", lambda: KnowledgeDB())
+        except Exception as exc:
+            self._set_service_status("knowledge_db", "degraded", str(exc))
+            raise
+
+    def get_memory_graph(self) -> Any:
+        """Return the shared MemoryGraph instance owned by the runtime."""
+        try:
+            from modules.memory_graph import get_memory_graph
+
+            return self._get_or_create_service(
+                "memory_graph",
+                lambda: get_memory_graph(),
+            )
+        except Exception as exc:
+            self._set_service_status("memory_graph", "degraded", str(exc))
+            raise
+
+    def get_reasoning_engine(self) -> Any:
+        """Return the shared ReasoningEngine instance owned by the runtime."""
+        try:
+            from modules.reasoning_engine import get_reasoning_engine
+
+            knowledge_db = self.get_knowledge_db()
+            memory_graph = self.get_memory_graph()
+            engine = self._get_or_create_service(
+                "reasoning_engine",
+                lambda: get_reasoning_engine(knowledge_db=knowledge_db, memory_graph=memory_graph),
+            )
+            if knowledge_db is not None:
+                engine.db = knowledge_db
+            if memory_graph is not None:
+                engine.memory_graph = memory_graph
+                if hasattr(engine, "_sync_graph_from_memory_graph"):
+                    engine._sync_graph_from_memory_graph()
+            return engine
+        except Exception as exc:
+            self._set_service_status("reasoning_engine", "degraded", str(exc))
+            raise
+
+    def get_knowledge_comprehension(self) -> Any:
+        """Return the shared KnowledgeComprehension instance owned by the runtime."""
+        try:
+            from modules.knowledge_comprehension import get_knowledge_comprehension
+
+            knowledge_db = self.get_knowledge_db()
+            memory_graph = self.get_memory_graph()
+            comprehension = self._get_or_create_service(
+                "knowledge_comprehension",
+                lambda: get_knowledge_comprehension(
+                    knowledge_db=knowledge_db,
+                    memory_graph=memory_graph,
+                ),
+            )
+            if knowledge_db is not None:
+                comprehension.knowledge_db = knowledge_db
+            if memory_graph is not None:
+                comprehension.memory_graph = memory_graph
+            return comprehension
+        except Exception as exc:
+            self._set_service_status("knowledge_comprehension", "degraded", str(exc))
+            raise
+
+    def get_diagnostics(self) -> Dict[str, Any]:
+        """Expose lightweight runtime diagnostics, including service health."""
+        services = {}
+        for name in [
+            "knowledge_db",
+            "memory_graph",
+            "reasoning_engine",
+            "knowledge_comprehension",
+        ]:
+            if name in self._service_registry:
+                services[name] = {
+                    "status": self._service_statuses.get(name, {}).get("status", "ready"),
+                    "detail": self._service_statuses.get(name, {}).get("detail"),
+                    "object_type": type(self._service_registry[name]).__name__,
+                }
+            elif name in self._service_statuses:
+                services[name] = dict(self._service_statuses[name])
+            else:
+                services[name] = {"status": "unknown"}
+        return {
+            "runtime_id": self.runtime_id,
+            "running": self._running,
+            "services": services,
+        }
 
     def _attach_runtime_bridges(self) -> None:
         """Best-effort bridge into the canonical modules event stream + UI runtime."""

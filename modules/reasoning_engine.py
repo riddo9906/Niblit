@@ -172,14 +172,16 @@ class ReasoningEngine:
       * KnowledgeDB for fact retrieval and storage.
     """
 
-    def __init__(self, knowledge_db: Any = None) -> None:
+    def __init__(self, knowledge_db: Any = None, memory_graph: Any = None) -> None:
         self.db = knowledge_db
+        self.memory_graph = memory_graph
         # Legacy attributes — preserved for backward compatibility
         self.graph: Dict[str, List[str]] = {}
         self.reasoning_chains: List[List[str]] = []
         # Extended state
         self._inferences: List[Inference] = []
         self._lock = threading.Lock()
+        self._sync_graph_from_memory_graph()
 
     # =========================================================================
     # ── Public API (backward compatible) ─────────────────────────────────────
@@ -192,6 +194,10 @@ class ReasoningEngine:
         state used by the new reasoning methods.
         """
         log.debug("[REASONING] Building knowledge graph from %d facts", len(facts))
+
+        if not facts:
+            self._sync_graph_from_memory_graph()
+            return self.graph
 
         concept_to_facts: Dict[str, List[int]] = collections.defaultdict(list)
 
@@ -220,6 +226,9 @@ class ReasoningEngine:
                 for c, related in graph.items()
                 if related
             }
+
+        if not self.graph:
+            self._sync_graph_from_memory_graph()
 
         log.debug("[REASONING] Graph: %d concepts, %d edges",
                   len(self.graph),
@@ -317,6 +326,8 @@ class ReasoningEngine:
             cot.confidence = llm_result["confidence"]
             cot.source = "llm"
             return cot
+
+        self._sync_graph_from_memory_graph()
 
         # Graph-based fallback CoT
         concepts = list(_extract_concepts(question))
@@ -644,6 +655,39 @@ class ReasoningEngine:
     # ── Internal helpers ──────────────────────────────────────────────────────
     # =========================================================================
 
+    def _sync_graph_from_memory_graph(self) -> None:
+        """Hydrate the reasoning graph from the shared MemoryGraph when available."""
+        if self.memory_graph is None:
+            try:
+                from modules.memory_graph import get_memory_graph
+                self.memory_graph = get_memory_graph()
+            except Exception:
+                return
+
+        try:
+            nodes = getattr(self.memory_graph, "_nodes", None)
+            if not nodes:
+                return
+
+            adjacency: Dict[str, Set[str]] = collections.defaultdict(set)
+            for node in nodes.values():
+                text = str(getattr(node, "text", "") or "")
+                concepts = list(_extract_concepts(text))
+                if len(concepts) < 2:
+                    continue
+                for concept in concepts:
+                    adjacency[concept].update(c for c in concepts if c != concept)
+
+            with self._lock:
+                for concept, related in adjacency.items():
+                    existing = set(self.graph.get(concept, []))
+                    existing.update(related)
+                    self.graph[concept] = sorted(existing)
+                if not self.graph:
+                    self.graph = {}
+        except Exception as exc:
+            log.debug("[REASONING] memory graph sync failed: %s", exc)
+
     def _build_inferences(self) -> List[Inference]:
         """Derive confidence-scored inferences from the current graph."""
         inferences: List[Inference] = []
@@ -880,18 +924,23 @@ _INSTANCE: Optional[ReasoningEngine] = None
 _INSTANCE_LOCK = threading.Lock()
 
 
-def get_reasoning_engine(knowledge_db: Any = None) -> ReasoningEngine:
+def get_reasoning_engine(knowledge_db: Any = None, memory_graph: Any = None) -> ReasoningEngine:
     """Return the module-level singleton :class:`ReasoningEngine`.
 
     If *knowledge_db* is provided on first call it is bound to the instance.
+    If *memory_graph* is provided it is wired into the shared engine state.
     """
     global _INSTANCE  # noqa: PLW0603
     if _INSTANCE is None:
         with _INSTANCE_LOCK:
             if _INSTANCE is None:
-                _INSTANCE = ReasoningEngine(knowledge_db=knowledge_db)
-    elif knowledge_db is not None and _INSTANCE.db is None:
-        _INSTANCE.db = knowledge_db
+                _INSTANCE = ReasoningEngine(knowledge_db=knowledge_db, memory_graph=memory_graph)
+    else:
+        if knowledge_db is not None:
+            _INSTANCE.db = knowledge_db
+        if memory_graph is not None:
+            _INSTANCE.memory_graph = memory_graph
+            getattr(_INSTANCE, "_sync_graph_from_memory_graph")()
     return _INSTANCE
 
 
