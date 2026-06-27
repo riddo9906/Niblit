@@ -159,3 +159,50 @@ def test_runtime_manager_reports_architecture_snapshot():
     assert report["boot_sequence"][0]["name"] == "runtime_manager_init"
     assert report["event_bridge"]["module_bridge_installed"] is True
     assert report["extension_points"]["memory_manager"] == {"status": "planned"}
+
+
+def test_runtime_manager_exposes_observability_and_health_surfaces():
+    runtime = RuntimeManager()
+    runtime.register_extension_point("memory_manager", {"status": "planned"})
+
+    health = runtime.get_runtime_health()
+    services = runtime.get_runtime_services()
+    modules = runtime.get_runtime_modules()
+    threads = runtime.get_runtime_threads()
+    events = runtime.get_runtime_events(limit=10)
+    metrics = runtime.get_runtime_metrics()
+    validation = runtime.get_dependency_validation()
+    timeline = runtime.get_runtime_timeline(limit=10)
+    commands = runtime.get_runtime_commands()
+
+    assert health["status"] in {"healthy", "warning", "degraded"}
+    assert services["runtime_state"] == "ready"
+    assert modules["module_count"] >= 0
+    assert isinstance(threads["threads"], list)
+    assert isinstance(events["events"], list)
+    assert metrics["service_count"] >= 1
+    assert validation["status"] in {"ok", "warning", "failed"}
+    assert timeline["events"]
+    assert "runtime.status" in commands
+
+
+def test_runtime_manager_executes_developer_commands():
+    runtime = RuntimeManager()
+
+    status_response = runtime.execute_runtime_command("runtime.status")
+    health_response = runtime.execute_runtime_command("runtime.health")
+    metrics_response = runtime.execute_runtime_command("runtime.metrics")
+    services_response = runtime.execute_runtime_command("runtime.services")
+    modules_response = runtime.execute_runtime_command("runtime.modules")
+    events_response = runtime.execute_runtime_command("runtime.events")
+    workers_response = runtime.execute_runtime_command("runtime.workers")
+    report_response = runtime.execute_runtime_command("runtime.report")
+
+    assert status_response["runtime_state"] == "ready"
+    assert health_response["status"] in {"healthy", "warning", "degraded"}
+    assert metrics_response["service_count"] >= 1
+    assert services_response["runtime_state"] == "ready"
+    assert modules_response["module_count"] >= 0
+    assert events_response["events"]
+    assert workers_response["thread_count"] >= 1
+    assert report_response["runtime_state"] == "ready"

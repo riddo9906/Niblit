@@ -43,6 +43,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from core.event_bus import Event, EventBus, EventType
+from core.runtime_health import RuntimeHealth
 from core.orchestrator import Orchestrator
 from core.task_queue import Priority, Task, TaskQueue
 
@@ -88,13 +89,21 @@ class RuntimeManager:
         self._singleton_warnings: List[str] = []
         self._lifecycle_state = "created"
         self._extension_points: Dict[str, Any] = {}
+        self._runtime_timeline: List[Dict[str, Any]] = []
+        self._startup_warnings: List[str] = []
+        self._dependency_validation: Dict[str, Any] = {"status": "ok", "issues": []}
+        self._runtime_health: Optional[RuntimeHealth] = None
 
         self._running = False
+        self._record_timeline_event("startup", "runtime_manager", "runtime", "info", 0.0, "runtime_manager_init")
         self._transition_lifecycle("created", "loaded")
+        self._validate_dependencies()
         self.initialize_runtime_services()
         self._transition_lifecycle("loaded", "ready")
         self._loop_thread: Optional[threading.Thread] = None
         self._attach_runtime_bridges()
+        self._runtime_health = RuntimeHealth(self)
+        self._record_timeline_event("startup", "runtime_manager", "runtime", "info", 0.0, "runtime_ready")
 
         # Publish system-started event
         self.event_bus.publish(Event(
@@ -220,9 +229,174 @@ class RuntimeManager:
 
     def register_extension_point(self, name: str, payload: Any = None) -> None:
         self._extension_points[name] = payload
+        self._record_timeline_event("extension", "runtime_manager", name, "info", 0.0, "extension_registered")
 
     def get_extension_point(self, name: str, default: Any = None) -> Any:
         return self._extension_points.get(name, default)
+
+    def register_extension(self, name: str, interface: str, lifecycle: str = "managed", dependencies: Optional[List[str]] = None, payload: Any = None) -> None:
+        self.register_extension_point(
+            name,
+            {
+                "interface": interface,
+                "lifecycle": lifecycle,
+                "dependencies": list(dependencies or []),
+                "payload": payload,
+            },
+        )
+
+    def _record_timeline_event(self, event_type: str, module: str, service: str, severity: str, duration: float, detail: str) -> None:
+        self._runtime_timeline.append(
+            {
+                "timestamp": time.time(),
+                "module": module,
+                "service": service,
+                "severity": severity,
+                "duration": round(duration, 3),
+                "event_type": event_type,
+                "detail": detail,
+            }
+        )
+        if len(self._runtime_timeline) > 1000:
+            self._runtime_timeline = self._runtime_timeline[-1000:]
+
+    def _validate_dependencies(self) -> None:
+        issues: List[str] = []
+        try:
+            import importlib
+
+            importlib.import_module("core.event_bus")
+            importlib.import_module("core.orchestrator")
+            importlib.import_module("core.task_queue")
+        except Exception as exc:
+            issues.append(f"dependency-import-failed:{exc}")
+
+        if self._service_registry:
+            duplicate_services = [name for name in self._service_registry if name in self._service_registry]
+            if duplicate_services:
+                issues.append("duplicate-service-registration")
+        if self._extension_points:
+            pass
+        self._dependency_validation = {
+            "status": "warning" if issues else "ok",
+            "issues": issues,
+            "checked_at": time.time(),
+        }
+        self._startup_warnings = list(issues)
+        if issues:
+            self._record_timeline_event("validation", "runtime_manager", "runtime", "warning", 0.0, ";".join(issues))
+
+    def get_dependency_validation(self) -> Dict[str, Any]:
+        return dict(self._dependency_validation)
+
+    def get_startup_warnings(self) -> List[str]:
+        return list(self._startup_warnings)
+
+    def get_runtime_health(self) -> Dict[str, Any]:
+        if self._runtime_health is None:
+            self._runtime_health = RuntimeHealth(self)
+        return self._runtime_health.snapshot(force=True)
+
+    def get_runtime_metrics(self) -> Dict[str, Any]:
+        diagnostics = self.get_diagnostics()
+        services = self.get_runtime_services()
+        modules = self.get_runtime_modules()
+        threads = self.get_runtime_threads()
+        events = self.get_runtime_events(limit=50)
+        return {
+            "runtime_id": self.runtime_id,
+            "runtime_state": diagnostics["runtime_state"],
+            "service_count": services.get("service_count", 0),
+            "module_count": modules.get("module_count", 0),
+            "thread_count": threads.get("thread_count", 0),
+            "event_count": events.get("event_count", 0),
+            "queue_depth": self.task_queue.pending_count() if hasattr(self, "task_queue") else 0,
+            "failed_module_count": modules.get("failed_module_count", 0),
+            "warning_count": len(self._startup_warnings),
+            "resource_usage": {
+                "memory_mb": self.get_runtime_health().get("resource_usage", {}).get("memory_mb"),
+                "cpu_percent": self.get_runtime_health().get("resource_usage", {}).get("cpu_percent"),
+            },
+        }
+
+    def get_runtime_services(self) -> Dict[str, Any]:
+        diagnostics = self.get_diagnostics()
+        return {
+            "runtime_state": diagnostics["runtime_state"],
+            "service_count": len(diagnostics.get("services", {})),
+            "services": diagnostics.get("services", {}),
+        }
+
+    def get_runtime_modules(self) -> Dict[str, Any]:
+        optional = self._optional_module_report or {"loaded": [], "failed": []}
+        return {
+            "runtime_state": self._lifecycle_state,
+            "module_count": len(optional.get("loaded", [])) + len(optional.get("failed", [])),
+            "loaded": list(optional.get("loaded", [])),
+            "failed": list(optional.get("failed", [])),
+            "failed_module_count": len(optional.get("failed", [])),
+        }
+
+    def get_runtime_threads(self) -> Dict[str, Any]:
+        threads = []
+        for thread in threading.enumerate():
+            threads.append({
+                "name": thread.name,
+                "daemon": thread.daemon,
+                "alive": thread.is_alive(),
+            })
+        return {"thread_count": len(threads), "threads": threads}
+
+    def get_runtime_events(self, limit: int = 100) -> Dict[str, Any]:
+        events = list(self.event_bus.get_history(limit=limit))
+        return {
+            "event_count": len(events),
+            "events": [
+                {
+                    "timestamp": getattr(event, "timestamp", None),
+                    "type": getattr(event, "type_name", None) or getattr(event, "type", None),
+                    "source": getattr(event, "source", None),
+                    "payload": getattr(event, "payload", None),
+                }
+                for event in events
+            ],
+        }
+
+    def get_runtime_timeline(self, limit: int = 100) -> Dict[str, Any]:
+        timeline = list(self._runtime_timeline[-limit:])
+        return {"event_count": len(timeline), "events": timeline}
+
+    def get_runtime_commands(self) -> Dict[str, Any]:
+        return {
+            "runtime.status": "Returns current runtime state and service health.",
+            "runtime.health": "Returns runtime health and resource usage.",
+            "runtime.metrics": "Returns runtime summary metrics.",
+            "runtime.services": "Returns runtime service registry information.",
+            "runtime.modules": "Returns loaded and failed modules.",
+            "runtime.events": "Returns recent runtime event history.",
+            "runtime.workers": "Returns active runtime threads/workers.",
+            "runtime.report": "Returns the runtime architecture report.",
+        }
+
+    def execute_runtime_command(self, command: str, **kwargs: Any) -> Dict[str, Any]:
+        command = (command or "").strip().lower()
+        if command == "runtime.status":
+            return self.get_runtime_services()
+        if command == "runtime.health":
+            return self.get_runtime_health()
+        if command == "runtime.metrics":
+            return self.get_runtime_metrics()
+        if command == "runtime.services":
+            return self.get_runtime_services()
+        if command == "runtime.modules":
+            return self.get_runtime_modules()
+        if command == "runtime.events":
+            return self.get_runtime_events(limit=kwargs.get("limit", 50))
+        if command == "runtime.workers":
+            return self.get_runtime_threads()
+        if command == "runtime.report":
+            return self.get_runtime_report()
+        return {"error": "unknown_command", "command": command}
 
     def initialize_runtime_services(self) -> Dict[str, Any]:
         """Initialize core services in a deterministic order."""
