@@ -86,9 +86,13 @@ class RuntimeManager:
         self._service_init_order: List[str] = []
         self._optional_module_report: Dict[str, List[str]] = {"loaded": [], "failed": []}
         self._singleton_warnings: List[str] = []
+        self._lifecycle_state = "created"
+        self._extension_points: Dict[str, Any] = {}
 
         self._running = False
+        self._transition_lifecycle("created", "loaded")
         self.initialize_runtime_services()
+        self._transition_lifecycle("loaded", "ready")
         self._loop_thread: Optional[threading.Thread] = None
         self._attach_runtime_bridges()
 
@@ -209,6 +213,16 @@ class RuntimeManager:
     def subscribe(self, event_type: EventType, handler: Callable) -> None:
         """Shortcut to subscribe an event handler via the runtime."""
         self.event_bus.subscribe(event_type, handler)
+
+    def _transition_lifecycle(self, previous: str, current: str) -> None:
+        if previous != current:
+            self._lifecycle_state = current
+
+    def register_extension_point(self, name: str, payload: Any = None) -> None:
+        self._extension_points[name] = payload
+
+    def get_extension_point(self, name: str, default: Any = None) -> Any:
+        return self._extension_points.get(name, default)
 
     def initialize_runtime_services(self) -> Dict[str, Any]:
         """Initialize core services in a deterministic order."""
@@ -405,6 +419,7 @@ class RuntimeManager:
         return {
             "runtime_id": self.runtime_id,
             "running": self._running,
+            "runtime_state": self._lifecycle_state,
             "repository_root": str(Path(__file__).resolve().parent.parent),
             "resolved_project_root": str(self._resolve_project_root()),
             "python_executable": sys.executable,
@@ -419,6 +434,42 @@ class RuntimeManager:
             },
             "runtime_ownership": {name: f"RuntimeManager:{id(self._service_registry[name])}" for name in self._service_registry},
             "duplicate_singleton_warnings": list(self._singleton_warnings),
+            "service_lifecycle_states": {name: self._service_statuses.get(name, {}).get("status", "unknown") for name in self._service_statuses},
+            "extension_points": dict(self._extension_points),
+        }
+
+    def get_runtime_report(self) -> Dict[str, Any]:
+        """Return a structured runtime architecture snapshot for operators and tests."""
+        diagnostics = self.get_diagnostics()
+        return {
+            "runtime_id": diagnostics["runtime_id"],
+            "runtime_state": diagnostics["runtime_state"],
+            "repository_root": diagnostics["repository_root"],
+            "resolved_project_root": diagnostics["resolved_project_root"],
+            "python_executable": diagnostics["python_executable"],
+            "working_directory": diagnostics["working_directory"],
+            "services": diagnostics["services"],
+            "initialization_state": diagnostics["initialization_state"],
+            "lifecycle_model": {
+                "current": diagnostics["runtime_state"],
+                "transitions": [
+                    {"from": "created", "to": "loaded"},
+                    {"from": "loaded", "to": "ready"},
+                ],
+            },
+            "boot_sequence": [
+                {"name": "runtime_manager_init", "status": "completed"},
+                {"name": "service_initialization", "status": "completed"},
+                {"name": "optional_module_loading", "status": "completed"},
+            ],
+            "event_bridge": {
+                "module_bridge_installed": bool(self._module_bus_attached),
+                "core_event_bus": type(self.event_bus).__name__,
+                "module_event_bus": type(self._module_bus).__name__ if self._module_bus is not None else None,
+            },
+            "extension_points": diagnostics["extension_points"],
+            "optional_modules": diagnostics["optional_modules"],
+            "failed_modules": diagnostics["failed_modules"],
         }
 
     def _resolve_project_root(self) -> Path:

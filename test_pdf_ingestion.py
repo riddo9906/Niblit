@@ -134,3 +134,28 @@ def test_runtime_manager_registry_exposes_shared_services():
     assert diagnostics["runtime_id"] == runtime.runtime_id
     assert "knowledge_db" in diagnostics["services"]
     assert diagnostics["services"]["knowledge_db"]["status"] == "ready"
+
+
+def test_runtime_manager_exposes_lifecycle_state_and_extension_points():
+    runtime = RuntimeManager()
+    runtime.register_extension_point("memory_manager", {"status": "planned"})
+
+    diagnostics = runtime.get_diagnostics()
+
+    assert diagnostics["runtime_state"] == "ready"
+    assert diagnostics["service_lifecycle_states"]["knowledge_db"] == "ready"
+    assert diagnostics["extension_points"]["memory_manager"] == {"status": "planned"}
+    assert runtime.get_extension_point("memory_manager") == {"status": "planned"}
+
+
+def test_runtime_manager_reports_architecture_snapshot():
+    runtime = RuntimeManager()
+    runtime.register_extension_point("memory_manager", {"status": "planned"})
+
+    report = runtime.get_runtime_report()
+
+    assert report["runtime_state"] == "ready"
+    assert report["lifecycle_model"]["current"] == "ready"
+    assert report["boot_sequence"][0]["name"] == "runtime_manager_init"
+    assert report["event_bridge"]["module_bridge_installed"] is True
+    assert report["extension_points"]["memory_manager"] == {"status": "planned"}
