@@ -49,6 +49,8 @@ import inspect
 import importlib.util
 import hashlib
 import json
+import shutil
+import subprocess
 import uuid  # pylint: disable=unused-import
 import traceback as _traceback
 import contextvars
@@ -6333,6 +6335,59 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return False, "PDF ingestion unavailable during boot phase"
         return True, ""
 
+    @staticmethod
+    def _select_pdf_via_native_windows_dialog() -> tuple[bool, str]:
+        """Return a selected PDF path using the native Windows OpenFileDialog."""
+        if not sys.platform.startswith("win"):
+            return False, ""
+
+        powershell_candidates = ["powershell.exe", "powershell", "pwsh", "pwsh.exe"]
+        powershell_bin = None
+        for candidate in powershell_candidates:
+            resolved = shutil.which(candidate)
+            if resolved:
+                powershell_bin = resolved
+                break
+        if not powershell_bin:
+            return False, "PowerShell is not available for file selection"
+
+        script = (
+            "$ErrorActionPreference = 'Stop'; "
+            "Add-Type -AssemblyName System.Windows.Forms | Out-Null; "
+            "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
+            "$dialog.Title = 'Select PDF for Niblit ingestion'; "
+            "$dialog.Filter = 'PDF files (*.pdf)|*.pdf'; "
+            "$dialog.FilterIndex = 1; "
+            "$dialog.Multiselect = $false; "
+            "$dialog.InitialDirectory = [Environment]::GetFolderPath('MyDocuments'); "
+            "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $dialog.FileName }"
+        )
+
+        try:
+            result = subprocess.run(
+                [powershell_bin, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=600,
+                check=False,
+            )
+        except FileNotFoundError as exc:
+            return False, f"PowerShell not available: {exc}"
+        except subprocess.TimeoutExpired as exc:
+            return False, f"File dialog timed out: {exc}"
+        except Exception as exc:  # pragma: no cover - defensive guard
+            return False, f"PowerShell file dialog error: {exc}"
+
+        stdout = (result.stdout or "").strip()
+        stdout = stdout.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
+        stdout = stdout.splitlines()[0].strip() if stdout else ""
+        stderr = (result.stderr or "").strip()
+        if result.returncode != 0:
+            return False, stderr or "PowerShell file dialog failed"
+        if stdout:
+            return True, stdout
+        return False, ""
+
     def _ingest_pdf_file(self, file_path: str) -> str:
         ready, reason = self._pdf_ingestion_runtime_ready()
         if not ready:
@@ -6376,29 +6431,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         selected_path = ""
         if sys.platform.startswith("win"):
-            root = None
             try:
-                import tkinter as tk  # pylint: disable=import-outside-toplevel
-                from tkinter import filedialog  # pylint: disable=import-outside-toplevel
-
-                root = tk.Tk()
-                root.withdraw()
-
-                selected_path = str(
-                    filedialog.askopenfilename(
-                        title="Select PDF for Niblit ingestion",
-                        filetypes=[("PDF files", "*.pdf")],
-                    )
-                    or ""
-                ).strip()
+                ok, selected_path = self._select_pdf_via_native_windows_dialog()
+                if not ok:
+                    if selected_path:
+                        return f"[pdf.select_and_ingest] file picker error: {selected_path}"
+                    return "[pdf.select_and_ingest] cancelled"
+                selected_path = str(selected_path or "").strip()
             except Exception as exc:
                 return f"[pdf.select_and_ingest] file picker error: {exc}"
-            finally:
-                if root is not None:
-                    try:
-                        root.destroy()
-                    except Exception:
-                        pass
         else:
             if hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
                 selected_path = str(input("Enter PDF path for ingestion: ") or "").strip()
