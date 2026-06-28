@@ -93,6 +93,7 @@ class RuntimeManager:
         self._startup_warnings: List[str] = []
         self._dependency_validation: Dict[str, Any] = {"status": "ok", "issues": []}
         self._runtime_health: Optional[RuntimeHealth] = None
+        self._persistence_manager: Optional[Any] = None
 
         self._running = False
         self._record_timeline_event("startup", "runtime_manager", "runtime", "info", 0.0, "runtime_manager_init")
@@ -407,10 +408,15 @@ class RuntimeManager:
         self._optional_module_report = {"loaded": [], "failed": []}
         self._singleton_warnings = []
 
+        self._initialize_service("persistence_manager", lambda: self._build_persistence_manager())
         self._initialize_service("knowledge_db", lambda: self._build_knowledge_db())
         self._initialize_service("memory_graph", lambda: self._build_memory_graph())
+        self._initialize_service("memory_router", lambda: self._build_memory_router())
+        self._initialize_service("cognitive_memory_layer", lambda: self._build_cognitive_memory_layer())
+        self._initialize_service("local_brain", lambda: self._build_local_brain())
         self._initialize_service("knowledge_comprehension", lambda: self._build_knowledge_comprehension())
         self._initialize_service("reasoning_engine", lambda: self._build_reasoning_engine())
+        self._initialize_service("cognitive_synthesis_engine", lambda: self._build_cognitive_synthesis_engine())
         self._initialize_service("local_brain", lambda: self._build_local_brain())
         self._load_optional_modules()
         return self.get_diagnostics()
@@ -439,15 +445,41 @@ class RuntimeManager:
             entry["detail"] = detail
         self._service_statuses[name] = entry
 
+    def _build_persistence_manager(self) -> Any:
+        from niblit_memory import PersistenceManager
+
+        manager = PersistenceManager(root_dir=str(self._resolve_project_root() / "runtime"))
+        manager.initialize_runtime_assets()
+        self._persistence_manager = manager
+        return manager
+
+    def get_persistence_manager(self) -> Any:
+        return self._initialize_service("persistence_manager", self._build_persistence_manager)
+
     def _build_knowledge_db(self) -> Any:
         from modules.storage import KnowledgeDB
 
-        return KnowledgeDB()
+        return KnowledgeDB(persistence_manager=self.get_persistence_manager())
 
     def _build_memory_graph(self) -> Any:
         from modules.memory_graph import get_memory_graph
 
-        return get_memory_graph()
+        manager = self.get_persistence_manager()
+        graph_path = str(Path(manager.root_dir) / "memory" / "knowledge_graph.json")
+        return get_memory_graph(persist_path=graph_path, persistence_manager=manager)
+
+    def _build_memory_router(self) -> Any:
+        from modules.cognitive_memory_layer import MemoryRouter
+
+        return MemoryRouter()
+
+    def _build_cognitive_memory_layer(self) -> Any:
+        from modules.cognitive_memory_layer import get_cognitive_memory_layer
+
+        return get_cognitive_memory_layer(
+            memory_graph=self.get_memory_graph(),
+            persistence_manager=self.get_persistence_manager(),
+        )
 
     def _build_knowledge_comprehension(self) -> Any:
         from modules.knowledge_comprehension import get_knowledge_comprehension
@@ -455,6 +487,7 @@ class RuntimeManager:
         return get_knowledge_comprehension(
             knowledge_db=self.get_knowledge_db(),
             memory_graph=self.get_memory_graph(),
+            persistence_manager=self.get_persistence_manager(),
         )
 
     def _build_reasoning_engine(self) -> Any:
@@ -463,13 +496,28 @@ class RuntimeManager:
         return get_reasoning_engine(
             knowledge_db=self.get_knowledge_db(),
             memory_graph=self.get_memory_graph(),
+            persistence_manager=self.get_persistence_manager(),
+        )
+
+    def _build_cognitive_synthesis_engine(self) -> Any:
+        from modules.cognitive_synthesis_engine import CognitiveSynthesisEngine
+        from modules.graph_scoring_engine import GraphScoringEngine
+
+        memory_graph = self.get_memory_graph()
+        scoring_engine = GraphScoringEngine(memory_graph=memory_graph)
+        reasoning_engine = self.get_reasoning_engine()
+        if hasattr(reasoning_engine, "graph_scoring_engine"):
+            reasoning_engine.graph_scoring_engine = scoring_engine
+        return CognitiveSynthesisEngine(
+            reasoning_engine=reasoning_engine,
+            graph_scoring_engine=scoring_engine,
         )
 
     def _build_local_brain(self) -> Any:
         try:
             from modules.local_brain import get_local_brain
 
-            return get_local_brain()
+            return get_local_brain(persistence_manager=self.get_persistence_manager())
         except Exception as exc:
             self._set_service_status("local_brain", "degraded", str(exc))
             return None
@@ -501,6 +549,14 @@ class RuntimeManager:
                 import modules.reasoning_engine as reasoning_engine_module
 
                 reasoning_engine_module._INSTANCE = service
+            except Exception:
+                pass
+            return
+        if name == "local_brain":
+            try:
+                import modules.local_brain as local_brain_module
+
+                local_brain_module._instance = service
             except Exception:
                 pass
             return
@@ -545,6 +601,14 @@ class RuntimeManager:
             self._set_service_status("reasoning_engine", "degraded", str(exc))
             raise
 
+    def get_cognitive_synthesis_engine(self) -> Any:
+        """Return the runtime-owned synthesis layer for final explanation building."""
+        try:
+            return self._initialize_service("cognitive_synthesis_engine", self._build_cognitive_synthesis_engine)
+        except Exception as exc:
+            self._set_service_status("cognitive_synthesis_engine", "degraded", str(exc))
+            raise
+
     def get_knowledge_comprehension(self) -> Any:
         """Return the shared KnowledgeComprehension instance owned by the runtime."""
         try:
@@ -560,6 +624,22 @@ class RuntimeManager:
             self._set_service_status("knowledge_comprehension", "degraded", str(exc))
             raise
 
+    def get_cognitive_memory_layer(self) -> Any:
+        """Return the runtime-owned semantic memory layer."""
+        try:
+            return self._initialize_service("cognitive_memory_layer", self._build_cognitive_memory_layer)
+        except Exception as exc:
+            self._set_service_status("cognitive_memory_layer", "degraded", str(exc))
+            raise
+
+    def get_memory_router(self) -> Any:
+        """Return the routing service that decides which memory mode to use."""
+        try:
+            return self._initialize_service("memory_router", self._build_memory_router)
+        except Exception as exc:
+            self._set_service_status("memory_router", "degraded", str(exc))
+            raise
+
     def get_local_brain(self) -> Any:
         """Return the shared LocalBrain instance owned by the runtime."""
         try:
@@ -572,9 +652,13 @@ class RuntimeManager:
         """Expose lightweight runtime diagnostics, including service health."""
         services = {}
         for name in [
+            "persistence_manager",
             "knowledge_db",
             "memory_graph",
+            "memory_router",
+            "cognitive_memory_layer",
             "reasoning_engine",
+            "cognitive_synthesis_engine",
             "knowledge_comprehension",
             "local_brain",
         ]:
@@ -600,6 +684,7 @@ class RuntimeManager:
             "working_directory": str(Path.cwd()),
             "sys_path_additions": self._sys_path_additions(),
             "services": services,
+            "persistence": self.get_persistence_manager().get_diagnostics() if self._persistence_manager is not None else {},
             "optional_modules": self._optional_module_report,
             "failed_modules": self._optional_module_report.get("failed", []),
             "initialization_state": {
@@ -623,6 +708,7 @@ class RuntimeManager:
             "python_executable": diagnostics["python_executable"],
             "working_directory": diagnostics["working_directory"],
             "services": diagnostics["services"],
+            "persistence": diagnostics.get("persistence", {}),
             "initialization_state": diagnostics["initialization_state"],
             "lifecycle_model": {
                 "current": diagnostics["runtime_state"],

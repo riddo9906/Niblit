@@ -26,11 +26,10 @@ import threading
 import time
 import traceback
 
+from modules.runtime_bootstrap import bootstrap_runtime_environment
+
 # ── Path bootstrap before importing local modules ─────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-os.chdir(BASE_DIR)
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
+BASE_DIR = str(bootstrap_runtime_environment(__file__))
 
 # ── Environment loading (CRITICAL — before niblit_core and other subsystems) ─
 from modules.resilient_boot import (

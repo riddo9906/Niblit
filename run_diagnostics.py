@@ -22,13 +22,12 @@ import time
 import traceback
 import datetime
 
+from modules.runtime_bootstrap import bootstrap_runtime_environment
+
 # ─────────────────────────────
 # PATH SETUP (matches main.py)
 # ─────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-os.chdir(BASE_DIR)
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
+BASE_DIR = str(bootstrap_runtime_environment(__file__))
 
 _report_dir = BASE_DIR if os.access(BASE_DIR, os.W_OK) else tempfile.gettempdir()
 REPORT_PATH = os.path.join(_report_dir, "niblit_diagnostics.json")

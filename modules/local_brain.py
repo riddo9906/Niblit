@@ -1491,6 +1491,7 @@ class QwenLocalBrain:
         # Accepted for backward-compatibility; ignored (always GGUF).
         model_format: str = "gguf",
         dtype_str: str = "float32",
+        persistence_manager: Optional[Any] = None,
     ) -> None:
         self.model_name = model_name
         self.max_new_tokens = max_new_tokens
@@ -1520,6 +1521,7 @@ class QwenLocalBrain:
 
         self._load_tried: bool = False
         self._load_error: Optional[str] = None
+        self.persistence_manager = persistence_manager
 
     # ── Availability ─────────────────────────────────────────────────────────
 
@@ -2693,6 +2695,7 @@ def get_local_brain(
     gguf_model_path: str = _GGUF_MODEL_PATH,
     # model_format accepted for backward-compatibility; ignored (always GGUF).
     model_format: str = "gguf",
+    persistence_manager: Optional[Any] = None,
 ) -> QwenLocalBrain:
     """Return the process-wide :class:`QwenLocalBrain` singleton."""
     global _instance
@@ -2710,6 +2713,7 @@ def get_local_brain(
                         model_name=model_name,
                         max_new_tokens=max_new_tokens,
                         gguf_model_path=gguf_model_path,
+                        persistence_manager=persistence_manager,
                     )
                 else:
                     preset = _active_local_preset()
@@ -2719,6 +2723,7 @@ def get_local_brain(
                         max_new_tokens=max_new_tokens,
                         gguf_model_path=cfg["model_path"],
                         gguf_chat_template=cfg["chat_template"],
+                        persistence_manager=persistence_manager,
                     )
     return _instance
 

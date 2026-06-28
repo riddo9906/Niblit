@@ -34,10 +34,10 @@ import logging
 import os
 import sys
 
+from modules.runtime_bootstrap import bootstrap_runtime_environment
+
 # ── ensure repo root is on sys.path (for running from any working directory) ──
-_ROOT = os.path.dirname(os.path.abspath(__file__))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
+_ROOT = str(bootstrap_runtime_environment(__file__))
 
 # ── load .env if python-dotenv is available ──────────────────────────────────
 try:

@@ -32,6 +32,7 @@ Design
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
@@ -97,7 +98,7 @@ class ConceptNode:
     __slots__ = (
         "node_id", "text", "embedding",
         "links", "score", "usage",
-        "created_at", "last_used",
+        "created_at", "last_used", "metadata",
     )
 
     def __init__(
@@ -105,6 +106,7 @@ class ConceptNode:
         node_id: str,
         text: str,
         embedding: Optional[List[float]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.node_id: str = node_id
         self.text: str = text
@@ -114,6 +116,7 @@ class ConceptNode:
         self.usage: int = 0
         self.created_at: int = int(time.time())
         self.last_used: int = 0
+        self.metadata: Dict[str, Any] = dict(metadata or {})
 
     def touch(self) -> None:
         """Record a retrieval: bump usage count and update last_used timestamp."""
@@ -169,14 +172,20 @@ class MemoryGraph:
         # Returns list of {"id", "text", "score", "hops"} dicts.
     """
 
-    def __init__(self, persist_path: str = "") -> None:
+    def __init__(self, persist_path: str = "", persistence_manager: Any = None) -> None:
         self._nodes: Dict[str, ConceptNode] = {}
         self._lock = threading.Lock()
+        self._persistence_manager = persistence_manager
         _default_persist_path = os.path.join(
             os.path.expanduser("~"),
             ".niblit",
             "niblit_memory_graph.pkl",
         )
+        if persistence_manager is not None and not persist_path:
+            try:
+                persist_path = os.path.join(persistence_manager.indexes_dir, "memory_graph.pkl")
+            except Exception:
+                pass
         self._persist_path: str = persist_path or os.getenv(
             "NIBLIT_MEMORY_GRAPH_PATH",
             _default_persist_path,
@@ -192,13 +201,29 @@ class MemoryGraph:
         if not os.path.isfile(path):
             return
         try:
-            with open(path, "rb") as fh:
-                state = pickle.load(fh)
-            self._nodes = state.get("nodes", {})
-            self._total_adds = state.get("total_adds", len(self._nodes))
+            with open(path, "r", encoding="utf-8") as fh:
+                state = json.load(fh)
+            self._nodes = {}
+            for node_id, payload in (state.get("nodes") or {}).items():
+                if isinstance(payload, dict):
+                    node = ConceptNode(node_id=node_id, text=str(payload.get("text") or ""), embedding=payload.get("embedding"), metadata=dict(payload.get("metadata") or {}))
+                    node.score = float(payload.get("score", node.score))
+                    node.usage = int(payload.get("usage", node.usage))
+                    node.created_at = int(payload.get("created_at", node.created_at))
+                    node.last_used = int(payload.get("last_used", node.last_used))
+                    node.links = {str(k): float(v) for k, v in (payload.get("links") or {}).items()}
+                    self._nodes[node_id] = node
+            self._total_adds = int(state.get("total_adds", len(self._nodes)))
             log.debug("[MemoryGraph] Loaded %d nodes from %s", len(self._nodes), path)
         except Exception as exc:
-            log.debug("[MemoryGraph] Load failed (%s) — starting fresh", exc)
+            try:
+                with open(path, "rb") as fh:
+                    state = pickle.load(fh)
+                self._nodes = state.get("nodes", {})
+                self._total_adds = state.get("total_adds", len(self._nodes))
+                log.debug("[MemoryGraph] Loaded %d nodes from %s", len(self._nodes), path)
+            except Exception as load_exc:
+                log.debug("[MemoryGraph] Load failed (%s) — starting fresh", load_exc)
 
     def save(self) -> None:
         """Persist graph state to disk.  Called automatically on add() every 100 nodes."""
@@ -210,11 +235,26 @@ class MemoryGraph:
         try:
             with self._lock:
                 state = {
-                    "nodes": self._nodes,
+                    "nodes": {
+                        node_id: {
+                            "text": node.text,
+                            "embedding": node.embedding,
+                            "score": node.score,
+                            "usage": node.usage,
+                            "created_at": node.created_at,
+                            "last_used": node.last_used,
+                            "metadata": dict(node.metadata),
+                            "links": dict(node.links),
+                        }
+                        for node_id, node in self._nodes.items()
+                    },
                     "total_adds": self._total_adds,
                 }
-            with open(path, "wb") as fh:
-                pickle.dump(state, fh, protocol=4)
+            if self._persistence_manager is not None:
+                self._persistence_manager.write_json_file(path, state)
+            else:
+                with open(path, "w", encoding="utf-8") as fh:
+                    json.dump(state, fh, indent=2, ensure_ascii=False)
             log.debug("[MemoryGraph] Saved %d nodes to %s", len(self._nodes), path)
         except Exception as exc:
             log.debug("[MemoryGraph] Save failed: %s", exc)
@@ -226,6 +266,7 @@ class MemoryGraph:
         node_id: str,
         text: str,
         embedding: Optional[List[float]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ConceptNode:
         """Insert or update a node.  Automatically links to similar existing nodes.
 
@@ -238,9 +279,11 @@ class MemoryGraph:
                 node.text = text
                 if embedding is not None:
                     node.embedding = embedding
+                if metadata is not None:
+                    node.metadata.update(metadata)
                 return node
 
-            node = ConceptNode(node_id, text, embedding)
+            node = ConceptNode(node_id, text, embedding, metadata=metadata)
             self._nodes[node_id] = node
             self._total_adds += 1
 
@@ -252,14 +295,13 @@ class MemoryGraph:
             if len(self._nodes) > _MAX_GRAPH_NODES:
                 self._prune_oldest()
 
-        # Checkpoint every 100 adds.  save() re-acquires the lock internally;
-        # calling it outside this block avoids holding the lock while doing I/O.
-        if self._total_adds % 100 == 0:
-            self.save()
+        # Persist immediately so runtime restarts and reloads observe the latest
+        # graph state instead of only checkpointing every 100 additions.
+        self.save()
 
         return node
 
-    def link(self, id_a: str, id_b: str, weight: float) -> None:
+    def link(self, id_a: str, id_b: str, weight: float, metadata: Optional[Dict[str, Any]] = None) -> None:
         """Create a bidirectional weighted edge between two nodes."""
         with self._lock:
             if id_a not in self._nodes or id_b not in self._nodes:
@@ -269,6 +311,9 @@ class MemoryGraph:
             # Keep only the strongest _MAX_EDGES_PER_NODE links
             node_a.links[id_b] = weight
             node_b.links[id_a] = weight
+            if metadata is not None:
+                node_a.metadata.setdefault("links", {})[id_b] = metadata
+                node_b.metadata.setdefault("links", {})[id_a] = metadata
             if len(node_a.links) > _MAX_EDGES_PER_NODE:
                 min_key = min(node_a.links, key=lambda k: node_a.links[k])
                 del node_a.links[min_key]
@@ -609,7 +654,7 @@ _graph_singleton: Optional[MemoryGraph] = None
 _graph_lock = threading.Lock()
 
 
-def get_memory_graph(persist_path: str = "") -> MemoryGraph:
+def get_memory_graph(persist_path: str = "", persistence_manager: Any = None) -> MemoryGraph:
     """Return the global :class:`MemoryGraph` singleton.
 
     Lazily created on first call.  Thread-safe.
@@ -617,7 +662,7 @@ def get_memory_graph(persist_path: str = "") -> MemoryGraph:
     global _graph_singleton
     with _graph_lock:
         if _graph_singleton is None:
-            _graph_singleton = MemoryGraph(persist_path=persist_path)
+            _graph_singleton = MemoryGraph(persist_path=persist_path, persistence_manager=persistence_manager)
     return _graph_singleton
 
 

@@ -12,18 +12,13 @@ import os
 import sys
 from pathlib import Path
 
+from modules.runtime_bootstrap import bootstrap_runtime_environment
+
 
 # Ensure the project root is always on sys.path so that bare imports such as
 #   from niblit_sqlite_db import NiblitSQLiteDB
 # work correctly even when the directory is treated as a package by pytest.
-_project_root = os.path.abspath(os.path.dirname(__file__))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
-# Also expose the repo root for sibling-package imports used by the workspace.
-_repo_root = str(Path(__file__).resolve().parent.parent)
-if _repo_root not in sys.path:
-    sys.path.insert(0, _repo_root)
+bootstrap_runtime_environment(__file__)
 
 
 # Store the exitstatus from pytest_sessionfinish so we can use it in

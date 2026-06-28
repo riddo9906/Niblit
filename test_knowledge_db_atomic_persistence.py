@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import time
 
 
 def _fresh_knowledge_db(path):
@@ -116,6 +118,81 @@ def test_atomic_commit_manager_falls_back_to_direct_write_when_replace_fails(tmp
         monkeypatch.setattr(memory_module.os, "replace", original_replace)
 
     assert json.loads(primary.read_text(encoding="utf-8"))["meta"]["schema_version"] == "2.0"
+
+
+def test_atomic_commit_manager_serializes_concurrent_commits_for_same_path(tmp_path):
+    from niblit_memory import AtomicCommitManager
+
+    primary = tmp_path / "kb.json"
+    manager_a = AtomicCommitManager()
+    manager_b = AtomicCommitManager()
+
+    first_started = threading.Event()
+    release_first = threading.Event()
+    overlap_detected = threading.Event()
+
+    original_atomic_write_text = AtomicCommitManager._atomic_write_text
+
+    def blocking_atomic_write_text(self, path, text):
+        if os.path.abspath(path) != os.path.abspath(str(primary)):
+            return original_atomic_write_text(self, path, text)
+        if not first_started.is_set():
+            first_started.set()
+            release_first.wait(timeout=2.0)
+            return original_atomic_write_text(self, path, text)
+        overlap_detected.set()
+        return original_atomic_write_text(self, path, text)
+
+    AtomicCommitManager._atomic_write_text = blocking_atomic_write_text
+    try:
+        def commit_a():
+            manager_a.commit_json(path=str(primary), payload={"facts": [], "meta": {"schema_version": "2.0"}})
+
+        def commit_b():
+            manager_b.commit_json(path=str(primary), payload={"facts": [], "meta": {"schema_version": "2.0"}})
+
+        thread_a = threading.Thread(target=commit_a)
+        thread_b = threading.Thread(target=commit_b)
+        thread_a.start()
+        assert first_started.wait(timeout=2.0)
+        thread_b.start()
+        time.sleep(0.1)
+        assert not overlap_detected.is_set()
+        release_first.set()
+        thread_a.join(timeout=5.0)
+        thread_b.join(timeout=5.0)
+    finally:
+        AtomicCommitManager._atomic_write_text = original_atomic_write_text
+
+
+def test_runtime_manager_exposes_runtime_owned_persistence_manager():
+    from core.runtime_manager import RuntimeManager
+    import niblit_memory
+
+    runtime = RuntimeManager()
+    persistence = runtime.get_persistence_manager()
+    knowledge_db = runtime.get_knowledge_db()
+
+    assert persistence is not None
+    assert persistence in runtime.get_runtime_services()["services"].values() or runtime.get_diagnostics()["services"].get("knowledge_db")
+    assert isinstance(knowledge_db, niblit_memory.KnowledgeDB)
+    assert knowledge_db._persistence is persistence.get_coordinator(knowledge_db.path, knowledge_db.backup_path, knowledge_db.snapshot_path)
+
+
+def test_persistence_manager_initializes_required_runtime_directories(tmp_path):
+    from niblit_memory import PersistenceManager
+
+    manager = PersistenceManager(root_dir=str(tmp_path / "runtime"), memory_path=str(tmp_path / "runtime" / "niblit_memory.json"))
+    diagnostics = manager.initialize_runtime_assets()
+
+    assert diagnostics["status"] == "ready"
+    assert (tmp_path / "runtime" / "memory").exists()
+    assert (tmp_path / "runtime" / "cache").exists()
+    assert (tmp_path / "runtime" / "logs").exists()
+    assert (tmp_path / "runtime" / "snapshots").exists()
+    assert (tmp_path / "runtime" / "backups").exists()
+    assert (tmp_path / "runtime" / "indexes").exists()
+    assert (tmp_path / "runtime" / "niblit_memory.json").exists()
 
 
 def test_embedding_middleware_returns_deterministic_384_vectors():

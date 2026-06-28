@@ -335,6 +335,7 @@ class KnowledgeComprehension:
         memory_graph: Optional[Any] = None,
         reward_model: Optional[Any] = None,
         concept_synthesizer: Optional[Any] = None,
+        persistence_manager: Optional[Any] = None,
     ):
         self.knowledge_db = knowledge_db
         self.self_teacher = self_teacher
@@ -344,6 +345,7 @@ class KnowledgeComprehension:
         self.memory_graph = memory_graph
         self.reward_model = reward_model
         self.concept_synthesizer = concept_synthesizer
+        self.persistence_manager = persistence_manager
 
         self._extractor = ConceptExtractor()
         self._question_gen = SelfQuestionGenerator(llm=llm)
@@ -816,6 +818,7 @@ def get_knowledge_comprehension(
     memory_graph: Optional[Any] = None,
     reward_model: Optional[Any] = None,
     concept_synthesizer: Optional[Any] = None,
+    persistence_manager: Optional[Any] = None,
 ) -> KnowledgeComprehension:
     """Return the global :class:`KnowledgeComprehension` singleton.
 
@@ -857,6 +860,7 @@ def get_knowledge_comprehension(
             memory_graph=memory_graph,
             reward_model=reward_model,
             concept_synthesizer=concept_synthesizer,
+            persistence_manager=persistence_manager,
         )
     else:
         # Fill in any newly-available dependencies.

@@ -172,14 +172,29 @@ class ReasoningEngine:
       * KnowledgeDB for fact retrieval and storage.
     """
 
-    def __init__(self, knowledge_db: Any = None, memory_graph: Any = None) -> None:
+    def __init__(
+        self,
+        knowledge_db: Any = None,
+        memory_graph: Any = None,
+        persistence_manager: Any = None,
+        graph_scoring_engine: Any = None,
+    ) -> None:
         self.db = knowledge_db
         self.memory_graph = memory_graph
+        self.persistence_manager = persistence_manager
+        self.graph_scoring_engine = graph_scoring_engine
+        if self.graph_scoring_engine is None:
+            try:
+                from modules.graph_scoring_engine import GraphScoringEngine
+                self.graph_scoring_engine = GraphScoringEngine(memory_graph=memory_graph)
+            except Exception:
+                self.graph_scoring_engine = None
         # Legacy attributes — preserved for backward compatibility
         self.graph: Dict[str, List[str]] = {}
         self.reasoning_chains: List[List[str]] = []
         # Extended state
         self._inferences: List[Inference] = []
+        self._last_reasoning_trace: Dict[str, Any] = {}
         self._lock = threading.Lock()
         self._sync_graph_from_memory_graph()
 
@@ -336,36 +351,84 @@ class ReasoningEngine:
             cot.confidence = 0.0
             return cot
 
+        ranked_evidence = []
+        if self.graph_scoring_engine is not None:
+            try:
+                ranked_evidence = self.graph_scoring_engine.rank_candidates(question, top_k=max_steps)
+            except Exception as exc:
+                log.debug("[REASONING] ranked evidence unavailable: %s", exc)
+
         step_idx = 1
         visited: Set[str] = set()
-        for concept in concepts[:max_steps]:
-            neighbours = self.graph.get(concept, [])[:4]
-            if not neighbours:
-                continue
-            step = CoTStep(
-                index=step_idx,
-                question=f"What is related to '{concept}'?",
-                answer=f"{concept} connects to: {', '.join(neighbours)}",
-                confidence=min(1.0, len(neighbours) / 5),
-            )
-            cot.steps.append(step)
-            visited.update(neighbours)
-            step_idx += 1
-            if step_idx > max_steps:
-                break
+        if ranked_evidence:
+            for item in ranked_evidence[:max_steps]:
+                node_text = str(item.get("text", ""))
+                node_id = str(item.get("node_id", ""))
+                if not node_text:
+                    continue
+                step = CoTStep(
+                    index=step_idx,
+                    question=f"What evidence supports '{node_id}'?",
+                    answer=node_text[:180],
+                    confidence=max(0.2, float(item.get("final_score", 0.2))),
+                )
+                cot.steps.append(step)
+                visited.add(node_id)
+                step_idx += 1
+        else:
+            for concept in concepts[:max_steps]:
+                neighbours = self.graph.get(concept, [])[:4]
+                if not neighbours:
+                    continue
+                step = CoTStep(
+                    index=step_idx,
+                    question=f"What is related to '{concept}'?",
+                    answer=f"{concept} connects to: {', '.join(neighbours)}",
+                    confidence=min(1.0, len(neighbours) / 5),
+                )
+                cot.steps.append(step)
+                visited.update(neighbours)
+                step_idx += 1
+                if step_idx > max_steps:
+                    break
 
         all_related = sorted(visited)[:8]
         if all_related:
             cot.conclusion = (
                 f"For '{question}': key concepts are {', '.join(all_related[:5])}."
             )
-            cot.confidence = min(0.8, len(all_related) / 10)
+            cot.confidence = min(0.9, 0.2 + 0.1 * len(cot.steps) + 0.05 * min(4, len(all_related)))
         else:
             cot.conclusion = f"Insufficient knowledge graph data for: {question}"
             cot.confidence = 0.1
 
         cot.source = "graph"
         return cot
+
+    def build_reasoning_trace(
+        self,
+        question: str,
+        facts: Optional[List[Dict[str, str]]] = None,
+        max_steps: int = 5,
+    ) -> Dict[str, Any]:
+        """Build a structured, internal-only reasoning trace for the synthesis layer."""
+        cot = self.chain_of_thought(question, facts=facts, max_steps=max_steps)
+        trace = {
+            "question": question,
+            "summary": cot.conclusion or "",
+            "confidence": cot.confidence,
+            "steps": [
+                {
+                    "question": step.question,
+                    "answer": step.answer,
+                    "confidence": step.confidence,
+                }
+                for step in cot.steps
+            ],
+            "source": cot.source,
+        }
+        self._last_reasoning_trace = trace
+        return trace
 
     def reason_paths(
         self,
@@ -664,6 +727,13 @@ class ReasoningEngine:
             except Exception:
                 return
 
+        if self.graph_scoring_engine is None:
+            try:
+                from modules.graph_scoring_engine import GraphScoringEngine
+                self.graph_scoring_engine = GraphScoringEngine(memory_graph=self.memory_graph)
+            except Exception:
+                self.graph_scoring_engine = None
+
         try:
             nodes = getattr(self.memory_graph, "_nodes", None)
             if not nodes:
@@ -924,7 +994,7 @@ _INSTANCE: Optional[ReasoningEngine] = None
 _INSTANCE_LOCK = threading.Lock()
 
 
-def get_reasoning_engine(knowledge_db: Any = None, memory_graph: Any = None) -> ReasoningEngine:
+def get_reasoning_engine(knowledge_db: Any = None, memory_graph: Any = None, persistence_manager: Any = None) -> ReasoningEngine:
     """Return the module-level singleton :class:`ReasoningEngine`.
 
     If *knowledge_db* is provided on first call it is bound to the instance.
@@ -934,7 +1004,7 @@ def get_reasoning_engine(knowledge_db: Any = None, memory_graph: Any = None) -> 
     if _INSTANCE is None:
         with _INSTANCE_LOCK:
             if _INSTANCE is None:
-                _INSTANCE = ReasoningEngine(knowledge_db=knowledge_db, memory_graph=memory_graph)
+                _INSTANCE = ReasoningEngine(knowledge_db=knowledge_db, memory_graph=memory_graph, persistence_manager=persistence_manager)
     else:
         if knowledge_db is not None:
             _INSTANCE.db = knowledge_db

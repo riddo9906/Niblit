@@ -21,10 +21,10 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 
+from modules.runtime_bootstrap import bootstrap_runtime_environment
+
 # Repo root
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
-if REPO_ROOT not in sys.path:
-    sys.path.insert(0, REPO_ROOT)
+REPO_ROOT = str(bootstrap_runtime_environment(__file__))
 
 try:
     from tools.repo_audit import RepoAuditor

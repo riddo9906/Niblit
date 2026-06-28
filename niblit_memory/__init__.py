@@ -965,6 +965,19 @@ _KDB_QUARANTINE_SNIPPET_CONTEXT = 200
 _KDB_QUARANTINE_DETAILS_MAX_LEN = 500
 _KDB_QUARANTINE_SNIPPET_MAX_LEN = 2000
 
+_PATH_WRITE_LOCKS: Dict[str, threading.RLock] = {}
+_PATH_WRITE_LOCKS_GUARD = threading.Lock()
+
+
+def _get_path_write_lock(path: str) -> threading.RLock:
+    abs_path = os.path.abspath(path)
+    with _PATH_WRITE_LOCKS_GUARD:
+        lock = _PATH_WRITE_LOCKS.get(abs_path)
+        if lock is None:
+            lock = threading.RLock()
+            _PATH_WRITE_LOCKS[abs_path] = lock
+        return lock
+
 
 class RecoveryIntegrityValidator:
     """Schema-safe payload validator used by persistence commits."""
@@ -1013,6 +1026,10 @@ class AtomicCommitManager:
 
     def __init__(self, *, encoding: str = "utf-8") -> None:
         self.encoding = encoding
+        self._write_lock = threading.RLock()
+
+    def _path_lock(self, path: str) -> threading.RLock:
+        return _get_path_write_lock(path)
 
     @staticmethod
     def _fsync_directory(path: str) -> None:
@@ -1037,33 +1054,44 @@ class AtomicCommitManager:
         directory = os.path.dirname(abs_path) or "."
         os.makedirs(directory, exist_ok=True)
         tmp_path = ""
-        try:
-            with tempfile.NamedTemporaryFile(
-                mode="w",
-                encoding=self.encoding,
-                dir=directory,
-                delete=False,
-            ) as tf:
-                tmp_path = tf.name
-                tf.write(text)
-                tf.flush()
-                os.fsync(tf.fileno())
+        lock = self._path_lock(abs_path)
+        with lock:
             try:
-                os.replace(tmp_path, abs_path)
-            except (PermissionError, OSError) as exc:
-                _kdb_log.warning(
-                    "KnowledgeDB atomic replace failed for %s, falling back to direct write: %s",
-                    abs_path,
-                    exc,
-                )
-                self._write_text_direct(abs_path, text)
-            self._fsync_directory(abs_path)
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding=self.encoding,
+                    dir=directory,
+                    delete=False,
+                ) as tf:
+                    tmp_path = tf.name
+                    tf.write(text)
+                    tf.flush()
+                    os.fsync(tf.fileno())
+                replace_error: Optional[Exception] = None
+                for attempt in range(3):
+                    try:
+                        os.replace(tmp_path, abs_path)
+                        replace_error = None
+                        break
+                    except (PermissionError, OSError) as exc:
+                        replace_error = exc
+                        if attempt < 2:
+                            time.sleep(0.05 * (attempt + 1))
+                            continue
+                if replace_error is not None:
+                    _kdb_log.warning(
+                        "KnowledgeDB atomic replace failed for %s, falling back to direct write: %s",
+                        abs_path,
+                        replace_error,
+                    )
+                    self._write_text_direct(abs_path, text)
+                self._fsync_directory(abs_path)
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except Exception:
+                        pass
 
     def _copy_atomic(self, src: str, dst: str) -> None:
         with open(src, "r", encoding=self.encoding) as f:
@@ -1079,24 +1107,274 @@ class AtomicCommitManager:
         snapshot_path: Optional[str] = None,
         snapshot_write_enabled: bool = False,
     ) -> Dict[str, Any]:
-        serialized = json.dumps(payload, indent=4, ensure_ascii=False)
-        # Validate serialised output before touching disk.
-        json.loads(serialized)
-        if backup_path and os.path.exists(path):
-            try:
-                self._copy_atomic(path, backup_path)
-            except Exception as exc:
-                _kdb_log.debug("KnowledgeDB backup snapshot copy failed: %s", exc)
-        self._atomic_write_text(path, serialized)
-        if snapshot_path and snapshot_write_enabled:
-            try:
-                self._atomic_write_text(snapshot_path, serialized)
-            except Exception as exc:
-                _kdb_log.debug("KnowledgeDB snapshot copy failed: %s", exc)
+        lock = self._path_lock(path)
+        with lock:
+            serialized = json.dumps(payload, indent=4, ensure_ascii=False)
+            # Validate serialised output before touching disk.
+            json.loads(serialized)
+            if backup_path and os.path.exists(path):
+                try:
+                    self._copy_atomic(path, backup_path)
+                except Exception as exc:
+                    _kdb_log.debug("KnowledgeDB backup snapshot copy failed: %s", exc)
+            self._atomic_write_text(path, serialized)
+            if snapshot_path and snapshot_write_enabled:
+                try:
+                    self._atomic_write_text(snapshot_path, serialized)
+                except Exception as exc:
+                    _kdb_log.debug("KnowledgeDB snapshot copy failed: %s", exc)
+            return {
+                "bytes": len(serialized.encode(self.encoding)),
+                "ts": datetime.now(timezone.utc).isoformat(),
+            }
+
+
+class PersistenceManager:
+    """Runtime-owned persistence manager that owns runtime assets and write coordination."""
+
+    def __init__(
+        self,
+        *,
+        root_dir: Optional[str] = None,
+        memory_path: Optional[str] = None,
+        backup_path: Optional[str] = None,
+        snapshot_path: Optional[str] = None,
+    ) -> None:
+        default_memory_path = os.path.abspath(_writable_path("niblit_memory.json", "NIBLIT_MEMORY_PATH"))
+        base_dir = os.path.abspath(root_dir or os.path.dirname(default_memory_path))
+        self.root_dir = base_dir
+        self.memory_dir = os.path.join(base_dir, "memory")
+        self.memory_path = os.path.abspath(memory_path or os.path.join(self.memory_dir, "niblit_memory.json"))
+        self.backup_path = os.path.abspath(backup_path or os.path.join(base_dir, "backups", "niblit_memory.json.backup"))
+        self.snapshot_path = os.path.abspath(snapshot_path or os.path.join(base_dir, "snapshots", "niblit_memory.json.snapshot"))
+        self.cache_dir = os.path.join(base_dir, "cache")
+        self.logs_dir = os.path.join(base_dir, "logs")
+        self.snapshots_dir = os.path.dirname(self.snapshot_path)
+        self.backups_dir = os.path.dirname(self.backup_path)
+        self.indexes_dir = os.path.join(base_dir, "indexes")
+        self._coordinators: Dict[tuple[str, str, str], RuntimePersistenceCoordinator] = {}
+        self._write_lock = threading.RLock()
+        self._active_writer: Optional[str] = None
+        self._queued_writes = 0
+        self._pending_commits = 0
+        self._dirty_state = False
+        self._last_successful_save: Optional[str] = None
+        self._last_backup: Optional[str] = None
+        self._last_snapshot: Optional[str] = None
+        self._save_duration_ms = 0.0
+        self._recovery_status = "clean"
+        self._orphaned_tmp_cleanup_status = "pending"
+        self._startup_diagnostics: Dict[str, Any] = {}
+        self._atomic_writer = AtomicCommitManager()
+        self._global_write_lock = threading.RLock()
+        self.initialize_runtime_assets()
+
+    def _ensure_dir(self, path: str) -> None:
+        os.makedirs(path, exist_ok=True)
+
+    def _default_payload(self) -> Dict[str, Any]:
         return {
-            "bytes": len(serialized.encode(self.encoding)),
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "facts": [],
+            "interactions": [],
+            "learning_log": [],
+            "learning_queue": [],
+            "preferences": {"mood": "neutral", "verbosity": "medium"},
+            "events": [],
+            "relationships": [],
+            "relationship_index": {},
+            "meta": {"schema_version": "2.0", "persistence_manager": "runtime-owned"},
         }
+
+    def _write_json_payload(self, path: str, payload: Dict[str, Any]) -> None:
+        self.write_json_file(path, payload)
+
+    def write_json_file(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        abs_path = os.path.abspath(path)
+        self._ensure_dir(os.path.dirname(abs_path) or self.root_dir)
+        self.note_write_started(abs_path)
+        started_at = time.perf_counter()
+        try:
+            self._atomic_writer.commit_json(path=abs_path, payload=payload)
+            duration_ms = (time.perf_counter() - started_at) * 1000.0
+            self.note_write_completed(abs_path, duration_ms=duration_ms)
+            return {"path": abs_path, "bytes": len(json.dumps(payload, ensure_ascii=False).encode(self._atomic_writer.encoding))}
+        except Exception as exc:
+            self.note_write_completed(abs_path, duration_ms=(time.perf_counter() - started_at) * 1000.0)
+            raise exc
+
+    def write_text_file(self, path: str, text: str) -> Dict[str, Any]:
+        abs_path = os.path.abspath(path)
+        self._ensure_dir(os.path.dirname(abs_path) or self.root_dir)
+        self.note_write_started(abs_path)
+        started_at = time.perf_counter()
+        try:
+            with self._global_write_lock:
+                self._atomic_writer._atomic_write_text(abs_path, text)
+            duration_ms = (time.perf_counter() - started_at) * 1000.0
+            self.note_write_completed(abs_path, duration_ms=duration_ms)
+            return {"path": abs_path, "bytes": len(text.encode(self._atomic_writer.encoding))}
+        except Exception as exc:
+            self.note_write_completed(abs_path, duration_ms=(time.perf_counter() - started_at) * 1000.0)
+            raise exc
+
+    def append_jsonl_record(self, path: str, record: Dict[str, Any]) -> Dict[str, Any]:
+        abs_path = os.path.abspath(path)
+        existing = ""
+        if os.path.exists(abs_path):
+            try:
+                with open(abs_path, "r", encoding="utf-8") as fh:
+                    existing = fh.read()
+            except Exception:
+                existing = ""
+        line = json.dumps(record, ensure_ascii=False) + "\n"
+        return self.write_text_file(abs_path, existing + line)
+
+    def _repair_json_payload(self, raw: str) -> Optional[Dict[str, Any]]:
+        stripped = raw.strip()
+        if not stripped:
+            return self._default_payload()
+        try:
+            return json.loads(stripped)
+        except Exception:
+            try:
+                return json.loads(stripped.rstrip(",") + "}")
+            except Exception:
+                return None
+
+    def initialize_runtime_assets(self) -> Dict[str, Any]:
+        self._ensure_dir(self.root_dir)
+        self._ensure_dir(self.memory_dir)
+        self._ensure_dir(os.path.dirname(self.memory_path))
+        self._ensure_dir(self.cache_dir)
+        self._ensure_dir(self.logs_dir)
+        self._ensure_dir(self.snapshots_dir)
+        self._ensure_dir(self.backups_dir)
+        self._ensure_dir(self.indexes_dir)
+
+        metadata_path = os.path.join(self.root_dir, "persistence_metadata.json")
+        if not os.path.exists(metadata_path):
+            self._write_json_payload(metadata_path, {
+                "schema_version": "1.0",
+                "root_dir": self.root_dir,
+                "memory_path": self.memory_path,
+            })
+
+        runtime_state_path = os.path.join(self.root_dir, "runtime_state.json")
+        if not os.path.exists(runtime_state_path):
+            self._write_json_payload(runtime_state_path, {"runtime_id": os.path.basename(self.root_dir), "boot_count": 0})
+
+        cognitive_cache_path = os.path.join(self.root_dir, "cognitive_cache.json")
+        if not os.path.exists(cognitive_cache_path):
+            self._write_json_payload(cognitive_cache_path, {"entries": []})
+
+        knowledge_graph_path = os.path.join(self.root_dir, "knowledge_graph.json")
+        if not os.path.exists(knowledge_graph_path):
+            self._write_json_payload(knowledge_graph_path, {"nodes": {}, "total_adds": 0})
+
+        memory_graph_path = os.path.join(self.memory_dir, "knowledge_graph.json")
+        if not os.path.exists(memory_graph_path):
+            self._write_json_payload(memory_graph_path, {"nodes": {}, "total_adds": 0})
+
+        if not os.path.exists(self.memory_path):
+            self._write_json_payload(self.memory_path, self._default_payload())
+            self._recovery_status = "created"
+        else:
+            try:
+                with open(self.memory_path, "r", encoding="utf-8") as fh:
+                    json.loads(fh.read())
+                self._recovery_status = "clean"
+            except Exception as exc:
+                quarantine_path = self.memory_path + ".quarantine"
+                try:
+                    os.replace(self.memory_path, quarantine_path)
+                except Exception:
+                    self.write_text_file(self.memory_path, "{}")
+                self._write_json_payload(self.memory_path, self._default_payload())
+                self._recovery_status = f"repaired:{exc}"
+
+        self._startup_diagnostics = {
+            "status": "ready",
+            "root_dir": self.root_dir,
+            "memory_path": self.memory_path,
+            "directories": {
+                "memory": self.memory_dir,
+                "cache": self.cache_dir,
+                "logs": self.logs_dir,
+                "snapshots": self.snapshots_dir,
+                "backups": self.backups_dir,
+                "indexes": self.indexes_dir,
+            },
+            "recovery_status": self._recovery_status,
+        }
+        return self._startup_diagnostics
+
+    def get_coordinator(
+        self,
+        path: str,
+        backup_path: Optional[str] = None,
+        snapshot_path: Optional[str] = None,
+        *,
+        payload_supplier=None,
+        debounce_seconds: float = 0.25,
+        qdrant_sync_enabled: bool = False,
+        snapshot_write_enabled: bool = False,
+    ) -> "RuntimePersistenceCoordinator":
+        abs_path = os.path.abspath(path)
+        abs_backup = os.path.abspath(backup_path or self.backup_path)
+        abs_snapshot = os.path.abspath(snapshot_path or self.snapshot_path)
+        key = (abs_path, abs_backup, abs_snapshot)
+        with self._write_lock:
+            coordinator = self._coordinators.get(key)
+            if coordinator is None:
+                coordinator = RuntimePersistenceCoordinator(
+                    path=abs_path,
+                    backup_path=abs_backup,
+                    snapshot_path=abs_snapshot,
+                    payload_supplier=payload_supplier,
+                    debounce_seconds=debounce_seconds,
+                    qdrant_sync_enabled=qdrant_sync_enabled,
+                    snapshot_write_enabled=snapshot_write_enabled,
+                    persistence_manager=self,
+                )
+                self._coordinators[key] = coordinator
+            return coordinator
+
+    def get_diagnostics(self) -> Dict[str, Any]:
+        return {
+            "root_dir": self.root_dir,
+            "memory_path": self.memory_path,
+            "active_writer": self._active_writer,
+            "queued_writes": self._queued_writes,
+            "pending_commits": self._pending_commits,
+            "dirty_state": self._dirty_state,
+            "write_lock_status": "active" if self._active_writer else "idle",
+            "save_duration_ms": round(self._save_duration_ms, 3),
+            "last_successful_save": self._last_successful_save,
+            "last_backup": self._last_backup,
+            "last_snapshot": self._last_snapshot,
+            "recovery_status": self._recovery_status,
+            "orphaned_tmp_cleanup_status": self._orphaned_tmp_cleanup_status,
+            "coordinator_count": len(self._coordinators),
+            "startup_diagnostics": self._startup_diagnostics,
+        }
+
+    def note_write_started(self, path: str) -> None:
+        with self._write_lock:
+            self._active_writer = os.path.abspath(path)
+            self._queued_writes += 1
+            self._pending_commits += 1
+            self._dirty_state = True
+
+    def note_write_completed(self, path: str, *, duration_ms: float, backup_path: Optional[str] = None, snapshot_path: Optional[str] = None) -> None:
+        with self._write_lock:
+            self._active_writer = None
+            self._pending_commits = max(0, self._pending_commits - 1)
+            self._save_duration_ms = duration_ms
+            self._last_successful_save = datetime.now(timezone.utc).isoformat()
+            if backup_path:
+                self._last_backup = backup_path
+            if snapshot_path:
+                self._last_snapshot = snapshot_path
 
 
 class MemoryMutationQueue:
@@ -1300,6 +1578,7 @@ class RuntimePersistenceCoordinator:
         debounce_seconds: float = 0.25,
         qdrant_sync_enabled: bool = False,
         snapshot_write_enabled: bool = False,
+        persistence_manager: Optional[PersistenceManager] = None,
     ) -> None:
         self.path = path
         self.backup_path = backup_path
@@ -1315,6 +1594,8 @@ class RuntimePersistenceCoordinator:
         self._condition = threading.Condition()
         self._commit_lock = threading.Lock()
         self._stop_event = threading.Event()
+        self._persistence_manager = persistence_manager
+        self._last_save_duration_ms = 0.0
         self._worker = threading.Thread(
             target=self._worker_loop,
             daemon=True,
@@ -1323,9 +1604,12 @@ class RuntimePersistenceCoordinator:
         self._worker.start()
 
     def request_save(self) -> int:
+        if self._persistence_manager is not None:
+            self._persistence_manager.note_write_started(self.path)
         return self.mutation_queue.enqueue()
 
     def _commit_snapshot(self) -> None:
+        start = time.perf_counter()
         payload = self.payload_supplier()
         payload = self.validator.normalize(payload)
         payload = self.replay_hooks.apply(payload)
@@ -1338,6 +1622,14 @@ class RuntimePersistenceCoordinator:
         )
         self.debounce.mark_commit()
         self.qdrant_bridge.sync_after_commit(payload)
+        self._last_save_duration_ms = (time.perf_counter() - start) * 1000.0
+        if self._persistence_manager is not None:
+            self._persistence_manager.note_write_completed(
+                self.path,
+                duration_ms=self._last_save_duration_ms,
+                backup_path=self.backup_path,
+                snapshot_path=self.snapshot_path,
+            )
 
     def _notify_committed(self) -> None:
         committed = self.mutation_queue.mark_committed()
@@ -1422,12 +1714,29 @@ class KnowledgeDB:
         path: Optional[str] = None,
         autosave_interval: int = 60,
         dump_interval: int = 300,
+        persistence_manager: Optional[PersistenceManager] = None,
     ) -> None:
         if getattr(self, "_initialized", False):
+            if path is not None:
+                self.path = path
+                self.backup_path = self.path + ".backup"
+                self.snapshot_path = self.path + ".snapshot"
+            if persistence_manager is not None:
+                self.persistence_manager = persistence_manager
+            if not hasattr(self, "quarantine_path"):
+                self.quarantine_path = self.path + ".quarantine.jsonl"
+            if not hasattr(self, "autosave_interval"):
+                self.autosave_interval = autosave_interval
+            if not hasattr(self, "dump_interval"):
+                self.dump_interval = dump_interval
+            self._rebuild_persistence_coordinator()
             return
         self._initialized = True
 
-        self.path = path or _writable_path("niblit_memory.json", "NIBLIT_MEMORY_PATH")
+        self.persistence_manager = persistence_manager
+        self.path = path or (
+            self.persistence_manager.memory_path if self.persistence_manager is not None else _writable_path("niblit_memory.json", "NIBLIT_MEMORY_PATH")
+        )
         self.backup_path = self.path + ".backup"
         self.snapshot_path = self.path + ".snapshot"
         self.quarantine_path = self.path + ".quarantine.jsonl"
@@ -1449,21 +1758,47 @@ class KnowledgeDB:
         }
 
         self._load()
-        self._persistence = RuntimePersistenceCoordinator(
-            path=self.path,
-            backup_path=self.backup_path,
-            snapshot_path=self.snapshot_path,
-            payload_supplier=self._snapshot_for_persistence,
-            debounce_seconds=max(0.05, min(float(self.autosave_interval) / 20.0, 2.0)),
-            qdrant_sync_enabled=False,
-            snapshot_write_enabled=False,
-        )
-        self._worker = GovernedPersistenceWorker(self._persistence)
+        self._rebuild_persistence_coordinator()
         atexit.register(self.shutdown)
 
         # KnowledgeDB no longer starts its own autosave/dump threads.
         # NiblitMemory's single autosave loop covers KnowledgeDB too.
         _kdb_log.info("KnowledgeDB initialized (save/dump managed by NiblitMemory)")
+
+    def _rebuild_persistence_coordinator(self) -> None:
+        manager = self.persistence_manager
+        coordinator = getattr(self, "_persistence", None)
+        if coordinator is not None:
+            same_path = (
+                getattr(coordinator, "path", None) == self.path
+                and getattr(coordinator, "backup_path", None) == self.backup_path
+                and getattr(coordinator, "snapshot_path", None) == self.snapshot_path
+            )
+            same_manager = getattr(coordinator, "_persistence_manager", None) is manager
+            if same_path and same_manager:
+                return
+        self._persistence = (
+            manager.get_coordinator(
+                self.path,
+                backup_path=self.backup_path,
+                snapshot_path=self.snapshot_path,
+                payload_supplier=self._snapshot_for_persistence,
+                debounce_seconds=max(0.05, min(float(self.autosave_interval) / 20.0, 2.0)),
+                qdrant_sync_enabled=False,
+                snapshot_write_enabled=False,
+            )
+            if manager is not None
+            else RuntimePersistenceCoordinator(
+                path=self.path,
+                backup_path=self.backup_path,
+                snapshot_path=self.snapshot_path,
+                payload_supplier=self._snapshot_for_persistence,
+                debounce_seconds=max(0.05, min(float(self.autosave_interval) / 20.0, 2.0)),
+                qdrant_sync_enabled=False,
+                snapshot_write_enabled=False,
+            )
+        )
+        self._worker = GovernedPersistenceWorker(self._persistence)
 
     # ── internal load / save ──────────────────────────────────────────────────
 
@@ -1524,8 +1859,11 @@ class KnowledgeDB:
                 "details": details[:_KDB_QUARANTINE_DETAILS_MAX_LEN],
                 "snippet": snippet[:_KDB_QUARANTINE_SNIPPET_MAX_LEN],
             }
-            with open(self.quarantine_path, "a", encoding="utf-8") as qf:
-                qf.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            if self.persistence_manager is not None:
+                self.persistence_manager.append_jsonl_record(self.quarantine_path, entry)
+            else:
+                with open(self.quarantine_path, "a", encoding="utf-8") as qf:
+                    qf.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception as exc:
             _kdb_log.debug("KnowledgeDB quarantine write failed: %s", exc)
 

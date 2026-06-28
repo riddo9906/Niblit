@@ -34,13 +34,12 @@ import traceback
 from datetime import datetime, timezone
 import threading
 
+from modules.runtime_bootstrap import bootstrap_runtime_environment
+
 # ─────────────────────────────────────────────
 # PATH SETUP — must mirror main.py exactly
 # ─────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-os.chdir(BASE_DIR)
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
+BASE_DIR = str(bootstrap_runtime_environment(__file__))
 
 try:
     from niblit_memory import _writable_path as _mem_writable_path
