@@ -26,12 +26,18 @@ Production Enhancements:
 # pylint: disable=missing-function-docstring,too-many-instance-attributes,too-many-branches,too-many-statements
 # pylint: disable=global-statement
 
+import os
+import sys
 import threading
 import time
 import logging
 import asyncio
 from datetime import datetime, timezone
 from typing import Dict, Any
+
+from modules.runtime_bootstrap import bootstrap_runtime_environment
+
+bootstrap_runtime_environment(__file__)
 
 log = logging.getLogger("LifecycleEngine")
 logging.basicConfig(
@@ -83,10 +89,10 @@ except Exception as _e:
             pass
 
 try:
-    from niblit_tasks import NiblitTasks
+    from niblit_tasks import NiblitTasks as _RuntimeNiblitTasks
 except Exception as _e:
     log.warning(f"niblit_tasks not available: {_e}")
-    class NiblitTasks:
+    class _RuntimeNiblitTasks:
         """No-op stub used when niblit_tasks is unavailable."""
         def __init__(self, **kwargs):
             pass
@@ -96,6 +102,8 @@ except Exception as _e:
             pass
         def stop(self):
             pass
+
+NiblitTasks = _RuntimeNiblitTasks
 
 try:
     from niblit_orchestrator import (

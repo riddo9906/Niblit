@@ -39,9 +39,11 @@ class NiblitTasks:
         Runs when no tasks exist.
         Niblit reflects on recent memory.
         """
-        logs = self.memory.get_learning_log()  # ✅ guaranteed to exist
+        logs = self.memory.get_learning_log() if self.memory else []
+        if logs is None:
+            logs = []
 
-        if len(logs) % 5 == 0 and logs:
+        if logs and len(logs) % 5 == 0:
             thought = {
                 "time": datetime.now(timezone.utc).isoformat(),
                 "thought": "Reflecting on recent interactions."

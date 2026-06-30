@@ -2023,12 +2023,29 @@ class KnowledgeDB:
     # ── events ────────────────────────────────────────────────────────────────
 
     def log_event(self, text: str) -> None:
+        entry = {
+            "time": datetime.now(timezone.utc).isoformat(),
+            "event": text,
+        }
+        # Route lifecycle/internal runtime events to the runtime JSONL log
+        # instead of storing them in KnowledgeDB. This preserves the data
+        # but keeps KnowledgeDB focused on structured knowledge.
+        try:
+            if isinstance(text, str) and "[Lifecycle]" in text and getattr(self, "persistence_manager", None) is not None:
+                try:
+                    runtime_path = os.path.join(self.persistence_manager.logs_dir, "runtime.jsonl")
+                    self.persistence_manager.append_jsonl_record(runtime_path, entry)
+                    _kdb_log.info("[Lifecycle Routed] %s", text)
+                    return
+                except Exception:
+                    # Fall back to storing in-memory if runtime log write fails
+                    pass
+        except Exception:
+            pass
+
         with self.lock:
             self.data.setdefault("events", [])
-            self.data["events"].append({
-                "time": datetime.now(timezone.utc).isoformat(),
-                "event": text,
-            })
+            self.data["events"].append(entry)
         _kdb_log.info("[Event] %s", text)
         self._save(blocking=False)
 
@@ -2106,7 +2123,7 @@ class KnowledgeDB:
         # the same fact is re-confirmed by a separate source.
         with self.lock:
             self.data.setdefault("facts", [])
-            fact = {
+            raw_fact = {
                 "key": key,
                 "value": value,
                 "tags": tags or [],
@@ -2114,8 +2131,13 @@ class KnowledgeDB:
                 "confidence": 1.0,
                 "access_count": 0,
             }
-            self.data["facts"].append(fact)
-            self._index_relationships_for_fact(fact)
+            structured = self._structure_fact_payload(raw_fact)
+            try:
+                self._remove_relationships_for_fact(key)
+            except Exception:
+                pass
+            self._upsert_fact(structured)
+            self._index_relationships_for_fact(structured)
         self._save(blocking=False)
 
     def _extract_relationship_entities(self, raw: str, *, max_entities: int = 6) -> List[str]:
@@ -2190,6 +2212,126 @@ class KnowledgeDB:
                 rel_index[dst].append(edge)
         if len(rels) > 5000:
             self.data["relationships"] = rels[-5000:]
+
+    def _remove_relationships_for_fact(self, key: str) -> None:
+        """Remove any existing relationship edges that reference a given fact key.
+
+        This ensures replacing/upserting a fact does not leave stale edges behind.
+        """
+        if not key:
+            return
+        self.data.setdefault("relationships", [])
+        self.data.setdefault("relationship_index", {})
+        rels = [r for r in self.data.get("relationships", []) if r.get("fact_key") != key]
+        # Rebuild the relationship index from remaining edges
+        rel_index: Dict[str, List[Dict[str, Any]]] = {}
+        for edge in rels:
+            src = edge.get("src")
+            dst = edge.get("dst")
+            if src:
+                rel_index.setdefault(src, []).append(edge)
+            if dst:
+                rel_index.setdefault(dst, []).append(edge)
+        self.data["relationships"] = rels
+        self.data["relationship_index"] = rel_index
+
+    def _upsert_fact(self, fact: Dict[str, Any]) -> None:
+        """Insert or update a fact in-place.
+
+        - If a fact with the same `key` exists, update that entry (last-write-wins).
+        - For queue-like keys (ending with `_queue`) or facts tagged with
+          `review-queue`, keep only the most recent version.
+        """
+        key = str(fact.get("key", ""))
+        if not key:
+            # If no key, just append as-is
+            self.data.setdefault("facts", [])
+            self.data["facts"].append(fact)
+            return
+
+        facts = self.data.setdefault("facts", [])
+        tags = [str(t).lower() for t in (fact.get("tags") or [])]
+        is_queue_like = key.endswith("_queue") or any("review-queue" in t for t in tags)
+
+        if is_queue_like:
+            # Remove any existing entries with the same key, then append the latest
+            facts = [f for f in facts if not (isinstance(f, dict) and f.get("key") == key)]
+            facts.append(fact)
+            self.data["facts"] = facts
+            return
+
+        # General upsert: find the most recent matching fact and replace it
+        for i in range(len(facts) - 1, -1, -1):
+            f = facts[i]
+            if isinstance(f, dict) and f.get("key") == key:
+                facts[i] = fact
+                self.data["facts"] = facts
+                return
+
+        # Not found: append
+        facts.append(fact)
+        self.data["facts"] = facts
+
+    def _structure_fact_payload(self, raw_fact: Dict[str, Any]) -> Dict[str, Any]:
+        """Return a fact payload that conforms to the structured schema while
+        preserving legacy fields for compatibility.
+
+        Schema:
+        {
+          "id": "unique id",
+          "timestamp": "ISO timestamp",
+          "type": "goal|context|decision|result|preference|continuity",
+          "summary": "one sentence human readable description",
+          "detail": {},
+          "session": "session id"
+        }
+        """
+        key = str(raw_fact.get("key") or raw_fact.get("id") or "").strip()
+        value = raw_fact.get("value")
+        tags = [str(t).lower() for t in (raw_fact.get("tags") or [])]
+        # Infer type from key or tags
+        inferred = "context"
+        k_lower = key.lower()
+        if k_lower.startswith("goal") or "goal" in tags:
+            inferred = "goal"
+        elif k_lower.startswith("decision") or "decision" in tags:
+            inferred = "decision"
+        elif k_lower.startswith("preference") or "preference" in tags:
+            inferred = "preference"
+        elif k_lower.endswith("_queue") or "review-queue" in tags or "review_queue" in tags:
+            inferred = "continuity"
+        elif "research" in tags or k_lower.startswith("research") or k_lower.startswith("research_response"):
+            inferred = "result"
+        # Build summary
+        summary = ""
+        try:
+            if isinstance(value, str):
+                # first sentence or truncated
+                summary = value.split(".\n")[0].split(".")[0].strip()
+                if len(summary) > 180:
+                    summary = summary[:177] + "..."
+            elif isinstance(value, dict):
+                summary = value.get("summary") or value.get("description") or str(value)[:180]
+            else:
+                summary = str(value)[:180]
+        except Exception:
+            summary = str(value)[:180]
+
+        # Session id from meta if available
+        session = self.data.get("meta", {}).get("session_id", "")
+
+        structured = {
+            "id": key or str(uuid.uuid4()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "type": inferred,
+            "summary": summary,
+            "detail": {"value": value, "tags": raw_fact.get("tags")},
+            "session": session,
+        }
+        # Keep legacy compatibility fields
+        legacy = dict(raw_fact)
+        legacy.update({"id": structured["id"], "timestamp": structured["timestamp"], "type": structured["type"], "summary": structured["summary"], "session": structured["session"], "detail": structured["detail"]})
+        return legacy
 
     def get_relationships(self, entity: str, limit: int = 20) -> List[Dict[str, Any]]:
         """Return indexed semantic relationships for an entity."""
@@ -2400,7 +2542,7 @@ class KnowledgeDB:
 
         with self.lock:
             self.data.setdefault("facts", [])
-            fact = {
+            raw_fact = {
                 "key": key,
                 "value": summary,
                 "tags": tags,
@@ -2409,8 +2551,13 @@ class KnowledgeDB:
                 "confidence": confidence,
                 "access_count": 0,
             }
-            self.data["facts"].append(fact)
-            self._index_relationships_for_fact(fact)
+            structured = self._structure_fact_payload(raw_fact)
+            try:
+                self._remove_relationships_for_fact(key)
+            except Exception:
+                pass
+            self._upsert_fact(structured)
+            self._index_relationships_for_fact(structured)
         self._save(blocking=False)
 
     def list_facts(self, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:

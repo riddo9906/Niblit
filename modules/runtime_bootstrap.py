@@ -36,10 +36,15 @@ def bootstrap_runtime_environment(start: Optional[os.PathLike[str] | str] = None
     parent_root_str = str(repo_root.parent)
 
     os.chdir(repo_root)
-    for path_str in (repo_root_str, parent_root_str):
-        path = Path(path_str)
-        if str(path) not in sys.path:
-            sys.path.insert(0, str(path))
+    for path_str in list(sys.path):
+        path = Path(path_str).resolve() if path_str else None
+        if path is None:
+            continue
+        if str(path) == repo_root_str or str(path) == parent_root_str:
+            sys.path.remove(path_str)
+
+    sys.path.insert(0, repo_root_str)
+    sys.path.insert(1, parent_root_str)
 
     return repo_root
 

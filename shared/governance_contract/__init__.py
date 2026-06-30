@@ -1,3 +1,4 @@
+"""Governance contract stubs for local testing."""
 """Canonical governance/runtime contract authority for the Niblit ecosystem."""
 
 from .advisor_protocol import normalize_advisor_votes
