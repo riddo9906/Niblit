@@ -1,0 +1,29 @@
+{
+  "decision_style": "analytical",
+  "risk_tolerance": 0.5,
+  "response_bias": {
+    "memory": 1.0,
+    "reasoning": 1.0,
+    "goal": 1.0,
+    "llm": 1.0,
+    "quality": 1.0
+  },
+  "decision_policy": {
+    "exploration_rate": 0.1,
+    "risk_preference": "balanced",
+    "priority_mode": "balanced"
+  },
+  "total_decisions": 4,
+  "advisor_win_counts": {
+    "memory": 1,
+    "llm": 1,
+    "reasoning": 2
+  },
+  "quality_history": [
+    0.319,
+    0.452,
+    0.365,
+    0.755
+  ],
+  "last_updated": 1782859885.976846
+}

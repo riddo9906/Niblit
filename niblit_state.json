@@ -337,15 +337,15 @@
       "ale": 0.5,
       "kernel": 0.5,
       "trading": 0.5,
-      "security": 0.4891,
-      "memory": 0.4891,
+      "security": 0.4924,
+      "memory": 0.4924,
       "language": 0.5,
       "research": 0.5,
       "reasoning": 0.5,
       "evolution": 0.5,
       "civilization": 0.5
     },
-    "cycle_count": 15,
+    "cycle_count": 20,
     "evolution_history": []
   }
 }
