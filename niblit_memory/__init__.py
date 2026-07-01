@@ -1229,6 +1229,20 @@ class PersistenceManager:
         line = json.dumps(record, ensure_ascii=False) + "\n"
         return self.write_text_file(abs_path, existing + line)
 
+    def write_cognitive_checkpoint(self, checkpoint_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        path = os.path.join(self.root_dir, "checkpoints", f"{checkpoint_id}.json")
+        return self.write_json_file(path, payload)
+
+    def read_cognitive_checkpoint(self, checkpoint_id: str) -> Dict[str, Any]:
+        path = os.path.join(self.root_dir, "checkpoints", f"{checkpoint_id}.json")
+        if not os.path.exists(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                return dict(json.load(fh) or {})
+        except Exception:
+            return {}
+
     def _repair_json_payload(self, raw: str) -> Optional[Dict[str, Any]]:
         stripped = raw.strip()
         if not stripped:

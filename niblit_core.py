@@ -2527,6 +2527,29 @@ class NiblitCore:
         except Exception as exc:
             return f"[runtime unavailable] {exc}"
 
+    def _dispatch_cognitive_ingress(self, text: str) -> str:
+        """Try the thin canonical cognitive path before deeper fallbacks."""
+        try:
+            from modules.unified_runtime import get_unified_runtime
+
+            result = get_unified_runtime().run_cognitive_cycle(
+                text,
+                source="cli",
+                core=self,
+                metadata={"surface": "niblit_core"},
+            )
+            response = str(result.get("response", "") or "").strip()
+            mode_name = str(result.get("mode_name", "") or "")
+            if response and (
+                mode_name in {"operational", "forecasting", "governance", "reflective", "simulation"}
+                or result.get("tools_called")
+                or result.get("forecast_signal", "HOLD") != "HOLD"
+            ):
+                return response
+        except Exception as exc:
+            log.debug("Cognitive ingress dispatch failed: %s", exc)
+        return ""
+
     def _cmd_runtime_capabilities(self, _text: str = "") -> str:
         """Show the canonical runtime capability registry snapshot."""
         if not self.command_registry:
@@ -11330,6 +11353,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # When the DecisionEngine is unavailable we fall back to brain.think().
         # ============================
         log.debug("[SDAL] General chat — routing through competitive DecisionEngine")
+
+        ingress_response = self._dispatch_cognitive_ingress(text)
+        if ingress_response:
+            self._trigger_learning(text, ingress_response)
+            return ingress_response
 
         response = None
         _sdal_result = None

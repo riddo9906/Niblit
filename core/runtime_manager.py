@@ -42,6 +42,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from core.cognitive_contract import normalize_event_envelope
 from core.event_bus import Event, EventBus, EventType
 from core.runtime_health import RuntimeHealth
 from core.orchestrator import Orchestrator
@@ -94,6 +95,8 @@ class RuntimeManager:
         self._dependency_validation: Dict[str, Any] = {"status": "ok", "issues": []}
         self._runtime_health: Optional[RuntimeHealth] = None
         self._persistence_manager: Optional[Any] = None
+        self._provenance_service: Optional[Any] = None
+        self._runtime_architecture_model: Optional[Any] = None
 
         self._running = False
         self._record_timeline_event("startup", "runtime_manager", "runtime", "info", 0.0, "runtime_manager_init")
@@ -417,8 +420,18 @@ class RuntimeManager:
         self._initialize_service("knowledge_comprehension", lambda: self._build_knowledge_comprehension())
         self._initialize_service("reasoning_engine", lambda: self._build_reasoning_engine())
         self._initialize_service("cognitive_synthesis_engine", lambda: self._build_cognitive_synthesis_engine())
+        self._initialize_service("provenance_service", lambda: self._build_provenance_service())
+        self._initialize_service("runtime_architecture_model", lambda: self._build_runtime_architecture_model())
+        self._initialize_service("cognitive_ingress", lambda: self._build_cognitive_ingress())
         self._initialize_service("local_brain", lambda: self._build_local_brain())
         self._load_optional_modules()
+        self.register_extension(
+            "cognitive_ingress",
+            interface="CognitiveIngress",
+            lifecycle="managed",
+            dependencies=["reasoning_engine", "provenance_service", "runtime_architecture_model"],
+            payload={"entry_point": "modules.cognitive_ingress.get_cognitive_ingress", "contract": "core.cognitive_contract"},
+        )
         return self.get_diagnostics()
 
     def _initialize_service(self, name: str, factory: Callable[[], Any]) -> Any:
@@ -460,6 +473,33 @@ class RuntimeManager:
         from modules.storage import KnowledgeDB
 
         return KnowledgeDB(persistence_manager=self.get_persistence_manager())
+
+    def _build_provenance_service(self) -> Any:
+        from modules.provenance_service import ProvenanceService
+
+        service = ProvenanceService(persistence_manager=self.get_persistence_manager())
+        self._provenance_service = service
+        return service
+
+    def _build_runtime_architecture_model(self) -> Any:
+        from modules.runtime_architecture_model import RuntimeArchitectureModel
+
+        model = RuntimeArchitectureModel(persistence_manager=self.get_persistence_manager())
+        self._runtime_architecture_model = model
+        return model
+
+    def _build_cognitive_ingress(self) -> Any:
+        from modules.cognitive_ingress import CognitiveIngress
+        from niblit_memory.unified_memory_engine import get_unified_memory
+
+        return CognitiveIngress(
+            runtime_manager=self,
+            persistence_manager=self.get_persistence_manager(),
+            knowledge_db=self.get_knowledge_db(),
+            unified_memory=get_unified_memory(),
+            provenance_service=self.get_provenance_service(),
+            architecture_model=self.get_runtime_architecture_model(),
+        )
 
     def _build_memory_graph(self) -> Any:
         from modules.memory_graph import get_memory_graph
@@ -575,6 +615,47 @@ class RuntimeManager:
         except Exception as exc:
             self._set_service_status("knowledge_db", "degraded", str(exc))
             raise
+
+    def get_provenance_service(self) -> Any:
+        try:
+            service = self._initialize_service("provenance_service", self._build_provenance_service)
+            self._provenance_service = service
+            return service
+        except Exception as exc:
+            self._set_service_status("provenance_service", "degraded", str(exc))
+            raise
+
+    def get_runtime_architecture_model(self) -> Any:
+        try:
+            model = self._initialize_service("runtime_architecture_model", self._build_runtime_architecture_model)
+            self._runtime_architecture_model = model
+            return model
+        except Exception as exc:
+            self._set_service_status("runtime_architecture_model", "degraded", str(exc))
+            raise
+
+    def get_cognitive_ingress(self) -> Any:
+        try:
+            return self._initialize_service("cognitive_ingress", self._build_cognitive_ingress)
+        except Exception as exc:
+            self._set_service_status("cognitive_ingress", "degraded", str(exc))
+            raise
+
+    def process_cognitive_request(
+        self,
+        text: str,
+        *,
+        source: str = "runtime_manager",
+        priority: str = "normal",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        execution = self.get_cognitive_ingress().ingest(
+            text,
+            source=source,
+            priority=priority,
+            metadata=dict(metadata or {}),
+        )
+        return execution.to_dict() if hasattr(execution, "to_dict") else dict(execution or {})
 
     def get_memory_graph(self) -> Any:
         """Return the shared MemoryGraph instance owned by the runtime."""
@@ -839,6 +920,16 @@ class RuntimeManager:
         if getattr(event, "bridge_origin", "") == "modules":
             return
         payload = self._lineage_payload(event.payload, event.type_name, event.source)
+        envelope = normalize_event_envelope(
+            event_type=event.type_name,
+            source=event.source,
+            payload=payload,
+            runtime_id=self.runtime_id,
+            cognition_id=str(payload.get("cognition_id", "")),
+            trace_id=str(payload.get("trace_id", "")),
+            event_priority=str(payload.get("event_priority", "normal")),
+        )
+        payload = envelope.payload
         payload["_bridge_origin"] = "core"
         module_event_type = self._core_to_module_event_type(event.type_name)
         if self._module_bus is not None:
@@ -854,6 +945,20 @@ class RuntimeManager:
                 )
             except Exception:
                 pass
+        try:
+            self.get_provenance_service().update(
+                envelope.trace_id,
+                request_id=str(payload.get("request_id", envelope.trace_id)),
+                executed_function=module_event_type,
+                output_summary=str(payload.get("summary") or payload.get("response") or module_event_type),
+                downstream_consumers=["modules.event_bus", "unified_runtime"],
+            )
+            self.get_runtime_architecture_model().observe_event(
+                {"type": module_event_type, "source": event.source, "payload": payload},
+                lineage_channel="core_bridge",
+            )
+        except Exception:
+            pass
         self._emit_to_unified_runtime(module_event_type, event.source, payload)
 
     def _mirror_modules_event(self, event: Any) -> None:
@@ -863,6 +968,16 @@ class RuntimeManager:
         event_type = str(getattr(event, "type", "event"))
         source = str(getattr(event, "source", "modules"))
         lineage = self._lineage_payload(payload, event_type, source)
+        envelope = normalize_event_envelope(
+            event_type=event_type,
+            source=source,
+            payload=lineage,
+            runtime_id=self.runtime_id,
+            cognition_id=str(lineage.get("cognition_id", "")),
+            trace_id=str(lineage.get("trace_id", "")),
+            event_priority=str(lineage.get("event_priority", "normal")),
+        )
+        lineage = envelope.payload
         try:
             self.event_bus.publish(
                 Event(
@@ -877,6 +992,20 @@ class RuntimeManager:
                     event_priority=str(lineage.get("event_priority", "normal")),
                     bridge_origin="modules",
                 )
+            )
+        except Exception:
+            pass
+        try:
+            self.get_provenance_service().update(
+                envelope.trace_id,
+                request_id=str(lineage.get("request_id", envelope.trace_id)),
+                executed_function=event_type,
+                output_summary=str(lineage.get("summary") or lineage.get("response") or event_type),
+                downstream_consumers=["core.event_bus", "unified_runtime"],
+            )
+            self.get_runtime_architecture_model().observe_event(
+                {"type": event_type, "source": source, "payload": lineage},
+                lineage_channel="modules_bridge",
             )
         except Exception:
             pass

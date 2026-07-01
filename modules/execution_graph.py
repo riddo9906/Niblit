@@ -91,6 +91,11 @@ class ExecutionResult:
     mode: str = ""
     intent: str = ""
     elapsed_ms: float = 0.0
+    quality_score: float = 0.5
+    request_id: str = ""
+    trace_id: str = ""
+    selected_module: str = ""
+    selected_function: str = ""
 
     def to_dict(self) -> Dict:
         return {
@@ -102,6 +107,11 @@ class ExecutionResult:
             "mode": self.mode,
             "intent": self.intent,
             "elapsed_ms": round(self.elapsed_ms, 1),
+            "quality_score": round(self.quality_score, 4),
+            "request_id": self.request_id,
+            "trace_id": self.trace_id,
+            "selected_module": self.selected_module,
+            "selected_function": self.selected_function,
         }
 
 
@@ -173,6 +183,11 @@ class ExecutionGraph:
                 mode=mode.mode_name,
                 intent=mode.intent,
                 elapsed_ms=(time.monotonic() - t0) * 1000,
+                quality_score=self._estimate_quality(step_results, ctx),
+                request_id=str(ctx.get("request_id", "")),
+                trace_id=str(ctx.get("trace_id", "")),
+                selected_module=str(ctx.get("selected_module", "modules.execution_graph")),
+                selected_function=str(ctx.get("selected_function", "ExecutionGraph.run")),
             )
 
             with self._lock:
@@ -181,10 +196,15 @@ class ExecutionGraph:
             # Emit event
             try:
                 from modules.event_bus import get_event_bus, NiblitEvent, EVENT_EXECUTION_COMPLETE
-                get_event_bus().publish(NiblitEvent(
+                get_event_bus().publish(                NiblitEvent(
                     type=EVENT_EXECUTION_COMPLETE,
                     source="execution_graph",
-                    payload=result.to_dict(),
+                    payload={
+                        **result.to_dict(),
+                        "event_category": "orchestration",
+                        "event_priority": "high",
+                        "observation_required": True,
+                    },
                 ))
             except Exception:
                 pass
@@ -203,6 +223,8 @@ class ExecutionGraph:
                 response="",
                 mode=getattr(mode, "mode_name", "unknown"),
                 elapsed_ms=(time.monotonic() - t0) * 1000,
+                request_id=str(ctx.get("request_id", "")),
+                trace_id=str(ctx.get("trace_id", "")),
             )
 
     # ── Graph building ────────────────────────────────────────────────────────
@@ -350,6 +372,20 @@ class ExecutionGraph:
         notes = f"mode={mode_name} tools={tools} forecast={forecast}"
         ctx["reflection_notes"] = notes
         log.debug("[ExecutionGraph] reflection: %s", notes)
+
+    @staticmethod
+    def _estimate_quality(step_results: List[StepResult], ctx: Dict[str, Any]) -> float:
+        score = 0.35
+        if step_results:
+            successes = sum(1 for item in step_results if item.success)
+            score += min(0.35, (successes / max(1, len(step_results))) * 0.35)
+        if ctx.get("response"):
+            score += 0.15
+        if ctx.get("tools_called"):
+            score += 0.1
+        if ctx.get("forecast_signal") and ctx.get("forecast_signal") != "HOLD":
+            score += 0.05
+        return max(0.0, min(1.0, score))
 
     # ── Status ────────────────────────────────────────────────────────────────
 

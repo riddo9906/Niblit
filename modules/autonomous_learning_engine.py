@@ -4302,6 +4302,84 @@ class AutonomousLearningEngine:
         self._paused_event.set()
         log.debug("[ALE] resumed — background learning active")
 
+    def _cognitive_cycle_services(self):
+        runtime_manager = getattr(self.core, "runtime_manager", None)
+        if runtime_manager is not None:
+            try:
+                return (
+                    runtime_manager.get_persistence_manager(),
+                    runtime_manager.get_provenance_service(),
+                    runtime_manager.get_runtime_architecture_model(),
+                )
+            except Exception:
+                pass
+        try:
+            from pathlib import Path
+
+            from niblit_memory import PersistenceManager
+            from modules.provenance_service import ProvenanceService
+            from modules.runtime_architecture_model import RuntimeArchitectureModel
+
+            manager = PersistenceManager(root_dir=str(Path.cwd() / "runtime"))
+            manager.initialize_runtime_assets()
+            return manager, ProvenanceService(persistence_manager=manager), RuntimeArchitectureModel(persistence_manager=manager)
+        except Exception:
+            return None, None, None
+
+    def _record_cognitive_cycle_contract(self, cycle: int, topic: str, results: list[tuple[str, Any]], status: str) -> None:
+        try:
+            from core.cognitive_contract import CognitiveCheckpointRecord
+
+            persistence, provenance, architecture = self._cognitive_cycle_services()
+            trace_id = f"ale-cycle-{cycle}"
+            payload = {
+                "cycle": cycle,
+                "topic": topic,
+                "status": status,
+                "results": [{"step": name, "result": str(result)[:240]} for name, result in results[-12:]],
+            }
+            if provenance is not None and hasattr(provenance, "update"):
+                provenance.update(
+                    trace_id,
+                    request_id=trace_id,
+                    trigger_chain=["autonomous_learning_engine", topic],
+                    plan_branch="ale_cycle",
+                    executed_function="AutonomousLearningEngine._run_autonomous_cycle",
+                    output_summary=str(payload["results"][-1] if payload["results"] else status),
+                    downstream_consumers=["knowledge_db", "runtime_architecture_model"],
+                )
+                provenance.save_checkpoint(
+                    CognitiveCheckpointRecord.create(
+                        request_id=trace_id,
+                        trace_id=trace_id,
+                        status=status,
+                        pending_plan={"topic": topic, "cycle": cycle},
+                        partial_observation=payload,
+                        provenance=provenance.get(trace_id),
+                        rehydration_context={"results_count": len(results)},
+                        checkpoint_id=trace_id,
+                    )
+                )
+            elif persistence is not None and hasattr(persistence, "write_cognitive_checkpoint"):
+                persistence.write_cognitive_checkpoint(trace_id, payload)
+            if architecture is not None and hasattr(architecture, "observe_event"):
+                architecture.observe_event(
+                    {
+                        "type": "learning.cycle.complete" if status == "completed" else "learning.cycle.pending",
+                        "source": "autonomous_learning_engine",
+                        "payload": {
+                            "trace_id": trace_id,
+                            "topic": topic,
+                            "selected_module": "modules.autonomous_learning_engine",
+                            "selected_function": "_run_autonomous_cycle",
+                            "event_category": "learning",
+                        },
+                    },
+                    lineage_channel="ale",
+                )
+        except Exception as exc:
+            log.debug("[ALE] cognitive cycle contract skipped: %s", exc)
+
     # ─────────────────────────────────────────────
     # PUBLIC SEQUENCES (callable on-demand or from cycle)
     # ─────────────────────────────────────────────
@@ -5880,6 +5958,7 @@ class AutonomousLearningEngine:
 
         # ── Pin the research topic for this entire cycle ───────────────────
         self._current_cycle_topic = self._select_next_topic()
+        self._record_cognitive_cycle_contract(cycle, self._current_cycle_topic or "unknown", [], "pending")
         log.info("=" * 70)
         log.info("🔄 [AUTONOMOUS CYCLE #%d] Topic: %r", cycle, self._current_cycle_topic)
         log.info("   %s", self.tiered_knowledge.status_summary())
@@ -6293,6 +6372,7 @@ class AutonomousLearningEngine:
         except Exception as _ev_err:
             log.debug("[ALE] EventBus publish failed: %s", _ev_err)
 
+        self._record_cognitive_cycle_contract(cycle, self._current_cycle_topic or "unknown", results, "completed")
         return results
 
     # ─────────────────────────────────────────────
