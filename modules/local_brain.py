@@ -96,7 +96,7 @@ log = logging.getLogger("Niblit.LocalBrain")
 # *after* import, e.g. from tests or fly.toml secrets loaded late.
 _WINDOWS_MODEL_ROOT = r"C:\Users\Riyaad\llama_migration\models"
 _WINDOWS_LLAMA_CPP_ROOT = r"C:\Users\Riyaad\llama_migration\llama.cpp"
-_QWEN_MODEL_FILENAME = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+_QWEN_MODEL_FILENAME = "qwen2.5-coder-3b-instruct-q4_k_m.gguf"
 _LLAMA_MODEL_FILENAME = "Llama-3.2-1B-Instruct-Q4_K_M.gguf"
 
 
