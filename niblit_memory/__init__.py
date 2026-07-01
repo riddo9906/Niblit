@@ -4023,7 +4023,28 @@ __all__ = [
     "event",
     "canonicalize",
     "ingest",
+    # Knowledge-centric memory
+    "KnowledgeRecord",
+    "make_knowledge_record",
+    "KnowledgeLogger",
+    "get_knowledge_logger",
 ]
+
+# Lazy re-exports for knowledge-centric memory classes.
+# These live in separate sub-modules to avoid circular imports.
+
+def __getattr__(name: str):  # noqa: N807  (PEP 562 module-level __getattr__)
+    if name in ("KnowledgeRecord", "make_knowledge_record"):
+        from niblit_memory.knowledge_record import KnowledgeRecord as _KR, make_knowledge_record as _mkr  # noqa: PLC0415
+        globals()["KnowledgeRecord"] = _KR
+        globals()["make_knowledge_record"] = _mkr
+        return globals()[name]
+    if name in ("KnowledgeLogger", "get_knowledge_logger"):
+        from niblit_memory.knowledge_logger import KnowledgeLogger as _KL, get_knowledge_logger as _gkl  # noqa: PLC0415
+        globals()["KnowledgeLogger"] = _KL
+        globals()["get_knowledge_logger"] = _gkl
+        return globals()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # ─────────────────────────────

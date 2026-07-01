@@ -387,7 +387,13 @@ class KnowledgeComprehension:
         *,
         source_tag: str = "user_pdf",
     ) -> Dict[str, Any]:
-        """Ingest a structured document payload into comprehension + memory."""
+        """Ingest a structured document payload into comprehension + memory.
+
+        Runs the full PDF understanding pipeline (structure detection, per-section
+        knowledge extraction, KnowledgeRecord creation) when available, then falls
+        back to the original chunk-based comprehension so the result dict always
+        contains the expected keys regardless of which path was taken.
+        """
         payload = dict(document_payload or {})
         source = str(payload.get("source") or "").strip()
         pages = [p for p in list(payload.get("pages") or []) if str((p or {}).get("text") or "").strip()]
@@ -397,7 +403,21 @@ class KnowledgeComprehension:
         topic_tag = (safe_topic.split("_", 1)[0] or "user_pdf").lower()
         snippets = [str(chunk.get("text") or "").strip() for chunk in chunks if str(chunk.get("text") or "").strip()]
 
+        understanding_result: Optional[Dict[str, Any]] = None
+
         with self._ingest_lock:
+            # ── Phase 1: Deep understanding via PDFUnderstandingPipeline ──────
+            try:
+                from modules.document_ingestion.pdf_understanding import PDFUnderstandingPipeline
+                pipeline = PDFUnderstandingPipeline(
+                    knowledge_db=self.knowledge_db,
+                    memory_graph=self.memory_graph,
+                )
+                understanding_result = pipeline.understand(payload)
+            except Exception as _ue:
+                log.debug("[ingest_document] PDF understanding pipeline unavailable: %s", _ue)
+
+            # ── Phase 2: Original comprehension + chunk storage ───────────────
             summary = self.process(topic=safe_topic, snippets=snippets) if snippets else "[Comprehension skipped — no chunks]"
             if self.knowledge_db is not None and hasattr(self.knowledge_db, "add_fact"):
                 ts = int(time.time())
@@ -427,7 +447,7 @@ class KnowledgeComprehension:
                         tags=[source_tag, "document_chunk", topic_tag],
                     )
 
-        return {
+        result: Dict[str, Any] = {
             "status": "ingested",
             "source": source,
             "source_tag": source_tag,
@@ -435,6 +455,20 @@ class KnowledgeComprehension:
             "chunks_ingested": len(chunks),
             "comprehension_summary": summary,
         }
+
+        # Merge understanding pipeline extras when available
+        if understanding_result is not None:
+            result["knowledge_records"] = [
+                r.to_dict() for r in understanding_result.get("knowledge_records", [])
+            ]
+            result["document_summary"] = understanding_result.get("summary", "")
+            result["definitions"] = understanding_result.get("definitions", [])
+            result["facts"] = understanding_result.get("facts", [])
+            result["procedures"] = understanding_result.get("procedures", [])
+            result["terminology"] = understanding_result.get("terminology", [])
+            result["sections_detected"] = understanding_result.get("section_count", 0)
+
+        return result
 
     def search_graph(
         self,
