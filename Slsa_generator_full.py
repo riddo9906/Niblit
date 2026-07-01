@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # SLSA — Structured Live Sense Artifact Generator
 
-import time
-import threading
 import logging
 import re
-import requests
+import threading
+import time
 from datetime import datetime
 from typing import Dict, Optional
+
+import requests
 
 from niblit_memory import LocalDB
 from modules.internet_manager import InternetManager
