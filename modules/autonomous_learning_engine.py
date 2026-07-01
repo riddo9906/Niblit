@@ -2221,7 +2221,12 @@ class AutonomousLearningEngine:
                         if text and len(text.strip()) >= 20:
                             collected_snippets.append(text.strip())
                     if collected_snippets:
-                        internal_confidence = min(0.70, 0.20 * len(collected_snippets))
+                        # Each snippet contributes 0.20 confidence up to a cap of 0.70
+                        # (capped below INTERNAL_CONFIDENCE_THRESHOLD so TieredKS/LocalBrain
+                        # can still push it past the threshold for a complete internal hit)
+                        _SNIPPET_CONF_STEP = 0.20
+                        _SNIPPET_CONF_CAP = 0.70
+                        internal_confidence = min(_SNIPPET_CONF_CAP, _SNIPPET_CONF_STEP * len(collected_snippets))
                         backend_summaries.append(f"MemoryRecall({len(collected_snippets)})")
                         log.debug("[UNIFIED] Internal KB recall: %d snippets", len(collected_snippets))
             except Exception as exc:
@@ -2234,8 +2239,7 @@ class AutonomousLearningEngine:
                 snippet = str(tks_text).strip()[:600]
                 if snippet not in collected_snippets:
                     collected_snippets.append(snippet)
-                    internal_confidence = min(internal_confidence + 0.10, 0.75)
-                    backend_summaries.append("TieredKS(1)")
+                    internal_confidence = min(internal_confidence + 0.10, 0.80)  # TieredKS can push past 0.70
         except Exception as exc:
             log.debug("[UNIFIED] TieredKS recall failed: %s", exc)
 
@@ -2255,8 +2259,7 @@ class AutonomousLearningEngine:
                     snippet = synthesis.strip()[:500]
                     if snippet not in collected_snippets:
                         collected_snippets.append(snippet)
-                        internal_confidence = min(internal_confidence + 0.10, 0.75)
-                        backend_summaries.append("LocalBrain(1)")
+                        internal_confidence = min(internal_confidence + 0.10, 0.90)  # LocalBrain can reach full confidence
             except Exception as exc:
                 log.debug("[UNIFIED] LocalBrain synthesis failed: %s", exc)
 

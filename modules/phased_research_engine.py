@@ -513,11 +513,12 @@ class PhasedResearchEngine:
                 result.confidence_score = p1.confidence_score
 
         # ── Phase 2: Deep Knowledge (conditional) ─────────────────────────
-        # Only run if Phase 1 ran and found real content, and confidence is
-        # still below the deep-skip threshold.
-        _p1_result = result.phase_results.get(1)
+        # Run whenever confidence is below the deep-skip threshold — whether
+        # Phase 1 ran or was skipped.  Uses Phase 1 results as context if
+        # available, otherwise falls back to Phase 0 results.
+        _p1_result = result.phase_results.get(1) or result.phase_results.get(0)
         _p1_ran = 1 in result.phases_run
-        if not skip_phase2 and _p1_ran and result.confidence_score < DEEP_SKIP_THRESHOLD:
+        if not skip_phase2 and result.confidence_score < DEEP_SKIP_THRESHOLD:
             p2 = self._run_phase_with_timeout(
                 phase=2,
                 topic=topic,
@@ -531,12 +532,10 @@ class PhasedResearchEngine:
             if p2.confidence_score > result.confidence_score:
                 result.confidence_score = p2.confidence_score
         else:
-            if not _p1_ran:
-                reason = "phase1_skipped"
-            elif skip_phase2:
-                reason = "skip_phase2=True"
-            else:
-                reason = f"confidence {result.confidence_score:.2f} ≥ deep_skip_threshold"
+            reason = (
+                "skip_phase2=True" if skip_phase2
+                else f"confidence {result.confidence_score:.2f} ≥ deep_skip_threshold"
+            )
             log.debug("[PhasedResearch] Phase 2 skipped (%s)", reason)
 
         # ── Phase 3: Code Generation (code-topic-only, conditional) ───────
