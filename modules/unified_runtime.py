@@ -20,6 +20,13 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from core.cognitive_contract import (
+    CognitiveKnowledgeRecord,
+    CognitiveObservationRecord,
+    CognitiveReflectionRecord,
+    is_significant_cognitive_event,
+    normalize_event_envelope,
+)
 from modules.adaptive_market_cognition import AdaptiveMarketCognitionLayer
 from modules.adaptive_retrieval_cognition import AdaptiveRetrievalCognition
 from modules.cognitive_episode import CognitiveEpisodeManager, RuntimeSignificanceEngine
@@ -707,6 +714,14 @@ class CommandRuntime:
 
         if core is None:
             return "[error] core unavailable"
+        cognitive = getattr(core, "_dispatch_cognitive_ingress", None)
+        if callable(cognitive):
+            try:
+                routed = cognitive(text)
+                if isinstance(routed, str) and routed.strip():
+                    return routed
+            except Exception:
+                pass
         return str(core.handle(text))
 
 
@@ -736,6 +751,8 @@ class NiblitUnifiedRuntime:
         )
         self._state = RuntimeState()
         self._load_state()
+        self._provenance_service = self._build_provenance_service()
+        self._architecture_model = self._build_runtime_architecture_model()
         self._event_bus.subscribe(self._observe_runtime_event)
         self._bridge_module_event_bus()
         self._event_bus.emit(
@@ -758,6 +775,30 @@ class NiblitUnifiedRuntime:
             self._state_file.write_text(json.dumps(self._state.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
         except Exception as exc:
             log.debug("Failed saving unified runtime state: %s", exc)
+
+    def _build_provenance_service(self) -> Any | None:
+        try:
+            from niblit_memory import PersistenceManager
+            from modules.provenance_service import ProvenanceService
+
+            manager = PersistenceManager(root_dir=str(self._state_file.parent / "runtime"))
+            manager.initialize_runtime_assets()
+            return ProvenanceService(persistence_manager=manager)
+        except Exception as exc:
+            log.debug("Failed building provenance service: %s", exc)
+            return None
+
+    def _build_runtime_architecture_model(self) -> Any | None:
+        try:
+            from niblit_memory import PersistenceManager
+            from modules.runtime_architecture_model import RuntimeArchitectureModel
+
+            manager = PersistenceManager(root_dir=str(self._state_file.parent / "runtime"))
+            manager.initialize_runtime_assets()
+            return RuntimeArchitectureModel(persistence_manager=manager)
+        except Exception as exc:
+            log.debug("Failed building runtime architecture model: %s", exc)
+            return None
 
     def _update_from_status(self, *, core: Any) -> dict[str, Any]:
         with self._lock:
@@ -877,6 +918,37 @@ class NiblitUnifiedRuntime:
         )
         return out
 
+    def run_cognitive_cycle(
+        self,
+        text: str,
+        *,
+        source: str = "api",
+        core: Any | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        try:
+            from modules.cognitive_ingress import CognitiveIngress
+            from niblit_memory import PersistenceManager
+            from niblit_memory.unified_memory_engine import get_unified_memory
+
+            persistence = PersistenceManager(root_dir=str(self._state_file.parent / "runtime"))
+            persistence.initialize_runtime_assets()
+            ingress = CognitiveIngress(
+                persistence_manager=persistence,
+                knowledge_db=getattr(core, "db", None) if core is not None else None,
+                unified_memory=get_unified_memory(),
+                provenance_service=self._provenance_service,
+                architecture_model=self._architecture_model,
+            )
+            execution = ingress.ingest(text, source=source, metadata=dict(metadata or {}))
+            payload = execution.to_dict()
+            payload["runtime_mode"] = self._state.runtime_mode
+            self._event_bus.emit("cognitive.execution.completed", "NiblitUnifiedRuntime", payload)
+            return payload
+        except Exception as exc:
+            log.debug("run_cognitive_cycle failed: %s", exc)
+            return {"error": str(exc), "response": ""}
+
     def _observe_runtime_event(self, event: RuntimeEvent) -> None:
         try:
             event_dict = event.to_dict()
@@ -913,8 +985,138 @@ class NiblitUnifiedRuntime:
                         }
                     )
                     self._state.cognitive_sessions = self._state.cognitive_sessions[-60:]
+            self._record_canonical_event(event_dict)
+            self._run_post_execution_feedback(event_dict, episode=episode)
         except Exception as exc:
             log.debug("Failed observing runtime event: %s", exc)
+
+    def _record_canonical_event(self, event_dict: dict[str, Any]) -> None:
+        payload = dict(event_dict.get("payload", {}) or {})
+        envelope = normalize_event_envelope(
+            event_type=str(event_dict.get("type", "runtime.event")),
+            source=str(event_dict.get("source", "runtime")),
+            payload=payload,
+            runtime_id=self.runtime_id,
+            cognition_id=str(payload.get("cognition_id", "")),
+            trace_id=str(payload.get("trace_id", "")),
+            event_priority=str(payload.get("event_priority", "normal")),
+        )
+        if self._provenance_service is not None and hasattr(self._provenance_service, "update"):
+            try:
+                self._provenance_service.update(
+                    envelope.trace_id,
+                    request_id=str(envelope.payload.get("request_id", envelope.trace_id)),
+                    executed_function=str(event_dict.get("type", "runtime.event")),
+                    output_summary=str(payload.get("summary") or payload.get("response") or event_dict.get("type", "")),
+                    downstream_consumers=["unified_runtime"],
+                )
+            except Exception:
+                pass
+        if self._architecture_model is not None and hasattr(self._architecture_model, "observe_event"):
+            self._architecture_model.observe_event(
+                {"type": envelope.event_type, "source": envelope.source, "payload": envelope.payload},
+                lineage_channel="unified_runtime",
+            )
+
+    def _run_post_execution_feedback(self, event_dict: dict[str, Any], *, episode: dict[str, Any] | None = None) -> None:
+        event_type = str(event_dict.get("type", ""))
+        payload = dict(event_dict.get("payload", {}) or {})
+        if not is_significant_cognitive_event(event_type, payload):
+            return
+        observation = CognitiveObservationRecord(
+            request_id=str(payload.get("request_id") or payload.get("trace_id") or ""),
+            trace_id=str(payload.get("trace_id", "")),
+            event_type=event_type,
+            summary=str(payload.get("response") or payload.get("reflection_summary") or payload.get("summary") or event_type)[:280],
+            quality_score=float(payload.get("quality_score", payload.get("evaluation_score", 0.5)) or 0.5),
+            tool_success=None if not payload.get("tools_called") else True,
+            outputs={"episode_id": (episode or {}).get("episode_id", ""), "tools_called": list(payload.get("tools_called", []) or [])},
+        )
+        try:
+            from modules.reflection_engine import get_reflection_engine
+
+            reflection_engine = get_reflection_engine()
+            reflection_engine.record_turn(
+                quality=observation.quality_score,
+                mode=str(payload.get("mode") or payload.get("runtime_mode") or ""),
+                intent=str(payload.get("intent") or ""),
+                model_used=str(payload.get("provider") or payload.get("active_provider") or ""),
+                tool_success=observation.tool_success,
+            )
+            reflection_report = None
+            if event_type.endswith("reflection.complete"):
+                reflection = CognitiveReflectionRecord(
+                    request_id=observation.request_id,
+                    trace_id=observation.trace_id,
+                    summary=str(payload.get("reflection_summary") or payload.get("summary") or observation.summary),
+                    adaptation_proposals=list(payload.get("adaptation_proposals", []) or []),
+                    governance_notes=list(payload.get("governance_notes", []) or []),
+                    overall_health=float(payload.get("health", payload.get("overall_health", observation.quality_score)) or observation.quality_score),
+                )
+                self._remember_feedback(observation, reflection=reflection)
+                return
+            if reflection_engine.should_reflect():
+                reflection_report = reflection_engine.reflect()
+            if reflection_report is not None:
+                reflection = CognitiveReflectionRecord(
+                    request_id=observation.request_id,
+                    trace_id=observation.trace_id,
+                    summary=reflection_report.summary,
+                    adaptation_proposals=list(reflection_report.adaptation_proposals),
+                    governance_notes=list(reflection_report.governance_notes),
+                    overall_health=float(reflection_report.overall_health),
+                )
+                payload["reflection_summary"] = reflection.summary
+                self._remember_feedback(observation, reflection=reflection)
+                return
+        except Exception as exc:
+            log.debug("post-execution reflection failed: %s", exc)
+        self._remember_feedback(observation, reflection=None)
+
+    def _remember_feedback(
+        self,
+        observation: CognitiveObservationRecord,
+        *,
+        reflection: CognitiveReflectionRecord | None,
+    ) -> None:
+        try:
+            from niblit_memory.unified_memory_engine import get_unified_memory
+
+            memory = get_unified_memory()
+            memory.record_episode(
+                {
+                    "input": observation.summary,
+                    "response": observation.summary,
+                    "quality": observation.quality_score,
+                    "intent": observation.event_type,
+                    "mode": "runtime_feedback",
+                }
+            )
+            memory.remember_contract(
+                CognitiveKnowledgeRecord(
+                    request_id=observation.request_id,
+                    trace_id=observation.trace_id,
+                    category="observation",
+                    content=observation.summary,
+                    importance=max(0.3, min(1.0, observation.quality_score)),
+                    tags=[observation.event_type],
+                    provenance={"stage": "observation"},
+                )
+            )
+            if reflection is not None:
+                memory.remember_contract(
+                    CognitiveKnowledgeRecord(
+                        request_id=reflection.request_id,
+                        trace_id=reflection.trace_id,
+                        category="reflection",
+                        content=reflection.summary,
+                        importance=max(0.3, min(1.0, reflection.overall_health)),
+                        tags=["reflection", "feedback"],
+                        provenance={"stage": "reflection"},
+                    )
+                )
+        except Exception as exc:
+            log.debug("remember_feedback failed: %s", exc)
 
     def _bridge_module_event_bus(self) -> None:
         if self._module_bus_bridge_installed:
@@ -989,8 +1191,16 @@ class NiblitUnifiedRuntime:
         enriched = dict(payload or {})
         enriched.setdefault("runtime_id", self.runtime_id)
         enriched.setdefault("runtime_mode", self._state.runtime_mode)
-        enriched.setdefault("trace_id", enriched.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}")
-        self._event_bus.emit(event_type, source, enriched)
+        envelope = normalize_event_envelope(
+            event_type=event_type,
+            source=source,
+            payload=enriched,
+            runtime_id=self.runtime_id,
+            cognition_id=str(enriched.get("cognition_id", "")),
+            trace_id=str(enriched.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}"),
+            event_priority=str(enriched.get("event_priority", "normal")),
+        )
+        self._event_bus.emit(event_type, source, envelope.payload)
 
     def stream_frame(self, *, core: Any | None = None, since: int = 0) -> dict[str, Any]:
         status = self._update_from_status(core=core)

@@ -12,7 +12,7 @@ from .constitutional_laws import constitutional_verdict
 from .runtime_modes import normalize_runtime_mode
 from .telemetry_contract import normalize_replay_metadata, normalize_telemetry
 
-MEMORY_SCHEMA_VERSION = "1.0"
+MEMORY_SCHEMA_VERSION = "1.1"
 MEMORY_LIFECYCLE_STATES = ("hot", "warm", "cold", "archived")
 CANONICAL_MEMORY_COLLECTIONS = (
     "episodic_memory",
@@ -26,6 +26,35 @@ CANONICAL_MEMORY_COLLECTIONS = (
     "federation_memory",
     "execution_memory",
 )
+
+# ---------------------------------------------------------------------------
+# Hierarchical memory layer mapping
+# Maps requested logical tiers onto the canonical Qdrant collections.
+# Working    — transient cycle / task context          → runtime_memory
+# Short-term — recent episodic / runtime records       → episodic_memory
+# Long-term  — semantic / reflection / governance      → semantic_memory (default)
+# Semantic   — concept-level structured knowledge      → semantic_memory
+# Procedural — workflow / playbook entries             → execution_memory
+# Episodic   — milestone / session events              → episodic_memory
+# ---------------------------------------------------------------------------
+HIERARCHICAL_MEMORY_MAP: dict[str, str] = {
+    "working":    "runtime_memory",
+    "short_term": "episodic_memory",
+    "short-term": "episodic_memory",
+    "long_term":  "semantic_memory",
+    "long-term":  "semantic_memory",
+    "semantic":   "semantic_memory",
+    "procedural": "execution_memory",
+    "episodic":   "episodic_memory",
+}
+
+
+def resolve_hierarchical_collection(tier: str) -> str:
+    """Map a logical hierarchy tier name to a canonical collection name.
+
+    Falls back to ``semantic_memory`` for unknown tier labels.
+    """
+    return HIERARCHICAL_MEMORY_MAP.get(str(tier).lower().strip(), "semantic_memory")
 
 _COLLECTION_BLUEPRINTS: dict[str, dict[str, Any]] = {
     "episodic_memory": {
@@ -265,6 +294,26 @@ def normalize_memory_payload(
         "coherence_score": coherence_score,
         "confidence_decay": confidence_decay,
         "importance_score": importance_score,
+        # ── Memory intelligence fields ────────────────────────────────────
+        # Explicit confidence score for this record (0-1); defaults to the
+        # importance_score when not provided by the caller.
+        "confidence_score": _clamp(
+            src.get("confidence_score", src.get("confidence", importance_score)),
+            importance_score,
+        ),
+        # Timestamp when this record was last externally verified.
+        "last_verified_at": int(src.get("last_verified_at", now)),
+        # Origin category: "internal" | "external" | "mixed" | "synthetic".
+        "source_type": str(src.get("source_type") or "internal").strip().lower(),
+        # List of concept slugs or memory_ids this record logically depends on.
+        "dependencies": [str(d) for d in _as_list(src.get("dependencies"))],
+        # Semantically related concept labels for graph-memory linkage.
+        "related_concepts": [str(c) for c in _as_list(src.get("related_concepts"))],
+        # Memory IDs or short descriptions of records that contradict this one.
+        "contradictions": [str(c) for c in _as_list(src.get("contradictions"))],
+        # How many times this record has been recalled / referenced.
+        "usage_frequency": max(0, int(src.get("usage_frequency", 0) or 0)),
+        # ─────────────────────────────────────────────────────────────────
         "federation_origin": federation_origin,
         "advisor_lineage": [str(item) for item in advisor_lineage],
         "reflection_summary": str(src.get("reflection_summary") or _summary(str(src.get("summary") or content_text))),

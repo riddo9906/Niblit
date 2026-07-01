@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # SLSA — Structured Live Sense Artifact Generator
 
-import time
-import threading
 import logging
 import re
-import requests
+import threading
+import time
 from datetime import datetime
-from typing import Dict, Optional
 
-from niblit_memory import LocalDB
+import requests
+
 from modules.internet_manager import InternetManager
+from niblit_memory import LocalDB
 
 # --- Repo integrations ---
 try:
@@ -54,12 +54,12 @@ class SLSAGenerator:
         self.semantic_agent = semantic_agent or (SemanticAgent() if SemanticAgent else None)
         self.searchcode_search = searchcode_search
         self.serpex_agent = serpex_agent or niblit_serpex_search
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         if auto_start:
             self.start()
 
     # ───────── RAW DATA COLLECTION ─────────
-    def fetch_wikipedia(self, topic: str) -> Optional[Dict]:
+    def fetch_wikipedia(self, topic: str) -> dict | None:
         if self.stop_event.is_set():
             return None
 
@@ -94,7 +94,7 @@ class SLSAGenerator:
 
         return None
 
-    def fetch_live_weather(self) -> Optional[Dict]:
+    def fetch_live_weather(self) -> dict | None:
         if self.stop_event.is_set():
             return None
         try:
@@ -110,7 +110,7 @@ class SLSAGenerator:
     def normalize(self, text: str) -> str:
         return re.sub(r'\s+', ' ', text or '').strip()
 
-    def semantic_structure(self, topic: str, wiki: Dict, live: Dict, structured_search=None) -> Dict:
+    def semantic_structure(self, topic: str, wiki: dict, live: dict, structured_search=None) -> dict:
         text = self.normalize(wiki.get("extract", ""))
         lower = text.lower()
         artifact = {
@@ -141,7 +141,7 @@ class SLSAGenerator:
 
         return artifact
 
-    def is_complete(self, artifact: Dict) -> bool:
+    def is_complete(self, artifact: dict) -> bool:
         return all(artifact.get(k) for k in SEMANTIC_KEYS)
 
     def already_known(self, concept: str) -> bool:
@@ -162,7 +162,7 @@ class SLSAGenerator:
                 log.debug(f"[REINFORCE] {artifact['concept']} reinforced")
 
     # ───────── MODULE FEED ─────────
-    def feed_modules(self, artifact: Dict):
+    def feed_modules(self, artifact: dict):
         self.db.add_entry("slsa_module_feed", {"concept": artifact["concept"], "artifact": artifact, "ts": time.time()})
         log.debug(f"[MODULE FEED] {artifact['concept']} sent to modules")
 

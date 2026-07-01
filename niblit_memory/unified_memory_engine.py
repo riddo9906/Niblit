@@ -218,6 +218,19 @@ class UnifiedMemoryEngine:
 
         return uid
 
+    def remember_contract(self, record: Any) -> str:
+        """Store a canonical cognitive knowledge record."""
+        payload = record.to_dict() if hasattr(record, "to_dict") else dict(record or {})
+        content = str(payload.get("content") or payload.get("text") or payload.get("summary") or "").strip()
+        if not content:
+            return ""
+        return self.remember(
+            content,
+            category=str(payload.get("category", "semantic")),
+            importance=float(payload.get("importance", 0.5) or 0.5),
+            tags=list(payload.get("tags", []) or []),
+        )
+
     def record_episode(self, turn: Dict[str, Any]) -> None:
         """Add an interaction turn to the episodic memory.
 
@@ -306,6 +319,14 @@ class UnifiedMemoryEngine:
                     pass
 
         return chosen
+
+    def recall_contract(self, request: Any, top_k: int = 3) -> List[Dict[str, Any]]:
+        """Recall canonical memory payloads for a cognitive request."""
+        payload = request.to_dict() if hasattr(request, "to_dict") else dict(request or {})
+        query = str(payload.get("normalized_text") or payload.get("raw_text") or payload.get("query") or "").strip()
+        if not query:
+            return []
+        return [item.to_dict() for item in self.recall(query, top_k=top_k)]
 
     def recall_episodic(self, n: int = 10) -> List[EpisodeRecord]:
         """Return the most recent *n* episodic records."""

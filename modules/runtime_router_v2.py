@@ -51,6 +51,8 @@ class NiblitUnifiedRuntimeRouterV2:
         context: Optional[str] = None,
         max_tokens: Optional[int] = None,
         context_policy: Optional[Dict[str, Any]] = None,
+        request_contract: Optional[Any] = None,
+        provenance_service: Optional[Any] = None,
     ) -> str:
         """Generate via a single deterministic backend for this request cycle."""
         if not isinstance(prompt, str) or not prompt.strip():
@@ -68,12 +70,30 @@ class NiblitUnifiedRuntimeRouterV2:
         )
 
         backend = result.get("backend", "none")
+        request_id = getattr(request_contract, "request_id", "")
+        trace_id = getattr(request_contract, "trace_id", "")
+        if isinstance(request_contract, dict):
+            request_id = request_id or str(request_contract.get("request_id", "") or "")
+            trace_id = trace_id or str(request_contract.get("trace_id", "") or "")
         self._last_route = {
             "backend": backend,
             "error": result.get("error"),
             "tool_calls": result.get("tool_calls", []),
             "context_policy": result.get("context_policy", policy),
+            "request_id": request_id,
+            "trace_id": trace_id,
         }
+        if provenance_service is not None and hasattr(provenance_service, "update"):
+            try:
+                provenance_service.update(
+                    self._last_route.get("trace_id", ""),
+                    request_id=self._last_route.get("request_id", ""),
+                    executed_function="NiblitUnifiedRuntimeRouterV2.generate",
+                    output_summary=str(result.get("text", "") or result.get("error", "")),
+                    downstream_consumers=["provider_runtime"],
+                )
+            except Exception:
+                pass
 
         if backend not in {"http", "subprocess", "python", "none"}:
             log.warning("[RuntimeRouterV2] unexpected backend '%s'", backend)
@@ -82,6 +102,16 @@ class NiblitUnifiedRuntimeRouterV2:
         if isinstance(text, str) and text.strip():
             return text
         return "[RuntimeRouterV2] empty response"
+
+    def generate_for_contract(self, request_contract: Any, **kwargs: Any) -> str:
+        """Canonical wrapper that derives prompt/context from a cognitive request."""
+        prompt = str(
+            getattr(request_contract, "normalized_text", "")
+            or getattr(request_contract, "raw_text", "")
+            or (request_contract or {}).get("normalized_text", "")
+            or (request_contract or {}).get("raw_text", "")
+        )
+        return self.generate(prompt=prompt, request_contract=request_contract, **kwargs)
 
     def last_route(self) -> Dict[str, Any]:
         """Return the last routing decision metadata."""

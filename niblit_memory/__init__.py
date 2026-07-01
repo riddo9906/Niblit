@@ -1229,6 +1229,20 @@ class PersistenceManager:
         line = json.dumps(record, ensure_ascii=False) + "\n"
         return self.write_text_file(abs_path, existing + line)
 
+    def write_cognitive_checkpoint(self, checkpoint_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        path = os.path.join(self.root_dir, "checkpoints", f"{checkpoint_id}.json")
+        return self.write_json_file(path, payload)
+
+    def read_cognitive_checkpoint(self, checkpoint_id: str) -> Dict[str, Any]:
+        path = os.path.join(self.root_dir, "checkpoints", f"{checkpoint_id}.json")
+        if not os.path.exists(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                return dict(json.load(fh) or {})
+        except Exception:
+            return {}
+
     def _repair_json_payload(self, raw: str) -> Optional[Dict[str, Any]]:
         stripped = raw.strip()
         if not stripped:
@@ -4023,7 +4037,28 @@ __all__ = [
     "event",
     "canonicalize",
     "ingest",
+    # Knowledge-centric memory
+    "KnowledgeRecord",
+    "make_knowledge_record",
+    "KnowledgeLogger",
+    "get_knowledge_logger",
 ]
+
+# Lazy re-exports for knowledge-centric memory classes.
+# These live in separate sub-modules to avoid circular imports.
+
+def __getattr__(name: str):  # noqa: N807  (PEP 562 module-level __getattr__)
+    if name in ("KnowledgeRecord", "make_knowledge_record"):
+        from niblit_memory.knowledge_record import KnowledgeRecord as _KR, make_knowledge_record as _mkr  # noqa: PLC0415
+        globals()["KnowledgeRecord"] = _KR
+        globals()["make_knowledge_record"] = _mkr
+        return globals()[name]
+    if name in ("KnowledgeLogger", "get_knowledge_logger"):
+        from niblit_memory.knowledge_logger import KnowledgeLogger as _KL, get_knowledge_logger as _gkl  # noqa: PLC0415
+        globals()["KnowledgeLogger"] = _KL
+        globals()["get_knowledge_logger"] = _gkl
+        return globals()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # ─────────────────────────────

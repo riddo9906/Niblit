@@ -2527,6 +2527,29 @@ class NiblitCore:
         except Exception as exc:
             return f"[runtime unavailable] {exc}"
 
+    def _dispatch_cognitive_ingress(self, text: str) -> str:
+        """Try the thin canonical cognitive path before deeper fallbacks."""
+        try:
+            from modules.unified_runtime import get_unified_runtime
+
+            result = get_unified_runtime().run_cognitive_cycle(
+                text,
+                source="cli",
+                core=self,
+                metadata={"surface": "niblit_core"},
+            )
+            response = str(result.get("response", "") or "").strip()
+            mode_name = str(result.get("mode_name", "") or "")
+            if response and (
+                mode_name in {"operational", "forecasting", "governance", "reflective", "simulation"}
+                or result.get("tools_called")
+                or result.get("forecast_signal", "HOLD") != "HOLD"
+            ):
+                return response
+        except Exception as exc:
+            log.debug("Cognitive ingress dispatch failed: %s", exc)
+        return ""
+
     def _cmd_runtime_capabilities(self, _text: str = "") -> str:
         """Show the canonical runtime capability registry snapshot."""
         if not self.command_registry:
@@ -9964,7 +9987,33 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         if self.internet:
                             self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
                         result = None
-                        if hasattr(self.researcher, "search"):
+
+                        # ── Internal memory check first ────────────────────
+                        internal_hits = []
+                        _internal_conf = 0.0
+                        try:
+                            if hasattr(self.db, "recall"):
+                                internal_hits = self.db.recall(topic) or []
+                            elif hasattr(self.db, "search"):
+                                internal_hits = self.db.search(topic) or []
+                            if internal_hits:
+                                _internal_conf = 0.75
+                        except Exception:
+                            pass
+
+                        _threshold = float(
+                            __import__("os").environ.get(
+                                "NIBLIT_INTERNAL_CONFIDENCE_THRESHOLD", "0.75"
+                            )
+                        )
+                        if _internal_conf >= _threshold:
+                            result = internal_hits
+                            log.info(
+                                "[AUTO RESEARCH] Internal hit for %r (conf=%.2f) — "
+                                "skipping external search",
+                                topic, _internal_conf,
+                            )
+                        elif hasattr(self.researcher, "search"):
                             result = safe_call(self.researcher.search, topic)
 
                         if result and self.db and hasattr(self.db, "add_fact"):
@@ -10024,6 +10073,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             # Use millisecond timestamp to avoid same-second key collisions.
                             try:
                                 topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                                _src_type = "internal" if _internal_conf >= _threshold else "external"
                                 self.db.add_fact(
                                     f"ale_learned:{topic.replace(' ', '_')}:{int(time.time() * 1000)}",
                                     {
@@ -10031,8 +10081,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
                                         "research": result_text[:500],
                                         "reflection": reflection_output[:400],
                                         "source": "async_auto_research_loop",
+                                        "confidence_score": _internal_conf,
+                                        "source_type": _src_type,
+                                        "verification_status": (
+                                            "internal_only" if _src_type == "internal"
+                                            else "external_verified"
+                                        ),
                                     },
-                                    tags=["ale_learned", "memory", "auto_research", topic_tag],
+                                    tags=["ale_learned", "memory", "auto_research",
+                                          topic_tag, _src_type],
                                 )
                             except Exception:
                                 pass
@@ -10151,15 +10208,41 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         cache_key = self.research_cache.cache_key(topic)
                         cached = self.research_cache.get(cache_key)
                         result = None
+                        _internal_conf = 0.0
+                        _threshold = float(
+                            __import__("os").environ.get(
+                                "NIBLIT_INTERNAL_CONFIDENCE_THRESHOLD", "0.75"
+                            )
+                        )
 
                         if cached:
                             if getattr(self, '_loops_verbose', True):
                                 log.info(f"[AUTO RESEARCH] Cache hit for {topic}")
                             result = cached
                         else:
-                            if self.internet:
-                                self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
-                            if hasattr(self.researcher, "search"):
+                            # ── Internal memory check first ────────────────
+                            internal_hits = []
+                            try:
+                                if hasattr(self.db, "recall"):
+                                    internal_hits = self.db.recall(topic) or []
+                                elif hasattr(self.db, "search"):
+                                    internal_hits = self.db.search(topic) or []
+                                if internal_hits:
+                                    _internal_conf = 0.75
+                            except Exception:
+                                pass
+
+                            if _internal_conf >= _threshold:
+                                result = internal_hits
+                                if getattr(self, '_loops_verbose', True):
+                                    log.info(
+                                        "[AUTO RESEARCH] Internal hit for %r (conf=%.2f) — "
+                                        "skipping external search",
+                                        topic, _internal_conf,
+                                    )
+                            elif hasattr(self.researcher, "search"):
+                                if self.internet:
+                                    self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
                                 # Run search in a daemon thread with a hard 60s
                                 # timeout so a stalled network call never freezes
                                 # the entire ResearchLoop thread indefinitely.
@@ -10239,6 +10322,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             # Use millisecond timestamp to avoid same-second key collisions.
                             try:
                                 topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                                _src_type = "internal" if _internal_conf >= _threshold else "external"
                                 self.db.add_fact(
                                     f"ale_learned:{topic.replace(' ', '_')}:{int(time.time() * 1000)}",
                                     {
@@ -10246,8 +10330,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
                                         "research": result_text[:500],
                                         "reflection": reflection_output[:400],
                                         "source": "auto_research_loop",
+                                        "confidence_score": _internal_conf,
+                                        "source_type": _src_type,
+                                        "verification_status": (
+                                            "internal_only" if _src_type == "internal"
+                                            else "external_verified"
+                                        ),
                                     },
-                                    tags=["ale_learned", "memory", "auto_research", topic_tag],
+                                    tags=["ale_learned", "memory", "auto_research",
+                                          topic_tag, _src_type],
                                 )
                             except Exception:
                                 pass
@@ -11262,6 +11353,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # When the DecisionEngine is unavailable we fall back to brain.think().
         # ============================
         log.debug("[SDAL] General chat — routing through competitive DecisionEngine")
+
+        ingress_response = self._dispatch_cognitive_ingress(text)
+        if ingress_response:
+            self._trigger_learning(text, ingress_response)
+            return ingress_response
 
         response = None
         _sdal_result = None
