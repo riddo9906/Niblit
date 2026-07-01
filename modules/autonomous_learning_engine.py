@@ -2071,20 +2071,11 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
 
     def _phased_research(self) -> str:
-        """3-phase sequential research for the current cycle topic.
+        """Evidence-driven sequential research for the current cycle topic.
 
-        Phases
-        ------
-        Phase 1 — Basic Understanding (DuckDuckGo + Internet, 45 s)
-            Fast factual overview.  Results structured into KB immediately.
-        Phase 2 — Deep Knowledge (SerpAPI + Serpex + Qdrant, 45 s)
-            Builds on Phase 1.  Results pushed to GraphRAG Tier 1.
-        Phase 3 — Code Generation (GitHub REST API, 30 s)
-            Only for code/software topics.  Generates actual runnable code.
-
-        Each phase has its own budget and stores its results before the next
-        phase begins.  A stalled network call in one phase never blocks the
-        others.
+        Phase 0 (Local Knowledge Partner) runs first so already-known topics
+        are served from memory without any external I/O.  External phases only
+        fire when Phase 0 confidence falls below the configured threshold.
 
         Returns a one-line summary string for the ALE log.
         """
@@ -2111,6 +2102,10 @@ class AutonomousLearningEngine:
 
         try:
             result = engine.research(topic)
+            confidence = getattr(result, "confidence_score", 0.5)
+            internal_hit = getattr(result, "internal_hit", False)
+            artifact = getattr(result, "artifact", None)
+
             # Record the topic as researched in TieredKnowledgeSystem
             tks = getattr(self, "tiered_knowledge", None)
             if tks:
@@ -2118,12 +2113,44 @@ class AutonomousLearningEngine:
                     tks.record_topic_researched(topic, facts_added=result.total_facts)
                 except Exception:
                     pass
+
+            # Persist enriched ale_learned entry with confidence + source provenance
+            if self.knowledge_db:
+                try:
+                    ts = int(time.time())
+                    topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                    source_type = (
+                        artifact.source_type if artifact else
+                        ("internal" if internal_hit else "external")
+                    )
+                    related = (artifact.semantic_links if artifact else [])[:5]
+                    self.knowledge_db.add_fact(
+                        f"ale_learned:{topic.replace(' ', '_')}:{ts}",
+                        {
+                            "topic": topic,
+                            "summary": artifact.summary if artifact else result.summary()[:300],
+                            "confidence_score": confidence,
+                            "source_type": source_type,
+                            "source_provenance": list(result.phases_run),
+                            "verification_status": "internal_only" if internal_hit and confidence >= 0.75 else "external_verified",
+                            "related_concepts": related,
+                            "facts_stored": result.total_facts,
+                            "cycle": self._cycle_count,
+                            "source": "phased_research",
+                        },
+                        tags=["ale_learned", "memory", "phased_research", topic_tag, source_type],
+                    )
+                except Exception as _kb_e:
+                    log.debug("[PhasedResearch] ale_learned write failed: %s", _kb_e)
+
             summary = result.summary()
             # Emit a sync artifact so the learning event is unified across devices
             self._emit_sync_artifact("ale_research", {
                 "topic": topic,
                 "summary": summary[:200],
                 "facts_added": getattr(result, "total_facts", 0),
+                "confidence_score": confidence,
+                "internal_hit": internal_hit,
                 "cycle": self._cycle_count,
             }, priority=0.55)
             return summary
@@ -2147,137 +2174,208 @@ class AutonomousLearningEngine:
     # ─────────────────────────────────────────────
 
     def _unified_research(self) -> str:
-        """Unified research step — calls ALL research backends in parallel for ONE topic.
+        """Unified research step — internal-first, external only for gaps.
 
-        This replaces the former two-step approach (Step 27 = SerpexResearch,
-        Step 1 = Research) with a single, unified call that fans out to every
-        available backend simultaneously:
+        Policy: memory + local model first, external second.
 
-            1. niblit_agents.ResearchAgent (Serpex + relevance filter)
-            2. SelfResearcher (semantic KB cache → Searchcode → internet fallback)
-            3. SearchcodeSearch (open-source code patterns)
-            4. GitHubCodeSearch (idiomatic patterns, datasets, refactoring)
-            5. SemanticAgent / Qdrant vector store (vector-similarity retrieval)
+        1. Internal memory recall (niblit_memory / TieredKnowledgeSystem)
+        2. Local model reasoning (RuntimeRouterV2 → LocalBrain)
+        3. Gap detection — if internal confidence is sufficient, skip externals
+        4. External backends (Serpex, SelfResearcher, Searchcode, GitHub, Qdrant)
+           are only called when internal results are insufficient or stale
+        5. Reconciliation: merge + confidence-ranked summary stored under
+           ``ale_unified_research:{topic}:{ts}``
 
-        All results are merged, de-duplicated, and stored under a single
-        ``ale_unified_research:{topic}:{ts}`` key so every downstream step
-        (Ideas → Learning → Implementation → Reflection) works from a
-        consistently enriched knowledge base.
-
-        A single 60-second ``_RESEARCH_INGEST_WAIT`` pause follows so the
-        full ingestion → vector-embedding → KB-store pipeline settles before
-        the cycle advances to the next step.
+        Returns a one-line summary string.
         """
         topic = self._current_cycle_topic or self._select_next_topic()
         if not topic:
             return "[UnifiedResearch skipped — no research topics]"
 
-        log.info("🔍 [UNIFIED RESEARCH] Topic: %r  (all backends active)", topic)
+        log.info("🔍 [UNIFIED RESEARCH] Topic: %r  (memory-first policy)", topic)
 
         collected_snippets: List[str] = []
         backend_summaries: List[str] = []
         ts = int(time.time())
+        internal_confidence: float = 0.0
 
-        # ── 1. Serpex ResearchAgent ────────────────────────────────────────
-        agent = self._get_serpex_agent()
-        if agent:
+        # ── Step 1: Internal memory recall ────────────────────────────────
+        if self.knowledge_db:
             try:
-                results = agent.search_web(topic) or []
-                valid = [r for r in results if isinstance(r, dict) and "error" not in r]
-                for item in valid:
-                    snippet = item.get("snippet", "")
-                    if snippet:
-                        collected_snippets.append(snippet[:500])
-                        if self.knowledge_db:
-                            try:
-                                self.knowledge_db.add_fact(
-                                    f"ale_serpex_research:{topic.replace(' ', '_')}:{ts}",
-                                    {"topic": topic, "snippet": snippet[:500],
-                                     "title": item.get("title", ""),
-                                     "url": item.get("url", ""),
-                                     "step": "unified_research_serpex"},
-                                    tags=["ale_unified", "serpex", "research",
-                                          topic.split()[0].lower()],
-                                )
-                            except Exception:
-                                pass
-                    title = item.get("title", "")
-                    if title and title not in self.research_topics:
-                        self.add_research_topic(title)
-                if valid:
-                    backend_summaries.append(f"Serpex({len(valid)})")
-                    log.debug("[UNIFIED] Serpex: %d results", len(valid))
+                recalled = None
+                if hasattr(self.knowledge_db, "recall"):
+                    recalled = self.knowledge_db.recall(topic, limit=5)
+                elif hasattr(self.knowledge_db, "search"):
+                    recalled = self.knowledge_db.search(topic, limit=5)
+                if recalled:
+                    items = recalled if isinstance(recalled, list) else [recalled]
+                    for item in items[:5]:
+                        text = ""
+                        if isinstance(item, dict):
+                            text = str(
+                                item.get("content") or item.get("value")
+                                or item.get("text") or item.get("summary") or ""
+                            )[:500]
+                        elif isinstance(item, str):
+                            text = item[:500]
+                        if text and len(text.strip()) >= 20:
+                            collected_snippets.append(text.strip())
+                    if collected_snippets:
+                        internal_confidence = min(0.70, 0.20 * len(collected_snippets))
+                        backend_summaries.append(f"MemoryRecall({len(collected_snippets)})")
+                        log.debug("[UNIFIED] Internal KB recall: %d snippets", len(collected_snippets))
             except Exception as exc:
-                log.debug("[UNIFIED] Serpex failed: %s", exc)
+                log.debug("[UNIFIED] Internal recall failed: %s", exc)
 
-        # ── 2. SelfResearcher ─────────────────────────────────────────────
-        if self.researcher:
+        # TieredKnowledgeSystem recall
+        try:
+            tks_text = self.tiered_knowledge.recall_knowledge(topic) if getattr(self, "tiered_knowledge", None) else None
+            if tks_text and len(str(tks_text).strip()) >= 20:
+                snippet = str(tks_text).strip()[:600]
+                if snippet not in collected_snippets:
+                    collected_snippets.append(snippet)
+                    internal_confidence = min(internal_confidence + 0.10, 0.75)
+                    backend_summaries.append("TieredKS(1)")
+        except Exception as exc:
+            log.debug("[UNIFIED] TieredKS recall failed: %s", exc)
+
+        # ── Step 2: Local model reasoning ─────────────────────────────────
+        if internal_confidence < 0.75:
             try:
-                sr_results = self.researcher.search(
-                    topic,
-                    max_results=5,
-                    use_history=True,
-                    synthesize=True,
-                    enable_autonomous_learning=True,
-                ) or []
+                from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
+                router = NiblitUnifiedRuntimeRouterV2()
+                prior = "\n".join(collected_snippets[:2])[:500]
+                prompt = (
+                    f"Topic: {topic}\nPrior knowledge:\n{prior}\n\n"
+                    f"Synthesise a concise explanation covering concept, approaches, "
+                    f"and key considerations. Max 200 words."
+                )
+                synthesis = router.generate(prompt, max_tokens=250)
+                if synthesis and len(synthesis.strip()) >= 40:
+                    snippet = synthesis.strip()[:500]
+                    if snippet not in collected_snippets:
+                        collected_snippets.append(snippet)
+                        internal_confidence = min(internal_confidence + 0.10, 0.75)
+                        backend_summaries.append("LocalBrain(1)")
+            except Exception as exc:
+                log.debug("[UNIFIED] LocalBrain synthesis failed: %s", exc)
+
+        # ── Step 3: Gap detection — skip externals if confident enough ───
+        from modules.phased_research_engine import INTERNAL_CONFIDENCE_THRESHOLD
+        if internal_confidence >= INTERNAL_CONFIDENCE_THRESHOLD:
+            log.info(
+                "[UNIFIED RESEARCH] Internal confidence %.2f ≥ threshold — skipping external fetch",
+                internal_confidence,
+            )
+            backend_summaries.append(f"ExternalSkipped(confidence={internal_confidence:.2f})")
+            # Fall through to storage
+        else:
+            # ── Step 4: External backends (targeted gap-fill) ──────────────
+
+            # ── 4a. Serpex ResearchAgent ───────────────────────────────────
+            agent = self._get_serpex_agent()
+            if agent:
                 try:
-                    sr_results = list(sr_results)
-                except TypeError:
-                    sr_results = [sr_results] if sr_results else []
-                for r in sr_results:
-                    text = str(r)[:500] if r else ""
-                    if text:
-                        collected_snippets.append(text)
-                if sr_results:
-                    backend_summaries.append(f"SelfResearcher({len(sr_results)})")
-                    log.debug("[UNIFIED] SelfResearcher: %d results", len(sr_results))
-            except Exception as exc:
-                log.debug("[UNIFIED] SelfResearcher failed: %s", exc)
+                    results = agent.search_web(topic) or []
+                    valid = [r for r in results if isinstance(r, dict) and "error" not in r]
+                    for item in valid:
+                        snippet = item.get("snippet", "")
+                        if snippet:
+                            collected_snippets.append(snippet[:500])
+                            if self.knowledge_db:
+                                try:
+                                    self.knowledge_db.add_fact(
+                                        f"ale_serpex_research:{topic.replace(' ', '_')}:{ts}",
+                                        {"topic": topic, "snippet": snippet[:500],
+                                         "title": item.get("title", ""),
+                                         "url": item.get("url", ""),
+                                         "step": "unified_research_serpex"},
+                                        tags=["ale_unified", "serpex", "research",
+                                              topic.split()[0].lower()],
+                                    )
+                                except Exception:
+                                    pass
+                        title = item.get("title", "")
+                        if title and title not in self.research_topics:
+                            self.add_research_topic(title)
+                    if valid:
+                        backend_summaries.append(f"Serpex({len(valid)})")
+                        log.debug("[UNIFIED] Serpex: %d results", len(valid))
+                except Exception as exc:
+                    log.debug("[UNIFIED] Serpex failed: %s", exc)
 
-        # ── 3. SearchcodeSearch ────────────────────────────────────────────
-        sc = self._get_searchcode_search()
-        if sc:
-            try:
-                sc_results = sc.discover_patterns("python", topic.split()[0], max_results=3) or []
-                for r in sc_results:
-                    text = r.get("text", "") if isinstance(r, dict) else str(r)
-                    if text and len(text) > 20:
-                        collected_snippets.append(text[:400])
-                if sc_results:
-                    backend_summaries.append(f"Searchcode({len(sc_results)})")
-                    log.debug("[UNIFIED] Searchcode: %d results", len(sc_results))
-            except Exception as exc:
-                log.debug("[UNIFIED] Searchcode failed: %s", exc)
+            # ── 4b. SelfResearcher ─────────────────────────────────────────
+            if self.researcher:
+                try:
+                    sr_results = self.researcher.search(
+                        topic,
+                        max_results=5,
+                        use_history=True,
+                        synthesize=True,
+                        enable_autonomous_learning=True,
+                    ) or []
+                    try:
+                        sr_results = list(sr_results)
+                    except TypeError:
+                        sr_results = [sr_results] if sr_results else []
+                    for r in sr_results:
+                        text = str(r)[:500] if r else ""
+                        if text:
+                            collected_snippets.append(text)
+                    if sr_results:
+                        backend_summaries.append(f"SelfResearcher({len(sr_results)})")
+                        log.debug("[UNIFIED] SelfResearcher: %d results", len(sr_results))
+                except Exception as exc:
+                    log.debug("[UNIFIED] SelfResearcher failed: %s", exc)
 
-        # ── 4. GitHubCodeSearch ────────────────────────────────────────────
-        gcs = self._get_github_code_search()
-        if gcs and hasattr(gcs, "research_for_code_generation"):
-            try:
-                gh_results = gcs.research_for_code_generation(topic, max_results=3) or []
-                for r in gh_results:
-                    text = r.get("text", "") if isinstance(r, dict) else str(r)
-                    if text and len(text) > 20:
-                        collected_snippets.append(text[:400])
-                if gh_results:
-                    backend_summaries.append(f"GitHub({len(gh_results)})")
-                    log.debug("[UNIFIED] GitHub: %d results", len(gh_results))
-            except Exception as exc:
-                log.debug("[UNIFIED] GitHub failed: %s", exc)
+            # ── 4c. SearchcodeSearch ────────────────────────────────────────
+            sc = self._get_searchcode_search()
+            if sc:
+                try:
+                    sc_results = sc.discover_patterns("python", topic.split()[0], max_results=3) or []
+                    for r in sc_results:
+                        text = r.get("text", "") if isinstance(r, dict) else str(r)
+                        if text and len(text) > 20:
+                            collected_snippets.append(text[:400])
+                    if sc_results:
+                        backend_summaries.append(f"Searchcode({len(sc_results)})")
+                        log.debug("[UNIFIED] Searchcode: %d results", len(sc_results))
+                except Exception as exc:
+                    log.debug("[UNIFIED] Searchcode failed: %s", exc)
 
-        # ── 5. SemanticAgent (Qdrant vector retrieval) ─────────────────────
+            # ── 4d. GitHubCodeSearch ────────────────────────────────────────
+            gcs = self._get_github_code_search()
+            if gcs and hasattr(gcs, "research_for_code_generation"):
+                try:
+                    gh_results = gcs.research_for_code_generation(topic, max_results=3) or []
+                    for r in gh_results:
+                        text = r.get("text", "") if isinstance(r, dict) else str(r)
+                        if text and len(text) > 20:
+                            collected_snippets.append(text[:400])
+                    if gh_results:
+                        backend_summaries.append(f"GitHub({len(gh_results)})")
+                        log.debug("[UNIFIED] GitHub: %d results", len(gh_results))
+                except Exception as exc:
+                    log.debug("[UNIFIED] GitHub failed: %s", exc)
+
+            # ── 4e. SemanticAgent (Qdrant vector retrieval) ─────────────────
+            sa = self._get_semantic_agent()
+            if sa and hasattr(sa, "retrieve_knowledge"):
+                try:
+                    sa_results = sa.retrieve_knowledge(topic, top_k=3) or []
+                    for r in sa_results:
+                        text = r.get("snippet", "") if isinstance(r, dict) else str(r)
+                        if text and len(text) > 20:
+                            collected_snippets.append(text[:400])
+                    if sa_results:
+                        backend_summaries.append(f"Qdrant({len(sa_results)})")
+                        log.debug("[UNIFIED] SemanticAgent: %d results", len(sa_results))
+                except Exception as exc:
+                    log.debug("[UNIFIED] SemanticAgent retrieve failed: %s", exc)
+        # end external-fetch else block
+
+        # SemanticAgent reference for downstream use (may be None when skipped above)
         sa = self._get_semantic_agent()
-        if sa and hasattr(sa, "retrieve_knowledge"):
-            try:
-                sa_results = sa.retrieve_knowledge(topic, top_k=3) or []
-                for r in sa_results:
-                    text = r.get("snippet", "") if isinstance(r, dict) else str(r)
-                    if text and len(text) > 20:
-                        collected_snippets.append(text[:400])
-                if sa_results:
-                    backend_summaries.append(f"Qdrant({len(sa_results)})")
-                    log.debug("[UNIFIED] SemanticAgent: %d results", len(sa_results))
-            except Exception as exc:
-                log.debug("[UNIFIED] SemanticAgent retrieve failed: %s", exc)
 
         # ── Merge + de-duplicate snippets (within this call) ─────────────
         seen: set = set()
@@ -2347,10 +2445,15 @@ class AutonomousLearningEngine:
         # with even when nothing new was stored to the KB this cycle).
         effective = novel if novel else deduped
 
-        # ── Persist merged results to KB ───────────────────────────────────
+        # ── Persist merged results to KB (enriched with intelligence fields) ──
         if novel and self.knowledge_db:
             try:
                 all_text = "\n---\n".join(novel[:6])
+                source_type = (
+                    "internal" if internal_confidence >= INTERNAL_CONFIDENCE_THRESHOLD else
+                    ("mixed" if internal_confidence > 0 else "external")
+                )
+                topic_tag = topic.split()[0].lower() if topic.split() else "general"
                 self.knowledge_db.add_fact(
                     f"ale_unified_research:{topic.replace(' ', '_')}:{ts}",
                     {
@@ -2360,9 +2463,29 @@ class AutonomousLearningEngine:
                         "summary": novel[0][:300] if novel else "",
                         "full_text": all_text[:1000],
                         "step": "unified_research",
+                        "confidence_score": internal_confidence,
+                        "source_type": source_type,
+                        "last_verified_at": ts,
                     },
-                    tags=["ale_unified", "research", "autonomous",
-                          topic.split()[0].lower()],
+                    tags=["ale_unified", "research", "autonomous", topic_tag, source_type],
+                )
+                # Enriched ale_learned entry
+                self.knowledge_db.add_fact(
+                    f"ale_learned:{topic.replace(' ', '_')}:{ts}",
+                    {
+                        "topic": topic,
+                        "summary": novel[0][:300] if novel else "",
+                        "confidence_score": internal_confidence,
+                        "source_type": source_type,
+                        "source_provenance": backend_summaries,
+                        "verification_status": (
+                            "internal_only" if source_type == "internal"
+                            else "external_verified"
+                        ),
+                        "related_concepts": [],
+                        "source": "unified_research",
+                    },
+                    tags=["ale_learned", "memory", "autonomous", topic_tag, source_type],
                 )
                 self.knowledge_db.log_event(
                     f"Unified research: {topic!r} — "

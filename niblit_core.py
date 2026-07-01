@@ -9964,7 +9964,33 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         if self.internet:
                             self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
                         result = None
-                        if hasattr(self.researcher, "search"):
+
+                        # ── Internal memory check first ────────────────────
+                        internal_hits = []
+                        _internal_conf = 0.0
+                        try:
+                            if hasattr(self.db, "recall"):
+                                internal_hits = self.db.recall(topic) or []
+                            elif hasattr(self.db, "search"):
+                                internal_hits = self.db.search(topic) or []
+                            if internal_hits:
+                                _internal_conf = 0.75
+                        except Exception:
+                            pass
+
+                        _threshold = float(
+                            __import__("os").environ.get(
+                                "NIBLIT_INTERNAL_CONFIDENCE_THRESHOLD", "0.75"
+                            )
+                        )
+                        if _internal_conf >= _threshold:
+                            result = internal_hits
+                            log.info(
+                                "[AUTO RESEARCH] Internal hit for %r (conf=%.2f) — "
+                                "skipping external search",
+                                topic, _internal_conf,
+                            )
+                        elif hasattr(self.researcher, "search"):
                             result = safe_call(self.researcher.search, topic)
 
                         if result and self.db and hasattr(self.db, "add_fact"):
@@ -10024,6 +10050,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             # Use millisecond timestamp to avoid same-second key collisions.
                             try:
                                 topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                                _src_type = "internal" if _internal_conf >= _threshold else "external"
                                 self.db.add_fact(
                                     f"ale_learned:{topic.replace(' ', '_')}:{int(time.time() * 1000)}",
                                     {
@@ -10031,8 +10058,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
                                         "research": result_text[:500],
                                         "reflection": reflection_output[:400],
                                         "source": "async_auto_research_loop",
+                                        "confidence_score": _internal_conf,
+                                        "source_type": _src_type,
+                                        "verification_status": (
+                                            "internal_only" if _src_type == "internal"
+                                            else "external_verified"
+                                        ),
                                     },
-                                    tags=["ale_learned", "memory", "auto_research", topic_tag],
+                                    tags=["ale_learned", "memory", "auto_research",
+                                          topic_tag, _src_type],
                                 )
                             except Exception:
                                 pass
@@ -10151,15 +10185,41 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         cache_key = self.research_cache.cache_key(topic)
                         cached = self.research_cache.get(cache_key)
                         result = None
+                        _internal_conf = 0.0
+                        _threshold = float(
+                            __import__("os").environ.get(
+                                "NIBLIT_INTERNAL_CONFIDENCE_THRESHOLD", "0.75"
+                            )
+                        )
 
                         if cached:
                             if getattr(self, '_loops_verbose', True):
                                 log.info(f"[AUTO RESEARCH] Cache hit for {topic}")
                             result = cached
                         else:
-                            if self.internet:
-                                self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
-                            if hasattr(self.researcher, "search"):
+                            # ── Internal memory check first ────────────────
+                            internal_hits = []
+                            try:
+                                if hasattr(self.db, "recall"):
+                                    internal_hits = self.db.recall(topic) or []
+                                elif hasattr(self.db, "search"):
+                                    internal_hits = self.db.search(topic) or []
+                                if internal_hits:
+                                    _internal_conf = 0.75
+                            except Exception:
+                                pass
+
+                            if _internal_conf >= _threshold:
+                                result = internal_hits
+                                if getattr(self, '_loops_verbose', True):
+                                    log.info(
+                                        "[AUTO RESEARCH] Internal hit for %r (conf=%.2f) — "
+                                        "skipping external search",
+                                        topic, _internal_conf,
+                                    )
+                            elif hasattr(self.researcher, "search"):
+                                if self.internet:
+                                    self.researcher.internet = self.internet  # pylint: disable=attribute-defined-outside-init
                                 # Run search in a daemon thread with a hard 60s
                                 # timeout so a stalled network call never freezes
                                 # the entire ResearchLoop thread indefinitely.
@@ -10239,6 +10299,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                             # Use millisecond timestamp to avoid same-second key collisions.
                             try:
                                 topic_tag = topic.split()[0].lower() if topic.split() else "general"
+                                _src_type = "internal" if _internal_conf >= _threshold else "external"
                                 self.db.add_fact(
                                     f"ale_learned:{topic.replace(' ', '_')}:{int(time.time() * 1000)}",
                                     {
@@ -10246,8 +10307,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
                                         "research": result_text[:500],
                                         "reflection": reflection_output[:400],
                                         "source": "auto_research_loop",
+                                        "confidence_score": _internal_conf,
+                                        "source_type": _src_type,
+                                        "verification_status": (
+                                            "internal_only" if _src_type == "internal"
+                                            else "external_verified"
+                                        ),
                                     },
-                                    tags=["ale_learned", "memory", "auto_research", topic_tag],
+                                    tags=["ale_learned", "memory", "auto_research",
+                                          topic_tag, _src_type],
                                 )
                             except Exception:
                                 pass
