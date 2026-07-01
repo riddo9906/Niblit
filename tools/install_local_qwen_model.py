@@ -31,8 +31,10 @@ DEFAULT_MODELS = {
 }
 
 TERMUX_HOME = "/data/data/com.termux/files/home"
+WINDOWS_MODEL_ROOT = r"C:\Users\Riyaad\llama_migration\models"
 DEFAULT_GGUF_DIRS = [
     Path(os.environ.get("NIBLIT_MODEL_DIR", "")).expanduser() if os.environ.get("NIBLIT_MODEL_DIR") else None,
+    Path(WINDOWS_MODEL_ROOT),
     Path.home() / "models",
     Path(f"{TERMUX_HOME}/models"),
     Path("/data"),
@@ -198,7 +200,7 @@ def runtime_recommendations(plat: dict[str, Any]) -> list[str]:
 def setup_instructions(args: argparse.Namespace, plat: dict[str, Any]) -> str:
     fam = args.model_family
     default_name = DEFAULT_MODELS.get(fam, "model.gguf")
-    destination = Path(args.gguf_path).expanduser() if args.gguf_path else Path.home() / "models" / default_name
+    destination = Path(args.gguf_path).expanduser() if args.gguf_path else Path(WINDOWS_MODEL_ROOT) / default_name
 
     lines = [
         "== One-time setup ==",
