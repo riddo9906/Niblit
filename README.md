@@ -626,17 +626,17 @@ cmake --build . -j1              # takes 10–30 min on Android
 
 ```bash
 # Create models directory
-mkdir -p ~/models
+mkdir -p C:\Users\Riyaad\llama_migration\models
 
 # Option A — huggingface-cli (requires pip install huggingface-hub)
 pip install huggingface-hub
 huggingface-cli download \
     Qwen/Qwen2.5-0.5B-Instruct-GGUF \
     qwen2.5-0.5b-instruct-q4_k_m.gguf \
-    --local-dir ~/models
+    --local-dir C:\Users\Riyaad\llama_migration\models
 
 # Option B — direct wget (get URL from https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF)
-wget -O ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+wget -O C:\Users\Riyaad\llama_migration\models\qwen2.5-0.5b-instruct-q4_k_m.gguf \
     "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf"
 ```
 
@@ -648,7 +648,7 @@ every request, dramatically reducing latency.
 ```bash
 # Session 1 (normal Termux — keep this open)
 ~/llama.cpp/build/bin/llama-server \
-    -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    -m C:\Users\Riyaad\llama_migration\models\qwen2.5-0.5b-instruct-q4_k_m.gguf \
     --host 127.0.0.1 --port 8080 \
     -c 4096 --threads 4
 # Server listens on http://127.0.0.1:8080
@@ -662,7 +662,7 @@ In your `.env` (inside proot-Ubuntu, next section):
 # Use http backend pointing to the Termux-side llama-server
 NIBLIT_GGUF_BACKEND=http
 NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8080
-NIBLIT_LOCAL_MODEL=~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+NIBLIT_LOCAL_MODEL=C:\Users\Riyaad\llama_migration\models\qwen2.5-0.5b-instruct-q4_k_m.gguf
 ```
 
 ### Alternative: subprocess backend (no server)
@@ -670,7 +670,7 @@ NIBLIT_LOCAL_MODEL=~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
 ```dotenv
 NIBLIT_GGUF_BACKEND=subprocess
 NIBLIT_LLAMA_BINARY=~/llama.cpp/build/bin/llama-cli
-NIBLIT_GGUF_MODEL_PATH=~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+NIBLIT_GGUF_MODEL_PATH=C:\Users\Riyaad\llama_migration\models\qwen2.5-0.5b-instruct-q4_k_m.gguf
 ```
 
 ### Verify Qwen is working
@@ -718,7 +718,7 @@ so Qwen's model stays loaded in RAM while Niblit runs in proot-Ubuntu.
 # This stays running in the background
 
 ~/llama.cpp/build/bin/llama-server \
-    -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    -m C:\Users\Riyaad\llama_migration\models\qwen2.5-0.5b-instruct-q4_k_m.gguf \
     --host 127.0.0.1 --port 8080 \
     -c 4096 --threads 4 --n-predict 512
 
@@ -749,7 +749,7 @@ python main.py
 ```dotenv
 NIBLIT_GGUF_BACKEND=http
 NIBLIT_LLAMA_SERVER_URL=http://127.0.0.1:8080
-NIBLIT_LOCAL_MODEL=~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf
+NIBLIT_LOCAL_MODEL=C:\Users\Riyaad\llama_migration\models\qwen2.5-0.5b-instruct-q4_k_m.gguf
 ```
 
 ### Termux wake-lock (keep sessions alive)
@@ -768,7 +768,7 @@ Add to `~/.bashrc` in **normal Termux** (Session 1):
 
 ```bash
 alias qwen-server='~/llama.cpp/build/bin/llama-server \
-    -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    -m C:\Users\Riyaad\llama_migration\models\qwen2.5-0.5b-instruct-q4_k_m.gguf \
     --host 127.0.0.1 --port 8080 -c 4096 --threads 4'
 ```
 
@@ -887,7 +887,7 @@ Niblit-ctl > exit                  ← closes control terminal; Niblit keeps run
 ```bash
 # Session 1 — normal Termux:
 ~/llama.cpp/build/bin/llama-server \
-    -m ~/models/qwen2.5-0.5b-instruct-q4_k_m.gguf \
+    -m C:\Users\Riyaad\llama_migration\models\qwen2.5-0.5b-instruct-q4_k_m.gguf \
     --host 127.0.0.1 --port 8080
 
 # Session 2 — proot-Ubuntu:
