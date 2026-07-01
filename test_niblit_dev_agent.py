@@ -12,8 +12,6 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 if BASE not in sys.path:
     sys.path.insert(0, BASE)
 
-from core.event_bus import Event, EventBus, EventType
-
 from agents.niblit_dev_agent.agent import NiblitDevAgent
 from agents.niblit_dev_agent.architecture_indexer import ArchitectureIndexer
 from agents.niblit_dev_agent.event_subscriber import EventSubscriber
@@ -21,6 +19,7 @@ from agents.niblit_dev_agent.memory_bridge import MemoryBridge
 from agents.niblit_dev_agent.provider_awareness import ProviderAwareness
 from agents.niblit_dev_agent.runtime_awareness import RuntimeAwareness
 from agents.niblit_dev_agent.telemetry_hooks import DevAgentTelemetryHooks
+from core.event_bus import Event, EventBus, EventType
 
 
 class _FakeTelemetry:
