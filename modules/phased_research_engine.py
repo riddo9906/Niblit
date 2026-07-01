@@ -1,26 +1,37 @@
 #!/usr/bin/env python3
 """
-modules/phased_research_engine.py — Sequential 3-phase research for Niblit.
+modules/phased_research_engine.py — Sequential research for Niblit.
 
-Research happens in three phases, each building on the previous.  A topic is
-never thrown at all search backends at once (which causes timeouts); instead
-each phase has its own timeout budget and the results of each phase are
-structured into the knowledge pipeline before the next phase begins.
+Research now begins with an internal-first "Local Knowledge Partner" stage
+(Phase 0) before any external search is attempted.  External phases are only
+triggered when internal recall falls below the confidence threshold or when
+explicit freshness/verification is required.
+
+Phase 0 — Local Knowledge Partner (internal sources first, no I/O budget)
+    Recalls from niblit_memory / KnowledgeDB, TieredKnowledgeSystem, and
+    RuntimeRouterV2 → LocalBrain.  Returns a concept explanation, approach
+    comparison, optimisation suggestions, and log/test-failure interpretation
+    sourced entirely from local reasoning.
 
 Phase 1 — Basic Understanding (DuckDuckGo + Google/Internet, 45 s)
     Fast, lightweight search to build initial topic comprehension.
+    Skipped when Phase 0 confidence exceeds INTERNAL_CONFIDENCE_THRESHOLD.
     Results are stored as structured KB facts (ale_phase1_research:*) and
     pushed to GraphRAGPipeline Tier 2 (background knowledge).
 
 Phase 2 — Deep Knowledge (SerpAPI + Serpex + Qdrant, 45 s)
-    Advanced enrichment using richer sources.  Only runs when Phase 1
-    found something and when the topic confidence is below the threshold.
+    Gap-driven enrichment.  Only runs when Phase 1 found something and when
+    the topic confidence is below the threshold.
     Results are stored as ale_phase2_research:* and pushed to Tier 1.
 
 Phase 3 — Code Generation (GitHub REST API, 30 s)
     Runs ONLY when _is_code_topic() returns True.  Searches GitHub for
     real, idiomatic code examples and stores them as runnable code
     artefacts (ale_code_research:*) — not documentation summaries.
+
+For every completed topic a ``ResearchMemoryArtifact`` is emitted and
+persisted in both KB and governed memory so ALE, code generation, and
+validation flows can retrieve confidence-ranked prior knowledge.
 
 Integration
 -----------
@@ -40,6 +51,22 @@ import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+# ---------------------------------------------------------------------------
+# Internal-first confidence thresholds
+# ---------------------------------------------------------------------------
+
+# When Phase 0 internal recall confidence reaches this value, Phase 1
+# (external basic search) is skipped entirely.
+INTERNAL_CONFIDENCE_THRESHOLD: float = float(
+    __import__("os").environ.get("NIBLIT_INTERNAL_CONFIDENCE_THRESHOLD", "0.75")
+)
+
+# When internal confidence exceeds this value Phase 2 (deep external) is also
+# skipped, so only Phase 3 (code) may still run for code topics.
+DEEP_SKIP_THRESHOLD: float = float(
+    __import__("os").environ.get("NIBLIT_DEEP_SKIP_THRESHOLD", "0.85")
+)
 
 log = logging.getLogger("Niblit.PhasedResearch")
 
@@ -266,6 +293,10 @@ class PhaseResult:
     facts_stored: int = 0
     duration_s: float = 0.0
     error: Optional[str] = None
+    # Confidence score (0-1) derived from source quality for this phase's results.
+    confidence_score: float = 0.5
+    # Category of evidence: "internal", "external", or "mixed".
+    source_type: str = "external"
 
     @property
     def success(self) -> bool:
@@ -277,6 +308,42 @@ class PhaseResult:
 
 
 @dataclass
+class ResearchMemoryArtifact:
+    """Standardised knowledge record produced for every completed research topic.
+
+    Emitted after all phases complete and persisted in both KB and governed
+    memory so ALE, code generation, and validation flows can retrieve
+    confidence-ranked prior knowledge without repeating external lookups.
+    """
+    topic: str
+    summary: str = ""
+    explanation: str = ""
+    references: List[str] = field(default_factory=list)
+    semantic_links: List[str] = field(default_factory=list)
+    confidence_score: float = 0.5
+    source_type: str = "mixed"
+    follow_up_topics: List[str] = field(default_factory=list)
+    created_at: int = field(default_factory=lambda: int(time.time()))
+    phases_run: List[int] = field(default_factory=list)
+    total_facts: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "topic": self.topic,
+            "summary": self.summary,
+            "explanation": self.explanation,
+            "references": self.references,
+            "semantic_links": self.semantic_links,
+            "confidence_score": self.confidence_score,
+            "source_type": self.source_type,
+            "follow_up_topics": self.follow_up_topics,
+            "created_at": self.created_at,
+            "phases_run": self.phases_run,
+            "total_facts": self.total_facts,
+        }
+
+
+@dataclass
 class PhasedResearchResult:
     """Combined result of all research phases for one topic."""
     topic: str
@@ -285,23 +352,29 @@ class PhasedResearchResult:
     total_facts: int = 0
     total_duration_s: float = 0.0
     is_code_topic: bool = False
+    # Aggregated confidence score across all phases (weighted by source quality).
+    confidence_score: float = 0.5
+    # True when Phase 0 internal recall provided sufficient coverage.
+    internal_hit: bool = False
+    # Standardised artifact persisted to KB + governed memory after completion.
+    artifact: Optional[ResearchMemoryArtifact] = None
 
     def summary(self) -> str:
-        phase_labels = {1: "Basic", 2: "Advanced", 3: "Code"}
+        phase_labels = {0: "Internal", 1: "Basic", 2: "Advanced", 3: "Code"}
         parts = []
         for ph in self.phases_run:
             r = self.phase_results.get(ph)
             if r and r.success:
                 parts.append(
                     f"P{ph}({phase_labels.get(ph, ph)}: {len(r.snippets)} snippets, "
-                    f"{r.duration_s:.0f}s)"
+                    f"{r.duration_s:.0f}s, conf={r.confidence_score:.2f})"
                 )
             else:
                 parts.append(f"P{ph}(skipped)")
         return (
             f"[PhasedResearch] {self.topic!r} — "
             + " → ".join(parts)
-            + f" | {self.total_facts} facts stored"
+            + f" | {self.total_facts} facts stored | confidence={self.confidence_score:.2f}"
         )
 
 
@@ -333,6 +406,7 @@ class PhasedResearchEngine:
     """
 
     # Phase timeout budgets in seconds
+    PHASE0_TIMEOUT: float = 30.0
     PHASE1_TIMEOUT: float = 300.0
     PHASE2_TIMEOUT: float = 300.0
     PHASE3_TIMEOUT: float = 300.0
@@ -374,10 +448,11 @@ class PhasedResearchEngine:
         skip_phase2: bool = False,
         skip_phase3: bool = False,
     ) -> PhasedResearchResult:
-        """Research *topic* through up to 3 sequential phases.
+        """Research *topic* through up to 4 sequential phases (0-3).
 
-        Each phase builds on the previous: Phase 2 only runs if Phase 1
-        found something; Phase 3 only runs for code/software topics.
+        Phase 0 (Local Knowledge Partner) always runs first.  External phases
+        are skipped when internal recall confidence exceeds the configured
+        threshold, reducing unnecessary web traffic for already-known topics.
 
         Parameters
         ----------
@@ -399,40 +474,78 @@ class PhasedResearchEngine:
         )
         t0 = time.monotonic()
 
-        # ── Phase 1: Basic Understanding ──────────────────────────────────
-        p1 = self._run_phase_with_timeout(
-            phase=1,
+        # ── Phase 0: Local Knowledge Partner (internal sources first) ────
+        p0 = self._run_phase_with_timeout(
+            phase=0,
             topic=topic,
-            fn=self._phase1_basic,
-            timeout=self.PHASE1_TIMEOUT,
+            fn=self._phase0_internal,
+            timeout=self.PHASE0_TIMEOUT,
         )
-        result.phases_run.append(1)
-        result.phase_results[1] = p1
-        if p1.facts_stored:
-            result.total_facts += p1.facts_stored
+        result.phases_run.append(0)
+        result.phase_results[0] = p0
+        if p0.facts_stored:
+            result.total_facts += p0.facts_stored
+
+        # Propagate internal hit flag and confidence for downstream decisions
+        result.internal_hit = p0.success
+        result.confidence_score = p0.confidence_score
+
+        # ── Phase 1: Basic Understanding (conditional) ────────────────────
+        # Skip when internal recall is highly confident to save external calls.
+        skip_p1 = result.confidence_score >= INTERNAL_CONFIDENCE_THRESHOLD
+        if skip_p1:
+            log.info(
+                "[PhasedResearch] Phase 1 skipped — internal confidence %.2f ≥ %.2f",
+                result.confidence_score, INTERNAL_CONFIDENCE_THRESHOLD,
+            )
+        else:
+            p1 = self._run_phase_with_timeout(
+                phase=1,
+                topic=topic,
+                fn=self._phase1_basic,
+                timeout=self.PHASE1_TIMEOUT,
+            )
+            result.phases_run.append(1)
+            result.phase_results[1] = p1
+            if p1.facts_stored:
+                result.total_facts += p1.facts_stored
+            if p1.confidence_score > result.confidence_score:
+                result.confidence_score = p1.confidence_score
 
         # ── Phase 2: Deep Knowledge (conditional) ─────────────────────────
-        # Only run if Phase 1 found real content and we're not skipping.
-        if not skip_phase2:
+        # Only run if Phase 1 ran and found real content, and confidence is
+        # still below the deep-skip threshold.
+        _p1_result = result.phase_results.get(1)
+        _p1_ran = 1 in result.phases_run
+        if not skip_phase2 and _p1_ran and result.confidence_score < DEEP_SKIP_THRESHOLD:
             p2 = self._run_phase_with_timeout(
                 phase=2,
                 topic=topic,
-                fn=lambda t: self._phase2_advanced(t, p1),
+                fn=lambda t: self._phase2_advanced(t, _p1_result),
                 timeout=self.PHASE2_TIMEOUT,
             )
             result.phases_run.append(2)
             result.phase_results[2] = p2
             if p2.facts_stored:
                 result.total_facts += p2.facts_stored
+            if p2.confidence_score > result.confidence_score:
+                result.confidence_score = p2.confidence_score
         else:
-            log.debug("[PhasedResearch] Phase 2 skipped (skip_phase2=True)")
+            if not _p1_ran:
+                reason = "phase1_skipped"
+            elif skip_phase2:
+                reason = "skip_phase2=True"
+            else:
+                reason = f"confidence {result.confidence_score:.2f} ≥ deep_skip_threshold"
+            log.debug("[PhasedResearch] Phase 2 skipped (%s)", reason)
 
         # ── Phase 3: Code Generation (code-topic-only, conditional) ───────
+        _p2_result = result.phase_results.get(2)
         if result.is_code_topic and not skip_phase3:
             p3 = self._run_phase_with_timeout(
                 phase=3,
                 topic=topic,
-                fn=lambda t: self._phase3_code(t, p1, p2 if not skip_phase2 else None),
+                fn=lambda t: self._phase3_code(t, _p1_result, _p2_result),
                 timeout=self.PHASE3_TIMEOUT,
             )
             result.phases_run.append(3)
@@ -444,8 +557,132 @@ class PhasedResearchEngine:
             log.debug("[PhasedResearch] Phase 3 skipped (%s)", reason)
 
         result.total_duration_s = time.monotonic() - t0
+
+        # ── Emit research artifact ─────────────────────────────────────────
+        result.artifact = self._build_research_artifact(result)
+        self._persist_research_artifact(result.artifact)
+
         log.info("✅ %s", result.summary())
         return result
+
+    # ------------------------------------------------------------------
+    # Phase 0: Local Knowledge Partner
+    # ------------------------------------------------------------------
+
+    def _phase0_internal(self, topic: str) -> PhaseResult:
+        """Phase 0: Internal-first local knowledge recall.
+
+        Queries all local knowledge sources in priority order:
+
+        1. KnowledgeDB recall (niblit_memory) — fastest; returns previously
+           stored research facts tagged ``ale_learned`` or ``ale_phase*``.
+        2. TieredKnowledgeSystem.recall_knowledge() — structured tier-tagged
+           knowledge accumulated across learning cycles.
+        3. RuntimeRouterV2 → LocalBrain inference — synthesises a concept
+           explanation, approach comparison, optimisation suggestions, and
+           log/test-failure interpretation from the local GGUF model.
+
+        The phase confidence is scored based on how many local sources
+        returned relevant content:
+          - 3 sources hit → 0.90
+          - 2 sources hit → 0.80
+          - 1 source hit  → 0.70
+          - 0 sources hit → 0.10 (external phases should run)
+        """
+        t0 = time.monotonic()
+        pr = PhaseResult(phase=0, topic=topic, source_type="internal")
+
+        sources_hit: int = 0
+
+        # ── 1. KnowledgeDB recall ────────────────────────────────────────
+        if self.knowledge_db:
+            try:
+                recalled = None
+                if hasattr(self.knowledge_db, "recall"):
+                    recalled = self.knowledge_db.recall(topic, limit=5)
+                elif hasattr(self.knowledge_db, "search"):
+                    recalled = self.knowledge_db.search(topic, limit=5)
+
+                if recalled:
+                    texts: List[str] = []
+                    for item in (recalled if isinstance(recalled, list) else [recalled]):
+                        text = ""
+                        if isinstance(item, dict):
+                            text = (
+                                str(item.get("content") or item.get("value")
+                                    or item.get("text") or item.get("summary") or "")[:500]
+                            )
+                        elif isinstance(item, str):
+                            text = item[:500]
+                        if text and len(text.strip()) >= 20:
+                            texts.append(text.strip())
+
+                    for t in texts[:3]:
+                        if t not in pr.snippets:
+                            pr.snippets.append(t)
+                            pr.sources.append("niblit_memory")
+
+                    if texts:
+                        sources_hit += 1
+                        log.debug("[Phase0] KB recall: %d snippets for %r", len(texts), topic)
+            except Exception as exc:
+                log.debug("[Phase0] KB recall failed: %s", exc)
+
+        # ── 2. TieredKnowledgeSystem.recall_knowledge() ──────────────────
+        try:
+            from modules.tiered_knowledge_system import get_tiered_knowledge_system
+            tks = get_tiered_knowledge_system(knowledge_db=self.knowledge_db)
+            tks_text = tks.recall_knowledge(topic) if tks else None
+            if tks_text and len(str(tks_text).strip()) >= 20:
+                snippet = str(tks_text).strip()[:600]
+                if snippet not in pr.snippets:
+                    pr.snippets.append(snippet)
+                    pr.sources.append("tiered_knowledge")
+                sources_hit += 1
+                log.debug("[Phase0] TieredKnowledgeSystem hit for %r", topic)
+        except Exception as exc:
+            log.debug("[Phase0] TieredKnowledgeSystem recall failed: %s", exc)
+
+        # ── 3. RuntimeRouterV2 → LocalBrain synthesis ───────────────────
+        # Ask the local model to synthesise: concept explanation, approach
+        # comparison, optimisation suggestions, and error/log interpretation.
+        try:
+            from modules.runtime_router_v2 import NiblitUnifiedRuntimeRouterV2
+            router = NiblitUnifiedRuntimeRouterV2()
+            prior_ctx = "\n".join(pr.snippets[:2])[:600] if pr.snippets else ""
+            prompt = (
+                f"Topic: {topic}\n\n"
+                f"Prior knowledge:\n{prior_ctx}\n\n"
+                f"Provide a concise structured response covering:\n"
+                f"1. Concept explanation (2-3 sentences)\n"
+                f"2. Common approaches or variants\n"
+                f"3. Key optimisation considerations\n"
+                f"4. How to interpret failures or errors related to this topic\n"
+                f"Keep the total response under 300 words."
+            )
+            synthesis = router.generate(prompt, max_tokens=350)
+            if synthesis and len(synthesis.strip()) >= 40:
+                snippet = synthesis.strip()[:700]
+                if snippet not in pr.snippets:
+                    pr.snippets.append(snippet)
+                    pr.sources.append("local_brain")
+                sources_hit += 1
+                log.debug("[Phase0] LocalBrain synthesis generated for %r", topic)
+        except Exception as exc:
+            log.debug("[Phase0] LocalBrain synthesis failed: %s", exc)
+
+        # ── Confidence scoring ────────────────────────────────────────────
+        confidence_map = {0: 0.10, 1: 0.70, 2: 0.80, 3: 0.90}
+        pr.confidence_score = confidence_map.get(sources_hit, 0.10)
+
+        # ── Store Phase 0 results ─────────────────────────────────────────
+        pr.facts_stored = self._store_phase_results(pr, tier="internal")
+        pr.duration_s = time.monotonic() - t0
+        log.info(
+            "🧠 [Phase0/Internal] %r — %d sources, %d snippets, conf=%.2f (%.1fs)",
+            topic, sources_hit, len(pr.snippets), pr.confidence_score, pr.duration_s,
+        )
+        return pr
 
     # ------------------------------------------------------------------
     # Phase implementations
@@ -525,6 +762,9 @@ class PhasedResearchEngine:
 
         # ── Store Phase 1 results in KB + GraphRAG ─────────────────────
         pr.facts_stored = self._store_phase_results(pr, tier="tier2")
+        # External basic sources carry moderate confidence
+        pr.confidence_score = 0.65 if pr.snippets else 0.20
+        pr.source_type = "external"
         pr.duration_s = time.monotonic() - t0
         return pr
 
@@ -659,6 +899,9 @@ class PhasedResearchEngine:
 
         # ── Store Phase 2 results in Tier 1 ─────────────────────────
         pr.facts_stored = self._store_phase_results(pr, tier="tier1")
+        # Authoritative external sources get higher confidence
+        pr.confidence_score = 0.78 if pr.snippets else 0.30
+        pr.source_type = "external"
         pr.duration_s = time.monotonic() - t0
         return pr
 
@@ -708,6 +951,8 @@ class PhasedResearchEngine:
 
         # ── Store Phase 3 code artefacts ────────────────────────────
         pr.facts_stored = self._store_phase_results(pr, tier="code")
+        pr.confidence_score = 0.72 if pr.snippets else 0.20
+        pr.source_type = "external"
         pr.duration_s = time.monotonic() - t0
         return pr
 
@@ -723,7 +968,8 @@ class PhasedResearchEngine:
         pr :
             The PhaseResult to store.
         tier :
-            "tier1", "tier2", or "code" — controls storage target and tags.
+            "internal", "tier1", "tier2", or "code" — controls storage target
+            and tags.
 
         Returns
         -------
@@ -735,8 +981,18 @@ class PhasedResearchEngine:
         topic = pr.topic
         ts = int(time.time())
 
+        # Phase 0 (internal) snippets recalled from existing KB/TKS are already
+        # stored; only the LocalBrain synthesis snippet (source="local_brain")
+        # needs to be persisted.
+        phase0_skip_sources = frozenset({"niblit_memory", "tiered_knowledge"})
+
         for i, snippet in enumerate(pr.snippets[:self.MAX_SNIPPETS_PER_PHASE]):
             if len(snippet.strip()) < self.MIN_SNIPPET_LEN:
+                continue
+            source = pr.sources[i] if i < len(pr.sources) else "unknown"
+
+            # For Phase 0, skip already-stored recall sources to avoid duplication
+            if tier == "internal" and source in phase0_skip_sources:
                 continue
 
             # Optionally format through LanguageModule for cleaner text
@@ -751,12 +1007,14 @@ class PhasedResearchEngine:
                 except Exception:
                     pass
 
-            source = pr.sources[i] if i < len(pr.sources) else "unknown"
             key_prefix = {
+                "internal": "ale_internal_research",
                 "tier1": "ale_phase2_research",
                 "tier2": "ale_phase1_research",
                 "code": "ale_code_research",
             }.get(tier, "ale_phased_research")
+
+            phase_label = {0: "internal", 1: "basic", 2: "advanced", 3: "code"}.get(pr.phase, str(pr.phase))
 
             # Store in KnowledgeDB
             if self.knowledge_db:
@@ -769,12 +1027,16 @@ class PhasedResearchEngine:
                             "phase": pr.phase,
                             "tier": tier,
                             "source": source,
-                            "phase_label": {1: "basic", 2: "advanced", 3: "code"}[pr.phase],
+                            "source_type": pr.source_type,
+                            "confidence_score": pr.confidence_score,
+                            "phase_label": phase_label,
+                            "last_verified_at": ts,
                         },
                         tags=[
                             "ale_learned",
                             f"phase_{pr.phase}",
                             tier,
+                            pr.source_type,
                             topic.split()[0].lower()[:20],
                         ],
                     )
@@ -792,12 +1054,19 @@ class PhasedResearchEngine:
                                 topic,
                                 "has_knowledge",
                                 clean_snippet[:300],
-                                f"phase2_advanced",
+                                "phase2_advanced",
                             )
                         elif tier == "code":
                             grp.add_document(
                                 f"code:{topic}:{ts}",
                                 clean_snippet,
+                            )
+                        elif tier == "internal":
+                            grp.add_fact(
+                                topic,
+                                "has_internal_knowledge",
+                                clean_snippet[:300],
+                                "phase0_internal",
                             )
                         else:
                             grp.add_document(
@@ -808,6 +1077,96 @@ class PhasedResearchEngine:
                     log.debug("[PhasedResearch] GraphRAG push failed: %s", e)
 
         return stored
+
+    # ------------------------------------------------------------------
+    # Research artifact helpers
+    # ------------------------------------------------------------------
+
+    def _build_research_artifact(self, result: PhasedResearchResult) -> ResearchMemoryArtifact:
+        """Construct a ResearchMemoryArtifact from all completed phase results."""
+        topic = result.topic
+        all_snippets: List[str] = []
+        all_sources: List[str] = []
+        for ph in result.phases_run:
+            pr = result.phase_results.get(ph)
+            if pr and pr.snippets:
+                all_snippets.extend(pr.snippets[:2])
+                all_sources.extend(pr.sources[:2])
+
+        # Summary: first snippet or assembled text
+        summary = all_snippets[0][:240] if all_snippets else f"Research on {topic}"
+        explanation = "\n\n".join(all_snippets[:3])[:800] if len(all_snippets) > 1 else summary
+
+        # Derive follow-up topics from frequent non-topic terms
+        follow_up = _gap_queries_from_snippets(topic, all_snippets, max_gaps=3)
+
+        # Determine aggregate source type
+        source_types = set(
+            result.phase_results[ph].source_type
+            for ph in result.phases_run
+            if ph in result.phase_results
+        )
+        if source_types == {"internal"}:
+            source_type = "internal"
+        elif "external" in source_types and "internal" in source_types:
+            source_type = "mixed"
+        else:
+            source_type = "external"
+
+        return ResearchMemoryArtifact(
+            topic=topic,
+            summary=summary,
+            explanation=explanation,
+            references=list(dict.fromkeys(all_sources)),
+            semantic_links=follow_up,
+            confidence_score=result.confidence_score,
+            source_type=source_type,
+            follow_up_topics=follow_up,
+            phases_run=list(result.phases_run),
+            total_facts=result.total_facts,
+        )
+
+    def _persist_research_artifact(self, artifact: ResearchMemoryArtifact) -> None:
+        """Persist a ResearchMemoryArtifact to KB and governed memory."""
+        if not self.knowledge_db:
+            return
+        topic_slug = artifact.topic.replace(" ", "_")
+        ts = artifact.created_at
+        try:
+            self.knowledge_db.add_fact(
+                f"research_artifact:{topic_slug}:{ts}",
+                artifact.to_dict(),
+                tags=[
+                    "research_artifact",
+                    "ale_learned",
+                    artifact.source_type,
+                    topic_slug.split("_")[0][:20],
+                ],
+            )
+        except Exception as exc:
+            log.debug("[PhasedResearch] Artifact persist failed: %s", exc)
+
+        # Best-effort: also normalise through governed memory contract
+        try:
+            from shared.governance_contract.memory_contracts import normalize_memory_payload
+            payload = normalize_memory_payload(
+                artifact.to_dict(),
+                text=artifact.explanation or artifact.summary,
+                memory_type="semantic_memory",
+                authority="phased_research_engine",
+            )
+            # Enrich with intelligence fields
+            payload["confidence_score"] = artifact.confidence_score
+            payload["source_type"] = artifact.source_type
+            payload["last_verified_at"] = ts
+            payload["related_concepts"] = artifact.semantic_links
+            self.knowledge_db.add_fact(
+                f"governed_research:{topic_slug}:{ts}",
+                payload,
+                tags=["governed", "research_artifact", "ale_learned"],
+            )
+        except Exception as exc:
+            log.debug("[PhasedResearch] Governed artifact persist failed: %s", exc)
 
     # ------------------------------------------------------------------
     # Timeout wrapper
@@ -833,7 +1192,7 @@ class PhasedResearchEngine:
                 error_box.append(str(e))
 
         t0 = time.monotonic()
-        label = {1: "Basic", 2: "Advanced", 3: "Code"}.get(phase, str(phase))
+        label = {0: "Internal", 1: "Basic", 2: "Advanced", 3: "Code"}.get(phase, str(phase))
         log.info("🔍 [PhasedResearch Phase %d/%s] Topic: %r (%.0fs budget)", phase, label, topic, timeout)
 
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
