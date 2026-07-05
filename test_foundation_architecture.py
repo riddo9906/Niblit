@@ -39,7 +39,9 @@ def test_foundation_architecture_tracks_dialogue_understanding_and_governance() 
     assert status["governance"]["proposals"][-1]["requires_validation"] is True
 
 
-def test_runtime_manager_registers_foundation_architecture_service() -> None:
+def test_runtime_manager_registers_foundation_architecture_service(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(RuntimeManager, "_resolve_project_root", lambda self: tmp_path)
+    monkeypatch.chdir(tmp_path)
     runtime = RuntimeManager()
 
     diagnostics = runtime.get_diagnostics()

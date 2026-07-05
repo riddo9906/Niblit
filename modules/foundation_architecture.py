@@ -362,11 +362,21 @@ class FoundationArchitecture:
         return {}
 
     def _persist(self) -> None:
-        if self._persistence_manager is None or not hasattr(self._persistence_manager, "write_json_file"):
+        if self._persistence_manager is None or not hasattr(self._persistence_manager, "append_jsonl_record"):
             return
         try:
             root = getattr(self._persistence_manager, "root_dir", "")
-            path = f"{root}/foundation_architecture.json" if root else "foundation_architecture.json"
-            self._persistence_manager.write_json_file(path, self.status())
+            path = f"{root}/cognitive/foundation_architecture.jsonl" if root else "cognitive/foundation_architecture.jsonl"
+            self._persistence_manager.append_jsonl_record(
+                path,
+                {
+                    "runtime_id": self.runtime_id,
+                    "event_count": self._event_count,
+                    "last_event": dict(self._last_event),
+                    "last_model_selection": dict(self._last_model_selection),
+                    "knowledge_gaps": list(self._knowledge_gaps[-10:]),
+                    "study_objectives": list(self._study_objectives[-10:]),
+                },
+            )
         except Exception:
             return
