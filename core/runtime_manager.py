@@ -520,7 +520,59 @@ class RuntimeManager:
         )
         self.event_bus.subscribe_all(foundation.observe_event)
         foundation.record_model_selection({"active_provider": getattr(self.get_local_brain(), "model_name", "")})
+
+        # Phase 2: Attach feedback loop
+        try:
+            feedback_loop = self._build_cognitive_feedback_loop()
+            foundation.set_feedback_loop(feedback_loop)
+            self._service_registry["cognitive_feedback_loop"] = feedback_loop
+            self._set_service_status("cognitive_feedback_loop", "ready")
+        except Exception as exc:
+            self._set_service_status("cognitive_feedback_loop", "degraded", str(exc))
+
+        # Phase 3: Attach reflection engine
+        try:
+            from modules.reflection_engine import get_reflection_engine
+            foundation.set_reflection_engine(get_reflection_engine())
+        except Exception:
+            pass
+
+        # Phase 6: Attach local brain for consultation
+        try:
+            foundation.set_local_brain(self.get_local_brain())
+        except Exception:
+            pass
+
+        # Phase 7: Attach provenance service
+        try:
+            foundation.set_provenance_service(self.get_provenance_service())
+        except Exception:
+            pass
+
+        # Phase 1: Register all known subsystems
+        for name, svc in list(self._service_registry.items()):
+            try:
+                foundation.register_subsystem(
+                    name,
+                    role=type(svc).__name__,
+                    module_path=type(svc).__module__,
+                    service_ref=svc,
+                )
+            except Exception:
+                pass
+
+        # Phase 12: Validate unified path
+        try:
+            foundation.validate_unified_path()
+        except Exception:
+            pass
+
         return foundation
+
+    def _build_cognitive_feedback_loop(self) -> Any:
+        from modules.cognitive_feedback_loop import CognitiveFeedbackLoop
+
+        return CognitiveFeedbackLoop()
 
     def _build_memory_graph(self) -> Any:
         from modules.memory_graph import get_memory_graph
@@ -771,6 +823,7 @@ class RuntimeManager:
             "knowledge_comprehension",
             "local_brain",
             "foundation_architecture",
+            "cognitive_feedback_loop",
         ]:
             if name in self._service_registry:
                 services[name] = {
