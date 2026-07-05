@@ -785,8 +785,8 @@ class NiblitUnifiedRuntime:
 
     def _build_provenance_service(self) -> Any | None:
         try:
-            from modules.provenance_service import ProvenanceService
             from niblit_memory import PersistenceManager
+            from modules.provenance_service import ProvenanceService
 
             manager = PersistenceManager(root_dir=str(self._state_file.parent / "runtime"))
             manager.initialize_runtime_assets()
@@ -797,8 +797,8 @@ class NiblitUnifiedRuntime:
 
     def _build_runtime_architecture_model(self) -> Any | None:
         try:
-            from modules.runtime_architecture_model import RuntimeArchitectureModel
             from niblit_memory import PersistenceManager
+            from modules.runtime_architecture_model import RuntimeArchitectureModel
 
             manager = PersistenceManager(root_dir=str(self._state_file.parent / "runtime"))
             manager.initialize_runtime_assets()
