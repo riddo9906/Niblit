@@ -1,0 +1,151 @@
+{
+    "nodes": [
+        {
+            "node": "HypothesisEngine",
+            "role": "source",
+            "updated_at": 1783245684.3691533
+        },
+        {
+            "node": "runtime",
+            "role": "target",
+            "updated_at": 1783245684.369154
+        },
+        {
+            "node": "NiblitUnifiedRuntime",
+            "role": "source",
+            "updated_at": 1783245684.3745022
+        },
+        {
+            "node": "runtime_manager",
+            "role": "source",
+            "updated_at": 1783245684.3803623
+        },
+        {
+            "node": "AdaptiveMarketCognitionLayer",
+            "role": "source",
+            "updated_at": 1783245684.7933025
+        },
+        {
+            "node": "distributed_runtime_coordinator",
+            "role": "source",
+            "updated_at": 1783245684.7993228
+        },
+        {
+            "node": "cognition",
+            "role": "target",
+            "updated_at": 1783245684.7993238
+        },
+        {
+            "node": "orchestration",
+            "role": "target",
+            "updated_at": 1783245685.470126
+        }
+    ],
+    "edges": [
+        {
+            "source": "HypothesisEngine",
+            "target": "runtime",
+            "event_type": "hypothesis.created",
+            "count": 8,
+            "category": "runtime",
+            "trace_id": "unified-4aa94135f74b:hypothesis.created:33",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245685.4623115
+        },
+        {
+            "source": "HypothesisEngine",
+            "target": "runtime",
+            "event_type": "hypothesis.evidence.ingested",
+            "count": 14,
+            "category": "runtime",
+            "trace_id": "unified-4aa94135f74b:hypothesis.evidence.ingested:36",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245685.4683151
+        },
+        {
+            "source": "NiblitUnifiedRuntime",
+            "target": "runtime",
+            "event_type": "boot.sequence",
+            "count": 1,
+            "category": "runtime",
+            "trace_id": "unified-4aa94135f74b:boot",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245684.3745048
+        },
+        {
+            "source": "runtime_manager",
+            "target": "runtime",
+            "event_type": "runtime.system.started",
+            "count": 1,
+            "category": "runtime",
+            "trace_id": "runtime-62f38ce58607:system_started:1783245684346",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245684.3803651
+        },
+        {
+            "source": "AdaptiveMarketCognitionLayer",
+            "target": "runtime",
+            "event_type": "market.intelligence.finalized",
+            "count": 4,
+            "category": "runtime",
+            "trace_id": "unified-4aa94135f74b:market_episode.ingested:1783245685313",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245685.3773894
+        },
+        {
+            "source": "distributed_runtime_coordinator",
+            "target": "cognition",
+            "event_type": "trade_reflection.ingested",
+            "count": 2,
+            "category": "cognition",
+            "trace_id": "unified-4aa94135f74b:trade_reflection.ingested:1783245684820",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245684.889173
+        },
+        {
+            "source": "distributed_runtime_coordinator",
+            "target": "runtime",
+            "event_type": "market_episode.ingested",
+            "count": 2,
+            "category": "runtime",
+            "trace_id": "unified-4aa94135f74b:market_episode.ingested:1783245685313",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245685.3817444
+        },
+        {
+            "source": "distributed_runtime_coordinator",
+            "target": "runtime",
+            "event_type": "runtime_mode.changed",
+            "count": 2,
+            "category": "runtime",
+            "trace_id": "unified-4aa94135f74b:runtime_mode.changed:1783245685435",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245685.4386795
+        },
+        {
+            "source": "distributed_runtime_coordinator",
+            "target": "runtime",
+            "event_type": "execution_envelope.published",
+            "count": 1,
+            "category": "runtime",
+            "trace_id": "runtime-62f38ce58607:execution_envelope.published:1783245685459",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245685.4661317
+        },
+        {
+            "source": "distributed_runtime_coordinator",
+            "target": "orchestration",
+            "event_type": "execution_envelope.published",
+            "count": 1,
+            "category": "orchestration",
+            "trace_id": "unified-4aa94135f74b:execution_envelope.published:1783245685467",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783245685.4701276
+        }
+    ],
+    "summary": {
+        "node_count": 8,
+        "edge_count": 10,
+        "last_updated_at": 1783245685.4701278
+    }
+}
