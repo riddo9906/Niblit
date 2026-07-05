@@ -231,7 +231,13 @@ class FoundationArchitecture:
             },
         )
         record["runtime_usage"] += 1
-        score = float(payload.get("quality_score", payload.get("evaluation_score", payload.get("confidence_score", 0.5))) or 0.5)
+        raw_score = (
+            payload.get("quality_score")
+            or payload.get("evaluation_score")
+            or payload.get("confidence_score")
+            or 0.5
+        )
+        score = float(raw_score)
         record["confidence"] = round(max(0.0, min(1.0, (record["confidence"] * 0.7) + (score * 0.3))), 3)
         record["understanding_score"] = round(max(0.0, min(1.0, (record["understanding_score"] * 0.6) + (score * 0.4))), 3)
         evidence = payload.get("summary") or payload.get("response") or event_dict.get("type", "")
@@ -344,7 +350,12 @@ class FoundationArchitecture:
 
     def _normalize_event(self, event: Any) -> dict[str, Any]:
         if isinstance(event, dict):
-            return {"type": event.get("type", "runtime.event"), "source": event.get("source", "runtime"), "payload": dict(event.get("payload", {}) or {}), "timestamp": event.get("timestamp", time.time())}
+            return {
+                "type": event.get("type", "runtime.event"),
+                "source": event.get("source", "runtime"),
+                "payload": dict(event.get("payload", {}) or {}),
+                "timestamp": event.get("timestamp", time.time()),
+            }
         payload = dict(getattr(event, "payload", {}) or {})
         return {
             "type": getattr(event, "type_name", None) or getattr(event, "type", "runtime.event"),
