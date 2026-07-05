@@ -93,6 +93,12 @@ class RuntimeState:
     contradiction_dashboard: dict[str, Any] = field(default_factory=dict)
     capabilities: list[dict[str, Any]] = field(default_factory=list)
     capability_summary: dict[str, Any] = field(default_factory=dict)
+    foundation_status: dict[str, Any] = field(default_factory=dict)
+    runtime_dialogue: list[dict[str, Any]] = field(default_factory=list)
+    understanding_layer: dict[str, Any] = field(default_factory=dict)
+    memory_layers: dict[str, Any] = field(default_factory=dict)
+    model_manager: dict[str, Any] = field(default_factory=dict)
+    governance: dict[str, Any] = field(default_factory=dict)
     last_updated_at: float = field(default_factory=_utc_ts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -753,6 +759,7 @@ class NiblitUnifiedRuntime:
         self._load_state()
         self._provenance_service = self._build_provenance_service()
         self._architecture_model = self._build_runtime_architecture_model()
+        self._foundation_architecture = self._build_foundation_architecture()
         self._event_bus.subscribe(self._observe_runtime_event)
         self._bridge_module_event_bus()
         self._event_bus.emit(
@@ -798,6 +805,21 @@ class NiblitUnifiedRuntime:
             return RuntimeArchitectureModel(persistence_manager=manager)
         except Exception as exc:
             log.debug("Failed building runtime architecture model: %s", exc)
+            return None
+
+    def _build_foundation_architecture(self) -> Any | None:
+        try:
+            from modules.foundation_architecture import FoundationArchitecture
+
+            foundation = FoundationArchitecture(
+                runtime_id=self.runtime_id,
+                persistence_manager=getattr(self._provenance_service, "_persistence_manager", None),
+                architecture_model=self._architecture_model,
+            )
+            foundation.record_model_selection({"active_provider": self._state.active_provider})
+            return foundation
+        except Exception as exc:
+            log.warning("Foundation architecture unavailable; runtime will degrade gracefully: %s", exc)
             return None
 
     def _update_from_status(self, *, core: Any) -> dict[str, Any]:
@@ -880,6 +902,40 @@ class NiblitUnifiedRuntime:
                     "unresolved_contradiction_count", 0
                 ),
             }
+            local_brain_status = {}
+            try:
+                from modules.local_brain import get_local_brain
+
+                local_brain = get_local_brain()
+                if hasattr(local_brain, "status"):
+                    local_brain_status = dict(local_brain.status() or {})
+                else:
+                    local_brain_status = {"model_name": getattr(local_brain, "model_name", "")}
+            except Exception:
+                local_brain_status = {}
+            foundation_status = {}
+            if self._foundation_architecture is not None:
+                self._foundation_architecture.record_model_selection(
+                    {
+                        "active_provider": provider_status.get("active_provider"),
+                        "provider_rankings": provider_status.get("manager_status", {}).get("provider_rankings", {}),
+                    }
+                )
+                foundation_status = self._foundation_architecture.status(
+                    provider_status=provider_status,
+                    event_stats=self._event_bus.stats(),
+                    cognitive_status=cognitive_status,
+                    market_status=self._state.market_intelligence,
+                    runtime_health={"runtime_state": self._state.runtime_mode},
+                    local_brain_status=local_brain_status,
+                    architecture_status=self._architecture_model.status() if self._architecture_model is not None else {},
+                )
+            self._state.foundation_status = dict(foundation_status)
+            self._state.runtime_dialogue = list(foundation_status.get("runtime_dialogue", []))
+            self._state.understanding_layer = dict(foundation_status.get("understanding_layer", {}))
+            self._state.memory_layers = dict(foundation_status.get("memory_layers", {}))
+            self._state.model_manager = dict(foundation_status.get("model_manager", {}))
+            self._state.governance = dict(foundation_status.get("governance", {}))
             self._state.telemetry_snapshots.append(dict(telemetry))
             if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
                 self._state.telemetry_snapshots = self._state.telemetry_snapshots[-MAX_TELEMETRY_HISTORY:]
@@ -902,6 +958,7 @@ class NiblitUnifiedRuntime:
                 "events": self._event_bus.stats(),
                 "cognition": cognition_payload,
                 "legacy_cognition": dict(self._state.cognition_recovery),
+                "foundation": dict(foundation_status),
             }
 
     def boot(self, core: Any | None = None) -> dict[str, Any]:
@@ -985,6 +1042,8 @@ class NiblitUnifiedRuntime:
                         }
                     )
                     self._state.cognitive_sessions = self._state.cognitive_sessions[-60:]
+            if self._foundation_architecture is not None:
+                self._foundation_architecture.observe_event(event_dict)
             self._record_canonical_event(event_dict)
             self._run_post_execution_feedback(event_dict, episode=episode)
         except Exception as exc:
@@ -1222,6 +1281,12 @@ class NiblitUnifiedRuntime:
             "legacy_cognition": status.get("legacy_cognition", {}),
             "capabilities": status["state"].get("capabilities", []),
             "capability_summary": status["state"].get("capability_summary", {}),
+            "foundation": status.get("foundation", {}),
+            "runtime_dialogue": status["state"].get("runtime_dialogue", []),
+            "understanding_layer": status["state"].get("understanding_layer", {}),
+            "memory_layers": status["state"].get("memory_layers", {}),
+            "model_manager": status["state"].get("model_manager", {}),
+            "governance": status["state"].get("governance", {}),
         }
 
 

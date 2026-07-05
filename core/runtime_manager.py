@@ -39,18 +39,19 @@ import sys
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from core.cognitive_contract import normalize_event_envelope
 from core.event_bus import Event, EventBus, EventType
-from core.runtime_health import RuntimeHealth
 from core.orchestrator import Orchestrator
+from core.runtime_health import RuntimeHealth
 from core.task_queue import Priority, Task, TaskQueue
 
 log = logging.getLogger("RuntimeManager")
 
-_PRIORITY_MAP: Dict[str, Priority] = {
+_PRIORITY_MAP: dict[str, Priority] = {
     "low": Priority.LOW,
     "normal": Priority.NORMAL,
     "high": Priority.HIGH,
@@ -82,21 +83,21 @@ class RuntimeManager:
         self.orchestrator = Orchestrator(self.event_bus, self.task_queue)
         self._module_bus = None
         self._module_bus_attached = False
-        self._service_registry: Dict[str, Any] = {}
-        self._service_statuses: Dict[str, Dict[str, Any]] = {}
-        self._service_load_durations_ms: Dict[str, float] = {}
-        self._service_init_order: List[str] = []
-        self._optional_module_report: Dict[str, List[str]] = {"loaded": [], "failed": []}
-        self._singleton_warnings: List[str] = []
+        self._service_registry: dict[str, Any] = {}
+        self._service_statuses: dict[str, dict[str, Any]] = {}
+        self._service_load_durations_ms: dict[str, float] = {}
+        self._service_init_order: list[str] = []
+        self._optional_module_report: dict[str, list[str]] = {"loaded": [], "failed": []}
+        self._singleton_warnings: list[str] = []
         self._lifecycle_state = "created"
-        self._extension_points: Dict[str, Any] = {}
-        self._runtime_timeline: List[Dict[str, Any]] = []
-        self._startup_warnings: List[str] = []
-        self._dependency_validation: Dict[str, Any] = {"status": "ok", "issues": []}
-        self._runtime_health: Optional[RuntimeHealth] = None
-        self._persistence_manager: Optional[Any] = None
-        self._provenance_service: Optional[Any] = None
-        self._runtime_architecture_model: Optional[Any] = None
+        self._extension_points: dict[str, Any] = {}
+        self._runtime_timeline: list[dict[str, Any]] = []
+        self._startup_warnings: list[str] = []
+        self._dependency_validation: dict[str, Any] = {"status": "ok", "issues": []}
+        self._runtime_health: RuntimeHealth | None = None
+        self._persistence_manager: Any | None = None
+        self._provenance_service: Any | None = None
+        self._runtime_architecture_model: Any | None = None
 
         self._running = False
         self._record_timeline_event("startup", "runtime_manager", "runtime", "info", 0.0, "runtime_manager_init")
@@ -104,7 +105,7 @@ class RuntimeManager:
         self._validate_dependencies()
         self.initialize_runtime_services()
         self._transition_lifecycle("loaded", "ready")
-        self._loop_thread: Optional[threading.Thread] = None
+        self._loop_thread: threading.Thread | None = None
         self._attach_runtime_bridges()
         self._runtime_health = RuntimeHealth(self)
         self._record_timeline_event("startup", "runtime_manager", "runtime", "info", 0.0, "runtime_ready")
@@ -135,7 +136,7 @@ class RuntimeManager:
     def submit_task(
         self,
         task_type: str,
-        payload: Optional[Dict[str, Any]] = None,
+        payload: dict[str, Any] | None = None,
         priority: str = "normal",
         source: str = "runtime_manager",
     ) -> Task:
@@ -213,7 +214,7 @@ class RuntimeManager:
 
     # ── stats / introspection ─────────────────────────────────────────────────
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "running": self._running,
             "runtime_id": self.runtime_id,
@@ -238,7 +239,7 @@ class RuntimeManager:
     def get_extension_point(self, name: str, default: Any = None) -> Any:
         return self._extension_points.get(name, default)
 
-    def register_extension(self, name: str, interface: str, lifecycle: str = "managed", dependencies: Optional[List[str]] = None, payload: Any = None) -> None:
+    def register_extension(self, name: str, interface: str, lifecycle: str = "managed", dependencies: list[str] | None = None, payload: Any = None) -> None:
         self.register_extension_point(
             name,
             {
@@ -265,7 +266,7 @@ class RuntimeManager:
             self._runtime_timeline = self._runtime_timeline[-1000:]
 
     def _validate_dependencies(self) -> None:
-        issues: List[str] = []
+        issues: list[str] = []
         try:
             import importlib
 
@@ -290,18 +291,18 @@ class RuntimeManager:
         if issues:
             self._record_timeline_event("validation", "runtime_manager", "runtime", "warning", 0.0, ";".join(issues))
 
-    def get_dependency_validation(self) -> Dict[str, Any]:
+    def get_dependency_validation(self) -> dict[str, Any]:
         return dict(self._dependency_validation)
 
-    def get_startup_warnings(self) -> List[str]:
+    def get_startup_warnings(self) -> list[str]:
         return list(self._startup_warnings)
 
-    def get_runtime_health(self) -> Dict[str, Any]:
+    def get_runtime_health(self) -> dict[str, Any]:
         if self._runtime_health is None:
             self._runtime_health = RuntimeHealth(self)
         return self._runtime_health.snapshot(force=True)
 
-    def get_runtime_metrics(self) -> Dict[str, Any]:
+    def get_runtime_metrics(self) -> dict[str, Any]:
         diagnostics = self.get_diagnostics()
         services = self.get_runtime_services()
         modules = self.get_runtime_modules()
@@ -323,7 +324,7 @@ class RuntimeManager:
             },
         }
 
-    def get_runtime_services(self) -> Dict[str, Any]:
+    def get_runtime_services(self) -> dict[str, Any]:
         diagnostics = self.get_diagnostics()
         return {
             "runtime_state": diagnostics["runtime_state"],
@@ -331,7 +332,7 @@ class RuntimeManager:
             "services": diagnostics.get("services", {}),
         }
 
-    def get_runtime_modules(self) -> Dict[str, Any]:
+    def get_runtime_modules(self) -> dict[str, Any]:
         optional = self._optional_module_report or {"loaded": [], "failed": []}
         return {
             "runtime_state": self._lifecycle_state,
@@ -341,7 +342,7 @@ class RuntimeManager:
             "failed_module_count": len(optional.get("failed", [])),
         }
 
-    def get_runtime_threads(self) -> Dict[str, Any]:
+    def get_runtime_threads(self) -> dict[str, Any]:
         threads = []
         for thread in threading.enumerate():
             threads.append({
@@ -351,7 +352,7 @@ class RuntimeManager:
             })
         return {"thread_count": len(threads), "threads": threads}
 
-    def get_runtime_events(self, limit: int = 100) -> Dict[str, Any]:
+    def get_runtime_events(self, limit: int = 100) -> dict[str, Any]:
         events = list(self.event_bus.get_history(limit=limit))
         return {
             "event_count": len(events),
@@ -366,11 +367,11 @@ class RuntimeManager:
             ],
         }
 
-    def get_runtime_timeline(self, limit: int = 100) -> Dict[str, Any]:
+    def get_runtime_timeline(self, limit: int = 100) -> dict[str, Any]:
         timeline = list(self._runtime_timeline[-limit:])
         return {"event_count": len(timeline), "events": timeline}
 
-    def get_runtime_commands(self) -> Dict[str, Any]:
+    def get_runtime_commands(self) -> dict[str, Any]:
         return {
             "runtime.status": "Returns current runtime state and service health.",
             "runtime.health": "Returns runtime health and resource usage.",
@@ -382,7 +383,7 @@ class RuntimeManager:
             "runtime.report": "Returns the runtime architecture report.",
         }
 
-    def execute_runtime_command(self, command: str, **kwargs: Any) -> Dict[str, Any]:
+    def execute_runtime_command(self, command: str, **kwargs: Any) -> dict[str, Any]:
         command = (command or "").strip().lower()
         if command == "runtime.status":
             return self.get_runtime_services()
@@ -402,7 +403,7 @@ class RuntimeManager:
             return self.get_runtime_report()
         return {"error": "unknown_command", "command": command}
 
-    def initialize_runtime_services(self) -> Dict[str, Any]:
+    def initialize_runtime_services(self) -> dict[str, Any]:
         """Initialize core services in a deterministic order."""
         self._service_init_order = []
         self._service_registry = {}
@@ -423,6 +424,7 @@ class RuntimeManager:
         self._initialize_service("provenance_service", lambda: self._build_provenance_service())
         self._initialize_service("runtime_architecture_model", lambda: self._build_runtime_architecture_model())
         self._initialize_service("cognitive_ingress", lambda: self._build_cognitive_ingress())
+        self._initialize_service("foundation_architecture", lambda: self._build_foundation_architecture())
         self._initialize_service("local_brain", lambda: self._build_local_brain())
         self._load_optional_modules()
         self.register_extension(
@@ -431,6 +433,13 @@ class RuntimeManager:
             lifecycle="managed",
             dependencies=["reasoning_engine", "provenance_service", "runtime_architecture_model"],
             payload={"entry_point": "modules.cognitive_ingress.get_cognitive_ingress", "contract": "core.cognitive_contract"},
+        )
+        self.register_extension(
+            "foundation_architecture",
+            interface="FoundationArchitecture",
+            lifecycle="managed",
+            dependencies=["cognitive_ingress", "provenance_service", "runtime_architecture_model"],
+            payload={"entry_point": "modules.foundation_architecture.FoundationArchitecture", "contract": "unified_feedback_path"},
         )
         return self.get_diagnostics()
 
@@ -451,7 +460,7 @@ class RuntimeManager:
         self._set_service_status(name, "ready")
         return service
 
-    def _set_service_status(self, name: str, status: str, detail: Optional[str] = None) -> None:
+    def _set_service_status(self, name: str, status: str, detail: str | None = None) -> None:
         entry = self._service_statuses.get(name, {})
         entry["status"] = status
         if detail is not None:
@@ -500,6 +509,75 @@ class RuntimeManager:
             provenance_service=self.get_provenance_service(),
             architecture_model=self.get_runtime_architecture_model(),
         )
+
+    def _build_foundation_architecture(self) -> Any:
+        from modules.foundation_architecture import FoundationArchitecture
+
+        foundation = FoundationArchitecture(
+            runtime_id=self.runtime_id,
+            persistence_manager=self.get_persistence_manager(),
+            architecture_model=self.get_runtime_architecture_model(),
+        )
+        self.event_bus.subscribe_all(foundation.observe_event)
+        try:
+            local_brain = self.get_local_brain()
+            active_provider = getattr(local_brain, "model_name", "")
+        except Exception:
+            active_provider = ""
+        foundation.record_model_selection({"active_provider": active_provider})
+
+        # Phase 2: Attach feedback loop
+        try:
+            feedback_loop = self._build_cognitive_feedback_loop()
+            foundation.set_feedback_loop(feedback_loop)
+            self._service_registry["cognitive_feedback_loop"] = feedback_loop
+            self._set_service_status("cognitive_feedback_loop", "ready")
+        except Exception as exc:
+            self._set_service_status("cognitive_feedback_loop", "degraded", str(exc))
+
+        # Phase 3: Attach reflection engine
+        try:
+            from modules.reflection_engine import get_reflection_engine
+            foundation.set_reflection_engine(get_reflection_engine())
+        except Exception:
+            pass
+
+        # Phase 6: Attach local brain for consultation
+        try:
+            foundation.set_local_brain(self.get_local_brain())
+        except Exception:
+            pass
+
+        # Phase 7: Attach provenance service
+        try:
+            foundation.set_provenance_service(self.get_provenance_service())
+        except Exception:
+            pass
+
+        # Phase 1: Register all known subsystems
+        for name, svc in list(self._service_registry.items()):
+            try:
+                foundation.register_subsystem(
+                    name,
+                    role=type(svc).__name__,
+                    module_path=type(svc).__module__,
+                    service_ref=svc,
+                )
+            except Exception:
+                pass
+
+        # Phase 12: Validate unified path
+        try:
+            foundation.validate_unified_path()
+        except Exception:
+            pass
+
+        return foundation
+
+    def _build_cognitive_feedback_loop(self) -> Any:
+        from modules.cognitive_feedback_loop import CognitiveFeedbackLoop
+
+        return CognitiveFeedbackLoop()
 
     def _build_memory_graph(self) -> Any:
         from modules.memory_graph import get_memory_graph
@@ -641,14 +719,21 @@ class RuntimeManager:
             self._set_service_status("cognitive_ingress", "degraded", str(exc))
             raise
 
+    def get_foundation_architecture(self) -> Any:
+        try:
+            return self._initialize_service("foundation_architecture", self._build_foundation_architecture)
+        except Exception as exc:
+            self._set_service_status("foundation_architecture", "degraded", str(exc))
+            raise
+
     def process_cognitive_request(
         self,
         text: str,
         *,
         source: str = "runtime_manager",
         priority: str = "normal",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         execution = self.get_cognitive_ingress().ingest(
             text,
             source=source,
@@ -729,7 +814,7 @@ class RuntimeManager:
             self._set_service_status("local_brain", "degraded", str(exc))
             raise
 
-    def get_diagnostics(self) -> Dict[str, Any]:
+    def get_diagnostics(self) -> dict[str, Any]:
         """Expose lightweight runtime diagnostics, including service health."""
         services = {}
         for name in [
@@ -742,6 +827,8 @@ class RuntimeManager:
             "cognitive_synthesis_engine",
             "knowledge_comprehension",
             "local_brain",
+            "foundation_architecture",
+            "cognitive_feedback_loop",
         ]:
             if name in self._service_registry:
                 services[name] = {
@@ -778,7 +865,7 @@ class RuntimeManager:
             "extension_points": dict(self._extension_points),
         }
 
-    def get_runtime_report(self) -> Dict[str, Any]:
+    def get_runtime_report(self) -> dict[str, Any]:
         """Return a structured runtime architecture snapshot for operators and tests."""
         diagnostics = self.get_diagnostics()
         return {
@@ -821,7 +908,7 @@ class RuntimeManager:
         except Exception:
             return Path(__file__).resolve().parent.parent
 
-    def _sys_path_additions(self) -> List[str]:
+    def _sys_path_additions(self) -> list[str]:
         root = self._resolve_project_root()
         return [str(path) for path in [root, root / "modules"] if str(path) in sys.path]
 
@@ -847,7 +934,7 @@ class RuntimeManager:
         except Exception as exc:
             log.debug("[RuntimeManager] module event bridge unavailable: %s", exc)
 
-    def _lineage_payload(self, payload: Dict[str, Any] | None, event_type: str, source: str) -> Dict[str, Any]:
+    def _lineage_payload(self, payload: dict[str, Any] | None, event_type: str, source: str) -> dict[str, Any]:
         data = dict(payload or {})
         data.setdefault("trace_id", data.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}")
         data.setdefault("runtime_id", self.runtime_id)
@@ -906,7 +993,7 @@ class RuntimeManager:
         }
         return mapping.get(event_type, event_type)
 
-    def _emit_to_unified_runtime(self, event_type: str, source: str, payload: Dict[str, Any]) -> None:
+    def _emit_to_unified_runtime(self, event_type: str, source: str, payload: dict[str, Any]) -> None:
         try:
             from modules.unified_runtime import get_unified_runtime
 

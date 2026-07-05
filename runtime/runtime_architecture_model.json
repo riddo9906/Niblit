@@ -1,0 +1,71 @@
+{
+    "nodes": [
+        {
+            "node": "HypothesisEngine",
+            "role": "source",
+            "updated_at": 1783267446.9350204
+        },
+        {
+            "node": "runtime",
+            "role": "target",
+            "updated_at": 1783267446.9350214
+        },
+        {
+            "node": "NiblitUnifiedRuntime",
+            "role": "source",
+            "updated_at": 1783267446.9440634
+        },
+        {
+            "node": "runtime_manager",
+            "role": "source",
+            "updated_at": 1783267446.9592006
+        }
+    ],
+    "edges": [
+        {
+            "source": "HypothesisEngine",
+            "target": "runtime",
+            "event_type": "hypothesis.created",
+            "count": 2,
+            "category": "runtime",
+            "trace_id": "unified-19fd5f491591:hypothesis.created:5",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783267446.9495091
+        },
+        {
+            "source": "HypothesisEngine",
+            "target": "runtime",
+            "event_type": "hypothesis.evidence.ingested",
+            "count": 2,
+            "category": "runtime",
+            "trace_id": "unified-19fd5f491591:hypothesis.evidence.ingested:6",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783267446.954188
+        },
+        {
+            "source": "NiblitUnifiedRuntime",
+            "target": "runtime",
+            "event_type": "boot.sequence",
+            "count": 1,
+            "category": "runtime",
+            "trace_id": "unified-19fd5f491591:boot",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783267446.944066
+        },
+        {
+            "source": "runtime_manager",
+            "target": "runtime",
+            "event_type": "runtime.system.started",
+            "count": 1,
+            "category": "runtime",
+            "trace_id": "runtime-fe1bf30ffc0f:system_started:1783267446926",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783267446.959203
+        }
+    ],
+    "summary": {
+        "node_count": 4,
+        "edge_count": 4,
+        "last_updated_at": 1783267446.9592032
+    }
+}
