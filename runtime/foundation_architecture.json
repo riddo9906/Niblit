@@ -1,0 +1,376 @@
+{
+    "runtime_engineering": {
+        "runtime_id": "unified-190f4b1162ba",
+        "persistence_first": true,
+        "event_bus_only": true,
+        "lifecycle_state": "ready",
+        "health_monitoring": false,
+        "automatic_recovery": true,
+        "graceful_degradation": true
+    },
+    "cognitive_loop": {
+        "phases": [
+            "request",
+            "intent_analysis",
+            "planning",
+            "reasoning",
+            "execution",
+            "observation",
+            "reflection",
+            "knowledge_extraction",
+            "knowledge_validation",
+            "knowledge_storage",
+            "understanding_update",
+            "structural_awareness_update",
+            "future_decision_improvement"
+        ],
+        "unified_feedback_path": true,
+        "last_trace_id": "runtime-8bc52761a1a3:system_started:1783245871471"
+    },
+    "memory_layers": {
+        "runtime_state": {
+            "persistent": false,
+            "entries": 0
+        },
+        "working_memory": {
+            "persistent": false,
+            "entries": 0
+        },
+        "knowledge_memory": {
+            "persistent": true,
+            "entries": 0
+        },
+        "semantic_memory": {
+            "persistent": true,
+            "entries": 3
+        },
+        "reflection_memory": {
+            "persistent": true,
+            "entries": 0
+        },
+        "procedural_memory": {
+            "persistent": true,
+            "entries": 6
+        },
+        "market_memory": {
+            "persistent": true,
+            "entries": 0
+        },
+        "architecture_memory": {
+            "persistent": true,
+            "entries": 3
+        }
+    },
+    "knowledge_processing": {
+        "pipeline": [
+            "capture",
+            "parsing",
+            "semantic_understanding",
+            "reflection",
+            "validation",
+            "knowledge_extraction",
+            "relationship_detection",
+            "confidence_scoring",
+            "knowledge_graph",
+            "knowledge_db",
+            "retrieval_index"
+        ],
+        "raw_information_persisted": false
+    },
+    "understanding_layer": {
+        "concept_count": 5,
+        "concepts": [
+            {
+                "concept": "boot sequence",
+                "understanding_score": 0.5,
+                "confidence": 0.5,
+                "supporting_evidence": [
+                    "hypothesis.created"
+                ],
+                "contradictions": [],
+                "related_concepts": [],
+                "runtime_usage": 1,
+                "reflection_count": 0,
+                "successful_predictions": 0,
+                "failed_predictions": 1,
+                "last_validation": 1783245871.475936,
+                "applicability": "runtime",
+                "limitations": []
+            },
+            {
+                "concept": "hypothesis.evidence.ingested",
+                "understanding_score": 0.5,
+                "confidence": 0.5,
+                "supporting_evidence": [
+                    "hypothesis.evidence.ingested"
+                ],
+                "contradictions": [],
+                "related_concepts": [],
+                "runtime_usage": 2,
+                "reflection_count": 0,
+                "successful_predictions": 0,
+                "failed_predictions": 2,
+                "last_validation": 1783245871.4893746,
+                "applicability": "runtime",
+                "limitations": []
+            },
+            {
+                "concept": "boot.sequence",
+                "understanding_score": 0.5,
+                "confidence": 0.5,
+                "supporting_evidence": [
+                    "boot.sequence"
+                ],
+                "contradictions": [],
+                "related_concepts": [],
+                "runtime_usage": 1,
+                "reflection_count": 0,
+                "successful_predictions": 0,
+                "failed_predictions": 1,
+                "last_validation": 1783245871.482558,
+                "applicability": "runtime",
+                "limitations": []
+            },
+            {
+                "concept": "runtime system started",
+                "understanding_score": 0.5,
+                "confidence": 0.5,
+                "supporting_evidence": [
+                    "hypothesis.created"
+                ],
+                "contradictions": [],
+                "related_concepts": [],
+                "runtime_usage": 1,
+                "reflection_count": 0,
+                "successful_predictions": 0,
+                "failed_predictions": 1,
+                "last_validation": 1783245871.4859364,
+                "applicability": "runtime",
+                "limitations": []
+            },
+            {
+                "concept": "runtime.system.started",
+                "understanding_score": 0.5,
+                "confidence": 0.5,
+                "supporting_evidence": [
+                    "runtime.system.started"
+                ],
+                "contradictions": [],
+                "related_concepts": [],
+                "runtime_usage": 1,
+                "reflection_count": 0,
+                "successful_predictions": 0,
+                "failed_predictions": 1,
+                "last_validation": 1783245871.492468,
+                "applicability": "runtime",
+                "limitations": []
+            }
+        ]
+    },
+    "niblit_brain": {
+        "identity_source": "accumulated_knowledge_and_reflection",
+        "reflection_count": 0,
+        "historical_reasoning_available": false
+    },
+    "local_brain": {
+        "role": "language_reasoning",
+        "persistent_identity": false,
+        "status": {}
+    },
+    "model_manager": {
+        "all_interactions_routed": true,
+        "registered_models": [],
+        "active_model": "",
+        "last_selection": {
+            "active_provider": "qwen"
+        },
+        "latency_tracking": {},
+        "confidence_tracking": {},
+        "local_brain": {}
+    },
+    "event_bus": {
+        "authoritative": true,
+        "event_count": 6,
+        "observability": {},
+        "last_event_provenance": {
+            "sender": "runtime_manager",
+            "receiver": "",
+            "module": "runtime_manager",
+            "function": "",
+            "input": "",
+            "output": "",
+            "confidence": null,
+            "affected_knowledge": [],
+            "affected_memory": [],
+            "affected_runtime_state": []
+        }
+    },
+    "runtime_dialogue": [
+        {
+            "timestamp": "2026-07-05T10:04:31Z",
+            "sender": "HypothesisEngine",
+            "receiver": "",
+            "module": "HypothesisEngine",
+            "function": "",
+            "event_type": "hypothesis.created",
+            "input": "boot sequence",
+            "output": "",
+            "duration_ms": null,
+            "confidence": null,
+            "trace_id": "unified-190f4b1162ba:hypothesis.created:2"
+        },
+        {
+            "timestamp": "2026-07-05T10:04:31Z",
+            "sender": "HypothesisEngine",
+            "receiver": "",
+            "module": "HypothesisEngine",
+            "function": "",
+            "event_type": "hypothesis.evidence.ingested",
+            "input": "",
+            "output": "",
+            "duration_ms": null,
+            "confidence": null,
+            "trace_id": "unified-190f4b1162ba:hypothesis.evidence.ingested:3"
+        },
+        {
+            "timestamp": "2026-07-05T10:04:31Z",
+            "sender": "NiblitUnifiedRuntime",
+            "receiver": "",
+            "module": "NiblitUnifiedRuntime",
+            "function": "",
+            "event_type": "boot.sequence",
+            "input": "",
+            "output": "",
+            "duration_ms": null,
+            "confidence": null,
+            "trace_id": "unified-190f4b1162ba:boot"
+        },
+        {
+            "timestamp": "2026-07-05T10:04:31Z",
+            "sender": "HypothesisEngine",
+            "receiver": "",
+            "module": "HypothesisEngine",
+            "function": "",
+            "event_type": "hypothesis.created",
+            "input": "runtime system started",
+            "output": "",
+            "duration_ms": null,
+            "confidence": null,
+            "trace_id": "unified-190f4b1162ba:hypothesis.created:5"
+        },
+        {
+            "timestamp": "2026-07-05T10:04:31Z",
+            "sender": "HypothesisEngine",
+            "receiver": "",
+            "module": "HypothesisEngine",
+            "function": "",
+            "event_type": "hypothesis.evidence.ingested",
+            "input": "",
+            "output": "",
+            "duration_ms": null,
+            "confidence": null,
+            "trace_id": "unified-190f4b1162ba:hypothesis.evidence.ingested:6"
+        },
+        {
+            "timestamp": "2026-07-05T10:04:31Z",
+            "sender": "runtime_manager",
+            "receiver": "",
+            "module": "runtime_manager",
+            "function": "",
+            "event_type": "runtime.system.started",
+            "input": "",
+            "output": "",
+            "duration_ms": null,
+            "confidence": null,
+            "trace_id": "runtime-8bc52761a1a3:system_started:1783245871471"
+        }
+    ],
+    "self_study": {
+        "continuous": true,
+        "sources": [
+            "documentation",
+            "pdfs",
+            "source_code",
+            "internet_research",
+            "market_reports",
+            "financial_data",
+            "runtime_history",
+            "previous_mistakes"
+        ],
+        "knowledge_gaps": [],
+        "future_learning_objectives": []
+    },
+    "trading_intelligence": {
+        "participates_in_unified_loop": true,
+        "market_memory_persistent": true,
+        "status": {}
+    },
+    "reflection": {
+        "permanent_knowledge": true,
+        "reflection_count": 0,
+        "latest": {}
+    },
+    "structural_awareness": {
+        "self_model_enabled": true,
+        "architecture_status": {
+            "nodes": [
+                {
+                    "node": "HypothesisEngine",
+                    "role": "source",
+                    "updated_at": 1783245871.477974
+                },
+                {
+                    "node": "runtime",
+                    "role": "target",
+                    "updated_at": 1783245871.477975
+                },
+                {
+                    "node": "NiblitUnifiedRuntime",
+                    "role": "source",
+                    "updated_at": 1783245871.4846208
+                }
+            ],
+            "edges": [
+                {
+                    "source": "HypothesisEngine",
+                    "target": "runtime",
+                    "event_type": "hypothesis.created",
+                    "count": 2,
+                    "category": "runtime",
+                    "trace_id": "unified-190f4b1162ba:hypothesis.created:5",
+                    "lineage_channel": "unified_runtime",
+                    "updated_at": 1783245871.4882903
+                },
+                {
+                    "source": "HypothesisEngine",
+                    "target": "runtime",
+                    "event_type": "hypothesis.evidence.ingested",
+                    "count": 2,
+                    "category": "runtime",
+                    "trace_id": "unified-190f4b1162ba:hypothesis.evidence.ingested:6",
+                    "lineage_channel": "unified_runtime",
+                    "updated_at": 1783245871.4915612
+                },
+                {
+                    "source": "NiblitUnifiedRuntime",
+                    "target": "runtime",
+                    "event_type": "boot.sequence",
+                    "count": 1,
+                    "category": "runtime",
+                    "trace_id": "unified-190f4b1162ba:boot",
+                    "lineage_channel": "unified_runtime",
+                    "updated_at": 1783245871.4846237
+                }
+            ],
+            "summary": {
+                "node_count": 3,
+                "edge_count": 3,
+                "last_updated_at": 1783245871.4915614
+            }
+        }
+    },
+    "governance": {
+        "protected_core_safety": true,
+        "proposals": []
+    }
+}
