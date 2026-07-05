@@ -819,7 +819,7 @@ class NiblitUnifiedRuntime:
             foundation.record_model_selection({"active_provider": self._state.active_provider})
             return foundation
         except Exception as exc:
-            log.debug("Failed building foundation architecture: %s", exc)
+            log.warning("Foundation architecture unavailable; runtime will degrade gracefully: %s", exc)
             return None
 
     def _update_from_status(self, *, core: Any) -> dict[str, Any]:

@@ -519,7 +519,12 @@ class RuntimeManager:
             architecture_model=self.get_runtime_architecture_model(),
         )
         self.event_bus.subscribe_all(foundation.observe_event)
-        foundation.record_model_selection({"active_provider": getattr(self.get_local_brain(), "model_name", "")})
+        try:
+            local_brain = self.get_local_brain()
+            active_provider = getattr(local_brain, "model_name", "")
+        except Exception:
+            active_provider = ""
+        foundation.record_model_selection({"active_provider": active_provider})
 
         # Phase 2: Attach feedback loop
         try:
