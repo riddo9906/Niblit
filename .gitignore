@@ -68,6 +68,16 @@ niblit_net_state.json
 .jsonl
 .json.quarantine.jsonl
 
+# Runtime-generated data directories and files (never committed)
+runtime.jsonl
+runtime/
+*.jsonl
+runtime_architecture_model.json
+foundation_architecture.json
+cognitive_cache.json
+knowledge_graph.json
+persistence_metadata.json
+
 # Buildozer (Android build system)
 .buildozer/
 
