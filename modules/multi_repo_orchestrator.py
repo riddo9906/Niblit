@@ -345,7 +345,7 @@ class RepositoryDiscovery:
             "shutdown_contract": {"method": "graceful_signal", "grace_period_seconds": 15},
             "required_env": required_env,
             "required_config": ["repository_root"],
-            "event_topics": {
+            "event_channels": {
                 "publish": [f"repo.{repo_name}.status", f"repo.{repo_name}.diagnostics"],
                 "subscribe": ["runtime.ready", "runtime.system.stopping"],
             },
