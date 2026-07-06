@@ -61,6 +61,12 @@ app.add_middleware(
 _core = None
 
 
+def bind_core(core_instance) -> None:
+    """Bind an existing NiblitCore from the main runtime (avoids duplicate init)."""
+    global _core  # pylint: disable=global-statement
+    _core = core_instance
+
+
 def get_core():
     """Return a shared NiblitCore instance, initializing it on first call."""
     global _core  # pylint: disable=global-statement
