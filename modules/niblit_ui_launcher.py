@@ -202,6 +202,28 @@ def _resolve_npm() -> Optional[str]:
     return shutil.which("npm") or shutil.which("npm.cmd")
 
 
+def _is_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
+
+
+def ensure_ui_build(ui_root: Path, npm: str) -> None:
+    """Run ``npm run build`` when production mode needs a static ``dist/`` bundle."""
+    dist_index = ui_root / "dist" / "index.html"
+    if dist_index.is_file() and not _is_truthy("NIBLIT_UI_FORCE_REBUILD"):
+        return
+    log.info("[UILauncher] Building niblit-ui (npm run build)…")
+    result = subprocess.run(
+        [npm, "run", "build"],
+        cwd=str(ui_root),
+        env=os.environ.copy(),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        tail = (result.stderr or result.stdout or "").strip()[-500:]
+        raise RuntimeError(f"npm run build failed: {tail or 'unknown error'}")
+
+
 def launch_ui_process(
     *,
     ui_root: Path,
@@ -209,7 +231,7 @@ def launch_ui_process(
     cloud_url: str,
     ui_port: int | None = None,
 ) -> subprocess.Popen:
-    """Start niblit-ui (Vite dev or static ``dist/``) as a separate process."""
+    """Start niblit-ui (Tauri, Vite dev, or static ``dist/``) as a separate process."""
     ui_port = ui_port or _DEFAULT_UI_PORT
     env = os.environ.copy()
     env["VITE_NIBLIT_API_URL"] = api_url
@@ -217,22 +239,31 @@ def launch_ui_process(
     env.setdefault("BROWSER", "none")
 
     npm = _resolve_npm()
-    dist = ui_root / "dist" / "index.html"
+    if npm is None:
+        raise FileNotFoundError("npm not found on PATH — install Node.js to launch niblit-ui")
+
+    dist_index = ui_root / "dist" / "index.html"
     node_modules = ui_root / "node_modules"
+    production = _is_truthy("NIBLIT_UI_PRODUCTION")
+    tauri_mode = _is_truthy("NIBLIT_UI_TAURI")
+    tauri_src = ui_root / "src-tauri" / "tauri.conf.json"
 
-    if npm and node_modules.is_dir():
-        cmd = [npm, "run", "dev", "--", "--host", "127.0.0.1", "--port", str(ui_port)]
-        log.info("[UILauncher] Starting niblit-ui dev server: %s", " ".join(cmd))
+    if tauri_mode and tauri_src.is_file():
+        cmd = [npm, "run", "tauri:dev" if not production else "tauri:build"]
+        log.info("[UILauncher] Starting niblit-ui Tauri: %s", " ".join(cmd))
         return subprocess.Popen(cmd, cwd=str(ui_root), env=env)
 
-    if dist.is_file() and npm:
-        cmd = [npm, "exec", "--", "serve", "-s", "dist", "-l", str(ui_port)]
-        log.info("[UILauncher] Serving niblit-ui static build on port %s", ui_port)
+    if production or not node_modules.is_dir():
+        ensure_ui_build(ui_root, npm)
+        if not dist_index.is_file():
+            raise FileNotFoundError(f"Missing {dist_index} after build")
+        cmd = [npm, "run", "preview", "--", "--port", str(ui_port)]
+        log.info("[UILauncher] Serving niblit-ui production build on port %s", ui_port)
         return subprocess.Popen(cmd, cwd=str(ui_root), env=env)
 
-    raise FileNotFoundError(
-        f"niblit-ui not ready at {ui_root} — run 'npm install && npm run build' in niblit-ui"
-    )
+    cmd = [npm, "run", "dev", "--", "--host", "127.0.0.1", "--port", str(ui_port)]
+    log.info("[UILauncher] Starting niblit-ui dev server: %s", " ".join(cmd))
+    return subprocess.Popen(cmd, cwd=str(ui_root), env=env)
 
 
 def launch_primary_ui(
