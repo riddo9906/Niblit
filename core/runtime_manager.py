@@ -34,6 +34,7 @@ Usage::
     rm.dispatch_pending()   # or run rm.start_loop() in a background thread
 """
 
+import collections
 import logging
 import sys
 import threading
@@ -91,7 +92,7 @@ class RuntimeManager:
         self._singleton_warnings: list[str] = []
         self._lifecycle_state = "created"
         self._extension_points: dict[str, Any] = {}
-        self._runtime_timeline: list[dict[str, Any]] = []
+        self._runtime_timeline: collections.deque[dict[str, Any]] = collections.deque(maxlen=1000)
         self._startup_warnings: list[str] = []
         self._dependency_validation: dict[str, Any] = {"status": "ok", "issues": []}
         self._runtime_health: RuntimeHealth | None = None
@@ -229,9 +230,30 @@ class RuntimeManager:
         """Shortcut to subscribe an event handler via the runtime."""
         self.event_bus.subscribe(event_type, handler)
 
+    # Valid directed state transitions for the runtime lifecycle.
+    # Any transition not listed here is rejected with a warning.
+    _VALID_TRANSITIONS: frozenset[tuple[str, str]] = frozenset({
+        ("created", "loaded"),
+        ("loaded", "ready"),
+        ("ready", "stopping"),
+        ("stopping", "stopped"),
+        # Allow re-entry to ready from loaded (e.g. after a partial reload)
+        ("loaded", "ready"),
+        # Allow direct created→ready for unit-test scenarios that skip loading
+        ("created", "ready"),
+    })
+
     def _transition_lifecycle(self, previous: str, current: str) -> None:
-        if previous != current:
-            self._lifecycle_state = current
+        if previous == current:
+            return
+        if (previous, current) not in self._VALID_TRANSITIONS:
+            log.warning(
+                "[RuntimeManager] invalid lifecycle transition ignored: %s → %s "
+                "(current state: %s)",
+                previous, current, self._lifecycle_state,
+            )
+            return
+        self._lifecycle_state = current
 
     def register_extension_point(self, name: str, payload: Any = None) -> None:
         self._extension_points[name] = payload
@@ -256,6 +278,7 @@ class RuntimeManager:
         self._record_timeline_event("managed_repo", "runtime_manager", str(repo_name), "info", 0.0, "status_updated")
 
     def _record_timeline_event(self, event_type: str, module: str, service: str, severity: str, duration: float, detail: str) -> None:
+        # _runtime_timeline is a deque(maxlen=1000) — no manual trimming needed.
         self._runtime_timeline.append(
             {
                 "timestamp": time.time(),
@@ -267,8 +290,6 @@ class RuntimeManager:
                 "detail": detail,
             }
         )
-        if len(self._runtime_timeline) > 1000:
-            self._runtime_timeline = self._runtime_timeline[-1000:]
 
     def _validate_dependencies(self) -> None:
         issues: list[str] = []
@@ -302,10 +323,60 @@ class RuntimeManager:
     def get_startup_warnings(self) -> list[str]:
         return list(self._startup_warnings)
 
+    # Services that can be safely reinitialised on recovery (builders must be
+    # side-effect-free and return None rather than raising on failure).
+    _RECOVERABLE_SERVICES: frozenset[str] = frozenset({
+        "reflection_engine",
+        "behaviour_engine",
+        "model_manager",
+        "llama_server_manager",
+        "governance_engine",
+        "structural_awareness",
+        "ale",
+        "internet_manager",
+    })
+
     def get_runtime_health(self) -> dict[str, Any]:
         if self._runtime_health is None:
             self._runtime_health = RuntimeHealth(self)
-        return self._runtime_health.snapshot(force=True)
+        snapshot = self._runtime_health.snapshot(force=True)
+        # Attempt recovery for degraded optional services
+        self._attempt_service_recovery(snapshot)
+        return snapshot
+
+    def _attempt_service_recovery(self, snapshot: dict[str, Any]) -> None:
+        """Attempt to reinitialise degraded optional services.
+
+        Only services listed in :attr:`_RECOVERABLE_SERVICES` are retried.
+        Each recovery attempt is rate-limited (one attempt per service per
+        call) so this method does not add significant latency to the health
+        check path.
+        """
+        services = snapshot.get("services", {})
+        for name, info in services.items():
+            if name not in self._RECOVERABLE_SERVICES:
+                continue
+            if info.get("status") != "degraded":
+                continue
+            # Skip services that are already in the registry (were initialised)
+            if name in self._service_registry and self._service_registry[name] is not None:
+                continue
+            builder_name = f"_build_{name}"
+            builder = getattr(self, builder_name, None)
+            if builder is None:
+                continue
+            try:
+                service = builder()
+                if service is not None:
+                    self._service_registry[name] = service
+                    self._set_service_status(name, "ready")
+                    self._record_timeline_event(
+                        "recovery", "runtime_manager", name, "info", 0.0,
+                        f"service_recovered:{name}",
+                    )
+                    log.info("[RuntimeManager] recovered service: %s", name)
+            except Exception as exc:
+                log.debug("[RuntimeManager] recovery attempt failed for %s: %s", name, exc)
 
     def get_runtime_metrics(self) -> dict[str, Any]:
         diagnostics = self.get_diagnostics()
@@ -461,6 +532,7 @@ class RuntimeManager:
 
         # ── Layer 2: Extended runtime services (optional — graceful on failure)
         self._initialize_service("model_manager", lambda: self._build_model_manager())
+        self._initialize_service("llama_server_manager", lambda: self._build_llama_server_manager())
         self._initialize_service("governance_engine", lambda: self._build_governance_engine())
         self._initialize_service("structural_awareness", lambda: self._build_structural_awareness())
         self._initialize_service("ale", lambda: self._build_ale())
@@ -714,6 +786,42 @@ class RuntimeManager:
             self._set_service_status("model_manager", "degraded", str(exc))
             return None
 
+    def _build_llama_server_manager(self) -> Any:
+        """Initialise the managed llama.cpp server service.
+
+        The manager runs model discovery immediately.  If ``NIBLIT_LLAMA_AUTOSTART``
+        is set it will also start the server and launch its background health
+        monitor.  All failures are non-fatal: the service is marked degraded so
+        the rest of the runtime continues normally.
+        """
+        try:
+            from modules.llama_server_manager import LlamaServerManager
+
+            manager = LlamaServerManager()
+            # Discover models so the registry is populated before the first request
+            manager.discover_models()
+            if manager._autostart:
+                ok = manager.start()
+                if not ok:
+                    log.warning(
+                        "[RuntimeManager] llama_server_manager autostart failed — "
+                        "server will be started on demand"
+                    )
+            # Background health monitor (daemon — does not block shutdown)
+            manager.start_health_monitor()
+            return manager
+        except Exception as exc:
+            self._set_service_status("llama_server_manager", "degraded", str(exc))
+            return None
+
+    def get_llama_server_manager(self) -> Any:
+        """Return the runtime-owned :class:`~modules.llama_server_manager.LlamaServerManager`."""
+        try:
+            return self._initialize_service("llama_server_manager", self._build_llama_server_manager)
+        except Exception as exc:
+            self._set_service_status("llama_server_manager", "degraded", str(exc))
+            return None
+
     def _build_governance_engine(self) -> Any:
         try:
             from modules.meta_governance_engine import MetaGovernanceEngine
@@ -963,6 +1071,7 @@ class RuntimeManager:
             "reflection_engine",
             "behaviour_engine",
             "model_manager",
+            "llama_server_manager",
             "governance_engine",
             "structural_awareness",
             "ale",
