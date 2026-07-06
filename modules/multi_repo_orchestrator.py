@@ -330,11 +330,13 @@ class RepositoryDiscovery:
         elif repo_name == "niblit-ui":
             # Prefer Tauri when src-tauri/tauri.conf.json is present; fall back to
             # plain Vite dev-server so the contract works without Tauri installed.
-            tauri_conf = (root / "src-tauri" / "tauri.conf.json") if root is not None else None
-            if tauri_conf is not None and tauri_conf.is_file():
+            tauri_conf_path = (root / "src-tauri" / "tauri.conf.json") if root is not None else None
+            if tauri_conf_path is None or tauri_conf_path.is_file():
+                # root unknown (not yet discovered) or Tauri confirmed present → include tauri:dev first
                 startup_commands = ["npm run tauri:dev", "npm run dev", "npm start"]
             else:
-                startup_commands = ["npm run tauri:dev", "npm run dev", "npm start"]
+                # root known but no tauri.conf.json → plain Vite only
+                startup_commands = ["npm run dev", "npm start"]
             health_check["checks"] = ["http_endpoint", "process_alive"]
             required_env = ["NIBLIT_UI_ROOT"]
         elif repo_name == "niblit-lean-algos":
