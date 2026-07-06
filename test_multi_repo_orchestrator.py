@@ -101,7 +101,6 @@ class TestRepositoryDiscovery:
 
         assert manifest.present
         assert manifest.compatible
-        assert "algorithm_execution" not in manifest.services or True  # structure-based
 
     def test_discover_returns_not_present_when_absent(self, tmp_path: Path) -> None:
         discovery = RepositoryDiscovery(tmp_path)

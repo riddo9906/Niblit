@@ -6,7 +6,7 @@ single authoritative startup entry point and orchestrates the full ecosystem.
 
 Architecture
 ------------
-The runtime is organised into seven layers.  Each layer reports its status
+The runtime is organised into eight layers (0–7).  Each layer reports its status
 through the unified Event Bus so every status transition is observable.
 
     Layer 0 — RuntimeManager
@@ -465,7 +465,7 @@ class MultiRepoOrchestrator:
     # ── public API ─────────────────────────────────────────────────────────────
 
     def boot(self) -> dict[str, Any]:
-        """Execute the deterministic 7-layer boot sequence.
+        """Execute the deterministic 8-layer boot sequence (Layers 0–7).
 
         Returns
         -------
