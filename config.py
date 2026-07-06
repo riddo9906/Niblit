@@ -129,8 +129,10 @@ class Config:
 
     # Mobile
     MOBILE_ENABLED: bool = os.getenv("MOBILE_ENABLED", "True").lower() in ("1", "true", "yes")
-    # Comma-separated list of allowed CORS origins; "*" allows all.
-    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "*")
+    # Comma-separated allowed CORS origins. When unset, server.py defaults to
+    # niblit-ui dev/preview/Tauri origins (see NIBLIT_UI_ORIGINS). Use "*" or
+    # NIBLIT_CORS_PERMISSIVE=1 for fully open CORS.
+    CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "")
 
     # Feature toggles
     ENABLE_DASHBOARD: bool = os.getenv("ENABLE_DASHBOARD", "True").lower() in ("1", "true", "yes")

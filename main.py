@@ -298,7 +298,13 @@ def parse_args(argv=None):
         "--cli",
         action="store_true",
         default=False,
-        help="Force interactive CLI shell (skip desktop UI)",
+        help="Force interactive CLI shell (skip graphical UI)",
+    )
+    p.add_argument(
+        "--legacy-desktop",
+        action="store_true",
+        default=False,
+        help="Use legacy Tk desktop shell instead of niblit-ui",
     )
     p.add_argument(
         "--legacy-desktop",
@@ -363,11 +369,10 @@ def _run_tool_cli_mode(args, io=None) -> int:
         return 2
 
 
-def _should_launch_desktop(args, *, ui_supported=None) -> bool:
-    """Return True when desktop UI should auto-launch for this invocation.
+def _should_launch_primary_ui(args, *, ui_supported=None) -> bool:
+    """Return True when the primary graphical UI (niblit-ui) should auto-launch.
 
-    UI is the primary execution mode.  Pass ``--headless`` / ``--cli`` or set
-    ``NIBLIT_HEADLESS=1`` to opt out and use the terminal shell instead.
+  Pass ``--headless`` / ``--cli`` or set ``NIBLIT_HEADLESS=1`` to use CLI only.
     """
     if getattr(args, "one_shot", None) is not None:
         return False
@@ -380,16 +385,13 @@ def _should_launch_desktop(args, *, ui_supported=None) -> bool:
     if ui_supported is not None:
         return bool(ui_supported)
     try:
-        from modules.desktop_runtime_shell import desktop_ui_supported
+        from modules.niblit_ui_launcher import ui_launch_supported
 
-        return bool(desktop_ui_supported())
+        return bool(ui_launch_supported())
     except BaseException as exc:
         logging.getLogger(__name__).debug(
-            "desktop_ui_supported probe failed; attempting desktop launch anyway: %s",
-            exc,
+            "ui_launch_supported probe failed: %s", exc,
         )
-        # If desktop capability probing fails, still attempt UI launch and rely
-        # on DesktopRuntimeShell.run() to gracefully fall back to CLI.
         return True
 
 

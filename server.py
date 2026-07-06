@@ -47,18 +47,42 @@ except Exception:
     get_unified_runtime = None
 
 _origins = getattr(_settings, "CORS_ORIGINS", "*") if _settings else "*"
-_origins_list = [_origins] if isinstance(_origins, str) else list(_origins)
+
+
+def _resolve_cors_origins() -> list[str]:
+    """Resolve allowed CORS origins for niblit-ui and other API clients."""
+    if os.environ.get("NIBLIT_CORS_PERMISSIVE", "").strip().lower() in ("1", "true", "yes"):
+        return ["*"]
+    if _origins and _origins != "*":
+        return [o.strip() for o in str(_origins).split(",") if o.strip()]
+
+    defaults = os.environ.get(
+        "NIBLIT_UI_ORIGINS",
+        "http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173,"
+        "http://localhost:4173,tauri://localhost,https://tauri.localhost",
+    )
+    return [o.strip() for o in defaults.split(",") if o.strip()]
+
+
+_origins_list = _resolve_cors_origins()
 
 app = FastAPI(title="Niblit Server", docs_url=None, redoc_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins_list,
+    allow_credentials="*" not in _origins_list,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Lazy-initialize NiblitCore to reduce cold-start time on serverless
 _core = None
+
+
+def bind_core(core_instance) -> None:
+    """Bind an existing NiblitCore from the main runtime (avoids duplicate init)."""
+    global _core  # pylint: disable=global-statement
+    _core = core_instance
 
 
 def get_core():
