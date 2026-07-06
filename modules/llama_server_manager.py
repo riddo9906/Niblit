@@ -660,7 +660,7 @@ class LlamaServerManager:
                 cfg.llama_server_url = self._server_url
 
             # Clear per-instance health cache so the next call re-validates
-            cache: dict | None = getattr(_lb, "_llama_server_available", None)
+            cache: Optional[dict] = getattr(_lb, "_llama_server_available", None)
             if isinstance(cache, dict):
                 cache.clear()
 

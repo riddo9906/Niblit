@@ -96,7 +96,7 @@ RuntimeManager exposes a layered observability surface:
 - `get_runtime_modules()`: module load and failure view.
 - `get_runtime_threads()`: active worker and thread snapshot.
 - `get_runtime_events()`: recent event-bus history.
-- `get_runtime_timeline()`: structured runtime timeline (deque-backed, bounded at 1 000 entries).
+- `get_runtime_timeline()`: structured runtime timeline (deque-backed, bounded at 1000 entries).
 - `execute_runtime_command()`: developer command router for `runtime.status`, `runtime.health`, `runtime.metrics`, `runtime.services`, `runtime.modules`, `runtime.events`, `runtime.workers`, and `runtime.report`.
 
 ## Runtime health monitor
