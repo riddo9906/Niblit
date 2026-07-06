@@ -69,7 +69,6 @@ niblit_net_state.json
 .json.quarantine.jsonl
 
 # Runtime-generated data directories and files (never committed)
-runtime.jsonl
 runtime/
 *.jsonl
 runtime_architecture_model.json
