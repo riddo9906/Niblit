@@ -328,7 +328,15 @@ class RepositoryDiscovery:
             health_check["checks"] = ["http_endpoint", "process_alive"]
             required_env = ["NIBLIT_CLOUD_SERVER_ROOT"]
         elif repo_name == "niblit-ui":
-            startup_commands = ["npm run dev", "npm start"]
+            # Prefer Tauri when src-tauri/tauri.conf.json is present; fall back to
+            # plain Vite dev-server so the contract works without Tauri installed.
+            tauri_conf_path = (root / "src-tauri" / "tauri.conf.json") if root is not None else None
+            if tauri_conf_path is None or tauri_conf_path.is_file():
+                # root unknown (not yet discovered) or Tauri confirmed present → include tauri:dev first
+                startup_commands = ["npm run tauri:dev", "npm run dev", "npm start"]
+            else:
+                # root known but no tauri.conf.json → plain Vite only
+                startup_commands = ["npm run dev", "npm start"]
             health_check["checks"] = ["http_endpoint", "process_alive"]
             required_env = ["NIBLIT_UI_ROOT"]
         elif repo_name == "niblit-lean-algos":
@@ -549,6 +557,18 @@ class RepositorySupervisor:
         return state
 
     def start(self, manifest: RepositoryManifest) -> ManagedRepoProcessState:
+        # Guard: if a healthy process is already running for this repo, skip re-launch.
+        with self._lock:
+            existing = self._states.get(manifest.name)
+            if existing is not None and existing.state == "running":
+                proc = self._processes.get(manifest.name)
+                if proc is not None and proc.poll() is None:
+                    log.debug(
+                        "[Supervisor] %s already running (pid=%s) — skipping duplicate start",
+                        manifest.name,
+                        existing.pid,
+                    )
+                    return existing
         state = self.register(manifest)
         if state.state in {"unavailable", "degraded"}:
             return state
