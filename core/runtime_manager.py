@@ -98,6 +98,7 @@ class RuntimeManager:
         self._persistence_manager: Any | None = None
         self._provenance_service: Any | None = None
         self._runtime_architecture_model: Any | None = None
+        self._managed_repositories: dict[str, dict[str, Any]] = {}
 
         self._running = False
         self._record_timeline_event("startup", "runtime_manager", "runtime", "info", 0.0, "runtime_manager_init")
@@ -249,6 +250,10 @@ class RuntimeManager:
                 "payload": payload,
             },
         )
+
+    def update_managed_repository_status(self, repo_name: str, status: dict[str, Any]) -> None:
+        self._managed_repositories[str(repo_name)] = dict(status or {})
+        self._record_timeline_event("managed_repo", "runtime_manager", str(repo_name), "info", 0.0, "status_updated")
 
     def _record_timeline_event(self, event_type: str, module: str, service: str, severity: str, duration: float, detail: str) -> None:
         self._runtime_timeline.append(
@@ -863,6 +868,7 @@ class RuntimeManager:
             "duplicate_singleton_warnings": list(self._singleton_warnings),
             "service_lifecycle_states": {name: self._service_statuses.get(name, {}).get("status", "unknown") for name in self._service_statuses},
             "extension_points": dict(self._extension_points),
+            "managed_repositories": dict(self._managed_repositories),
         }
 
     def get_runtime_report(self) -> dict[str, Any]:
@@ -936,10 +942,18 @@ class RuntimeManager:
 
     def _lineage_payload(self, payload: dict[str, Any] | None, event_type: str, source: str) -> dict[str, Any]:
         data = dict(payload or {})
-        data.setdefault("trace_id", data.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}")
+        trace_id = data.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}"
+        data.setdefault("trace_id", trace_id)
         data.setdefault("runtime_id", self.runtime_id)
         data.setdefault("cognition_id", data.get("cognition_id", ""))
         data.setdefault("source_module", source)
+        data.setdefault("source_repository", "niblit")
+        data.setdefault("correlation_id", data.get("correlation_id") or str(trace_id))
+        lineage_channel = str(data.get("lineage_channel") or "runtime_manager.bridge")
+        data.setdefault("lineage_channel", lineage_channel)
+        lineage = list(data.get("lineage", []) or [])
+        lineage.append(f"{source}:{event_type}")
+        data["lineage"] = lineage[-12:]
         data.setdefault("event_category", data.get("event_category") or self._categorize(event_type))
         data.setdefault("event_priority", data.get("event_priority", "normal"))
         return data
@@ -1073,6 +1087,8 @@ class RuntimeManager:
                     source=source,
                     runtime_id=self.runtime_id,
                     trace_id=str(lineage.get("trace_id", "")),
+                    source_repository=str(lineage.get("source_repository", "niblit")),
+                    correlation_id=str(lineage.get("correlation_id", "")),
                     cognition_id=str(lineage.get("cognition_id", "")),
                     source_module=str(lineage.get("source_module", source)),
                     event_category=str(lineage.get("event_category", self._categorize(event_type))),

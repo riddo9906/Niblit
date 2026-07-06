@@ -50,7 +50,10 @@ from __future__ import annotations
 
 import logging
 import os
+import shlex
+import subprocess
 import sys
+import threading
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -112,9 +115,12 @@ class RepositoryManifest:
     root: Path
     layer: int
     present: bool = False
+    availability_state: str = "unavailable"
     compatible: bool = False
     services: list[str] = field(default_factory=list)
     extension_points: list[str] = field(default_factory=list)
+    bootstrap_contract: dict[str, Any] = field(default_factory=dict)
+    runtime_maps: dict[str, Any] = field(default_factory=dict)
     error: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -148,6 +154,23 @@ class BootLayer:
         out["status"] = self.status.value
         out["duration_ms"] = self.duration_ms
         return out
+
+
+@dataclass
+class ManagedRepoProcessState:
+    """Lifecycle status for a supervised managed repository process."""
+
+    repo_name: str
+    state: str = "unavailable"
+    pid: int = 0
+    restart_count: int = 0
+    last_health_status: str = "unknown"
+    diagnostics_source: str = "core.runtime_manager"
+    message: str = ""
+    started_at: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 # ── Repository discovery ───────────────────────────────────────────────────────
@@ -185,14 +208,20 @@ class RepositoryDiscovery:
         candidate = self._locate(repo_name)
         if candidate is None:
             manifest.error = f"Repository not found: {repo_name}"
+            manifest.availability_state = "unavailable"
+            manifest.bootstrap_contract = self._build_bootstrap_contract(repo_name, None)
+            manifest.runtime_maps = self._build_runtime_maps(repo_name, root=None, present=False)
             log.debug("[Discovery] %s — not found", repo_name)
             return manifest
 
         manifest.root = candidate
         manifest.present = True
         manifest.compatible = self._validate(candidate, repo_name)
+        manifest.availability_state = "available" if manifest.compatible else "incompatible"
         manifest.services = self._detect_services(candidate, repo_name)
         manifest.extension_points = self._detect_extension_points(candidate, repo_name)
+        manifest.bootstrap_contract = self._build_bootstrap_contract(repo_name, candidate)
+        manifest.runtime_maps = self._build_runtime_maps(repo_name, root=candidate, present=True)
 
         if not manifest.compatible:
             manifest.error = f"Compatibility check failed for {repo_name}"
@@ -288,6 +317,116 @@ class RepositoryDiscovery:
             ext.append("ui.event_bus_subscriber")
         return ext
 
+    def _build_bootstrap_contract(self, repo_name: str, root: Path | None) -> dict[str, Any]:
+        startup_commands: list[str] = []
+        health_check: dict[str, Any] = {"kind": "probe", "checks": []}
+        required_env: list[str] = []
+        diagnostics_source = "core.runtime_manager"
+
+        if repo_name == "niblit-cloud-server":
+            startup_commands = ["python app.py", "python server.py", "npm run start"]
+            health_check["checks"] = ["http_endpoint", "process_alive"]
+            required_env = ["NIBLIT_CLOUD_SERVER_ROOT"]
+        elif repo_name == "niblit-ui":
+            startup_commands = ["npm run dev", "npm start"]
+            health_check["checks"] = ["http_endpoint", "process_alive"]
+            required_env = ["NIBLIT_UI_ROOT"]
+        elif repo_name == "niblit-lean-algos":
+            startup_commands = ["python -m niblit_bridge", "python scripts/run.py"]
+            health_check["checks"] = ["bridge_ready", "process_alive"]
+            required_env = ["NIBLIT_LEAN_ALGOS_ROOT"]
+
+        checks = health_check.get("checks", [])
+        if root is None:
+            checks = [*checks, "repository_present"]
+        return {
+            "startup_commands": startup_commands,
+            "health_check": {"kind": health_check.get("kind", "probe"), "checks": checks},
+            "shutdown_contract": {"method": "graceful_signal", "grace_period_seconds": 15},
+            "required_env": required_env,
+            "required_config": ["repository_root"],
+            "event_topics": {
+                "publish": [f"repo.{repo_name}.status", f"repo.{repo_name}.diagnostics"],
+                "subscribe": ["runtime.ready", "runtime.system.stopping"],
+            },
+            "ownership": {
+                "lifecycle_owner": SOURCE_REPOSITORY,
+                "startup_owner": "orchestrator",
+                "shutdown_owner": "orchestrator",
+                "restart_policy": {"mode": "on_failure", "max_restarts": 2},
+                "diagnostics_source": diagnostics_source,
+            },
+            "native_startup_untouched": True,
+        }
+
+    def _build_runtime_maps(
+        self,
+        repo_name: str,
+        *,
+        root: Path | None,
+        present: bool,
+    ) -> dict[str, Any]:
+        unknown = "unknown"
+        unavailable = "unavailable"
+        if not present or root is None:
+            return {
+                "directory_module_dependencies": unavailable,
+                "startup_lifecycle": unavailable,
+                "config_env": unavailable,
+                "event_channels": unavailable,
+                "threading_process_ownership": unavailable,
+                "persistence_state_paths": unavailable,
+                "shutdown_ordering": unavailable,
+                "nodes": {"status": unavailable, "repo": repo_name},
+            }
+
+        files = {p.name for p in root.iterdir()} if root.exists() else set()
+        deps: list[str] = []
+        if "package.json" in files:
+            deps.append("nodejs")
+        if "requirements.txt" in files or "pyproject.toml" in files:
+            deps.append("python")
+        if not deps:
+            deps.append(unknown)
+
+        startup_commands = self._build_bootstrap_contract(repo_name, root).get("startup_commands", [])
+        return {
+            "directory_module_dependencies": {
+                "root": str(root),
+                "dependencies": deps,
+                "detected_modules": sorted(list(files))[:30],
+            },
+            "startup_lifecycle": {
+                "startup_commands": startup_commands,
+                "lifecycle_owner": SOURCE_REPOSITORY,
+                "runtime_state": "discovered",
+            },
+            "config_env": {
+                "required_env": REPO_PATH_ENV.get(repo_name, ""),
+                "detected_env_files": [name for name in (".env", ".env.example") if name in files] or [unknown],
+            },
+            "event_channels": {
+                "publish": [f"repo.{repo_name}.status"],
+                "subscribe": ["runtime.ready", "runtime.system.stopping"],
+            },
+            "threading_process_ownership": {
+                "owner": SOURCE_REPOSITORY,
+                "supervision": "managed",
+            },
+            "persistence_state_paths": {
+                "paths": [str(root / "runtime"), str(root / "logs")],
+                "status": "derived",
+            },
+            "shutdown_ordering": {
+                "order_hint": "after_core_before_eventbus_stop",
+                "grace_period_seconds": 15,
+            },
+            "nodes": {
+                "status": "available",
+                "repo": repo_name,
+            },
+        }
+
 
 # ── Event bus helpers ──────────────────────────────────────────────────────────
 
@@ -355,9 +494,12 @@ def _publish_repo_event(
             "repo_root": str(manifest.root),
             "layer": manifest.layer,
             "present": manifest.present,
+            "availability_state": manifest.availability_state,
             "compatible": manifest.compatible,
             "services": manifest.services,
             "extension_points": manifest.extension_points,
+            "bootstrap_contract": manifest.bootstrap_contract,
+            "runtime_maps": manifest.runtime_maps,
             "error": manifest.error,
             "correlation_id": correlation_id,
             "source_repository": SOURCE_REPOSITORY,
@@ -371,6 +513,145 @@ def _publish_repo_event(
         bus.publish(event)
     except Exception as exc:
         log.debug("[Orchestrator] repo event publish failed: %s", exc)
+
+
+# ── Managed repository supervision ─────────────────────────────────────────────
+
+class RepositorySupervisor:
+    """Best-effort process supervision for managed repositories."""
+
+    def __init__(self, *, bus: Any | None, correlation_id: str) -> None:
+        self._bus = bus
+        self._correlation_id = correlation_id
+        self._lock = threading.RLock()
+        self._states: dict[str, ManagedRepoProcessState] = {}
+        self._processes: dict[str, subprocess.Popen[Any]] = {}
+
+    def register(self, manifest: RepositoryManifest) -> ManagedRepoProcessState:
+        with self._lock:
+            state = self._states.get(manifest.name) or ManagedRepoProcessState(repo_name=manifest.name)
+            if not manifest.present:
+                state.state = "unavailable"
+                state.message = manifest.error or "repository unavailable"
+                state.last_health_status = "unavailable"
+            elif not manifest.compatible:
+                state.state = "degraded"
+                state.message = manifest.error or "repository incompatible"
+                state.last_health_status = "degraded"
+            else:
+                state.state = "registered"
+                state.last_health_status = "unknown"
+                state.message = "registered for supervision"
+            ownership = dict(manifest.bootstrap_contract.get("ownership", {}) or {})
+            state.diagnostics_source = str(ownership.get("diagnostics_source", "core.runtime_manager"))
+            self._states[manifest.name] = state
+        self._publish("repo.supervision.registered", manifest, state=state.state, message=state.message)
+        return state
+
+    def start(self, manifest: RepositoryManifest) -> ManagedRepoProcessState:
+        state = self.register(manifest)
+        if state.state in {"unavailable", "degraded"}:
+            return state
+        commands = list(manifest.bootstrap_contract.get("startup_commands", []) or [])
+        if not commands:
+            state.state = "degraded"
+            state.message = "no startup commands declared"
+            self._publish("repo.supervision.degraded", manifest, state=state.state, message=state.message)
+            return state
+        command = commands[0]
+        try:
+            process = subprocess.Popen(  # noqa: S603
+                shlex.split(command),
+                cwd=str(manifest.root),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            with self._lock:
+                self._processes[manifest.name] = process
+                state.state = "running"
+                state.pid = int(process.pid or 0)
+                state.started_at = time.time()
+                state.last_health_status = "healthy"
+                state.message = f"started: {command}"
+            self._publish("repo.supervision.started", manifest, state=state.state, pid=state.pid)
+            return state
+        except Exception as exc:
+            state.state = "degraded"
+            state.message = f"start failed: {exc}"
+            state.last_health_status = "degraded"
+            self._publish("repo.supervision.degraded", manifest, state=state.state, message=state.message)
+            return state
+
+    def check_health(self, manifest: RepositoryManifest) -> ManagedRepoProcessState:
+        with self._lock:
+            state = self._states.get(manifest.name) or ManagedRepoProcessState(repo_name=manifest.name)
+            proc = self._processes.get(manifest.name)
+        if proc is None:
+            state.last_health_status = "unknown" if manifest.present else "unavailable"
+            return state
+        if proc.poll() is None:
+            state.last_health_status = "healthy"
+            return state
+        state.last_health_status = "failed"
+        ownership = dict(manifest.bootstrap_contract.get("ownership", {}) or {})
+        restart_policy = dict(ownership.get("restart_policy", {}) or {})
+        max_restarts = int(restart_policy.get("max_restarts", 0))
+        if state.restart_count < max_restarts:
+            state.restart_count += 1
+            self._publish(
+                "repo.supervision.restarting",
+                manifest,
+                state="restarting",
+                restart_count=state.restart_count,
+            )
+            return self.start(manifest)
+        state.state = "failed"
+        state.message = "process exited and restart limit reached"
+        self._publish("repo.supervision.failed", manifest, state=state.state, message=state.message)
+        return state
+
+    def stop(self, manifest: RepositoryManifest) -> ManagedRepoProcessState:
+        with self._lock:
+            state = self._states.get(manifest.name) or ManagedRepoProcessState(repo_name=manifest.name)
+            proc = self._processes.pop(manifest.name, None)
+        if proc is None:
+            state.state = "stopped" if manifest.present else "unavailable"
+            return state
+        try:
+            proc.terminate()
+            proc.wait(timeout=15)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        state.state = "stopped"
+        state.last_health_status = "stopped"
+        state.message = "gracefully stopped"
+        self._publish("repo.supervision.stopped", manifest, state=state.state)
+        return state
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            return {name: state.to_dict() for name, state in self._states.items()}
+
+    def _publish(self, event_type: str, manifest: RepositoryManifest, **extra: Any) -> None:
+        if self._bus is None:
+            return
+        try:
+            from modules.event_bus import NiblitEvent  # type: ignore[import]
+
+            payload = {
+                "repo_name": manifest.name,
+                "repo_root": str(manifest.root),
+                "correlation_id": self._correlation_id,
+                "source_repository": SOURCE_REPOSITORY,
+                "timestamp": time.time(),
+            }
+            payload.update(extra)
+            self._bus.publish(NiblitEvent(type=event_type, source="multi_repo_orchestrator", payload=payload))
+        except Exception:
+            return
 
 
 # ── Boot layers definition ─────────────────────────────────────────────────────
@@ -461,6 +742,7 @@ class MultiRepoOrchestrator:
         self._boot_start: float = 0.0
         self._boot_end: float = 0.0
         self._runtime_status: str = "pending"
+        self._supervisor: RepositorySupervisor | None = None
 
     # ── public API ─────────────────────────────────────────────────────────────
 
@@ -477,12 +759,15 @@ class MultiRepoOrchestrator:
         log.info("[MultiRepoOrchestrator] boot sequence started (correlation=%s)", self._correlation_id)
 
         bus = self._bus or _get_event_bus()
+        self._supervisor = RepositorySupervisor(bus=bus, correlation_id=self._correlation_id)
 
         # Repository discovery
         self._manifests = self._discovery.discover_all()
         for repo_name, manifest in self._manifests.items():
             event_type = "repo.discovered" if manifest.present else "repo.unavailable"
             _publish_repo_event(bus, event_type, manifest, correlation_id=self._correlation_id)
+            if self._supervisor is not None:
+                self._supervisor.register(manifest)
             level = log.info if manifest.present else log.warning
             level("[MultiRepoOrchestrator] repo=%s present=%s compatible=%s", repo_name, manifest.present, manifest.compatible)
 
@@ -520,6 +805,7 @@ class MultiRepoOrchestrator:
             "duration_ms": (self._boot_end - self._boot_start) * 1000.0 if self._boot_end else 0.0,
             "layers": [layer.to_dict() for layer in self._layers],
             "repositories": {name: m.to_dict() for name, m in self._manifests.items()},
+            "managed_services": self.get_supervision_status(),
         }
 
     def get_layer(self, layer_id: int) -> BootLayer | None:
@@ -532,6 +818,42 @@ class MultiRepoOrchestrator:
     def get_repo_manifest(self, repo_name: str) -> RepositoryManifest | None:
         """Return the discovered manifest for a managed repository, or None."""
         return self._manifests.get(repo_name)
+
+    def start_managed_repositories(self, repo_names: list[str] | None = None) -> dict[str, Any]:
+        """Start selected managed repositories under supervision."""
+        if self._supervisor is None:
+            return {}
+        selected = repo_names or list(self._manifests.keys())
+        result: dict[str, Any] = {}
+        for repo_name in selected:
+            manifest = self._manifests.get(repo_name)
+            if manifest is None:
+                continue
+            result[repo_name] = self._supervisor.start(manifest).to_dict()
+        return result
+
+    def monitor_managed_repositories(self) -> dict[str, Any]:
+        """Run one health-check pass over all supervised repositories."""
+        if self._supervisor is None:
+            return {}
+        out: dict[str, Any] = {}
+        for repo_name, manifest in self._manifests.items():
+            out[repo_name] = self._supervisor.check_health(manifest).to_dict()
+        return out
+
+    def stop_managed_repositories(self) -> dict[str, Any]:
+        """Gracefully stop all supervised managed repositories."""
+        if self._supervisor is None:
+            return {}
+        out: dict[str, Any] = {}
+        for repo_name, manifest in self._manifests.items():
+            out[repo_name] = self._supervisor.stop(manifest).to_dict()
+        return out
+
+    def get_supervision_status(self) -> dict[str, Any]:
+        if self._supervisor is None:
+            return {}
+        return self._supervisor.snapshot()
 
     # ── layer execution ────────────────────────────────────────────────────────
 
@@ -587,6 +909,8 @@ class MultiRepoOrchestrator:
 
         # Register services and extension points from the managed repo.
         self._register_repo_services(manifest, bus=bus)
+        if self._supervisor is not None:
+            self._supervisor.register(manifest)
 
         layer.status = LayerStatus.INITIALIZED
         log.info(
@@ -634,6 +958,8 @@ class MultiRepoOrchestrator:
                 "services": manifest.services,
                 "extension_points": manifest.extension_points,
                 "repo_root": str(manifest.root),
+                "bootstrap_contract": manifest.bootstrap_contract,
+                "runtime_maps": manifest.runtime_maps,
                 "correlation_id": self._correlation_id,
                 "source_repository": SOURCE_REPOSITORY,
                 "timestamp": time.time(),
@@ -677,6 +1003,7 @@ def _publish_runtime_ready(
             "layer_summary": {
                 layer.name: layer.status.value for layer in layers
             },
+            "lineage_channel": "orchestrator.runtime_ready",
             "source_repository": SOURCE_REPOSITORY,
             "timestamp": time.time(),
         }

@@ -106,6 +106,9 @@ class TestRepositoryDiscovery:
         discovery = RepositoryDiscovery(tmp_path)
         manifest = discovery.discover("niblit-ui")
         assert not manifest.present
+        assert manifest.availability_state == "unavailable"
+        assert manifest.runtime_maps["nodes"]["status"] == "unavailable"
+        assert "startup_commands" in manifest.bootstrap_contract
         assert manifest.error
 
     def test_env_override_takes_precedence(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -147,6 +150,9 @@ class TestRepositoryDiscovery:
 
         assert manifest.present
         assert manifest.compatible
+        assert manifest.availability_state == "available"
+        assert "health_check" in manifest.bootstrap_contract
+        assert "event_channels" in manifest.bootstrap_contract
 
     def test_services_detected_for_lean_algos_with_niblit_bridge(self, tmp_path: Path) -> None:
         lean = tmp_path / "niblit-lean-algos"
@@ -172,6 +178,7 @@ class TestMultiRepoOrchestrator:
         assert "repositories" in report
         assert "duration_ms" in report
         assert "correlation_id" in report
+        assert "managed_services" in report
 
     def test_boot_runtime_status_is_string(self, tmp_path: Path) -> None:
         orch = _make_orchestrator(tmp_path)
@@ -323,6 +330,9 @@ class TestMultiRepoOrchestrator:
             assert "present" in repo_dict
             assert "compatible" in repo_dict
             assert "layer" in repo_dict
+            assert "availability_state" in repo_dict
+            assert "bootstrap_contract" in repo_dict
+            assert "runtime_maps" in repo_dict
 
     def test_present_managed_repo_initializes_layer(self, tmp_path: Path) -> None:
         # Plant a fake niblit-cloud-server inside tmp_path.
@@ -334,6 +344,20 @@ class TestMultiRepoOrchestrator:
         report = orch.boot()
         layer_6 = next(lay for lay in report["layers"] if lay["layer_id"] == 6)
         assert layer_6["status"] == LayerStatus.INITIALIZED.value
+
+    def test_supervision_registers_states_for_managed_repositories(self, tmp_path: Path) -> None:
+        orch = _make_orchestrator(tmp_path)
+        orch.boot()
+        states = orch.get_supervision_status()
+        for repo in MANAGED_REPOS:
+            assert repo in states
+            assert "state" in states[repo]
+
+    def test_start_managed_repositories_returns_unavailable_when_absent(self, tmp_path: Path) -> None:
+        orch = _make_orchestrator(tmp_path)
+        orch.boot()
+        started = orch.start_managed_repositories(["niblit-ui"])
+        assert started["niblit-ui"]["state"] in {"unavailable", "degraded", "registered", "running"}
 
 
 # ── Singleton factory ─────────────────────────────────────────────────────────

@@ -756,7 +756,12 @@ class NiblitUnifiedRuntime:
             os.environ.get("NIBLIT_UNIFIED_RUNTIME_STATE", os.path.join(os.getcwd(), "niblit_unified_runtime_state.json"))
         )
         self._state = RuntimeState()
+        self._model_lock = threading.RLock()
+        self._model_registry: dict[str, dict[str, Any]] = {}
+        self._active_model: str = ""
+        self._llama_lifecycle_owner = "model_manager"
         self._load_state()
+        self._refresh_model_registry()
         self._provenance_service = self._build_provenance_service()
         self._architecture_model = self._build_runtime_architecture_model()
         self._foundation_architecture = self._build_foundation_architecture()
@@ -821,6 +826,84 @@ class NiblitUnifiedRuntime:
         except Exception as exc:
             log.warning("Foundation architecture unavailable; runtime will degrade gracefully: %s", exc)
             return None
+
+    def _model_search_roots(self) -> list[Path]:
+        roots = [
+            Path("/models"),
+            Path(os.environ.get("NIBLIT_MODELS_DIR", "/models")),
+            Path.cwd() / "models",
+        ]
+        deduped: list[Path] = []
+        for root in roots:
+            try:
+                resolved = root.resolve()
+            except Exception:
+                resolved = root
+            if resolved not in deduped:
+                deduped.append(resolved)
+        return deduped
+
+    def _refresh_model_registry(self) -> None:
+        with self._model_lock:
+            models: dict[str, dict[str, Any]] = {}
+            for root in self._model_search_roots():
+                if not root.exists() or not root.is_dir():
+                    continue
+                for item in root.iterdir():
+                    if not item.is_file():
+                        continue
+                    if item.suffix.lower() != ".gguf":
+                        continue
+                    models[item.name] = {
+                        "name": item.name,
+                        "path": str(item),
+                        "compatible": True,
+                    }
+            self._model_registry = models
+            if not self._active_model and models:
+                self._active_model = next(iter(models.keys()))
+
+    def switch_active_model(self, model_name: str) -> bool:
+        target = str(model_name or "").strip()
+        if not target:
+            return False
+        self._refresh_model_registry()
+        with self._model_lock:
+            if target not in self._model_registry:
+                self._event_bus.emit(
+                    "model.switch.failed",
+                    "NiblitUnifiedRuntime",
+                    {"requested_model": target, "reason": "model_not_registered"},
+                )
+                return False
+            previous = self._active_model
+            self._event_bus.emit(
+                "model.switch.started",
+                "NiblitUnifiedRuntime",
+                {"previous_model": previous, "next_model": target},
+            )
+            self._active_model = target
+            self._event_bus.emit(
+                "model.switch.completed",
+                "NiblitUnifiedRuntime",
+                {"previous_model": previous, "active_model": target},
+            )
+            return True
+
+    def model_manager_status(self) -> dict[str, Any]:
+        self._refresh_model_registry()
+        with self._model_lock:
+            registered_models = sorted(self._model_registry.keys())
+            return {
+                "all_interactions_routed": True,
+                "llama_server_owner": self._llama_lifecycle_owner,
+                "registered_models": registered_models,
+                "active_model": self._active_model,
+                "active_model_state": "ready" if self._active_model else "idle",
+                "hot_switch_supported": True,
+                "lifecycle_events": ["model.switch.started", "model.switch.completed", "model.switch.failed"],
+                "compatibility": {name: meta.get("compatible", False) for name, meta in self._model_registry.items()},
+            }
 
     def _update_from_status(self, *, core: Any) -> dict[str, Any]:
         with self._lock:
@@ -934,8 +1017,17 @@ class NiblitUnifiedRuntime:
             self._state.runtime_dialogue = list(foundation_status.get("runtime_dialogue", []))
             self._state.understanding_layer = dict(foundation_status.get("understanding_layer", {}))
             self._state.memory_layers = dict(foundation_status.get("memory_layers", {}))
-            self._state.model_manager = dict(foundation_status.get("model_manager", {}))
+            model_manager_state = self.model_manager_status()
+            if foundation_status.get("model_manager"):
+                merged_model_manager = dict(foundation_status.get("model_manager", {}))
+                merged_model_manager.update(model_manager_state)
+            else:
+                merged_model_manager = model_manager_state
+            self._state.model_manager = merged_model_manager
             self._state.governance = dict(foundation_status.get("governance", {}))
+            if model_manager_state.get("active_model"):
+                self._state.active_provider = str(model_manager_state.get("active_model"))
+            self._state.loaded_models = list(model_manager_state.get("registered_models", self._state.loaded_models))
             self._state.telemetry_snapshots.append(dict(telemetry))
             if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
                 self._state.telemetry_snapshots = self._state.telemetry_snapshots[-MAX_TELEMETRY_HISTORY:]
@@ -1194,8 +1286,12 @@ class NiblitUnifiedRuntime:
                     "trace_id",
                     payload.get("trace_id") or f"{self.runtime_id}:{getattr(event, 'type', 'event')}:{int(time.time() * 1000)}",
                 )
+                payload.setdefault("source_repository", payload.get("source_repository") or "niblit")
+                payload.setdefault("correlation_id", payload.get("correlation_id") or payload.get("trace_id"))
                 if lineage:
                     payload.setdefault("lineage_channel", lineage)
+                else:
+                    payload.setdefault("lineage_channel", "module_event_bus.bridge")
                 self._event_bus.emit(str(getattr(event, "type", "event")), str(getattr(event, "source", "modules")), payload)
 
             def _handle(event: Any) -> None:
@@ -1216,6 +1312,16 @@ class NiblitUnifiedRuntime:
     def dispatch_command(self, *, command: str, core: Any | None) -> str:
         with self._lock:
             lower = command.strip().lower()
+            if lower.startswith("runtime model switch "):
+                target = command.strip()[len("runtime model switch ") :].strip()
+                ok = self.switch_active_model(target)
+                self._save_state()
+                if ok:
+                    return json.dumps({"ok": True, "active_model": target}, indent=2, sort_keys=True)
+                return json.dumps({"ok": False, "error": "model_not_registered", "requested_model": target}, indent=2, sort_keys=True)
+            if lower in {"runtime model status", "runtime models", "runtime model manager"}:
+                self._save_state()
+                return json.dumps(self.model_manager_status(), indent=2, sort_keys=True)
             if lower in {"runtime cognition recovery", "runtime cognition map", "runtime legacy cognition"}:
                 status = self._update_from_status(core=core)
                 return json.dumps(status.get("legacy_cognition", {}), indent=2, sort_keys=True)
@@ -1250,13 +1356,20 @@ class NiblitUnifiedRuntime:
         enriched = dict(payload or {})
         enriched.setdefault("runtime_id", self.runtime_id)
         enriched.setdefault("runtime_mode", self._state.runtime_mode)
+        enriched.setdefault("source_repository", enriched.get("source_repository") or "niblit")
+        enriched.setdefault(
+            "trace_id",
+            str(enriched.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}"),
+        )
+        enriched.setdefault("correlation_id", enriched.get("correlation_id") or enriched.get("trace_id"))
+        enriched.setdefault("lineage_channel", enriched.get("lineage_channel") or "unified_runtime.external_ingress")
         envelope = normalize_event_envelope(
             event_type=event_type,
             source=source,
             payload=enriched,
             runtime_id=self.runtime_id,
             cognition_id=str(enriched.get("cognition_id", "")),
-            trace_id=str(enriched.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}"),
+            trace_id=str(enriched.get("trace_id")),
             event_priority=str(enriched.get("event_priority", "normal")),
         )
         self._event_bus.emit(event_type, source, envelope.payload)

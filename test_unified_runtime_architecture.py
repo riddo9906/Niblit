@@ -104,6 +104,22 @@ def test_unified_runtime_stream_frame_shape(tmp_path: Path) -> None:
     assert "confidence" in frame
 
 
+def test_unified_runtime_model_manager_status_command(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    raw = rt.dispatch_command(command="runtime model status", core=None)
+    data = json.loads(raw)
+    assert "registered_models" in data
+    assert data["llama_server_owner"] == "model_manager"
+
+
+def test_unified_runtime_model_switch_rejects_unknown_model(tmp_path: Path) -> None:
+    rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
+    raw = rt.dispatch_command(command="runtime model switch not-a-real-model.gguf", core=None)
+    data = json.loads(raw)
+    assert data["ok"] is False
+    assert data["error"] == "model_not_registered"
+
+
 def test_unified_runtime_promotes_high_signal_episodes(tmp_path: Path) -> None:
     rt = NiblitUnifiedRuntime(state_file=tmp_path / "runtime_state.json")
     rt.ingest_external_event(
