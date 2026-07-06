@@ -84,6 +84,16 @@ class EventType(str, Enum):
     ERROR_OCCURRED = "error_occurred"
     METRIC_RECORDED = "metric_recorded"
 
+    # ── Multi-repository boot sequence ─────────────────────────────────────────
+    LAYER_INITIALIZED = "layer.initialized"
+    LAYER_DEGRADED = "layer.degraded"
+    LAYER_FAILED = "layer.failed"
+    LAYER_RETRYING = "layer.retrying"
+    RUNTIME_READY = "runtime.ready"
+    REPO_DISCOVERED = "repo.discovered"
+    REPO_UNAVAILABLE = "repo.unavailable"
+    REPO_REGISTERED = "repo.registered"
+
 
 @dataclass
 class Event:
@@ -110,6 +120,12 @@ class Event:
     event_category: str = ""
     event_priority: str = "normal"
     bridge_origin: str = ""
+    # Unified multi-repository envelope fields
+    source_repository: str = "niblit"
+    correlation_id: str = ""
+    parent_event_id: int = 0
+    destination: str = ""
+    intent: str = ""
 
     def __post_init__(self) -> None:
         if not self.source_module:
