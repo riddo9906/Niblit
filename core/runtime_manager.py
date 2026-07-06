@@ -417,6 +417,7 @@ class RuntimeManager:
         self._optional_module_report = {"loaded": [], "failed": []}
         self._singleton_warnings = []
 
+        # ── Layer 0: Core infrastructure ──────────────────────────────────────
         self._initialize_service("persistence_manager", lambda: self._build_persistence_manager())
         self._initialize_service("knowledge_db", lambda: self._build_knowledge_db())
         self._initialize_service("memory_graph", lambda: self._build_memory_graph())
@@ -429,8 +430,47 @@ class RuntimeManager:
         self._initialize_service("provenance_service", lambda: self._build_provenance_service())
         self._initialize_service("runtime_architecture_model", lambda: self._build_runtime_architecture_model())
         self._initialize_service("cognitive_ingress", lambda: self._build_cognitive_ingress())
+
+        # ── Self-registration: event_bus and runtime_manager ─────────────────
+        # Register the already-created EventBus and this RuntimeManager as
+        # named services so FoundationArchitecture can satisfy its
+        # EXPECTED_SUBSYSTEMS contract (Phases 5–6 of the architectural audit).
+        self._service_registry["event_bus"] = self.event_bus
+        self._service_statuses["event_bus"] = {"status": "ready"}
+        self._service_load_durations_ms["event_bus"] = 0.0
+        if "event_bus" not in self._service_init_order:
+            self._service_init_order.append("event_bus")
+
+        self._service_registry["runtime_manager"] = self
+        self._service_statuses["runtime_manager"] = {"status": "ready"}
+        self._service_load_durations_ms["runtime_manager"] = 0.0
+        if "runtime_manager" not in self._service_init_order:
+            self._service_init_order.append("runtime_manager")
+
+        # ── memory_manager alias (EXPECTED_SUBSYSTEMS uses this canonical name)
+        memory_graph = self._service_registry.get("memory_graph")
+        if memory_graph is not None and "memory_manager" not in self._service_registry:
+            self._service_registry["memory_manager"] = memory_graph
+            self._service_statuses["memory_manager"] = {"status": "ready"}
+            self._service_load_durations_ms["memory_manager"] = 0.0
+            self._service_init_order.append("memory_manager")
+
+        # ── Layer 1: Cognitive feedback services ──────────────────────────────
+        self._initialize_service("reflection_engine", lambda: self._build_reflection_engine())
+        self._initialize_service("behaviour_engine", lambda: self._build_behaviour_engine())
+
+        # ── Layer 2: Extended runtime services (optional — graceful on failure)
+        self._initialize_service("model_manager", lambda: self._build_model_manager())
+        self._initialize_service("governance_engine", lambda: self._build_governance_engine())
+        self._initialize_service("structural_awareness", lambda: self._build_structural_awareness())
+        self._initialize_service("ale", lambda: self._build_ale())
+        self._initialize_service("trading_brain", lambda: self._build_trading_brain())
+        self._initialize_service("internet_manager", lambda: self._build_internet_manager())
+        self._initialize_service("repository_manager", lambda: self._build_repository_manager())
+
+        # ── Layer 3: Central cognitive coordinator (built last so all services
+        #            are in the registry when FA registers subsystems) ──────────
         self._initialize_service("foundation_architecture", lambda: self._build_foundation_architecture())
-        self._initialize_service("local_brain", lambda: self._build_local_brain())
         self._load_optional_modules()
         self.register_extension(
             "cognitive_ingress",
@@ -645,6 +685,93 @@ class RuntimeManager:
             self._set_service_status("local_brain", "degraded", str(exc))
             return None
 
+    # ── Extended service builders (all graceful — return None on failure) ────
+
+    def _build_reflection_engine(self) -> Any:
+        try:
+            from modules.reflection_engine import get_reflection_engine
+
+            return get_reflection_engine()
+        except Exception as exc:
+            self._set_service_status("reflection_engine", "degraded", str(exc))
+            return None
+
+    def _build_behaviour_engine(self) -> Any:
+        try:
+            from modules.behaviour_adaptation import BehaviourAdaptationEngine
+
+            return BehaviourAdaptationEngine()
+        except Exception as exc:
+            self._set_service_status("behaviour_engine", "degraded", str(exc))
+            return None
+
+    def _build_model_manager(self) -> Any:
+        try:
+            from modules.model_orchestrator import ModelOrchestrator
+
+            return ModelOrchestrator()
+        except Exception as exc:
+            self._set_service_status("model_manager", "degraded", str(exc))
+            return None
+
+    def _build_governance_engine(self) -> Any:
+        try:
+            from modules.meta_governance_engine import MetaGovernanceEngine
+
+            return MetaGovernanceEngine()
+        except Exception as exc:
+            self._set_service_status("governance_engine", "degraded", str(exc))
+            return None
+
+    def _build_structural_awareness(self) -> Any:
+        try:
+            from modules.structural_awareness import StructuralAwareness
+
+            return StructuralAwareness()
+        except Exception as exc:
+            self._set_service_status("structural_awareness", "degraded", str(exc))
+            return None
+
+    def _build_ale(self) -> Any:
+        try:
+            from modules.autonomous_learning_engine import AutonomousLearningEngine
+
+            return AutonomousLearningEngine(
+                core=None,
+                knowledge_db=self._service_registry.get("knowledge_db"),
+                reasoning_engine=self._service_registry.get("reasoning_engine"),
+            )
+        except Exception as exc:
+            self._set_service_status("ale", "degraded", str(exc))
+            return None
+
+    def _build_trading_brain(self) -> Any:
+        try:
+            from modules.trading_brain import TradingBrain
+
+            return TradingBrain()
+        except Exception as exc:
+            self._set_service_status("trading_brain", "degraded", str(exc))
+            return None
+
+    def _build_internet_manager(self) -> Any:
+        try:
+            from modules.internet_manager import InternetManager
+
+            return InternetManager(db=self._service_registry.get("knowledge_db"))
+        except Exception as exc:
+            self._set_service_status("internet_manager", "degraded", str(exc))
+            return None
+
+    def _build_repository_manager(self) -> Any:
+        try:
+            from modules.multi_repo_orchestrator import MultiRepoOrchestrator
+
+            return MultiRepoOrchestrator()
+        except Exception as exc:
+            self._set_service_status("repository_manager", "degraded", str(exc))
+            return None
+
     def _load_optional_modules(self) -> None:
         try:
             import module_loader
@@ -826,12 +953,24 @@ class RuntimeManager:
             "persistence_manager",
             "knowledge_db",
             "memory_graph",
+            "memory_manager",
             "memory_router",
             "cognitive_memory_layer",
             "reasoning_engine",
             "cognitive_synthesis_engine",
             "knowledge_comprehension",
             "local_brain",
+            "reflection_engine",
+            "behaviour_engine",
+            "model_manager",
+            "governance_engine",
+            "structural_awareness",
+            "ale",
+            "trading_brain",
+            "internet_manager",
+            "repository_manager",
+            "event_bus",
+            "runtime_manager",
             "foundation_architecture",
             "cognitive_feedback_loop",
         ]:

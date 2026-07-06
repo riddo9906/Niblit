@@ -3,22 +3,27 @@
         {
             "node": "HypothesisEngine",
             "role": "source",
-            "updated_at": 1783347621.371393
+            "updated_at": 1783347949.1767523
         },
         {
             "node": "runtime",
             "role": "target",
-            "updated_at": 1783347621.3713942
+            "updated_at": 1783347949.1767538
         },
         {
             "node": "NiblitUnifiedRuntime",
             "role": "source",
-            "updated_at": 1783347621.4026928
+            "updated_at": 1783347949.2222464
         },
         {
             "node": "runtime_manager",
             "role": "source",
-            "updated_at": 1783347621.4515727
+            "updated_at": 1783347949.2912798
+        },
+        {
+            "node": "multi_repo_orchestrator",
+            "role": "source",
+            "updated_at": 1783347949.4811118
         }
     ],
     "edges": [
@@ -26,21 +31,21 @@
             "source": "HypothesisEngine",
             "target": "runtime",
             "event_type": "hypothesis.created",
-            "count": 2,
+            "count": 9,
             "category": "runtime",
-            "trace_id": "unified-cf85b664860d:hypothesis.created:5",
+            "trace_id": "unified-80c8a1d19d5b:hypothesis.created:78",
             "lineage_channel": "unified_runtime",
-            "updated_at": 1783347621.4187608
+            "updated_at": 1783347951.225115
         },
         {
             "source": "HypothesisEngine",
             "target": "runtime",
             "event_type": "hypothesis.evidence.ingested",
-            "count": 2,
+            "count": 514,
             "category": "runtime",
-            "trace_id": "unified-cf85b664860d:hypothesis.evidence.ingested:6",
+            "trace_id": "unified-80c8a1d19d5b:hypothesis.evidence.ingested:1037",
             "lineage_channel": "unified_runtime",
-            "updated_at": 1783347621.4356563
+            "updated_at": 1783347980.4368355
         },
         {
             "source": "NiblitUnifiedRuntime",
@@ -48,9 +53,9 @@
             "event_type": "boot.sequence",
             "count": 1,
             "category": "runtime",
-            "trace_id": "unified-cf85b664860d:boot",
+            "trace_id": "unified-80c8a1d19d5b:boot",
             "lineage_channel": "unified_runtime",
-            "updated_at": 1783347621.4026973
+            "updated_at": 1783347949.2222505
         },
         {
             "source": "runtime_manager",
@@ -58,14 +63,84 @@
             "event_type": "runtime.system.started",
             "count": 1,
             "category": "runtime",
-            "trace_id": "runtime-93e70b6d2d99:system_started:1783347621340",
+            "trace_id": "runtime-533362ebf731:system_started:1783347949122",
             "lineage_channel": "unified_runtime",
-            "updated_at": 1783347621.451578
+            "updated_at": 1783347949.291284
+        },
+        {
+            "source": "multi_repo_orchestrator",
+            "target": "runtime",
+            "event_type": "repo.unavailable",
+            "count": 30,
+            "category": "runtime",
+            "trace_id": "unified-80c8a1d19d5b:repo.unavailable:1783347978116",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783347978.1708167
+        },
+        {
+            "source": "multi_repo_orchestrator",
+            "target": "runtime",
+            "event_type": "repo.supervision.registered",
+            "count": 122,
+            "category": "runtime",
+            "trace_id": "unified-80c8a1d19d5b:repo.supervision.registered:1783347980408",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783347980.4654763
+        },
+        {
+            "source": "multi_repo_orchestrator",
+            "target": "runtime",
+            "event_type": "repo.discovered",
+            "count": 60,
+            "category": "runtime",
+            "trace_id": "unified-80c8a1d19d5b:repo.discovered:1783347978656",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783347978.7118871
+        },
+        {
+            "source": "multi_repo_orchestrator",
+            "target": "runtime",
+            "event_type": "layer.initialized",
+            "count": 210,
+            "category": "runtime",
+            "trace_id": "unified-80c8a1d19d5b:layer.initialized:1783347980002",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783347980.0597286
+        },
+        {
+            "source": "multi_repo_orchestrator",
+            "target": "runtime",
+            "event_type": "repo.registered",
+            "count": 30,
+            "category": "runtime",
+            "trace_id": "unified-80c8a1d19d5b:repo.registered:1783347979737",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783347979.7935686
+        },
+        {
+            "source": "multi_repo_orchestrator",
+            "target": "runtime",
+            "event_type": "layer.degraded",
+            "count": 30,
+            "category": "runtime",
+            "trace_id": "unified-80c8a1d19d5b:layer.degraded:1783347980137",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783347980.1930077
+        },
+        {
+            "source": "multi_repo_orchestrator",
+            "target": "runtime",
+            "event_type": "runtime.ready",
+            "count": 30,
+            "category": "runtime",
+            "trace_id": "unified-80c8a1d19d5b:runtime.ready:1783347980269",
+            "lineage_channel": "unified_runtime",
+            "updated_at": 1783347980.3265028
         }
     ],
     "summary": {
-        "node_count": 4,
-        "edge_count": 4,
-        "last_updated_at": 1783347621.4515784
+        "node_count": 5,
+        "edge_count": 11,
+        "last_updated_at": 1783347980.4654768
     }
 }
