@@ -306,6 +306,12 @@ def parse_args(argv=None):
         default=False,
         help="Use legacy Tk desktop shell instead of niblit-ui",
     )
+    p.add_argument(
+        "--legacy-desktop",
+        action="store_true",
+        default=False,
+        help="Use legacy Tk desktop shell instead of niblit-ui",
+    )
     return p.parse_args(argv)
 
 
@@ -396,9 +402,92 @@ def _should_launch_legacy_desktop(args) -> bool:
     return os.getenv("NIBLIT_LEGACY_DESKTOP", "").strip().lower() in ("1", "true", "yes")
 
 
-def _should_launch_desktop(args, *, ui_supported=None) -> bool:
-    """Backward-compatible alias — prefer :func:`_should_launch_primary_ui`."""
-    return _should_launch_primary_ui(args, ui_supported=ui_supported)
+def _should_launch_primary_ui(args, *, ui_supported=None) -> bool:
+    """Backward-compatible alias — prefer :func:`_should_launch_desktop`."""
+    return _should_launch_desktop(args, ui_supported=ui_supported)
+
+
+def _emit_lifecycle_event(stage: str, status: str, *, detail: str = "", payload: dict | None = None) -> None:
+    try:
+        from modules.event_bus import NiblitEvent, get_event_bus
+
+        data = {
+            "stage": stage,
+            "status": status,
+            "detail": detail,
+            "source_repository": "niblit",
+            "correlation_id": f"main-bootstrap:{stage}",
+            "timestamp": time.time(),
+        }
+        if payload:
+            data.update(payload)
+        get_event_bus().publish(
+            NiblitEvent(type=f"bootstrap.stage.{status}", source="main", payload=data)
+        )
+    except Exception:
+        return
+
+
+def _run_staged_runtime_bootstrap(core, io) -> dict:
+    """Execute staged runtime bootstrap with lifecycle events per stage."""
+    report: dict[str, dict] = {}
+    runtime_manager = getattr(core, "runtime_manager", None)
+    orchestrator = None
+    try:
+        from modules.multi_repo_orchestrator import get_multi_repo_orchestrator
+
+        orchestrator = get_multi_repo_orchestrator()
+    except Exception:
+        orchestrator = None
+
+    managed_repo_status: dict = {}
+
+    def _boot_repo_manager() -> bool:
+        return orchestrator is not None and bool(orchestrator.boot())
+
+    def _start_managed_repos() -> bool:
+        nonlocal managed_repo_status
+        if orchestrator is None:
+            return False
+        managed_repo_status = orchestrator.start_managed_repositories(["niblit-cloud-server", "niblit-ui"])
+        if runtime_manager is not None:
+            for repo_name, status in managed_repo_status.items():
+                runtime_manager.update_managed_repository_status(repo_name, dict(status or {}))
+        return True
+
+    stages = [
+        ("config", lambda: True),
+        ("RuntimeManager", lambda: runtime_manager is not None),
+        ("FoundationArchitecture", lambda: runtime_manager is not None and runtime_manager.get_foundation_architecture() is not None),
+        ("event_bus", lambda: runtime_manager is not None and getattr(runtime_manager, "event_bus", None) is not None),
+        ("persistence_memory_knowledge_understanding", lambda: runtime_manager is not None and runtime_manager.get_runtime_services().get("service_count", 0) > 0),
+        ("LocalBrain_ModelManager_ALE", lambda: getattr(core, "local_brain", None) is not None or getattr(core, "brain", None) is not None),
+        ("RepositoryManager", _boot_repo_manager),
+        ("managed_repos", _start_managed_repos),
+        ("health_verification", lambda: runtime_manager is not None and bool(runtime_manager.get_runtime_health())),
+    ]
+
+    for stage, checker in stages:
+        _emit_lifecycle_event(stage, "start")
+        try:
+            ok = bool(checker())
+            if ok:
+                entry = {"status": "success"}
+                if stage == "managed_repos":
+                    entry["repositories"] = managed_repo_status
+                report[stage] = entry
+                _emit_lifecycle_event(stage, "success")
+            else:
+                report[stage] = {"status": "degraded", "detail": "stage validation returned false"}
+                _emit_lifecycle_event(stage, "degraded", detail="stage validation returned false")
+                _BOOT_STATUS.mark_degraded(f"{stage} degraded")
+        except Exception as exc:
+            report[stage] = {"status": "failure", "detail": str(exc)}
+            _emit_lifecycle_event(stage, "failure", detail=str(exc))
+            _BOOT_STATUS.mark_degraded(f"{stage} failed: {exc}")
+    _emit_lifecycle_event("runtime_ready", "success", payload={"stage_report": report})
+    io.out(f"{timestamp()} 🔗 Runtime staged bootstrap complete ({len(report)} stages)")
+    return report
 
 # ─────────────────────────────
 # DEBUG PRINT
@@ -517,6 +606,17 @@ def boot():
             raise
 
     io.out(f"{timestamp()} 🔷 Phase 0 (fast-start) complete — CORE READY")
+    try:
+        staged_report = _run_staged_runtime_bootstrap(core, io)
+        setattr(core, "_staged_bootstrap_report", staged_report)
+        try:
+            if hasattr(core, "_emit_capability_event"):
+                core._emit_capability_event("runtime.ready", {"bootstrap_stages": staged_report})  # pylint: disable=protected-access
+        except Exception:
+            pass
+    except Exception as exc:
+        _BOOT_STATUS.mark_degraded(f"staged bootstrap failed: {exc}")
+        io.out(f"{timestamp()} ⚠️ Staged bootstrap degraded: {exc}")
 
     # ── Sidecar socket server — start immediately after Phase 0 ─────────────
     # This lets niblit_ctl.py connect and queue commands RIGHT NOW, even while
@@ -1237,8 +1337,8 @@ def main(argv=None):
                 pass
         sys.exit(0)
 
-    # ── Primary UI: niblit-ui (API-attached) or legacy Tk desktop shell ───────
-    if _should_launch_primary_ui(_args):
+    # ── Primary UI: managed via orchestrator, legacy Tk desktop, or niblit-ui ─
+    if _should_launch_desktop(_args):
         if _should_launch_legacy_desktop(_args):
             try:
                 from modules.desktop_runtime_shell import launch_desktop_shell
@@ -1253,34 +1353,48 @@ def main(argv=None):
             except Exception as _ui_exc:
                 io.error(
                     f"{timestamp()} [LEGACY DESKTOP UI ERROR] {_ui_exc} — "
-                    "trying niblit-ui or CLI"
+                    "trying managed UI or CLI"
                 )
         else:
+            _managed_ui_started = False
             try:
-                from modules.niblit_ui_launcher import launch_primary_ui
+                from modules.multi_repo_orchestrator import get_multi_repo_orchestrator
 
-                ui_result = launch_primary_ui(
-                    core,
-                    io=io,
-                    on_status=lambda msg: io.out(f"{timestamp()} {msg}"),
-                )
-                if ui_result.success:
-                    _BOOT_STATUS.sidecar_status = getattr(_BOOT_STATUS, "sidecar_status", "active")
-                    try:
-                        exit_code = ui_result.wait()
-                    finally:
-                        ui_result.terminate()
-                        try:
-                            core.shutdown()
-                        except Exception:
-                            pass
-                    return exit_code
-                io.error(
-                    f"{timestamp()} [NIBLIT-UI] {ui_result.message or 'launch failed'} "
-                    "— falling back to CLI (backend API may still be running)"
-                )
+                managed = get_multi_repo_orchestrator()
+                if managed is not None:
+                    ui_result = managed.start_managed_repositories(["niblit-ui"])
+                    _managed_ui_state = ui_result.get("niblit-ui", {}).get("state", "unknown")
+                    _managed_ui_started = _managed_ui_state not in ("unavailable", "unknown", "failed")
+                    io.out(f"{timestamp()} 🖥️ Managed UI orchestration requested: {_managed_ui_state}")
             except Exception as _ui_exc:
-                io.error(f"{timestamp()} [NIBLIT-UI ERROR] {_ui_exc} — falling back to CLI")
+                io.error(f"{timestamp()} [MANAGED UI ERROR] {_ui_exc} — trying direct niblit-ui launch")
+
+            if not _managed_ui_started:
+                try:
+                    from modules.niblit_ui_launcher import launch_primary_ui
+
+                    ui_result = launch_primary_ui(
+                        core,
+                        io=io,
+                        on_status=lambda msg: io.out(f"{timestamp()} {msg}"),
+                    )
+                    if ui_result.success:
+                        _BOOT_STATUS.sidecar_status = getattr(_BOOT_STATUS, "sidecar_status", "active")
+                        try:
+                            exit_code = ui_result.wait()
+                        finally:
+                            ui_result.terminate()
+                            try:
+                                core.shutdown()
+                            except Exception:
+                                pass
+                        return exit_code
+                    io.error(
+                        f"{timestamp()} [NIBLIT-UI] {ui_result.message or 'launch failed'} "
+                        "— falling back to CLI (backend API may still be running)"
+                    )
+                except Exception as _ui_exc:
+                    io.error(f"{timestamp()} [NIBLIT-UI ERROR] {_ui_exc} — falling back to CLI")
 
     # ── Interactive shell (CLI fallback) ─────────────────────────────────────
     try:

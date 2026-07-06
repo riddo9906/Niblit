@@ -98,6 +98,7 @@ class RuntimeManager:
         self._persistence_manager: Any | None = None
         self._provenance_service: Any | None = None
         self._runtime_architecture_model: Any | None = None
+        self._managed_repositories: dict[str, dict[str, Any]] = {}
 
         self._running = False
         self._record_timeline_event("startup", "runtime_manager", "runtime", "info", 0.0, "runtime_manager_init")
@@ -249,6 +250,10 @@ class RuntimeManager:
                 "payload": payload,
             },
         )
+
+    def update_managed_repository_status(self, repo_name: str, status: dict[str, Any]) -> None:
+        self._managed_repositories[str(repo_name)] = dict(status or {})
+        self._record_timeline_event("managed_repo", "runtime_manager", str(repo_name), "info", 0.0, "status_updated")
 
     def _record_timeline_event(self, event_type: str, module: str, service: str, severity: str, duration: float, detail: str) -> None:
         self._runtime_timeline.append(
@@ -412,6 +417,7 @@ class RuntimeManager:
         self._optional_module_report = {"loaded": [], "failed": []}
         self._singleton_warnings = []
 
+        # ── Layer 0: Core infrastructure ──────────────────────────────────────
         self._initialize_service("persistence_manager", lambda: self._build_persistence_manager())
         self._initialize_service("knowledge_db", lambda: self._build_knowledge_db())
         self._initialize_service("memory_graph", lambda: self._build_memory_graph())
@@ -424,8 +430,47 @@ class RuntimeManager:
         self._initialize_service("provenance_service", lambda: self._build_provenance_service())
         self._initialize_service("runtime_architecture_model", lambda: self._build_runtime_architecture_model())
         self._initialize_service("cognitive_ingress", lambda: self._build_cognitive_ingress())
+
+        # ── Self-registration: event_bus and runtime_manager ─────────────────
+        # Register the already-created EventBus and this RuntimeManager as
+        # named services so FoundationArchitecture can satisfy its
+        # EXPECTED_SUBSYSTEMS contract (Phases 5–6 of the architectural audit).
+        self._service_registry["event_bus"] = self.event_bus
+        self._service_statuses["event_bus"] = {"status": "ready"}
+        self._service_load_durations_ms["event_bus"] = 0.0
+        if "event_bus" not in self._service_init_order:
+            self._service_init_order.append("event_bus")
+
+        self._service_registry["runtime_manager"] = self
+        self._service_statuses["runtime_manager"] = {"status": "ready"}
+        self._service_load_durations_ms["runtime_manager"] = 0.0
+        if "runtime_manager" not in self._service_init_order:
+            self._service_init_order.append("runtime_manager")
+
+        # ── memory_manager alias (EXPECTED_SUBSYSTEMS uses this canonical name)
+        memory_graph = self._service_registry.get("memory_graph")
+        if memory_graph is not None and "memory_manager" not in self._service_registry:
+            self._service_registry["memory_manager"] = memory_graph
+            self._service_statuses["memory_manager"] = {"status": "ready"}
+            self._service_load_durations_ms["memory_manager"] = 0.0
+            self._service_init_order.append("memory_manager")
+
+        # ── Layer 1: Cognitive feedback services ──────────────────────────────
+        self._initialize_service("reflection_engine", lambda: self._build_reflection_engine())
+        self._initialize_service("behaviour_engine", lambda: self._build_behaviour_engine())
+
+        # ── Layer 2: Extended runtime services (optional — graceful on failure)
+        self._initialize_service("model_manager", lambda: self._build_model_manager())
+        self._initialize_service("governance_engine", lambda: self._build_governance_engine())
+        self._initialize_service("structural_awareness", lambda: self._build_structural_awareness())
+        self._initialize_service("ale", lambda: self._build_ale())
+        self._initialize_service("trading_brain", lambda: self._build_trading_brain())
+        self._initialize_service("internet_manager", lambda: self._build_internet_manager())
+        self._initialize_service("repository_manager", lambda: self._build_repository_manager())
+
+        # ── Layer 3: Central cognitive coordinator (built last so all services
+        #            are in the registry when FA registers subsystems) ──────────
         self._initialize_service("foundation_architecture", lambda: self._build_foundation_architecture())
-        self._initialize_service("local_brain", lambda: self._build_local_brain())
         self._load_optional_modules()
         self.register_extension(
             "cognitive_ingress",
@@ -640,6 +685,93 @@ class RuntimeManager:
             self._set_service_status("local_brain", "degraded", str(exc))
             return None
 
+    # ── Extended service builders (all graceful — return None on failure) ────
+
+    def _build_reflection_engine(self) -> Any:
+        try:
+            from modules.reflection_engine import get_reflection_engine
+
+            return get_reflection_engine()
+        except Exception as exc:
+            self._set_service_status("reflection_engine", "degraded", str(exc))
+            return None
+
+    def _build_behaviour_engine(self) -> Any:
+        try:
+            from modules.behaviour_adaptation import BehaviourAdaptationEngine
+
+            return BehaviourAdaptationEngine()
+        except Exception as exc:
+            self._set_service_status("behaviour_engine", "degraded", str(exc))
+            return None
+
+    def _build_model_manager(self) -> Any:
+        try:
+            from modules.model_orchestrator import ModelOrchestrator
+
+            return ModelOrchestrator()
+        except Exception as exc:
+            self._set_service_status("model_manager", "degraded", str(exc))
+            return None
+
+    def _build_governance_engine(self) -> Any:
+        try:
+            from modules.meta_governance_engine import MetaGovernanceEngine
+
+            return MetaGovernanceEngine()
+        except Exception as exc:
+            self._set_service_status("governance_engine", "degraded", str(exc))
+            return None
+
+    def _build_structural_awareness(self) -> Any:
+        try:
+            from modules.structural_awareness import StructuralAwareness
+
+            return StructuralAwareness()
+        except Exception as exc:
+            self._set_service_status("structural_awareness", "degraded", str(exc))
+            return None
+
+    def _build_ale(self) -> Any:
+        try:
+            from modules.autonomous_learning_engine import AutonomousLearningEngine
+
+            return AutonomousLearningEngine(
+                core=None,
+                knowledge_db=self._service_registry.get("knowledge_db"),
+                reasoning_engine=self._service_registry.get("reasoning_engine"),
+            )
+        except Exception as exc:
+            self._set_service_status("ale", "degraded", str(exc))
+            return None
+
+    def _build_trading_brain(self) -> Any:
+        try:
+            from modules.trading_brain import TradingBrain
+
+            return TradingBrain()
+        except Exception as exc:
+            self._set_service_status("trading_brain", "degraded", str(exc))
+            return None
+
+    def _build_internet_manager(self) -> Any:
+        try:
+            from modules.internet_manager import InternetManager
+
+            return InternetManager(db=self._service_registry.get("knowledge_db"))
+        except Exception as exc:
+            self._set_service_status("internet_manager", "degraded", str(exc))
+            return None
+
+    def _build_repository_manager(self) -> Any:
+        try:
+            from modules.multi_repo_orchestrator import MultiRepoOrchestrator
+
+            return MultiRepoOrchestrator()
+        except Exception as exc:
+            self._set_service_status("repository_manager", "degraded", str(exc))
+            return None
+
     def _load_optional_modules(self) -> None:
         try:
             import module_loader
@@ -821,12 +953,24 @@ class RuntimeManager:
             "persistence_manager",
             "knowledge_db",
             "memory_graph",
+            "memory_manager",
             "memory_router",
             "cognitive_memory_layer",
             "reasoning_engine",
             "cognitive_synthesis_engine",
             "knowledge_comprehension",
             "local_brain",
+            "reflection_engine",
+            "behaviour_engine",
+            "model_manager",
+            "governance_engine",
+            "structural_awareness",
+            "ale",
+            "trading_brain",
+            "internet_manager",
+            "repository_manager",
+            "event_bus",
+            "runtime_manager",
             "foundation_architecture",
             "cognitive_feedback_loop",
         ]:
@@ -863,6 +1007,7 @@ class RuntimeManager:
             "duplicate_singleton_warnings": list(self._singleton_warnings),
             "service_lifecycle_states": {name: self._service_statuses.get(name, {}).get("status", "unknown") for name in self._service_statuses},
             "extension_points": dict(self._extension_points),
+            "managed_repositories": dict(self._managed_repositories),
         }
 
     def get_runtime_report(self) -> dict[str, Any]:
@@ -936,10 +1081,18 @@ class RuntimeManager:
 
     def _lineage_payload(self, payload: dict[str, Any] | None, event_type: str, source: str) -> dict[str, Any]:
         data = dict(payload or {})
-        data.setdefault("trace_id", data.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}")
+        trace_id = data.get("trace_id") or f"{self.runtime_id}:{event_type}:{int(time.time() * 1000)}"
+        data.setdefault("trace_id", trace_id)
         data.setdefault("runtime_id", self.runtime_id)
         data.setdefault("cognition_id", data.get("cognition_id", ""))
         data.setdefault("source_module", source)
+        data.setdefault("source_repository", "niblit")
+        data.setdefault("correlation_id", data.get("correlation_id") or str(trace_id))
+        lineage_channel = str(data.get("lineage_channel") or "runtime_manager.bridge")
+        data.setdefault("lineage_channel", lineage_channel)
+        lineage = list(data.get("lineage", []) or [])
+        lineage.append(f"{source}:{event_type}")
+        data["lineage"] = lineage[-12:]
         data.setdefault("event_category", data.get("event_category") or self._categorize(event_type))
         data.setdefault("event_priority", data.get("event_priority", "normal"))
         return data
@@ -1073,6 +1226,8 @@ class RuntimeManager:
                     source=source,
                     runtime_id=self.runtime_id,
                     trace_id=str(lineage.get("trace_id", "")),
+                    source_repository=str(lineage.get("source_repository", "niblit")),
+                    correlation_id=str(lineage.get("correlation_id", "")),
                     cognition_id=str(lineage.get("cognition_id", "")),
                     source_module=str(lineage.get("source_module", source)),
                     event_category=str(lineage.get("event_category", self._categorize(event_type))),
