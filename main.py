@@ -306,12 +306,6 @@ def parse_args(argv=None):
         default=False,
         help="Use legacy Tk desktop shell instead of niblit-ui",
     )
-    p.add_argument(
-        "--legacy-desktop",
-        action="store_true",
-        default=False,
-        help="Use legacy Tk desktop shell instead of niblit-ui",
-    )
     return p.parse_args(argv)
 
 
@@ -402,9 +396,9 @@ def _should_launch_legacy_desktop(args) -> bool:
     return os.getenv("NIBLIT_LEGACY_DESKTOP", "").strip().lower() in ("1", "true", "yes")
 
 
-def _should_launch_primary_ui(args, *, ui_supported=None) -> bool:
-    """Backward-compatible alias — prefer :func:`_should_launch_desktop`."""
-    return _should_launch_desktop(args, ui_supported=ui_supported)
+def _should_launch_desktop(args, *, ui_supported=None) -> bool:
+    """Backward-compatible alias — prefer :func:`_should_launch_primary_ui`."""
+    return _should_launch_primary_ui(args, ui_supported=ui_supported)
 
 
 def _emit_lifecycle_event(stage: str, status: str, *, detail: str = "", payload: dict | None = None) -> None:
