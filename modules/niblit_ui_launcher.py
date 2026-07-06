@@ -72,8 +72,18 @@ class UiLaunchResult:
 
 
 def find_niblit_ui_root() -> Optional[Path]:
-    """Resolve niblit-ui directory (sibling repo or ``NIBLIT_UI_PATH``)."""
-    env_path = os.environ.get("NIBLIT_UI_PATH", "").strip()
+    """Resolve niblit-ui directory.
+
+    Search order (first match wins):
+    1. ``NIBLIT_UI_PATH`` or ``NIBLIT_UI_ROOT`` environment variable override.
+    2. Sibling of the Niblit repository root (canonical local development layout).
+    3. Bundled sub-directory inside the Niblit repository.
+    """
+    # Accept either env var (NIBLIT_UI_PATH for launcher, NIBLIT_UI_ROOT for orchestrator).
+    env_path = (
+        os.environ.get("NIBLIT_UI_PATH", "").strip()
+        or os.environ.get("NIBLIT_UI_ROOT", "").strip()
+    )
     if env_path:
         candidate = Path(env_path).expanduser().resolve()
         if (candidate / "package.json").is_file():
@@ -245,8 +255,16 @@ def launch_ui_process(
     dist_index = ui_root / "dist" / "index.html"
     node_modules = ui_root / "node_modules"
     production = _is_truthy("NIBLIT_UI_PRODUCTION")
-    tauri_mode = _is_truthy("NIBLIT_UI_TAURI")
     tauri_src = ui_root / "src-tauri" / "tauri.conf.json"
+    # Auto-detect Tauri: use it when src-tauri/tauri.conf.json exists unless explicitly
+    # disabled via NIBLIT_UI_TAURI=0.  The env var can still force Tauri on (=1) or off (=0).
+    tauri_env = os.environ.get("NIBLIT_UI_TAURI", "").strip().lower()
+    if tauri_env in ("0", "false", "no"):
+        tauri_mode = False
+    elif tauri_env in ("1", "true", "yes"):
+        tauri_mode = True
+    else:
+        tauri_mode = tauri_src.is_file()
 
     if tauri_mode and tauri_src.is_file():
         cmd = [npm, "run", "tauri:dev" if not production else "tauri:build"]
