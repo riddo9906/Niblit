@@ -1,0 +1,15 @@
+{
+  "name": "niblit",
+  "version": "1.0.0",
+  "description": "Niblit AIOS — unified desktop application launcher",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/niblit-dev.js",
+    "build": "node scripts/niblit-build.js",
+    "tauri:dev": "node scripts/niblit-dev.js --tauri",
+    "tauri:build": "node scripts/niblit-build.js --tauri"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
