@@ -138,7 +138,7 @@ class UiLaunchResult:
 
 
 def _diagnostic_emitter(diagnostics: BootDiagnostics) -> Callable[[str], None]:
-    return diagnostics.emitter or log.info
+    return diagnostics.emitter or (lambda msg: log.info("%s", msg))
 
 
 def find_niblit_ui_root() -> Optional[Path]:
@@ -347,8 +347,8 @@ def ensure_lean_runtime_ready(
         if not (lean_root / "algorithms").is_dir():
             raise FileNotFoundError(f"Lean algorithms directory missing at {lean_root / 'algorithms'}")
 
-        os.environ.setdefault("NIBLIT_LEAN_ALGOS_ROOT", str(lean_root))
-        os.environ.setdefault("NIBLIT_LEAN_ALGOS", str(lean_root))
+        os.environ["NIBLIT_LEAN_ALGOS_ROOT"] = str(lean_root)
+        os.environ["NIBLIT_LEAN_ALGOS"] = str(lean_root)
 
         manager = getattr(core, "lean_algo_manager", None)
         if manager is None:

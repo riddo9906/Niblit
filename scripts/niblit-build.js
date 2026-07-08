@@ -118,7 +118,7 @@ function findCloudServerRoot() {
 function findLeanAlgosRoot() {
   const envRoot = process.env.NIBLIT_LEAN_ALGOS_ROOT || process.env.NIBLIT_LEAN_ALGOS || "";
   if (envRoot && fs.existsSync(path.join(envRoot, "niblit_bridge"))) {
-    return envRoot;
+    return path.resolve(envRoot);
   }
   const internal = path.join(repoRoot, "niblit-lean-algos");
   if (fs.existsSync(path.join(internal, "niblit_bridge"))) {
