@@ -225,13 +225,18 @@ class TestShutdownOnSignal:
         """main() should not crash when SIGHUP is unavailable on the platform."""
         import main
 
+        mock_core = MagicMock()
+        # Set _deferred_init_phase to a string so the init-wait loop in main()
+        # exits immediately instead of spinning for the full 600 s safety-valve
+        # timeout (MagicMock auto-creates non-string attributes).
+        mock_core._deferred_init_phase = "complete"
+
         with patch("main.parse_args", return_value=type("Args", (), {"debug": False, "quiet": False, "tool_call": None, "tool_arguments": None, "list_tools": False})()), \
              patch("main._run_tool_cli_mode", return_value=-1), \
-             patch("main.boot", return_value=(MagicMock(), MagicMock())), \
-             patch("main.time.sleep", side_effect=KeyboardInterrupt), \
+             patch("main.boot", return_value=(mock_core, MagicMock())), \
+             patch("main.run_shell"), \
              patch("main.signal.signal", side_effect=lambda *args, **kwargs: None):
-            with pytest.raises(KeyboardInterrupt):
-                main.main([])
+            main.main([])  # must not raise
 
     def test_handler_calls_sys_exit(self):
         """_shutdown_on_signal must always call sys.exit(0)."""
