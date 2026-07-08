@@ -323,10 +323,9 @@ class TestDeployPath:
             assert _resolve_termux_deploy_path() == candidate
 
     def test_resolve_termux_deploy_path_falls_back_to_project_root(self, monkeypatch):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            monkeypatch.delenv("NIBLIT_DEPLOY_PATH", raising=False)
-            monkeypatch.setattr("modules.evolve.Path.home", lambda *_a, **_kw: Path(tmpdir))
-            assert _resolve_termux_deploy_path() == get_project_root()
+        monkeypatch.delenv("NIBLIT_DEPLOY_PATH", raising=False)
+        monkeypatch.setattr("modules.evolve._TERMUX_DEPLOY_SUFFIXES", (("__unlikely_deploy_path__",),))
+        assert _resolve_termux_deploy_path() == get_project_root()
 
     def test_get_status_includes_deploy_path_key(self):
         with tempfile.TemporaryDirectory() as tmpdir:

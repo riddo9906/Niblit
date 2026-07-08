@@ -1219,6 +1219,11 @@ def main(argv=None):
                 # Block up to 2 s then wake up to drain progress messages.
                 core.wait_for_ready(timeout=2.0)
                 _phase = getattr(core, "_deferred_init_phase", "complete")
+                # Normalise to str — non-string values (e.g. MagicMock in tests,
+                # or an unexpected attribute type) are treated as "complete" so the
+                # loop never spins indefinitely against the 600 s safety valve.
+                if not isinstance(_phase, str):
+                    _phase = "complete"
 
                 # Drain and print any progress messages pushed by the init thread.
                 _printed = _drain_init_messages(_init_pq, io)
@@ -1252,6 +1257,8 @@ def main(argv=None):
         _drain_init_messages(_init_pq, io)
 
         _phase = getattr(core, "_deferred_init_phase", "complete")
+        if not isinstance(_phase, str):
+            _phase = "complete"
         if _phase == "complete":
             _sr = getattr(core, "startup_report", None)
             try:
