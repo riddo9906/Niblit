@@ -18,7 +18,7 @@ log = logging.getLogger("Niblit.Boot")
 # Keep enough lines to capture a representative startup failure without flooding
 # the console when verbose child processes emit large logs; this usually preserves
 # the actionable tail of both stdout and stderr for a single failed launch.
-_DEFAULT_PROCESS_OUTPUT_TAIL_LINES = 120
+_DEFAULT_PROCESS_OUTPUT_MAX_LINES = 120
 
 
 @dataclass
@@ -117,7 +117,7 @@ class ProcessDiagnostics:
         stdout,
         stderr,
         emitter: Callable[[str], None],
-        max_lines: int = _DEFAULT_PROCESS_OUTPUT_TAIL_LINES,
+        max_lines: int = _DEFAULT_PROCESS_OUTPUT_MAX_LINES,
     ) -> None:
         self.name = name
         self.command = list(command)

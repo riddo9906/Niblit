@@ -337,7 +337,7 @@ def validate_primary_ui_dependencies(
         elif is_port_available(api_host, api_port):
             readiness["api_port"] = "available"
         else:
-            raise RuntimeError(f"API port {api_port} is unavailable")
+            raise RuntimeError(f"API port {api_port} is already in use by another process")
 
         if os.environ.get("NIBLIT_CLOUD_AUTOSTART", "").strip().lower() in ("1", "true", "yes"):
             if _http_ready(f"{cloud_url}/health") or _http_ready(f"{cloud_url}/healthz"):
@@ -358,7 +358,7 @@ def validate_primary_ui_dependencies(
                 raise FileNotFoundError("npm not found on PATH")
             readiness["npm"] = npm
             if tauri_mode is not True and not is_port_available("127.0.0.1", ui_port):
-                raise RuntimeError(f"UI port {ui_port} is unavailable")
+                raise RuntimeError(f"UI port {ui_port} is already in use by another process")
         else:
             raise FileNotFoundError("UI repository/executable not found")
         diagnostics.success(stage, "dependencies validated")
@@ -719,6 +719,9 @@ def launch_primary_ui(
         else:
             bundled_start_time = time.monotonic()
             bundled_stable_window = _BUNDLED_UI_STABLE_WINDOW_SECONDS
+            # Bundled desktop UIs have no HTTP readiness endpoint; if a caller
+            # configures a shorter timeout than the stabilization window, prefer
+            # the stabilization window so we can still detect immediate crash loops.
             bundled_timeout = max(ui_timeout, bundled_stable_window)
             _wait_for_process_ready(
                 name="UI",
