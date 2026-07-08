@@ -66,6 +66,17 @@ function resolveNpm() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
 }
 
+function applyLeanEnv(env, leanRoot) {
+  if (!leanRoot) {
+    return env;
+  }
+  return {
+    ...env,
+    NIBLIT_LEAN_ALGOS_ROOT: leanRoot,
+    NIBLIT_LEAN_ALGOS: leanRoot,
+  };
+}
+
 // ── Repository discovery ──────────────────────────────────────────────────────
 // All find* functions mirror the search order in modules/niblit_ui_launcher.py
 // so both the build script and the Python runtime find the same repos.
@@ -232,8 +243,7 @@ if (tauriMode && !leanRoot) {
   process.exit(1);
 }
 if (leanRoot) {
-  process.env.NIBLIT_LEAN_ALGOS_ROOT = leanRoot;
-  process.env.NIBLIT_LEAN_ALGOS = leanRoot;
+  Object.assign(process.env, applyLeanEnv(process.env, leanRoot));
 }
 
 // ── Step 3: Build niblit-ui ───────────────────────────────────────────────────
@@ -246,15 +256,10 @@ if (!fs.existsSync(nodeModules)) {
   run(`${npmBin} install`, { cwd: uiRoot });
 }
 
-const buildEnv = {
+const buildEnv = applyLeanEnv({
   ...process.env,
   NIBLIT_CLOUD_AUTOSTART: "1",
-};
-
-if (leanRoot) {
-  buildEnv.NIBLIT_LEAN_ALGOS_ROOT = leanRoot;
-  buildEnv.NIBLIT_LEAN_ALGOS = leanRoot;
-}
+}, leanRoot);
 
 const buildCmd = tauriMode ? `${npmBin} run tauri:build` : `${npmBin} run build`;
 run(buildCmd, { cwd: uiRoot, env: buildEnv });

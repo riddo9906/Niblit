@@ -141,6 +141,14 @@ def _diagnostic_emitter(diagnostics: BootDiagnostics) -> Callable[[str], None]:
     return diagnostics.emitter or (lambda msg: log.info("%s", msg))
 
 
+def _status_emitter(io: Any | None, on_status: Callable[[str], None] | None) -> Callable[[str], None] | None:
+    if on_status is not None:
+        return on_status
+    if io is not None and hasattr(io, "out"):
+        return io.out
+    return None
+
+
 def find_niblit_ui_root() -> Optional[Path]:
     """Resolve niblit-ui directory.
 
@@ -812,7 +820,7 @@ def launch_primary_ui(
     on_status: Optional[Callable[[str], None]] = None,
 ) -> UiLaunchResult:
     """Start the complete desktop runtime in strict order and only then launch niblit-ui."""
-    diagnostics = BootDiagnostics(emitter=on_status or (io.out if io is not None and hasattr(io, "out") else None))
+    diagnostics = BootDiagnostics(emitter=_status_emitter(io, on_status))
 
     def _say(msg: str) -> None:
         log.info(msg)
