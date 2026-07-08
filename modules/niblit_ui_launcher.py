@@ -49,7 +49,7 @@ _DEFAULT_API_PORT = int(os.environ.get("NIBLIT_API_PORT", os.environ.get("PORT",
 _DEFAULT_UI_PORT = int(os.environ.get("NIBLIT_UI_PORT", "5173"))
 _DEFAULT_API_HOST = os.environ.get("NIBLIT_API_HOST", "127.0.0.1")
 # Bundled desktop builds do not expose an HTTP readiness endpoint, so readiness
-# is defined as "the process stayed alive through its initial stabilisation
+# is defined as "the process stayed alive through its initial stabilization
 # window without exiting immediately".
 _BUNDLED_UI_STABLE_WINDOW_SECONDS = 2.0
 
@@ -304,6 +304,10 @@ def _wait_for_process_ready(
     raise TimeoutError(f"{name} startup timed out after {timeout:.1f}s")
 
 
+def _bundled_ui_is_stable(proc: subprocess.Popen, started_at: float, stable_window: float) -> bool:
+    return proc.poll() is None and (time.monotonic() - started_at) >= stable_window
+
+
 def validate_primary_ui_dependencies(
     *,
     diagnostics: BootDiagnostics,
@@ -466,7 +470,6 @@ def maybe_start_cloud_server(
         exc = FileNotFoundError("NIBLIT_CLOUD_AUTOSTART set but cloud-server repo not found")
         if diagnostics is not None and stage is not None:
             diagnostics.failure(stage, exc)
-        log.warning("[UILauncher] NIBLIT_CLOUD_AUTOSTART set but cloud-server repo not found")
         raise exc
 
     cmd_dev = [
@@ -716,8 +719,11 @@ def launch_primary_ui(
                 proc=ui_proc,
                 proc_diag=ui_proc_diag,
                 timeout=bundled_timeout,
-                readiness=lambda: ui_proc.poll() is None
-                and (time.monotonic() - bundled_probe_started_at) >= bundled_stable_window,
+                readiness=lambda: _bundled_ui_is_stable(
+                    ui_proc,
+                    bundled_probe_started_at,
+                    bundled_stable_window,
+                ),
             )
             ui_url = str(ui_exe) if ui_exe is not None else ""
         readiness["ui"] = "ready"

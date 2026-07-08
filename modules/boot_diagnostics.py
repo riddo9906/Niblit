@@ -16,7 +16,8 @@ from typing import Callable, Optional
 
 log = logging.getLogger("Niblit.Boot")
 # Keep enough lines to capture a representative startup failure without flooding
-# the console when verbose child processes emit large logs.
+# the console when verbose child processes emit large logs; this usually preserves
+# the actionable tail of both stdout and stderr for a single failed launch.
 _DEFAULT_MAX_TAIL_LINES = 120
 
 
