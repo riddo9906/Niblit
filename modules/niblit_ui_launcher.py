@@ -48,6 +48,7 @@ log = logging.getLogger("Niblit.UILauncher")
 _DEFAULT_API_PORT = int(os.environ.get("NIBLIT_API_PORT", os.environ.get("PORT", "8080")))
 _DEFAULT_UI_PORT = int(os.environ.get("NIBLIT_UI_PORT", "5173"))
 _DEFAULT_API_HOST = os.environ.get("NIBLIT_API_HOST", "127.0.0.1")
+_BUNDLED_UI_MAX_READY_TIMEOUT = 10.0
 
 
 # ── PyInstaller bundle helpers ────────────────────────────────────────────────
@@ -272,7 +273,7 @@ def _spawn_logged_process(
         pid=int(proc.pid or 0),
         stdout=proc.stdout,
         stderr=proc.stderr,
-        emitter=diagnostics._emit,  # pylint: disable=protected-access
+        emitter=diagnostics.emitter or log.info,
     )
     proc_diag.log_started()
     return proc, proc_diag
@@ -710,7 +711,7 @@ def launch_primary_ui(
                 name="UI",
                 proc=ui_proc,
                 proc_diag=ui_proc_diag,
-                timeout=min(ui_timeout, 10.0),
+                timeout=min(ui_timeout, _BUNDLED_UI_MAX_READY_TIMEOUT),
                 readiness=lambda: ui_proc.poll() is None,
             )
             ui_url = str(ui_exe) if ui_exe is not None else ""

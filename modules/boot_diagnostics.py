@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 log = logging.getLogger("Niblit.Boot")
+_DEFAULT_MAX_TAIL_LINES = 120
 
 
 @dataclass
@@ -90,6 +91,10 @@ class BootDiagnostics:
     def last_successful_phase(self) -> Optional[str]:
         return self._last_successful
 
+    @property
+    def emitter(self) -> Optional[Callable[[str], None]]:
+        return self._emitter
+
     def _emit(self, message: str) -> None:
         log.info(message)
         if self._emitter is not None:
@@ -109,7 +114,7 @@ class ProcessDiagnostics:
         stdout,
         stderr,
         emitter: Callable[[str], None],
-        max_lines: int = 120,
+        max_lines: int = _DEFAULT_MAX_TAIL_LINES,
     ) -> None:
         self.name = name
         self.command = list(command)
