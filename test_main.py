@@ -12,6 +12,7 @@ NiblitCore and NiblitIO are stubbed so no real services are started.
 """
 
 import signal
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -388,6 +389,20 @@ class TestDesktopLaunchDecision:
 
         args = main.parse_args([])
         assert main._should_launch_desktop(args, ui_supported=True) is True
+
+    def test_log_managed_ui_diagnostics_reports_direct_launcher(self):
+        import main
+
+        io = _make_io()
+        manifest = SimpleNamespace(present=True, root="/tmp/niblit-ui", error="")
+        managed = MagicMock()
+        managed.get_repo_manifest.return_value = manifest
+
+        with patch("modules.multi_repo_orchestrator.get_multi_repo_orchestrator", return_value=managed):
+            main._log_managed_ui_diagnostics(io)
+
+        assert any("using direct launcher" in str(call).lower() for call in io.out.call_args_list)
+        managed.start_managed_repositories.assert_not_called()
 
 
 class TestHypothesisCommandSuggestions:

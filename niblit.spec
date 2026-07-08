@@ -38,8 +38,20 @@ REPO_ROOT = Path(SPECPATH)  # directory containing this .spec file
 STAGED_CLOUD_DIR = REPO_ROOT / "dist" / "_staged" / "cloud"
 STAGED_TAURI_EXE = REPO_ROOT / "dist" / "_staged" / "niblit-ui.exe"
 
-# niblit-lean-algos is already a subdirectory inside the niblit repo.
-LEAN_ALGOS_ROOT = REPO_ROOT / "niblit-lean-algos"
+_lean_override = os.environ.get("NIBLIT_LEAN_ALGOS_ROOT") or os.environ.get("NIBLIT_LEAN_ALGOS")
+_lean_candidates = [
+    Path(_lean_override).expanduser() if _lean_override else None,
+    REPO_ROOT / "niblit-lean-algos",
+    REPO_ROOT.parent / "niblit-lean-algos",
+]
+LEAN_ALGOS_ROOT = next(
+    (
+        candidate.resolve()
+        for candidate in _lean_candidates
+        if candidate is not None and candidate.is_dir()
+    ),
+    REPO_ROOT / "niblit-lean-algos",
+)
 
 # ---------------------------------------------------------------------------
 # Data files bundled into the package
