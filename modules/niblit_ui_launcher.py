@@ -48,7 +48,10 @@ log = logging.getLogger("Niblit.UILauncher")
 _DEFAULT_API_PORT = int(os.environ.get("NIBLIT_API_PORT", os.environ.get("PORT", "8080")))
 _DEFAULT_UI_PORT = int(os.environ.get("NIBLIT_UI_PORT", "5173"))
 _DEFAULT_API_HOST = os.environ.get("NIBLIT_API_HOST", "127.0.0.1")
-_BUNDLED_UI_MAX_READY_TIMEOUT = 10.0
+# Bundled desktop builds do not expose an HTTP readiness endpoint, so readiness
+# is defined as "the process stayed alive through its initial stabilisation
+# window without exiting immediately".
+_BUNDLED_UI_STABLE_WINDOW_SECONDS = 2.0
 
 
 # ── PyInstaller bundle helpers ────────────────────────────────────────────────
@@ -321,10 +324,10 @@ def validate_primary_ui_dependencies(
 
         if _http_ready(f"http://{api_host}:{api_port}/health"):
             readiness["api_port"] = "in_use_by_existing_service"
-        elif not is_port_available(api_host, api_port):
-            raise RuntimeError(f"API port {api_port} is unavailable")
-        else:
+        elif is_port_available(api_host, api_port):
             readiness["api_port"] = "available"
+        else:
+            raise RuntimeError(f"API port {api_port} is unavailable")
 
         if os.environ.get("NIBLIT_CLOUD_AUTOSTART", "").strip().lower() in ("1", "true", "yes"):
             if _http_ready(f"{cloud_url}/health") or _http_ready(f"{cloud_url}/healthz"):
@@ -707,12 +710,17 @@ def launch_primary_ui(
             )
             ui_url = f"http://127.0.0.1:{ui_port}"
         else:
+            bundled_probe_started_at = time.monotonic()
             _wait_for_process_ready(
                 name="UI",
                 proc=ui_proc,
                 proc_diag=ui_proc_diag,
-                timeout=min(ui_timeout, _BUNDLED_UI_MAX_READY_TIMEOUT),
-                readiness=lambda: ui_proc.poll() is None,
+                timeout=ui_timeout,
+                readiness=lambda: ui_proc.poll() is None
+                and (time.monotonic() - bundled_probe_started_at) >= min(
+                    ui_timeout,
+                    _BUNDLED_UI_STABLE_WINDOW_SECONDS,
+                ),
             )
             ui_url = str(ui_exe) if ui_exe is not None else ""
         readiness["ui"] = "ready"

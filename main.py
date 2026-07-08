@@ -1342,7 +1342,6 @@ def main(argv=None):
 
     # Structured boot status summary (always shown before CLI / one-shot / desktop).
     print_boot_status_report(io, _BOOT_STATUS)
-    io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
 
     # ── One-shot mode: run a single command then exit ─────────────────────────
     one_shot = getattr(_args, "one_shot", None)
@@ -1375,6 +1374,7 @@ def main(argv=None):
 
                 launched = launch_desktop_shell(core=core, io=io)
                 if launched:
+                    io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
                     try:
                         core.shutdown()
                     except Exception:
@@ -1396,6 +1396,7 @@ def main(argv=None):
                     on_status=lambda msg: io.out(f"{timestamp()} {msg}"),
                 )
                 if ui_result.success:
+                    io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
                     _BOOT_STATUS.sidecar_status = getattr(_BOOT_STATUS, "sidecar_status", "active")
                     try:
                         exit_code = ui_result.wait()
@@ -1414,6 +1415,7 @@ def main(argv=None):
                 io.error(f"{timestamp()} [NIBLIT-UI ERROR] {_ui_exc} — falling back to CLI")
 
     # ── Interactive shell (CLI fallback) ─────────────────────────────────────
+    io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
     try:
         run_shell(core, io)
     except Exception as e:
