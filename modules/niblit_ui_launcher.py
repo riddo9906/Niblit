@@ -659,7 +659,6 @@ def launch_primary_ui(
         )
         api_thread, api_url = start_api_server_thread(core, host=api_host, port=api_port, diagnostics=diagnostics)
     except Exception as exc:
-        log.warning("[UILauncher] API server failed: %s", exc)
         return UiLaunchResult(success=False, mode="disabled", message=str(exc))
 
     cloud_proc: Optional[subprocess.Popen] = None
@@ -667,7 +666,6 @@ def launch_primary_ui(
         cloud_proc, cloud_url = maybe_start_cloud_server(diagnostics=diagnostics)
         readiness["cloud"] = "ready"
     except Exception as exc:
-        log.warning("[UILauncher] Cloud autostart skipped: %s", exc)
         return UiLaunchResult(
             success=False,
             mode="degraded",
@@ -711,22 +709,20 @@ def launch_primary_ui(
             ui_url = f"http://127.0.0.1:{ui_port}"
         else:
             bundled_probe_started_at = time.monotonic()
+            bundled_stable_window = _BUNDLED_UI_STABLE_WINDOW_SECONDS
+            bundled_timeout = max(ui_timeout, bundled_stable_window)
             _wait_for_process_ready(
                 name="UI",
                 proc=ui_proc,
                 proc_diag=ui_proc_diag,
-                timeout=ui_timeout,
+                timeout=bundled_timeout,
                 readiness=lambda: ui_proc.poll() is None
-                and (time.monotonic() - bundled_probe_started_at) >= min(
-                    ui_timeout,
-                    _BUNDLED_UI_STABLE_WINDOW_SECONDS,
-                ),
+                and (time.monotonic() - bundled_probe_started_at) >= bundled_stable_window,
             )
             ui_url = str(ui_exe) if ui_exe is not None else ""
         readiness["ui"] = "ready"
         diagnostics.success(stage, f"UI ready ({launch_mode})")
     except Exception as exc:
-        log.warning("[UILauncher] niblit-ui launch failed: %s", exc)
         if stage is not None:
             diagnostics.failure(stage, exc)
         return UiLaunchResult(

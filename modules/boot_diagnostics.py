@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Callable, Optional
 
 log = logging.getLogger("Niblit.Boot")
+# Keep enough lines to capture a representative startup failure without flooding
+# the console when verbose child processes emit large logs.
 _DEFAULT_MAX_TAIL_LINES = 120
 
 
