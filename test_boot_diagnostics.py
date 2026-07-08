@@ -1,4 +1,8 @@
+import io
+import time
+
 from modules.boot_diagnostics import BootDiagnostics
+from modules.boot_diagnostics import ProcessDiagnostics
 
 
 def test_boot_diagnostics_records_success_and_summary() -> None:
@@ -27,3 +31,24 @@ def test_boot_diagnostics_records_last_successful_phase_on_failure() -> None:
         boot.failure(fail_stage, exc, include_traceback=False)
 
     assert any("last successful phase: Loading configuration" in msg for msg in messages)
+
+
+def test_process_diagnostics_logs_start_and_failure_output() -> None:
+    messages: list[str] = []
+    proc = ProcessDiagnostics(
+        name="UI",
+        command=["npm", "run", "dev"],
+        cwd=None,
+        pid=123,
+        stdout=io.StringIO("line1\nline2\n"),
+        stderr=io.StringIO("err1\n"),
+        emitter=messages.append,
+    )
+
+    time.sleep(0.05)
+    proc.log_started()
+    proc.dump_failure(exit_code=1)
+
+    assert any("pid=123" in msg for msg in messages)
+    assert any("stdout tail" in msg and "line1" in msg for msg in messages)
+    assert any("stderr tail" in msg and "err1" in msg for msg in messages)

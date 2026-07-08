@@ -273,11 +273,13 @@ def _spawn_logged_process(
         text=True,
         bufsize=1,
     )
+    if proc.pid is None:
+        raise RuntimeError(f"{name} failed to start: missing child PID")
     proc_diag = ProcessDiagnostics(
         name=name,
         command=cmd,
         cwd=cwd,
-        pid=int(proc.pid or 0),
+        pid=int(proc.pid),
         stdout=proc.stdout,
         stderr=proc.stderr,
         emitter=_diagnostic_emitter(diagnostics),
@@ -715,7 +717,7 @@ def launch_primary_ui(
             )
             ui_url = f"http://127.0.0.1:{ui_port}"
         else:
-            bundled_probe_started_at = time.monotonic()
+            bundled_start_time = time.monotonic()
             bundled_stable_window = _BUNDLED_UI_STABLE_WINDOW_SECONDS
             bundled_timeout = max(ui_timeout, bundled_stable_window)
             _wait_for_process_ready(
@@ -725,7 +727,7 @@ def launch_primary_ui(
                 timeout=bundled_timeout,
                 readiness=lambda: _bundled_ui_is_stable(
                     ui_proc,
-                    bundled_probe_started_at,
+                    bundled_start_time,
                     bundled_stable_window,
                 ),
             )
