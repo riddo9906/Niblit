@@ -50,7 +50,7 @@ _DEFAULT_UI_PORT = int(os.environ.get("NIBLIT_UI_PORT", "5173"))
 _DEFAULT_API_HOST = os.environ.get("NIBLIT_API_HOST", "127.0.0.1")
 # Bundled desktop builds do not expose an HTTP readiness endpoint, so readiness
 # is defined as "the process stayed alive through its initial stabilization
-# window without exiting immediately".
+# window" controlled by ``_BUNDLED_UI_STABLE_WINDOW_SECONDS``.
 _BUNDLED_UI_STABLE_WINDOW_SECONDS = 2.0
 
 
@@ -493,6 +493,15 @@ def _bundled_ui_is_stable(proc: subprocess.Popen, started_at: float, stable_wind
     return proc.poll() is None and (time.monotonic() - started_at) >= stable_window
 
 
+def _bundled_ui_timeout(ui_timeout: float, stable_window: float) -> float:
+    """Return the effective bundled-UI timeout.
+
+    Bundled desktop UIs do not expose a health endpoint, so callers must wait
+    at least through the stabilization window to detect immediate crash loops.
+    """
+    return max(ui_timeout, stable_window)
+
+
 def validate_primary_ui_dependencies(
     *,
     diagnostics: BootDiagnostics,
@@ -530,7 +539,10 @@ def validate_primary_ui_dependencies(
             readiness["cloud"] = "disabled"
 
         if lean_root is None:
-            raise FileNotFoundError("Lean execution layer repository/bundle not found")
+            raise FileNotFoundError(
+                "Lean execution layer repository/bundle not found; "
+                "set NIBLIT_LEAN_ALGOS_ROOT or place niblit-lean-algos in the expected location"
+            )
         readiness["lean"] = str(lean_root)
 
         if ui_exe is not None:
@@ -916,10 +928,7 @@ def launch_primary_ui(
         else:
             bundled_start_time = time.monotonic()
             bundled_stable_window = _BUNDLED_UI_STABLE_WINDOW_SECONDS
-            # Bundled desktop UIs have no HTTP readiness endpoint; if a caller
-            # configures a shorter timeout than the stabilization window, prefer
-            # the stabilization window so we can still detect immediate crash loops.
-            bundled_timeout = max(ui_timeout, bundled_stable_window)
+            bundled_timeout = _bundled_ui_timeout(ui_timeout, bundled_stable_window)
             _wait_for_process_ready(
                 name="UI",
                 proc=ui_proc,

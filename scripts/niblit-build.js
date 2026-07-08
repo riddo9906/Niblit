@@ -238,8 +238,10 @@ if (!uiRoot) {
 }
 console.log(`[niblit-build] ✅ Found niblit-ui at: ${uiRoot}`);
 if (tauriMode && !leanRoot) {
-  console.error("[niblit-build] ❌ niblit-lean-algos not found.");
-  console.error("[niblit-build]    The packaged desktop runtime requires the Lean execution layer.");
+  console.error(
+    "[niblit-build] ❌ niblit-lean-algos not found.\n" +
+    "[niblit-build]    The packaged desktop runtime requires the Lean execution layer."
+  );
   process.exit(1);
 }
 if (leanRoot) {

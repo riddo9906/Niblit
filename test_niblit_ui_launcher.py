@@ -49,7 +49,10 @@ def test_validate_primary_ui_dependencies_requires_lean_root(
     monkeypatch.setattr(launcher, "is_port_available", lambda *args, **kwargs: True)
     monkeypatch.setattr(launcher, "_resolve_npm", lambda: "npm")
 
-    with pytest.raises(FileNotFoundError, match="Lean execution layer"):
+    with pytest.raises(
+        FileNotFoundError,
+        match="Lean execution layer repository/bundle not found",
+    ):
         launcher.validate_primary_ui_dependencies(
             diagnostics=BootDiagnostics(),
             ui_root=ui_root,
