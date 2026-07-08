@@ -12,6 +12,7 @@ NiblitCore and NiblitIO are stubbed so no real services are started.
 """
 
 import signal
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -393,7 +394,7 @@ class TestDesktopLaunchDecision:
         import main
 
         io = _make_io()
-        manifest = type("Manifest", (), {"present": True, "root": "/tmp/niblit-ui", "error": ""})()
+        manifest = SimpleNamespace(present=True, root="/tmp/niblit-ui", error="")
         managed = MagicMock()
         managed.get_repo_manifest.return_value = manifest
 

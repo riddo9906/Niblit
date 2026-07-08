@@ -137,6 +137,10 @@ class UiLaunchResult:
                     pass
 
 
+def _diagnostic_emitter(diagnostics: BootDiagnostics) -> Callable[[str], None]:
+    return diagnostics.emitter or log.info
+
+
 def find_niblit_ui_root() -> Optional[Path]:
     """Resolve niblit-ui directory.
 
@@ -276,7 +280,7 @@ def _spawn_logged_process(
         pid=int(proc.pid or 0),
         stdout=proc.stdout,
         stderr=proc.stderr,
-        emitter=diagnostics.emitter or log.info,
+        emitter=_diagnostic_emitter(diagnostics),
     )
     proc_diag.log_started()
     return proc, proc_diag
@@ -299,8 +303,8 @@ def _wait_for_process_ready(
             proc_diag.dump_failure(exit_code=exit_code)
             raise RuntimeError(f"{name} exited before becoming ready (exit code {exit_code})")
         time.sleep(0.25)
-    proc_diag.dump_failure(exit_code=proc.poll())
     _terminate_process(proc)
+    proc_diag.dump_failure(exit_code=proc.poll())
     raise TimeoutError(f"{name} startup timed out after {timeout:.1f}s")
 
 
