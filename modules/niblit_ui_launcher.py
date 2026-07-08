@@ -329,13 +329,15 @@ def verify_runtime_bootstrap(core: Any, *, diagnostics: BootDiagnostics) -> None
 
 
 def _lean_manager_ready(manager: Any, lean_root: Path) -> bool:
+    signal_thread = getattr(manager, "_signal_thread", None)
+    monitor_thread = getattr(manager, "_monitor_thread", None)
     return bool(
         manager is not None
         and Path(getattr(manager, "algos_dir", lean_root)).exists()
-        and getattr(manager, "_signal_thread", None) is not None
-        and getattr(manager._signal_thread, "is_alive", lambda: False)()
-        and getattr(manager, "_monitor_thread", None) is not None
-        and getattr(manager._monitor_thread, "is_alive", lambda: False)()
+        and signal_thread is not None
+        and getattr(signal_thread, "is_alive", lambda: False)()
+        and monitor_thread is not None
+        and getattr(monitor_thread, "is_alive", lambda: False)()
     )
 
 
@@ -849,7 +851,7 @@ def launch_primary_ui(
             ui_port=ui_port,
             tauri_mode=tauri_mode,
         )
-        _say("🧠 Desktop runtime step 2/12 — verifying Niblit governing runtime")
+        _say("🧠 Desktop runtime Step 2 — verifying Niblit governing runtime")
         verify_runtime_bootstrap(core, diagnostics=diagnostics)
         _say("🌐 Desktop runtime preflight — starting Niblit API server")
         api_thread, api_url = start_api_server_thread(core, host=api_host, port=api_port, diagnostics=diagnostics)
@@ -858,15 +860,15 @@ def launch_primary_ui(
 
     cloud_proc: Optional[subprocess.Popen] = None
     try:
-        _say("☁️ Desktop runtime step 6/12 — starting Niblit-cloud-server")
+        _say("☁️ Desktop runtime Step 6 — starting Niblit-cloud-server")
         cloud_proc, cloud_url = maybe_start_cloud_server(diagnostics=diagnostics)
         readiness["cloud"] = "ready"
-        _say("☁️ Desktop runtime step 7/12 — cloud server health verified")
-        _say("📈 Desktop runtime step 8/12 — starting Lean execution layer")
+        _say("☁️ Desktop runtime Step 7 — cloud server health verified")
+        _say("📈 Desktop runtime Step 8 — starting Lean execution layer")
         lean_root = ensure_lean_runtime_ready(core, diagnostics=diagnostics)
         readiness["lean"] = str(lean_root)
-        _say("📈 Desktop runtime step 9/12 — Lean execution layer health verified")
-        _say("✅ Desktop runtime step 10/12 — verifying integrated runtime health")
+        _say("📈 Desktop runtime Step 9 — Lean execution layer health verified")
+        _say("✅ Desktop runtime Step 10 — verifying integrated runtime health")
         verify_desktop_runtime_health(core, diagnostics=diagnostics)
     except Exception as exc:
         return UiLaunchResult(
@@ -892,7 +894,7 @@ def launch_primary_ui(
 
     stage = diagnostics.start("UI startup")
     try:
-        _say("🖥️ Desktop runtime step 11/12 — launching desktop UI")
+        _say("🖥️ Desktop runtime Step 11 — launching desktop UI")
         ui_proc, ui_proc_diag, launch_mode = launch_ui_process(
             ui_exe=ui_exe,
             ui_root=ui_root,
@@ -945,7 +947,7 @@ def launch_primary_ui(
             readiness=readiness,
         )
 
-    _say("🔗 Desktop runtime step 12/12 — UI connected to the already-running runtime")
+    _say("🔗 Desktop runtime Step 12 — UI connected to the already-running runtime")
     _say(f"🖥️  niblit-ui primary interface: {ui_url}  (API: {api_url})")
     diagnostics.summary()
     return UiLaunchResult(

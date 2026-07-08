@@ -77,25 +77,13 @@ def test_ensure_lean_runtime_ready_starts_manager(
     monkeypatch.delenv("NIBLIT_LEAN_ALGOS_ROOT", raising=False)
     monkeypatch.delenv("NIBLIT_LEAN_ALGOS", raising=False)
 
-    old_root = os.environ.get("NIBLIT_LEAN_ALGOS_ROOT")
-    old_algos = os.environ.get("NIBLIT_LEAN_ALGOS")
-    try:
-        result = launcher.ensure_lean_runtime_ready(core, diagnostics=BootDiagnostics())
+    result = launcher.ensure_lean_runtime_ready(core, diagnostics=BootDiagnostics())
 
-        assert result == lean_root
-        assert manager.algos_dir == lean_root
-        assert manager.start_calls == 1
-        assert os.environ["NIBLIT_LEAN_ALGOS_ROOT"] == str(lean_root)
-        assert os.environ["NIBLIT_LEAN_ALGOS"] == str(lean_root)
-    finally:
-        if old_root is None:
-            os.environ.pop("NIBLIT_LEAN_ALGOS_ROOT", None)
-        else:
-            os.environ["NIBLIT_LEAN_ALGOS_ROOT"] = old_root
-        if old_algos is None:
-            os.environ.pop("NIBLIT_LEAN_ALGOS", None)
-        else:
-            os.environ["NIBLIT_LEAN_ALGOS"] = old_algos
+    assert result == lean_root
+    assert manager.algos_dir == lean_root
+    assert manager.start_calls == 1
+    assert os.environ["NIBLIT_LEAN_ALGOS_ROOT"] == str(lean_root)
+    assert os.environ["NIBLIT_LEAN_ALGOS"] == str(lean_root)
 
 
 def test_verify_runtime_bootstrap_requires_skills_layer() -> None:
