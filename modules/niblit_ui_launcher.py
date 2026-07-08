@@ -77,7 +77,9 @@ def find_niblit_ui_exe() -> Optional[Path]:
     )
     if env_path:
         candidate = Path(env_path).expanduser().resolve()
-        if candidate.is_file() and candidate.suffix.lower() == ".exe":
+        # Accept a direct path to an executable (e.g. niblit-ui.exe on Windows
+        # or a bare binary on Linux/macOS).
+        if candidate.is_file() and not (candidate / "package.json").exists():
             return candidate
 
     base = _bundle_base()
@@ -192,7 +194,9 @@ def find_cloud_server_exe() -> Optional[Path]:
     env_path = os.environ.get("NIBLIT_CLOUD_SERVER_PATH", "").strip()
     if env_path:
         candidate = Path(env_path).expanduser().resolve()
-        if candidate.is_file() and candidate.suffix.lower() == ".exe":
+        # Accept a direct path to an executable (cross-platform: .exe on Windows,
+        # bare binary on Linux/macOS).
+        if candidate.is_file() and not (candidate / "app" / "main.py").exists():
             return candidate
 
     base = _bundle_base()
