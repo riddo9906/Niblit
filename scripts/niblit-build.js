@@ -83,9 +83,9 @@ console.log("[niblit-build] Step 1/3 — Installing Python package…");
 try {
   run(`${pythonBin} -m pip install -e .`, { cwd: repoRoot });
   console.log("[niblit-build] ✅ Python package installed");
-} catch (_) {
+} catch (err) {
   // Non-fatal: package may already be installed or pip unavailable in CI.
-  console.warn("[niblit-build] ⚠️  Python install warning — continuing");
+  console.warn(`[niblit-build] ⚠️  Python install warning — continuing (${err.message})`);
 }
 
 // ── Step 2: Discover niblit-ui ───────────────────────────────────────────────

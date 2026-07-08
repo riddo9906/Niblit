@@ -67,8 +67,11 @@ const proc = spawn(pythonBin, ["main.py"], {
 function forwardSignal(sig) {
   try {
     proc.kill(sig);
-  } catch (_) {
-    // process may have already exited
+  } catch (err) {
+    // proc.kill() throws when the process has already exited — not an error.
+    if (err.code !== "ESRCH") {
+      console.debug(`[niblit] signal ${sig} forward skipped: ${err.message}`);
+    }
   }
 }
 
