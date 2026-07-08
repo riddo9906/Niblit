@@ -3,7 +3,8 @@
  * niblit-build.js — cross-platform build orchestrator for the complete Niblit runtime.
  *
  * Usage (via package.json scripts):
- *   npm run build          — installs Python package + builds niblit-ui (Vite)
+ *   npm run build          — full desktop-runtime build (Tauri + PyInstaller)
+ *   npm run build:ui       — installs Python package + builds niblit-ui (Vite)
  *   npm run tauri:build    — full production build: validates all sibling repos,
  *                            bundles niblit-cloud-server via PyInstaller, builds
  *                            niblit-ui (Tauri), then bundles niblit core via
@@ -25,6 +26,7 @@
  *   NIBLIT_UI_PATH          — absolute path to the niblit-ui repository
  *   NIBLIT_UI_ROOT          — alias for NIBLIT_UI_PATH
  *   NIBLIT_CLOUD_SERVER_PATH — absolute path to the niblit-cloud-server repository
+ *   NIBLIT_LEAN_ALGOS_ROOT  — absolute path to the niblit-lean-algos repository
  *   PYTHON                  — path to the Python executable (default: python / python3)
  *   NIBLIT_SKIP_PYINSTALLER — set to 1 to skip PyInstaller bundling steps
  */
@@ -114,6 +116,10 @@ function findCloudServerRoot() {
  * Falls back to the sibling directory if the subdirectory is absent.
  */
 function findLeanAlgosRoot() {
+  const envRoot = process.env.NIBLIT_LEAN_ALGOS_ROOT || process.env.NIBLIT_LEAN_ALGOS || "";
+  if (envRoot && fs.existsSync(path.join(envRoot, "niblit_bridge"))) {
+    return envRoot;
+  }
   const internal = path.join(repoRoot, "niblit-lean-algos");
   if (fs.existsSync(path.join(internal, "niblit_bridge"))) {
     return internal;
@@ -186,10 +192,12 @@ if (tauriMode) {
 
   const leanRootEarly = findLeanAlgosRoot();
   if (!leanRootEarly) {
-    console.warn("[niblit-build]   ⚠️  niblit-lean-algos not found — trading algorithms will not be bundled.");
-  } else {
-    console.log(`[niblit-build]   ✅ niblit-lean-algos   → ${leanRootEarly}`);
+    console.error("[niblit-build] ❌ niblit-lean-algos not found.");
+    console.error("[niblit-build]    Set NIBLIT_LEAN_ALGOS_ROOT to the niblit-lean-algos directory,");
+    console.error("[niblit-build]    or place niblit-lean-algos inside this repository or as a sibling.");
+    process.exit(1);
   }
+  console.log(`[niblit-build]   ✅ niblit-lean-algos   → ${leanRootEarly}`);
 
   console.log("[niblit-build] ✅ Repository validation complete.");
 }
@@ -209,6 +217,7 @@ try {
 
 console.log("\n[niblit-build] Step 2 — Locating niblit-ui…");
 const uiRoot = findUiRoot();
+const leanRoot = findLeanAlgosRoot();
 
 if (!uiRoot) {
   console.error("[niblit-build] ❌ niblit-ui not found.");
@@ -217,6 +226,15 @@ if (!uiRoot) {
   process.exit(1);
 }
 console.log(`[niblit-build] ✅ Found niblit-ui at: ${uiRoot}`);
+if (tauriMode && !leanRoot) {
+  console.error("[niblit-build] ❌ niblit-lean-algos not found.");
+  console.error("[niblit-build]    The packaged desktop runtime requires the Lean execution layer.");
+  process.exit(1);
+}
+if (leanRoot) {
+  process.env.NIBLIT_LEAN_ALGOS_ROOT = leanRoot;
+  process.env.NIBLIT_LEAN_ALGOS = leanRoot;
+}
 
 // ── Step 3: Build niblit-ui ───────────────────────────────────────────────────
 
@@ -232,6 +250,11 @@ const buildEnv = {
   ...process.env,
   NIBLIT_CLOUD_AUTOSTART: "1",
 };
+
+if (leanRoot) {
+  buildEnv.NIBLIT_LEAN_ALGOS_ROOT = leanRoot;
+  buildEnv.NIBLIT_LEAN_ALGOS = leanRoot;
+}
 
 const buildCmd = tauriMode ? `${npmBin} run tauri:build` : `${npmBin} run build`;
 run(buildCmd, { cwd: uiRoot, env: buildEnv });

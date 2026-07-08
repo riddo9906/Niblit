@@ -223,6 +223,175 @@ def find_cloud_server_exe() -> Optional[Path]:
     return None
 
 
+def find_lean_algos_root() -> Optional[Path]:
+    """Return the niblit-lean-algos root for development or packaged mode."""
+    env_path = (
+        os.environ.get("NIBLIT_LEAN_ALGOS_ROOT", "").strip()
+        or os.environ.get("NIBLIT_LEAN_ALGOS", "").strip()
+    )
+    if env_path:
+        candidate = Path(env_path).expanduser().resolve()
+        if (candidate / "niblit_bridge").is_dir():
+            return candidate
+
+    base = _bundle_base()
+    if base is not None:
+        candidate = base / "lean-algos"
+        if (candidate / "niblit_bridge").is_dir():
+            return candidate
+
+    here = Path(__file__).resolve().parents[1]
+    for candidate in (
+        here / "niblit-lean-algos",
+        here.parent / "niblit-lean-algos",
+    ):
+        if (candidate / "niblit_bridge").is_dir():
+            return candidate.resolve()
+    return None
+
+
+def _cloud_autostart_enabled() -> bool:
+    raw = os.environ.get("NIBLIT_CLOUD_AUTOSTART", "").strip().lower()
+    if raw in ("1", "true", "yes"):
+        return True
+    if raw in ("0", "false", "no"):
+        return False
+    return _bundle_base() is not None
+
+
+def _require_runtime_stage(
+    *,
+    diagnostics: BootDiagnostics,
+    stage_name: str,
+    predicate: Callable[[], bool],
+    error_message: str,
+    success_message: str,
+) -> None:
+    stage = diagnostics.start(stage_name)
+    try:
+        if not predicate():
+            raise RuntimeError(error_message)
+        diagnostics.success(stage, success_message)
+    except Exception as exc:
+        diagnostics.failure(stage, exc)
+        raise
+
+
+def _startup_result_is_ready(startup_report: Any, names: tuple[str, ...]) -> bool:
+    results = getattr(startup_report, "results", {}) or {}
+    return any(results.get(name, {}).get("status") == "ready" for name in names)
+
+
+def verify_runtime_bootstrap(core: Any, *, diagnostics: BootDiagnostics) -> None:
+    """Verify that the governing Niblit runtime finished bootstrapping before UI launch."""
+    runtime_manager = getattr(core, "runtime_manager", None)
+    startup_report = getattr(core, "startup_report", None)
+
+    _require_runtime_stage(
+        diagnostics=diagnostics,
+        stage_name="Step 2 — Niblit core initialisation",
+        predicate=lambda: core is not None and runtime_manager is not None,
+        error_message="Niblit core runtime is not available",
+        success_message="governing runtime active",
+    )
+    _require_runtime_stage(
+        diagnostics=diagnostics,
+        stage_name="Step 3 — Memory initialisation",
+        predicate=lambda: getattr(core, "db", None) is not None and (
+            startup_report is None
+            or _startup_result_is_ready(startup_report, ("db", "memory_store", "vector_store", "fused_memory"))
+        ),
+        error_message="Memory layer is not ready",
+        success_message="memory layer ready",
+    )
+    _require_runtime_stage(
+        diagnostics=diagnostics,
+        stage_name="Step 4 — Skills initialisation",
+        predicate=lambda: getattr(core, "router", None) is not None or getattr(core, "brain_router", None) is not None,
+        error_message="Skills layer is not ready",
+        success_message="skills layer ready",
+    )
+    _require_runtime_stage(
+        diagnostics=diagnostics,
+        stage_name="Step 5 — Cognitive runtime initialisation",
+        predicate=lambda: getattr(core, "local_brain", None) is not None or getattr(core, "brain", None) is not None,
+        error_message="Cognitive runtime is not ready",
+        success_message="cognitive runtime ready",
+    )
+
+
+def _lean_manager_ready(manager: Any, lean_root: Path) -> bool:
+    return bool(
+        manager is not None
+        and Path(getattr(manager, "algos_dir", lean_root)).exists()
+        and getattr(manager, "_signal_thread", None) is not None
+        and getattr(manager._signal_thread, "is_alive", lambda: False)()
+        and getattr(manager, "_monitor_thread", None) is not None
+        and getattr(manager._monitor_thread, "is_alive", lambda: False)()
+    )
+
+
+def ensure_lean_runtime_ready(
+    core: Any,
+    *,
+    diagnostics: BootDiagnostics,
+) -> Path:
+    """Start and verify the Lean execution layer before the desktop UI launches."""
+    lean_root = find_lean_algos_root()
+    stage = diagnostics.start("Step 8 — Lean execution layer startup")
+    try:
+        if lean_root is None:
+            raise FileNotFoundError("niblit-lean-algos repository/bundle not found")
+        if not (lean_root / "niblit_bridge").is_dir():
+            raise FileNotFoundError(f"Lean bridge missing at {lean_root / 'niblit_bridge'}")
+        if not (lean_root / "algorithms").is_dir():
+            raise FileNotFoundError(f"Lean algorithms directory missing at {lean_root / 'algorithms'}")
+
+        os.environ.setdefault("NIBLIT_LEAN_ALGOS_ROOT", str(lean_root))
+        os.environ.setdefault("NIBLIT_LEAN_ALGOS", str(lean_root))
+
+        manager = getattr(core, "lean_algo_manager", None)
+        if manager is None:
+            raise RuntimeError("LeanAlgoManager is not initialised on the governing runtime")
+
+        if hasattr(manager, "algos_dir"):
+            manager.algos_dir = lean_root
+
+        start = getattr(manager, "start", None)
+        if not callable(start):
+            raise RuntimeError("LeanAlgoManager.start() is unavailable")
+        start()
+        diagnostics.success(stage, f"Lean execution layer started from {lean_root}")
+
+        wait_stage = diagnostics.start("Step 9 — Lean execution layer health check")
+        deadline = time.monotonic() + _readiness_timeout("NIBLIT_LEAN_START_TIMEOUT", 45.0)
+        while time.monotonic() < deadline:
+            if _lean_manager_ready(manager, lean_root):
+                diagnostics.success(wait_stage, "Lean execution layer healthy")
+                return lean_root
+            time.sleep(0.25)
+        raise TimeoutError("Lean execution layer did not become healthy in time")
+    except Exception as exc:
+        diagnostics.failure(stage, exc)
+        raise
+
+
+def verify_desktop_runtime_health(core: Any, *, diagnostics: BootDiagnostics) -> None:
+    """Final cross-runtime health gate before the desktop UI is allowed to launch."""
+    runtime_manager = getattr(core, "runtime_manager", None)
+    stage = diagnostics.start("Step 10 — Runtime health verification")
+    try:
+        if runtime_manager is None:
+            raise RuntimeError("RuntimeManager unavailable for final health verification")
+        health = runtime_manager.get_runtime_health()
+        if not health:
+            raise RuntimeError("Runtime health snapshot is empty")
+        diagnostics.success(stage, "runtime health verified")
+    except Exception as exc:
+        diagnostics.failure(stage, exc)
+        raise
+
+
 def _http_ready(url: str, timeout: float = 1.5) -> bool:
     try:
         req = urllib.request.Request(url, method="GET")
@@ -328,6 +497,7 @@ def validate_primary_ui_dependencies(
     stage = diagnostics.start("Dependency validation")
     readiness: dict[str, str] = {}
     try:
+        lean_root = find_lean_algos_root()
         if not sys.executable:
             raise RuntimeError("Python executable unavailable")
         readiness["python"] = sys.executable
@@ -339,7 +509,7 @@ def validate_primary_ui_dependencies(
         else:
             raise RuntimeError(f"API port {api_port} is already in use by another process")
 
-        if os.environ.get("NIBLIT_CLOUD_AUTOSTART", "").strip().lower() in ("1", "true", "yes"):
+        if _cloud_autostart_enabled():
             if _http_ready(f"{cloud_url}/health") or _http_ready(f"{cloud_url}/healthz"):
                 readiness["cloud"] = "already_ready"
             elif find_cloud_server_exe() or find_cloud_server_root():
@@ -348,6 +518,10 @@ def validate_primary_ui_dependencies(
                 raise FileNotFoundError("Cloud Server repository/executable not found")
         else:
             readiness["cloud"] = "disabled"
+
+        if lean_root is None:
+            raise FileNotFoundError("Lean execution layer repository/bundle not found")
+        readiness["lean"] = str(lean_root)
 
         if ui_exe is not None:
             readiness["ui"] = str(ui_exe)
@@ -429,7 +603,7 @@ def maybe_start_cloud_server(
     directly.  In development mode the source directory is located and
     ``python -m uvicorn app.main:app`` is used instead.
     """
-    if os.environ.get("NIBLIT_CLOUD_AUTOSTART", "").strip().lower() not in ("1", "true", "yes"):
+    if not _cloud_autostart_enabled():
         return None, os.environ.get("NIBLIT_CLOUD_SERVER_URL", "http://127.0.0.1:8000")
 
     cloud_url = os.environ.get("NIBLIT_CLOUD_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
@@ -637,7 +811,7 @@ def launch_primary_ui(
     *,
     on_status: Optional[Callable[[str], None]] = None,
 ) -> UiLaunchResult:
-    """Start API + optional cloud + niblit-ui. Never raises — returns degraded result on failure."""
+    """Start the complete desktop runtime in strict order and only then launch niblit-ui."""
     diagnostics = BootDiagnostics(emitter=on_status or (io.out if io is not None and hasattr(io, "out") else None))
 
     def _say(msg: str) -> None:
@@ -656,6 +830,7 @@ def launch_primary_ui(
     tauri_mode = bool(ui_root and (ui_root / "src-tauri" / "tauri.conf.json").is_file())
 
     try:
+        _say("🔎 Desktop runtime preflight — discovering required repositories and bundle resources")
         readiness = validate_primary_ui_dependencies(
             diagnostics=diagnostics,
             ui_root=ui_root,
@@ -666,14 +841,25 @@ def launch_primary_ui(
             ui_port=ui_port,
             tauri_mode=tauri_mode,
         )
+        _say("🧠 Desktop runtime step 2/12 — verifying Niblit governing runtime")
+        verify_runtime_bootstrap(core, diagnostics=diagnostics)
+        _say("🌐 Desktop runtime preflight — starting Niblit API server")
         api_thread, api_url = start_api_server_thread(core, host=api_host, port=api_port, diagnostics=diagnostics)
     except Exception as exc:
         return UiLaunchResult(success=False, mode="disabled", message=str(exc))
 
     cloud_proc: Optional[subprocess.Popen] = None
     try:
+        _say("☁️ Desktop runtime step 6/12 — starting Niblit-cloud-server")
         cloud_proc, cloud_url = maybe_start_cloud_server(diagnostics=diagnostics)
         readiness["cloud"] = "ready"
+        _say("☁️ Desktop runtime step 7/12 — cloud server health verified")
+        _say("📈 Desktop runtime step 8/12 — starting Lean execution layer")
+        lean_root = ensure_lean_runtime_ready(core, diagnostics=diagnostics)
+        readiness["lean"] = str(lean_root)
+        _say("📈 Desktop runtime step 9/12 — Lean execution layer health verified")
+        _say("✅ Desktop runtime step 10/12 — verifying integrated runtime health")
+        verify_desktop_runtime_health(core, diagnostics=diagnostics)
     except Exception as exc:
         return UiLaunchResult(
             success=False,
@@ -698,6 +884,7 @@ def launch_primary_ui(
 
     stage = diagnostics.start("UI startup")
     try:
+        _say("🖥️ Desktop runtime step 11/12 — launching desktop UI")
         ui_proc, ui_proc_diag, launch_mode = launch_ui_process(
             ui_exe=ui_exe,
             ui_root=ui_root,
@@ -750,6 +937,7 @@ def launch_primary_ui(
             readiness=readiness,
         )
 
+    _say("🔗 Desktop runtime step 12/12 — UI connected to the already-running runtime")
     _say(f"🖥️  niblit-ui primary interface: {ui_url}  (API: {api_url})")
     diagnostics.summary()
     return UiLaunchResult(

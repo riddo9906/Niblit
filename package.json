@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "node scripts/niblit-dev.js",
-    "build": "node scripts/niblit-build.js",
+    "build": "node scripts/niblit-build.js --tauri",
+    "build:ui": "node scripts/niblit-build.js",
     "tauri:dev": "node scripts/niblit-dev.js --tauri",
     "tauri:build": "node scripts/niblit-build.js --tauri"
   },
