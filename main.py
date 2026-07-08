@@ -401,6 +401,30 @@ def _should_launch_desktop(args, *, ui_supported=None) -> bool:
     return _should_launch_primary_ui(args, ui_supported=ui_supported)
 
 
+def _log_managed_ui_diagnostics(io) -> None:
+    """Log repository discovery for the managed UI without handing startup to it."""
+    try:
+        from modules.multi_repo_orchestrator import get_multi_repo_orchestrator
+
+        managed = get_multi_repo_orchestrator()
+        manifest = managed.get_repo_manifest("niblit-ui") if managed is not None else None
+        if manifest is None:
+            io.out(f"{timestamp()} 🖥️ Managed UI diagnostics unavailable — using direct launcher")
+            return
+        if manifest.present:
+            io.out(
+                f"{timestamp()} 🖥️ Managed UI repo detected at {manifest.root} — "
+                "using direct launcher with runtime dependency checks"
+            )
+        else:
+            io.out(
+                f"{timestamp()} 🖥️ Managed UI repo not available ({manifest.error or 'not found'}) — "
+                "using direct launcher"
+            )
+    except Exception as exc:
+        io.error(f"{timestamp()} [MANAGED UI DIAGNOSTICS ERROR] {exc} — using direct launcher")
+
+
 def _emit_lifecycle_event(stage: str, status: str, *, detail: str = "", payload: dict | None = None) -> None:
     try:
         from modules.event_bus import NiblitEvent, get_event_bus
@@ -1318,6 +1342,7 @@ def main(argv=None):
 
     # Structured boot status summary (always shown before CLI / one-shot / desktop).
     print_boot_status_report(io, _BOOT_STATUS)
+    io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
 
     # ── One-shot mode: run a single command then exit ─────────────────────────
     one_shot = getattr(_args, "one_shot", None)
@@ -1361,45 +1386,32 @@ def main(argv=None):
                     "trying managed UI or CLI"
                 )
         else:
-            _managed_ui_started = False
+            _log_managed_ui_diagnostics(io)
             try:
-                from modules.multi_repo_orchestrator import get_multi_repo_orchestrator
+                from modules.niblit_ui_launcher import launch_primary_ui
 
-                managed = get_multi_repo_orchestrator()
-                if managed is not None:
-                    ui_result = managed.start_managed_repositories(["niblit-ui"])
-                    _managed_ui_state = ui_result.get("niblit-ui", {}).get("state", "unknown")
-                    _managed_ui_started = _managed_ui_state not in ("unavailable", "unknown", "failed")
-                    io.out(f"{timestamp()} 🖥️ Managed UI orchestration requested: {_managed_ui_state}")
-            except Exception as _ui_exc:
-                io.error(f"{timestamp()} [MANAGED UI ERROR] {_ui_exc} — trying direct niblit-ui launch")
-
-            if not _managed_ui_started:
-                try:
-                    from modules.niblit_ui_launcher import launch_primary_ui
-
-                    ui_result = launch_primary_ui(
-                        core,
-                        io=io,
-                        on_status=lambda msg: io.out(f"{timestamp()} {msg}"),
-                    )
-                    if ui_result.success:
-                        _BOOT_STATUS.sidecar_status = getattr(_BOOT_STATUS, "sidecar_status", "active")
+                ui_result = launch_primary_ui(
+                    core,
+                    io=io,
+                    on_status=lambda msg: io.out(f"{timestamp()} {msg}"),
+                )
+                if ui_result.success:
+                    _BOOT_STATUS.sidecar_status = getattr(_BOOT_STATUS, "sidecar_status", "active")
+                    try:
+                        exit_code = ui_result.wait()
+                    finally:
+                        ui_result.terminate()
                         try:
-                            exit_code = ui_result.wait()
-                        finally:
-                            ui_result.terminate()
-                            try:
-                                core.shutdown()
-                            except Exception:
-                                pass
-                        return exit_code
-                    io.error(
-                        f"{timestamp()} [NIBLIT-UI] {ui_result.message or 'launch failed'} "
-                        "— falling back to CLI (backend API may still be running)"
-                    )
-                except Exception as _ui_exc:
-                    io.error(f"{timestamp()} [NIBLIT-UI ERROR] {_ui_exc} — falling back to CLI")
+                            core.shutdown()
+                        except Exception:
+                            pass
+                    return exit_code
+                io.error(
+                    f"{timestamp()} [NIBLIT-UI] {ui_result.message or 'launch failed'} "
+                    "— falling back to CLI (backend API may still be running)"
+                )
+            except Exception as _ui_exc:
+                io.error(f"{timestamp()} [NIBLIT-UI ERROR] {_ui_exc} — falling back to CLI")
 
     # ── Interactive shell (CLI fallback) ─────────────────────────────────────
     try:
