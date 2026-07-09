@@ -262,9 +262,11 @@ class RepositoryDiscovery:
             if lean_bundle.is_dir():
                 return lean_bundle.resolve()
         elif repo_name == "niblit-ui":
+            # niblit-ui ships as a flat exe in the bundle dir (not a subdirectory),
+            # so we return the bundle dir itself as the "root".  _validate() then
+            # checks for niblit-ui.exe inside that directory to confirm presence.
             ui_exe = self._root / "niblit-ui.exe"
             if ui_exe.is_file():
-                # Return the bundle dir as the root; _validate checks for the exe.
                 return self._root.resolve()
         elif repo_name == "niblit-cloud-server":
             cloud_bundle = self._root / "cloud"
@@ -289,16 +291,19 @@ class RepositoryDiscovery:
             # Must have lean.json or algorithms directory.
             return (root / "lean.json").exists() or (root / "algorithms").is_dir()
         if repo_name == "niblit-cloud-server":
-            # Must have package.json or requirements.txt or server entry point,
-            # OR the bundled PyInstaller executable (staged by niblit-build.js).
+            # Source-tree markers (development): package.json, requirements.txt,
+            # or a recognised server entry point.
+            # Bundle marker (PyInstaller staged): niblit-cloud.exe (Windows) or
+            # niblit-cloud (Linux/macOS) placed by niblit-build.js Step 4.
             return any(
                 (root / f).exists()
                 for f in ("package.json", "requirements.txt", "server.py", "app.py",
                           "index.js", "niblit-cloud.exe", "niblit-cloud")
             )
         if repo_name == "niblit-ui":
-            # Must have package.json or index.html or src directory,
-            # OR the bundled Tauri executable staged into the distribution.
+            # Source-tree markers (development): package.json, index.html, or src/.
+            # Bundle marker (Tauri build): niblit-ui.exe staged by niblit-build.js
+            # Step 6 into the bundle dir (the root returned by _locate).
             return any(
                 (root / f).exists()
                 for f in ("package.json", "index.html", "src", "niblit-ui.exe")
@@ -1024,6 +1029,11 @@ class MultiRepoOrchestrator:
         inside the bundle directory.  All sibling assets (lean-algos/, cloud/,
         niblit-ui.exe) are co-located in that same directory, so it is used as
         the authoritative root when the runtime is frozen.
+
+        Note: this project uses the one-folder (``--onedir``) PyInstaller mode
+        via ``COLLECT``.  The one-file (``--onefile``) mode is **not** supported;
+        that mode would extract to a temporary ``sys._MEIPASS`` directory that
+        does not contain the staged sibling assets.
         """
         if getattr(sys, "frozen", False):
             # Compiled (PyInstaller one-folder) mode: use the directory that
