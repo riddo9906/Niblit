@@ -252,12 +252,31 @@ class RepositoryDiscovery:
         if bundled.is_dir():
             return bundled.resolve()
 
-        # 3. Sibling of Niblit root.
+        # 3. In the PyInstaller one-folder bundle each repo is co-located with
+        #    the niblit executable but with bundle-specific names:
+        #      niblit-lean-algos  → lean-algos/       (niblit.spec data destination)
+        #      niblit-ui          → niblit-ui.exe      (Tauri exe, flat in bundle dir)
+        #      niblit-cloud-server → cloud/            (PyInstaller one-folder bundle)
+        if repo_name == "niblit-lean-algos":
+            lean_bundle = self._root / "lean-algos"
+            if lean_bundle.is_dir():
+                return lean_bundle.resolve()
+        elif repo_name == "niblit-ui":
+            ui_exe = self._root / "niblit-ui.exe"
+            if ui_exe.is_file():
+                # Return the bundle dir as the root; _validate checks for the exe.
+                return self._root.resolve()
+        elif repo_name == "niblit-cloud-server":
+            cloud_bundle = self._root / "cloud"
+            if cloud_bundle.is_dir():
+                return cloud_bundle.resolve()
+
+        # 4. Sibling of Niblit root.
         sibling = self._root.parent / repo_name
         if sibling.is_dir():
             return sibling.resolve()
 
-        # 4. Workspace-level sibling (one level higher).
+        # 5. Workspace-level sibling (one level higher).
         workspace_sibling = self._root.parent.parent / repo_name
         if workspace_sibling.is_dir():
             return workspace_sibling.resolve()
@@ -270,16 +289,19 @@ class RepositoryDiscovery:
             # Must have lean.json or algorithms directory.
             return (root / "lean.json").exists() or (root / "algorithms").is_dir()
         if repo_name == "niblit-cloud-server":
-            # Must have package.json or requirements.txt or server entry point.
+            # Must have package.json or requirements.txt or server entry point,
+            # OR the bundled PyInstaller executable (staged by niblit-build.js).
             return any(
                 (root / f).exists()
-                for f in ("package.json", "requirements.txt", "server.py", "app.py", "index.js")
+                for f in ("package.json", "requirements.txt", "server.py", "app.py",
+                          "index.js", "niblit-cloud.exe", "niblit-cloud")
             )
         if repo_name == "niblit-ui":
-            # Must have package.json or index.html or src directory.
+            # Must have package.json or index.html or src directory,
+            # OR the bundled Tauri executable staged into the distribution.
             return any(
                 (root / f).exists()
-                for f in ("package.json", "index.html", "src")
+                for f in ("package.json", "index.html", "src", "niblit-ui.exe")
             )
         return True
 
@@ -996,8 +1018,19 @@ class MultiRepoOrchestrator:
 
     @staticmethod
     def _detect_root() -> Path:
-        """Detect the Niblit repository root from the call stack."""
-        # Prefer the location of this module file.
+        """Detect the Niblit repository root from the call stack.
+
+        In a PyInstaller one-folder bundle ``sys.executable`` is the niblit.exe
+        inside the bundle directory.  All sibling assets (lean-algos/, cloud/,
+        niblit-ui.exe) are co-located in that same directory, so it is used as
+        the authoritative root when the runtime is frozen.
+        """
+        if getattr(sys, "frozen", False):
+            # Compiled (PyInstaller one-folder) mode: use the directory that
+            # contains the niblit executable so _locate() resolves bundle-relative
+            # paths correctly (e.g. lean-algos/, cloud/, niblit-ui.exe).
+            return Path(sys.executable).parent.resolve()
+        # Development / source mode: derive root from this module's location.
         this_file = Path(__file__).resolve()
         candidate = this_file.parent.parent  # modules/ → repo root
         if (candidate / "niblit_core.py").exists():
