@@ -36,11 +36,13 @@ REPO_ROOT = Path(SPECPATH)  # directory containing this .spec file
 # Pre-staged artefacts placed by niblit-build.js before PyInstaller runs.
 # These paths are under dist/ (a sibling of this spec in REPO_ROOT).
 STAGED_CLOUD_DIR = REPO_ROOT / "dist" / "_staged" / "cloud"
+STAGED_LEAN_ALGOS_DIR = REPO_ROOT / "dist" / "_staged" / "lean-algos"
 STAGED_TAURI_EXE = REPO_ROOT / "dist" / "_staged" / "niblit-ui.exe"
 
 _lean_override = os.environ.get("NIBLIT_LEAN_ALGOS_ROOT") or os.environ.get("NIBLIT_LEAN_ALGOS")
 _lean_candidates = [
     Path(_lean_override).expanduser() if _lean_override else None,
+    STAGED_LEAN_ALGOS_DIR,          # preferred: staged by niblit-build.js Step 5
     REPO_ROOT / "niblit-lean-algos",
     REPO_ROOT.parent / "niblit-lean-algos",
 ]

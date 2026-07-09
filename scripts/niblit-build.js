@@ -325,9 +325,42 @@ if (!fs.existsSync(cloudExe)) {
 }
 console.log(`[niblit-build] ✅ Cloud-server bundle: ${stagedCloudDir}`);
 
-// ── Step 5: Stage the Tauri UI executable ────────────────────────────────────
+// ── Step 5: Stage niblit-lean-algos ──────────────────────────────────────────
+// Mirrors how niblit-cloud-server is staged in Step 4.  Installs Python deps
+// then copies niblit_bridge/, algorithms/, and lean.json into dist/_staged/lean-algos/
+// so that niblit.spec can include them as data files (lean-algos/*).
 
-console.log("\n[niblit-build] Step 5 — Staging Tauri UI executable…");
+console.log("\n[niblit-build] Step 5 — Staging niblit-lean-algos…");
+
+const leanRootFinal = findLeanAlgosRoot(); // already validated in Step 0
+const stagedLeanDir = path.join(stagedDir, "lean-algos");
+fs.mkdirSync(stagedLeanDir, { recursive: true });
+
+// Install lean-algos Python dependencies so PyInstaller can sweep all imports.
+const leanReqsFile = path.join(leanRootFinal, "requirements.txt");
+if (fs.existsSync(leanReqsFile)) {
+  run(`${pythonBin} -m pip install -r "${leanReqsFile}"`);
+} else {
+  console.log("[niblit-build]    No requirements.txt in niblit-lean-algos — skipping pip install.");
+}
+
+// Copy niblit_bridge/ and algorithms/ into the staging directory.
+for (const sub of ["niblit_bridge", "algorithms"]) {
+  const src = path.join(leanRootFinal, sub);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, path.join(stagedLeanDir, sub), { recursive: true });
+  }
+}
+// Copy lean.json if present.
+const leanJsonSrc = path.join(leanRootFinal, "lean.json");
+if (fs.existsSync(leanJsonSrc)) {
+  fs.copyFileSync(leanJsonSrc, path.join(stagedLeanDir, "lean.json"));
+}
+console.log(`[niblit-build] ✅ niblit-lean-algos staged: ${stagedLeanDir}`);
+
+// ── Step 6: Stage the Tauri UI executable ────────────────────────────────────
+
+console.log("\n[niblit-build] Step 6 — Staging Tauri UI executable…");
 
 const tauriExeSrc = findTauriExe(uiRoot);
 if (!tauriExeSrc) {
@@ -340,9 +373,9 @@ const tauriExeDest = path.join(stagedDir, "niblit-ui.exe");
 fs.copyFileSync(tauriExeSrc, tauriExeDest);
 console.log(`[niblit-build] ✅ Staged Tauri exe: ${tauriExeDest}`);
 
-// ── Step 6: Bundle niblit core via PyInstaller ────────────────────────────────
+// ── Step 7: Bundle niblit core via PyInstaller ────────────────────────────────
 
-console.log("\n[niblit-build] Step 6 — Bundling Niblit core via PyInstaller (niblit.spec)…");
+console.log("\n[niblit-build] Step 7 — Bundling Niblit core via PyInstaller (niblit.spec)…");
 
 const specFile = path.join(repoRoot, "niblit.spec");
 if (!fs.existsSync(specFile)) {
