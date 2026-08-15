@@ -33,14 +33,14 @@ try:
     from niblit_memory import _writable_path as _mem_writable_path
 except Exception:
     import tempfile as _tempfile
-    def _mem_writable_path(fn, env_var=None):  # type: ignore[misc]
+    def _mem_writable_path(filename, env_var=None):  # type: ignore[misc]
         import os as _os
         if env_var:
             v = _os.environ.get(env_var, "").strip()
             if v:
                 return v
         cwd = _os.getcwd()
-        return _os.path.join(cwd, fn) if _os.access(cwd, _os.W_OK) else _os.path.join(_tempfile.gettempdir(), fn)
+        return _os.path.join(cwd, filename) if _os.access(cwd, _os.W_OK) else _os.path.join(_tempfile.gettempdir(), filename)
 
 
 class NiblitSQLiteDB:

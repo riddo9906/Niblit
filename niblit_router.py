@@ -5990,7 +5990,7 @@ Ask me about:
             except Exception as exc:
                 log.debug("[GAP-LEARNING] Quick research failed: %s", exc)
 
-        t = threading.Thread(target=_do_quick_research, daemon=True)
+        t = _threading.Thread(target=_do_quick_research, daemon=True)
         t.start()
         t.join(timeout=300)
 

@@ -10,10 +10,13 @@ Features:
 """
 
 import json
+import logging
 import random
 import threading
 import time
 from typing import List
+
+log = logging.getLogger("SelfTeacher")
 
 try:
     from niblit_memory import NiblitMemory as _NiblitMemory

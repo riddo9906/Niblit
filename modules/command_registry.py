@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import difflib
 import logging
+import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -160,6 +161,8 @@ class CanonicalRuntimeCapabilityRegistry:
             adaptive_hints=tuple(str(v).strip() for v in (adaptive_hints or ()) if str(v).strip()),
             ui_metadata=dict(ui_metadata or {}),
         )
+        # ── Phase 13: Timing & registration logging ───────────────────────────
+        started_at = time.perf_counter()
         self.commands[prefix] = metadata
         self._emit(
             "command.registered",
@@ -180,7 +183,14 @@ class CanonicalRuntimeCapabilityRegistry:
                     "source_authority": metadata.source_authority,
                 },
             )
-        log.info("Registered capability: %s (priority=%s, category=%s)", prefix, priority, category)
+        reg_duration_ms = (time.perf_counter() - started_at) * 1000.0
+        log.info(
+            "[CommandRegistry] registered capability: %s (priority=%s, category=%s) "
+            "in %.2f ms",
+            prefix, priority, category, reg_duration_ms,
+        )
+        # Maintain running count for diagnostics
+        self.stats["total_registered"] = self.stats.get("total_registered", 0) + 1
 
     def can_handle(self, text: str, *, context: dict[str, Any] | None = None, surface: str = "cli") -> bool:
         resolved = self.resolve(text, context=context, surface=surface, include_unavailable=False, executable_only=True)

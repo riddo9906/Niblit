@@ -92,13 +92,13 @@ try:
     from structural_helper import get_all_py_files
 except ImportError:
     log.warning("structural_helper not found, using fallback")
-    def get_all_py_files(base_dir):
+    def get_all_py_files(root):
         """Fallback: get all Python files in directory."""
         py_files = []
-        for root, dirs, files in os.walk(base_dir):
+        for root_dir, dirs, files in os.walk(root):
             for file in files:
                 if file.endswith(".py"):
-                    py_files.append(os.path.join(root, file))
+                    py_files.append(os.path.join(root_dir, file))
         return py_files
 
 

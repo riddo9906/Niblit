@@ -135,7 +135,7 @@ class ResearcherEngine:
 
         # DuckDuckGo instant-answer API (free, no key)
         try:
-            url = f"https://api.duckduckgo.com/?q={requests.utils.quote(topic)}&format=json&no_html=1"
+            url = f"https://api.duckduckgo.com/?q={topic.replace(' ', '%20')}&format=json&no_html=1"
             r = requests.get(url, timeout=10)
             js = r.json()
             abstract = js.get("AbstractText", "")
@@ -165,7 +165,7 @@ class ResearcherEngine:
                 title = hits[0]["title"]
                 r2 = requests.get(
                     "https://en.wikipedia.org/api/rest_v1/page/summary/{}".format(
-                        requests.utils.quote(title.replace(" ", "_"), safe="")
+                        title.replace(" ", "_")
                     ),
                     timeout=10,
                 )

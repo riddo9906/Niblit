@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Niblit Docker Backend Configuration
+#
+# This file configures the Docker-hosted Ollama-compatible inference backend.
+# All values can be overridden by environment variables (see docker_backend.py
+# docstring for the full env-var mapping).
+#
+# The Docker backend is the primary inference path when available.  If the
+# Docker-hosted server is unreachable, the system falls back to llama.cpp
+# (LlamaServerManager) and then to degraded mode.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Server connection ──────────────────────────────────────────────────────
+# Base URL of the Ollama-compatible server.
+# Default: http://127.0.0.1:11434
+# Env: NIBLIT_DOCKER_BACKEND_URL
+server_url: http://127.0.0.1:11434
+
+# ── Docker container settings ──────────────────────────────────────────────
+# Set to true to auto-start the Docker container on boot.
+# Default: false
+# Env: NIBLIT_DOCKER_AUTOSTART
+autostart: false
+
+# Docker container name.
+# Default: niblit-ollama
+# Env: NIBLIT_DOCKER_CONTAINER_NAME
+container_name: niblit-ollama
+
+# Docker image to use for the Ollama server.
+# Default: ollama/ollama
+# Env: NIBLIT_DOCKER_IMAGE
+docker_image: ollama/ollama
+
+# Host port to map to the container's 11434 port.
+# Default: 11434
+# Env: NIBLIT_DOCKER_PORT
+docker_port: 11434
+
+# ── Model configuration ────────────────────────────────────────────────────
+# Default model to use for inference (must be available in the Ollama server).
+# Common choices:
+#   qwen2.5-coder:3b       — good for code generation (default)
+#   qwen2.5:3b             — general purpose
+#   llama3.2:1b            — lightweight, fast
+#   llama3.2:3b            — better reasoning
+# Env: NIBLIT_DOCKER_DEFAULT_MODEL
+default_model: qwen2.5-coder:3b
+
+# ── Health monitoring ──────────────────────────────────────────────────────
+# Health cache TTL in seconds.  Health checks within this window use cached
+# results without re-probing the server.
+# Default: 10
+# Env: NIBLIT_DOCKER_HEALTH_TTL
+health_ttl: 10
+
+# HTTP request timeout in seconds for inference calls.
+# Default: 120
+# Env: NIBLIT_DOCKER_REQUEST_TIMEOUT
+request_timeout: 120
+
+# ── Fallback configuration ─────────────────────────────────────────────────
+# Comma-separated fallback order when the primary backend is unavailable.
+# Valid values: docker, llama_cpp, degraded
+# Default: docker,llama_cpp
+# Env: NIBLIT_DOCKER_FALLBACK_ORDER
+fallback_order:
+  - docker
+  - llama_cpp
+  - degraded
+
+# ── VS Code Copilot Gateway integration ────────────────────────────────────
+# When the Docker backend is active, the VS Code Copilot LLM Gateway should
+# point to the Ollama-compatible server's OpenAI-compatible endpoint:
+#
+#   github.copilot.llm-gateway.serverUrl: http://localhost:11434/v1
+#
+# Models should be listed by their Ollama tag name, e.g.:
+#   github.copilot.llm-gateway.models:
+#     - name: "qwen2.5-coder"
+#       model: "qwen2.5-coder:3b"
+#     - name: "llama3.2"
+#       model: "llama3.2:1b"
+#
+# See .vscode/settings.json for the current gateway configuration.

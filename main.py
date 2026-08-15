@@ -43,9 +43,14 @@ from modules.resilient_boot import (
 _BOOT_STATUS = BootStatus()
 load_environment(BASE_DIR, _BOOT_STATUS)
 
-from niblit_core import NiblitCore
-from niblit_io import NiblitIO
-from modules.structured_logging import configure_runtime_logging, log_exception
+# These imports are intentionally placed after environment loading to support the
+# lazy-loading pattern in niblit_core/__init__.py. pylint: disable=import-outside-toplevel
+# wrong-import-position, and no-name-in-module are required because:
+#   - Lazy loading via __getattr__ in niblit_core/__init__.py is not statically detectable
+#   - niblit_io and structured_logging imports depend on boot state being initialized
+from niblit_core import NiblitCore  # pylint: disable=import-outside-toplevel,wrong-import-position,no-name-in-module
+from niblit_io import NiblitIO  # pylint: disable=import-outside-toplevel,wrong-import-position
+from modules.structured_logging import configure_runtime_logging, log_exception  # pylint: disable=import-outside-toplevel,wrong-import-position
 
 # ── Centralised logging configuration ──────────────────────────────────────
 # Set up the root logger ONCE here, before any module imports.  Individual
@@ -328,7 +333,7 @@ def _run_tool_cli_mode(args, io=None) -> int:
     if not (getattr(args, "list_tools", False) or getattr(args, "tool_call", None)):
         return -1
 
-    from niblit_tools.tool_registry import get_registry
+    from niblit_tools.tool_registry import get_registry  # pylint: disable=import-outside-toplevel,import-error
     registry = get_registry()
     if io is not None and hasattr(io, "out") and hasattr(io, "error"):
         out = io.out
@@ -1367,9 +1372,16 @@ def main(argv=None):
         sys.exit(0)
 
     # ── Primary UI: managed via orchestrator, legacy Tk desktop, or niblit-ui ─
-    if _should_launch_desktop(_args):
+    io.out(f"{timestamp()} [INSTRUMENT] Checking _should_launch_desktop()", flush=True)
+    sys.stdout.flush()
+    _should_launch = _should_launch_desktop(_args)
+    io.out(f"{timestamp()} [INSTRUMENT] _should_launch_desktop() returned: {_should_launch}", flush=True)
+    sys.stdout.flush()
+    if _should_launch:
         if _should_launch_legacy_desktop(_args):
             try:
+                io.out(f"{timestamp()} [INSTRUMENT] Calling launch_desktop_shell()", flush=True)
+                sys.stdout.flush()
                 from modules.desktop_runtime_shell import launch_desktop_shell
 
                 launched = launch_desktop_shell(core=core, io=io)
@@ -1387,6 +1399,8 @@ def main(argv=None):
                 )
         else:
             _log_managed_ui_diagnostics(io)
+            io.out(f"{timestamp()} [INSTRUMENT] Calling launch_primary_ui()", flush=True)
+            sys.stdout.flush()
             try:
                 from modules.niblit_ui_launcher import launch_primary_ui
 
@@ -1396,10 +1410,26 @@ def main(argv=None):
                     on_status=lambda msg: io.out(f"{timestamp()} {msg}"),
                 )
                 if ui_result.success:
-                    io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
+                    # Capability-aware wording: only claim "fully operational" when
+                    # the trading runtime is actually ready.
+                    _trading_ready = (
+                        ui_result.mode in ("active", "live")
+                        and ui_result.readiness.get("trading") == "ready"
+                    )
+                    if _trading_ready:
+                        io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
+                    else:
+                        io.out(
+                            f"{timestamp()} ✅ Niblit Runtime Operational "
+                            f"(API ready, trading degraded)"
+                        )
                     _BOOT_STATUS.sidecar_status = getattr(_BOOT_STATUS, "sidecar_status", "active")
                     try:
+                        io.out(f"{timestamp()} [INSTRUMENT] About to call ui_result.wait()", flush=True)
+                        sys.stdout.flush()
                         exit_code = ui_result.wait()
+                        io.out(f"{timestamp()} [INSTRUMENT] ui_result.wait() returned: {exit_code}", flush=True)
+                        sys.stdout.flush()
                     finally:
                         ui_result.terminate()
                         try:
@@ -1407,15 +1437,17 @@ def main(argv=None):
                         except Exception:
                             pass
                     return exit_code
-                io.error(
-                    f"{timestamp()} [NIBLIT-UI] {ui_result.message or 'launch failed'} "
-                    "— falling back to CLI (backend API may still be running)"
-                )
+                else:
+                    io.error(
+                        f"{timestamp()} [NIBLIT-UI] {ui_result.message or 'launch failed'} "
+                        "— falling back to CLI (backend API may still be running)"
+                    )
             except Exception as _ui_exc:
                 io.error(f"{timestamp()} [NIBLIT-UI ERROR] {_ui_exc} — falling back to CLI")
 
     # ── Interactive shell (CLI fallback) ─────────────────────────────────────
-    io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
+    io.out(f"{timestamp()} [INSTRUMENT] About to call run_shell()", flush=True)
+    sys.stdout.flush()
     try:
         run_shell(core, io)
     except Exception as e:

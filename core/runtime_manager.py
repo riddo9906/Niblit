@@ -330,6 +330,7 @@ class RuntimeManager:
         "behaviour_engine",
         "model_manager",
         "llama_server_manager",
+        "docker_backend",
         "governance_engine",
         "structural_awareness",
         "ale",
@@ -533,6 +534,7 @@ class RuntimeManager:
         # ── Layer 2: Extended runtime services (optional — graceful on failure)
         self._initialize_service("model_manager", lambda: self._build_model_manager())
         self._initialize_service("llama_server_manager", lambda: self._build_llama_server_manager())
+        self._initialize_service("docker_backend", lambda: self._build_docker_backend())
         self._initialize_service("governance_engine", lambda: self._build_governance_engine())
         self._initialize_service("structural_awareness", lambda: self._build_structural_awareness())
         self._initialize_service("ale", lambda: self._build_ale())
@@ -628,6 +630,7 @@ class RuntimeManager:
         )
 
     def _build_foundation_architecture(self) -> Any:
+        import time
         from modules.foundation_architecture import FoundationArchitecture
 
         foundation = FoundationArchitecture(
@@ -688,6 +691,13 @@ class RuntimeManager:
             foundation.validate_unified_path()
         except Exception:
             pass
+
+        # ── Phase 13: Flush boot-time buffered events ───────────────────────
+        # This must be called after Phase-1 init so events are only persisted once.
+        try:
+            foundation.mark_boot_complete()
+        except Exception as exc:
+            log.debug("[RuntimeManager] mark_boot_complete failed: %s", exc)
 
         return foundation
 
@@ -820,6 +830,43 @@ class RuntimeManager:
             return self._initialize_service("llama_server_manager", self._build_llama_server_manager)
         except Exception as exc:
             self._set_service_status("llama_server_manager", "degraded", str(exc))
+            return None
+
+    def _build_docker_backend(self) -> Any:
+        """Initialise the managed Docker-hosted Ollama-compatible backend.
+
+        The backend probes the configured server URL and discovers models via
+        ``/api/tags``.  If ``NIBLIT_DOCKER_AUTOSTART`` is set it will also
+        attempt to start the Docker container.  All failures are non-fatal:
+        the service is marked degraded so the rest of the runtime continues
+        normally and the fallback coordinator routes to llama.cpp instead.
+        """
+        try:
+            from modules.docker_backend import DockerBackend
+
+            backend = DockerBackend()
+            # Discover models so the registry is populated before the first request
+            backend.discover_models()
+            if backend._autostart:
+                ok = backend.start()
+                if not ok:
+                    log.warning(
+                        "[RuntimeManager] docker_backend autostart failed — "
+                        "server will be started on demand"
+                    )
+            # Background health monitor (daemon — does not block shutdown)
+            backend.start_health_monitor()
+            return backend
+        except Exception as exc:
+            self._set_service_status("docker_backend", "degraded", str(exc))
+            return None
+
+    def get_docker_backend(self) -> Any:
+        """Return the runtime-owned :class:`~modules.docker_backend.DockerBackend`."""
+        try:
+            return self._initialize_service("docker_backend", self._build_docker_backend)
+        except Exception as exc:
+            self._set_service_status("docker_backend", "degraded", str(exc))
             return None
 
     def _build_governance_engine(self) -> Any:
@@ -1072,6 +1119,7 @@ class RuntimeManager:
             "behaviour_engine",
             "model_manager",
             "llama_server_manager",
+            "docker_backend",
             "governance_engine",
             "structural_awareness",
             "ale",

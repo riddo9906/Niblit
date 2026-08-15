@@ -7,6 +7,7 @@ import logging
 import requests
 import re
 import html
+from urllib.parse import quote as _url_quote
 
 log = logging.getLogger(__name__)
 
@@ -469,7 +470,7 @@ class InternetManager:
                 try:
                     if BS4_AVAILABLE:
                         # Fetch Google AI snippet box (fast — just parse the SERP HTML)
-                        search_url = f"https://www.google.com/search?q={requests.utils.quote(query)}"
+                        search_url = f"https://www.google.com/search?q={_url_quote(query)}"
                         r_snip = requests.get(search_url, headers=HEADERS, timeout=10)
                         if r_snip.status_code == 200:
                             soup = BeautifulSoup(r_snip.text, "html.parser")

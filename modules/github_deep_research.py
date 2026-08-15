@@ -138,6 +138,12 @@ def _repo_issues(owner: str, repo: str, state: str = "open", per_page: int = 5) 
     return data if isinstance(data, list) else []
 
 
+def _repo_meta(owner: str, repo: str) -> Optional[Dict[str, Any]]:
+    """Fetch repository metadata (stars, description, language, etc.)."""
+    data = _gh_get(f"/repos/{owner}/{repo}")
+    return data if isinstance(data, dict) else None
+
+
 def _topic_to_gh_slug(topic: str) -> Optional[str]:
     """Convert a free-text topic into a valid GitHub topic slug.
 

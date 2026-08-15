@@ -45,6 +45,10 @@ except Exception:
 # Layout: builds/{language}/{name}.{ext}
 NIBLIT_LOCAL_BUILDS_PATH = resolve_path("builds")
 
+# Minimum character length for LLM-generated code to be accepted.
+# Shorter outputs are typically error messages or placeholders.
+_MIN_LLM_CODE_LENGTH: int = 20
+
 # ──────────────────────────────────────────────────────────
 # LANGUAGE TEMPLATES
 # ──────────────────────────────────────────────────────────

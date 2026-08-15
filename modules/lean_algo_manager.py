@@ -411,6 +411,55 @@ class LeanAlgoManager:
 
         log.info("[LeanAlgoManager] Initialized — algos_dir=%s", self.algos_dir)
 
+    # ── Synchronous inspection properties ──────────────────────────────────────
+    # These expose a stable, provider-independent view of the trading runtime so
+    # that modules/niblit_ui_launcher._inspect_trading_runtime can report real
+    # values without reaching into private fields.  The UI launcher must never
+    # import LeanAlgoManager directly — it reads these attributes via getattr.
+
+    @property
+    def backend(self) -> str:
+        """Trading backend name.
+
+        Defaults to ``paper`` (safe simulation mode).
+        Override with ``NIBLIT_TRADING_BACKEND``.
+        """
+        return os.environ.get("NIBLIT_TRADING_BACKEND", "paper")
+
+    @property
+    def state(self) -> str:
+        """Runtime state: ``running`` when signal/monitor loops are active,
+        ``ready`` when initialised but not actively cycling, ``stopped``
+        otherwise."""
+        if self._signal_thread is not None and self._signal_thread.is_alive():
+            return "running"
+        if self._monitor_thread is not None and self._monitor_thread.is_alive():
+            return "running"
+        return "ready"
+
+    @property
+    def state_name(self) -> str:
+        """Alias for :attr:`state` — stable name for the UI launcher."""
+        return self.state
+
+    @property
+    def selected_backend_name(self) -> str:
+        """Alias for :attr:`backend` — stable name for the UI launcher."""
+        return self.backend
+
+    @property
+    def trading_mode(self) -> str:
+        """Trading execution mode: ``observe`` | ``paper`` | ``live``.
+
+        Mirrors :mod:`niblit_lean_algos` runtime mode env vars.
+        """
+        return os.environ.get("NIBLIT_TRADING_MODE", "observe")
+
+    @property
+    def execution_enabled(self) -> bool:
+        """Whether live trading execution is explicitly permitted."""
+        return os.environ.get("NIBLIT_TRADING_ALLOW_EXECUTION", "false").lower() == "true"
+
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
     def start(self) -> str:

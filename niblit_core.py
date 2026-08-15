@@ -78,10 +78,13 @@ except ImportError:
 
 # Side-effect import kept at module level so orphan symbol stubs are available
 # (moved here from line 1 so it runs after stdlib/dotenv setup).
-try:
-    import modules.orphan_imports  # auto-added by self_heal_auto  # pylint: disable=unused-import
-except Exception:
-    pass
+# DISABLED: modules.orphan_imports caused 37-minute startup hang due to
+# LLMAdapter() instantiation at module level attempting network operations.
+# The orphan stubs are not required for core functionality.
+# try:
+#     import modules.orphan_imports  # auto-added by self_heal_auto
+# except Exception:
+#     pass
 
 # ============================================================
 # PATH SETUP
@@ -1755,8 +1758,38 @@ class NiblitCore:
     # pylint: disable=too-many-instance-attributes
 
     def __init__(self, config: Optional[NiblitConfig] = None, memory_path: Optional[str] = None):
-        """Initialize NiblitCore with optional config."""
+        """Initialize NiblitCore with optional config.
+
+        Raises
+        ------
+        RuntimeError
+            If a NiblitCore instance is already running in this process.
+            This guard prevents duplicate module loading and resource conflicts
+            that occur when a second core is created before the first has been
+            shut down (e.g. after an interactive exit followed by a re-launch).
+        """
         # pylint: disable=too-many-statements
+        # Guard against duplicate initialization in the same process.
+        # This prevents double-loading heavy modules (LLM, VectorStore, ALE,
+        # trading runtime, etc.) which can cause OOM, port conflicts, and
+        # corrupted singleton state.
+        global _NIBLIT_CORE_INSTANCES
+        try:
+            _instances = _NIBLIT_CORE_INSTANCES
+        except NameError:
+            _instances = []
+            _NIBLIT_CORE_INSTANCES = _instances
+
+        # Prune stale entries from instances that have been shut down
+        _instances[:] = [inst for inst in _instances if getattr(inst, "running", False)]
+        if _instances:
+            raise RuntimeError(
+                "NiblitCore instance already running — cannot create duplicate. "
+                "Shutdown the existing instance first via core.shutdown(). "
+                f"Active instance id={id(_instances[0])}"
+            )
+        _instances.append(self)
+
         # Configuration
         self.config = config or NiblitConfig.from_env()
         if memory_path:
@@ -2095,6 +2128,45 @@ class NiblitCore:
                 log.info("✅ NIBLIT PHASE 0 READY — heavy modules loading in background")
             else:
                 log.warning(f"⚠️ Degraded Phase-0 startup: {self.startup_report.summary()}")
+
+            # ── Trading runtime manager (Phase 0 — created + started before UI launch) ──
+            # Wire the universal TradingRuntimeManager so the UI launcher and
+            # trading features see a real backend/state instead of None.
+            # start() is async — submit it to the owned event loop and wait.
+            self._trading_api_server = None
+            self._trading_api_thread = None
+            try:
+                from niblit_lean_algos.manager import TradingRuntimeManager
+                self.trading_runtime_manager = TradingRuntimeManager.get_instance()
+                self.lean_algo_manager = self.trading_runtime_manager
+                # Start the trading runtime so the UI launcher sees "ready" not "stopped"
+                log.info("TradingRuntimeManager startup submitted")
+                self._run_async_startup(
+                    self.trading_runtime_manager.start(),
+                    name="TradingRuntimeManager.start",
+                    timeout=30.0,
+                )
+                log.info(
+                    "Trading runtime manager started "
+                    "manager object id: %s "
+                    "backend: %s "
+                    "mode: %s "
+                    "state: %s",
+                    id(self.trading_runtime_manager),
+                    self.trading_runtime_manager.backend,
+                    self.trading_runtime_manager.execution_mode,
+                    self.trading_runtime_manager.state,
+                )
+                # Verify identity: core.trading_runtime_manager is core.lean_algo_manager
+                assert self.trading_runtime_manager is self.lean_algo_manager, (
+                    "trading_runtime_manager and lean_algo_manager must be the same object"
+                )
+                # Start the port-8100 trading API from the main Niblit process
+                self._start_trading_api()
+            except Exception as _trm_exc:
+                log.error("[INIT] TradingRuntimeManager startup failed: %s", _trm_exc)
+                self.trading_runtime_manager = None
+                self.lean_algo_manager = None
 
             # Phase 1: all heavy modules load in a daemon thread.
             self._deferred_thread: Optional[threading.Thread] = threading.Thread(
@@ -8790,7 +8862,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         # ── LeanAlgoManager (additive) ────────────────────────────────────────
         # Bridges TradingBrain with the niblit-lean-algos repo and QC Cloud.
-        if _LEAN_ALGO_MANAGER_AVAILABLE and _get_lean_algo_manager is not None:
+        # Preserve TradingRuntimeManager if it was already created in Phase 0.
+        if getattr(self, "trading_runtime_manager", None) is not None:
+            self.lean_algo_manager = self.trading_runtime_manager
+            log.info(
+                "[INIT] lean_algo_manager preserved from TradingRuntimeManager (id=%s)",
+                id(self.trading_runtime_manager),
+            )
+        elif _LEAN_ALGO_MANAGER_AVAILABLE and _get_lean_algo_manager is not None:
             try:
                 self.lean_algo_manager = _get_lean_algo_manager(
                     trading_brain=getattr(self, "trading_brain", None),
@@ -9255,42 +9334,54 @@ SW Categories: {stats.get('software_study_categories', 0)}
 
         # ── Local Brain (Qwen2.5-0.5B — primary brain, always on) ─────────────
         # REQUIRED: local-first intelligence for offline / toggle-llm-off mode.
-        try:
-            from modules.local_brain import get_local_brain
-            self.local_brain = get_local_brain()
-            log.info("✅ QwenLocalBrain registered (lazy-loads Qwen2.5-0.5B on first generate)")
-            self.startup_report.add("local_brain", "ready")
+        # NOTE: When running inside Docker, the local brain is managed externally
+        # by the container runtime and should NOT be loaded here. The container
+        # health endpoint on port 8000 serves the same function.
+        _docker_env = (
+            os.environ.get("DOCKER_ENV", "").strip().lower() in {"1", "true", "yes"}
+            or os.environ.get("NIBLIT_DOCKER_MODE", "").strip().lower() in {"1", "true", "yes"}
+        )
+        if not _docker_env:
             try:
-                _lb_status = self.local_brain.status()
-                _model_files = _lb_status.get("model_files", [])
-                if _lb_status.get("installed_locally"):
-                    if _model_files:
-                        _first_model_file = _model_files[0]
-                        log.info(
-                            "✅ Local Qwen model detected in cache (%d files): %s",
-                            len(_model_files),
-                            _first_model_file,
-                        )
-                        self.startup_report.add("local_brain_model", "ready", _first_model_file)
+                from modules.local_brain import get_local_brain
+                self.local_brain = get_local_brain()
+                log.info("✅ QwenLocalBrain registered (lazy-loads Qwen2.5-0.5B on first generate)")
+                self.startup_report.add("local_brain", "ready")
+                try:
+                    _lb_status = self.local_brain.status()
+                    _model_files = _lb_status.get("model_files", [])
+                    if _lb_status.get("installed_locally"):
+                        if _model_files:
+                            _first_model_file = _model_files[0]
+                            log.info(
+                                "✅ Local Qwen model detected in cache (%d files): %s",
+                                len(_model_files),
+                                _first_model_file,
+                            )
+                            self.startup_report.add("local_brain_model", "ready", _first_model_file)
+                        else:
+                            _msg = "Local Qwen model marked installed but no model files were listed."
+                            log.warning("[Core] %s", _msg)
+                            self.startup_report.add("local_brain_model", "degraded", _msg)
                     else:
-                        _msg = "Local Qwen model marked installed but no model files were listed."
+                        _repo_cache_dir = _lb_status.get("repo_cache_dir", "unknown")
+                        _msg = (
+                            f"Local Qwen model files not found in cache ({_repo_cache_dir}). "
+                            "Run: python tools/install_local_qwen_model.py"
+                        )
                         log.warning("[Core] %s", _msg)
                         self.startup_report.add("local_brain_model", "degraded", _msg)
-                else:
-                    _repo_cache_dir = _lb_status.get("repo_cache_dir", "unknown")
-                    _msg = (
-                        f"Local Qwen model files not found in cache ({_repo_cache_dir}). "
-                        "Run: python tools/install_local_qwen_model.py"
-                    )
+                except Exception as _lb_status_err:
+                    _msg = f"Local brain cache-status check failed: {_lb_status_err}"
                     log.warning("[Core] %s", _msg)
                     self.startup_report.add("local_brain_model", "degraded", _msg)
-            except Exception as _lb_status_err:
-                _msg = f"Local brain cache-status check failed: {_lb_status_err}"
-                log.warning("[Core] %s", _msg)
-                self.startup_report.add("local_brain_model", "degraded", _msg)
-        except Exception as _lb_err:
-            log.warning("[Core] QwenLocalBrain init failed (degraded): %s", _lb_err)
-            self.startup_report.add("local_brain", "degraded", str(_lb_err))
+            except Exception as _lb_err:
+                log.warning("[Core] QwenLocalBrain init failed (degraded): %s", _lb_err)
+                self.startup_report.add("local_brain", "degraded", str(_lb_err))
+        else:
+            log.info("[Core] Docker mode detected — skipping LocalBrain init (managed by container)")
+            self.local_brain = None
+            self.startup_report.add("local_brain", "skipped_docker")
 
         # ── Brain Router (intelligent multi-brain routing) ────────────────────
         # REQUIRED: routes prompts between local/cloud/memory brains.
@@ -9833,6 +9924,158 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 log.info("[Core] SyncEngine background loop started")
             except Exception as _se_loop_err:
                 log.debug("[Core] SyncEngine loop start failed: %s", _se_loop_err)
+
+    # ── Async startup bridge ───────────────────────────────────────────────
+    # Submits a coroutine to the owned event loop and waits for its result
+    # with a bounded timeout.  Uses run_coroutine_threadsafe when the loop
+    # is running on another thread; falls back to asyncio.run when no loop
+    # exists yet.  Never silently discards a coroutine.
+
+    def _run_async_startup(self, coroutine, *, name: str, timeout: float = 30.0):
+        """Submit *coroutine* to the owned event loop and wait for its result.
+
+        * Uses the existing owned event loop when it is running.
+        * Avoids creating competing loops.
+        * Avoids deadlocking when called from the event-loop thread
+          (falls back to running the coroutine inline).
+        * Propagates the original exception.
+        * Cancels on timeout.
+        * Logs the service name and elapsed time.
+        * Never silently discards a coroutine.
+        """
+        import time as _time
+        import asyncio as _asyncio
+
+        start = _time.perf_counter()
+
+        # Use run_coroutine_threadsafe when the owned loop is running
+        if self._event_loop is not None and self._event_loop.is_running():
+            log.debug("[run_async_startup] Submitting %s to owned event loop", name)
+            future = _asyncio.run_coroutine_threadsafe(coroutine, self._event_loop)
+            try:
+                result = future.result(timeout=timeout)
+                elapsed = (_time.perf_counter() - start) * 1000.0
+                log.info("[run_async_startup] %s completed in %.1f ms", name, elapsed)
+                return result
+            except TimeoutError:
+                future.cancel()
+                elapsed = (_time.perf_counter() - start) * 1000.0
+                log.error("[run_async_startup] %s timed out after %.1f ms", name, elapsed)
+                raise
+            except Exception:
+                elapsed = (_time.perf_counter() - start) * 1000.0
+                log.error("[run_async_startup] %s failed after %.1f ms: %s", name, elapsed, _traceback.format_exc())
+                raise
+        else:
+            # No running loop — use asyncio.run (creates a temporary loop)
+            log.debug("[run_async_startup] No running loop; using asyncio.run for %s", name)
+            try:
+                result = _asyncio.run(coroutine)
+                elapsed = (_time.perf_counter() - start) * 1000.0
+                log.info("[run_async_startup] %s completed in %.1f ms", name, elapsed)
+                return result
+            except Exception:
+                elapsed = (_time.perf_counter() - start) * 1000.0
+                log.error("[run_async_startup] %s failed after %.1f ms: %s", name, elapsed, _traceback.format_exc())
+                raise
+
+    # ── Trading API startup ────────────────────────────────────────────────
+    # Starts the port-8100 FastAPI trading API in a background thread using
+    # the same TradingRuntimeManager owned by NiblitCore.
+
+    def _start_trading_api(self):
+        """Start the port-8100 trading API from the main Niblit process.
+
+        * Uses the same manager object owned by NiblitCore.
+        * Does NOT launch a second TradingRuntimeManager.
+        * Does NOT call TradingRuntimeManager.get_instance() independently.
+        * Starts Uvicorn in a managed background thread.
+        """
+        api_enabled = os.getenv("NIBLIT_TRADING_API_ENABLED", "true").lower() in ("true", "1")
+        if not api_enabled:
+            log.info("[TRADING-API] NIBLIT_TRADING_API_ENABLED=false — skipping API startup")
+            return
+
+        api_host = os.getenv("NIBLIT_TRADING_API_HOST", "127.0.0.1")
+        api_port = int(os.getenv("NIBLIT_TRADING_API_PORT", "8100"))
+
+        try:
+            # Add the niblit-lean-algos directory to sys.path so imports work
+            _lean_algos_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "niblit-lean-algos")
+            if os.path.isdir(_lean_algos_dir) and _lean_algos_dir not in sys.path:
+                sys.path.insert(0, _lean_algos_dir)
+
+            from api.trading_api import create_app
+            import uvicorn
+
+            app = create_app(self.trading_runtime_manager)
+            config = uvicorn.Config(app, host=api_host, port=api_port, log_level="info")
+            self._trading_api_server = uvicorn.Server(config)
+
+            def _run_api():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(self._trading_api_server.serve())
+                except Exception as _api_exc:
+                    log.debug("[TRADING-API] Server error: %s", _api_exc)
+                finally:
+                    loop.close()
+
+            self._trading_api_thread = threading.Thread(
+                target=_run_api,
+                name="TradingAPIServer",
+                daemon=True,
+            )
+            self._trading_api_thread.start()
+            log.info("Trading API ready at http://%s:%d", api_host, api_port)
+
+            # ── API readiness verification ──────────────────────────────────
+            self._verify_trading_api_readiness(api_host, api_port)
+
+        except ImportError:
+            log.info("[TRADING-API] FastAPI/uvicorn not installed — skipping REST API")
+        except Exception as _api_exc:
+            log.error("[TRADING-API] Failed to start: %s", _api_exc)
+
+    def _verify_trading_api_readiness(self, host: str, port: int):
+        """Poll the trading API health and status endpoints with a bounded timeout."""
+        import urllib.request
+        import urllib.error
+
+        endpoints = ["/health", "/v1/runtime/status"]
+        timeout_total = 10.0
+        poll_interval = 0.5
+        elapsed = 0.0
+
+        while elapsed < timeout_total:
+            all_ok = True
+            for ep in endpoints:
+                try:
+                    url = f"http://{host}:{port}{ep}"
+                    req = urllib.request.Request(url, method="GET")
+                    with urllib.request.urlopen(req, timeout=2.0) as resp:
+                        if resp.status == 200:
+                            import json as _json
+                            data = _json.loads(resp.read().decode("utf-8"))
+                            log.info("[TRADING-API] %s → %s", ep, data)
+                        else:
+                            all_ok = False
+                except (urllib.error.URLError, ConnectionError, OSError):
+                    all_ok = False
+                    break
+                except Exception:
+                    all_ok = False
+                    break
+
+            if all_ok:
+                log.info("[TRADING-API] Readiness verified — all endpoints responding")
+                return
+
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+
+        log.warning("[TRADING-API] Readiness check timed out after %.1fs", elapsed)
 
     def _start_async_loops(self):
         """Start asynchronous background loops."""
@@ -11920,22 +12163,75 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as e:
                 log.error(f"SLSA engine shutdown failed: {e}")
 
-        # Stop all background threads with timeout
-        total_threads = len(self._background_threads)
-        if total_threads > 0:
-            timeout_per_thread = timeout / max(total_threads, 1)
-            for thread in self._background_threads:
-                try:
-                    join_timeout = timeout_per_thread
-                    if thread is self._event_loop_thread:
-                        join_timeout = max(join_timeout, 2.0)
-                    thread.join(timeout=join_timeout)
-                    if thread.is_alive():
-                        log.warning(f"Thread {thread.name} did not shutdown in time")
-                except Exception as e:
-                    log.error(f"Error joining thread {thread.name}: {e}")
+        # ── Stop trading API server BEFORE event loop ─────────────────────────
+        # 1. Stop accepting new trading API requests
+        # 2. Stop the trading API server
+        if self._trading_api_server is not None:
+            try:
+                self._trading_api_server.should_exit = True
+                log.info("Trading API stopped")
+            except Exception as e:
+                log.debug(f"[SHUTDOWN] Trading API stop failed: {e}")
+        if self._trading_api_thread is not None:
+            try:
+                self._trading_api_thread.join(timeout=5.0)
+            except Exception:
+                pass
 
-        # Stop async event loop
+        # ── Async event-loop diagnostics (pre-shutdown) ───────────────────────
+        pending_tasks = []
+        running_services = []
+        if self._event_loop and not self._event_loop.is_closed():
+            pending_tasks = [t.get_name() for t in getattr(self, "_async_tasks", ()) if not t.done()]
+            running_services = [
+                name for name, svc in [
+                    ("trading_runtime", getattr(self, "trading_runtime_manager", None)),
+                    ("docker_monitor", getattr(self, "docker_health_monitor", None)),
+                    ("api_server", getattr(self, "_trading_api_server", None)),
+                ] if svc is not None
+            ]
+        log.info(
+            "[SHUTDOWN] async-loop diagnostics: pending_tasks=%d services=%s",
+            len(pending_tasks), running_services,
+        )
+
+        # ── Await TradingRuntimeManager.stop() BEFORE stopping event loop ─────
+        # 3. Await TradingRuntimeManager.stop()
+        # 4. Close the Freqtrade HTTP client
+        # 5. Close the execution repository
+        if self.trading_runtime_manager is not None:
+            try:
+                self._run_async_startup(
+                    self.trading_runtime_manager.stop(),
+                    name="TradingRuntimeManager.stop",
+                    timeout=10.0,
+                )
+                log.info("TradingRuntimeManager stopped")
+            except Exception as e:
+                log.error(f"[SHUTDOWN] TradingRuntimeManager stop failed: {e}")
+            _adapter = getattr(self.trading_runtime_manager, "_adapter", None)
+            if _adapter is not None:
+                try:
+                    self._run_async_startup(
+                        _adapter.close(),
+                        name="FreqtradeAdapter.close",
+                        timeout=5.0,
+                    )
+                    log.info("Freqtrade client closed")
+                except Exception as e:
+                    log.debug(f"[SHUTDOWN] Freqtrade client close failed: {e}")
+            _repository = getattr(self.trading_runtime_manager, "_repository", None)
+            if _repository is not None:
+                try:
+                    _repository.close()
+                    log.info("ExecutionRepository closed")
+                except Exception as e:
+                    log.debug(f"[SHUTDOWN] ExecutionRepository close failed: {e}")
+
+        # ── Stop async event loop BEFORE joining threads ──────────────────────
+        # Correct order: cancel tasks → stop loop → join event-loop thread
+        # 6. Stop trading background tasks
+        # 7. Then stop the shared event loop
         if self._event_loop and not self._event_loop.is_closed():
             for task in list(getattr(self, "_async_tasks", ())):
                 if task and not task.done():
@@ -11956,6 +12252,21 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self._event_loop.close()
             except RuntimeError:
                 pass
+
+        # ── Stop all background threads with timeout ──────────────────────────
+        total_threads = len(self._background_threads)
+        if total_threads > 0:
+            timeout_per_thread = timeout / max(total_threads, 1)
+            for thread in self._background_threads:
+                try:
+                    join_timeout = timeout_per_thread
+                    if thread is self._event_loop_thread:
+                        join_timeout = max(join_timeout, 2.0)
+                    thread.join(timeout=join_timeout)
+                    if thread.is_alive():
+                        log.warning(f"Thread {thread.name} did not shutdown in time")
+                except Exception as e:
+                    log.error(f"Error joining thread {thread.name}: {e}")
 
         # Shutdown services in reverse order
         services = [

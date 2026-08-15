@@ -294,6 +294,29 @@ class ResearchAgent:
                     except Exception as exc:
                         logger.debug("[ResearchAgent] VectorStore add failed: %s", exc)
 
+        # ── Canonical knowledge ingestion ──────────────────────────────────────
+        # Route every extracted result through the canonical KnowledgeIngestionService
+        # so that web results are stored with provenance, content hashes, and trust
+        # metadata.  This is additive — legacy KnowledgeStore + VectorStore writes
+        # above are preserved for backward compatibility.
+        try:
+            from niblit_memory.ingestion import KnowledgeIngestionService
+            from niblit_memory.knowledge_document import SourceType, TrustLevel
+            _service = KnowledgeIngestionService()
+            for item in extracted[:10]:
+                snippet = item.get("snippet", "")
+                url = item.get("url") or item.get("link") or ""
+                if not snippet:
+                    continue
+                source_type = SourceType.web_page if url else SourceType.web_search_result
+                _service.ingest_raw(
+                    raw={"text": snippet, "url": url},
+                    source_type=source_type,
+                    trust_level=TrustLevel.external_untrusted,
+                )
+        except Exception as exc:
+            logger.debug("[ResearchAgent] Canonical ingestion failed: %s", exc)
+
         return extracted
 
 

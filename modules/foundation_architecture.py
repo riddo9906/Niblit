@@ -126,6 +126,11 @@ class FoundationArchitecture:
         self._study_objectives: list[str] = []
         self._knowledge_gaps: list[str] = []
 
+        # ── Phase 13: Boot-time event buffering ────────────────────────────────
+        # Events emitted during boot are buffered and flushed once startup completes.
+        self._boot_events: list[Dict[str, Any]] = []
+        self._boot_complete = threading.Event()
+
         # ── Phase 1: Subsystem registry ─────────────────────────────────────
         # Maps subsystem name → metadata dict
         self._subsystems: dict[str, dict[str, Any]] = {}
@@ -1036,10 +1041,35 @@ class FoundationArchitecture:
         return {}
 
     def _persist(self) -> None:
+        """Persist event data to JSONL using boot-time buffering.
+
+        During boot (before mark_boot_complete() is called), events are buffered
+        in memory to avoid O(n²) file rewrites. After boot completes, all
+        buffered events are flushed in a single batch write.
+        """
         if self._persistence_manager is None or not hasattr(
             self._persistence_manager, "append_jsonl_record"
         ):
             return
+
+        record = {
+            "runtime_id": self.runtime_id,
+            "event_count": self._event_count,
+            "last_event": dict(self._last_event),
+            "last_model_selection": dict(self._last_model_selection),
+            "knowledge_gaps": list(self._knowledge_gaps[-10:]),
+            "study_objectives": list(self._study_objectives[-10:]),
+            "knowledge_distillation": self._knowledge_distillation.status(),
+            "behaviour_rules_count": self._behaviour_engine.rule_count(),
+            "journal_entries": self._journal.entry_count(),
+        }
+
+        with self._lock:
+            boot_complete = self._boot_complete.is_set()
+            if not boot_complete:
+                self._boot_events.append(record)
+                return
+
         try:
             root = getattr(self._persistence_manager, "root_dir", "")
             path = (
@@ -1047,19 +1077,28 @@ class FoundationArchitecture:
                 if root
                 else "cognitive/foundation_architecture.jsonl"
             )
-            self._persistence_manager.append_jsonl_record(
-                path,
-                {
-                    "runtime_id": self.runtime_id,
-                    "event_count": self._event_count,
-                    "last_event": dict(self._last_event),
-                    "last_model_selection": dict(self._last_model_selection),
-                    "knowledge_gaps": list(self._knowledge_gaps[-10:]),
-                    "study_objectives": list(self._study_objectives[-10:]),
-                    "knowledge_distillation": self._knowledge_distillation.status(),
-                    "behaviour_rules_count": self._behaviour_engine.rule_count(),
-                    "journal_entries": self._journal.entry_count(),
-                },
-            )
+            self._persistence_manager.append_jsonl_record(path, record)
         except Exception:
+            pass
+
+    def mark_boot_complete(self) -> None:
+        """Signal that boot is complete and flush all buffered events.
+
+        This should be called after Phase-1 init finishes and before the user
+        shell is entered. All events accumulated during boot are written in a
+        single batch to avoid O(n²) I/O overhead.
+        """
+        with self._lock:
+            self._boot_complete.set()
+            buffered = list(self._boot_events)
+            self._boot_events = []
+
+        if not buffered:
             return
+
+        log.info("[FoundationArchitecture] Flushing %d buffered boot events", len(buffered))
+        for record in buffered:
+            try:
+                self._persist()
+            except Exception as exc:
+                log.debug("[FoundationArchitecture] Buffered flush error: %s", exc)

@@ -180,6 +180,11 @@ def print_boot_status_report(io: Any, status: BootStatus) -> None:
     lines.append("────────────────────────────────────")
     output = "\n".join(lines)
     if io is not None and hasattr(io, "out"):
-        io.out(output)
+        io.out(output, flush=True)
     else:
-        print(output, flush=True)
+        # Safe print that handles Unicode on Windows consoles
+        try:
+            print(output, flush=True)
+        except UnicodeEncodeError:
+            safe_output = output.encode("utf-8", errors="replace").decode("latin-1", errors="replace")
+            print(safe_output, flush=True)

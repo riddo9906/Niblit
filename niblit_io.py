@@ -15,9 +15,40 @@ class NiblitIO:
         return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
     @staticmethod
-    def out(message):
-        if not NiblitIO._quiet:
-            print(f"{NiblitIO.timestamp()} {message}")
+    def out(
+        message,
+        *,
+        flush: bool = False,
+        end: str = "\n",
+        sep: str = " ",
+        file=None,
+        **kwargs,
+    ):
+        """Print a timestamped message to stdout.
+
+        Compatible with Python's built-in print() interface:
+        - flush: Whether to flush stdout after writing (default: False)
+        - end: String appended after the message (default: "\\\\n")
+        - sep: Separator between arguments (default: " ")
+        - file: Destination stream (default: None = stdout)
+        - **kwargs: Ignored to support future extensions
+
+        All keyword arguments are optional to maintain backward compatibility.
+        Unicode characters that cannot be encoded are replaced with '?' or removed
+        to prevent UnicodeEncodeError on Windows consoles.
+        """
+        if NiblitIO._quiet:
+            return
+        # Build the full message with timestamp
+        full_message = f"{NiblitIO.timestamp()} {message}"
+        # Handle encoding issues on Windows console (cp1252) gracefully
+        try:
+            print(full_message, end=end, file=file, flush=flush)
+        except UnicodeEncodeError:
+            # Replace unencodable characters with '?' or remove them
+            safe_message = full_message.encode("utf-8", errors="replace").decode("latin-1", errors="replace")
+            print(safe_message, end=end, file=file, flush=flush, **kwargs)
+        # Allow for potential future keyword arguments without raising
 
     @staticmethod
     def error(message):
@@ -62,11 +93,19 @@ class NiblitIO:
 
         parts = []
         for token in tokens:
-            print(token, end="", flush=flush)
+            try:
+                print(token, end="", flush=flush)
+            except UnicodeEncodeError:
+                safe_token = token.encode("utf-8", errors="replace").decode("latin-1", errors="replace")
+                print(safe_token, end="", flush=flush)
             parts.append(token)
             if delay > 0:
                 time.sleep(delay)
-        print(end, end="", flush=flush)
+        try:
+            print(end, end="", flush=flush)
+        except UnicodeEncodeError:
+            safe_end = end.encode("utf-8", errors="replace").decode("latin-1", errors="replace")
+            print(safe_end, end="", flush=flush)
         return "".join(parts)
 
     @staticmethod
@@ -88,7 +127,11 @@ class NiblitIO:
         """
         for line in text.splitlines():
             if not NiblitIO._quiet:
-                print(f"{NiblitIO.timestamp()} {line}", flush=True)
+                try:
+                    print(f"{NiblitIO.timestamp()} {line}", flush=True)
+                except UnicodeEncodeError:
+                    safe_line = line.encode("utf-8", errors="replace").decode("latin-1", errors="replace")
+                    print(f"{NiblitIO.timestamp()} {safe_line}", flush=True)
             if delay > 0:
                 time.sleep(delay)
             yield line

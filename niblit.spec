@@ -25,7 +25,8 @@ import os
 import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_dynamic_libs
+import llama_cpp
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -60,6 +61,14 @@ LEAN_ALGOS_ROOT = next(
 # ---------------------------------------------------------------------------
 
 datas = []
+
+LLAMA_ROOT = Path(llama_cpp.__file__).parent
+llama_binaries = collect_dynamic_libs("llama_cpp")
+datas += collect_data_files("llama_cpp")
+lib_dir=LLAMA_ROOT/"lib"
+if lib_dir.exists():
+    for dll in lib_dir.glob("*"):
+        llama_binaries.append((str(dll),"llama_cpp/lib"))
 
 # Lean-algos bridge (Python package) and algorithm source files.
 # These are NOT copied into the Python package; they live in the bundle as
@@ -139,7 +148,7 @@ for _pkg in ("modules", "core", "agents", "niblit_memory", "nibblebots", "niblit
 a = Analysis(
     [str(REPO_ROOT / "main.py")],
     pathex=[str(REPO_ROOT)],
-    binaries=[],
+    binaries=llama_binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
@@ -156,7 +165,7 @@ a = Analysis(
         "Pillow",
         "cv2",
         "tensorflow",
-        "torch",
+        
         # Test infra
         "pytest",
         "pytest_cov",

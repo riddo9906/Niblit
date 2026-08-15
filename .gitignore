@@ -103,3 +103,10 @@ niblit_audit_cursor.json
 ./node_modules/.bin
 .ps
 .map
+dist/
+build/
+*.exe
+*.pkg
+*.pyz
+__pycache__/
+*.pyc

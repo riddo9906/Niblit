@@ -239,7 +239,7 @@ try:
 except Exception as _e:
     log.warning(f"LocalDB unavailable: {_e}")
     LocalDB = None
-    def _mem_writable_path(filename, _env_var=None):  # type: ignore[misc]
+    def _mem_writable_path(filename, env_var=None):  # type: ignore[misc]
         return filename
 # pylint: enable=invalid-name
 

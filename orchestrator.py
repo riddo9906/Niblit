@@ -10,7 +10,7 @@ import logging
 try:
     from dotenv import load_dotenv as _load_dotenv
 except ImportError:
-    def _load_dotenv(*args, **kwargs):
+    def _load_dotenv(*args, **kwargs):  # type: ignore[misc]
         return False  # python-dotenv not installed — env vars loaded from environment
 
 logging.basicConfig(level=logging.INFO)

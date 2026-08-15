@@ -1,29 +1,47 @@
 {
-  "decision_style": "analytical",
-  "risk_tolerance": 0.5,
+  "decision_style": "language-centric",
+  "risk_tolerance": 0.505,
   "response_bias": {
-    "memory": 1.0,
-    "reasoning": 1.0,
-    "goal": 1.0,
-    "llm": 1.0,
-    "quality": 1.0
+    "memory": 0.64,
+    "reasoning": 0.75,
+    "goal": 0.6,
+    "llm": 1.5,
+    "quality": 0.6
   },
   "decision_policy": {
     "exploration_rate": 0.1,
-    "risk_preference": "balanced",
+    "risk_preference": "conservative",
     "priority_mode": "balanced"
   },
-  "total_decisions": 4,
+  "total_decisions": 65,
   "advisor_win_counts": {
-    "memory": 1,
-    "llm": 1,
-    "reasoning": 2
+    "memory": 15,
+    "llm": 30,
+    "reasoning": 17,
+    "unknown": 1,
+    "quality": 2
   },
   "quality_history": [
+    0.213,
+    0.213,
     0.319,
-    0.452,
-    0.365,
-    0.755
+    0.762,
+    0.912,
+    0.357,
+    0.207,
+    0.177,
+    0.319,
+    0.357,
+    0.29,
+    0.332,
+    0.325,
+    0.319,
+    0.34,
+    0.319,
+    0.319,
+    0.319,
+    0.763,
+    0.319
   ],
-  "last_updated": 1782859885.976846
+  "last_updated": 1786369635.674864
 }

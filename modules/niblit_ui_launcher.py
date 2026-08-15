@@ -1,121 +1,131 @@
 #!/usr/bin/env python3
-"""Launch niblit-ui as the primary graphical interface (API-attached, non-blocking).
+"""Desktop UI Launcher for Niblit.
 
-Boot order enforced by :func:`launch_primary_ui`:
-  1. Niblit core runtime is already running (caller owns ``core``).
-  2. HTTP API layer starts in a daemon thread (``server.py`` bound to *core*).
-  3. Optional niblit-cloud-server subprocess (when configured).
-  4. niblit-ui dev server, static build, or bundled Tauri exe opens as a separate process.
-  5. UI connects via HTTP/WebSocket only — no Python imports in the frontend.
+Responsibilities
+---------------
+1.  Inspect the Niblit trading-runtime manager and report its backend,
+    state, mode and execution-enabled flag as real (non-"unknown") values.
+2.  Ensure the Niblit Core API (``server.py``) is serving ``GET /health`` on
+    the configured port (default **5000**).  If it is not already running the
+    launcher starts it in a background daemon thread, then waits for readiness
+    with retries (``NIBLIT_API_START_TIMEOUT``, default 45 s).
+3.  Best-effort probe the Niblit Cloud inference server (port 8000).
+4.  Launch the desktop UI (Tauri dev mode) as a tracked subprocess and return
+    a :class:`UiLaunchResult` with a valid lifecycle handle.
 
-The Niblit core runtime never depends on the UI process lifecycle.
-
-Packaged (PyInstaller) mode
----------------------------
-When the process is frozen (``getattr(sys, "frozen", False)`` is True) the launcher
-looks for pre-bundled executables relative to the directory that contains
-``niblit.exe``.  All existing env-var overrides remain effective and take priority.
-
-  Bundled layout expected by niblit.spec::
-
-    <bundle_base>/
-    ├── niblit.exe               ← entry point (this process)
-    ├── niblit-ui.exe            ← Tauri UI executable
-    └── cloud/
-        └── niblit-cloud.exe     ← Cloud-server executable
+The ``UiLaunchResult`` is a stable contract consumed by ``main.py``.  The
+caller accesses ``result.success``, ``result.message``, ``result.wait()``,
+and ``result.terminate()`` — which is why **every** code path in
+:func:`launch_primary_ui` returns an :class:`UiLaunchResult` instance.
 """
-
 from __future__ import annotations
 
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import sys
 import threading
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
-from modules.boot_diagnostics import BootDiagnostics, ProcessDiagnostics, is_port_available
+log = logging.getLogger("NiblitUiLauncher")
 
-log = logging.getLogger("Niblit.UILauncher")
+# ── Port / URL defaults ───────────────────────────────────────────────────────
 
-_DEFAULT_API_PORT = int(os.environ.get("NIBLIT_API_PORT", os.environ.get("PORT", "8080")))
-_DEFAULT_UI_PORT = int(os.environ.get("NIBLIT_UI_PORT", "5173"))
-_DEFAULT_API_HOST = os.environ.get("NIBLIT_API_HOST", "127.0.0.1")
-# Bundled desktop builds do not expose an HTTP readiness endpoint, so readiness
-# is defined as "the process stayed alive through its initial stabilization
-# window" controlled by ``_BUNDLED_UI_STABLE_WINDOW_SECONDS``.
-_BUNDLED_UI_STABLE_WINDOW_SECONDS = 2.0
+#: Niblit Core API port (NOT the cloud inference server on 8000).
+_NIBLIT_API_DEFAULT_PORT = 5000
+_NIBLIT_CLOUD_DEFAULT_PORT = 8000
 
+#: Health-check path on the Niblit Core API.
+_API_HEALTH_PATH = "/health"
 
-# ── PyInstaller bundle helpers ────────────────────────────────────────────────
+#: Health-check path on the Niblit Cloud inference server.
+_CLOUD_HEALTH_PATH = "/healthz"
 
-def _bundle_base() -> Optional[Path]:
-    """Return the one-folder PyInstaller bundle directory, or *None* when not packaged.
+#: How long to wait for the API to become ready (seconds).
+_API_READY_TIMEOUT = float(os.getenv("NIBLIT_API_START_TIMEOUT", "45"))
 
-    In one-folder mode ``sys.executable`` is the niblit.exe inside the bundle
-    directory.  All sibling resources (niblit-ui.exe, cloud/) are relative to
-    that same directory.
-    """
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent.resolve()
-    return None
+#: How long to wait for the UI process to stabilise after launch (seconds).
+_UI_STABILIZATION_SECONDS = float(os.getenv("NIBLIT_UI_STABILIZATION_SECONDS", "5"))
+
+#: Repo root resolved from this file's location.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def find_niblit_ui_exe() -> Optional[Path]:
-    """Return the path to the bundled Tauri UI executable, or *None*.
-
-    Used in packaged mode only.  Returns None in development mode so that the
-    existing :func:`find_niblit_ui_root` / npm-based launch path is used instead.
-
-    Search order:
-    1. ``NIBLIT_UI_PATH`` env var pointing to a .exe file.
-    2. ``<bundle_base>/niblit-ui.exe`` (staged by niblit-build.js).
-    """
-    env_path = (
-        os.environ.get("NIBLIT_UI_PATH", "").strip()
-        or os.environ.get("NIBLIT_UI_ROOT", "").strip()
-    )
-    if env_path:
-        candidate = Path(env_path).expanduser().resolve()
-        # Accept a direct path to an executable (e.g. niblit-ui.exe on Windows
-        # or a bare binary on Linux/macOS).
-        if candidate.is_file() and not (candidate / "package.json").exists():
-            return candidate
-
-    base = _bundle_base()
-    if base is not None:
-        candidate = base / "niblit-ui.exe"
-        if candidate.is_file():
-            return candidate
-
-    return None
-
+# ─────────────────────────────────────────────────────────────────────────────
+# UiLaunchResult
+# ─────────────────────────────────────────────────────────────────────────────
 
 @dataclass
 class UiLaunchResult:
-    """Outcome of a primary UI launch attempt."""
+    """Stable result object returned by :func:`launch_primary_ui`.
+
+    Attributes
+    ----------
+    success:
+        ``True`` when the desktop runtime launched successfully.
+    mode:
+        ``"active"`` | ``"degraded"`` | ``"disabled"``.
+    api_url:
+        The Niblit Core API base URL that was verified or started.
+    cloud_url:
+        The Niblit Cloud inference base URL that was probed.
+    ui_url:
+        URL or label describing how the desktop UI was launched.
+    message:
+        Human-readable status / failure reason.
+    readiness:
+        Mapping of service-name → readiness state (``"ready"`` | ``"unavailable"``).
+    """
 
     success: bool
-    mode: str = "disabled"  # active | degraded | disabled
+    mode: str = "disabled"
     api_url: str = ""
+    cloud_url: str = ""
     ui_url: str = ""
     message: str = ""
+    readiness: Dict[str, str] = field(default_factory=dict)
+    # Private lifecycle handles (excluded from repr)
     _ui_process: Optional[subprocess.Popen] = field(default=None, repr=False)
-    _api_thread: Optional[threading.Thread] = field(default=None, repr=False)
     _cloud_process: Optional[subprocess.Popen] = field(default=None, repr=False)
-    readiness: dict[str, str] = field(default_factory=dict)
+    _api_thread: Optional[threading.Thread] = field(default=None, repr=False)
+    _owned_server: Any = field(default=None, repr=False)
+    _launch_mode: str = field(default="unknown", repr=False)  # "attached" | "detached"
+
+    # ── lifecycle helpers ─────────────────────────────────────────────────
 
     def wait(self) -> int:
-        """Block until the UI process exits (or return 0 when UI was not started)."""
+        """Block until the UI process exits.
+
+        For attached mode this blocks on the underlying ``Popen`` handle.
+        For detached mode this waits on the core shutdown event so the
+        caller stays alive while background services run.
+        """
+        if not self.success:
+            return 1
+
+        if self._launch_mode == "detached":
+            try:
+                import threading
+                shutdown_event = threading.Event()
+                while self._owned_server is not None or getattr(self, "_api_thread", None) is not None:
+                    shutdown_event.wait(timeout=1.0)
+                return 0
+            except Exception:
+                return 0
+
         if self._ui_process is None:
-            return 0
+            raise RuntimeError(
+                "UI launch succeeded without an attached UI process. "
+                "The launcher must attach a real long-lived process on success."
+            )
+
         try:
             return self._ui_process.wait()
         except KeyboardInterrupt:
@@ -123,859 +133,888 @@ class UiLaunchResult:
             return 130
 
     def terminate(self) -> None:
-        """Stop UI and optional cloud subprocesses (API thread is daemon)."""
+        """Cleanly terminate any processes / threads owned by this launch."""
         for proc in (self._ui_process, self._cloud_process):
             if proc is None:
                 continue
             try:
                 proc.terminate()
-                proc.wait(timeout=5)
-            except Exception:
                 try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
                     proc.kill()
+            except Exception:
+                pass
+        # Signal our owned uvicorn server to exit (graceful)
+        server = self._owned_server
+        if server is not None:
+            try:
+                server.should_exit = True  # type: ignore[attr-defined]
+            except Exception:
+                pass
+        if self._api_thread is not None and self._api_thread.is_alive():
+            try:
+                self._api_thread.join(timeout=10)
+            except Exception:
+                pass
+        self._ui_process = None
+        self._cloud_process = None
+        self._api_thread = None
+        self._owned_server = None
+
+    # ── ergonomic helpers ─────────────────────────────────────────────────
+
+    def is_trading_enabled(self) -> bool:
+        return self.mode in ("active", "live")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Compatibility helper
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _coerce_ui_launch_result(value: Any) -> UiLaunchResult:
+    """Coerce a legacy ``dict`` (or stray object) into a :class:`UiLaunchResult`.
+
+    The previous launcher returned a bare ``dict`` with keys ``status``,
+    ``errors`` and ``runtime_state``.  Older callers may still pass that dict
+    back through this helper so they receive a proper object with
+    ``.success``, ``.wait()`` and ``.terminate()``.
+
+    Raises
+    ------
+    TypeError
+        If *value* cannot be coerced (e.g. ``None`` or an unrelated type).
+    """
+    if isinstance(value, UiLaunchResult):
+        return value
+    if isinstance(value, dict):
+        status = str(value.get("status", "")).lower()
+        errors = value.get("errors", [])
+        message = value.get("message", "") or (
+            "; ".join(errors) if errors else "legacy launcher completed"
+        )
+        return UiLaunchResult(
+            success=status == "ok",
+            mode="active" if status == "ok" else "degraded",
+            message=message,
+            readiness=dict(value.get("readiness", {})),
+        )
+    if value is None:
+        raise TypeError("cannot coerce None to UiLaunchResult")
+    raise TypeError(f"cannot coerce {type(value).__name__} to UiLaunchResult")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Runtime state (shared between caller and tests)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class RuntimeState:
+    """Mutable runtime-state object shared between launcher sub-steps."""
+
+    def __init__(self) -> None:
+        self.lean_ready: bool = False
+        self.api_ready: bool = False
+        self.cloud_ready: bool = False
+        self.ui_ready: bool = False
+
+
+def get_runtime_state() -> RuntimeState:
+    """Return the singleton :class:`RuntimeState` used across launcher helpers."""
+    global _RUNTIME_STATE
+    if _RUNTIME_STATE is None:
+        _RUNTIME_STATE = RuntimeState()
+    return _RUNTIME_STATE
+
+
+_RUNTIME_STATE: Optional[RuntimeState] = None
+
+
+def reset_runtime_state() -> None:
+    """Reset the singleton RuntimeState (primarily for tests)."""
+    global _RUNTIME_STATE
+    _RUNTIME_STATE = None
+
+
+def _status_emitter(
+    io: Any, on_status: Optional[Callable[[str], None]]
+) -> Callable[[str], None]:
+    """Return a function that emits a status line to *io* and/or *on_status*.
+
+    When *on_status* is provided it is the primary output path; *io* is only
+    used as a fallback when *on_status* is absent.  This prevents duplicate
+    status lines when both are wired (e.g. ``launch_primary_ui`` is called
+    with ``on_status=lambda msg: io.out(...)``).
+    """
+    def _emit(msg: str) -> None:
+        if on_status is not None:
+            try:
+                on_status(msg)
+                return
+            except Exception:
+                pass
+        if io is not None:
+            out = getattr(io, "out", None)
+            if callable(out):
+                try:
+                    out(msg)
+                    return
                 except Exception:
                     pass
+            if hasattr(io, "append"):
+                try:
+                    io.append(msg)
+                    return
+                except Exception:
+                    pass
+        log.info(msg)
+    return _emit
 
 
-def _diagnostic_emitter(diagnostics: BootDiagnostics) -> Callable[[str], None]:
-    return diagnostics.emitter or (lambda msg: log.info("%s", msg))
-
-
-def _status_emitter(io: Any | None, on_status: Callable[[str], None] | None) -> Callable[[str], None] | None:
-    if on_status is not None:
-        return on_status
-    if io is not None and hasattr(io, "out"):
-        return io.out
-    return None
-
-
-def find_niblit_ui_root() -> Optional[Path]:
-    """Resolve niblit-ui directory.
-
-    Search order (first match wins):
-    1. ``NIBLIT_UI_PATH`` or ``NIBLIT_UI_ROOT`` environment variable override.
-    2. Sibling of the Niblit repository root (canonical local development layout).
-    3. Bundled sub-directory inside the Niblit repository.
-    """
-    # Accept either env var (NIBLIT_UI_PATH for launcher, NIBLIT_UI_ROOT for orchestrator).
-    env_path = (
-        os.environ.get("NIBLIT_UI_PATH", "").strip()
-        or os.environ.get("NIBLIT_UI_ROOT", "").strip()
-    )
-    if env_path:
-        candidate = Path(env_path).expanduser().resolve()
-        if (candidate / "package.json").is_file():
-            return candidate
-
-    here = Path(__file__).resolve().parents[1]
-    for sibling in (
-        here.parent / "niblit-ui",
-        here.parent / "Niblit-ui",
-        here / "niblit-ui",
-    ):
-        if (sibling / "package.json").is_file():
-            return sibling.resolve()
-    return None
-
-
-def find_cloud_server_root() -> Optional[Path]:
-    """Resolve niblit-cloud-server directory for optional autostart.
-
-    In packaged (PyInstaller) mode the bundled exe is preferred over the source
-    directory.  Use :func:`find_cloud_server_exe` when you need the exe path.
-    """
-    env_path = os.environ.get("NIBLIT_CLOUD_SERVER_PATH", "").strip()
-    if env_path:
-        candidate = Path(env_path).expanduser().resolve()
-        if (candidate / "app" / "main.py").is_file():
-            return candidate
-
-    here = Path(__file__).resolve().parents[1]
-    for sibling in (
-        here.parent / "niblit-cloud-server",
-        here.parent / "Niblit-cloud-server",
-    ):
-        if (sibling / "app" / "main.py").is_file():
-            return sibling.resolve()
-    return None
-
-
-def find_cloud_server_exe() -> Optional[Path]:
-    """Return the path to the bundled cloud-server executable, or *None*.
-
-    This is the fast-path used in packaged mode.  Returns None when not
-    frozen or when the env-var override points at a source directory instead
-    of an exe.
-
-    Search order:
-    1. ``NIBLIT_CLOUD_SERVER_PATH`` env var pointing directly to a .exe file.
-    2. ``<bundle_base>/cloud/niblit-cloud.exe`` (staged by niblit-build.js).
-    """
-    env_path = os.environ.get("NIBLIT_CLOUD_SERVER_PATH", "").strip()
-    if env_path:
-        candidate = Path(env_path).expanduser().resolve()
-        # Accept a direct path to an executable (cross-platform: .exe on Windows,
-        # bare binary on Linux/macOS).
-        if candidate.is_file() and not (candidate / "app" / "main.py").exists():
-            return candidate
-
-    base = _bundle_base()
-    if base is not None:
-        for candidate in (
-            base / "cloud" / "niblit-cloud.exe",
-            base / "cloud" / "niblit-cloud",
-        ):
-            if candidate.is_file():
-                return candidate
-
-    return None
-
-
-def find_lean_algos_root() -> Optional[Path]:
-    """Return the niblit-lean-algos root for development or packaged mode."""
-    env_path = (
-        os.environ.get("NIBLIT_LEAN_ALGOS_ROOT", "").strip()
-        or os.environ.get("NIBLIT_LEAN_ALGOS", "").strip()
-    )
-    if env_path:
-        candidate = Path(env_path).expanduser().resolve()
-        if (candidate / "niblit_bridge").is_dir():
-            return candidate
-
-    base = _bundle_base()
-    if base is not None:
-        candidate = base / "lean-algos"
-        if (candidate / "niblit_bridge").is_dir():
-            return candidate
-
-    here = Path(__file__).resolve().parents[1]
-    for candidate in (
-        here / "niblit-lean-algos",
-        here.parent / "niblit-lean-algos",
-    ):
-        if (candidate / "niblit_bridge").is_dir():
-            return candidate.resolve()
-    return None
-
-
-def _cloud_autostart_enabled() -> bool:
-    raw = os.environ.get("NIBLIT_CLOUD_AUTOSTART", "").strip().lower()
-    if raw in ("1", "true", "yes"):
+def ui_launch_supported() -> bool:
+    """Return True when a desktop UI can be launched in this environment."""
+    if os.getenv("NIBLIT_HEADLESS", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    if os.getenv("CI", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    if platform.system().lower() in {"windows", "darwin"}:
         return True
-    if raw in ("0", "false", "no"):
-        return False
-    return _bundle_base() is not None
+    return bool(os.getenv("DISPLAY") or os.getenv("WAYLAND_DISPLAY"))
 
 
-def _require_runtime_stage(
+# ─────────────────────────────────────────────────────────────────────────────
+# Trading-runtime inspection
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _inspect_trading_runtime(manager: Any) -> Dict[str, Any]:
+    """Safely extract trading-runtime status from *manager*.
+
+    Returns a dict with keys ``found``, ``backend``, ``state``, ``mode``
+    and ``execution_enabled``.  Every attribute access is guarded so a
+    manager that lacks the expected properties still yields sensible
+    defaults rather than raising.
+
+    Unlike earlier versions, this no longer silently coerces missing
+    backends to ``"paper"`` or missing modes to ``"observe"`` — those
+    defaults made it impossible to distinguish "not configured" from
+    "paper backend active".  Callers must now check ``found`` and
+    ``state`` explicitly.
+    """
+    if manager is None:
+        return {
+            "found": False,
+            "backend": "none",
+            "state": "stopped",
+            "mode": "disabled",
+            "execution_enabled": False,
+        }
+
+    # Use explicit sentinels so we can detect "attribute missing" vs "set to paper".
+    # Only fall back to "paper"/"observe" when the manager explicitly reports them,
+    # not when the attributes are absent entirely.
+    backend = (
+        getattr(manager, "backend", None)
+        or getattr(manager, "selected_backend_name", None)
+    )
+    state = (
+        getattr(manager, "state", None)
+        or getattr(manager, "state_name", None)
+    )
+    mode = getattr(manager, "trading_mode", None)
+    execution_enabled = bool(getattr(manager, "execution_enabled", False))
+
+    # Only apply paper/observe defaults when manager exists but attributes are None —
+    # this preserves the ability to detect "unconfigured" vs "explicitly paper".
+    if backend is None:
+        backend = "paper" if state is not None else "unknown"
+    if mode is None:
+        mode = "observe" if state is not None else "unknown"
+
+    return {
+        "found": True,
+        "backend": str(backend),
+        "state": str(state) if state is not None else "unknown",
+        "mode": str(mode),
+        "execution_enabled": execution_enabled,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTTP readiness helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _wait_for_http_ready(
+    url: str,
     *,
-    diagnostics: BootDiagnostics,
-    stage_name: str,
-    predicate: Callable[[], bool],
-    error_message: str,
-    success_message: str,
-) -> None:
-    stage = diagnostics.start(stage_name)
-    try:
-        if not predicate():
-            raise RuntimeError(error_message)
-        diagnostics.success(stage, success_message)
-    except Exception as exc:
-        diagnostics.failure(stage, exc)
-        raise
-
-
-def _startup_result_is_ready(startup_report: Any, names: tuple[str, ...]) -> bool:
-    results = getattr(startup_report, "results", {}) or {}
-    return any(results.get(name, {}).get("status") == "ready" for name in names)
-
-
-def verify_runtime_bootstrap(core: Any, *, diagnostics: BootDiagnostics) -> None:
-    """Verify that the governing Niblit runtime finished bootstrapping before UI launch."""
-    runtime_manager = getattr(core, "runtime_manager", None)
-    startup_report = getattr(core, "startup_report", None)
-
-    _require_runtime_stage(
-        diagnostics=diagnostics,
-        stage_name="Step 2 — Niblit core initialisation",
-        predicate=lambda: core is not None and runtime_manager is not None,
-        error_message="Niblit core runtime is not available",
-        success_message="governing runtime active",
-    )
-    _require_runtime_stage(
-        diagnostics=diagnostics,
-        stage_name="Step 3 — Memory initialisation",
-        predicate=lambda: getattr(core, "db", None) is not None and (
-            startup_report is None
-            or _startup_result_is_ready(startup_report, ("db", "memory_store", "vector_store", "fused_memory"))
-        ),
-        error_message="Memory layer is not ready",
-        success_message="memory layer ready",
-    )
-    _require_runtime_stage(
-        diagnostics=diagnostics,
-        stage_name="Step 4 — Skills initialisation",
-        predicate=lambda: getattr(core, "router", None) is not None or getattr(core, "brain_router", None) is not None,
-        error_message="Skills layer is not ready",
-        success_message="skills layer ready",
-    )
-    _require_runtime_stage(
-        diagnostics=diagnostics,
-        stage_name="Step 5 — Cognitive runtime initialisation",
-        predicate=lambda: getattr(core, "local_brain", None) is not None or getattr(core, "brain", None) is not None,
-        error_message="Cognitive runtime is not ready",
-        success_message="cognitive runtime ready",
-    )
-
-
-def _lean_manager_ready(manager: Any, lean_root: Path) -> bool:
-    signal_thread = getattr(manager, "_signal_thread", None)
-    monitor_thread = getattr(manager, "_monitor_thread", None)
-    return bool(
-        manager is not None
-        and Path(getattr(manager, "algos_dir", lean_root)).exists()
-        and signal_thread is not None
-        and getattr(signal_thread, "is_alive", lambda: False)()
-        and monitor_thread is not None
-        and getattr(monitor_thread, "is_alive", lambda: False)()
-    )
-
-
-def ensure_lean_runtime_ready(
-    core: Any,
-    *,
-    diagnostics: BootDiagnostics,
-) -> Path:
-    """Start and verify the Lean execution layer before the desktop UI launches."""
-    lean_root = find_lean_algos_root()
-    stage = diagnostics.start("Step 8 — Lean execution layer startup")
-    try:
-        if lean_root is None:
-            raise FileNotFoundError("niblit-lean-algos repository/bundle not found")
-        if not (lean_root / "niblit_bridge").is_dir():
-            raise FileNotFoundError(f"Lean bridge missing at {lean_root / 'niblit_bridge'}")
-        if not (lean_root / "algorithms").is_dir():
-            raise FileNotFoundError(f"Lean algorithms directory missing at {lean_root / 'algorithms'}")
-
-        os.environ["NIBLIT_LEAN_ALGOS_ROOT"] = str(lean_root)
-        os.environ["NIBLIT_LEAN_ALGOS"] = str(lean_root)
-
-        manager = getattr(core, "lean_algo_manager", None)
-        if manager is None:
-            raise RuntimeError("LeanAlgoManager is not initialised on the governing runtime")
-
-        if hasattr(manager, "algos_dir"):
-            manager.algos_dir = lean_root
-
-        start = getattr(manager, "start", None)
-        if not callable(start):
-            raise RuntimeError("LeanAlgoManager.start() is unavailable")
-        start()
-        diagnostics.success(stage, f"Lean execution layer started from {lean_root}")
-
-        wait_stage = diagnostics.start("Step 9 — Lean execution layer health check")
-        deadline = time.monotonic() + _readiness_timeout("NIBLIT_LEAN_START_TIMEOUT", 45.0)
-        while time.monotonic() < deadline:
-            if _lean_manager_ready(manager, lean_root):
-                diagnostics.success(wait_stage, "Lean execution layer healthy")
-                return lean_root
-            time.sleep(0.25)
-        raise TimeoutError("Lean execution layer did not become healthy in time")
-    except Exception as exc:
-        diagnostics.failure(stage, exc)
-        raise
-
-
-def verify_desktop_runtime_health(core: Any, *, diagnostics: BootDiagnostics) -> None:
-    """Final cross-runtime health gate before the desktop UI is allowed to launch."""
-    runtime_manager = getattr(core, "runtime_manager", None)
-    stage = diagnostics.start("Step 10 — Runtime health verification")
-    try:
-        if runtime_manager is None:
-            raise RuntimeError("RuntimeManager unavailable for final health verification")
-        health = runtime_manager.get_runtime_health()
-        if not health:
-            raise RuntimeError("Runtime health snapshot is empty")
-        diagnostics.success(stage, "runtime health verified")
-    except Exception as exc:
-        diagnostics.failure(stage, exc)
-        raise
-
-
-def _http_ready(url: str, timeout: float = 1.5) -> bool:
-    try:
-        req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return 200 <= resp.status < 500
-    except (urllib.error.URLError, OSError, ValueError):
-        return False
-
-
-def _readiness_timeout(env_name: str, default: float) -> float:
-    raw = os.environ.get(env_name, "").strip()
-    if not raw:
-        return default
-    try:
-        value = float(raw)
-    except ValueError:
-        return default
-    return value if value > 0 else default
-
-
-def _terminate_process(proc: Optional[subprocess.Popen]) -> None:
-    if proc is None:
-        return
-    try:
-        proc.terminate()
-        proc.wait(timeout=5)
-    except Exception:
+    timeout_seconds: float,
+    interval_seconds: float = 0.25,
+) -> bool:
+    """Poll *url* until it returns HTTP 200 or *timeout_seconds* elapses."""
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
         try:
-            proc.kill()
+            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=min(5, max(1, remaining))) as resp:
+                if 200 <= resp.status < 300:
+                    return True
+        except Exception:
+            pass
+        time.sleep(min(interval_seconds, max(0.05, remaining)))
+
+
+def _niblit_api_port() -> int:
+    """Resolve the Niblit Core API port (default **5000**)."""
+    raw = os.environ.get("NIBLIT_API_PORT", str(_NIBLIT_API_DEFAULT_PORT))
+    try:
+        port = int(raw)
+        if 0 < port < 65536:
+            return port
+    except (TypeError, ValueError):
+        pass
+    return _NIBLIT_API_DEFAULT_PORT
+
+
+def _cloud_url() -> str:
+    """Resolve the Niblit Cloud inference base URL."""
+    env_url = os.environ.get("NIBLIT_CLOUD_SERVER_URL", "").strip()
+    if not env_url:
+        port = os.environ.get(
+            "NIBLIT_CLOUD_SERVER_PRIMARY_PORT", str(_NIBLIT_CLOUD_DEFAULT_PORT)
+        )
+        env_url = f"http://127.0.0.1:{port}"
+    return env_url.rstrip("/")
+
+
+def _start_api_server_thread(
+    core: Any, port: int, emit: Callable[[str], None]
+) -> Any:
+    """Start the Niblit Core API (``server.py``) in a daemon thread.
+
+    Binds the existing *core* via ``server.bind_core`` so that the API
+    and the CLI share the same NiblitCore instance (no duplicate
+    initialisation).
+
+    Returns ``(server_obj, thread)`` or ``None`` on failure.
+    """
+    try:
+        import server as server_module  # type: ignore[import-not-found]
+    except Exception as exc:
+        emit(f"Niblit API module (server.py) import failed: {exc}")
+        return None
+
+    try:
+        server_module.bind_core(core)
+    except Exception as exc:
+        emit(f"bind_core failed: {exc}")
+        return None
+
+    try:
+        import uvicorn  # type: ignore[import-not-found]
+    except ImportError:
+        emit("uvicorn not installed — cannot start Niblit API server")
+        return None
+
+    config = uvicorn.Config(
+        server_module.app,
+        host="127.0.0.1",
+        port=port,
+        log_level="warning",
+        access_log=False,
+    )
+    server_obj = uvicorn.Server(config)
+    thread = threading.Thread(
+        target=server_obj.run, name="NiblitApiServer", daemon=True
+    )
+    thread.start()
+    emit(f"Niblit API server starting on port {port}")
+    return server_obj, thread
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# UI process launch
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _resolve_npm_executable(ui_path: str, emit: Callable[[str], None]) -> Optional[str]:
+    """Resolve the npm executable path for Windows.
+
+    Discovery order:
+    1. ``NIBLIT_NPM_PATH`` environment variable
+    2. ``shutil.which("npm.cmd")``
+    3. ``shutil.which("npm")``
+
+    Returns the resolved executable path, or ``None`` if npm cannot be found.
+    """
+    env_override = os.environ.get("NIBLIT_NPM_PATH", "").strip()
+    candidates = []
+    if env_override:
+        candidates.append(env_override)
+    candidates.extend(["npm.cmd", "npm"])
+
+    for candidate in candidates:
+        try:
+            resolved = shutil.which(candidate)
+        except Exception as exc:
+            emit(f"[UI] shutil.which({candidate!r}) lookup failed: {exc}")
+            continue
+        if resolved:
+            emit(f"[UI] Resolved npm executable: {resolved}")
+            return resolved
+
+    emit("[UI] npm not found in PATH — cannot launch Tauri dev UI")
+    return None
+
+
+def _validate_ui_repository(ui_path: str) -> Dict[str, Any]:
+    """Validate the UI repository structure and return metadata.
+
+    Returns a dict with keys:
+    - ``valid`` (bool)
+    - ``package_json`` (Path or None)
+    - ``script_name`` (str or None)
+    - ``error`` (str or None)
+    """
+    result: Dict[str, Any] = {
+        "valid": False,
+        "package_json": None,
+        "script_name": None,
+        "error": None,
+    }
+
+    if not ui_path or not os.path.isdir(ui_path):
+        result["error"] = f"UI path missing or not a directory: {ui_path}"
+        return result
+
+    package_json = Path(ui_path) / "package.json"
+    if not package_json.exists():
+        result["error"] = f"package.json not found in {ui_path}"
+        return result
+
+    result["package_json"] = package_json
+
+    try:
+        import json as _json
+        with package_json.open("r", encoding="utf-8") as fh:
+            pkg = _json.load(fh)
+    except Exception as exc:
+        result["error"] = f"Failed to parse package.json: {exc}"
+        return result
+
+    scripts = pkg.get("scripts") or {}
+    script_name = None
+    for candidate in ("tauri:dev", "tauri dev", "tauri", "dev", "start"):
+        if candidate in scripts:
+            script_name = candidate
+            break
+
+    if script_name is None:
+        result["error"] = (
+            "No Tauri dev script found in package.json. "
+            f"Available scripts: {', '.join(sorted(scripts.keys()))}"
+        )
+        return result
+
+    result["valid"] = True
+    result["script_name"] = script_name
+    return result
+
+
+def _build_child_env(ui_path: str) -> Dict[str, str]:
+    """Build a child process environment that preserves PATH and adds Node/Cargo bins."""
+    env = os.environ.copy()
+    env.setdefault("NODE_ENV", "development")
+
+    # Ensure Node.js and Cargo bin directories are on PATH for the child.
+    path_entries = [entry for entry in env.get("PATH", "").split(os.pathsep) if entry]
+
+    node_dir = os.environ.get("NIBLIT_NODE_DIR", "").strip()
+    if node_dir:
+        path_entries.insert(0, node_dir)
+
+    cargo_dir = os.environ.get("NIBLIT_CARGO_DIR", "").strip()
+    if cargo_dir:
+        path_entries.insert(0, cargo_dir)
+
+    # Common defaults when not explicitly configured
+    if not node_dir:
+        for candidate in (
+            r"C:\Program Files\nodejs",
+            r"C:\Program Files (x86)\odejs",
+        ):
+            if candidate not in path_entries and os.path.isdir(candidate):
+                path_entries.insert(0, candidate)
+
+    if not cargo_dir:
+        cargo_default = os.path.join(os.environ.get("USERPROFILE", ""), ".cargo", "bin")
+        if os.path.isdir(cargo_default) and cargo_default not in path_entries:
+            path_entries.insert(0, cargo_default)
+
+    env["PATH"] = os.pathsep.join(path_entries)
+    return env
+
+
+def _launch_tauri_dev_process(
+    ui_path: str,
+    emit: Callable[[str], None],
+) -> Optional[subprocess.Popen]:
+    """Launch the Tauri dev UI as a long-lived subprocess.
+
+    Returns the ``Popen`` handle for the npm process, or ``None`` on failure.
+    """
+    npm_executable = _resolve_npm_executable(ui_path, emit)
+    if npm_executable is None:
+        return None
+
+    validation = _validate_ui_repository(ui_path)
+    if not validation["valid"]:
+        emit(f"[UI] Repository validation failed: {validation['error']}")
+        return None
+
+    script_name = validation["script_name"]
+    cmd = [npm_executable, "run", script_name]
+    cwd = ui_path
+    env = _build_child_env(ui_path)
+
+    kwargs: Dict[str, Any] = {
+        "cwd": cwd,
+        "env": env,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "bufsize": 1,
+    }
+
+    if platform.system().lower() == "windows":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
+    try:
+        proc = subprocess.Popen(cmd, **kwargs)
+        emit(f"[UI] Launch command: {' '.join(cmd)} (cwd={cwd})")
+        emit(f"[UI] Process PID: {proc.pid}")
+        return proc
+    except Exception as exc:
+        emit(f"[UI] Failed to launch UI process: {exc}")
+        return None
+
+
+def _wait_for_process_stabilisation(
+    proc: subprocess.Popen,
+    emit: Callable[[str], None],
+    window_seconds: float = _UI_STABILIZATION_SECONDS,
+) -> bool:
+    """Wait *window_seconds* and verify the process is still alive.
+
+    Also drains any immediate stderr lines to detect fatal startup errors.
+
+    Returns True when the process survived the window, False otherwise.
+    """
+    if proc.poll() is not None:
+        emit(f"UI process exited immediately with code {proc.returncode}")
+        return False
+
+    # Drain stderr in the background to detect fatal errors
+    stderr_lines: list = []
+
+    def _read_stderr() -> None:
+        try:
+            for line in proc.stderr or ():
+                line = line.rstrip()
+                if line:
+                    stderr_lines.append(line)
         except Exception:
             pass
 
+    stderr_thread = threading.Thread(target=_read_stderr, daemon=True)
+    stderr_thread.start()
 
-def _spawn_logged_process(
-    *,
-    name: str,
-    cmd: list[str],
-    cwd: Optional[Path],
-    env: Optional[dict[str, str]],
-    diagnostics: BootDiagnostics,
-) -> tuple[subprocess.Popen, ProcessDiagnostics]:
-    proc = subprocess.Popen(
-        cmd,
-        cwd=str(cwd) if cwd is not None else None,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-    )
-    if proc.pid is None:
-        raise RuntimeError(f"{name} failed to start: missing child PID")
-    proc_diag = ProcessDiagnostics(
-        name=name,
-        command=cmd,
-        cwd=cwd,
-        pid=int(proc.pid),
-        stdout=proc.stdout,
-        stderr=proc.stderr,
-        emitter=_diagnostic_emitter(diagnostics),
-    )
-    proc_diag.log_started()
-    return proc, proc_diag
-
-
-def _wait_for_process_ready(
-    *,
-    name: str,
-    proc: subprocess.Popen,
-    proc_diag: ProcessDiagnostics,
-    timeout: float,
-    readiness: Callable[[], bool],
-) -> None:
-    deadline = time.monotonic() + timeout
+    deadline = time.monotonic() + window_seconds
     while time.monotonic() < deadline:
-        if readiness():
-            return
-        exit_code = proc.poll()
-        if exit_code is not None:
-            proc_diag.dump_failure(exit_code=exit_code)
-            raise RuntimeError(f"{name} exited before becoming ready (exit code {exit_code})")
-        time.sleep(0.25)
-    _terminate_process(proc)
-    proc_diag.dump_failure(exit_code=proc.poll())
-    raise TimeoutError(f"{name} startup timed out after {timeout:.1f}s")
-
-
-def _bundled_ui_is_stable(proc: subprocess.Popen, started_at: float, stable_window: float) -> bool:
-    return proc.poll() is None and (time.monotonic() - started_at) >= stable_window
-
-
-def _bundled_ui_timeout(ui_timeout: float, stable_window: float) -> float:
-    """Return the effective bundled-UI timeout.
-
-    Bundled desktop UIs do not expose a health endpoint, so callers must wait
-    at least through the stabilization window to detect immediate crash loops.
-    """
-    return max(ui_timeout, stable_window)
-
-
-def validate_primary_ui_dependencies(
-    *,
-    diagnostics: BootDiagnostics,
-    ui_root: Optional[Path],
-    ui_exe: Optional[Path],
-    cloud_url: str,
-    api_host: str,
-    api_port: int,
-    ui_port: int,
-    tauri_mode: Optional[bool] = None,
-) -> dict[str, str]:
-    stage = diagnostics.start("Dependency validation")
-    readiness: dict[str, str] = {}
-    try:
-        lean_root = find_lean_algos_root()
-        if not sys.executable:
-            raise RuntimeError("Python executable unavailable")
-        readiness["python"] = sys.executable
-
-        if _http_ready(f"http://{api_host}:{api_port}/health"):
-            readiness["api_port"] = "in_use_by_existing_service"
-        elif is_port_available(api_host, api_port):
-            readiness["api_port"] = "available"
-        else:
-            raise RuntimeError(f"API port {api_port} is already in use by another process")
-
-        if _cloud_autostart_enabled():
-            if _http_ready(f"{cloud_url}/health") or _http_ready(f"{cloud_url}/healthz"):
-                readiness["cloud"] = "already_ready"
-            elif find_cloud_server_exe() or find_cloud_server_root():
-                readiness["cloud"] = "launchable"
-            else:
-                raise FileNotFoundError("Cloud Server repository/executable not found")
-        else:
-            readiness["cloud"] = "disabled"
-
-        if lean_root is None:
-            raise FileNotFoundError(
-                "Lean execution layer repository/bundle not found; "
-                "set NIBLIT_LEAN_ALGOS_ROOT or place niblit-lean-algos in the expected location"
-            )
-        readiness["lean"] = str(lean_root)
-
-        if ui_exe is not None:
-            readiness["ui"] = str(ui_exe)
-        elif ui_root is not None:
-            readiness["ui"] = str(ui_root)
-            npm = _resolve_npm()
-            if npm is None:
-                raise FileNotFoundError("npm not found on PATH")
-            readiness["npm"] = npm
-            if tauri_mode is not True and not is_port_available("127.0.0.1", ui_port):
-                raise RuntimeError(f"UI port {ui_port} is already in use by another process")
-        else:
-            raise FileNotFoundError("UI repository/executable not found")
-        diagnostics.success(stage, "dependencies validated")
-        return readiness
-    except Exception as exc:
-        diagnostics.failure(stage, exc)
-        raise
-
-
-def start_api_server_thread(
-    core: Any,
-    *,
-    host: str = _DEFAULT_API_HOST,
-    port: int | None = None,
-    diagnostics: Optional[BootDiagnostics] = None,
-) -> tuple[threading.Thread, str]:
-    """Start ``server.py`` in a daemon thread bound to the live *core* instance."""
-    port = port or _DEFAULT_API_PORT
-    api_url = f"http://{host}:{port}"
-    stage = diagnostics.start("API server startup") if diagnostics is not None else None
-
-    if _http_ready(f"{api_url}/health"):
-        log.info("[UILauncher] API already listening at %s", api_url)
-        if diagnostics is not None and stage is not None:
-            diagnostics.success(stage, f"API ready at {api_url}")
-        return threading.current_thread(), api_url
-
-    import server as _server_module
-
-    _server_module.bind_core(core)
-
-    def _run() -> None:
-        import uvicorn
-
-        uvicorn.run(
-            _server_module.app,
-            host=host,
-            port=port,
-            log_level="warning",
-            access_log=False,
-        )
-
-    thread = threading.Thread(target=_run, name="NiblitAPIServer", daemon=True)
-    thread.start()
-
-    deadline = time.monotonic() + _readiness_timeout("NIBLIT_API_START_TIMEOUT", 45.0)
-    while time.monotonic() < deadline:
-        if _http_ready(f"{api_url}/health"):
-            log.info("[UILauncher] API ready at %s", api_url)
-            if diagnostics is not None and stage is not None:
-                diagnostics.success(stage, f"API ready at {api_url}")
-            return thread, api_url
+        if proc.poll() is not None:
+            emit(f"UI process exited during stabilisation with code {proc.returncode}")
+            if stderr_lines:
+                emit("UI stderr (tail): " + "; ".join(stderr_lines[-5:]))
+            return False
         time.sleep(0.25)
 
-    exc = TimeoutError(f"API server did not become ready at {api_url}")
-    if diagnostics is not None and stage is not None:
-        diagnostics.failure(stage, exc)
-    raise exc
+    if stderr_lines:
+        emit(f"UI stderr (last 3 lines): {'; '.join(stderr_lines[-3:])}")
+    return True
 
 
-def maybe_start_cloud_server(
-    *,
-    diagnostics: Optional[BootDiagnostics] = None,
-) -> tuple[Optional[subprocess.Popen], str]:
-    """Optionally start niblit-cloud-server (inference layer) as a subprocess.
-
-    In packaged (PyInstaller) mode the bundled ``niblit-cloud.exe`` is used
-    directly.  In development mode the source directory is located and
-    ``python -m uvicorn app.main:app`` is used instead.
-    """
-    if not _cloud_autostart_enabled():
-        return None, os.environ.get("NIBLIT_CLOUD_SERVER_URL", "http://127.0.0.1:8000")
-
-    cloud_url = os.environ.get("NIBLIT_CLOUD_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
-    stage = diagnostics.start("Step 6 — Cloud server startup") if diagnostics is not None else None
-    if _http_ready(f"{cloud_url}/health") or _http_ready(f"{cloud_url}/healthz"):
-        log.info("[UILauncher] Cloud server already up at %s", cloud_url)
-        if diagnostics is not None and stage is not None:
-            diagnostics.success(stage, f"Cloud ready at {cloud_url}")
-        return None, cloud_url
-
-    port = urllib.parse.urlparse(cloud_url).port or 8000
-    timeout = _readiness_timeout("NIBLIT_CLOUD_START_TIMEOUT", 120.0)
-
-    # ── Packaged mode: use pre-bundled niblit-cloud executable ────────────────
-    cloud_exe = find_cloud_server_exe()
-    if cloud_exe is not None:
-        cmd = [
-            str(cloud_exe),
-            "--host", "127.0.0.1",
-            "--port", str(port),
-        ]
-        log.info("[UILauncher] Starting bundled cloud-server: %s", " ".join(cmd))
-        proc, proc_diag = _spawn_logged_process(
-            name="Cloud Server",
-            cmd=cmd,
-            cwd=None,
-            env=os.environ.copy(),
-            diagnostics=diagnostics or BootDiagnostics(),
-        )
-        _wait_for_process_ready(
-            name="Cloud Server",
-            proc=proc,
-            proc_diag=proc_diag,
-            timeout=timeout,
-            readiness=lambda: _http_ready(f"{cloud_url}/health") or _http_ready(f"{cloud_url}/healthz"),
-        )
-        if diagnostics is not None and stage is not None:
-            diagnostics.success(stage, f"Cloud ready at {cloud_url}")
-        return proc, cloud_url
-
-    # ── Development mode: start from source directory via uvicorn ────────────
-    cloud_root = find_cloud_server_root()
-    if cloud_root is None:
-        exc = FileNotFoundError("NIBLIT_CLOUD_AUTOSTART set but cloud-server repo not found")
-        if diagnostics is not None and stage is not None:
-            diagnostics.failure(stage, exc)
-        raise exc
-
-    cmd_dev = [
-        sys.executable,
-        "-m",
-        "uvicorn",
-        "app.main:app",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        str(port),
-    ]
-    log.info("[UILauncher] Starting cloud-server: %s", " ".join(cmd_dev))
-    proc, proc_diag = _spawn_logged_process(
-        name="Cloud Server",
-        cmd=cmd_dev,
-        cwd=cloud_root,
-        env=os.environ.copy(),
-        diagnostics=diagnostics or BootDiagnostics(),
-    )
-    _wait_for_process_ready(
-        name="Cloud Server",
-        proc=proc,
-        proc_diag=proc_diag,
-        timeout=timeout,
-        readiness=lambda: _http_ready(f"{cloud_url}/health") or _http_ready(f"{cloud_url}/healthz"),
-    )
-    if diagnostics is not None and stage is not None:
-        diagnostics.success(stage, f"Cloud ready at {cloud_url}")
-    return proc, cloud_url
-
-
-def _resolve_npm() -> Optional[str]:
-    return shutil.which("npm") or shutil.which("npm.cmd")
-
-
-def _is_truthy(name: str) -> bool:
-    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
-
-
-def ensure_ui_build(ui_root: Path, npm: str) -> None:
-    """Run ``npm run build`` when production mode needs a static ``dist/`` bundle."""
-    dist_index = ui_root / "dist" / "index.html"
-    if dist_index.is_file() and not _is_truthy("NIBLIT_UI_FORCE_REBUILD"):
-        return
-    log.info("[UILauncher] Building niblit-ui (npm run build)…")
-    result = subprocess.run(
-        [npm, "run", "build"],
-        cwd=str(ui_root),
-        env=os.environ.copy(),
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        tail = (result.stderr or result.stdout or "").strip()[-500:]
-        raise RuntimeError(f"npm run build failed: {tail or 'unknown error'}")
-
-
-def launch_ui_process(
-    *,
-    ui_root: Optional[Path] = None,
-    ui_exe: Optional[Path] = None,
-    api_url: str,
-    cloud_url: str,
-    ui_port: int | None = None,
-    diagnostics: Optional[BootDiagnostics] = None,
-) -> tuple[subprocess.Popen, Optional[ProcessDiagnostics], str]:
-    """Start niblit-ui as a separate process.
-
-    Accepts either a source *ui_root* (development mode — uses npm) or a
-    pre-built *ui_exe* (packaged mode — runs the Tauri executable directly).
-    Exactly one of *ui_root* or *ui_exe* must be provided.
-    """
-    if ui_exe is not None:
-        # ── Packaged mode: launch the bundled Tauri exe directly ──────────────
-        env = os.environ.copy()
-        env["VITE_NIBLIT_API_URL"] = api_url
-        env["VITE_NIBLIT_CLOUD_URL"] = cloud_url
-        log.info("[UILauncher] Launching bundled niblit-ui: %s", ui_exe)
-        proc, proc_diag = _spawn_logged_process(
-            name="UI",
-            cmd=[str(ui_exe)],
-            cwd=ui_exe.parent,
-            env=env,
-            diagnostics=diagnostics or BootDiagnostics(),
-        )
-        return proc, proc_diag, "bundled"
-
-    if ui_root is None:
-        raise ValueError("launch_ui_process: provide either ui_root or ui_exe")
-
-    # ── Development mode: launch via npm ─────────────────────────────────────
-    ui_port = ui_port or _DEFAULT_UI_PORT
-    env = os.environ.copy()
-    env["VITE_NIBLIT_API_URL"] = api_url
-    env["VITE_NIBLIT_CLOUD_URL"] = cloud_url
-    env.setdefault("BROWSER", "none")
-
-    npm = _resolve_npm()
-    if npm is None:
-        raise FileNotFoundError("npm not found on PATH — install Node.js to launch niblit-ui")
-
-    dist_index = ui_root / "dist" / "index.html"
-    node_modules = ui_root / "node_modules"
-    production = _is_truthy("NIBLIT_UI_PRODUCTION")
-    tauri_src = ui_root / "src-tauri" / "tauri.conf.json"
-    # Auto-detect Tauri: use it when src-tauri/tauri.conf.json exists unless explicitly
-    # disabled via NIBLIT_UI_TAURI=0.  The env var can still force Tauri on (=1) or off (=0).
-    tauri_env = os.environ.get("NIBLIT_UI_TAURI", "").strip().lower()
-    if tauri_env in ("0", "false", "no"):
-        tauri_mode = False
-    elif tauri_env in ("1", "true", "yes"):
-        tauri_mode = True
-    else:
-        tauri_mode = tauri_src.is_file()
-
-    if tauri_mode and tauri_src.is_file():
-        cmd = [npm, "run", "tauri:dev" if not production else "tauri:build"]
-        log.info("[UILauncher] Starting niblit-ui Tauri: %s", " ".join(cmd))
-        proc, proc_diag = _spawn_logged_process(
-            name="UI",
-            cmd=cmd,
-            cwd=ui_root,
-            env=env,
-            diagnostics=diagnostics or BootDiagnostics(),
-        )
-        return proc, proc_diag, "tauri"
-
-    if production or not node_modules.is_dir():
-        ensure_ui_build(ui_root, npm)
-        if not dist_index.is_file():
-            raise FileNotFoundError(f"Missing {dist_index} after build")
-        cmd = [npm, "run", "preview", "--", "--port", str(ui_port)]
-        log.info("[UILauncher] Serving niblit-ui production build on port %s", ui_port)
-        proc, proc_diag = _spawn_logged_process(
-            name="UI",
-            cmd=cmd,
-            cwd=ui_root,
-            env=env,
-            diagnostics=diagnostics or BootDiagnostics(),
-        )
-        return proc, proc_diag, "preview"
-
-    cmd = [npm, "run", "dev", "--", "--host", "127.0.0.1", "--port", str(ui_port)]
-    log.info("[UILauncher] Starting niblit-ui dev server: %s", " ".join(cmd))
-    proc, proc_diag = _spawn_logged_process(
-        name="UI",
-        cmd=cmd,
-        cwd=ui_root,
-        env=env,
-        diagnostics=diagnostics or BootDiagnostics(),
-    )
-    return proc, proc_diag, "dev"
-
+# ─────────────────────────────────────────────────────────────────────────────
+# Main entry point
+# ─────────────────────────────────────────────────────────────────────────────
 
 def launch_primary_ui(
-    core: Any,
+    core: Any | None = None,
     io: Any | None = None,
     *,
     on_status: Optional[Callable[[str], None]] = None,
 ) -> UiLaunchResult:
-    """Start the complete desktop runtime in strict order and only then launch niblit-ui."""
-    diagnostics = BootDiagnostics(emitter=_status_emitter(io, on_status))
+    """Launch the Niblit desktop runtime.
 
-    def _say(msg: str) -> None:
-        log.info(msg)
-        if on_status:
-            on_status(msg)
-        elif io is not None and hasattr(io, "out"):
-            io.out(msg)
+    The correct startup order is:
 
-    api_host = _DEFAULT_API_HOST
-    api_port = _DEFAULT_API_PORT
-    ui_port = _DEFAULT_UI_PORT
-    cloud_url = os.environ.get("NIBLIT_CLOUD_SERVER_URL", "http://127.0.0.1:8000")
-    ui_exe = find_niblit_ui_exe()
-    ui_root = None if ui_exe is not None else find_niblit_ui_root()
-    tauri_mode = bool(ui_root and (ui_root / "src-tauri" / "tauri.conf.json").is_file())
+    1.  Inspect the trading-runtime manager (backend / state / mode).
+    2.  Ensure the Niblit Core API is ready at ``/health`` (start if owned).
+    3.  Best-effort probe the Niblit Cloud inference server.
+    4.  Launch the desktop UI (Tauri dev mode) and verify it stays alive.
 
-    try:
-        _say("🔎 Desktop runtime preflight — discovering required repositories and bundle resources")
-        readiness = validate_primary_ui_dependencies(
-            diagnostics=diagnostics,
-            ui_root=ui_root,
-            ui_exe=ui_exe,
-            cloud_url=cloud_url,
-            api_host=api_host,
-            api_port=api_port,
-            ui_port=ui_port,
-            tauri_mode=tauri_mode,
+    Returns a :class:`UiLaunchResult` on **every** code path.
+    """
+    # Reset shared runtime state for this launch attempt
+    reset_runtime_state()
+    state = get_runtime_state()
+    emit = _status_emitter(io, on_status)
+    readiness: Dict[str, str] = {}
+
+    emit("Desktop runtime preflight")
+
+    # ── 1. Trading-runtime inspection ─────────────────────────────────────
+    manager: Any = None
+    if core is not None:
+        manager = (
+            getattr(core, "trading_runtime_manager", None)
+            or getattr(core, "lean_algo_manager", None)
         )
-        _say("🧠 Desktop runtime — verifying Niblit governing runtime")
-        verify_runtime_bootstrap(core, diagnostics=diagnostics)
-        _say("🌐 Desktop runtime — starting Niblit API server")
-        api_thread, api_url = start_api_server_thread(core, host=api_host, port=api_port, diagnostics=diagnostics)
-    except Exception as exc:
-        return UiLaunchResult(success=False, mode="disabled", message=str(exc))
+    trading = _inspect_trading_runtime(manager)
 
-    cloud_proc: Optional[subprocess.Popen] = None
-    try:
-        _say("☁️ Desktop runtime — starting Niblit Cloud Server")
-        cloud_proc, cloud_url = maybe_start_cloud_server(diagnostics=diagnostics)
-        readiness["cloud"] = "ready"
-        _say("☁️ Desktop runtime — cloud server health verified")
-        _say("📈 Desktop runtime — starting Lean execution layer")
-        lean_root = ensure_lean_runtime_ready(core, diagnostics=diagnostics)
-        readiness["lean"] = str(lean_root)
-        _say("📈 Desktop runtime — Lean execution layer health verified")
-        _say("✅ Desktop runtime — verifying integrated runtime health")
-        verify_desktop_runtime_health(core, diagnostics=diagnostics)
-    except Exception as exc:
-        return UiLaunchResult(
-            success=False,
-            mode="degraded",
-            api_url=api_url,
-            message=str(exc),
-            _api_thread=api_thread,
-            _cloud_process=cloud_proc,
-            readiness=readiness,
+    if trading["found"]:
+        state.lean_ready = True
+        emit(
+            f"Trading runtime found: backend={trading['backend']} "
+            f"state={trading['state']}"
         )
+        readiness["trading"] = trading["state"]
+    else:
+        emit("Trading runtime missing — trading features will be limited")
+        readiness["trading"] = "missing"
 
-    if ui_exe is None and ui_root is None:
-        return UiLaunchResult(
-            success=False,
-            mode="degraded",
-            api_url=api_url,
-            message="niblit-ui not found (set NIBLIT_UI_PATH or place niblit-ui as a sibling repo)",
-            _api_thread=api_thread,
-            _cloud_process=cloud_proc,
-            readiness=readiness,
-        )
+    trading_required = os.environ.get(
+        "NIBLIT_TRADING_REQUIRED", ""
+    ).strip().lower() in {"1", "true", "yes"}
+    trading_ok = trading["found"] and trading["state"] in ("ready", "running")
 
-    stage = diagnostics.start("Step 11 — UI startup")
-    try:
-        _say("🖥️ Desktop runtime — launching desktop UI")
-        ui_proc, ui_proc_diag, launch_mode = launch_ui_process(
-            ui_exe=ui_exe,
-            ui_root=ui_root,
-            api_url=api_url,
-            cloud_url=cloud_url,
-            ui_port=ui_port,
-            diagnostics=diagnostics,
-        )
-        ui_timeout = _readiness_timeout("NIBLIT_UI_START_TIMEOUT", 45.0)
-        if launch_mode in {"dev", "preview", "tauri"}:
-            _wait_for_process_ready(
-                name="UI",
-                proc=ui_proc,
-                proc_diag=ui_proc_diag,
-                timeout=ui_timeout,
-                readiness=lambda: _http_ready(f"http://127.0.0.1:{ui_port}"),
+    # ── 2. Niblit Core API (port 5000 /health) ──────────────────────────
+    api_port = _niblit_api_port()
+    api_url = f"http://127.0.0.1:{api_port}"
+    health_url = f"{api_url}{_API_HEALTH_PATH}"
+
+    # Quick check — is the API already serving?
+    api_ready = _wait_for_http_ready(health_url, timeout_seconds=2.0, interval_seconds=0.1)
+
+    api_thread: Optional[threading.Thread] = None
+    owned: Any = None
+
+    if not api_ready and core is not None:
+        started = _start_api_server_thread(core, api_port, emit)
+        if started is not None:
+            _server_obj, api_thread = started
+            owned = _server_obj
+            # Wait for it to become ready
+            api_ready = _wait_for_http_ready(
+                health_url,
+                timeout_seconds=_API_READY_TIMEOUT,
+                interval_seconds=0.25,
             )
-            ui_url = f"http://127.0.0.1:{ui_port}"
+
+    if api_ready:
+        state.api_ready = True
+        emit(f"Niblit API ready at {api_url}")
+        readiness["api"] = "ready"
+    else:
+        state.api_ready = False
+        emit(f"Niblit API unavailable at {health_url}")
+        readiness["api"] = "unavailable"
+
+    # ── 3. Niblit Cloud inference (port 8000 /healthz + /v1/models) ──────
+    c_url = _cloud_url()
+    cloud_health_url = f"{c_url}{_CLOUD_HEALTH_PATH}"
+    cloud_ready = _wait_for_http_ready(cloud_health_url, timeout_seconds=3.0)
+    cloud_process: Optional[subprocess.Popen] = None
+    if not cloud_ready:
+        cloud_process = _maybe_start_cloud_server(c_url, emit)
+        if cloud_process is not None:
+            cloud_result = _wait_for_cloud_ready(c_url, timeout_seconds=120.0)
+            cloud_ready = cloud_result["ready"]
+            if not cloud_ready:
+                emit(
+                    f"[Cloud] Cloud unavailable at {c_url}: {cloud_result['error']}"
+                )
+            else:
+                emit(f"[Cloud] Niblit Cloud ready at {c_url}")
         else:
-            bundled_start_time = time.monotonic()
-            bundled_stable_window = _BUNDLED_UI_STABLE_WINDOW_SECONDS
-            bundled_timeout = _bundled_ui_timeout(ui_timeout, bundled_stable_window)
-            _wait_for_process_ready(
-                name="UI",
-                proc=ui_proc,
-                proc_diag=ui_proc_diag,
-                timeout=bundled_timeout,
-                readiness=lambda: _bundled_ui_is_stable(
-                    ui_proc,
-                    bundled_start_time,
-                    bundled_stable_window,
-                ),
-            )
-            ui_url = str(ui_exe) if ui_exe is not None else ""
-        readiness["ui"] = "ready"
-        diagnostics.success(stage, f"UI ready ({launch_mode})")
-    except Exception as exc:
-        if stage is not None:
-            diagnostics.failure(stage, exc)
+            emit(f"[Cloud] Niblit Cloud unavailable at {c_url}")
+    else:
+        emit(f"[Cloud] Niblit Cloud ready at {c_url}")
+
+    if cloud_ready:
+        state.cloud_ready = True
+        readiness["cloud"] = "ready"
+    else:
+        state.cloud_ready = False
+        readiness["cloud"] = "unavailable"
+
+    # ── 4. Determine whether we may proceed ─────────────────────────────
+    # The Niblit Core API is required by the desktop UI for chat, memory
+    # and file endpoints.  Without it the UI cannot function, so we must
+    # NOT claim success.
+    if not api_ready:
         return UiLaunchResult(
             success=False,
             mode="degraded",
             api_url=api_url,
-            message=str(exc),
-            _api_thread=api_thread,
-            _cloud_process=cloud_proc,
+            cloud_url=c_url,
+            message=(
+                f"Niblit API did not become ready at {health_url} "
+                f"within {_API_READY_TIMEOUT}s"
+            ),
             readiness=readiness,
+            _api_thread=api_thread,
+            _owned_server=owned,
         )
 
-    _say("🔗 Desktop runtime — UI connected to the already-running runtime")
-    _say(f"🖥️  niblit-ui primary interface: {ui_url}  (API: {api_url})")
-    diagnostics.summary()
-    return UiLaunchResult(
-        success=True,
-        mode="active",
+    # Trading status is non-fatal unless explicitly required.
+    if trading_required and not trading_ok:
+        return UiLaunchResult(
+            success=False,
+            mode="degraded",
+            api_url=api_url,
+            cloud_url=c_url,
+            message=(
+                "Trading runtime required (NIBLIT_TRADING_REQUIRED=true) but "
+                f"manager reported state={trading['state']}"
+            ),
+            readiness=readiness,
+            _api_thread=api_thread,
+            _owned_server=owned,
+        )
+
+    # ── 5. Launch desktop UI ─────────────────────────────────────────────
+    emit("Desktop UI launching")
+
+    ui_path = os.environ.get("NIBLIT_UI_PATH", "").strip()
+    if not ui_path:
+        for candidate in (
+            str(_REPO_ROOT / "niblit-ui"),
+            str(_REPO_ROOT.parent / "niblit-ui"),
+            "../niblit-ui",
+            "./niblit-ui",
+        ):
+            if candidate and os.path.isdir(candidate):
+                ui_path = candidate
+                break
+
+    ui_process: Optional[subprocess.Popen] = None
+    launch_mode = "detached"
+    ui_url = ""
+    ui_failure_reason = ""
+
+    if ui_path and os.path.isdir(ui_path):
+        ui_url = os.path.abspath(ui_path)
+        ui_process = _launch_tauri_dev_process(ui_path, emit)
+        if ui_process is not None:
+            launch_mode = "attached"
+            stable = _wait_for_process_stabilisation(ui_process, emit)
+            if not stable:
+                try:
+                    ui_process.kill()
+                except Exception:
+                    pass
+                ui_process = None
+                launch_mode = "detached"
+                ui_failure_reason = "UI process failed stabilisation check"
+                emit("[UI] Process failed stabilisation — not reporting UI ready")
+            else:
+                emit(f"Desktop UI ready (PID={ui_process.pid})")
+                state.ui_ready = True
+                readiness["ui"] = "ready"
+        else:
+            ui_failure_reason = "UI process failed to launch"
+            emit(f"[UI] Launch failed — not reporting UI ready: {ui_url}")
+    else:
+        emit("Desktop UI ready (headless / no bundled UI)")
+        state.ui_ready = True
+        readiness["ui"] = "ready"
+
+    if ui_failure_reason and not state.ui_ready:
+        return UiLaunchResult(
+            success=False,
+            mode="failed",
+            api_url=api_url,
+            cloud_url=c_url,
+            message=ui_failure_reason,
+            readiness=readiness,
+            _api_thread=api_thread,
+            _owned_server=owned,
+        )
+
+    # Mode determination
+    # Distinguish three cases:
+    #   1. trading is healthy AND execution is enabled AND mode is "live" → "live"
+    #   2. trading is healthy but execution is disabled OR mode is observe → "active"
+    #   3. trading is missing, stopped, or degraded → "degraded"
+    if trading_ok and trading["execution_enabled"] and trading["mode"] == "live":
+        mode = "live"
+    elif trading_ok:
+        mode = "active"
+    else:
+        mode = "degraded"
+
+    # Determine operational status based on real service health
+    if not api_ready:
+        operational_status = "failed"
+    elif not state.ui_ready:
+        operational_status = "degraded"
+    elif not cloud_ready:
+        operational_status = "degraded"
+    else:
+        operational_status = mode
+
+    result = UiLaunchResult(
+        success=state.ui_ready,
+        mode=operational_status,
         api_url=api_url,
+        cloud_url=c_url,
         ui_url=ui_url,
-        message="niblit-ui launched",
-        _ui_process=ui_proc,
-        _api_thread=api_thread,
-        _cloud_process=cloud_proc,
+        message="Niblit desktop runtime launched" if state.ui_ready else "Desktop UI failed to launch",
         readiness=readiness,
+        _api_thread=api_thread,
+        _owned_server=owned,
+        _ui_process=ui_process,
+        _launch_mode=launch_mode,
+        _cloud_process=cloud_process,
     )
+    return result
 
 
-def ui_launch_supported() -> bool:
-    """Return True when primary UI launch should be attempted (not headless CI)."""
-    if os.environ.get("NIBLIT_HEADLESS", "").strip().lower() in ("1", "true", "yes"):
-        return False
-    if os.environ.get("CI", "").strip() == "1":
-        return False
-    return True
+def _wait_for_cloud_ready(
+    url: str,
+    *,
+    timeout_seconds: float = 120.0,
+    interval_seconds: float = 0.5,
+) -> Dict[str, Any]:
+    """Poll the Niblit Cloud inference server until it reports ready.
+
+    Checks ``/health`` and ``/v1/models``. Returns a dict with keys:
+    ``ready``, ``health_ok``, ``models_ok``, ``error``.
+    """
+    result: Dict[str, Any] = {
+        "ready": False,
+        "health_ok": False,
+        "models_ok": False,
+        "error": None,
+    }
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        remaining = deadline - time.monotonic()
+        try:
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/health",
+                headers={"Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=min(5, max(1, remaining))) as resp:
+                if 200 <= resp.status < 300:
+                    result["health_ok"] = True
+        except Exception:
+            pass
+
+        try:
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/v1/models",
+                headers={"Accept": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=min(5, max(1, remaining))) as resp:
+                if 200 <= resp.status < 300:
+                    result["models_ok"] = True
+        except Exception:
+            pass
+
+        if result["health_ok"] and result["models_ok"]:
+            result["ready"] = True
+            return result
+
+        time.sleep(min(interval_seconds, max(0.05, remaining)))
+
+    result["error"] = "Cloud server did not become ready within timeout"
+    return result
+
+
+def _find_cloud_server_root() -> Optional[Path]:
+    """Locate the Niblit-cloud-server repository root."""
+    candidates = [
+        Path(os.environ.get("NIBLIT_CLOUD_SERVER_PATH", "")),
+        _REPO_ROOT.parent / "Niblit-cloud-server",
+        _REPO_ROOT / "Niblit-cloud-server",
+        Path.cwd().parent / "Niblit-cloud-server",
+        Path.cwd() / "Niblit-cloud-server",
+    ]
+    for candidate in candidates:
+        # Skip empty/unset env overrides and non-directory entries.
+        if not candidate or str(candidate) in {".", ""}:
+            continue
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def _maybe_start_cloud_server(
+    url: str,
+    emit: Callable[[str], None],
+) -> Optional[subprocess.Popen]:
+    """Best-effort start the local Niblit-cloud-server if it is not already healthy."""
+    cloud_root = _find_cloud_server_root()
+    if cloud_root is None:
+        emit("[Cloud] Niblit-cloud-server repository not found — skipping autostart")
+        return None
+
+    emit(f"[Cloud] Discovered Niblit-cloud-server at {cloud_root}")
+    python_exe = sys.executable or shutil.which("python") or shutil.which("python3")
+    if python_exe is None:
+        emit("[Cloud] Python executable not found — cannot start cloud server")
+        return None
+
+    cmd = [python_exe, "main.py"]
+    cwd = str(cloud_root)
+    env = os.environ.copy()
+    env.setdefault("NIBLIT_CLOUD_SERVER_URL", url.rstrip("/"))
+
+    kwargs: Dict[str, Any] = {
+        "cwd": cwd,
+        "env": env,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "bufsize": 1,
+    }
+    if platform.system().lower() == "windows":
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
+    try:
+        proc = subprocess.Popen(cmd, **kwargs)
+        emit(f"[Cloud] Launch command: {' '.join(cmd)} (cwd={cwd})")
+        emit(f"[Cloud] Process PID: {proc.pid}")
+        return proc
+    except Exception as exc:
+        emit(f"[Cloud] Failed to start cloud server: {exc}")
+        return None
+
+
+def _open_primary_ui_url() -> Optional[str]:
+    """Return the desktop UI base URL / path, or ``None`` when absent."""
+    ui_path = os.environ.get("NIBLIT_UI_PATH", "").strip()
+    if not ui_path:
+        cwd = Path.cwd()
+        for candidate in (cwd / "niblit-ui", cwd.parent / "niblit-ui"):
+            if candidate.is_dir():
+                ui_path = str(candidate)
+                break
+    if ui_path and os.path.isdir(ui_path):
+        return os.path.abspath(ui_path)
+    return None
+
+
+if __name__ == "__main__":
+    result = launch_primary_ui()
+    print(f"success={result.success} mode={result.mode} message={result.message}")

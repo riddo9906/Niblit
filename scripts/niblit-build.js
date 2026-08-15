@@ -285,7 +285,7 @@ if (skipPyInstaller) {
 console.log("\n[niblit-build] Step 4 — Bundling niblit-cloud-server via PyInstaller…");
 
 const cloudRoot = findCloudServerRoot(); // already validated above
-const stagedCloudDir = path.join(stagedDir, "cloud");
+const stagedCloudDir = path.join(stagedDir, "niblit-cloud");
 
 // Ensure staging directory exists.
 fs.mkdirSync(stagedDir, { recursive: true });

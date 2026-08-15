@@ -25,6 +25,8 @@ import time
 import logging
 from typing import List, Dict, Tuple, Optional, Any
 
+from niblit_memory.knowledge_document import TrustLevel
+
 log = logging.getLogger("SelfResearcher")
 
 try:
@@ -695,6 +697,67 @@ class SelfResearcher:
         return " ".join(insights[:5])
 
     # ─────────────────────────────────────────────
+    def _ingest_research_result(self, query: str, text: str, raw_result: Any) -> None:
+        """Ingest a single research result through the canonical pipeline.
+
+        Uses KnowledgeIngestionService when available; falls back to legacy
+        knowledge_db.store_research() when not.
+        """
+        if not text:
+            return
+        try:
+            from niblit_memory.ingestion import KnowledgeIngestionService, SourceType
+            service = KnowledgeIngestionService()
+            source_type = SourceType.web_search_result
+            if isinstance(raw_result, dict):
+                url = raw_result.get("url") or raw_result.get("link") or ""
+                if url:
+                    source_type = SourceType.web_page
+                service.ingest_raw(
+                    raw={"text": text, "url": url},
+                    source_type=source_type,
+                    trust_level=TrustLevel.external_untrusted,
+                )
+            else:
+                service.ingest_raw(
+                    raw=text,
+                    source_type=source_type,
+                    trust_level=TrustLevel.external_untrusted,
+                )
+        except Exception as exc:
+            log.debug("[SelfResearcher] Canonical ingestion failed: %s", exc)
+            # Fallback: legacy path
+            try:
+                if hasattr(self.db, "store_research"):
+                    self.db.store_research(f"research:{query}", text, tags=["research", "web"], source="self_researcher")
+            except Exception:
+                pass
+
+    def _ingest_research_collection(self, query: str, results: List[Any]) -> None:
+        """Ingest a collection of research results through the canonical pipeline."""
+        if not results:
+            return
+        try:
+            from niblit_memory.ingestion import KnowledgeIngestionService, SourceType
+            service = KnowledgeIngestionService()
+            for r in results[:5]:
+                r_text = _result_text(r) if not isinstance(r, str) else r
+                if not r_text:
+                    continue
+                source_type = SourceType.web_search_result
+                if isinstance(r, dict):
+                    url = r.get("url") or r.get("link") or ""
+                    if url:
+                        source_type = SourceType.web_page
+                service.ingest_raw(
+                    raw={"text": r_text, "url": url if isinstance(r, dict) else ""},
+                    source_type=source_type,
+                    trust_level=TrustLevel.external_untrusted,
+                )
+        except Exception as exc:
+            log.debug("[SelfResearcher] Canonical collection ingestion failed: %s", exc)
+
+    # ─────────────────────────────────────────────
     def _synthesize_learning(self, query, results):
         """Synthesize research into learnable content"""
         if not results:
@@ -1145,7 +1208,8 @@ class SelfResearcher:
             if should_reflect(collected_results):
                 self._feed_to_reflection(query, collected_results)
                 self._feed_to_teacher(query, results=collected_results)
-                self._store_research_in_knowledge_db(query, collected_results)
+                # Use canonical ingestion for research storage
+                self._ingest_research_collection(query, collected_results)
             else:
                 log.warning("[REFLECT] Skipped due to low-quality data for query %r", query)
 
@@ -1172,7 +1236,8 @@ class SelfResearcher:
                     r_text = _result_text(r) if not isinstance(r, str) else r
                     if not r_text:
                         continue
-                    self.db.add_fact(f"research:{query}", r_text, tags=["research", "web"])
+                    # Use canonical ingestion service for new writes
+                    self._ingest_research_result(query, r_text, r)
                     try:
                         self.db.add_fact(f"research_response:{query}", r_text, tags=["research", "response"])
                     except Exception:

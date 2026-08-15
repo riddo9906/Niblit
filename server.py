@@ -1228,6 +1228,59 @@ def api_threads():
     return JSONResponse({"threads": _list_threads()})
 
 
+@app.get("/v1/capabilities")
+def v1_capabilities():
+    """Return Niblit Core capability envelope for UI capability discovery."""
+    docker = _get_docker_backend()
+    core = get_core()
+    runtime = _get_unified_runtime()
+    docker_models: list = []
+    llama_models: list = []
+    try:
+        if core and hasattr(core, "runtime_manager") and core.runtime_manager:
+            rm = core.runtime_manager
+            lsm = rm.get_llama_server_manager()
+            if lsm:
+                for m in lsm.get_registered_models():
+                    llama_models.append(m.to_dict())
+    except Exception:
+        pass
+    try:
+        if docker:
+            for m in docker.get_registered_models():
+                docker_models.append(m.to_dict())
+    except Exception:
+        pass
+    return JSONResponse({
+        "chat": {
+            "available": True,
+            "endpoint": "/chat",
+            "models": [
+                {"id": "runtime", "backend": "niblit-core", "available": core is not None},
+            ],
+        },
+        "docker_models": {
+            "available": bool(docker_models),
+            "models": docker_models,
+        },
+        "llama_models": {
+            "available": bool(llama_models),
+            "models": llama_models,
+        },
+        "files": {
+            "available": True,
+            "read": True,
+            "search": True,
+            "write": False,
+        },
+        "trading": {
+            "available": bool(core and getattr(core, "trading_runtime_manager", None)),
+            "backend": getattr(getattr(core, "trading_runtime_manager", None), "backend", None) or "paper",
+            "execution_enabled": bool(getattr(getattr(core, "trading_runtime_manager", None), "execution_enabled", False)),
+        },
+    })
+
+
 @app.get("/api/runtime/state")
 def api_runtime_state():
     """Unified runtime state envelope for UI/API/runtime interoperability."""
@@ -1312,6 +1365,216 @@ async def ws_runtime(websocket: WebSocket):
             )
         except Exception:
             pass
+
+
+# ══════════════════════════════════════════════════════════════
+# FILE RENDERING API ENDPOINTS
+# ══════════════════════════════════════════════════════════════
+
+class FileRenderRequest(BaseModel):
+    path: str = ""
+
+
+@app.get("/api/file/types")
+def api_file_types():
+    """Return all supported file types and their renderers."""
+    from core.renderers import RendererFactory
+    return {"types": RendererFactory.get_supported_types()}
+
+
+@app.post("/api/file/render")
+def api_file_render(body: FileRenderRequest):
+    """Render a file and return its structured representation."""
+    from core.renderers import RendererFactory
+    result = RendererFactory.render_file(body.path)
+    return {
+        "success": result.success,
+        "content": result.content,
+        "mime_type": result.mime_type,
+        "viewer_type": result.viewer_type,
+        "error": result.error,
+        "metadata": result.metadata.__dict__ if result.metadata else None,
+    }
+
+
+@app.post("/api/file/preview")
+def api_file_preview(body: FileRenderRequest):
+    """Get file metadata preview without full rendering."""
+    from core.renderers.file_utils import get_file_metadata
+    metadata = get_file_metadata(body.path)
+    if metadata is None:
+        return {"error": "File not found"}
+    return {"metadata": metadata.__dict__}
+
+
+@app.post("/api/file/search")
+def api_file_search(body: FileRenderRequest):
+    """Search within a file (text files only)."""
+    from pathlib import Path
+    from core.renderers.file_utils import get_file_metadata, is_binary_file
+    
+    path = Path(body.path)
+    if not path.exists():
+        return {"error": "File not found"}
+    
+    if is_binary_file(path):
+        return {"error": "Cannot search binary files"}
+    
+    # This endpoint will be extended to support actual file searching
+    return {"message": "File search endpoint ready", "path": str(path)}
+
+
+class FileListRequest(BaseModel):
+    path: str = "."
+
+
+@app.post("/api/files/list")
+def api_files_list(body: FileListRequest):
+    """List files in a directory."""
+    from pathlib import Path
+    from core.renderers.file_utils import get_file_metadata
+
+    dir_path = Path(body.path) if body.path else Path(".")
+    if not dir_path.is_dir():
+        dir_path = dir_path.parent
+
+    files = []
+    for item in sorted(dir_path.iterdir()):
+        try:
+            metadata = get_file_metadata(str(item))
+            if metadata:
+                files.append({
+                    "name": metadata.name,
+                    "path": metadata.path,
+                    "extension": metadata.extension,
+                    "size": metadata.size,
+                    "is_dir": item.is_dir(),
+                    "modified": metadata.modified,
+                })
+        except Exception:
+            continue
+    return {"files": files}
+
+
+# ══════════════════════════════════════════════════════════════
+# DOCKER BACKEND API ENDPOINTS
+# Expose Docker-hosted Ollama-compatible backend status, models,
+# health, and inference endpoints for the Niblit runtime.
+# ══════════════════════════════════════════════════════════════
+
+def _get_docker_backend():
+    """Return the DockerBackend singleton, or None if unavailable."""
+    try:
+        from modules.docker_backend import get_docker_backend
+        return get_docker_backend()
+    except Exception:
+        return None
+
+
+@app.get("/v1/runtime/status")
+def v1_runtime_status():
+    """Unified runtime status including Docker backend and fallback state."""
+    docker = _get_docker_backend()
+    result: dict = {
+        "runtime": "niblit",
+        "docker_backend": docker.status() if docker else {"status": "unavailable"},
+    }
+    try:
+        core = get_core()
+        if core and hasattr(core, "runtime_manager") and core.runtime_manager:
+            rm = core.runtime_manager
+            lsm = rm.get_llama_server_manager()
+            if lsm:
+                result["llama_server_manager"] = lsm.health_check()
+    except Exception:
+        pass
+    return JSONResponse(result)
+
+
+@app.get("/v1/runtime/models")
+def v1_runtime_models():
+    """List all available models across Docker and llama.cpp backends."""
+    models: list = []
+    docker = _get_docker_backend()
+    if docker:
+        for m in docker.get_registered_models():
+            models.append({**m.to_dict(), "backend": "docker"})
+    try:
+        core = get_core()
+        if core and hasattr(core, "runtime_manager") and core.runtime_manager:
+            rm = core.runtime_manager
+            lsm = rm.get_llama_server_manager()
+            if lsm:
+                for m in lsm.get_registered_models():
+                    models.append({**m.to_dict(), "backend": "llama_cpp"})
+    except Exception:
+        pass
+    return JSONResponse({"models": models, "count": len(models)})
+
+
+@app.get("/v1/runtime/health")
+def v1_runtime_health():
+    """Health check across all inference backends."""
+    docker = _get_docker_backend()
+    docker_health = docker.health_check() if docker else {"status": "unavailable"}
+    llama_health = None
+    try:
+        core = get_core()
+        if core and hasattr(core, "runtime_manager") and core.runtime_manager:
+            rm = core.runtime_manager
+            lsm = rm.get_llama_server_manager()
+            if lsm:
+                llama_health = lsm.health_check()
+    except Exception:
+        pass
+    if docker_health.get("status") == "healthy":
+        overall = "healthy"
+    elif llama_health and llama_health.get("status") in ("healthy", "degraded"):
+        overall = "degraded"
+    else:
+        overall = "unavailable"
+    return JSONResponse({
+        "status": overall,
+        "docker_backend": docker_health,
+        "llama_server_manager": llama_health or {"status": "unavailable"},
+    })
+
+
+@app.post("/v1/runtime/model/select")
+def v1_runtime_model_select(model: str = ""):
+    """Select the active model on the Docker backend."""
+    if not model:
+        return JSONResponse({"error": "no model specified"}, status_code=400)
+    docker = _get_docker_backend()
+    if not docker:
+        return JSONResponse({"error": "Docker backend unavailable"}, status_code=503)
+    ok = docker.select_model(model)
+    if ok:
+        return JSONResponse({"status": "selected", "model": model})
+    return JSONResponse({"error": f"model '{model}' not found"}, status_code=404)
+
+
+@app.get("/v1/runtime/fallback")
+def v1_runtime_fallback():
+    """Return the current fallback chain and active backend."""
+    docker = _get_docker_backend()
+    if not docker:
+        return JSONResponse({
+            "active_backend": "degraded",
+            "fallback_order": ["docker", "llama_cpp", "degraded"],
+            "docker_available": False,
+        })
+    from modules.docker_backend import BackendFallbackCoordinator
+    llama_mgr = None
+    try:
+        core = get_core()
+        if core and hasattr(core, "runtime_manager") and core.runtime_manager:
+            rm = core.runtime_manager
+            llama_mgr = rm.get_llama_server_manager()
+    except Exception:
+        pass
+    coord = BackendFallbackCoordinator(docker_backend=docker, llama_server_manager=llama_mgr)
+    return JSONResponse(coord.status())
 
 
 def run_server():

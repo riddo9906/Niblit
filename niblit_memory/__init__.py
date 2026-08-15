@@ -1218,16 +1218,22 @@ class PersistenceManager:
             raise exc
 
     def append_jsonl_record(self, path: str, record: Dict[str, Any]) -> Dict[str, Any]:
+        """Append a JSONL record using true append mode (O(1) instead of O(n²))."""
         abs_path = os.path.abspath(path)
-        existing = ""
-        if os.path.exists(abs_path):
-            try:
-                with open(abs_path, "r", encoding="utf-8") as fh:
-                    existing = fh.read()
-            except Exception:
-                existing = ""
+        self._ensure_dir(os.path.dirname(abs_path) or self.root_dir)
         line = json.dumps(record, ensure_ascii=False) + "\n"
-        return self.write_text_file(abs_path, existing + line)
+        started_at = time.perf_counter()
+        try:
+            with open(abs_path, "a", encoding="utf-8") as fh:
+                fh.write(line)
+                fh.flush()
+                os.fsync(fh.fileno())
+            duration_ms = (time.perf_counter() - started_at) * 1000.0
+            self.note_write_completed(abs_path, duration_ms=duration_ms)
+            return {"path": abs_path, "bytes": len(line.encode("utf-8")), "method": "append"}
+        except Exception as exc:
+            self.note_write_completed(abs_path, duration_ms=(time.perf_counter() - started_at) * 1000.0)
+            raise exc
 
     def write_cognitive_checkpoint(self, checkpoint_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         path = os.path.join(self.root_dir, "checkpoints", f"{checkpoint_id}.json")
@@ -4013,31 +4019,23 @@ __all__ = [
     "GLOBAL_MEMORY",
     # Fused backends
     "FusedMemory",
-    "FusedMemoryPrimary",
     "get_fused_memory",
+    "FusedMemoryPrimary",
     "get_primary",
-    "GovernedQdrantMemoryCluster",
-    "get_governed_qdrant_memory_cluster",
-    # Knowledge stores
+    # Lightweight DB
+    "LocalDB",
+    # Knowledge DB
     "KnowledgeDB",
-    "GovernedPersistenceWorker",
-    "RuntimePersistenceCoordinator",
-    "AtomicCommitManager",
-    "MemoryMutationQueue",
-    "SaveDebounceController",
-    "QdrantSyncBridge",
-    "EmbeddingMiddleware",
+    "GLOBAL_KNOWLEDGE",
+    "PersistenceManager",
     "ReplaySafePersistenceHooks",
     "RecoveryIntegrityValidator",
     "KnowledgeStore",
-    "GLOBAL_KNOWLEDGE",
-    # Lightweight DB
-    "LocalDB",
     # Ingestion helpers
     "event",
     "canonicalize",
     "ingest",
-    # Knowledge-centric memory
+    # Knowledge-centric memory (lazy-re-exported via __getattr__ below)
     "KnowledgeRecord",
     "make_knowledge_record",
     "KnowledgeLogger",

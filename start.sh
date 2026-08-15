@@ -37,7 +37,7 @@ set -e
 PORT="${PORT:-8080}"
 LLAMA_URL="${NIBLIT_LLAMA_SERVER_URL:-http://127.0.0.1:8081}"
 LLAMA_PORT="${NIBLIT_LLAMA_SERVER_PORT:-8081}"
-LLAMA_BIN="${NIBLIT_LLAMA_BINARY:-/home/riddo9906/llama.cpp/build/bin/llama-server}"
+LLAMA_BIN="${NIBLIT_LLAMA_BINARY:-C:/Users/Riyaad/llama_migration/llama.cpp/build/bin/llama-server}"
 MODEL_FILE="${NIBLIT_GGUF_MODEL_PATH:-C:/Users/Riyaad/llama_migration/models/qwen2.5-0.5b-instruct-q4_k_m.gguf}"
 
 echo "[start.sh] ════════════════════════════════════════════"
