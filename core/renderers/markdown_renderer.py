@@ -14,14 +14,16 @@ class MarkdownRenderer(BaseRenderer):
     name = "markdown"
     supported_extensions = [".md", ".markdown"]
     
-    def can_render(self, file_path: str) -> bool:
+    @classmethod
+    def can_render(cls, file_path: str) -> bool:
         """Check if this renderer can handle the given file."""
         ext = Path(file_path).suffix.lower()
-        return ext in self.supported_extensions
+        return ext in cls.supported_extensions
     
-    def get_supported_extensions(self) -> list[str]:
+    @classmethod
+    def get_supported_extensions(cls) -> list[str]:
         """Return list of file extensions this renderer supports."""
-        return self.supported_extensions
+        return cls.supported_extensions
     
     def render(self, file_path: str) -> RenderResult:
         """Render a Markdown file.
@@ -96,7 +98,7 @@ class MarkdownRenderer(BaseRenderer):
 def _register() -> None:
     """Register this renderer."""
     from .registry import RendererRegistry
-    RendererRegistry.register(MarkdownRenderer())
+    RendererRegistry.register(MarkdownRenderer)
 
 
 _register()

@@ -16,14 +16,16 @@ class ImageRenderer(BaseRenderer):
     name = "image"
     supported_extensions = [".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".bmp", ".tiff", ".tif"]
     
-    def can_render(self, file_path: str) -> bool:
+    @classmethod
+    def can_render(cls, file_path: str) -> bool:
         """Check if this renderer can handle the given file."""
         ext = Path(file_path).suffix.lower()
-        return ext in self.supported_extensions
+        return ext in cls.supported_extensions
     
-    def get_supported_extensions(self) -> list[str]:
+    @classmethod
+    def get_supported_extensions(cls) -> list[str]:
         """Return list of file extensions this renderer supports."""
-        return self.supported_extensions
+        return cls.supported_extensions
     
     def render(self, file_path: str) -> RenderResult:
         """Render an image file.
@@ -110,7 +112,7 @@ class ImageRenderer(BaseRenderer):
 def _register() -> None:
     """Register this renderer."""
     from .registry import RendererRegistry
-    RendererRegistry.register(ImageRenderer())
+    RendererRegistry.register(ImageRenderer)
 
 
 _register()

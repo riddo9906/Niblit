@@ -16,6 +16,17 @@ class VideoRenderer(BaseRenderer):
     
     name = "video"
     supported_extensions = [".mp4", ".webm", ".ogg", ".ogv", ".mov", ".avi", ".mkv", ".wmv"]
+
+    @classmethod
+    def can_render(cls, file_path: str) -> bool:
+        """Check if this renderer can handle the given file."""
+        ext = Path(file_path).suffix.lower()
+        return ext in cls.supported_extensions
+    
+    @classmethod
+    def get_supported_extensions(cls) -> list[str]:
+        """Return list of file extensions this renderer supports."""
+        return list(cls.supported_extensions)
     
     def render(self, file_path: str) -> RenderResult:
         """Render a video file.

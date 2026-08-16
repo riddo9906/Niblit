@@ -15,7 +15,18 @@ class AudioRenderer(BaseRenderer):
     
     name = "audio"
     supported_extensions = [".mp3", ".wav", ".ogg", ".oga", ".flac", ".aac", ".m4a", ".wma"]
-    
+
+    @classmethod
+    def can_render(cls, file_path: str) -> bool:
+        """Check if this renderer can handle the given file."""
+        ext = Path(file_path).suffix.lower()
+        return ext in cls.supported_extensions
+
+    @classmethod
+    def get_supported_extensions(cls) -> list[str]:
+        """Return list of file extensions this renderer supports."""
+        return list(cls.supported_extensions)
+
     def render(self, file_path: str) -> RenderResult:
         """Render an audio file.
         

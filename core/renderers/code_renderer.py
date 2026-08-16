@@ -68,18 +68,18 @@ class CodeRenderer(BaseRenderer):
     """Renderer for code files with syntax highlighting."""
     
     name = "code"
+    supported_extensions = sorted(set(LANGUAGE_MAP.keys()))
     
-    def __init__(self) -> None:
-        self._supported_extensions = list(LANGUAGE_MAP.keys())
-    
-    def can_render(self, file_path: str) -> bool:
+    @classmethod
+    def can_render(cls, file_path: str) -> bool:
         """Check if this renderer can handle the given file."""
         ext = Path(file_path).suffix.lower()
-        return ext in self._supported_extensions
+        return ext in LANGUAGE_MAP
     
-    def get_supported_extensions(self) -> list[str]:
+    @classmethod
+    def get_supported_extensions(cls) -> list[str]:
         """Return list of file extensions this renderer supports."""
-        return self._supported_extensions
+        return sorted(set(LANGUAGE_MAP.keys()))
     
     def render(self, file_path: str) -> RenderResult:
         """Render a code file with syntax highlighting.
@@ -178,7 +178,7 @@ class CodeRenderer(BaseRenderer):
 def _register() -> None:
     """Register this renderer."""
     from .registry import RendererRegistry
-    RendererRegistry.register(CodeRenderer())
+    RendererRegistry.register(CodeRenderer)
 
 
 _register()

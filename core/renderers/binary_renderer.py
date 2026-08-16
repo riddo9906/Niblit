@@ -14,13 +14,15 @@ class BinaryRenderer(BaseRenderer):
     name = "binary"
     supported_extensions = []  # Catch-all for unknown files
     
-    def can_render(self, file_path: str) -> bool:
+    @classmethod
+    def can_render(cls, file_path: str) -> bool:
         """This renderer can handle any file as fallback."""
         return True
     
-    def get_supported_extensions(self) -> list[str]:
+    @classmethod
+    def get_supported_extensions(cls) -> list[str]:
         """Return list of file extensions this renderer supports."""
-        return self.supported_extensions
+        return cls.supported_extensions
     
     def render(self, file_path: str) -> RenderResult:
         """Render a binary file with hex dump.
@@ -91,7 +93,7 @@ class BinaryRenderer(BaseRenderer):
 def _register() -> None:
     """Register this renderer."""
     from .registry import RendererRegistry
-    RendererRegistry.register(BinaryRenderer())
+    RendererRegistry.register(BinaryRenderer)
 
 
 _register()
