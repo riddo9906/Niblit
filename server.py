@@ -17,6 +17,7 @@ import json as _json
 import logging
 import os
 import threading
+import uuid
 
 # Load .env file when running locally (e.g. Termux).  On Vercel / Render the
 # platform injects env vars directly, so this is a no-op in those environments.
@@ -28,8 +29,8 @@ except ImportError:
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from pydantic import BaseModel, Field
 
 try:
     from niblit_core import NiblitCore
@@ -1079,6 +1080,21 @@ class ChatBody(BaseModel):
     text: str = ""
 
 
+class InferenceMessage(BaseModel):
+  role: str
+  content: str
+
+
+class InferenceChatBody(BaseModel):
+  request_id: str | None = None
+  model: str = "local"
+  messages: list[InferenceMessage] = Field(default_factory=list)
+  stream: bool = False
+  max_tokens: int = 256
+  temperature: float = 0.2
+  metadata: dict = Field(default_factory=dict)
+
+
 @app.get("/")
 def dashboard():
     return HTMLResponse(_build_dashboard())
@@ -1114,6 +1130,82 @@ def chat(body: ChatBody):
         logging.getLogger("NiblitServer").error("chat error: %s", exc)
         reply = "[error] chat failed — see server logs"
     return {"reply": reply}
+
+
+@app.get("/v1/inference/health")
+async def inference_health():
+    """Return live Cloud health through the Core boundary."""
+    from niblit_brain import get_niblit_cloud_brain
+
+    try:
+        return await get_niblit_cloud_brain().health()
+    except RuntimeError as exc:
+        return JSONResponse(
+            {"error": {"code": "cloud_unreachable", "message": str(exc)}},
+            status_code=503,
+        )
+
+
+@app.get("/v1/inference/models")
+async def inference_models():
+    """Expose Cloud's executable model inventory through Core."""
+    from niblit_brain import get_niblit_cloud_brain
+
+    try:
+        return await get_niblit_cloud_brain().list_models()
+    except RuntimeError as exc:
+        return JSONResponse(
+            {"error": {"code": "cloud_unreachable", "message": str(exc)}},
+            status_code=503,
+        )
+
+
+@app.post("/v1/inference/chat")
+async def inference_chat(body: InferenceChatBody):
+    """Core-owned inference bridge to the authoritative Cloud runtime."""
+    from niblit_brain import get_niblit_cloud_brain
+
+    if not body.messages:
+        return JSONResponse(
+            {"error": {"code": "invalid_request", "message": "messages must not be empty"}},
+            status_code=400,
+        )
+    request_id = body.request_id or uuid.uuid4().hex
+    payload = body.model_dump()
+    payload["messages"] = [message.model_dump() for message in body.messages]
+    payload["metadata"] = {
+      **body.metadata,
+      "request_id": request_id,
+      "requested_model": body.model,
+      "source": "niblit-core",
+    }
+    client = get_niblit_cloud_brain()
+    if body.stream:
+        try:
+            upstream = await client.open_chat_stream(payload)
+            return StreamingResponse(
+                client.iter_chat_stream(upstream),
+                media_type="text/event-stream",
+              headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "X-Request-ID": request_id,
+              },
+            )
+        except RuntimeError as exc:
+            return JSONResponse(
+                {"error": {"code": "cloud_unreachable", "message": str(exc)}},
+                status_code=503,
+            )
+    try:
+      response = await client.chat_completion(payload)
+      return JSONResponse(response, headers={"X-Request-ID": request_id})
+    except RuntimeError as exc:
+        error_code = "inference_timeout" if str(exc).startswith("inference_timeout") else "cloud_unreachable"
+        return JSONResponse(
+            {"error": {"code": error_code, "message": str(exc)}},
+            status_code=504 if error_code == "inference_timeout" else 503,
+        )
 
 
 @app.get("/memory")

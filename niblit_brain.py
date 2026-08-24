@@ -34,6 +34,7 @@ import datetime
 import logging
 import asyncio
 import threading
+from collections.abc import AsyncIterator
 from typing import Any, Dict, List, Optional
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -462,6 +463,8 @@ class NiblitCloudBrain:
                 os.environ.get("NIBLIT_LLAMA_SERVER_URL", "http://127.0.0.1:8000"),
             )
         ).rstrip("/")
+        while self.base_url.lower().endswith("/v1"):
+            self.base_url = self.base_url[:-3].rstrip("/")
         self.timeout = int(
             timeout
             if timeout is not None
@@ -498,6 +501,92 @@ class NiblitCloudBrain:
         if self.api_key:
             h["X-API-Key"] = self.api_key
         return h
+
+    def _request_json(self, path: str, payload: Optional[dict] = None) -> dict:
+        """Perform one JSON request against the Cloud server root."""
+        import json as _json
+        import urllib.error
+        import urllib.request
+
+        data = _json.dumps(payload).encode("utf-8") if payload is not None else None
+        req = urllib.request.Request(
+            self.base_url + path,
+            data=data,
+            method="POST" if payload is not None else "GET",
+            headers=self._headers(),
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return _json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"cloud_http_{exc.code}:{detail[:500]}") from exc
+        except TimeoutError as exc:
+            raise RuntimeError("inference_timeout") from exc
+        except Exception as exc:
+            raise RuntimeError(f"cloud_unreachable:{exc}") from exc
+
+    async def health(self) -> dict:
+        return await asyncio.to_thread(self._request_json, "/health")
+
+    async def runtime_status(self) -> dict:
+        return await asyncio.to_thread(self._request_json, "/v1/runtime/status")
+
+    async def list_models(self) -> dict:
+        return await asyncio.to_thread(self._request_json, "/v1/models")
+
+    async def chat_completion(self, payload: dict) -> dict:
+        return await asyncio.to_thread(
+            self._request_json, "/v1/chat/completions", payload
+        )
+
+    def _open_stream(self, payload: dict):
+        import json as _json
+        import urllib.error
+        import urllib.request
+
+        req = urllib.request.Request(
+            self.base_url + "/v1/chat/completions",
+            data=_json.dumps(payload).encode("utf-8"),
+            method="POST",
+            headers={**self._headers(), "Accept": "text/event-stream"},
+        )
+        try:
+            return urllib.request.urlopen(req, timeout=self.timeout)
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"cloud_http_{exc.code}:{detail[:500]}") from exc
+        except TimeoutError as exc:
+            raise RuntimeError("inference_timeout") from exc
+        except Exception as exc:
+            raise RuntimeError(f"cloud_unreachable:{exc}") from exc
+
+    async def stream_chat_completion(self, payload: dict) -> AsyncIterator[bytes]:
+        """Pass Cloud SSE through without buffering the complete response."""
+        response = await self.open_chat_stream(payload)
+        try:
+            while True:
+                line = await asyncio.to_thread(response.readline)
+                if not line:
+                    break
+                yield line
+        finally:
+            response.close()
+
+    async def open_chat_stream(self, payload: dict):
+        """Open a Cloud SSE response before Core starts its HTTP response."""
+        return await asyncio.to_thread(self._open_stream, payload)
+
+    async def iter_chat_stream(self, response) -> AsyncIterator[bytes]:
+        """Read an already-open Cloud SSE response until completion/cancel."""
+        try:
+            while True:
+                line = await asyncio.to_thread(response.readline)
+                if not line:
+                    break
+                yield line
+        finally:
+            response.close()
 
     # ── Generation ───────────────────────────────────────────────────────────
 
