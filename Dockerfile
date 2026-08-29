@@ -6,7 +6,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Use the official Python 3.12 slim image as the base
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # ── System dependencies ───────────────────────────────────────────────────────
 # Build tools needed for some Python packages (numpy, faiss-cpu, etc.)
