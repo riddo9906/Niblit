@@ -80,7 +80,7 @@ oandapyV20>=0.7.2
 # Requires ALPACA_API_KEY + ALPACA_API_SECRET env vars.
 alpaca-py>=0.26.0
 # QuantConnect LEAN CLI — for lean backtest / lean cloud live / lean login
-lean>=1.0.0
+lean>=1.0.225
 
 # ── Advanced Pipeline / Autonomous Execution ─────────────────────────────────
 docker>=6.0.0
