@@ -84,7 +84,7 @@ lean>=1.0.0
 
 # ── Advanced Pipeline / Autonomous Execution ─────────────────────────────────
 docker>=6.0.0
-prometheus-client>=0.19.0
+prometheus-client>=0.25.0
 
 # ── LLM Training Pipeline (ALE Step 32 — LLMArchitectEngine) ─────────────────
 # These libraries implement the same four-stage pipeline used by ML engineers
