@@ -7253,7 +7253,11 @@ Ask me about:
             payload = cmd[len("remember "):].strip()
             if ":" in payload and self.core:
                 k, v = payload.split(":", 1)
-                safe_call(self.core.db.add_fact, k.strip(), v.strip())
+                if not k.strip() or not v.strip():
+                    return 'Invalid remember format. Use remember key:value'
+                if not callable(getattr(getattr(self.core, 'db', None), 'add_fact', None)):
+                    return '[UNAVAILABLE] Canonical memory is not available'
+                self.core.db.add_fact(k.strip(), v.strip())
                 return f"Saved: {k.strip()}"
             return "Invalid remember format. Use remember key:value"
 

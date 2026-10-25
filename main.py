@@ -451,6 +451,19 @@ def _emit_lifecycle_event(stage: str, status: str, *, detail: str = "", payload:
         return
 
 
+def _start_runtime_dependencies() -> dict:
+    """Start service processes early without claiming deferred Core is ready."""
+    from modules.multi_repo_orchestrator import get_multi_repo_orchestrator
+
+    orchestrator = get_multi_repo_orchestrator()
+    if orchestrator.get_repo_manifest("niblit-cloud-server") is None:
+        orchestrator.boot()
+    names = ["niblit-cloud-server"]
+    if getattr(sys, "frozen", False):
+        names.append("niblit-lean-algos")
+    return orchestrator.start_managed_repositories(names)
+
+
 def _run_staged_runtime_bootstrap(core, io) -> dict:
     """Execute staged runtime bootstrap with lifecycle events per stage."""
     report: dict[str, dict] = {}
@@ -466,7 +479,11 @@ def _run_staged_runtime_bootstrap(core, io) -> dict:
     managed_repo_status: dict = {}
 
     def _boot_repo_manager() -> bool:
-        return orchestrator is not None and bool(orchestrator.boot())
+        if orchestrator is None:
+            return False
+        if orchestrator.get_repo_manifest("niblit-cloud-server") is not None:
+            return True
+        return bool(orchestrator.boot())
 
     def _start_managed_repos() -> bool:
         nonlocal managed_repo_status
@@ -485,7 +502,9 @@ def _run_staged_runtime_bootstrap(core, io) -> dict:
         if runtime_manager is not None:
             for repo_name, status in managed_repo_status.items():
                 runtime_manager.update_managed_repository_status(repo_name, dict(status or {}))
-        return True
+        return bool(managed_repo_status) and all(
+            item.get("state") == "running" for item in managed_repo_status.values()
+        )
 
     stages = [
         ("config", lambda: True),
@@ -496,7 +515,7 @@ def _run_staged_runtime_bootstrap(core, io) -> dict:
         ("LocalBrain_ModelManager_ALE", lambda: getattr(core, "local_brain", None) is not None or getattr(core, "brain", None) is not None),
         ("RepositoryManager", _boot_repo_manager),
         ("managed_repos", _start_managed_repos),
-        ("health_verification", lambda: runtime_manager is not None and bool(runtime_manager.get_runtime_health())),
+        ("health_verification", lambda: runtime_manager is not None and runtime_manager.get_runtime_health().get("status") in {"healthy", "warning"}),
     ]
 
     for stage, checker in stages:
@@ -517,7 +536,8 @@ def _run_staged_runtime_bootstrap(core, io) -> dict:
             report[stage] = {"status": "failure", "detail": str(exc)}
             _emit_lifecycle_event(stage, "failure", detail=str(exc))
             _BOOT_STATUS.mark_degraded(f"{stage} failed: {exc}")
-    _emit_lifecycle_event("runtime_ready", "success", payload={"stage_report": report})
+    ready = all(entry["status"] == "success" for entry in report.values())
+    _emit_lifecycle_event("runtime_ready", "success" if ready else "degraded", payload={"stage_report": report})
     io.out(f"{timestamp()} 🔗 Runtime staged bootstrap complete ({len(report)} stages)")
     return report
 
@@ -639,16 +659,10 @@ def boot():
 
     io.out(f"{timestamp()} 🔷 Phase 0 (fast-start) complete — CORE READY")
     try:
-        staged_report = _run_staged_runtime_bootstrap(core, io)
-        setattr(core, "_staged_bootstrap_report", staged_report)
-        try:
-            if hasattr(core, "_emit_capability_event"):
-                core._emit_capability_event("runtime.ready", {"bootstrap_stages": staged_report})  # pylint: disable=protected-access
-        except Exception:
-            pass
+        _start_runtime_dependencies()
     except Exception as exc:
-        _BOOT_STATUS.mark_degraded(f"staged bootstrap failed: {exc}")
-        io.out(f"{timestamp()} ⚠️ Staged bootstrap degraded: {exc}")
+        _BOOT_STATUS.mark_degraded(f"service startup failed: {exc}")
+        io.out(f"{timestamp()} ⚠️ Service startup degraded: {exc}")
 
     # ── Sidecar socket server — start immediately after Phase 0 ─────────────
     # This lets niblit_ctl.py connect and queue commands RIGHT NOW, even while
@@ -700,7 +714,7 @@ def boot():
 
     debug(io, "Active Threads After Boot:")
     debug(io, list_threads())
-    RUNTIME_LOGGER.info("boot complete", event="startup", component="main", state="ready")
+    RUNTIME_LOGGER.info("Phase 0 complete", event="startup", component="main", state="initializing")
 
     return core, io
 
@@ -889,6 +903,19 @@ def _drain_init_messages(init_queue, io) -> int:
     return printed
 
 
+def _cmd_unified_status(core):
+    """The same feedback-loop report for CLI and desktop operators."""
+    if not hasattr(core, '_unified_loop_status'):
+        return '[Unified-loop status not yet available — boot may still be in progress]'
+    state = core._unified_loop_status
+    return '\n'.join([
+        '🔗 Unified feedback-loop status:',
+        f"  Layers ready  : {state.get('ready', '?')}/{state.get('total', '?')}",
+        f"  Verified      : {'✅ Yes' if state.get('verified') else '⚠️  No — some layers degraded'}",
+        f"  Degraded      : {', '.join(state.get('warnings', [])) or 'none'}",
+    ])
+
+
 def _sync_cli_capability_registry(core, io):
     """Register CLI-only capabilities in the canonical capability registry."""
     registry = getattr(core, "command_registry", None)
@@ -1014,25 +1041,7 @@ def run_shell(core, io):
         ),
 
         # ── Unified loop status (additive) ────────────────────────────────
-        "unified status": lambda: (
-            "\n".join([
-                "🔗 Unified feedback-loop status:",
-                (
-                    f"  Layers ready  : {core._unified_loop_status.get('ready', '?')}/"
-                    f"{core._unified_loop_status.get('total', '?')}"
-                ),
-                (
-                    "  Verified      : "
-                    f"{'✅ Yes' if core._unified_loop_status.get('verified') else '⚠️  No — some layers degraded'}"
-                ),
-                (
-                    "  Degraded      : "
-                    f"{', '.join(core._unified_loop_status.get('warnings', [])) or 'none'}"
-                ),
-            ])
-            if hasattr(core, "_unified_loop_status")
-            else "[Unified-loop status not yet available — boot may still be in progress]"
-        ),
+        "unified status": lambda: _cmd_unified_status(core),
     }
 
     while True:
@@ -1251,7 +1260,8 @@ def main(argv=None):
         try:
             while True:
                 # Block up to 2 s then wake up to drain progress messages.
-                core.wait_for_ready(timeout=2.0)
+                wait_for_initialization = getattr(core, "wait_for_initialization", core.wait_for_ready)
+                wait_for_initialization(timeout=2.0)
                 _phase = getattr(core, "_deferred_init_phase", "complete")
                 # Normalise to str — non-string values (e.g. MagicMock in tests,
                 # or an unexpected attribute type) are treated as "complete" so the
@@ -1350,6 +1360,29 @@ def main(argv=None):
             except Exception:
                 pass
 
+    # Verify deferred components after the readiness wait, not during Phase 0.
+    try:
+        staged_report = _run_staged_runtime_bootstrap(core, io)
+        core._staged_bootstrap_report = staged_report
+        if hasattr(core, "_emit_capability_event"):
+            ready = all(item["status"] == "success" for item in staged_report.values())
+            core._emit_capability_event(
+                "runtime.ready" if ready else "runtime.degraded",
+                {"bootstrap_stages": staged_report},
+            )
+    except Exception as exc:
+        _BOOT_STATUS.mark_degraded(f"staged bootstrap failed: {exc}")
+        io.out(f"{timestamp()} ⚠️ Final readiness checks failed: {exc}")
+    RUNTIME_LOGGER.info("boot complete", event="startup", component="main", state=_BOOT_STATUS.runtime_mode)
+
+    if os.getenv("NIBLIT_API_AUTOSTART", "0") == "1" and getattr(_args, "headless", False):
+        from modules.niblit_ui_launcher import _start_api_server_thread
+        handles = _start_api_server_thread(core, int(os.getenv("NIBLIT_API_PORT", "5000")), io.out)
+        if handles is not None:
+            core._headless_api_server, core._headless_api_thread = handles
+        else:
+            _BOOT_STATUS.mark_degraded("headless Core API could not start")
+
     # Structured boot status summary (always shown before CLI / one-shot / desktop).
     print_boot_status_report(io, _BOOT_STATUS)
 
@@ -1420,13 +1453,17 @@ def main(argv=None):
                     _trading_ready = (
                         ui_result.mode in ("active", "live")
                         and ui_result.readiness.get("trading") == "ready"
+                        and all(
+                            item.get("status") == "success"
+                            for item in getattr(core, "_staged_bootstrap_report", {}).values()
+                        )
                     )
                     if _trading_ready:
                         io.out(f"{timestamp()} ✅ Niblit Runtime Fully Operational")
                     else:
                         io.out(
                             f"{timestamp()} ✅ Niblit Runtime Operational "
-                            f"(API ready, trading degraded)"
+                            f"(API ready; see boot status for degraded services)"
                         )
                     _BOOT_STATUS.sidecar_status = getattr(_BOOT_STATUS, "sidecar_status", "active")
                     try:

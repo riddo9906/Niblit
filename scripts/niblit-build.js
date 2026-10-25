@@ -250,8 +250,8 @@ if (tauriMode) {
 // ── Step 1: Install the Python package ───────────────────────────────────────
 
 console.log("\n[niblit-build] Step 1 — Installing Python package (pip install -e .)…");
-if (tauriMode && hasPythonModule(pythonBin, "PyInstaller")) {
-  console.log("[niblit-build] ✅ PyInstaller is already available; skipping editable install to avoid unnecessary dependency changes.");
+if (tauriMode && ["PyInstaller", "aiohttp", "duckduckgo_search"].every((name) => hasPythonModule(pythonBin, name))) {
+  console.log("[niblit-build] ✅ Core build dependencies are available; reusing the existing environment.");
 } else try {
   const editableTarget = tauriMode && !skipPyInstaller ? '".[build]"' : '"."';
   run(`${pythonBin} -m pip install -e ${editableTarget}`, { cwd: repoRoot });
@@ -298,7 +298,10 @@ if (skipUiBuild) {
     run(`${npmBin} install`, { cwd: uiRoot });
   }
 
-  const buildEnv = applyLeanEnv({ ...process.env, NIBLIT_CLOUD_AUTOSTART: "1" }, leanRoot);
+  const buildEnv = applyLeanEnv({ ...process.env, NIBLIT_CLOUD_AUTOSTART: "1", VITE_NIBLIT_USE_DEMO: "0" }, leanRoot);
+  // A developer .env may point at the old 8080 bridge. The packaged launcher
+  // starts the authoritative Core on 5000; never bake that stale URL into it.
+  if (tauriMode) buildEnv.VITE_NIBLIT_API_URL = "http://127.0.0.1:5000";
   const buildCmd = tauriMode ? `${npmBin} run tauri:build` : `${npmBin} run build`;
   run(buildCmd, { cwd: uiRoot, env: buildEnv });
   console.log(`[niblit-build] ✅ niblit-ui ${label} complete.`);
@@ -405,6 +408,20 @@ if (!fs.existsSync(leanExe)) {
 }
 console.log(`[niblit-build] ✅ niblit-lean-algos staged: ${stagedLeanDir}`);
 
+// The strategy worker owns the Freqtrade dependencies and recorded data.
+const freqtradeRoot = path.resolve(process.env.NIBLIT_FREQTRADE_ROOT || path.join(repoRoot, "..", "freqtrade"));
+if (!fs.existsSync(path.join(freqtradeRoot, "freqtrade", "strategy", "interface.py"))) {
+  throw new Error("The local Freqtrade checkout is required; set NIBLIT_FREQTRADE_ROOT to its directory.");
+}
+const freqtradePython = repositoryPython(freqtradeRoot, "NIBLIT_FREQTRADE_PYTHON");
+if (!["freqtrade", "PyInstaller", "scipy", "pyarrow", "talib", "pandas_ta"].every(name => hasPythonModule(freqtradePython, name))) {
+  run([freqtradePython, "-m", "pip", "install", "-e", freqtradeRoot, "scipy", "pyinstaller>=6.0"]
+    .map(quoteArg).join(" "), { cwd: freqtradeRoot });
+}
+run([freqtradePython, "-m", "PyInstaller", "--noconfirm", "--distpath", stagedDir,
+  "--workpath", path.join(buildWorkDir, "_pyinstaller_freqtrade"),
+  path.join(leanRootFinal, "freqtrade_worker.spec")].map(quoteArg).join(" "), { cwd: leanRootFinal });
+
 // ── Step 6: Stage the Tauri UI executable ────────────────────────────────────
 
 console.log("\n[niblit-build] Step 6 — Staging Tauri UI executable…");
@@ -452,8 +469,11 @@ if (!fs.existsSync(finalExe)) {
 
 for (const relative of [
   "niblit-ui.exe",
+  "niblit_core.py",
+  "niblit_learning.py",
   path.join("cloud", process.platform === "win32" ? "niblit-cloud.exe" : "niblit-cloud"),
   path.join("lean-algos", process.platform === "win32" ? "niblit-lean-algos.exe" : "niblit-lean-algos"),
+  path.join("freqtrade", process.platform === "win32" ? "niblit-freqtrade-worker.exe" : "niblit-freqtrade-worker"),
 ]) {
   const required = path.join(path.dirname(finalExe), relative);
   if (!fs.existsSync(required)) {
@@ -461,6 +481,12 @@ for (const relative of [
     process.exit(1);
   }
 }
+
+const finalBundleDir = path.dirname(finalExe);
+fs.copyFileSync(path.join(repoRoot, "scripts", "Start-Niblit-Testing.ps1"), path.join(finalBundleDir, "Start-Niblit-Testing.ps1"));
+fs.copyFileSync(path.join(repoRoot, "docs", "NIBLIT_TESTING_GUIDE.md"), path.join(finalBundleDir, "NIBLIT_TESTING_GUIDE.md"));
+fs.writeFileSync(path.join(finalBundleDir, "Start-Niblit-Testing.cmd"),
+  '@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-Niblit-Testing.ps1"\r\n');
 
 console.log("\n[niblit-build] ════════════════════════════════════════");
 console.log("[niblit-build]  ✅ Niblit build complete!");

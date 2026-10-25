@@ -92,7 +92,7 @@ def test_dashboard_file_question_reads_real_source_and_supports_followup(
 
     loop._cloud_chat = fake_cloud
     client = TestClient(server.app)
-    first = client.post("/chat", json={"text": "What does sample.py do?"})
+    first = client.post("/chat", json={"text": "What does the calculator module do?"})
 
     assert first.status_code == 200
     first_body = first.json()
@@ -139,6 +139,27 @@ def test_dashboard_file_question_reads_real_source_and_supports_followup(
     )
 
 
+def test_named_source_is_read_even_when_model_never_emits_tools(tmp_path, monkeypatch):
+    monkeypatch.setenv("NIBLIT_WORKSPACE_ROOT", str(tmp_path))
+    (tmp_path / "calculator.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    memory = Memory()
+    loop = _workspace_loop(monkeypatch)
+    monkeypatch.setattr(server, "get_core", lambda: object())
+    monkeypatch.setattr(llm_chat_memory, "get_llm_chat_memory", lambda: memory)
+    calls = []
+    def plain_model(messages, model, tools=None, tool_choice=None, max_tokens=512):
+        calls.append((messages, tools))
+        assert any("return a + b" in item.get("content", "") for item in messages)
+        return {"choices": [{"message": {"role": "assistant", "content": "add returns a + b (calculator.py:2)."}}]}
+    loop._cloud_chat = plain_model
+    response = TestClient(server.app).post("/chat", json={"text": "Read calculator.py and explain its logic."})
+    assert response.status_code == 200
+    assert "Source files inspected: calculator.py" in response.json()["reply"]
+    assert response.json()["tool_trace"][0]["status"] == "success"
+    assert not calls[0][1]
+    assert len(memory.messages) == 2
+
+
 def test_dashboard_inspects_an_actual_niblit_module(monkeypatch):
     repository = Path(server.__file__).resolve().parent
     monkeypatch.setenv("NIBLIT_WORKSPACE_ROOT", str(repository))
@@ -165,7 +186,7 @@ def test_dashboard_inspects_an_actual_niblit_module(monkeypatch):
 
     loop._cloud_chat = fake_cloud
     response = TestClient(server.app).post("/chat", json={
-        "text": "Explain modules/workspace_tools.py and how its Python inspector works"
+        "text": "Explain the workspace tools module and how its Python inspector works"
     })
 
     assert response.status_code == 200

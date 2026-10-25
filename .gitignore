@@ -6,6 +6,11 @@
 # Python cache
 __pycache__/
 *.pyc
+/diagnostics/trading-*/
+/diagnostics/trading-*.log
+/diagnostics/trading-*.xml
+/tmp????????
+/diagnostics/testing-final-build-*.log
 
 # Local configuration and credentials (keep publishable templates)
 .env.*
@@ -63,6 +68,7 @@ coverage.xml
 /diagnostics/desktop-bundle-verification-*.json
 /diagnostics/memory-*/
 /diagnostics/memory-*.json
+/diagnostics/memory-*.json.backup
 /diagnostics/memory-*.xml
 
 # Desktop OS metadata
@@ -77,6 +83,10 @@ Desktop.ini
 *.bak.[0-9]*
 
 # Database files
+/ai_dev_lab.db
+/niblit_cache.db
+/niblit_executions.db
+/tools/niblit.db
 niblit_memory.db
 local_llm.db
 niblit.db

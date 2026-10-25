@@ -54,6 +54,7 @@ def load_environment(project_root: str, status: Optional[BootStatus] = None) -> 
     status.platform_mode = platform_mode()
     loaded_any = False
     candidates = [
+        os.environ.get("NIBLIT_ENV_FILE", ""),
         os.path.join(project_root, ".env"),
         os.path.join(os.getcwd(), ".env"),
     ]
@@ -78,6 +79,8 @@ def load_environment(project_root: str, status: Optional[BootStatus] = None) -> 
 
     seen: set[str] = set()
     for path in candidates:
+        if not path:
+            continue
         norm = os.path.normpath(path)
         if norm in seen:
             continue

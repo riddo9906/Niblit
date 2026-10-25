@@ -1233,6 +1233,8 @@ def resolve_command_alias(name: str) -> str:
     permission -> LlmToolLoop.invoke). Unknown names pass through unchanged
     and are rejected downstream as unknown_command, as before.
     """
+    from modules.command_surface_audit import VARIANT_SPELLINGS
+    name = VARIANT_SPELLINGS.get(name, name)
     return _ORIGINAL_TO_CANONICAL.get(name, name)
 
 

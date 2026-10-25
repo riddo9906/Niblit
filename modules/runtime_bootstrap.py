@@ -23,6 +23,10 @@ def _candidate_roots(start: Optional[os.PathLike[str] | str] = None) -> list[Pat
 
 
 def _find_repo_root(start: Optional[os.PathLike[str] | str] = None) -> Path:
+    if getattr(sys, "frozen", False):
+        # A bundle inside a source checkout must still run from its own files.
+        # Walking upward would silently load the developer's modules/.env.
+        return Path(sys.executable).resolve().parent
     for candidate in _candidate_roots(start):
         if (candidate / "niblit_core.py").exists() and (candidate / "niblit_io.py").exists():
             return candidate

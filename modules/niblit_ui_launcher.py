@@ -696,7 +696,7 @@ def launch_primary_ui(
         readiness["trading"] = "missing"
 
     trading_required = os.environ.get(
-        "NIBLIT_TRADING_REQUIRED", ""
+        "NIBLIT_TRADING_REQUIRED", "1" if getattr(sys, "frozen", False) else ""
     ).strip().lower() in {"1", "true", "yes"}
     trading_ok = trading["found"] and trading["state"] in ("ready", "running")
 
@@ -779,7 +779,15 @@ def launch_primary_ui(
             _owned_server=owned,
         )
 
-    # Trading status is non-fatal unless explicitly required.
+    if getattr(sys, "frozen", False) and not cloud_ready:
+        return UiLaunchResult(
+            success=False, mode="degraded", api_url=api_url, cloud_url=c_url,
+            message="Packaged Cloud service is not ready; desktop startup blocked",
+            readiness=readiness, _api_thread=api_thread, _owned_server=owned,
+            _cloud_process=cloud_process,
+        )
+
+    # Packaged builds require Lean unless the user explicitly opts out.
     if trading_required and not trading_ok:
         return UiLaunchResult(
             success=False,

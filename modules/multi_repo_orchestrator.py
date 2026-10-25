@@ -49,6 +49,7 @@ Usage
 from __future__ import annotations
 
 import logging
+import json
 import os
 import shlex
 import subprocess
@@ -60,6 +61,7 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from urllib.request import urlopen
 
 log = logging.getLogger("Niblit.MultiRepoOrchestrator")
 
@@ -602,6 +604,25 @@ class RepositorySupervisor:
         self._states: dict[str, ManagedRepoProcessState] = {}
         self._processes: dict[str, subprocess.Popen[Any]] = {}
 
+    @staticmethod
+    def _existing_service_ready(manifest: RepositoryManifest) -> bool:
+        if not getattr(sys, "frozen", False):
+            return False
+        if manifest.name == "niblit-cloud-server":
+            url = os.getenv("NIBLIT_CLOUD_SERVER_URL", "http://127.0.0.1:8000").rstrip("/")
+        elif manifest.name == "niblit-lean-algos":
+            url = f"http://127.0.0.1:{int(os.getenv('NIBLIT_TRADING_API_PORT', '8100'))}"
+        else:
+            return False
+        try:
+            with urlopen(url + "/health", timeout=0.5) as response:
+                payload = json.load(response)
+            if manifest.name == "niblit-lean-algos":
+                return payload.get("healthy") is True and payload.get("state") == "ready"
+            return isinstance(payload, dict)
+        except Exception:
+            return False
+
     def register(self, manifest: RepositoryManifest) -> ManagedRepoProcessState:
         with self._lock:
             state = self._states.get(manifest.name) or ManagedRepoProcessState(repo_name=manifest.name)
@@ -639,6 +660,12 @@ class RepositorySupervisor:
         state = self.register(manifest)
         if state.state in {"unavailable", "degraded"}:
             return state
+        if self._existing_service_ready(manifest):
+            state.state = "running"
+            state.pid = None
+            state.last_health_status = "healthy"
+            state.message = "attached to an existing healthy service"
+            return state
         startup_argv = list(manifest.bootstrap_contract.get("startup_argv", []) or [])
         commands = list(manifest.bootstrap_contract.get("startup_commands", []) or [])
         if not startup_argv and not commands:
@@ -675,6 +702,11 @@ class RepositorySupervisor:
             state = self._states.get(manifest.name) or ManagedRepoProcessState(repo_name=manifest.name)
             proc = self._processes.get(manifest.name)
         if proc is None:
+            if state.message == "attached to an existing healthy service":
+                healthy = self._existing_service_ready(manifest)
+                state.last_health_status = "healthy" if healthy else "failed"
+                state.state = "running" if healthy else "degraded"
+                return state
             state.last_health_status = "unknown" if manifest.present else "unavailable"
             return state
         if proc.poll() is None:
@@ -929,12 +961,14 @@ class MultiRepoOrchestrator:
             out[repo_name] = self._supervisor.check_health(manifest).to_dict()
         return out
 
-    def stop_managed_repositories(self) -> dict[str, Any]:
+    def stop_managed_repositories(self, repo_names: list[str] | None = None) -> dict[str, Any]:
         """Gracefully stop all supervised managed repositories."""
         if self._supervisor is None:
             return {}
         out: dict[str, Any] = {}
         for repo_name, manifest in self._manifests.items():
+            if repo_names is not None and repo_name not in repo_names:
+                continue
             out[repo_name] = self._supervisor.stop(manifest).to_dict()
         return out
 

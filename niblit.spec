@@ -23,6 +23,7 @@ Or directly, after staging cloud/ and niblit-ui.exe into dist/:
 
 import os
 import sys
+import ast
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -43,6 +44,7 @@ STAGING_ROOT = Path(os.environ.get("NIBLIT_BUILD_STAGING_DIR", REPO_ROOT / "dist
 # These paths are under dist/ (a sibling of this spec in REPO_ROOT).
 STAGED_CLOUD_DIR = STAGING_ROOT / "cloud"
 STAGED_LEAN_ALGOS_DIR = STAGING_ROOT / "lean-algos"
+STAGED_FREQTRADE_DIR = STAGING_ROOT / "freqtrade"
 STAGED_TAURI_EXE = STAGING_ROOT / "niblit-ui.exe"
 
 # A desktop release must never silently omit a required staged service.
@@ -51,6 +53,9 @@ for _required in (
     STAGED_TAURI_EXE,
     STAGED_CLOUD_DIR / f"niblit-cloud{_exe_suffix}",
     STAGED_LEAN_ALGOS_DIR / f"niblit-lean-algos{_exe_suffix}",
+    STAGED_FREQTRADE_DIR / f"niblit-freqtrade-worker{_exe_suffix}",
+    STAGED_FREQTRADE_DIR / 'data/BTC_USDT_USDT-1h-futures.feather',
+    STAGED_FREQTRADE_DIR / 'data/ETH_USDT_USDT-1h-futures.feather',
 ):
     if not _required.is_file():
         raise SystemExit(f"Required desktop artifact missing: {_required}. Run npm run build to stage all components.")
@@ -76,6 +81,32 @@ LEAN_ALGOS_ROOT = next(
 # ---------------------------------------------------------------------------
 
 datas = []
+datas.append((str(STAGED_FREQTRADE_DIR), "freqtrade"))
+
+# niblit_core's compatibility loader executes these source files by path.
+# They cannot be supplied solely as modules inside PYZ.
+datas.append((str(REPO_ROOT / "niblit_core.py"), "."))
+datas.append((str(REPO_ROOT / "main.py"), "."))  # command-surface audit reads CLI declarations
+for _source in (REPO_ROOT / "niblit_core").rglob("*.py"):
+    datas.append((str(_source), str(_source.relative_to(REPO_ROOT).parent)))
+
+# Imports in the path-loaded legacy Core are invisible to normal package
+# analysis. Include their local modules and analyze their dependencies too.
+_legacy_imports = set()
+_legacy_tree = ast.parse((REPO_ROOT / "niblit_core.py").read_text(encoding="utf-8"))
+for _node in ast.walk(_legacy_tree):
+    _names = (
+        [_alias.name for _alias in _node.names] if isinstance(_node, ast.Import)
+        else [_node.module] if isinstance(_node, ast.ImportFrom) and _node.module and not _node.level
+        else []
+    )
+    for _name in _names:
+        _top = _name.split(".")[0]
+        _source = REPO_ROOT / f"{_top}.py"
+        if _source.is_file() and not (REPO_ROOT / _top / "__init__.py").is_file():
+            _legacy_imports.add(_top)
+for _name in sorted(_legacy_imports):
+    datas.append((str(REPO_ROOT / f"{_name}.py"), "."))
 
 # The source distribution has a sibling ``shared`` package that can shadow
 # Niblit's contracts during PyInstaller analysis. Ship the exact contract
@@ -128,6 +159,8 @@ if STAGED_TAURI_EXE.is_file():
 # ---------------------------------------------------------------------------
 
 hiddenimports = [
+    "aiohttp",
+    "duckduckgo_search",
     # HTTP server layer
     "uvicorn",
     "uvicorn.main",
@@ -152,6 +185,7 @@ hiddenimports = [
     "email.mime.text",
     "email.mime.multipart",
 ]
+hiddenimports += sorted(_legacy_imports)
 
 # Sweep every sub-package to catch dynamic imports inside modules.
 for _pkg in ("modules", "core", "agents", "shared", "niblit_memory", "nibblebots", "niblit_core"):

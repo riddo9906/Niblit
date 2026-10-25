@@ -74,7 +74,9 @@ def test_frozen_launcher_requires_and_starts_bundled_ui(tmp_path, present):
          patch("modules.niblit_ui_launcher._wait_for_process_stabilisation", return_value=True), \
          patch("modules.niblit_ui_launcher.subprocess.Popen", return_value=process) as spawn, \
          patch("modules.niblit_ui_launcher._launch_tauri_dev_process") as dev:
-        result = launch_primary_ui(core=Mock(spec=[]))
+        core = Mock(spec=[])
+        core.trading_runtime_manager = _FakeManager()
+        result = launch_primary_ui(core=core)
     assert result.success is present
     dev.assert_not_called()
     if present:

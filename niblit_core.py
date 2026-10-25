@@ -39,6 +39,16 @@ Compatible with main.py, server.py, and app.py.
 # ============================================================
 import os
 import sys
+
+# Frozen Windows apps use a legacy code page when stdout is redirected.
+# Configure streams before imports/startup diagnostics print Unicode banners.
+if sys.platform == "win32":
+    for _output_stream in (sys.stdout, sys.stderr):
+        try:
+            _output_stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError):
+            pass
+
 import re
 import tempfile
 import time
@@ -2142,8 +2152,11 @@ class NiblitCore:
             self._trading_api_server = None
             self._trading_api_thread = None
             try:
-                from niblit_lean_algos.manager import TradingRuntimeManager
-                self.trading_runtime_manager = TradingRuntimeManager.get_instance()
+                # Source and packaged Core share the same service boundary.
+                # A second in-process manager would create another execution
+                # authority and another writer for the paper account.
+                from modules.trading_runtime_client import TradingRuntimeClient
+                self.trading_runtime_manager = TradingRuntimeClient()
                 self.lean_algo_manager = self.trading_runtime_manager
                 # Start the trading runtime so the UI launcher sees "ready" not "stopped"
                 log.info("TradingRuntimeManager startup submitted")
@@ -2151,6 +2164,11 @@ class NiblitCore:
                     self.trading_runtime_manager.start(),
                     name="TradingRuntimeManager.start",
                     timeout=30.0,
+                )
+                self._push_init_progress(
+                    f"✅ Trading runtime ready — backend={self.trading_runtime_manager.backend} "
+                    f"mode={self.trading_runtime_manager.execution_mode} "
+                    f"state={self.trading_runtime_manager.state}"
                 )
                 log.info(
                     "Trading runtime manager started "
@@ -2422,6 +2440,11 @@ class NiblitCore:
                     self._notifications.append(_fail_msg)
             except Exception:
                 pass
+
+    def wait_for_initialization(self, timeout: Optional[float] = None) -> bool:
+        """Wait for all deferred layers without confusing essential readiness."""
+        completed = self._deferred_init_event.wait(timeout=timeout)
+        return completed and self._deferred_init_phase == "complete"
 
     def wait_for_ready(self, timeout: Optional[float] = None) -> bool:
         """Wait for essential deferred initialization to finish.
@@ -7007,10 +7030,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
     def _init_database(self):
         """Initialize database with fallback chain."""
         try:
+            memory_path = os.fspath(self.config.memory_path) if self.config.memory_path else None
             if KnowledgeDB:
-                self.db = KnowledgeDB(self.config.memory_path) if self.config.memory_path else KnowledgeDB()
+                self.db = KnowledgeDB(memory_path) if memory_path else KnowledgeDB()
             elif LocalDB:
-                self.db = LocalDB(self.config.memory_path) if self.config.memory_path else LocalDB()
+                self.db = LocalDB(memory_path) if memory_path else LocalDB()
             else:
                 log.warning("No persistent DB available; using fallback")
                 self.db = _FallbackDB()
@@ -10043,6 +10067,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
         * Does NOT call TradingRuntimeManager.get_instance() independently.
         * Starts Uvicorn in a managed background thread.
         """
+        if getattr(self.trading_runtime_manager, "owns_api", False):
+            log.info("[TRADING-API] Using the supervised Lean service API")
+            return
         api_enabled = os.getenv("NIBLIT_TRADING_API_ENABLED", "true").lower() in ("true", "1")
         if not api_enabled:
             log.info("[TRADING-API] NIBLIT_TRADING_API_ENABLED=false — skipping API startup")
@@ -11520,8 +11547,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return self._cmd_status(text)
         if intent == "remember":
             log.debug("[CORE-CMD] Intercepted: remember")
-            if self.db and hasattr(self.db, "add_fact"):
-                safe_call(self.db.add_fact, meta["key"], meta["value"])
+            if not self.db or not callable(getattr(self.db, 'add_fact', None)):
+                return '[UNAVAILABLE] Canonical memory is not available'
+            if not meta['key'] or not meta['value']:
+                return 'Invalid remember format. Use remember key:value'
+            self.db.add_fact(meta['key'], meta['value'])
             return "Saved."
         if intent == "learn":
             log.debug("[CORE-CMD] Intercepted: learn")
@@ -12147,6 +12177,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
         log.info("✅ Shutdown initiated")
         self.running = False
         self._shutdown_event.set()
+
+        headless_api = getattr(self, "_headless_api_server", None)
+        if headless_api is not None:
+            headless_api.should_exit = True
+            headless_thread = getattr(self, "_headless_api_thread", None)
+            if headless_thread is not None:
+                headless_thread.join(timeout=3.0)
 
         # Stop topic refresh thread
         if self._topic_refresh_stop_event is not None:

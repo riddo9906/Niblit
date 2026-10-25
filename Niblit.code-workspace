@@ -1,0 +1,34 @@
+{
+  "folders": [
+    { "name": "Niblit Core", "path": "." },
+    { "name": "Niblit UI", "path": "../niblit-ui" },
+    { "name": "Niblit Cloud", "path": "../Niblit-cloud-server" },
+    { "name": "Niblit Lean", "path": "../niblit-lean-algos" },
+    { "name": "Freqtrade", "path": "../freqtrade" }
+  ],
+  "settings": {
+    "files.watcherExclude": {
+      "**/build/**": true,
+      "**/dist/**": true,
+      "**/target/**": true,
+      "**/node_modules/**": true,
+      "**/.venv/**": true,
+      "**/niblit-env/**": true,
+      "**/__pycache__/**": true
+    },
+    "search.exclude": {
+      "**/build": true,
+      "**/dist": true,
+      "**/target": true,
+      "**/node_modules": true,
+      "**/.venv": true,
+      "**/niblit-env": true,
+      "**/__pycache__": true,
+      "**/diagnostics/trading-*": true
+    },
+    "python.analysis.exclude": [
+      "**/build/**", "**/dist/**", "**/target/**", "**/node_modules/**",
+      "**/.venv/**", "**/niblit-env/**"
+    ]
+  }
+}
