@@ -1,3 +1,4 @@
+param([switch]$GrantMemoryAccess)
 $ErrorActionPreference = 'Stop'
 $bundleRoot = $PSScriptRoot
 $executable = Join-Path $bundleRoot 'niblit.exe'
@@ -35,6 +36,19 @@ $env:NIBLIT_LLM_CHAT_DB_PATH = Join-Path $testingData 'chat.sqlite'
 $env:FUSED_MEMORY_DB_PATH = Join-Path $testingData 'fused.sqlite'
 $env:NIBLIT_RUNTIME_LOG_FILE = Join-Path $testingData 'runtime.jsonl'
 $env:NIBLIT_UNIFIED_RUNTIME_STATE = Join-Path $testingData 'unified-runtime.json'
+$env:NIBLIT_PERMISSION_FILE = Join-Path $testingData 'permissions.json'
+$memoryProfile = Join-Path $env:LOCALAPPDATA 'Niblit/memory-laboratory/.env'
+if (Test-Path -LiteralPath $memoryProfile) {
+    $env:NIBLIT_MEMORY_LAB_ENABLED = '1'
+    $env:NIBLIT_MEMORY_LAB_ENV_FILE = $memoryProfile
+    $env:NIBLIT_MEMORY_LAB_NAMESPACE = 'desktop'
+    $env:NIBLIT_MEMORY_LAB_PRINCIPAL = 'desktop_operator'
+    $env:NIBLIT_MEMORY_LAB_LEDGER = Join-Path $env:LOCALAPPDATA 'Niblit/memory-laboratory/ledger.sqlite3'
+    if ($GrantMemoryAccess) {
+        & $executable --memory-lab-operator --env-file $memoryProfile --ledger $env:NIBLIT_MEMORY_LAB_LEDGER grant read ingest consolidate --confirm
+        if ($LASTEXITCODE -ne 0) { throw 'Memory permission setup failed.' }
+    }
+}
 $sourceCandidate = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $bundleRoot))
 if (-not $env:NIBLIT_ENV_FILE -and (Test-Path -LiteralPath (Join-Path $sourceCandidate 'niblit_core.py')) -and
     (Test-Path -LiteralPath (Join-Path $sourceCandidate '.env'))) {

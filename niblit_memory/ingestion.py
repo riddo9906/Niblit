@@ -365,6 +365,13 @@ class KnowledgeIngestionService:
                 event_payload["version_of"] = version_of
 
             fm.log_event("knowledge_document", event_payload)
+            lookup = getattr(fm, "find_knowledge_document", None)
+            if callable(lookup):
+                persisted = lookup(canonical_uri=document.canonical_uri,
+                                   content_hash=document.content_hash)
+                if (not persisted or persisted.get("document_id") != document.id
+                        or persisted.get("content_hash") != document.content_hash):
+                    return False
             return True
         except Exception as exc:
             logger.warning("[Ingestion] FusedMemory store failed: %s", exc)

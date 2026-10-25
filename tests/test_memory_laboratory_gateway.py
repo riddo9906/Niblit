@@ -147,3 +147,24 @@ def test_partial_readback_is_not_success(tmp_path):
     with pytest.raises(ValueError):
         ingest(g)
     assert not recall(g)["results"]
+
+
+def test_hybrid_quality_prefers_lexical_evidence_over_dense_distractor(tmp_path):
+    g = gateway(tmp_path, Backend())
+    g.ingest([("Weather forecasts predict rain tomorrow.", "weather.txt:1")],
+             source="weather.txt", namespace="test", principal="operator")
+    # Fake dense backend orders the distractor first; lexical fusion must
+    # recover the exact relevant evidence rather than simply keep that order.
+    g.ingest([("Aurora calibration code is amber-72.", "calibration.txt:1")],
+             source="calibration.txt", namespace="test", principal="operator")
+    result = g.retrieve("Aurora calibration", namespace="test", principal="operator")
+    assert result["mode"] == "hybrid"
+    assert result["results"][0]["citation"] == "calibration.txt:1"
+
+
+def test_duplicate_sources_do_not_fill_retrieval_budget(tmp_path):
+    g = gateway(tmp_path, Backend())
+    for source in ["first.txt", "second.txt"]:
+        g.ingest([("Aurora calibration amber-72.", source + ":1")], source=source,
+                 namespace="test", principal="operator")
+    assert len(recall(g)["results"]) == 1

@@ -2,7 +2,7 @@ param([switch]$GrantMemoryAccess)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $repoRoot 'niblit-env/Scripts/python.exe'
-$profile = Join-Path $repoRoot '.env.memory-laboratory'
+$profile = Join-Path $env:LOCALAPPDATA 'Niblit/memory-laboratory/.env'
 if (-not (Test-Path -LiteralPath $python)) { throw 'Install Core Python dependencies first.' }
 & (Join-Path $PSScriptRoot 'Start-Memory-Laboratory.ps1')
 $env:NIBLIT_MEMORY_LAB_ENABLED = '1'

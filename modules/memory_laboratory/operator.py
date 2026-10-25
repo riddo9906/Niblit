@@ -24,6 +24,10 @@ def main():
     ingest.add_argument("path", help="Relative file within NIBLIT_WORKSPACE_ROOT")
     recall = commands.add_parser("retrieve")
     recall.add_argument("query")
+    ask = commands.add_parser("ask")
+    ask.add_argument("query")
+    ask.add_argument("--cloud-root", default="http://127.0.0.1:8000")
+    ask.add_argument("--model", default="local")
     migrate = commands.add_parser("migrate")
     migrate.add_argument("source")
     migrate.add_argument("--format", choices=["knowledge-json", "laboratory-jsonl"], required=True)
@@ -52,6 +56,14 @@ def main():
             result = g.ingest_file(args.path, **scope)
         elif args.command == "retrieve":
             result = g.retrieve(args.query, **scope)
+        elif args.command == "ask":
+            from modules.llm_tool_loop import LlmToolLoop
+            class NoActions:
+                def niblit_status(self):
+                    raise RuntimeError("operator memory query has no execution tools")
+            loop = LlmToolLoop(executor=NoActions(), cloud_root=args.cloud_root,
+                memory_gateway=g, memory_scope=(args.namespace, args.principal))
+            result = loop.chat([{"role": "user", "content": args.query}], tools=[], model=args.model)
         elif args.command == "consolidate":
             from .consolidation import Consolidator
             result = Consolidator(g, **scope).tick()

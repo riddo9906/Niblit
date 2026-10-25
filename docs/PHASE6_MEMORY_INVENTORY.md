@@ -76,9 +76,12 @@ stash, collection deletion or source-store conversion is authorized by this plan
    answer/citation → service restart → repeat demonstration. A mocked client or
    in-process vector store does not satisfy that live acceptance gate.
 
-## First implementation boundary
+## Initial implementation boundary and subsequent checkpoint
 
 The first increment supplies the typed record contract, dedicated embedding
 probe, non-destructive Qdrant setup command, loopback-only Docker fallback,
-example configuration and tests. It does not enable ingestion, migrate personal
-data, alter boot or claim that Phase 6 integration/live acceptance is complete.
+example configuration and tests. Subsequent increments added the gateway,
+canonical ingestion adapter, LlmToolLoop context, operator/migration tooling and
+bounded consolidation proposals. The real local Qdrant/Cloud restart test passed
+11 checks; see `MEMORY_LABORATORY.md` and `NIBLIT_PROGRESS.md` for current evidence
+and explicit limits. Personal stores have not been bulk migrated.

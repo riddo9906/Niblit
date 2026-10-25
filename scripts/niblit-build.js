@@ -487,6 +487,15 @@ fs.copyFileSync(path.join(repoRoot, "scripts", "Start-Niblit-Testing.ps1"), path
 fs.copyFileSync(path.join(repoRoot, "docs", "NIBLIT_TESTING_GUIDE.md"), path.join(finalBundleDir, "NIBLIT_TESTING_GUIDE.md"));
 fs.writeFileSync(path.join(finalBundleDir, "Start-Niblit-Testing.cmd"),
   '@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-Niblit-Testing.ps1"\r\n');
+fs.writeFileSync(path.join(finalBundleDir, "Enable-Memory-And-Start.cmd"),
+  '@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-Niblit-Testing.ps1" -GrantMemoryAccess\r\n');
+fs.mkdirSync(path.join(finalBundleDir, "scripts"), { recursive: true });
+fs.mkdirSync(path.join(finalBundleDir, "deploy"), { recursive: true });
+fs.copyFileSync(path.join(repoRoot, "scripts", "Start-Memory-Laboratory.ps1"), path.join(finalBundleDir, "scripts", "Start-Memory-Laboratory.ps1"));
+fs.copyFileSync(path.join(repoRoot, "deploy", "memory-laboratory.compose.yml"), path.join(finalBundleDir, "deploy", "memory-laboratory.compose.yml"));
+for (const doc of ["MEMORY_LABORATORY.md", "PHASE6_MEMORY_INVENTORY.md", "COMMAND_TAB_RESTORATION.md"]) {
+  fs.copyFileSync(path.join(repoRoot, "docs", doc), path.join(finalBundleDir, doc));
+}
 
 console.log("\n[niblit-build] ════════════════════════════════════════");
 console.log("[niblit-build]  ✅ Niblit build complete!");

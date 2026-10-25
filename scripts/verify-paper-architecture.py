@@ -67,7 +67,8 @@ def main():
         raise RuntimeError(f'Service {port} did not become ready')
     core_command=[bundle/'niblit.exe','--headless','--cli'] if bundle else [repo/'niblit-env/Scripts/python.exe',repo/'main.py','--headless','--cli']
     lean_command=[bundle/'lean-algos/niblit-lean-algos.exe'] if bundle else [repo.parent/'niblit-lean-algos/.venv/Scripts/python.exe',repo.parent/'niblit-lean-algos/main.py']
-    cloud_command=[bundle/'cloud/niblit-cloud.exe'] if bundle else [repo/'dist/testing-20261025-ready/niblit/cloud/niblit-cloud.exe']
+    cloud_candidates=[repo/'dist/testing-20261025-memory/niblit/cloud/niblit-cloud.exe',repo/'dist/niblit/cloud/niblit-cloud.exe',repo/'dist/testing-20261025-commands/niblit/cloud/niblit-cloud.exe']
+    cloud_command=[bundle/'cloud/niblit-cloud.exe'] if bundle else [next((p for p in cloud_candidates if p.is_file()),cloud_candidates[0])]
     try:
         for port in (28500,28100,28150,28080):
             with socket.socket() as probe: probe.bind(('127.0.0.1',port))

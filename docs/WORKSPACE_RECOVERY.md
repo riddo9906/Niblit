@@ -33,8 +33,11 @@ It does not back up ignored files. Keep a separate private backup of:
 - Runtime memory, chat history, SQLite databases and paper account state,
   including `%LOCALAPPDATA%\Niblit\testing-20261025`.
 - Local model files and inference binaries outside the repositories.
-- The complete tested `Niblit/dist/testing-20261025-commands/niblit` folder
+- The complete tested `Niblit/dist/testing-20261025-memory/niblit` folder
   if you want to keep testing without rebuilding. Keep all its files together.
+- Qdrant's named volume `niblit_memory_qdrant` and the external
+  `%LOCALAPPDATA%/Niblit/memory-laboratory` profile/ledger. Do not remove Docker
+  volumes as part of workspace cleanup.
 
 Once the source pushes have been verified and private data backed up, old
 `build`, `dist`, `src-tauri/target`, dependency and cache folders can be recreated.

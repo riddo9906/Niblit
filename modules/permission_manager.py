@@ -12,7 +12,7 @@ except Exception:
         cwd = os.getcwd()
         return os.path.join(cwd, filename) if os.access(cwd, os.W_OK) else os.path.join(_tempfile.gettempdir(), filename)
 
-PERM_FILE = _mem_writable_path("niblit_perms.json")
+PERM_FILE = _mem_writable_path("niblit_perms.json", env_var="NIBLIT_PERMISSION_FILE")
 
 class PermissionManager:
     def __init__(self):

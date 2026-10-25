@@ -13,6 +13,8 @@ __pycache__/
 /diagnostics/testing-final-build-*.log
 
 # Local configuration and credentials (keep publishable templates)
+/niblit_perms.json
+/permissions.json
 .env.*
 *.env
 *.env.*

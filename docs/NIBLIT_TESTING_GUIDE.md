@@ -1,6 +1,6 @@
 # Testing Niblit desktop
 
-Build target: 25 October 2026. Keep the entire `dist/testing-20261025-commands/niblit`
+Build target: 25 October 2026. Keep the entire `dist/testing-20261025-memory/niblit`
 folder together; the UI-only installer is not the integrated runtime.
 
 ## Start
@@ -10,6 +10,13 @@ Close the previous Niblit desktop/Core first, then double-click
 and paper/observe trading. It stores testing memory under
 `%LOCALAPPDATA%\Niblit\testing-20261025`, separately from existing memory.
 Do not remove that directory between restart tests.
+
+The Phase 6 build adds `Enable-Memory-And-Start.cmd`: it explicitly grants
+desktop-scoped memory read/ingest/consolidation through the existing permission
+store, then starts the same desktop. It does not grant deletion or execution.
+Memory Qdrant credentials remain external under
+`%LOCALAPPDATA%\Niblit\memory-laboratory\.env`; no key is embedded in the build.
+See `MEMORY_LABORATORY.md` for setup and current integration limits.
 
 Core uses port 5000, Cloud 8000, and Lean 8100. The launcher checks Core's port
 to prevent the new UI from accidentally connecting to the old app. Healthy

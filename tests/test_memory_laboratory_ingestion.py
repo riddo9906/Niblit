@@ -62,3 +62,14 @@ def test_deduplication_is_exact_not_the_latest_event(tmp_path):
 def test_url_normalizer_handles_ipv6_and_nondefault_scheme_port():
     assert _normalize_url("https://EXAMPLE.com:80/path") == "https://example.com:80/path"
     assert _normalize_url("http://[::1]:8080/path") == "http://[::1]:8080/path"
+
+
+def test_failed_canonical_write_is_not_reported_as_stored(tmp_path):
+    fused = FusedMemory(sqlite_path=str(tmp_path / "fused.sqlite"), vector_store=object())
+    service = KnowledgeIngestionService(fused_memory=fused, enable_legacy_projection=False, enable_embedding=False)
+    fused.log_event = lambda *args: None  # Existing failure-swallowing legacy contract.
+    try:
+        result = service.ingest(KnowledgeDocument(content="Must be durable", source_uri="https://example.com/new"))
+        assert not result.stored and "storage_failed" in result.errors
+    finally:
+        fused.close()

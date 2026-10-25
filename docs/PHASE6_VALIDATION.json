@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-25",
+  "build_command": "npm run build",
+  "build_succeeded": true,
+  "bundle": "dist/testing-20261025-memory/niblit",
+  "suites": {
+    "frozen_memory": {
+      "checks": 11,
+      "passed": 11,
+      "failures": 0
+    },
+    "frozen_ingestion": {
+      "checks": 4,
+      "passed": 4,
+      "failures": 0
+    },
+    "original_commands": {
+      "checks": 13,
+      "passed": 13,
+      "failures": 0
+    },
+    "paper_architecture": {
+      "checks": 14,
+      "passed": 14,
+      "failures": 0
+    },
+    "desktop_architecture": {
+      "checks": 32,
+      "passed": 32,
+      "failures": 0
+    }
+  },
+  "regressions": {
+    "tests": 184,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "acceptance_checks": 74,
+  "embedding": {
+    "model": "intfloat/multilingual-e5-small",
+    "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+    "actual_dimension": 384,
+    "frozen_probe_passed": true
+  },
+  "qdrant": {
+    "server_version": "1.18.0",
+    "volume": "niblit_memory_qdrant",
+    "loopback_only": true,
+    "unauthenticated_access_rejected": true,
+    "profile_embedded_in_bundle": false
+  },
+  "limits": [
+    "No personal stores bulk-migrated",
+    "Not all older direct cognitive/ingestion paths redirected",
+    "Consolidation proposes unverified candidates; no automatic promotion",
+    "Full interactive native UI session not certified in this run",
+    "Historical paper test is not forward profitability validation"
+  ]
+}

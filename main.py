@@ -26,6 +26,17 @@ import threading
 import time
 import traceback
 
+# Standalone memory administration/probes must not boot Core, start workers or
+# load personal stores. These entrypoints also work in the frozen executable.
+if __name__ == "__main__" and "--memory-lab" in sys.argv:
+    sys.argv.remove("--memory-lab")
+    from modules.memory_laboratory.__main__ import main as _memory_lab_main
+    raise SystemExit(_memory_lab_main())
+if __name__ == "__main__" and "--memory-lab-operator" in sys.argv:
+    sys.argv.remove("--memory-lab-operator")
+    from modules.memory_laboratory.operator import main as _memory_operator_main
+    raise SystemExit(_memory_operator_main())
+
 from modules.runtime_bootstrap import bootstrap_runtime_environment
 
 # ── Path bootstrap before importing local modules ─────────────────────────

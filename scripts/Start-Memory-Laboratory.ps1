@@ -1,7 +1,12 @@
 param([switch]$SetupCollections)
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$envFile = Join-Path $repoRoot '.env.memory-laboratory'
+$envFile = Join-Path $env:LOCALAPPDATA 'Niblit/memory-laboratory/.env'
+$previousProfile = Join-Path $repoRoot '.env.memory-laboratory'
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $envFile) | Out-Null
+if (-not (Test-Path -LiteralPath $envFile) -and (Test-Path -LiteralPath $previousProfile)) {
+    Copy-Item -LiteralPath $previousProfile -Destination $envFile
+}
 $compose = Join-Path $repoRoot 'deploy/memory-laboratory.compose.yml'
 $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue
 $dockerPath = if ($dockerCommand) { $dockerCommand.Source } else {
@@ -32,10 +37,14 @@ if (-not (Test-Path -LiteralPath $envFile)) {
 if ($LASTEXITCODE -ne 0) { throw 'Qdrant container could not start; check Docker Desktop.' }
 if ($SetupCollections) {
     $python = Join-Path $repoRoot 'niblit-env/Scripts/python.exe'
-    if (-not (Test-Path -LiteralPath $python)) { throw 'Install Core Python dependencies first.' }
+    $packaged = Join-Path $repoRoot 'niblit.exe'
     Push-Location $repoRoot
     try {
-        & $python -m modules.memory_laboratory --env-file $envFile --apply
+        if (Test-Path -LiteralPath $packaged) {
+            & $packaged --memory-lab --env-file $envFile --apply
+        } elseif (Test-Path -LiteralPath $python) {
+            & $python -m modules.memory_laboratory --env-file $envFile --apply
+        } else { throw 'Core executable or Python dependencies are required.' }
         if ($LASTEXITCODE -ne 0) { throw 'Memory setup not ready. Rerun after Qdrant starts.' }
     } finally { Pop-Location }
 }

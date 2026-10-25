@@ -146,6 +146,14 @@ def test_embedding_identity_versions_same_dimension_models():
     assert "secret" not in repr(Config(url=a.url, api_key="secret"))
 
 
+def test_private_profile_mapping_preserves_embedding_and_distance_settings():
+    config = Config.from_values({"QDRANT_URL": "http://127.0.0.1:6333",
+        "NIBLIT_MEMORY_DISTANCE": "Dot", "NIBLIT_MEMORY_ALLOW_MODEL_DOWNLOAD": "1",
+        "NIBLIT_MEMORY_COLLECTION_PREFIX": "isolated_lab"})
+    assert config.distance == "Dot" and config.allow_download
+    assert config.collection("semantic", 384).startswith("isolated_lab_")
+
+
 @pytest.mark.parametrize("vector", [[], [0, 0], [float("nan")], [float("inf")]])
 def test_invalid_vectors_rejected(vector):
     with pytest.raises(ValueError):

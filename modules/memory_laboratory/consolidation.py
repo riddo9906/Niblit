@@ -1,5 +1,6 @@
 """Resource-bounded evidence proposals; never promotes or deletes evidence."""
 import json
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -23,7 +24,7 @@ class Consolidator:
             db.execute("CREATE TABLE IF NOT EXISTS proposals(id TEXT PRIMARY KEY, payload TEXT NOT NULL)")
             rows = db.execute("SELECT * FROM records WHERE namespace=? AND principal=? ORDER BY rowid DESC LIMIT ?",
                               (self.namespace, self.principal, self.max_records)).fetchall()
-            proposed, hashes, sources = [], {}, {}
+            proposed, hashes, sources, subjects, concepts = [], {}, {}, {}, {}
             def proposal(kind, ids):
                 key = digest(json.dumps([kind, sorted(ids)]))
                 payload = {"id": key, "kind": kind, "evidence_ids": ids,
@@ -40,6 +41,7 @@ class Consolidator:
                 previous = hashes.get(p["content_hash"])
                 if previous:
                     proposal("repeated_information_candidate", [previous, row["id"]])
+                    proposal("stable_knowledge_requires_verification", [previous, row["id"]])
                 hashes[p["content_hash"]] = row["id"]
                 source_key = (row["source"], p["provenance"]["version"])
                 for (source, version), old_id in list(sources.items())[:self.max_records]:
@@ -47,6 +49,21 @@ class Consolidator:
                         proposal("source_correction_requires_review", [old_id, row["id"]])
                         break
                 sources[source_key] = row["id"]
+                # These are deliberately review candidates, not an assertion
+                # that natural-language contradictions have been resolved.
+                fact = re.match(r"^(.{2,100}?)\s+(?:is|equals)\s+(.{1,100}?)[.!]?\s*$", p["content"], re.I)
+                if fact:
+                    subject, value = (v.strip().lower() for v in fact.groups())
+                    old = subjects.get(subject)
+                    if old and old[1] != value:
+                        proposal("possible_contradiction_requires_review", [old[0], row["id"]])
+                    subjects[subject] = (row["id"], value)
+                terms = set(re.findall(r"\b[a-zA-Z][a-zA-Z0-9_-]{4,}\b", p["content"].lower()))
+                for old_id, old_terms in list(concepts.items())[-10:]:
+                    if len(terms & old_terms) >= 2:
+                        proposal("concept_relationship_candidate", [old_id, row["id"]])
+                        break
+                concepts[row["id"]] = terms
                 age = (datetime.now(timezone.utc) - datetime.fromisoformat(p["updated_at"])).days
                 if age > 90 and p["importance"] < .5:
                     proposal("stale_low_value_review", [row["id"]])
