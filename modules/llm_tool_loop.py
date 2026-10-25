@@ -62,11 +62,14 @@ class ToolAuthorizationError(ToolCallError):
 
 class LlmToolLoop:
 
-    def __init__(self, executor=None, cloud_root=None, max_loop_calls=15, timeout=300.0):
+    def __init__(self, executor=None, cloud_root=None, max_loop_calls=15, timeout=300.0,
+                 memory_gateway=None, memory_scope=None):
         self.cloud_root = cloud_root or _CLOUD_ROOT
         self.executor = executor or NiblitToolExecutor()
         self.max_loop_calls = max_loop_calls
         self.timeout = timeout
+        self.memory_gateway = memory_gateway
+        self.memory_scope = memory_scope
         self._tool_map = {"runtime_status": self.executor.niblit_status}
 
     def allowed_tool_names(self):
@@ -233,7 +236,9 @@ class LlmToolLoop:
                     f"unregistered tools requested: {sorted(unknown)}")
             allowed = {name: schemas[name] for name in requested}
             tools = [allowed[name] for name in requested_names]
-        working = [dict(m) for m in messages]
+        from modules.memory_laboratory.context import augment_messages
+        working, memory_retrieval = augment_messages(
+            messages, gateway=self.memory_gateway, scope=self.memory_scope)
         trace: List[Dict[str, Any]] = []
         final = ""
         last_niblit_model = None
@@ -359,5 +364,12 @@ class LlmToolLoop:
             except ToolCallError:
                 pass  # surfaced as empty text + truthful stopped, never silent
 
+        # Source links are emitted by Core from retrieval provenance, so a small
+        # model omitting citations cannot silently remove the evidence trail.
+        citations = memory_retrieval.get("citations", [])
+        if final and citations:
+            final += "\n\nRetrieved sources:\n" + "\n".join(
+                "- " + citation for citation in citations)
         return {"text": final, "trace": trace,
+                "memory_retrieval": memory_retrieval,
                 "niblit_model": last_niblit_model, "stopped": stopped}

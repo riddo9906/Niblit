@@ -156,6 +156,8 @@ class KnowledgeDocument:
     created_at: str = ""
 
     def __post_init__(self):
+        if not self.content_hash:
+            self.content_hash = compute_content_hash(self.content)
         if not self.id:
             self.id = self._generate_id()
         if not self.retrieved_at:
@@ -166,8 +168,11 @@ class KnowledgeDocument:
             self.created_at = self.retrieved_at
 
     def _generate_id(self) -> str:
-        ts = int(time.time())
-        return f"doc_{ts}_{hashlib.sha256((self.source_uri or self.content or str(ts)).encode()).hexdigest()[:12]}"
+        if not self.source_uri and not self.content:
+            from uuid import uuid4
+            return "doc_" + uuid4().hex
+        identity = self.source_uri + "\n" + self.content_hash
+        return "doc_" + hashlib.sha256(identity.encode()).hexdigest()[:32]
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
@@ -247,7 +252,7 @@ def _normalize_url(
         return url
 
     # Add scheme if missing
-    if not url.startswith(("http://", "https://")):
+    if not url.lower().startswith(("http://", "https://")):
         url = "https://" + url
 
     try:
@@ -264,11 +269,14 @@ def _normalize_url(
         if hostname:
             # Rebuild netloc with lowercased hostname
             port = parsed.port
-            userinfo = parsed.userinfo
-            if port and port not in (80, 443):
-                netloc = f"{userinfo}@{hostname}:{port}" if userinfo else f"{hostname}:{port}"
+            if parsed.username is not None or parsed.password is not None:
+                raise ValueError("credentialed source URLs are not permitted")
+            if ":" in hostname:
+                hostname = f"[{hostname}]"
+            if port and (scheme, port) not in {("http", 80), ("https", 443)}:
+                netloc = f"{hostname}:{port}"
             else:
-                netloc = f"{userinfo}@{hostname}" if userinfo else hostname
+                netloc = hostname
 
     # Remove default ports
     if parsed.port == 80 and scheme == "http":

@@ -441,6 +441,23 @@ class FusedMemory:
             _fused_log.debug("[FusedMemory] search_vectors failed: %s", exc)
             return []
 
+    def find_knowledge_document(self, *, canonical_uri="", content_hash=""):
+        """Exact persisted lookup; semantic/event recency is not deduplication."""
+        if not canonical_uri and not content_hash:
+            return None
+        with self._lock:
+            for key, value in (("canonical_uri", canonical_uri), ("content_hash", content_hash)):
+                if not value:
+                    continue
+                row = self._conn.execute(
+                    "SELECT payload FROM events WHERE type='knowledge_document' "
+                    "AND json_extract(payload, ?) = ? ORDER BY id DESC LIMIT 1",
+                    ("$." + key, value),
+                ).fetchone()
+                if row:
+                    return json.loads(row[0])
+        return None
+
     # ── unified hybrid retrieval ──────────────────────────────────────────────
 
     def retrieve(

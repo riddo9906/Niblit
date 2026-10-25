@@ -168,21 +168,27 @@ class KnowledgeIngestionService:
         # --- Deduplication ---
         existing = self._find_existing(document)
         if existing:
-            existing_hash = existing.get("provenance", {}).get("content_hash", "")
+            existing_hash = existing.get("content_hash") or existing.get("provenance", {}).get("content_hash", "")
             if existing_hash == document.content_hash:
                 # Exact duplicate
                 result.duplicate = True
                 result.stored = True
                 result.storage_backend = "existing"
+                if self.enable_embedding and os.getenv("NIBLIT_MEMORY_LAB_ENABLED", "0") == "1":
+                    result.embedding_status = self._embed_document(document)
                 logger.debug("[Ingestion] Duplicate skipped: %s", document.id)
                 return result
             elif allow_update and document.canonical_uri:
                 # Same URI, different content — version/update
                 result.updated = True
-                result.stored = True
-                result.storage_backend = "fused_memory"
                 # Store with version metadata
-                self._store_document(document, version_of=existing.get("id"))
+                result.stored = self._store_document(document, version_of=existing.get("id"))
+                result.storage_backend = "fused_memory" if result.stored else "none"
+                if not result.stored:
+                    result.errors.append("storage_failed")
+                    return result
+                if self.enable_embedding:
+                    result.embedding_status = self._embed_document(document)
                 logger.debug("[Ingestion] Updated: %s (prev=%s)", document.id, existing.get("id"))
                 return result
             else:
@@ -289,20 +295,29 @@ class KnowledgeIngestionService:
         if fm is None:
             return None
 
+        exact_lookup = getattr(fm, "find_knowledge_document", None)
+        if callable(exact_lookup):
+            return exact_lookup(canonical_uri=document.canonical_uri,
+                                content_hash=document.content_hash)
+
         # Try canonical URI first
         if document.canonical_uri:
             try:
                 existing = fm.retrieve(query=document.canonical_uri, event_type="knowledge_document", top_k=1)
-                if existing and existing.get("events"):
-                    return existing["events"][0]
+                for event in (existing or {}).get("events", []):
+                    payload = event.get("payload", event)
+                    if payload.get("canonical_uri") == document.canonical_uri:
+                        return payload
             except Exception as exc:
                 logger.debug("[Ingestion] FusedMemory lookup failed: %s", exc)
 
         # Try content hash
         try:
             existing = fm.retrieve(query=document.content_hash, event_type="knowledge_document", top_k=1)
-            if existing and existing.get("events"):
-                return existing["events"][0]
+            for event in (existing or {}).get("events", []):
+                payload = event.get("payload", event)
+                if payload.get("content_hash") == document.content_hash:
+                    return payload
         except Exception as exc:
             logger.debug("[Ingestion] FusedMemory hash lookup failed: %s", exc)
 
@@ -379,6 +394,28 @@ class KnowledgeIngestionService:
 
     def _embed_document(self, document: KnowledgeDocument) -> str:
         """Attempt to embed document content in vector store."""
+        if os.getenv("NIBLIT_MEMORY_LAB_ENABLED", "0") == "1":
+            # One governed projection for existing normalized ingestion entry
+            # points. Do not fall back to an ungoverned legacy vector write.
+            try:
+                from modules.memory_laboratory.context import runtime_gateway
+                gateway = runtime_gateway()
+                text = document.content
+                if not text.strip() or len(text) > 200000:
+                    return "failed_memory_source_bounds"
+                source = document.canonical_uri or document.source_uri
+                if not source:
+                    return "failed_memory_provenance_required"
+                chunks = [(text[i:i+1000], f"{source}#char={i}")
+                          for i in range(0, len(text), 1000)]
+                result = gateway.ingest(chunks, source=source,
+                    namespace=os.getenv("NIBLIT_MEMORY_LAB_NAMESPACE", "desktop"),
+                    principal=os.getenv("NIBLIT_MEMORY_LAB_PRINCIPAL", "desktop_operator"))
+                return "embedded_verified_qdrant" if result["verified"] else "failed_memory_verification"
+            except PermissionError:
+                return "failed_memory_authorization_required"
+            except Exception:
+                return "failed_memory_projection"
         fm = self.fused_memory
         if fm is None:
             return "skipped_no_fused_memory"

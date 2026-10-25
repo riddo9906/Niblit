@@ -66,8 +66,8 @@ class DocumentChunk:
             self.chunk_id = self._generate_id()
 
     def _generate_id(self) -> str:
-        ts = int(time.time())
-        return f"chunk_{ts}_{hashlib.sha256(f'{self.document_id}:{self.chunk_index}'.encode()).hexdigest()[:12]}"
+        identity = f"{self.document_id}:{self.chunk_index}:{hashlib.sha256(self.content.encode()).hexdigest()}"
+        return "chunk_" + hashlib.sha256(identity.encode()).hexdigest()[:32]
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -111,6 +111,8 @@ class DocumentChunker:
         target_chars: int = DEFAULT_TARGET_CHARS,
         overlap_chars: int = DEFAULT_OVERLAP_CHARS,
     ):
+        if target_chars <= 0 or not 0 <= overlap_chars < target_chars:
+            raise ValueError("require target_chars > overlap_chars >= 0")
         self.target_chars = target_chars
         self.overlap_chars = overlap_chars
 
@@ -164,7 +166,22 @@ class DocumentChunker:
             metadata=metadata or {},
         )
 
-        return chunks
+        # A single long line/paragraph has no structural split boundary. Enforce
+        # the documented hard limit while retaining source metadata and overlap.
+        bounded = []
+        for chunk in chunks:
+            step = self.target_chars - self.overlap_chars
+            start = 0
+            while start < len(chunk.content):
+                text_part = chunk.content[start:start + self.target_chars]
+                bounded.append(DocumentChunk(
+                    document_id=document_id, chunk_index=len(bounded), content=text_part,
+                    content_hash=self._compute_chunk_hash(text_part), source_uri=source_uri,
+                    provenance=dict(provenance or {}), metadata=dict(metadata or {})))
+                if start + self.target_chars >= len(chunk.content):
+                    break
+                start += step
+        return bounded
 
     def _split_into_sections(self, text: str) -> List[str]:
         """Split text into sections based on headings and paragraphs."""

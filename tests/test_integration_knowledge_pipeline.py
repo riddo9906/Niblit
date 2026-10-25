@@ -232,7 +232,7 @@ class TestProvenanceTracking:
             "published_at": "2024-01-15T10:00:00Z",
         }
 
-        doc = self.normalizer.normalize(
+        doc = DocumentNormalizer().normalize(
             raw,
             source_type=SourceType.web_page,
         )
