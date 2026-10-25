@@ -476,7 +476,12 @@ def _run_staged_runtime_bootstrap(core, io) -> dict:
         # niblit-ui is intentionally excluded here: it must only be started
         # in the desktop launch path (main()) after CLI args have been
         # evaluated (e.g. --headless skips the UI entirely).
-        managed_repo_status = orchestrator.start_managed_repositories(["niblit-cloud-server"])
+        managed_repositories = ["niblit-cloud-server"]
+        # The release bundle owns the Lean one-folder runtime; development
+        # startup keeps its established Cloud-only behavior.
+        if getattr(sys, "frozen", False):
+            managed_repositories.append("niblit-lean-algos")
+        managed_repo_status = orchestrator.start_managed_repositories(managed_repositories)
         if runtime_manager is not None:
             for repo_name, status in managed_repo_status.items():
                 runtime_manager.update_managed_repository_status(repo_name, dict(status or {}))

@@ -123,8 +123,7 @@ class HFAdapter:
 
             # Persist to chat memory for cross-session context
             if self.chat_memory and text:
-                self.chat_memory.add("user", prompt)
-                self.chat_memory.add("assistant", text)
+                self.chat_memory.add_exchange(prompt, text)
 
             # optional: persist to DB if available
             if self.db and hasattr(self.db, "add_entry"):

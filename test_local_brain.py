@@ -32,135 +32,76 @@ from modules.local_brain import (
 )
 
 
-def test_clean_subprocess_output_strips_llama_banner_and_commands():
-    prompt = "<|im_start|>user\nhello<|im_end|>\n<|im_start|>assistant\n"
-    raw = (
-        "/data/data/com.termux/files/usr/bin/getprop: 3: exec: /system/bin/getprop: Operation not permitted\n"
-        "Loading model...\n\n"
-        "available commands:\n"
-        "  /exit\n"
-        "  /glob\n\n"
-        f"{prompt}Sure — I can help with that.\n"
-    )
-    cleaned = _clean_subprocess_output(raw, prompt)
-    assert "Operation not permitted" not in cleaned
-    assert "available commands" not in cleaned.lower()
-    assert "/glob" not in cleaned
-    assert cleaned == "Sure — I can help with that."
+def test_deprecated_output_cleaner_is_a_compatibility_noop():
+    raw = "legacy subprocess output\n"
+    assert _clean_subprocess_output(raw, "prompt") == raw
 
 
-def test_ask_uses_default_local_copilot_system_prompt():
-    brain = QwenLocalBrain(gguf_backend="subprocess")
+
+def test_ask_forwards_supplied_system_prompt_to_cloud_runtime(monkeypatch):
+    brain = QwenLocalBrain()
     captured = {}
-
-    def _fake_generate(prompt, max_new_tokens=None, system_prompt=None):  # noqa: ARG001
-        captured["prompt"] = prompt
-        captured["system_prompt"] = system_prompt
-        return "ok"
-
-    brain.generate = _fake_generate  # type: ignore[method-assign]
-
-    out = brain.ask("write concise python code")
-    assert out == "ok"
-    assert captured["prompt"] == "write concise python code"
-    assert captured["system_prompt"] == _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
-
-
-def test_chat_uses_short_system_prompt():
-    """chat() must use _SHORT_CHAT_SYSTEM_PROMPT, not the full copilot prompt."""
-    brain = QwenLocalBrain(gguf_backend="subprocess")
-    captured = {}
-
-    def _fake_generate(prompt, max_new_tokens=None, system_prompt=None):  # noqa: ARG001
-        captured["prompt"] = prompt
-        captured["system_prompt"] = system_prompt
-        return "hi there"
-
-    brain.generate = _fake_generate  # type: ignore[method-assign]
-
-    out = brain.chat("hey")
-    assert out == "hi there"
-    assert captured["system_prompt"] == _SHORT_CHAT_SYSTEM_PROMPT
-    # Must NOT inject the heavy structural context
-    assert captured["system_prompt"] != _DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT
-    assert len(captured["system_prompt"]) < len(_DEFAULT_LOCAL_COPILOT_SYSTEM_PROMPT)
-
-
-def test_check_server_url_falls_back_when_health_missing(monkeypatch):
-    brain = QwenLocalBrain(gguf_backend="auto")
-    called = []
-
-    class _FakeResponse:
-        status = 200
-
-        def __enter__(self):
-            return self
-
-        def __exit__(
-            self,
-            exc_type: Optional[Type[BaseException]],
-            exc: Optional[BaseException],
-            tb: Optional[TracebackType],
-        ) -> bool:
-            return False
-
-    def _fake_urlopen(request, timeout=5):  # noqa: ARG001
-        url = request.full_url
-        called.append(url)
-        if url.endswith("/health"):
-            raise urllib.error.HTTPError(url, 404, "Not Found", hdrs=None, fp=None)
-        if url.endswith("/v1/models"):
-            return _FakeResponse()
-        raise AssertionError(f"Unexpected probe URL: {url}")
-
-    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
-    assert brain._check_server_url("http://127.0.0.1:8080") is True
-    assert called == [
-        "http://127.0.0.1:8080/health",
-        "http://127.0.0.1:8080/v1/models",
+    monkeypatch.setattr(brain, "_call_cloud_runtime", lambda messages, tokens: captured.update(messages=messages, tokens=tokens) or "ok")
+    assert brain.ask("write concise python code", system_prompt="Answer briefly") == "ok"
+    assert captured["messages"] == [
+        {"role": "system", "content": "Answer briefly"},
+        {"role": "user", "content": "write concise python code"},
     ]
+
+
+
+def test_chat_forwards_short_system_prompt_to_cloud_runtime(monkeypatch):
+    brain = QwenLocalBrain()
+    captured = {}
+    monkeypatch.setattr(brain, "_call_cloud_runtime", lambda messages, tokens: captured.update(messages=messages) or "hi there")
+    assert brain.chat("hey", system_prompt=_SHORT_CHAT_SYSTEM_PROMPT) == "hi there"
+    assert captured["messages"] == [
+        {"role": "system", "content": _SHORT_CHAT_SYSTEM_PROMPT},
+        {"role": "user", "content": "hey"},
+    ]
+
+
+
+def test_gateway_health_check_reports_healthz(monkeypatch):
+    from modules.local_brain import LocalBrainGateway
+    called = []
+    class Response:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+    def fake_urlopen(request, timeout=5):
+        called.append((request.full_url, timeout))
+        return Response()
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    gateway = LocalBrainGateway()
+    assert gateway._check_health("http://127.0.0.1:8000/healthz")
+    assert called[0][0].endswith("/healthz")
+
 
 
 # ── Llama-3 template tests ────────────────────────────────────────────────────
 
-def test_llama3_template_present():
-    """llama3 template must exist in _GGUF_TEMPLATES."""
-    assert "llama3" in _GGUF_TEMPLATES
-    tmpl = _GGUF_TEMPLATES["llama3"]
-    assert "<|begin_of_text|>" in tmpl["system_start"]
-    assert "<|eot_id|>" in tmpl["stop"]
-    assert "<|end_of_text|>" in tmpl["stop"]
+def test_legacy_gguf_templates_are_not_owned_by_localbrain():
+    assert _GGUF_TEMPLATES == {}
 
 
-def test_llama3_prompt_format():
-    """_build_gguf_prompt with llama3 template must use Llama-3 header tokens."""
-    prompt, stop = _build_gguf_prompt("Hello", "You are Niblit.", "llama3")
-    assert "<|begin_of_text|>" in prompt
-    assert "<|start_header_id|>system<|end_header_id|>" in prompt
-    assert "<|start_header_id|>user<|end_header_id|>" in prompt
-    assert "<|start_header_id|>assistant<|end_header_id|>" in prompt
-    assert "<|eot_id|>" in stop
+
+def test_legacy_prompt_builder_leaves_templating_to_cloudruntime():
+    prompt = "Hello"
+    assert _build_gguf_prompt(prompt) == prompt
 
 
-def test_qwen_template_unaffected():
-    """qwen template must still use ChatML tokens after adding llama3."""
-    prompt, stop = _build_gguf_prompt("hi", "sys", "qwen")
-    assert "<|im_start|>system" in prompt
-    assert "<|im_end|>" in stop
+
+def test_legacy_prompt_builder_does_not_select_local_templates():
+    assert _build_gguf_prompt("hi", "qwen", "sys") == "hi"
+
 
 
 # ── Model preset tests ────────────────────────────────────────────────────────
 
-def test_local_model_presets_contain_qwen_and_llama3():
-    assert "qwen" in _LOCAL_MODEL_PRESETS
-    assert "llama3" in _LOCAL_MODEL_PRESETS
-    for name, cfg in _LOCAL_MODEL_PRESETS.items():
-        assert "model_path" in cfg, f"preset {name!r} missing model_path"
-        assert "chat_template" in cfg, f"preset {name!r} missing chat_template"
-        assert "description" in cfg, f"preset {name!r} missing description"
+def test_legacy_model_preset_names_are_import_compatibility_only():
+    assert _LOCAL_MODEL_PRESETS == ("llama3", "qwen")
 
-    assert _LOCAL_MODEL_PRESETS["qwen"]["chat_template"] == "qwen"
-    assert _LOCAL_MODEL_PRESETS["llama3"]["chat_template"] == "llama3"
 
 
 def test_swap_local_brain_creates_fresh_instance():
@@ -172,90 +113,91 @@ def test_swap_local_brain_creates_fresh_instance():
     assert b1 is not b2, "swap_local_brain must produce a fresh instance"
 
 
-def test_swap_local_brain_sets_correct_template():
-    """swap_local_brain('llama3') must use the llama3 chat template."""
+def test_swap_local_brain_returns_cloud_compatibility_shim():
+    from modules.local_brain import LocalBrainGateway
     reset_local_brain()
-    lb = swap_local_brain("llama3")
-    assert lb.gguf_chat_template == "llama3"
-    reset_local_brain()  # cleanup
+    brain = swap_local_brain("llama3")
+    assert isinstance(brain, QwenLocalBrain)
+    assert isinstance(brain.gateway, LocalBrainGateway)
+    reset_local_brain()
 
 
-def test_swap_local_brain_invalid_preset():
-    """swap_local_brain with unknown preset must raise ValueError."""
-    import pytest
-    with pytest.raises(ValueError, match="Unknown local model preset"):
-        swap_local_brain("nonexistent-model")
+
+def test_deprecated_swap_does_not_switch_or_validate_local_model():
+    brain = swap_local_brain("removed-preset")
+    assert isinstance(brain, QwenLocalBrain)
+    assert brain._model_name == "cloud-runtime"
 
 
-def test_get_local_brain_defaults_to_llama3_when_active_preset_unset(monkeypatch):
+
+def test_get_local_brain_returns_gateway_independent_of_legacy_preset(monkeypatch):
+    from modules.local_brain import LocalBrainGateway
     monkeypatch.delenv("NIBLIT_ACTIVE_LOCAL_MODEL", raising=False)
     reset_local_brain()
-    lb = get_local_brain()
-    assert lb.gguf_chat_template == "llama3"
+    assert isinstance(get_local_brain(), LocalBrainGateway)
     reset_local_brain()
 
 
-def test_get_local_brain_invalid_active_preset_falls_back_to_llama3(monkeypatch):
+
+def test_get_local_brain_ignores_legacy_preset_environment(monkeypatch):
+    from modules.local_brain import LocalBrainGateway
     monkeypatch.setenv("NIBLIT_ACTIVE_LOCAL_MODEL", "invalid-preset")
     reset_local_brain()
-    lb = get_local_brain()
-    assert lb.gguf_chat_template == "llama3"
+    assert isinstance(get_local_brain(), LocalBrainGateway)
     reset_local_brain()
 
 
-def test_model_resolution_priority_prefers_global_gguf_override(monkeypatch):
-    monkeypatch.setenv("NIBLIT_GGUF_MODEL_PATH", "/opt/models/portable.gguf")
-    monkeypatch.setenv("NIBLIT_MODEL_QWEN", "/opt/models/qwen.gguf")
-    assert _resolve_portable_model_path("qwen") == "/opt/models/portable.gguf"
+
+def test_legacy_model_path_resolver_is_disabled(monkeypatch):
+    monkeypatch.setenv("NIBLIT_GGUF_MODEL_PATH", "/models/portable.gguf")
+    assert _resolve_portable_model_path("qwen") == ""
 
 
-def test_model_resolution_uses_named_model_env_when_no_global_override(monkeypatch):
-    monkeypatch.delenv("NIBLIT_GGUF_MODEL_PATH", raising=False)
+
+def test_legacy_named_model_path_is_not_loaded_by_localbrain(monkeypatch):
     monkeypatch.setenv("NIBLIT_MODEL_LLAMA3", "/models/llama3.gguf")
-    assert _resolve_portable_model_path("llama3") == "/models/llama3.gguf"
+    assert _resolve_portable_model_path("llama3") == ""
 
 
-def test_model_resolution_rejects_root_models_path(monkeypatch):
+
+def test_legacy_model_paths_are_ignored_by_gateway(monkeypatch):
     monkeypatch.setenv("NIBLIT_GGUF_MODEL_PATH", "/root/models/disallowed.gguf")
-    monkeypatch.setenv("NIBLIT_MODEL_QWEN", "/models/qwen-safe.gguf")
-    assert _resolve_portable_model_path("qwen") == "/models/qwen-safe.gguf"
+    assert _resolve_portable_model_path("qwen") == ""
 
 
-def test_find_llama_binary_uses_windows_llama_cpp_root(tmp_path, monkeypatch):
+
+def test_gateway_discovers_cloud_managed_llama_binary(monkeypatch, tmp_path):
+    from modules.local_brain import LocalBrainGateway
     root = tmp_path / "llama.cpp"
-    binary = root / "build" / "bin" / "llama-cli"
-    binary.parent.mkdir(parents=True, exist_ok=True)
-    binary.write_text("#!/bin/sh\n")
-    os.chmod(binary, 0o755)
+    binary = root / "build" / "bin" / "llama-server.exe"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("test binary", encoding="utf-8")
     monkeypatch.setattr("modules.local_brain._WINDOWS_LLAMA_CPP_ROOT", str(root))
-
-    found = __import__("modules.local_brain", fromlist=["_find_llama_binary"])._find_llama_binary("")
-
-    assert found == binary
+    assert LocalBrainGateway()._discover_llama_server()["path"] == str(binary)
 
 
-def test_set_backend_url_keeps_active_local_preset(monkeypatch):
+
+def test_deprecated_backend_url_does_not_reconfigure_local_inference(monkeypatch):
     monkeypatch.setenv("NIBLIT_ACTIVE_LOCAL_MODEL", "llama3")
-    reset_local_brain()
-    lb = set_backend_url("http://127.0.0.1:8080", backend="http")
-    assert lb.gguf_chat_template == "llama3"
-    reset_local_brain()
+    brain = set_backend_url("http://127.0.0.1:8080", backend="http")
+    assert isinstance(brain, QwenLocalBrain)
+    assert brain._model_name == "cloud-runtime"
 
 
-def test_local_brain_config_builds_server_url_from_host_port(monkeypatch):
-    monkeypatch.delenv("NIBLIT_LLAMA_SERVER_URL", raising=False)
-    monkeypatch.setenv("NIBLIT_LLAMA_SERVER_HOST", "127.0.0.1")
-    monkeypatch.setenv("NIBLIT_LLAMA_SERVER_PORT", "8080")
+
+def test_legacy_config_retains_only_generic_key_value_compatibility():
     cfg = _LocalBrainConfig()
-    assert cfg.llama_server_url == "http://127.0.0.1:8080"
+    cfg.set("legacy", "value")
+    assert cfg.get("legacy") == "value"
+    assert "llama_server_url" not in cfg.as_dict()
 
 
-def test_set_backend_url_normalizes_host_port_without_scheme(monkeypatch):
-    monkeypatch.setenv("NIBLIT_ACTIVE_LOCAL_MODEL", "qwen")
-    reset_local_brain()
-    lb = set_backend_url("127.0.0.1:8080", backend="http")
-    assert lb.llama_server_url == "http://127.0.0.1:8080"
-    reset_local_brain()
+
+def test_deprecated_backend_url_does_not_normalize_or_store_url():
+    brain = set_backend_url("127.0.0.1:8080", backend="http")
+    assert isinstance(brain, QwenLocalBrain)
+    assert not hasattr(brain, "llama_server_url")
+
 
 
 def test_reset_local_brain_clears_singleton():
@@ -269,10 +211,13 @@ def test_reset_local_brain_clears_singleton():
 
 # ── NIBLIT_KB_TOOLS schema tests ──────────────────────────────────────────────
 
-def test_niblit_kb_tools_schema():
-    """NIBLIT_KB_TOOLS must define exactly the four expected tools."""
-    names = {t["function"]["name"] for t in NIBLIT_KB_TOOLS}
-    assert names == {"list_kb_facts", "read_kb_fact", "delete_kb_fact", "complete_slsa_artifact"}
+def test_local_brain_does_not_export_legacy_kb_tool_schemas():
+    from modules.llm_tool_loop import LlmToolLoop, make_runtime_status_tool
+    assert NIBLIT_KB_TOOLS == []
+    loop = LlmToolLoop()
+    assert loop.prevalidate("runtime_status", {}) is None
+    assert make_runtime_status_tool()["function"]["name"] == "runtime_status"
+
 
 
 def test_niblit_kb_tools_required_fields():
@@ -286,64 +231,24 @@ def test_niblit_kb_tools_required_fields():
 
 # ── generate_with_tools tests ─────────────────────────────────────────────────
 
-def test_generate_with_tools_non_http_falls_back(monkeypatch):
-    """generate_with_tools on subprocess backend falls back to plain generate()."""
-    brain = QwenLocalBrain(gguf_backend="subprocess")
-    brain._backend_in_use = "subprocess"
-    brain._subprocess_bin = object()  # simulate loaded
-
-    def _fake_generate(prompt, max_new_tokens=None, system_prompt=None):  # noqa: ARG001
-        return "fallback text"
-
-    monkeypatch.setattr(brain, "generate", _fake_generate)
-    text, tool_calls = brain.generate_with_tools("hello", tools=NIBLIT_KB_TOOLS)
-    assert text == "fallback text"
-    assert tool_calls == []
+def test_legacy_generate_with_tools_delegates_text_only(monkeypatch):
+    brain = QwenLocalBrain()
+    calls = []
+    monkeypatch.setattr(brain, "_call_cloud_runtime", lambda messages, tokens: calls.append((messages, tokens)) or "text answer")
+    result = brain.generate_with_tools("hello", tools=[])
+    assert result == "text answer"
+    assert len(calls) == 1
 
 
-def test_generate_with_tools_http_parses_tool_calls(monkeypatch):
-    """generate_with_tools on http backend must parse and normalise tool_calls."""
-    brain = QwenLocalBrain(gguf_backend="http")
-    brain._backend_in_use = "http"
-    brain._server_url = "http://127.0.0.1:8080"
 
-    # Mock connectivity check
-    monkeypatch.setattr(brain, "_check_server_url", lambda url: True)
+def test_legacy_generate_with_tools_does_not_execute_tool_calls(monkeypatch):
+    brain = QwenLocalBrain()
+    calls = []
+    monkeypatch.setattr(brain, "_call_cloud_runtime", lambda messages, tokens: calls.append(messages) or "cloud text")
+    result = brain.generate_with_tools("list facts", tools=NIBLIT_KB_TOOLS)
+    assert result == "cloud text"
+    assert len(calls) == 1
 
-    # Simulated llama-server response with tool_calls
-    fake_response = {
-        "choices": [{
-            "message": {
-                "content": "",
-                "tool_calls": [{
-                    "id": "call_1",
-                    "function": {
-                        "name": "list_kb_facts",
-                        "arguments": json.dumps({"limit": 10}),
-                    },
-                }],
-            },
-        }],
-    }
-
-    class _FakeHTTPResp:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def read(self):
-            return json.dumps(fake_response).encode()
-
-    monkeypatch.setattr("urllib.request.urlopen", lambda req, timeout=None: _FakeHTTPResp())
-    text, tool_calls = brain.generate_with_tools("list facts", tools=NIBLIT_KB_TOOLS)
-    assert text == ""
-    assert len(tool_calls) == 1
-    assert tool_calls[0]["function"]["name"] == "list_kb_facts"
-    assert isinstance(tool_calls[0]["function"]["arguments"], str)
-    parsed_args = json.loads(tool_calls[0]["function"]["arguments"])
-    assert parsed_args["limit"] == 10
 
 
 # ── NIBLIT_ALL_TOOLS / full tool suite tests ──────────────────────────────────
@@ -355,32 +260,13 @@ def test_niblit_all_tools_is_superset_of_kb_tools():
     assert kb_names.issubset(all_names), f"KB tools missing from ALL_TOOLS: {kb_names - all_names}"
 
 
-def test_niblit_all_tools_has_expected_tools():
-    """NIBLIT_ALL_TOOLS must cover all major command categories."""
-    expected = {
-        # System
-        "niblit_status", "niblit_exec", "niblit_list_commands",
-        # Brain
-        "set_brain_mode", "toggle_llm",
-        # Model
-        "switch_local_model", "local_model_status",
-        # Memory/KB (from KB tools + extended)
-        "list_kb_facts", "read_kb_fact", "delete_kb_fact",
-        "complete_slsa_artifact", "search_memory", "store_kb_fact",
-        # Learning
-        "self_research", "self_teach", "reflect",
-        # Code
-        "run_code", "fix_code",
-        # ALE
-        "ale_status", "autonomous_learn",
-        # Healing
-        "run_selfheal",
-        # Awareness
-        "niblit_structure",
-    }
-    all_names = {t["function"]["name"] for t in NIBLIT_ALL_TOOLS}
-    missing = expected - all_names
-    assert not missing, f"Expected tools missing from NIBLIT_ALL_TOOLS: {missing}"
+def test_legacy_all_tools_export_is_empty_and_governed_loop_is_narrow():
+    from modules.llm_tool_loop import LlmToolLoop
+    assert NIBLIT_ALL_TOOLS == []
+    loop = LlmToolLoop()
+    assert loop.allowed_tool_names() == ["runtime_status"]
+    assert loop.prevalidate("niblit_exec", {"command": "status"})
+
 
 
 def test_niblit_all_tools_required_fields():
@@ -404,34 +290,24 @@ def test_niblit_all_tools_no_duplicate_names():
         seen.add(n)
 
 
-def test_niblit_all_tools_niblit_exec_has_required_command_param():
-    """niblit_exec must require a 'command' string parameter."""
-    tool = next(t for t in NIBLIT_ALL_TOOLS if t["function"]["name"] == "niblit_exec")
-    params = tool["function"]["parameters"]
-    assert "command" in params["properties"]
-    assert "command" in params.get("required", [])
+def test_legacy_niblit_exec_is_not_registered_with_governed_loop():
+    from modules.llm_tool_loop import LlmToolLoop
+    assert LlmToolLoop().prevalidate("niblit_exec", {"command": "status"})
+
 
 
 # ── Full structural context tests ─────────────────────────────────────────────
 
-def test_niblit_full_structural_context_covers_all_categories():
-    """_NIBLIT_FULL_STRUCTURAL_CONTEXT must mention all major command categories."""
-    ctx = _NIBLIT_FULL_STRUCTURAL_CONTEXT
-    for keyword in [
-        "ENTRY POINTS", "CORE ORCHESTRATION", "MEMORY LAYERS",
-        "BRAIN", "ALE", "SELF-IMPROVEMENT", "KNOWLEDGE",
-        "SECURITY", "PLATFORM", "TRADING", "ROUTER COMMANDS",
-    ]:
-        assert keyword.lower() in ctx.lower(), \
-            f"Full structural context missing section: {keyword!r}"
+def test_structural_context_describes_current_gateway_architecture():
+    for term in ("CloudRuntime", "LocalBrain", "NiblitBrain", "MEMORY", "TRADING"):
+        assert term.lower() in _NIBLIT_FULL_STRUCTURAL_CONTEXT.lower()
 
 
-def test_tool_call_system_prompt_includes_full_context():
-    """_TOOL_CALL_SYSTEM_PROMPT must include the full structural context."""
+
+def test_legacy_tool_prompt_includes_architecture_without_owning_tools():
     assert _NIBLIT_FULL_STRUCTURAL_CONTEXT in _TOOL_CALL_SYSTEM_PROMPT
-    # Must mention tool-calling rules
-    assert "delete_kb_fact" in _TOOL_CALL_SYSTEM_PROMPT
-    assert "niblit_exec" in _TOOL_CALL_SYSTEM_PROMPT
+    assert NIBLIT_ALL_TOOLS == []
+
 
 
 # ── NiblitToolExecutor tests ──────────────────────────────────────────────────
@@ -496,12 +372,11 @@ def test_niblit_tool_executor_execute_tool_calls_returns_list():
 
 # ── NIBLIT_SLIM_TOOLS / slim 2-tool suite tests ───────────────────────────────
 
-def test_niblit_slim_tools_has_exactly_two_tools():
-    """NIBLIT_SLIM_TOOLS must contain exactly 2 tool schemas."""
-    assert len(NIBLIT_SLIM_TOOLS) == 2
-    names = [t["function"]["name"] for t in NIBLIT_SLIM_TOOLS]
-    assert "niblit_structural_info" in names
-    assert "niblit_run_command" in names
+def test_local_brain_does_not_export_legacy_slim_tool_schemas():
+    from modules.llm_tool_loop import LlmToolLoop
+    assert NIBLIT_SLIM_TOOLS == []
+    assert LlmToolLoop().prevalidate("niblit_run_command", {"command": "status", "reason": "test"})
+
 
 
 def test_niblit_slim_tools_required_fields():
@@ -515,23 +390,17 @@ def test_niblit_slim_tools_required_fields():
         assert isinstance(fn["description"], str) and fn["description"]
 
 
-def test_niblit_run_command_requires_command_and_reason():
-    """niblit_run_command must require both 'command' and 'reason' parameters."""
-    tool = next(t for t in NIBLIT_SLIM_TOOLS if t["function"]["name"] == "niblit_run_command")
-    params = tool["function"]["parameters"]
-    assert "command" in params["properties"]
-    assert "reason" in params["properties"]
-    required = params.get("required", [])
-    assert "command" in required
-    assert "reason" in required
+def test_legacy_command_schema_is_not_a_governed_capability():
+    from modules.llm_tool_loop import LlmToolLoop
+    assert LlmToolLoop().prevalidate("niblit_run_command", {"command": "status", "reason": "test"})
 
 
-def test_niblit_structural_info_section_enum():
-    """niblit_structural_info section param must mention expected sections."""
-    tool = next(t for t in NIBLIT_SLIM_TOOLS if t["function"]["name"] == "niblit_structural_info")
-    section_desc = tool["function"]["parameters"]["properties"]["section"]["description"]
-    for expected in ("all", "commands", "memory", "brain", "ale", "kernel"):
-        assert expected in section_desc, f"Section {expected!r} missing from niblit_structural_info description"
+
+def test_legacy_structural_tool_schema_is_not_exported():
+    from modules.llm_tool_loop import LlmToolLoop
+    assert NIBLIT_SLIM_TOOLS == []
+    assert LlmToolLoop().prevalidate("niblit_structural_info", {"section": "all"})
+
 
 
 def test_slim_system_prompt_token_budget():
@@ -542,15 +411,16 @@ def test_slim_system_prompt_token_budget():
     )
 
 
-def test_slim_system_prompt_mentions_both_tools():
-    """_SLIM_SYSTEM_PROMPT must reference both slim tool names."""
-    assert "niblit_structural_info" in _SLIM_SYSTEM_PROMPT
-    assert "niblit_run_command" in _SLIM_SYSTEM_PROMPT
+def test_legacy_slim_prompt_does_not_advertise_removed_command_tools():
+    assert "niblit_structural_info" not in _SLIM_SYSTEM_PROMPT
+    assert "niblit_run_command" not in _SLIM_SYSTEM_PROMPT
 
 
-def test_slim_system_prompt_mentions_max_tool_calls():
-    """_SLIM_SYSTEM_PROMPT must mention the 5-call turn limit."""
-    assert "5" in _SLIM_SYSTEM_PROMPT
+
+def test_governed_tool_loop_owns_call_limit_not_localbrain_prompt():
+    from modules.llm_tool_loop import LlmToolLoop
+    assert LlmToolLoop().max_loop_calls == 15
+
 
 
 # ── NiblitToolExecutor slim execution tests ───────────────────────────────────
@@ -685,77 +555,33 @@ def test_get_structural_info_commands_section(monkeypatch):
 
 # ── route_inference() tests ───────────────────────────────────────────────────
 
-def test_route_inference_returns_dict_with_required_keys():
-    """route_inference must return dict with text, tool_calls, backend, error."""
-    brain = QwenLocalBrain(gguf_backend="subprocess")
-    brain._backend_in_use = "subprocess"
-    brain._subprocess_bin = object()  # simulate loaded
-
-    def _fake_generate_subprocess(prompt, max_new_tokens, system_prompt):  # noqa: ARG001
-        return "generated text"
-
-    brain._generate_subprocess = _fake_generate_subprocess  # type: ignore[method-assign]
-    # Prevent port-8000 probe from succeeding in test environment
-    brain._check_server_url_cached = lambda url: False  # type: ignore[method-assign]
-
-    result = brain.route_inference("test prompt")
-    assert "text" in result
-    assert "tool_calls" in result
-    assert "backend" in result
-    assert "error" in result
-    assert result["text"] == "generated text"
-    assert result["tool_calls"] == []
+def test_legacy_shim_exposes_cloud_text_api_not_route_inference():
+    brain = QwenLocalBrain()
+    assert callable(brain.chat)
+    assert callable(brain.generate)
+    assert not hasattr(brain, "route_inference")
 
 
-def test_route_inference_prefers_http_backend_when_available(monkeypatch):
-    """route_inference must switch to HTTP if the cloud server is reachable."""
-    brain = QwenLocalBrain(gguf_backend="auto")
-    # Backend not yet established
-    assert brain._backend_in_use == ""
 
-    # Simulate: port 8000 is reachable, port 8080 is not
-    def _cached_check(url: str) -> bool:
-        return "8000" in url
-
-    brain._check_server_url_cached = _cached_check  # type: ignore[method-assign]
-
-    # Mock actual HTTP generation
-    brain._generate_http = lambda p, n, s: "http response"  # type: ignore[method-assign]
-    # Ensure is_available() considers the brain loaded once we set the URL
-    brain._server_url = "http://127.0.0.1:8000"
-    brain._backend_in_use = "http"
-
-    result = brain.route_inference("hello")
-    assert result["backend"] == "http"
-    assert result["text"] == "http response"
+def test_legacy_shim_does_not_select_an_inference_backend():
+    brain = QwenLocalBrain()
+    assert brain._model_name == "cloud-runtime"
+    assert not hasattr(brain, "_backend_in_use")
 
 
-def test_route_inference_falls_back_when_http_unavailable():
-    """route_inference must fall back to subprocess if HTTP server is down."""
-    brain = QwenLocalBrain(gguf_backend="auto")
-    brain._backend_in_use = "subprocess"
-    brain._subprocess_bin = object()
 
-    # No HTTP available
-    brain._check_server_url_cached = lambda url: False  # type: ignore[method-assign]
-    brain._generate_subprocess = lambda p, n, s: "subprocess reply"  # type: ignore[method-assign]
-
-    result = brain.route_inference("test")
-    assert result["backend"] == "subprocess"
-    assert result["text"] == "subprocess reply"
+def test_cloud_text_call_reports_unavailable_service_without_fabrication(monkeypatch):
+    import urllib.error
+    brain = QwenLocalBrain()
+    monkeypatch.setattr("urllib.request.urlopen", lambda *args, **kwargs: (_ for _ in ()).throw(urllib.error.URLError("offline")))
+    assert brain._call_cloud_runtime([{"role": "user", "content": "hi"}], 8) == "[LocalBrain error: CloudRuntime unreachable]"
 
 
-def test_route_inference_returns_error_dict_when_no_backend():
-    """route_inference must return error dict if no backend can be loaded."""
-    brain = QwenLocalBrain(gguf_backend="http")
-    brain._check_server_url_cached = lambda url: False  # type: ignore[method-assign]
-    # Force ensure_loaded to fail
-    brain._load_tried = True
-    brain._load_error = "test error"
 
-    result = brain.route_inference("hello")
-    assert result["error"] is not None
-    assert "LocalBrain unavailable" in result["text"]
+def test_gateway_owns_runtime_status_not_inference_routing():
+    from modules.local_brain import LocalBrainGateway
+    assert not hasattr(LocalBrainGateway(), "route_inference")
+
 
 
 # ── acquire_model_lock / release_model_lock tests ─────────────────────────────
@@ -787,75 +613,38 @@ def test_acquire_model_lock_timeout_when_held():
         lb_mod._MODEL_SWITCH_LOCK.release()
 
 
-def test_swap_local_brain_uses_lock(monkeypatch):
-    """swap_local_brain must release the model lock after a successful swap."""
-    import modules.local_brain as lb_mod
-    lock_calls: list = []
-    original_acquire = lb_mod.acquire_model_lock
-    original_release = lb_mod.release_model_lock
+def test_deprecated_swap_does_not_mutate_model_switch_lock(monkeypatch):
+    class Lock:
+        calls = 0
+        def acquire(self, **kwargs):
+            self.calls += 1
+        def release(self):
+            pass
+    lock = Lock()
+    monkeypatch.setattr("modules.local_brain._MODEL_SWITCH_LOCK", lock)
+    assert isinstance(swap_local_brain("qwen"), QwenLocalBrain)
+    assert lock.calls == 0
 
-    def _tracked_acquire(timeout=30.0):
-        lock_calls.append("acquire")
-        return original_acquire(timeout=timeout)
-
-    def _tracked_release():
-        lock_calls.append("release")
-        original_release()
-
-    monkeypatch.setattr(lb_mod, "acquire_model_lock", _tracked_acquire)
-    monkeypatch.setattr(lb_mod, "release_model_lock", _tracked_release)
-
-    reset_local_brain()
-    swap_local_brain("qwen")
-    reset_local_brain()
-
-    assert "acquire" in lock_calls
-    assert "release" in lock_calls
-    assert lock_calls.count("acquire") == lock_calls.count("release"), (
-        "Lock acquire/release calls are unbalanced"
-    )
 
 
 # ── TTL health cache tests ────────────────────────────────────────────────────
 
-def test_check_server_url_cached_caches_result(monkeypatch):
-    """_check_server_url_cached must call _check_server_url only once within TTL."""
-    brain = QwenLocalBrain(gguf_backend="http")
-    calls: list = []
-
-    def _probe(url: str) -> bool:
-        calls.append(url)
-        return False
-
-    monkeypatch.setattr(brain, "_check_server_url", _probe)
-    brain._check_server_url_cached("http://127.0.0.1:8080")
-    brain._check_server_url_cached("http://127.0.0.1:8080")
-    # Should only have probed once (second call hits cache)
-    assert len(calls) == 1
+def test_gateway_monitor_reports_unhealthy_runtime(monkeypatch):
+    from modules.local_brain import LocalBrainGateway
+    gateway = LocalBrainGateway()
+    monkeypatch.setattr(gateway, "_check_health", lambda _url: False)
+    result = gateway.monitor()
+    assert result["healthy"] is False
+    assert result["running"] is False
 
 
-def test_check_server_url_cached_respects_ttl(monkeypatch):
-    """_check_server_url_cached must re-probe after TTL expires."""
-    import time
-    import modules.local_brain as lb_mod
 
-    original_ttl = lb_mod._SERVER_HEALTH_TTL
-    lb_mod._SERVER_HEALTH_TTL = 0.0  # expire immediately
-    try:
-        brain = QwenLocalBrain(gguf_backend="http")
-        calls: list = []
+def test_gateway_health_check_truthfully_handles_unavailable_service(monkeypatch):
+    import urllib.error
+    from modules.local_brain import LocalBrainGateway
+    monkeypatch.setattr("urllib.request.urlopen", lambda *args, **kwargs: (_ for _ in ()).throw(urllib.error.URLError("offline")))
+    assert LocalBrainGateway()._check_health("http://127.0.0.1:8000/healthz") is False
 
-        def _probe(url: str) -> bool:
-            calls.append(url)
-            return True
-
-        monkeypatch.setattr(brain, "_check_server_url", _probe)
-        brain._check_server_url_cached("http://127.0.0.1:8080")
-        time.sleep(0.01)  # wait for TTL to expire
-        brain._check_server_url_cached("http://127.0.0.1:8080")
-        assert len(calls) == 2  # re-probed after TTL
-    finally:
-        lb_mod._SERVER_HEALTH_TTL = original_ttl
 
 
 if __name__ == "__main__":

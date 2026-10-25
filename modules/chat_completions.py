@@ -465,8 +465,7 @@ class ChatCompletions:
         if mem is None:
             return
         try:
-            mem.add("user", question)
-            mem.add("assistant", response)
+            mem.add_exchange(question, response)
         except Exception as exc:
             log.debug("[ChatCompletions] persist failed: %s", exc)
 

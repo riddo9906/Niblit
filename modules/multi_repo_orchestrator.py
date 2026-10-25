@@ -238,6 +238,20 @@ class RepositoryDiscovery:
     # ── private helpers ────────────────────────────────────────────────────────
 
     def _locate(self, repo_name: str) -> Path | None:
+        # A frozen unified build owns its co-located services. Do not let a
+        # development override redirect the packaged entry point to source trees.
+        if getattr(sys, "frozen", False):
+            if repo_name == "niblit-lean-algos":
+                bundled = self._root / "lean-algos"
+                if (bundled / "niblit-lean-algos.exe").is_file() or (bundled / "niblit-lean-algos").is_file():
+                    return bundled.resolve()
+            elif repo_name == "niblit-cloud-server":
+                bundled = self._root / "cloud"
+                if (bundled / "niblit-cloud.exe").is_file() or (bundled / "niblit-cloud").is_file():
+                    return bundled.resolve()
+            elif repo_name == "niblit-ui" and (self._root / "niblit-ui.exe").is_file():
+                return self._root.resolve()
+
         # 1. Explicit env override.
         env_var = REPO_PATH_ENV.get(repo_name, "")
         if env_var:
@@ -289,7 +303,12 @@ class RepositoryDiscovery:
         """Return True if the repository looks structurally compatible."""
         if repo_name == "niblit-lean-algos":
             # Must have lean.json or algorithms directory.
-            return (root / "lean.json").exists() or (root / "algorithms").is_dir()
+            return (
+                (root / "lean.json").exists()
+                or (root / "algorithms").is_dir()
+                or (root / "niblit-lean-algos.exe").is_file()
+                or (root / "niblit-lean-algos").is_file()
+            )
         if repo_name == "niblit-cloud-server":
             # Source-tree markers (development): package.json, requirements.txt,
             # or a recognised server entry point.
@@ -313,11 +332,12 @@ class RepositoryDiscovery:
     def _detect_services(self, root: Path, repo_name: str) -> list[str]:
         services: list[str] = []
         if repo_name == "niblit-lean-algos":
-            if (root / "algorithms").is_dir():
+            payload_root = root / "_internal" if (root / "_internal").is_dir() else root
+            if (payload_root / "algorithms").is_dir():
                 services.append("algorithm_execution")
-            if (root / "niblit_bridge").is_dir():
+            if (payload_root / "niblit_bridge").is_dir():
                 services.append("niblit_bridge")
-            if (root / "scripts").is_dir():
+            if (payload_root / "scripts").is_dir():
                 services.append("lean_scripts")
         elif repo_name == "niblit-cloud-server":
             services.append("remote_api")
@@ -346,12 +366,23 @@ class RepositoryDiscovery:
 
     def _build_bootstrap_contract(self, repo_name: str, root: Path | None) -> dict[str, Any]:
         startup_commands: list[str] = []
+        startup_argv: list[str] = []
         health_check: dict[str, Any] = {"kind": "probe", "checks": []}
         required_env: list[str] = []
         diagnostics_source = "core.runtime_manager"
 
         if repo_name == "niblit-cloud-server":
-            startup_commands = ["python app.py", "python server.py", "npm run start"]
+            packaged_exe = next(
+                (root / name for name in ("niblit-cloud.exe", "niblit-cloud") if root is not None and (root / name).is_file()),
+                None,
+            )
+            if packaged_exe is not None:
+                startup_argv = [str(packaged_exe)]
+            elif root is not None and (root / "main.py").is_file():
+                venv_python = root / ("venv/Scripts/python.exe" if os.name == "nt" else "venv/bin/python")
+                startup_argv = [str(venv_python if venv_python.is_file() else sys.executable), str(root / "main.py")]
+            else:
+                startup_commands = ["python app.py", "python server.py", "npm run start"]
             health_check["checks"] = ["http_endpoint", "process_alive"]
             required_env = ["NIBLIT_CLOUD_SERVER_ROOT"]
         elif repo_name == "niblit-ui":
@@ -367,7 +398,15 @@ class RepositoryDiscovery:
             health_check["checks"] = ["http_endpoint", "process_alive"]
             required_env = ["NIBLIT_UI_ROOT"]
         elif repo_name == "niblit-lean-algos":
-            startup_commands = ["python -m niblit_bridge", "python scripts/run.py"]
+            packaged_exe = next(
+                (root / name for name in ("niblit-lean-algos.exe", "niblit-lean-algos") if root is not None and (root / name).is_file()),
+                None,
+            )
+            if packaged_exe is not None:
+                startup_argv = [str(packaged_exe)]
+            else:
+                venv_python = root / ("venv/Scripts/python.exe" if os.name == "nt" else "venv/bin/python") if root is not None else None
+                startup_argv = [str(venv_python if venv_python is not None and venv_python.is_file() else sys.executable), "-m", "niblit_bridge"]
             health_check["checks"] = ["bridge_ready", "process_alive"]
             required_env = ["NIBLIT_LEAN_ALGOS_ROOT"]
 
@@ -376,6 +415,7 @@ class RepositoryDiscovery:
             checks = [*checks, "repository_present"]
         return {
             "startup_commands": startup_commands,
+            "startup_argv": startup_argv,
             "health_check": {"kind": health_check.get("kind", "probe"), "checks": checks},
             "shutdown_contract": {"method": "graceful_signal", "grace_period_seconds": 15},
             "required_env": required_env,
@@ -599,16 +639,17 @@ class RepositorySupervisor:
         state = self.register(manifest)
         if state.state in {"unavailable", "degraded"}:
             return state
+        startup_argv = list(manifest.bootstrap_contract.get("startup_argv", []) or [])
         commands = list(manifest.bootstrap_contract.get("startup_commands", []) or [])
-        if not commands:
+        if not startup_argv and not commands:
             state.state = "degraded"
             state.message = "no startup commands declared"
             self._publish("repo.supervision.degraded", manifest, state=state.state, message=state.message)
             return state
-        command = commands[0]
+        command = commands[0] if commands else " ".join(startup_argv)
         try:
             process = subprocess.Popen(  # noqa: S603
-                shlex.split(command),
+                startup_argv if startup_argv else shlex.split(command),
                 cwd=str(manifest.root),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,

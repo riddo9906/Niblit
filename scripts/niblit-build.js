@@ -27,6 +27,9 @@
  *   NIBLIT_UI_ROOT          — alias for NIBLIT_UI_PATH
  *   NIBLIT_CLOUD_SERVER_PATH — absolute path to the niblit-cloud-server repository
  *   NIBLIT_LEAN_ALGOS_ROOT  — absolute path to the niblit-lean-algos repository
+ *   NIBLIT_CLOUD_PYTHON / NIBLIT_LEAN_PYTHON — service build interpreters
+ *   NIBLIT_BUILD_STAGING_DIR / NIBLIT_BUILD_DIST_DIR / NIBLIT_BUILD_WORK_DIR
+ *   NIBLIT_SKIP_UI_BUILD    — set to 1 to reuse the existing Tauri executable
  *   PYTHON                  — path to the Python executable (default: python / python3)
  *   NIBLIT_SKIP_PYINSTALLER — set to 1 to skip PyInstaller bundling steps
  */
@@ -39,7 +42,10 @@ const fs = require("fs");
 
 const tauriMode = process.argv.includes("--tauri");
 const repoRoot = path.resolve(__dirname, "..");
-const stagedDir = path.join(repoRoot, "dist", "_staged");
+const stagedDir = path.resolve(process.env.NIBLIT_BUILD_STAGING_DIR || path.join(repoRoot, "dist", "_staged"));
+const distDir = path.resolve(process.env.NIBLIT_BUILD_DIST_DIR || path.join(repoRoot, "dist"));
+const buildWorkDir = path.resolve(process.env.NIBLIT_BUILD_WORK_DIR || path.join(repoRoot, "build"));
+const skipUiBuild = process.env.NIBLIT_SKIP_UI_BUILD === "1";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -64,6 +70,34 @@ function resolvePython() {
 
 function resolveNpm() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
+}
+
+function quoteArg(value) {
+  const text = String(value);
+  return `"${text.replace(/"/g, '\\"')}"`;
+}
+
+function repositoryPython(repoRoot, overrideName) {
+  if (overrideName && process.env[overrideName]) return process.env[overrideName];
+  const pythonRelativePath = process.platform === "win32" ? "Scripts/python.exe" : "bin/python";
+  for (const envName of ["venv", ".venv"]) {
+    const existingPython = path.join(repoRoot, envName, pythonRelativePath);
+    if (fs.existsSync(existingPython)) return existingPython;
+  }
+  const venvRoot = path.join(repoRoot, ".venv");
+  const venvPython = path.join(venvRoot, pythonRelativePath);
+  console.log(`[niblit-build] Creating isolated build environment: ${venvRoot}`);
+  run([pythonBin, "-m", "venv", venvRoot].map(quoteArg).join(" "), { cwd: repoRoot });
+  if (!fs.existsSync(venvPython)) {
+    console.error(`[niblit-build] Failed to create service virtual environment: ${venvRoot}`);
+    process.exit(1);
+  }
+  return venvPython;
+}
+
+function hasPythonModule(python, module, env = process.env) {
+  const result = spawnSync(python, ["-c", `import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('${module}') else 1)`], { env });
+  return result.status === 0;
 }
 
 function applyLeanEnv(env, leanRoot) {
@@ -131,13 +165,13 @@ function findLeanAlgosRoot() {
   if (envRoot && fs.existsSync(path.join(envRoot, "niblit_bridge"))) {
     return path.resolve(envRoot);
   }
-  const internal = path.join(repoRoot, "niblit-lean-algos");
-  if (fs.existsSync(path.join(internal, "niblit_bridge"))) {
-    return internal;
-  }
   const sibling = path.resolve(repoRoot, "..", "niblit-lean-algos");
   if (fs.existsSync(path.join(sibling, "niblit_bridge"))) {
     return sibling;
+  }
+  const internal = path.join(repoRoot, "niblit-lean-algos");
+  if (fs.existsSync(path.join(internal, "niblit_bridge"))) {
+    return internal;
   }
   return null;
 }
@@ -216,8 +250,11 @@ if (tauriMode) {
 // ── Step 1: Install the Python package ───────────────────────────────────────
 
 console.log("\n[niblit-build] Step 1 — Installing Python package (pip install -e .)…");
-try {
-  run(`${pythonBin} -m pip install -e .`, { cwd: repoRoot });
+if (tauriMode && hasPythonModule(pythonBin, "PyInstaller")) {
+  console.log("[niblit-build] ✅ PyInstaller is already available; skipping editable install to avoid unnecessary dependency changes.");
+} else try {
+  const editableTarget = tauriMode && !skipPyInstaller ? '".[build]"' : '"."';
+  run(`${pythonBin} -m pip install -e ${editableTarget}`, { cwd: repoRoot });
   console.log("[niblit-build] ✅ Python package installed.");
 } catch (err) {
   // Non-fatal: package may already be installed or pip unavailable in CI.
@@ -252,20 +289,20 @@ if (leanRoot) {
 
 console.log(`\n[niblit-build] Step 3 — Building niblit-ui (${label})…`);
 
-const nodeModules = path.join(uiRoot, "node_modules");
-if (!fs.existsSync(nodeModules)) {
-  console.log("[niblit-build]    node_modules not found — running npm install first…");
-  run(`${npmBin} install`, { cwd: uiRoot });
+if (skipUiBuild) {
+  console.log("[niblit-build] ⏭ NIBLIT_SKIP_UI_BUILD=1 — using the existing Tauri executable.");
+} else {
+  const nodeModules = path.join(uiRoot, "node_modules");
+  if (!fs.existsSync(nodeModules)) {
+    console.log("[niblit-build]    node_modules not found — running npm install first…");
+    run(`${npmBin} install`, { cwd: uiRoot });
+  }
+
+  const buildEnv = applyLeanEnv({ ...process.env, NIBLIT_CLOUD_AUTOSTART: "1" }, leanRoot);
+  const buildCmd = tauriMode ? `${npmBin} run tauri:build` : `${npmBin} run build`;
+  run(buildCmd, { cwd: uiRoot, env: buildEnv });
+  console.log(`[niblit-build] ✅ niblit-ui ${label} complete.`);
 }
-
-const buildEnv = applyLeanEnv({
-  ...process.env,
-  NIBLIT_CLOUD_AUTOSTART: "1",
-}, leanRoot);
-
-const buildCmd = tauriMode ? `${npmBin} run tauri:build` : `${npmBin} run build`;
-run(buildCmd, { cwd: uiRoot, env: buildEnv });
-console.log(`[niblit-build] ✅ niblit-ui ${label} complete.`);
 
 // ── Steps 4–6: Full packaging (tauri mode only) ───────────────────────────────
 
@@ -285,7 +322,17 @@ if (skipPyInstaller) {
 console.log("\n[niblit-build] Step 4 — Bundling niblit-cloud-server via PyInstaller…");
 
 const cloudRoot = findCloudServerRoot(); // already validated above
-const stagedCloudDir = path.join(stagedDir, "niblit-cloud");
+const stagedCloudDir = path.join(stagedDir, "cloud");
+const cloudVenvPython = repositoryPython(cloudRoot, "NIBLIT_CLOUD_PYTHON");
+const cloudRequirements = path.join(cloudRoot, "requirements.txt");
+if (fs.existsSync(cloudRequirements)) {
+  run([cloudVenvPython, "-m", "pip", "install", "-r", cloudRequirements].map(quoteArg).join(" "), { cwd: cloudRoot });
+}
+if (!hasPythonModule(cloudVenvPython, "PyInstaller")) {
+  run([cloudVenvPython, "-m", "pip", "install", "pyinstaller>=6.0"].map(quoteArg).join(" "), { cwd: cloudRoot });
+}
+const cloudPython = cloudVenvPython;
+const cloudBuildEnv = { ...process.env };
 
 // Ensure staging directory exists.
 fs.mkdirSync(stagedDir, { recursive: true });
@@ -293,30 +340,23 @@ fs.mkdirSync(stagedDir, { recursive: true });
 // Build: pyinstaller --onedir --name niblit-cloud --distpath <staged>
 //        app/main.py
 // We pass --noconfirm to overwrite any previous output silently.
+const cloudSpec = path.join(cloudRoot, "niblit-cloud-server.spec");
+if (!fs.existsSync(cloudSpec)) {
+  console.error("[niblit-build] Cloud-server spec not found: " + cloudSpec);
+  process.exit(1);
+}
 const cloudPyinstallerCmd = [
-  pythonBin,
-  "-m", "PyInstaller",
-  "--onedir",
-  "--noconfirm",
-  "--name", "niblit-cloud",
+  cloudPython, "-m", "PyInstaller", "--noconfirm",
   "--distpath", stagedDir,
-  "--workpath", path.join(repoRoot, "build", "_pyinstaller_cloud"),
-  "--specpath", path.join(repoRoot, "build", "_pyinstaller_cloud"),
-  // Hidden imports for FastAPI / uvicorn (cloud server uses the same stack).
-  "--hidden-import", "uvicorn",
-  "--hidden-import", "uvicorn.main",
-  "--hidden-import", "uvicorn.config",
-  "--hidden-import", "uvicorn.lifespan.off",
-  "--hidden-import", "uvicorn.lifespan.on",
-  "--hidden-import", "uvicorn.protocols.http.auto",
-  "--hidden-import", "uvicorn.protocols.http.h11_impl",
-  "--hidden-import", "fastapi",
-  "--hidden-import", "starlette",
-  // Entry point
-  path.join(cloudRoot, "app", "main.py"),
-].join(" ");
-
-run(cloudPyinstallerCmd, { cwd: cloudRoot });
+  "--workpath", path.join(buildWorkDir, "_pyinstaller_cloud"),
+  cloudSpec,
+].map(quoteArg).join(" ");
+const nativeLlamaRoot = process.env.NIBLIT_LLAMA_CPP_ROOT || path.join(require("os").homedir(), "llama_migration", "llama.cpp");
+if (!cloudBuildEnv.NIBLIT_LLAMA_CPP_ROOT && fs.existsSync(nativeLlamaRoot)) {
+  cloudBuildEnv.NIBLIT_LLAMA_CPP_ROOT = nativeLlamaRoot;
+}
+console.log(`[niblit-build] Native llama.cpp build root: ${cloudBuildEnv.NIBLIT_LLAMA_CPP_ROOT || "not found; optional sidecar omitted"}`);
+run(cloudPyinstallerCmd, { cwd: cloudRoot, env: cloudBuildEnv });
 
 const cloudExe = path.join(stagedCloudDir, process.platform === "win32" ? "niblit-cloud.exe" : "niblit-cloud");
 if (!fs.existsSync(cloudExe)) {
@@ -335,26 +375,33 @@ console.log("\n[niblit-build] Step 5 — Staging niblit-lean-algos…");
 const leanRootFinal = findLeanAlgosRoot(); // already validated in Step 0
 const stagedLeanDir = path.join(stagedDir, "lean-algos");
 fs.mkdirSync(stagedLeanDir, { recursive: true });
+const leanPython = repositoryPython(leanRootFinal, "NIBLIT_LEAN_PYTHON");
 
-// Install lean-algos Python dependencies so PyInstaller can sweep all imports.
+// Install the Lean runtime dependencies and build its repository-owned spec.
 const leanReqsFile = path.join(leanRootFinal, "requirements.txt");
 if (fs.existsSync(leanReqsFile)) {
-  run(`${pythonBin} -m pip install -r "${leanReqsFile}"`);
-} else {
-  console.log("[niblit-build]    No requirements.txt in niblit-lean-algos — skipping pip install.");
+  run([leanPython, "-m", "pip", "install", "-r", leanReqsFile].map(quoteArg).join(" "), { cwd: leanRootFinal });
 }
+if (!hasPythonModule(leanPython, "PyInstaller")) {
+  run([leanPython, "-m", "pip", "install", "pyinstaller>=6.0"].map(quoteArg).join(" "), { cwd: leanRootFinal });
+}
+const leanSpec = path.join(leanRootFinal, "niblit-lean-algos.spec");
+if (!fs.existsSync(leanSpec)) {
+  console.error("[niblit-build] Lean-algos spec not found: " + leanSpec);
+  process.exit(1);
+}
+const leanPyinstallerCmd = [
+  leanPython, "-m", "PyInstaller", "--noconfirm",
+  "--distpath", stagedDir,
+  "--workpath", path.join(buildWorkDir, "_pyinstaller_lean"),
+  leanSpec,
+].map(quoteArg).join(" ");
+run(leanPyinstallerCmd, { cwd: leanRootFinal });
 
-// Copy niblit_bridge/ and algorithms/ into the staging directory.
-for (const sub of ["niblit_bridge", "algorithms"]) {
-  const src = path.join(leanRootFinal, sub);
-  if (fs.existsSync(src)) {
-    fs.cpSync(src, path.join(stagedLeanDir, sub), { recursive: true });
-  }
-}
-// Copy lean.json if present.
-const leanJsonSrc = path.join(leanRootFinal, "lean.json");
-if (fs.existsSync(leanJsonSrc)) {
-  fs.copyFileSync(leanJsonSrc, path.join(stagedLeanDir, "lean.json"));
+const leanExe = path.join(stagedLeanDir, process.platform === "win32" ? "niblit-lean-algos.exe" : "niblit-lean-algos");
+if (!fs.existsSync(leanExe)) {
+  console.error("[niblit-build] Expected Lean runtime executable not found: " + leanExe);
+  process.exit(1);
 }
 console.log(`[niblit-build] ✅ niblit-lean-algos staged: ${stagedLeanDir}`);
 
@@ -387,20 +434,32 @@ const corePyinstallerCmd = [
   pythonBin,
   "-m", "PyInstaller",
   "--noconfirm",
-  "--distpath", path.join(repoRoot, "dist"),
-  "--workpath", path.join(repoRoot, "build", "_pyinstaller_core"),
+  "--distpath", distDir,
+  "--workpath", path.join(buildWorkDir, "_pyinstaller_core"),
   specFile,
-].join(" ");
+].map(quoteArg).join(" ");
 
 run(corePyinstallerCmd, { cwd: repoRoot });
 
 const finalExe = path.join(
-  repoRoot, "dist", "niblit",
+  distDir, "niblit",
   process.platform === "win32" ? "niblit.exe" : "niblit"
 );
 if (!fs.existsSync(finalExe)) {
   console.error(`[niblit-build] ❌ Expected final executable not found at: ${finalExe}`);
   process.exit(1);
+}
+
+for (const relative of [
+  "niblit-ui.exe",
+  path.join("cloud", process.platform === "win32" ? "niblit-cloud.exe" : "niblit-cloud"),
+  path.join("lean-algos", process.platform === "win32" ? "niblit-lean-algos.exe" : "niblit-lean-algos"),
+]) {
+  const required = path.join(path.dirname(finalExe), relative);
+  if (!fs.existsSync(required)) {
+    console.error(`[niblit-build] Required packaged component missing: ${required}`);
+    process.exit(1);
+  }
 }
 
 console.log("\n[niblit-build] ════════════════════════════════════════");

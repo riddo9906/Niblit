@@ -334,8 +334,7 @@ class HFBrain:
             if response:
                 # Persist both sides to the chat memory (cross-session)
                 if self.chat_memory:
-                    self.chat_memory.add("user", prompt)
-                    self.chat_memory.add("assistant", response)
+                    self.chat_memory.add_exchange(prompt, response)
 
                 # Also persist to the general KnowledgeDB for other modules
                 self.db.add_interaction("user", prompt)

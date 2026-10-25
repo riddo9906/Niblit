@@ -183,7 +183,7 @@ class UnifiedMemoryEngine:
             return ""
         importance = max(0.0, min(1.0, float(importance)))
         uid = hashlib.sha256(
-            f"{category}:{text[:120]}".encode()
+            f"{category}:{text}".encode()
         ).hexdigest()[:16]
 
         with self._lock:
@@ -191,6 +191,13 @@ class UnifiedMemoryEngine:
             if existing is not None:
                 # Update importance upward (boost on re-encounter)
                 existing.importance = max(existing.importance, importance)
+                existing.is_anchor = (
+                    existing.is_anchor or is_anchor
+                    or existing.importance >= _ANCHOR_IMPORTANCE
+                )
+                for tag in tags or []:
+                    if tag not in existing.tags:
+                        existing.tags.append(tag)
                 existing.access_count += 1
                 return uid
 
@@ -428,8 +435,7 @@ class UnifiedMemoryEngine:
         try:
             from niblit_memory import NiblitMemory
             mem = NiblitMemory()
-            if hasattr(mem, "store_fact"):
-                mem.store_fact(f"ume:{uid}", text)
+            mem.add_fact(f"ume:{uid}", text, tags=["unified_memory"])
         except Exception:
             pass
 

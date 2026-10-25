@@ -1845,6 +1845,12 @@ class NiblitCore:
         # "failed"   — Phase-1 raised an unhandled exception
         self._deferred_init_phase: str = "pending"
         self._deferred_init_event: threading.Event = threading.Event()
+        self._essential_init_event: threading.Event = threading.Event()
+        self._essential_ready: bool = False
+        # The boolean readiness API represents completion of the essential
+        # initialization layers. Optional services have their own health state.
+        self._essential_init_failures: list[str] = []
+        self._optional_init_status: str = "pending"
 
         # Live init-progress queue — main.py drains this while blocking on
         # wait_for_ready() so the user sees real-time sub-phase progress
@@ -2402,6 +2408,7 @@ class NiblitCore:
 
         except Exception as exc:
             self._deferred_init_phase = "failed"
+            self._essential_init_event.set()
             self._deferred_init_event.set()
             log.error("[DEFERRED-INIT] Phase 1 failed: %s", exc, exc_info=True)
             _fail_msg = f"⚠️ Background init failed: {exc}"
@@ -2417,23 +2424,37 @@ class NiblitCore:
                 pass
 
     def wait_for_ready(self, timeout: Optional[float] = None) -> bool:
-        """Block until Phase-1 deferred init completes (or *timeout* seconds).
+        """Wait for essential deferred initialization to finish.
 
-        Returns ``True`` if Phase-1 finished successfully, ``False`` on
-        timeout or failure.  Callers that need LLM / ALE / vector-store
-        before acting (e.g. one-shot scripts, integration tests) should
-        call this first.
+        ``True`` means the required initialization layers completed and did not
+        time out or raise. It does not mean every optional service is healthy;
+        inspect :meth:`readiness_status` and the startup report for those
+        components. ``False`` means the wait timed out or essential
+        initialization failed.
 
         Args:
             timeout: Maximum seconds to wait.  ``None`` waits indefinitely.
 
         Returns:
-            ``True`` if Phase-1 init completed successfully, ``False`` otherwise.
+            ``True`` if essential initialization completed successfully.
         """
-        if self._deferred_init_phase in ("complete", "failed"):
-            return self._deferred_init_phase == "complete"
-        self._deferred_init_event.wait(timeout=timeout)
-        return self._deferred_init_phase == "complete"
+        self._essential_init_event.wait(timeout=timeout)
+        return self._essential_ready and not self._essential_init_failures
+
+    def readiness_status(self) -> Dict[str, Any]:
+        """Expose essential readiness separately from optional service health."""
+        summary = None
+        try:
+            summary = self.startup_report.summary()
+        except Exception:
+            pass
+        return {
+            "initialization": self._deferred_init_phase,
+            "essential_ready": self._essential_ready and not self._essential_init_failures,
+            "essential_failures": list(self._essential_init_failures),
+            "optional_services": self._optional_init_status,
+            "component_health": summary,
+        }
 
     def _push_init_progress(self, msg: str) -> None:
         """Push a sub-phase progress message to the live init-progress queue.
@@ -2563,10 +2584,18 @@ class NiblitCore:
         }
 
     def _emit_capability_event(self, event_type: str, payload: dict) -> None:
-        """Mirror capability lifecycle events into canonical runtime event streams."""
+        """Publish capability lifecycle events through the canonical module bus."""
         data = dict(payload or {})
         data.setdefault("runtime_mode", os.environ.get("NIBLIT_RUNTIME_MODE", "api").strip().lower() or "api")
         data.setdefault("source_module", "niblit_core")
+        try:
+            # Initialize UnifiedRuntime first so its module-bus bridge is ready
+            # for this event, including the first event during lazy startup.
+            from modules.unified_runtime import get_unified_runtime
+
+            get_unified_runtime()
+        except Exception:
+            pass
         try:
             from modules.event_bus import NiblitEvent, get_event_bus
 
@@ -2576,16 +2605,6 @@ class NiblitCore:
                     source="CanonicalRuntimeCapabilityRegistry",
                     payload=data,
                 )
-            )
-        except Exception:
-            pass
-        try:
-            from modules.unified_runtime import get_unified_runtime
-
-            get_unified_runtime().ingest_external_event(
-                event_type=event_type,
-                source="CanonicalRuntimeCapabilityRegistry",
-                payload=data,
             )
         except Exception:
             pass
@@ -2626,10 +2645,7 @@ class NiblitCore:
         """Show the canonical runtime capability registry snapshot."""
         if not self.command_registry:
             return "[capability registry unavailable]"
-        return self.command_registry.detailed_report(
-            context={**self._command_registry_snapshot(), "surface": "runtime"},
-            surface="runtime",
-        )
+        return self.command_registry.detailed_report(surface="runtime")
 
     def _register_commands(self):
         """Register commands with CommandRegistry."""
@@ -4296,10 +4312,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
     def _cmd_sa_commands(self, _text: str = "") -> str:
         """Show all registered commands."""
         if self.command_registry:
-            return self.command_registry.detailed_report(
-                context={**self._command_registry_snapshot(), "surface": "discoverability"},
-                surface="discoverability",
-            )
+            return self.command_registry.detailed_report(surface="discoverability")
         if self.structural_awareness:
             return self.structural_awareness.command_report(router=self.router)
         if self.router and hasattr(self.router, "help_text"):
@@ -7144,30 +7157,50 @@ SW Categories: {stats.get('software_study_categories', 0)}
             self._push_init_progress(
                 "🧱 [Layer 1/5] Memory & Storage — VectorStore, FusedMemory, SemanticAgent…"
             )
-            self._init_with_timeout(self._init_vector_store, "1-Memory")
+            essential_failures = self._essential_init_failures
+
+            def _run_essential(fn, name: str) -> None:
+                if not self._init_with_timeout(fn, name):
+                    essential_failures.append(name)
+
+            _run_essential(self._init_vector_store, "1-Memory")
             self._push_init_progress("✅ [Layer 1/5] Memory & Storage ready")
 
             # ── Layer 2 / 5 : AI Adapters ─────────────────────────────────────
             self._push_init_progress(
                 "🤖 [Layer 2/5] AI Adapters — LLM, HFBrain, SelfTeacher, SelfImplementer…"
             )
-            self._init_with_timeout(self._init_ai_adapters, "2-AI-Adapters")
+            _run_essential(self._init_ai_adapters, "2-AI-Adapters")
             self._push_init_progress("✅ [Layer 2/5] AI Adapters ready")
 
             # ── Layer 3 / 5 : Cognitive Core ──────────────────────────────────
             self._push_init_progress(
                 "🧠 [Layer 3/5] Cognitive Core — NiblitBrain, NiblitRouter, ALE learning…"
             )
-            self._init_with_timeout(self._init_brain_and_router, "3a-Brain-Router")
-            self._init_with_timeout(self._init_learning_systems, "3b-Learning")
+            _run_essential(self._init_brain_and_router, "3a-Brain-Router")
+            _run_essential(self._init_learning_systems, "3b-Learning")
             self._push_init_progress("✅ [Layer 3/5] Cognitive Core ready")
 
             # ── Layer 4 / 5 : System Services ─────────────────────────────────
             self._push_init_progress(
                 "⚙️  [Layer 4/5] System Services — Network, Sensors, Voice, Actions…"
             )
-            self._init_with_timeout(self._init_system_services, "4-System-Services")
+            _run_essential(self._init_system_services, "4-System-Services")
             self._push_init_progress("✅ [Layer 4/5] System Services ready")
+
+            if essential_failures:
+                self._essential_ready = False
+                self._essential_init_event.set()
+                raise RuntimeError(
+                    "Essential initialization failed: "
+                    + ", ".join(essential_failures)
+                )
+
+            # Layers 1–4 provide the essential Core surface. Layer 5 is
+            # explicitly optional and may continue initializing after callers
+            # are allowed to use essential Core operations.
+            self._essential_ready = True
+            self._essential_init_event.set()
 
             # ── Layer 5 / 5 : Optional & Extended Services ────────────────────
             self._push_init_progress(
@@ -7187,11 +7220,30 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     _layer5_timeout = self._INIT_LAYER5_TIMEOUT_DEFAULT
             # Note: _init_with_timeout still applies NIBLIT_LAYER_INIT_TIMEOUT as
             # a global override for all layers, including this one.
-            self._init_with_timeout(
-                self._init_optional_services,
+            self._optional_init_status = "initializing"
+
+            def _init_optional_with_status() -> None:
+                try:
+                    self._init_optional_services()
+                    curriculum = getattr(self, "graded_curriculum", None)
+                    if curriculum is not None and hasattr(curriculum, "start_teaching"):
+                        curriculum.start_teaching()
+                except Exception:
+                    self._optional_init_status = "failed"
+                    raise
+                else:
+                    # This reports completion of the optional layer, not that
+                    # every optional component is healthy. Component-level
+                    # states remain available in StartupReport.
+                    self._optional_init_status = "initialized"
+
+            optional_completed = self._init_with_timeout(
+                _init_optional_with_status,
                 "5-Optional",
                 timeout=_layer5_timeout,
             )
+            if not optional_completed and self._optional_init_status == "initializing":
+                self._optional_init_status = "degraded"
             self._push_init_progress("✅ [Layer 5/5] Extended Services ready")
 
             # ── Unification check ─────────────────────────────────────────────
@@ -8303,6 +8355,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self.graded_curriculum = get_graded_curriculum(
                     db=getattr(self, "db", None),
                     self_teacher=getattr(self, "self_teacher", None),
+                    defer_teaching=True,
                 )
                 if self.graded_curriculum:
                     log.info(
@@ -9386,8 +9439,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # ── Brain Router (intelligent multi-brain routing) ────────────────────
         # REQUIRED: routes prompts between local/cloud/memory brains.
         try:
-            from modules.brain_router import get_brain_router, reset_brain_router
-            reset_brain_router()
+            from modules.brain_router import get_brain_router
             _lb = getattr(self, "local_brain", None)
             # Cloud callable — prefer brain.brain_router cloud_brain if brain exists,
             # otherwise wire directly to hf_brain / llm_provider_manager
@@ -12102,6 +12154,17 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 self._topic_refresh_stop_event.set()
             except Exception as e:
                 log.debug(f"[SHUTDOWN] topic refresh stop failed: {e}")
+
+        # Ask curriculum teaching to stop between topics before stopping the
+        # shared background-job manager. An in-flight provider call remains
+        # bounded by that provider's own timeout; readiness never waits for it.
+        curriculum = getattr(self, "graded_curriculum", None)
+        if curriculum is not None and hasattr(curriculum, "shutdown"):
+            try:
+                curriculum.shutdown()
+                log.info("[SHUTDOWN] curriculum teaching cancellation requested")
+            except Exception as e:
+                log.warning("[SHUTDOWN] curriculum cancellation failed: %s", e)
 
         # Stop managed background jobs
         if self.bg_jobs is not None:

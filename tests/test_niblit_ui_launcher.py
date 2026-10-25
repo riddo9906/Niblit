@@ -12,6 +12,8 @@ Covers:
 from __future__ import annotations
 
 import os
+import threading
+import time
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -32,6 +34,57 @@ from modules.niblit_ui_launcher import (
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("present", [True, False])
+def test_frozen_cloud_autostart_uses_service_executable(tmp_path, present):
+    import sys
+    from modules.niblit_ui_launcher import _maybe_start_cloud_server
+
+    cloud = tmp_path / "cloud"
+    cloud.mkdir()
+    service_exe = cloud / ("niblit-cloud.exe" if os.name == "nt" else "niblit-cloud")
+    if present:
+        service_exe.touch()
+    with patch.object(sys, "frozen", True, create=True), \
+         patch.object(sys, "executable", str(tmp_path / "niblit.exe")), \
+         patch("modules.niblit_ui_launcher.subprocess.Popen") as spawn:
+        result = _maybe_start_cloud_server("http://127.0.0.1:8000", lambda _: None)
+    if present:
+        assert spawn.call_args.args[0] == [str(service_exe)]
+        assert result is spawn.return_value
+    else:
+        spawn.assert_not_called()
+        assert result is None
+
+
+@pytest.mark.parametrize("present", [True, False])
+def test_frozen_launcher_requires_and_starts_bundled_ui(tmp_path, present):
+    """A release uses its co-located UI and never falls back to npm/source."""
+    import sys
+
+    reset_runtime_state()
+    exe = tmp_path / "niblit.exe"
+    if present:
+        (tmp_path / "niblit-ui.exe").touch()
+    process = Mock()
+    process.pid = 123
+    with patch.object(sys, "frozen", True, create=True), \
+         patch.object(sys, "executable", str(exe)), \
+         patch("modules.niblit_ui_launcher._wait_for_http_ready", return_value=True), \
+         patch("modules.niblit_ui_launcher._wait_for_process_stabilisation", return_value=True), \
+         patch("modules.niblit_ui_launcher.subprocess.Popen", return_value=process) as spawn, \
+         patch("modules.niblit_ui_launcher._launch_tauri_dev_process") as dev:
+        result = launch_primary_ui(core=Mock(spec=[]))
+    assert result.success is present
+    dev.assert_not_called()
+    if present:
+        assert result._ui_process is process
+        assert result._launch_mode == "attached"
+        assert spawn.call_args.args[0] == [str(tmp_path / "niblit-ui.exe")]
+    else:
+        spawn.assert_not_called()
+        assert "missing" in result.message
+    reset_runtime_state()
 
 class _FakeManager:
     """Minimal stand-in for LeanAlgoManager / TradingRuntimeManager."""
@@ -202,13 +255,18 @@ class TestInspectTradingRuntime:
         assert result["state"] == "ready"
 
     def test_manager_without_any_trading_attrs(self):
-        """A bare Mock (no trading attrs) → safe defaults."""
+        """A bare Mock (no trading attrs) → truthful unknowns, no fabrication.
+
+        The inspector deliberately stopped coercing missing backends to
+        "lean"/"paper" or missing modes to "observe" so callers can
+        distinguish "not configured" from an explicit value.
+        """
         mgr = Mock(spec=[])
         result = _inspect_trading_runtime(mgr)
         assert result["found"] is True
-        assert result["backend"] == "lean"
+        assert result["backend"] == "unknown"
         assert result["state"] == "unknown"
-        assert result["mode"] == "observe"
+        assert result["mode"] == "unknown"
         assert result["execution_enabled"] is False
 
     def test_freqtrade_backend_via_env(self, monkeypatch):
@@ -550,11 +608,28 @@ class TestLaunchPrimaryUi:
             assert hasattr(result, "message")
             assert result.message  # non-empty
 
-    def test_wait_returns_zero_without_process(self):
+    def test_detached_launch_tracks_core_shutdown_event(self, monkeypatch):
+        shutdown_event = threading.Event()
+        core = Mock(spec=["_shutdown_event"])
+        core._shutdown_event = shutdown_event
+        monkeypatch.setenv("NIBLIT_UI_PATH", "C:/path/that/does/not/exist")
         with patch("modules.niblit_ui_launcher._wait_for_http_ready", return_value=True), \
              patch("modules.niblit_ui_launcher._start_api_server_thread"):
-            result = launch_primary_ui(core=None)
-            assert result.wait() == 0
+            result = launch_primary_ui(core=core)
+        assert result.success is True
+        assert result._launch_mode == "detached"
+        assert result._shutdown_event is shutdown_event
+
+    def test_wait_returns_zero_without_process(self):
+        result = UiLaunchResult(success=True, _launch_mode="detached")
+        waiter_result = []
+        waiter = threading.Thread(target=lambda: waiter_result.append(result.wait()), daemon=True)
+        waiter.start()
+        time.sleep(0.05)
+        assert waiter.is_alive()
+        result.terminate()
+        waiter.join(timeout=1)
+        assert waiter_result == [0]
 
     def test_terminate_idempotent(self):
         with patch("modules.niblit_ui_launcher._wait_for_http_ready", return_value=True), \
@@ -580,9 +655,40 @@ class TestLaunchPrimaryUi:
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestUiLaunchResultLifecycle:
+    def test_detached_wait_uses_core_shutdown_event(self):
+        shutdown_event = threading.Event()
+        result = UiLaunchResult(
+            success=True,
+            _launch_mode="detached",
+            _shutdown_event=shutdown_event,
+        )
+        waiter_result = []
+        waiter = threading.Thread(target=lambda: waiter_result.append(result.wait()), daemon=True)
+        waiter.start()
+        time.sleep(0.05)
+        assert waiter.is_alive()
+        shutdown_event.set()
+        waiter.join(timeout=1)
+        assert waiter_result == [0]
+
+    def test_detached_wait_can_be_terminated(self):
+        result = UiLaunchResult(success=True, _launch_mode="detached")
+        waiter_result = []
+        waiter = threading.Thread(target=lambda: waiter_result.append(result.wait()), daemon=True)
+        waiter.start()
+        time.sleep(0.05)
+        assert waiter.is_alive()
+        result.terminate()
+        waiter.join(timeout=1)
+        assert waiter_result == [0]
+
     def test_wait_no_process(self):
+        # Current contract (deliberate launcher guard): a "successful" launch
+        # without an attached long-lived UI process is a contract violation
+        # and must raise, never silently return 0.
         result = UiLaunchResult(success=True)
-        assert result.wait() == 0
+        with pytest.raises(RuntimeError, match="without an attached UI process"):
+            result.wait()
 
     def test_terminate_idempotent(self):
         result = UiLaunchResult(success=True)

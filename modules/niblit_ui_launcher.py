@@ -97,6 +97,8 @@ class UiLaunchResult:
     _api_thread: Optional[threading.Thread] = field(default=None, repr=False)
     _owned_server: Any = field(default=None, repr=False)
     _launch_mode: str = field(default="unknown", repr=False)  # "attached" | "detached"
+    _shutdown_event: Any = field(default=None, repr=False)
+    _stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
 
     # ── lifecycle helpers ─────────────────────────────────────────────────
 
@@ -112,13 +114,14 @@ class UiLaunchResult:
 
         if self._launch_mode == "detached":
             try:
-                import threading
-                shutdown_event = threading.Event()
-                while self._owned_server is not None or getattr(self, "_api_thread", None) is not None:
-                    shutdown_event.wait(timeout=1.0)
+                while not self._stop_event.is_set():
+                    if self._shutdown_event is not None and self._shutdown_event.is_set():
+                        break
+                    self._stop_event.wait(timeout=0.25)
                 return 0
-            except Exception:
-                return 0
+            except KeyboardInterrupt:
+                self.terminate()
+                return 130
 
         if self._ui_process is None:
             raise RuntimeError(
@@ -134,6 +137,7 @@ class UiLaunchResult:
 
     def terminate(self) -> None:
         """Cleanly terminate any processes / threads owned by this launch."""
+        self._stop_event.set()
         for proc in (self._ui_process, self._cloud_process):
             if proc is None:
                 continue
@@ -811,7 +815,29 @@ def launch_primary_ui(
     ui_url = ""
     ui_failure_reason = ""
 
-    if ui_path and os.path.isdir(ui_path):
+    if getattr(sys, "frozen", False):
+        bundled_ui = Path(sys.executable).resolve().parent / "niblit-ui.exe"
+        ui_url = str(bundled_ui)
+        if bundled_ui.is_file():
+            try:
+                ui_process = subprocess.Popen(
+                    [str(bundled_ui)], cwd=str(bundled_ui.parent),
+                    env=_build_child_env(str(bundled_ui.parent)),
+                )
+                if not _wait_for_process_stabilisation(ui_process, emit):
+                    ui_process.kill()
+                    ui_process = None
+                    ui_failure_reason = "Bundled UI process failed stabilisation check"
+                else:
+                    launch_mode = "attached"
+                    state.ui_ready = True
+                    readiness["ui"] = "ready"
+                    emit(f"Desktop UI ready (PID={ui_process.pid})")
+            except OSError as exc:
+                ui_failure_reason = f"Bundled UI launch failed: {exc}"
+        else:
+            ui_failure_reason = f"Bundled UI executable missing: {bundled_ui}"
+    elif ui_path and os.path.isdir(ui_path):
         ui_url = os.path.abspath(ui_path)
         ui_process = _launch_tauri_dev_process(ui_path, emit)
         if ui_process is not None:
@@ -885,6 +911,7 @@ def launch_primary_ui(
         _ui_process=ui_process,
         _launch_mode=launch_mode,
         _cloud_process=cloud_process,
+        _shutdown_event=getattr(core, "_shutdown_event", None),
     )
     return result
 
@@ -964,7 +991,11 @@ def _maybe_start_cloud_server(
     emit: Callable[[str], None],
 ) -> Optional[subprocess.Popen]:
     """Best-effort start the local Niblit-cloud-server if it is not already healthy."""
-    cloud_root = _find_cloud_server_root()
+    frozen = getattr(sys, "frozen", False)
+    cloud_root = (
+        Path(sys.executable).resolve().parent / "cloud"
+        if frozen else _find_cloud_server_root()
+    )
     if cloud_root is None:
         emit("[Cloud] Niblit-cloud-server repository not found — skipping autostart")
         return None
@@ -975,7 +1006,14 @@ def _maybe_start_cloud_server(
         emit("[Cloud] Python executable not found — cannot start cloud server")
         return None
 
-    cmd = [python_exe, "main.py"]
+    if frozen:
+        packaged_cloud = cloud_root / ("niblit-cloud.exe" if os.name == "nt" else "niblit-cloud")
+        if not packaged_cloud.is_file():
+            emit(f"[Cloud] Bundled cloud executable missing: {packaged_cloud}")
+            return None
+        cmd = [str(packaged_cloud)]
+    else:
+        cmd = [python_exe, "main.py"]
     cwd = str(cloud_root)
     env = os.environ.copy()
     env.setdefault("NIBLIT_CLOUD_SERVER_URL", url.rstrip("/"))

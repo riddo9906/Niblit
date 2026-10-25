@@ -424,7 +424,14 @@ def get_governed_qdrant_memory_cluster() -> GovernedQdrantMemoryCluster:
     global _cluster
     with _cluster_lock:
         if _cluster is None:
-            _cluster = GovernedQdrantMemoryCluster()
+            from modules.config.qdrant_config import QdrantConfig
+
+            config = QdrantConfig.load()
+            _cluster = GovernedQdrantMemoryCluster(
+                collection_prefix=config.prefix,
+                qdrant_url=config.url,
+                qdrant_api_key=config.api_key or "",
+            )
     return _cluster
 
 

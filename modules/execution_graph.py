@@ -17,7 +17,6 @@ the execution graph builds a **plan graph** for each request:
     ExecutionGraph.build()
         ├── Step: retrieve_memory
         ├── Step: run_forecast       (if use_forecast)
-        ├── Step: call_tools         (if use_tools)
         ├── Step: validate_risk      (if run_governance)
         ├── Step: generate_response
         └── Step: reflect            (always)
@@ -40,7 +39,6 @@ degrades when its dependency module is unavailable.
 Configuration (env vars)
 ------------------------
     NIBLIT_EXEC_GRAPH_ENABLED — "0" to disable (default 1)
-    NIBLIT_EXEC_GRAPH_MAX_TOOLS — max tools per run (default 3)
 
 Usage::
 
@@ -64,7 +62,6 @@ from typing import Any, Callable, Dict, List, Optional
 log = logging.getLogger(__name__)
 
 _ENABLED: bool = os.getenv("NIBLIT_EXEC_GRAPH_ENABLED", "1").strip() not in ("0", "false")
-_MAX_TOOLS: int = int(os.getenv("NIBLIT_EXEC_GRAPH_MAX_TOOLS", "3"))
 
 
 # ── Step result ───────────────────────────────────────────────────────────────
@@ -157,6 +154,13 @@ class ExecutionGraph:
         t0 = time.monotonic()
         ctx: Dict[str, Any] = dict(context or {})
         ctx["input"] = text
+        # Tool results must come from the governed LlmToolLoop only. Do not
+        # accept caller-supplied result fields that could masquerade as executed
+        # tools in the response, reflection, or telemetry.
+        ctx["tools_called"] = []
+        for key in tuple(ctx):
+            if isinstance(key, str) and key.startswith("tool_result_"):
+                del ctx[key]
 
         try:
             if mode is None:
@@ -241,18 +245,18 @@ class ExecutionGraph:
         if getattr(mode, "use_forecast", False):
             steps.append(("run_forecast", self._step_run_forecast))
 
-        # Step 3: Call tools
-        if getattr(mode, "use_tools", False):
-            steps.append(("call_tools", self._step_call_tools))
+        # Tool execution is intentionally not part of this graph. Any future
+        # tool request must be dispatched through the governed LlmToolLoop,
+        # which owns schema validation, permissions, and execution limits.
 
-        # Step 4: Validate risk/governance
+        # Step 3: Validate risk/governance
         if getattr(mode, "run_governance", False):
             steps.append(("validate_risk", self._step_validate_risk))
 
-        # Step 5: Generate response (always)
+        # Step 4: Generate response (always)
         steps.append(("generate_response", self._step_generate_response))
 
-        # Step 6: Reflect (always — closes the learning loop)
+        # Step 5: Reflect (always — closes the learning loop)
         steps.append(("reflect", self._step_reflect))
 
         return steps
@@ -301,31 +305,6 @@ class ExecutionGraph:
             except Exception as exc2:
                 log.debug("[ExecutionGraph] forecast step skipped: %s", exc2)
                 ctx["forecast_signal"] = "HOLD"
-
-    def _step_call_tools(self, ctx: Dict) -> None:
-        """Detect and execute tool calls from the input."""
-        called: List[str] = []
-        try:
-            from niblit_tools.tool_registry import get_registry
-            registry = get_registry()
-            text = ctx.get("input", "")
-
-            # Simple heuristic: check if any tool name appears in the input
-            tools = registry.list_tools()
-            for tool_def in tools[:_MAX_TOOLS]:
-                name = tool_def.get("name", "")
-                if name and name.lower() in text.lower():
-                    try:
-                        result = registry.run(name, {})
-                        ctx[f"tool_result_{name}"] = result
-                        called.append(name)
-                        log.debug("[ExecutionGraph] tool %s ran → %s", name, str(result)[:60])
-                    except Exception:
-                        pass
-        except Exception as exc:
-            log.debug("[ExecutionGraph] tool step skipped: %s", exc)
-
-        ctx["tools_called"] = called
 
     def _step_validate_risk(self, ctx: Dict) -> None:
         """Basic safety/risk check."""
@@ -395,7 +374,8 @@ class ExecutionGraph:
                 "enabled": _ENABLED,
                 "run_count": self._run_count,
                 "error_count": self._error_count,
-                "max_tools_per_run": _MAX_TOOLS,
+                "max_tools_per_run": 0,
+                "tool_execution": "disabled; use governed LlmToolLoop",
             }
 
 

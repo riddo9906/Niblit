@@ -146,13 +146,13 @@ class TestChatCompletionsComplete:
         mem = _make_mock_mem()
         cc = _make_cc(mem=mem)
         cc.complete("Hello?", persist=True)
-        mem.add.assert_called()
+        mem.add_exchange.assert_called()
 
     def test_persist_false_skips_mem_add(self):
         mem = _make_mock_mem()
         cc = _make_cc(mem=mem)
         cc.complete("Hello?", persist=False)
-        mem.add.assert_not_called()
+        mem.add_exchange.assert_not_called()
 
     def test_latency_ms_positive(self):
         cc = _make_cc()

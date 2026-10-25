@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import socket
+from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -110,6 +111,9 @@ class SafeWebFetcher:
         self.user_agent = user_agent
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": self.user_agent})
+        # Redirect cap is a Session attribute in requests (never a request
+        # kwarg) - passing it to .get() raised TypeError on every fetch.
+        self.session.max_redirects = max_redirects
 
     def fetch(self, url: str) -> FetchResponse:
         """Fetch a single URL with safety controls.
@@ -137,7 +141,6 @@ class SafeWebFetcher:
                 timeout=(self.connect_timeout, self.read_timeout),
                 allow_redirects=True,
                 stream=True,
-                max_redirects=self.max_redirects,
             )
         except requests.exceptions.Timeout:
             return FetchResponse(

@@ -46,9 +46,13 @@ dependencies = [
     "numpy>=1.26.4",
     "faiss-cpu>=1.7.4",
     "PyYAML>=6.0.0",
+    "pypdf>=4.2.0",
 ]
 
 [project.optional-dependencies]
+build = [
+    "pyinstaller>=6.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",

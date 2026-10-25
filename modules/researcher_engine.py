@@ -178,6 +178,123 @@ class ResearcherEngine:
 
         return None
 
+    def web_search_hits(self, topic: str, max_results: int = 5) -> list[dict]:
+        """Structured variant of :meth:`web_search` (Phase 5B).
+
+        Reuses the SAME key-free search chain (SerpEx -> DuckDuckGo
+        instant-answer -> Wikipedia summary) but RETAINS URLs so downstream
+        governed research can keep provenance.  Never raises; returns ``[]``
+        when nothing useful is found.  Each hit is
+        ``{"title": str, "url": str, "snippet": str, "source": str}``.
+
+        All calls send a descriptive User-Agent (Wikipedia rejects generic
+        client UAs; DDG instant-answer frequently 202s niche technical
+        queries, in which case the Wikipedia fallback carries the hit).
+        """
+        hits: list[dict] = []
+        ua = {"User-Agent": "NiblitResearch/1.0 (local governed research)"}
+
+        # 1. SerpEx (when API key is available) — structured organic results
+        serpex_key = os.getenv("SERPEX_API_KEY", "")
+        if serpex_key:
+            try:
+                r = requests.get(
+                    SERPEX_API_URL,
+                    headers={"Authorization": f"Bearer {serpex_key}", **ua},
+                    params={"q": topic, "engine": "auto", "category": "web",
+                            "time_range": "week"},
+                    timeout=300,
+                )
+                r.raise_for_status()
+                data = r.json()
+                items = (data.get("organic_results")
+                         or data.get("results") or [])
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    link = item.get("url") or item.get("link") or ""
+                    text = (item.get("snippet") or item.get("description")
+                            or item.get("content") or "")
+                    if link:
+                        hits.append({
+                            "title": item.get("title", "") or str(link)[:120],
+                            "url": link, "snippet": str(text),
+                            "source": "serpex",
+                        })
+            except Exception:
+                pass
+
+        # 2. DuckDuckGo instant-answer API (free, no key) — same endpoint as
+        #    web_search(), but AbstractURL / FirstURL are retained here.
+        if not hits:
+            try:
+                url = (f"https://api.duckduckgo.com/?q="
+                       f"{topic.replace(' ', '%20')}&format=json&no_html=1")
+                r = requests.get(url, headers=ua, timeout=10)
+                js = r.json()
+                abstract = js.get("AbstractText", "")
+                if abstract and len(abstract) >= 30 and js.get("AbstractURL"):
+                    hits.append({
+                        "title": js.get("Heading") or topic[:120],
+                        "url": js["AbstractURL"],
+                        "snippet": abstract,
+                        "source": "duckduckgo",
+                    })
+                for t in js.get("RelatedTopics", []):
+                    if not isinstance(t, dict):
+                        continue
+                    text = t.get("Text", "")
+                    first_url = t.get("FirstURL", "")
+                    if len(text) >= 30 and first_url:
+                        hits.append({
+                            "title": text.split(" - ")[0][:120],
+                            "url": first_url,
+                            "snippet": text,
+                            "source": "duckduckgo",
+                        })
+            except Exception:
+                pass
+
+        # 3. Wikipedia search + summary API — reliable free fallback
+        if not hits:
+            try:
+                wiki_search_url = "https://en.wikipedia.org/w/api.php"
+                r = requests.get(
+                    wiki_search_url,
+                    params={"action": "query", "list": "search",
+                            "srsearch": topic, "format": "json"},
+                    headers=ua, timeout=10,
+                )
+                found = r.json().get("query", {}).get("search", [])
+                for found_hit in found[:2]:
+                    title = found_hit.get("title", "")
+                    if not title:
+                        continue
+                    page = ("https://en.wikipedia.org/wiki/"
+                            + title.replace(" ", "_"))
+                    try:
+                        r2 = requests.get(
+                            "https://en.wikipedia.org/api/rest_v1/page/"
+                            "summary/{}".format(title.replace(" ", "_")),
+                            headers=ua, timeout=10,
+                        )
+                        if r2.status_code != 200:
+                            continue
+                        extract = r2.json().get("extract", "")
+                    except Exception:
+                        continue
+                    if extract and len(extract) >= 10:
+                        hits.append({
+                            "title": title, "url": page,
+                            "snippet": extract, "source": "wikipedia",
+                        })
+                    if hits:
+                        break
+            except Exception:
+                pass
+
+        return hits[:max(1, int(max_results))]
+
     def _check_cache(self, topic: str) -> str | None:
         """Return a cached summary from the vector store, or None."""
         if self.vector_store is None:

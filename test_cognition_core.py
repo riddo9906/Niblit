@@ -8,6 +8,8 @@ Run with::
 """
 
 import json
+import os
+import tempfile
 import threading
 import time
 import unittest
@@ -141,7 +143,10 @@ class TestGoalEngineGeneration(unittest.TestCase):
 class TestMemoryGraphDecay(unittest.TestCase):
     def _make_graph(self):
         from modules.memory_graph import MemoryGraph
-        return MemoryGraph()  # fresh empty graph
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        persist_path = os.path.join(temp_dir.name, "memory_graph.json")
+        return MemoryGraph(persist_path=persist_path)
 
     def test_apply_decay_on_empty_graph(self):
         mg = self._make_graph()
@@ -149,8 +154,7 @@ class TestMemoryGraphDecay(unittest.TestCase):
         self.assertEqual(decayed, 0)
 
     def test_apply_decay_reduces_inactive_scores(self):
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "inactive concept")
         # Force the node's last_used to 0 (never used)
         mg._nodes["n1"].last_used = 0
@@ -161,8 +165,7 @@ class TestMemoryGraphDecay(unittest.TestCase):
         self.assertLess(mg._nodes["n1"].score, original_score)
 
     def test_apply_decay_respects_min_score_floor(self):
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "concept")
         mg._nodes["n1"].last_used = 0
         mg._nodes["n1"].score = 0.01  # very low already
@@ -171,8 +174,7 @@ class TestMemoryGraphDecay(unittest.TestCase):
         self.assertGreaterEqual(mg._nodes["n1"].score, 0.05)
 
     def test_active_nodes_not_decayed(self):
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "recently used concept")
         mg._nodes["n1"].last_used = int(time.time())  # very recently used
         original_score = mg._nodes["n1"].score
@@ -182,8 +184,7 @@ class TestMemoryGraphDecay(unittest.TestCase):
         self.assertAlmostEqual(mg._nodes["n1"].score, original_score, places=5)
 
     def test_prune_low_score_removes_nodes(self):
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "low value concept")
         mg._nodes["n1"].score = 0.05   # below threshold
         mg._nodes["n1"].usage = 0      # never used — eligible for pruning
@@ -194,8 +195,7 @@ class TestMemoryGraphDecay(unittest.TestCase):
 
     def test_prune_low_score_keeps_used_nodes(self):
         """Nodes with usage > 0 should NOT be pruned even if score is low."""
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "used concept")
         mg._nodes["n1"].score = 0.01
         mg._nodes["n1"].usage = 5  # has been used → keep it
@@ -205,8 +205,7 @@ class TestMemoryGraphDecay(unittest.TestCase):
         self.assertIn("n1", mg._nodes)
 
     def test_prune_cleans_edges_to_removed_nodes(self):
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "keeper")
         mg.add("n2", "to be pruned")
         mg.link("n1", "n2", 0.9)
@@ -218,24 +217,21 @@ class TestMemoryGraphDecay(unittest.TestCase):
         self.assertNotIn("n2", mg._nodes.get("n1", mg._nodes["n1"]).links)
 
     def test_reinforce_increases_score(self):
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "concept to reinforce")
         original_score = mg._nodes["n1"].score
         mg.reinforce("n1", delta=0.10)
         self.assertGreater(mg._nodes["n1"].score, original_score)
 
     def test_reinforce_clamped_at_1(self):
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "already excellent concept")
         mg._nodes["n1"].score = 0.99
         mg.reinforce("n1", delta=0.5)
         self.assertLessEqual(mg._nodes["n1"].score, 1.0)
 
     def test_stats_includes_inactive_7d(self):
-        from modules.memory_graph import MemoryGraph
-        mg = MemoryGraph()
+        mg = self._make_graph()
         mg.add("n1", "old never used")
         mg._nodes["n1"].last_used = 0
         s = mg.stats()

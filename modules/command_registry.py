@@ -339,11 +339,10 @@ class CanonicalRuntimeCapabilityRegistry:
     ) -> list[dict[str, Any]]:
         effective_context = self._effective_context(context, surface=surface)
         snapshot: list[dict[str, Any]] = []
-        for metadata in self.list_commands(
-            context=effective_context,
-            surface=surface,
-            include_unavailable=include_unavailable,
-        ):
+        # Evaluate each entry once. list_commands() also checks availability,
+        # so calling it here repeated every dynamic gate and lifecycle event.
+        ordered = sorted(self.commands.values(), key=lambda item: (-item.priority, item.prefix))
+        for metadata in ordered:
             availability = self._availability(metadata, effective_context, surface=surface)
             if include_unavailable or availability["available"]:
                 snapshot.append(metadata.to_dict(available=availability["available"], reason=availability["reason"]))

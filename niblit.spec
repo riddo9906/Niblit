@@ -25,20 +25,35 @@ import os
 import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_dynamic_libs
-import llama_cpp
+from PyInstaller.utils.hooks import collect_submodules
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 
-REPO_ROOT = Path(SPECPATH)  # directory containing this .spec file
+REPO_ROOT = Path(SPECPATH).resolve()  # stable regardless of caller cwd
+# Prefer this repository's shared package over any similarly named sibling.
+_repo_import_path = str(REPO_ROOT)
+if _repo_import_path in sys.path:
+    sys.path.remove(_repo_import_path)
+sys.path.insert(0, _repo_import_path)
+STAGING_ROOT = Path(os.environ.get("NIBLIT_BUILD_STAGING_DIR", REPO_ROOT / "dist" / "_staged")).expanduser().resolve()
 
 # Pre-staged artefacts placed by niblit-build.js before PyInstaller runs.
 # These paths are under dist/ (a sibling of this spec in REPO_ROOT).
-STAGED_CLOUD_DIR = REPO_ROOT / "dist" / "_staged" / "cloud"
-STAGED_LEAN_ALGOS_DIR = REPO_ROOT / "dist" / "_staged" / "lean-algos"
-STAGED_TAURI_EXE = REPO_ROOT / "dist" / "_staged" / "niblit-ui.exe"
+STAGED_CLOUD_DIR = STAGING_ROOT / "cloud"
+STAGED_LEAN_ALGOS_DIR = STAGING_ROOT / "lean-algos"
+STAGED_TAURI_EXE = STAGING_ROOT / "niblit-ui.exe"
+
+# A desktop release must never silently omit a required staged service.
+_exe_suffix = ".exe" if os.name == "nt" else ""
+for _required in (
+    STAGED_TAURI_EXE,
+    STAGED_CLOUD_DIR / f"niblit-cloud{_exe_suffix}",
+    STAGED_LEAN_ALGOS_DIR / f"niblit-lean-algos{_exe_suffix}",
+):
+    if not _required.is_file():
+        raise SystemExit(f"Required desktop artifact missing: {_required}. Run npm run build to stage all components.")
 
 _lean_override = os.environ.get("NIBLIT_LEAN_ALGOS_ROOT") or os.environ.get("NIBLIT_LEAN_ALGOS")
 _lean_candidates = [
@@ -62,29 +77,31 @@ LEAN_ALGOS_ROOT = next(
 
 datas = []
 
-LLAMA_ROOT = Path(llama_cpp.__file__).parent
-llama_binaries = collect_dynamic_libs("llama_cpp")
-datas += collect_data_files("llama_cpp")
-lib_dir=LLAMA_ROOT/"lib"
-if lib_dir.exists():
-    for dll in lib_dir.glob("*"):
-        llama_binaries.append((str(dll),"llama_cpp/lib"))
+# The source distribution has a sibling ``shared`` package that can shadow
+# Niblit's contracts during PyInstaller analysis. Ship the exact contract
+# sources alongside the bundle so runtime imports remain available.
+_shared_root = REPO_ROOT / "shared"
+if _shared_root.is_dir():
+    for _source in _shared_root.rglob("*.py"):
+        _destination = str(_source.relative_to(REPO_ROOT).parent)
+        datas.append((str(_source), _destination))
 
 # Lean-algos bridge (Python package) and algorithm source files.
 # These are NOT copied into the Python package; they live in the bundle as
 # data so niblit.exe can reference them at the well-known relative paths:
 #   <bundle>/lean-algos/niblit_bridge/
 #   <bundle>/lean-algos/algorithms/
-if LEAN_ALGOS_ROOT.is_dir():
-    bridge_dir = LEAN_ALGOS_ROOT / "niblit_bridge"
-    algos_dir = LEAN_ALGOS_ROOT / "algorithms"
-    lean_json = LEAN_ALGOS_ROOT / "lean.json"
-    if bridge_dir.is_dir():
-        datas += [(str(bridge_dir), "lean-algos/niblit_bridge")]
-    if algos_dir.is_dir():
-        datas += [(str(algos_dir), "lean-algos/algorithms")]
-    if lean_json.is_file():
-        datas += [(str(lean_json), "lean-algos")]
+if STAGED_LEAN_ALGOS_DIR.is_dir():
+    # Include the Lean one-folder runtime staged by niblit-build.js.
+    datas += [(str(STAGED_LEAN_ALGOS_DIR), "lean-algos")]
+elif LEAN_ALGOS_ROOT.is_dir():
+    # Direct-spec development fallback: include repository source assets.
+    for _name in ("niblit_bridge", "algorithms", "lean.json"):
+        _path = LEAN_ALGOS_ROOT / _name
+        if _path.is_dir():
+            datas += [(str(_path), f"lean-algos/{_name}")]
+        elif _path.is_file():
+            datas += [(str(_path), "lean-algos")]
 
 # Environment template shipped with the bundle.
 env_example = REPO_ROOT / ".env.example"
@@ -134,12 +151,22 @@ hiddenimports = [
     # Optional heavy imports that PyInstaller misses
     "email.mime.text",
     "email.mime.multipart",
-    "pkg_resources.py2_warn",
 ]
 
 # Sweep every sub-package to catch dynamic imports inside modules.
-for _pkg in ("modules", "core", "agents", "niblit_memory", "nibblebots", "niblit_core"):
-    hiddenimports += collect_submodules(_pkg)
+for _pkg in ("modules", "core", "agents", "shared", "niblit_memory", "nibblebots", "niblit_core"):
+    if _pkg == "niblit_memory":
+        # Importing this package during spec evaluation starts memory workers
+        # and attempts to persist user state. Discover module names from source
+        # paths instead; PyInstaller's analysis imports them later as needed.
+        _memory_root = REPO_ROOT / "niblit_memory"
+        for _source in _memory_root.rglob("*.py"):
+            _relative = _source.relative_to(REPO_ROOT).with_suffix("")
+            if _relative.name == "__init__":
+                _relative = _relative.parent
+            hiddenimports.append(".".join(_relative.parts))
+    else:
+        hiddenimports += collect_submodules(_pkg)
 
 # ---------------------------------------------------------------------------
 # Analysis
@@ -148,7 +175,8 @@ for _pkg in ("modules", "core", "agents", "niblit_memory", "nibblebots", "niblit
 a = Analysis(
     [str(REPO_ROOT / "main.py")],
     pathex=[str(REPO_ROOT)],
-    binaries=llama_binaries,
+    # Inference belongs to the separately bundled Cloud Server.
+    binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
@@ -186,6 +214,7 @@ exe = EXE(
     [],
     exclude_binaries=True,   # one-folder mode: deps collected separately
     name="niblit",
+    contents_directory=".",  # keep sidecar services beside niblit.exe for runtime discovery
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

@@ -335,7 +335,7 @@ class ReasoningEngine:
 
         # Attempt LLM-driven CoT first
         llm_result = self._llm_chain_of_thought(question, facts or [], max_steps)
-        if llm_result:
+        if llm_result and str(llm_result.get("conclusion") or "").strip():
             cot.steps = llm_result["steps"]
             cot.conclusion = llm_result["conclusion"]
             cot.confidence = llm_result["confidence"]

@@ -9,7 +9,9 @@
 
     "continue.enableNextEdit": false,
 
-    "github.copilot.llm-gateway.serverUrl": "http://localhost:8000/v1",
+    // REMOVED: github.copilot.llm-gateway.serverUrl pointed at Niblit Cloud —
+  // the gateway extension treats serverUrl as a PROXY and tunnels all traffic
+  // (CONNECT vscode.dev:443, /v1/v1/models) through it. See workspace settings.
 
     "github.copilot.llm-gateway.defaultMaxTokens": 4096,
 

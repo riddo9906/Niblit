@@ -103,6 +103,10 @@ class BrainRouter:
         self._routing_stats: Dict[str, int] = {
             "local": 0, "memory_augmented": 0, "cloud": 0, "hybrid": 0,
         }
+        # H1: truthful fallback transparency (Phase 4D). None = no fallback
+        # occurred on the most recent cloud escalation attempt.
+        self.last_fallback: Optional[Dict[str, Any]] = None
+        self._fallback_reason: Optional[str] = None
         log.info("[BrainRouter] Initialised — mode=%s", self.mode)
 
     # ── Public entry point ────────────────────────────────────────────────────
@@ -138,6 +142,30 @@ class BrainRouter:
         # hybrid
         return self._hybrid_response(prompt, context)
 
+    def _local_available(self) -> bool:
+        """Read local-runtime availability across supported brain interfaces."""
+        brain = self.local_brain
+        if brain is None:
+            return False
+        checker = getattr(brain, "is_available", None)
+        if callable(checker):
+            try:
+                return bool(checker())
+            except Exception as exc:
+                log.debug("[BrainRouter] local availability check failed: %s", exc)
+                return False
+        status_reader = getattr(brain, "status", None)
+        if callable(status_reader):
+            try:
+                status = status_reader()
+                if isinstance(status, dict):
+                    for key in ("available", "healthy", "running"):
+                        if key in status:
+                            return bool(status[key])
+            except Exception as exc:
+                log.debug("[BrainRouter] local status read failed: %s", exc)
+        return bool(getattr(brain, "_healthy", False))
+
     # ── Path selection ────────────────────────────────────────────────────────
 
     def _choose_path(self, score: Dict[str, Any]) -> str:
@@ -169,7 +197,7 @@ class BrainRouter:
             return str(self._router.generate(prompt=prompt, context=context))
         except Exception as exc:
             log.debug("[BrainRouter] router path failed: %s", exc)
-            if self.local_brain and self.local_brain.is_available():
+            if self._local_available():
                 try:
                     return self.local_brain.ask(prompt, context=context)
                 except Exception as inner_exc:
@@ -178,7 +206,7 @@ class BrainRouter:
 
     def _local_first(self, prompt: str, context: str = "") -> str:
         """Fast path: local Qwen brain only."""
-        if self.local_brain and self.local_brain.is_available():
+        if self._local_available():
             try:
                 return self._router_generate(prompt, context=context)
             except Exception as exc:
@@ -195,7 +223,7 @@ class BrainRouter:
             except Exception as exc:
                 log.debug("[BrainRouter] memory_retriever failed: %s", exc)
 
-        if self.local_brain and self.local_brain.is_available():
+        if self._local_available():
             try:
                 return self._router_generate(prompt, context=retrieved)
             except Exception as exc:
@@ -214,10 +242,34 @@ class BrainRouter:
                 result = self.cloud_brain(prompt)
                 if result and isinstance(result, str):
                     return result
+                self._fallback_reason = "cloud returned empty result"
             except Exception as exc:
-                log.debug("[BrainRouter] cloud_escalation failed: %s", exc)
+                log.warning("[BrainRouter] cloud_escalation failed: %s", exc)
+                self._fallback_reason = f"cloud error: {exc}"
+        else:
+            self._fallback_reason = "no cloud_brain configured"
+        # Cloud failed -> fall back to local, but RECORD the swap (H1):
+        # fallback must never be silent.
+        self.last_fallback = None
+        if self._local_available():
+            try:
+                out = self._router_generate(prompt)
+                self.last_fallback = {
+                    "requested_model": "cloud",
+                    "executed_model": getattr(self.local_brain, "_model_name", "local"),
+                    "backend": "local_brain",
+                    "fallback": True,
+                    "fallback_reason": self._fallback_reason,
+                }
+                log.warning(
+                    "[BrainRouter] FALLBACK cloud->local recorded: %s",
+                    self._fallback_reason,
+                )
+                return out
+            except Exception as exc:
+                log.debug("[BrainRouter] cloud_escalation->local fallback failed: %s", exc)
         # Cloud failed → fall back to local
-        if self.local_brain and self.local_brain.is_available():
+        if self._local_available():
             try:
                 return self._router_generate(prompt)
             except Exception as exc:
@@ -227,7 +279,7 @@ class BrainRouter:
     def _hybrid_response(self, prompt: str, context: str = "") -> str:
         """Real magic: local draft → cloud refinement."""
         local_draft = ""
-        if self.local_brain and self.local_brain.is_available():
+        if self._local_available():
             try:
                 local_draft = self._router_generate(prompt, context=context)
             except Exception as exc:
@@ -266,7 +318,7 @@ class BrainRouter:
             total = sum(self._routing_stats.values()) or 1
             return {
                 "mode": self.mode,
-                "local_available": self.local_brain.is_available() if self.local_brain else False,
+                "local_available": self._local_available(),
                 "cloud_available": self.cloud_brain is not None,
                 "routing_counts": dict(self._routing_stats),
                 "routing_pct": {

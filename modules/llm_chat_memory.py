@@ -6,22 +6,21 @@ inference provider.
 This module solves two problems:
 
 1. **Cross-session memory**: Every user ↔ assistant exchange is persisted to
-   SQLite so the LLM sees the full conversation history even after Niblit
-   restarts.  The inference provider receives the last *N* turns as ``messages``
-   in each API call, giving it continuity across sessions.
+   SQLite so recent conversation context remains available after Niblit
+   restarts. The inference provider receives a bounded recent history as
+   ``messages`` in each API call.
 
 2. **Pause / Resume**: When the LLM is toggled off (``toggle-llm off``) the
    conversation state is preserved.  When toggled back on the full history is
-   reloaded and injected into the next LLM request — nothing is lost.
+   remains available for bounded context selection on the next request.
 
 Usage::
 
     from modules.llm_chat_memory import get_llm_chat_memory
 
     mem = get_llm_chat_memory()           # singleton
-    mem.add("user", "Hello!")
-    mem.add("assistant", "Hi there!")
-    messages = mem.load_messages(limit=30) # → list of {role, content, ts}
+    mem.add_exchange("Hello!", "Hi there!")
+    messages = mem.load_messages(limit=30) # → list of {role, content}
     mem.save_session_marker("paused")      # mark the current pause point
 
 The SQLite database lives at the path controlled by
@@ -34,7 +33,11 @@ import os
 import sqlite3
 import threading
 import time
-from typing import Any, Dict, List, Optional
+import uuid
+from contextlib import contextmanager
+from typing import Any, Dict, Iterator, List, Optional
+
+from modules.memory_context import select_recent_messages
 
 log = logging.getLogger("LLMChatMemory")
 
@@ -63,9 +66,10 @@ _DEFAULT_DB_PATH = _writable_path(
     "llm_chat_history.sqlite", "NIBLIT_LLM_CHAT_DB_PATH"
 )
 
-# Maximum number of messages returned by default.  This caps the context
-# window sent to the inference provider so we don't exceed token limits.
+# Bound history by both message count and content characters. These limits
+# do not replace model-specific token accounting for the complete prompt.
 _DEFAULT_CONTEXT_LIMIT: int = 40
+_DEFAULT_CONTEXT_CHARS: int = 24000
 
 
 # ── LLMChatMemory ────────────────────────────────────────────────────────────
@@ -73,7 +77,7 @@ _DEFAULT_CONTEXT_LIMIT: int = 40
 class LLMChatMemory:
     """SQLite-backed persistent chat history for the LLM inference provider.
 
-    Every ``add()`` call writes a row immediately (autocommit) so data
+    Every ``add()`` call commits a row immediately so data
     survives unexpected shutdowns.  ``load_messages()`` returns the last *N*
     turns in chronological order, ready to be injected as the ``messages``
     list in any OpenAI-compatible chat-completions call.
@@ -101,7 +105,7 @@ class LLMChatMemory:
     def __init__(self, db_path: str = "") -> None:
         self._db_path = db_path or _DEFAULT_DB_PATH
         self._lock = threading.Lock()
-        self._session_id = f"s-{int(time.time())}"
+        self._session_id = f"s-{uuid.uuid4().hex}"
         self._paused = False
         try:
             with self._connect() as conn:
@@ -112,13 +116,17 @@ class LLMChatMemory:
 
     # ── connection ────────────────────────────────────────────────────────────
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         parent = os.path.dirname(self._db_path)
         if parent:
             os.makedirs(parent, exist_ok=True)
         conn = sqlite3.connect(self._db_path, check_same_thread=False)
-        conn.isolation_level = None  # autocommit
-        return conn
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     # ── public API ────────────────────────────────────────────────────────────
 
@@ -143,15 +151,37 @@ class LLMChatMemory:
             except Exception as exc:
                 log.debug("[LLMChatMemory] add failed: %s", exc)
 
+    def add_exchange(self, user: str, assistant: str) -> bool:
+        """Commit a completed turn atomically; never persist half an exchange."""
+        if not user or not user.strip() or not assistant or not assistant.strip():
+            return False
+        with self._lock:
+            try:
+                with self._connect() as conn:
+                    conn.executemany(
+                        "INSERT INTO chat_history (role, content, ts, session_id) VALUES (?, ?, ?, ?)",
+                        [(role, text.strip(), time.time(), self._session_id)
+                         for role, text in (("user", user), ("assistant", assistant))],
+                    )
+                return True
+            except Exception as exc:
+                log.warning("[LLMChatMemory] exchange save failed: %s", exc)
+                return False
+
     def load_messages(
         self,
         limit: int = _DEFAULT_CONTEXT_LIMIT,
+        *,
+        max_chars: Optional[int] = _DEFAULT_CONTEXT_CHARS,
     ) -> List[Dict[str, str]]:
         """Return the most recent *limit* messages in chronological order.
 
-        Each entry is ``{"role": "...", "content": "..."}``, ready for
-        direct injection into an OpenAI-compatible ``messages`` list.
+        Each entry is ``{"role": "...", "content": "..."}``. History is
+        limited to 24,000 content characters by default, with whole messages
+        retained. Pass ``max_chars=None`` for an explicit unbounded text budget.
         """
+        if limit <= 0 or (max_chars is not None and max_chars <= 0):
+            return []
         with self._lock:
             try:
                 with self._connect() as conn:
@@ -161,7 +191,10 @@ class LLMChatMemory:
                         (limit,),
                     ).fetchall()
                 # rows are newest-first; reverse to chronological order
-                return [{"role": r[0], "content": r[1]} for r in reversed(rows)]
+                return select_recent_messages(
+                    [{"role": r[0], "content": r[1]} for r in reversed(rows)],
+                    max_messages=limit, max_chars=max_chars,
+                )
             except Exception as exc:
                 log.debug("[LLMChatMemory] load_messages failed: %s", exc)
                 return []
@@ -204,7 +237,7 @@ class LLMChatMemory:
         """Resume the session — history is fully reloaded on next load_messages()."""
         self._paused = False
         # Start a new session ID so new messages are distinguishable
-        self._session_id = f"s-{int(time.time())}"
+        self._session_id = f"s-{uuid.uuid4().hex}"
         self.save_session_marker("resumed")
         count = self.message_count()
         log.info("[LLMChatMemory] Session resumed — %d messages available for context", count)
@@ -220,6 +253,8 @@ class LLMChatMemory:
 
         Returns the number of rows deleted.
         """
+        if keep < 0:
+            raise ValueError("keep must be non-negative")
         with self._lock:
             try:
                 with self._connect() as conn:
@@ -263,13 +298,15 @@ class LLMChatMemory:
 # ── singleton ─────────────────────────────────────────────────────────────────
 
 _instance: Optional[LLMChatMemory] = None
+_instance_lock = threading.Lock()
 
 
 def get_llm_chat_memory(db_path: str = "") -> LLMChatMemory:
     """Return (and lazily create) the process-level LLMChatMemory singleton."""
     global _instance  # pylint: disable=global-statement
-    if _instance is None:
-        _instance = LLMChatMemory(db_path=db_path)
+    with _instance_lock:
+        if _instance is None:
+            _instance = LLMChatMemory(db_path=db_path)
     return _instance
 
 

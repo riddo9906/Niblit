@@ -29,6 +29,7 @@ CLI examples
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -259,16 +260,24 @@ class GradedCurriculum:
         db: Any,
         self_teacher: Optional[Any] = None,
         exam_interval_secs: int = 3600,   # run exam check every hour
+        defer_teaching: bool = False,
     ) -> None:
         self.db = db
         self.self_teacher = self_teacher
         self.exam_interval_secs = exam_interval_secs
+        self._defer_teaching = bool(defer_teaching)
 
         self._current_level: int = self._load_level()
         # Initialise to now so the first automatic exam runs after a full
         # interval rather than immediately on startup.
         self._last_exam_ts: float = time.time()
         self._exam_history: List[Dict[str, Any]] = []
+        # Teaching is optional work and must never hold up Core readiness.
+        # The process-level BackgroundJobManager is stopped by NiblitCore.
+        self._teaching_lock = threading.Lock()
+        self._teaching_cancel = threading.Event()
+        self._scheduled_teaching_levels: set[int] = set()
+        self._teaching_status: Dict[int, Dict[str, Any]] = {}
 
         log.info(
             "[GradedCurriculum] Initialized at %s",
@@ -303,21 +312,116 @@ class GradedCurriculum:
     # ── topic seeding ─────────────────────────────────────────
 
     def _seed_grade_topics(self, grade: GradeLevel) -> None:
-        """Queue all topics for *grade* into the learning queue."""
+        """Queue grade topics immediately and schedule optional teaching once.
+
+        Queueing is local and remains part of curriculum initialization. Research
+        and self-teaching may use external providers, so that work is submitted
+        to Core's managed background-job lifecycle rather than run inline.
+        """
         log.info("[GradedCurriculum] Seeding topics for %s", grade.name)
+        queue_errors = []
         for topic in grade.topics:
-            # queue_learning deduplicates, so this is safe to call repeatedly
             try:
                 if hasattr(self.db, "queue_learning"):
                     self.db.queue_learning(topic)
-            except Exception:
-                pass
-            # Also teach via SelfTeacher if available
-            if self.self_teacher and hasattr(self.self_teacher, "teach"):
-                try:
-                    self.self_teacher.teach(topic)
-                except Exception:
-                    pass
+            except Exception as exc:
+                queue_errors.append({"topic": topic, "error": str(exc)})
+                log.exception("[GradedCurriculum] Failed to queue topic %r", topic)
+
+        with self._teaching_lock:
+            state = self._teaching_status.setdefault(grade.level, {})
+            state["queued_topics"] = len(grade.topics) - len(queue_errors)
+            state["queue_errors"] = queue_errors
+
+        if self._defer_teaching:
+            with self._teaching_lock:
+                self._teaching_status[grade.level].setdefault("state", "deferred")
+            return
+
+        if not self.self_teacher or not hasattr(self.self_teacher, "teach"):
+            with self._teaching_lock:
+                self._teaching_status[grade.level].setdefault("state", "unavailable")
+            return
+
+        with self._teaching_lock:
+            if grade.level in self._scheduled_teaching_levels:
+                return
+            self._scheduled_teaching_levels.add(grade.level)
+            self._teaching_status[grade.level].update(
+                state="scheduled", completed_topics=0, failed_topics=[]
+            )
+
+        try:
+            from modules.background_jobs import bg_jobs
+
+            bg_jobs.add(
+                lambda: self._teach_grade_topics(grade),
+                name=f"GradedCurriculum-Teach-Grade-{grade.level}",
+                initial_delay=0.0,
+            )
+        except Exception as exc:
+            with self._teaching_lock:
+                self._teaching_status[grade.level].update(
+                    state="failed", scheduling_error=str(exc)
+                )
+            log.exception(
+                "[GradedCurriculum] Could not schedule teaching for %s", grade.name
+            )
+
+    def _teach_grade_topics(self, grade: GradeLevel) -> Dict[str, Any]:
+        """Run SelfTeacher outside readiness and retain visible task status."""
+        with self._teaching_lock:
+            self._teaching_status[grade.level]["state"] = "running"
+        failures = []
+        unavailable = []
+        completed = 0
+        for topic in grade.topics:
+            if self._teaching_cancel.is_set():
+                break
+            try:
+                result = self.self_teacher.teach(topic)
+                completed += 1
+                # SelfTeacher intentionally converts an empty research result
+                # into a user-facing message. Preserve that outcome in health
+                # state instead of presenting it as successful ingestion.
+                if isinstance(result, str) and result.startswith("No external data found"):
+                    unavailable.append(topic)
+            except Exception as exc:
+                failures.append({"topic": topic, "error": str(exc)})
+                log.exception(
+                    "[GradedCurriculum] SelfTeacher failed for topic %r", topic
+                )
+
+        state = "cancelled" if self._teaching_cancel.is_set() else (
+            "failed" if failures else "partial" if unavailable else "complete"
+        )
+        with self._teaching_lock:
+            self._teaching_status[grade.level].update(
+                state=state,
+                completed_topics=completed,
+                failed_topics=failures,
+                unavailable_topics=unavailable,
+            )
+        if unavailable:
+            log.warning(
+                "[GradedCurriculum] Research returned no data for %d topic(s): %s",
+                len(unavailable), unavailable,
+            )
+        return {
+            "state": state,
+            "completed_topics": completed,
+            "failures": failures,
+            "unavailable_topics": unavailable,
+        }
+
+    def shutdown(self) -> None:
+        """Prevent queued curriculum teaching from starting more topics."""
+        self._teaching_cancel.set()
+
+    def start_teaching(self) -> None:
+        """Release startup deferral and schedule learning under Core ownership."""
+        self._defer_teaching = False
+        self._seed_grade_topics(self.current_grade)
 
     # ── public API ────────────────────────────────────────────
 
@@ -328,6 +432,10 @@ class GradedCurriculum:
     def status(self) -> Dict[str, Any]:
         """Return a status dict suitable for display."""
         grade = self.current_grade
+        with self._teaching_lock:
+            teaching = {
+                level: dict(state) for level, state in self._teaching_status.items()
+            }
         return {
             "current_grade": grade.name,
             "level": grade.level,
@@ -338,6 +446,7 @@ class GradedCurriculum:
             "max_level": MAX_LEVEL,
             "last_exam_ts": self._last_exam_ts,
             "exam_history_count": len(self._exam_history),
+            "teaching": teaching,
         }
 
     def run_exam(self) -> Dict[str, Any]:
@@ -391,7 +500,7 @@ class GradedCurriculum:
         return None
 
     def start(self) -> None:
-        """Called once after construction.  Seeds the starting grade's topics."""
+        """Seed the starting grade and schedule optional SelfTeacher work."""
         self._seed_grade_topics(self.current_grade)
 
 
@@ -406,6 +515,7 @@ def get_graded_curriculum(
     db: Optional[Any] = None,
     self_teacher: Optional[Any] = None,
     exam_interval_secs: int = 3600,
+    defer_teaching: bool = False,
 ) -> Optional[GradedCurriculum]:
     """Return (and lazily create) the process-level GradedCurriculum singleton."""
     global _instance  # pylint: disable=global-statement
@@ -414,8 +524,14 @@ def get_graded_curriculum(
             db=db,
             self_teacher=self_teacher,
             exam_interval_secs=exam_interval_secs,
+            defer_teaching=defer_teaching,
         )
         _instance.start()
+    elif _instance is not None:
+        if self_teacher is not None:
+            _instance.self_teacher = self_teacher
+        if not defer_teaching and _instance._defer_teaching:
+            _instance.start_teaching()
     return _instance
 
 

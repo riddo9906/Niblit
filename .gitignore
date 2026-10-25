@@ -6,6 +6,69 @@
 # Python cache
 __pycache__/
 *.pyc
+
+# Local configuration and credentials (keep publishable templates)
+.env.*
+*.env
+*.env.*
+!.env.example
+!.env.*.example
+!*.env.example
+!*.env.template
+!*.env.sample
+!tools/runtime_profiles/*.env
+
+# Dependency, compiler, packaging, and test outputs
+node_modules/
+target/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
+.cache/
+htmlcov/
+.coverage.*
+coverage.xml
+*.whl
+*.tsbuildinfo
+
+# Local model weights and runtime databases
+*.gguf
+*.safetensors
+*.onnx
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db-journal
+*.db-wal
+*.db-shm
+.niblit/
+.update_backups/
+.symlink-test/
+
+# Root-level one-off probes; keep Python package __init__.py files
+/_[!_]*
+/tmpuunys2av
+*.tmp
+*.swp
+*.swo
+
+# Generated diagnostic runs; retain diagnostic source and Markdown reports
+/diagnostics/**/runs/
+/diagnostics/desktop-*/
+/diagnostics/desktop-bundle-verification-*.json
+/diagnostics/memory-*/
+/diagnostics/memory-*.json
+/diagnostics/memory-*.xml
+
+# Desktop OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
 *.pyo
 *.pyd
 

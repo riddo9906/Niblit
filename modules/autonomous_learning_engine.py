@@ -561,6 +561,7 @@ class AutonomousLearningEngine:
             gc = get_graded_curriculum(
                 db=self.knowledge_db,
                 self_teacher=self.self_teacher,
+                defer_teaching=True,
             )
             current = gc.current_grade
             topics: List[str] = list(current.topics)
@@ -616,6 +617,7 @@ class AutonomousLearningEngine:
             gc = get_graded_curriculum(
                 db=self.knowledge_db,
                 self_teacher=self.self_teacher,
+                defer_teaching=True,
             )
             level = gc.current_grade.level
         except Exception:

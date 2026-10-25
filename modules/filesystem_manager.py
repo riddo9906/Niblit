@@ -505,9 +505,13 @@ class FilesystemManager:
                 bak = Path(f"{p}.bak.{ts}")
                 shutil.copy2(str(p), str(bak))
                 result["backup_path"] = str(bak)
-            # Atomic write: write to temp then rename
+            # Atomic write: write to temp then rename.
+            # newline="" is REQUIRED for byte-faithful round-trips: without
+            # it write_text translates \n -> os.linesep, corrupting files
+            # whose in-memory content still carries \r\n (read_file_safe
+            # decodes bytes without newline translation) -> \r\r\n damage.
             tmp_p = p.with_suffix(p.suffix + ".tmp")
-            tmp_p.write_text(content, encoding="utf-8")
+            tmp_p.write_text(content, encoding="utf-8", newline="")
             tmp_p.replace(p)
             result["success"] = True
             self._log_file_event("FILE_EDIT", str(p), {"backup": result["backup_path"]})
@@ -516,7 +520,11 @@ class FilesystemManager:
         return result
 
     def patch_file(self, path: str, old_str: str, new_str: str, backup: bool = True) -> Dict[str, Any]:
-        """String-replace old_str with new_str in file, with optional backup."""
+        """String-replace old_str with new_str in file, with optional backup.
+
+        Fails when ``old_str`` does not occur (a silent no-op success would
+        fabricate an edit that never happened).
+        """
         result: Dict[str, Any] = {"success": False, "changes": 0, "backup_path": "", "error": ""}
         read = self.read_file_safe(path)
         if not read["success"]:
@@ -524,6 +532,9 @@ class FilesystemManager:
             return result
         content: str = read["content"]
         result["changes"] = content.count(old_str)
+        if result["changes"] == 0:
+            result["error"] = "old_str not found in file"
+            return result
         new_content = content.replace(old_str, new_str)
         write = self.write_file_safe(path, new_content, backup=backup)
         result["success"] = write["success"]

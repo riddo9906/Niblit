@@ -82,6 +82,11 @@ from typing import Optional, Dict, Any, List
 log = logging.getLogger("NiblitMemory")
 
 
+def _same_storage_path(first, second) -> bool:
+    """Compare storage destinations using platform-specific path semantics."""
+    return os.path.normcase(os.path.realpath(first)) == os.path.normcase(os.path.realpath(second))
+
+
 def _writable_path(filename: str, env_var: Optional[str] = None) -> str:
     """Return a writable path for *filename*.
 
@@ -3278,7 +3283,17 @@ class NiblitMemory:
         # ─────── IMPROVEMENTS INITIALIZATION ───────
         self._init_improvements()
 
-        self._load()
+        # The compatibility facade must not own a second snapshot/writer for
+        # the same file as KnowledgeDB. Share its state, lock, and coordinator.
+        self._shared_knowledge = None
+        knowledge = globals().get("GLOBAL_KNOWLEDGE")
+        if knowledge is not None and _same_storage_path(self.filename, knowledge.path):
+            self._shared_knowledge = knowledge
+            self.state = knowledge.data
+            self.lock = knowledge.lock
+            self._ensure_integrity()
+        else:
+            self._load()
 
         # ── Single canonical background threads ──────────────────────────────
         # Exactly one autosave thread and one dump thread for the whole process.
@@ -3365,8 +3380,16 @@ class NiblitMemory:
         #    Uses the embedded FusedMemoryPrimary (superset of FusedMemory)
         try:
             self.fused_memory: Optional[FusedMemoryPrimary] = FusedMemoryPrimary()
-            log.debug("[MEMORY] FusedMemoryPrimary backend initialised (vector_backend=%s)",
-                      self.fused_memory.vector_backend)
+            # NOTE: do NOT touch fused_memory.vector_backend here.  That
+            # property lazily constructs the VectorStore, which in turn loads
+            # (and may download from HuggingFace) the sentence-transformer
+            # embedding model.  Triggering that from a debug log line made
+            # `import niblit_memory` perform network I/O at import time and
+            # could hard-crash the interpreter (access violation inside
+            # socket.getaddrinfo on Python 3.14).  The vector store is now
+            # built on first real vector use instead.
+            log.debug("[MEMORY] FusedMemoryPrimary backend initialised "
+                      "(vector store deferred to first use)")
         except Exception as _e:
             log.debug("[MEMORY] FusedMemoryPrimary unavailable: %s", _e)
             self.fused_memory = None
@@ -3449,25 +3472,23 @@ class NiblitMemory:
     def save(self):
         """Save memory state to persistent JSON file with backup."""
         try:
-            with self.lock:
-                # Create backup before saving
-                if os.path.exists(self.filename):
-                    try:
-                        with open(self.filename, "r") as f:
-                            backup_data = f.read()
-                        with open(self.backup_filename, "w") as f:
-                            f.write(backup_data)
-                    except Exception as e:
-                        log.debug(f"Backup creation failed: {e}")
+            knowledge = getattr(self, "_shared_knowledge", None)
+            if knowledge is not None:
+                if not _same_storage_path(self.filename, knowledge.path):
+                    raise RuntimeError("Shared KnowledgeDB path changed; refusing a stale memory write")
+                knowledge._save(blocking=True)
+            else:
+                with self.lock:
+                    AtomicCommitManager().commit_json(
+                        path=self.filename,
+                        payload=self.state,
+                        backup_path=self.backup_filename,
+                    )
 
-                # Save current state
-                with open(self.filename, "w", encoding="utf-8") as f:
-                    json.dump(self.state, f, indent=4, ensure_ascii=False)
-
-                log.debug("Memory saved")
-                self.metrics["saves"] += 1
-                if self.telemetry:
-                    self.telemetry.increment_counter("memory_save_success")
+            log.debug("Memory saved")
+            self.metrics["saves"] += 1
+            if self.telemetry:
+                self.telemetry.increment_counter("memory_save_success")
         except Exception as e:
             log.error(f"Memory save failed: {e}")
             self.metrics["errors"] += 1
@@ -3479,9 +3500,9 @@ class NiblitMemory:
         while True:
             try:
                 self.save()
-                # Also flush KnowledgeDB (shares same file path but its own data dict)
+                # A separately configured facade still flushes canonical knowledge.
                 _kdb = globals().get("GLOBAL_KNOWLEDGE")
-                if _kdb is not None:
+                if _kdb is not None and _kdb is not getattr(self, "_shared_knowledge", None):
                     try:
                         _kdb._save(blocking=False)
                     except Exception:

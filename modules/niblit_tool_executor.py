@@ -89,9 +89,11 @@ class NiblitToolExecutor(KBToolExecutor):
         knowledge_db: Optional[Any] = None,
         local_brain: Optional[Any] = None,
         confirm_mode: bool = False,
+        core_getter: Optional[Callable[[], Any]] = None,
     ) -> None:
         super().__init__(knowledge_db=knowledge_db, local_brain=local_brain)
         self._core = core
+        self._core_getter = core_getter
         # When True, destructive commands (shutdown/exit/quit) are permitted.
         self.confirm_mode = confirm_mode
 
@@ -100,6 +102,13 @@ class NiblitToolExecutor(KBToolExecutor):
     def _get_core(self) -> Optional[Any]:
         if self._core is not None:
             return self._core
+        if callable(self._core_getter):
+            try:
+                core = self._core_getter()
+                if core is not None:
+                    return core
+            except Exception:
+                log.debug("Core getter failed", exc_info=True)
         # Try to reach the process-wide singleton if available
         try:
             import niblit_core as _nc
