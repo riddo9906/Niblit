@@ -11,7 +11,7 @@ setup(
     long_description=README,
     long_description_content_type="text/markdown",
     license="MIT",
-    license_files=["LICENSE"],
+    license_files=["LICENSE", "NOTICE"],
     packages=find_packages(),
     include_package_data=True,
 )
@@ -19,3 +19,4 @@ setup(
 
 if __name__ == "__main__":
     print('Running setup.py')
+
