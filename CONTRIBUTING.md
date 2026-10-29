@@ -4,6 +4,8 @@ Thank you for your interest in contributing to **Niblit — AIOS** (Neural Integ
 
 This guide covers how to set up your environment, run tests, and submit pull requests.
 
+Niblit is maintained by Enginehead Software Development and remains MIT-licensed. Read the root README, docs/CURRENT_STATUS.md and docs/LICENSING.md first. Some older examples below require profile-specific review and are not proof of a complete desktop installation. Keep credentials, private memory and generated runtime data out of contributions. Explain important changes in terms of what they do, how they work, why they are needed and their actual verification limits.
+
 ---
 
 ## Table of Contents
@@ -57,7 +59,7 @@ pip install pytest pytest-cov ruff black mypy pylint pre-commit
 
 ```bash
 cp .env.example .env
-# Edit .env and fill in at least HF_TOKEN
+# Configure only the providers you intend to use; hosted-provider keys are optional
 ```
 
 ### Set up pre-commit hooks (recommended)
@@ -183,3 +185,4 @@ Open a GitHub Issue labelled `enhancement` with:
 ---
 
 *Happy hacking! 🤖*
+
