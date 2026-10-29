@@ -4,15 +4,22 @@ Niblit Notice
 This repository is distributed under the MIT License. A copy of the MIT License
 is available in the LICENSE file at the root of this repository.
 
+Maintained by Enginehead Software Development. Niblit is the product name.
+This maintainer identification does not replace existing contributor copyright
+notices or change the source license. See docs/LICENSING.md for scope and packaging.
+
 Third-party components
 ----------------------
 
-- The vendored copy of swift-argument-parser under vendor/swift-argument-parser
-  is licensed under the Apache License 2.0. See
-  vendor/swift-argument-parser/LICENSE.txt for details.
+- Historical distributions included swift-argument-parser under
+  vendor/swift-argument-parser, licensed under Apache License 2.0. If included
+  in a distribution, its upstream LICENSE.txt and required notices must accompany
+  it. The directory is absent from the local tree inspected on 29 October 2026;
+  this notice does not assert that it is currently bundled.
 - Additional third-party dependencies referenced by the Python and Swift package
   manifests are subject to their own license terms and are not covered by this
   notice.
 
 The above notice does not replace or supersede the license terms of any
 third-party component included in this repository.
+
