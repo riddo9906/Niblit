@@ -52,3 +52,7 @@ A complete release needs a source/dependency manifest, documented configuration,
 fresh-target install, startup health, a real UI-to-backend response, persistence
 across restart and recovery checks. No clean-install-tested bootstrap download is
 claimed until those checks pass. Funded trading and revenue targets remain unproven.
+<<<<<<< HEAD
+=======
+
+>>>>>>> 66770bf5ab276bfbc98b7602c5c20eac36f43dde

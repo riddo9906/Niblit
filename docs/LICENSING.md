@@ -39,3 +39,7 @@ Do not restore absent vendor files merely to satisfy that historical reference.
 
 No contributor agreement, paid subscription, hosted-service terms or new trademark
 license is introduced by this update. Any such policy needs its own explicit review.
+<<<<<<< HEAD
+=======
+
+>>>>>>> 66770bf5ab276bfbc98b7602c5c20eac36f43dde
