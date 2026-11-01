@@ -32,6 +32,7 @@ import threading
 import time
 import logging
 import asyncio
+import inspect
 from datetime import datetime, timezone
 from typing import Dict, Any
 
@@ -339,7 +340,7 @@ class LifecycleEngine:
             elif phase == "TRAIN":
                 log.info("[LIFECYCLE] TRAIN: Training...")
                 interactions = self.memory.get_learning_log() or []
-                if self.cb_train and asyncio.iscoroutinefunction(self.cb_train.call):
+                if self.cb_train and inspect.iscoroutinefunction(self.cb_train.call):
                     try:
                         asyncio.run(self.cb_train.call(self.trainer.step_if_needed, interactions))
                     except Exception as e:

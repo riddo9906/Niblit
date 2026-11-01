@@ -1,0 +1,77 @@
+{
+  "schema_version": 2,
+  "initial_capital": 10000.0,
+  "balances": [
+    {
+      "currency": "USDT",
+      "free": 9999.341471399293,
+      "used": 0.0,
+      "total": 9999.341471399293,
+      "usd_value": null
+    }
+  ],
+  "positions": [
+    {
+      "position_id": "a568ecdf",
+      "symbol": "BTC/USDT:USDT",
+      "side": "long",
+      "status": "closed",
+      "opened_at": "2026-06-29T17:00:00+00:00",
+      "trade_id": "a568ecdf",
+      "closed_at": "2026-06-30T04:00:00+00:00",
+      "entry_price": 59870.9,
+      "current_price": 59596.1,
+      "exit_price": 59596.1,
+      "stake_amount": 100.0,
+      "quantity": 0.0016702605105318276,
+      "profit_amount": -0.658528600705857,
+      "profit_ratio": -0.006585286007058569,
+      "stop_loss": null,
+      "take_profit": null,
+      "leverage": null,
+      "strategy": "operator",
+      "entry_tag": "niblit:operat16d71a5",
+      "exit_reason": null,
+      "exchange": null,
+      "metadata": {
+        "source": "core_operator_paper",
+        "market_timestamp": "2026-06-29T17:00:00+00:00",
+        "ai_advice": null,
+        "data_sha256": "c8ecb2b85e0f16981a99eee8187300ece3e40998d3276a3d11ce2959879907c7",
+        "replay_cursor": 199,
+        "market_source": "replay:recorded_binance:swap",
+        "strategy": "operator",
+        "provider_tag": "niblit:operat16d71a5",
+        "entry_fee": 0.1,
+        "decision_id": "operator-9b4f3c9b-2a0b-4f5b-bd32-e183eb45d77c"
+      }
+    }
+  ],
+  "prices": {
+    "BTC/USDT:USDT": 59285.8
+  },
+  "realized_pnl": -0.658528600705857,
+  "fees": 0.19954101241170585,
+  "executions": [
+    {
+      "decision_id": "operator-9b4f3c9b-2a0b-4f5b-bd32-e183eb45d77c",
+      "trade_id": "a568ecdf",
+      "action": "enter_long",
+      "symbol": "BTC/USDT:USDT",
+      "price": 59870.9,
+      "fee": 0.1,
+      "stake": 100.0,
+      "timestamp": "2026-06-29T17:00:00+00:00"
+    },
+    {
+      "decision_id": "replay:c8ecb2b85e0f1698:EmaTripleCross:210",
+      "trade_id": "a568ecdf",
+      "action": "exit_long",
+      "symbol": "BTC/USDT:USDT",
+      "price": 59596.1,
+      "pnl": -0.658528600705857,
+      "fee": 0.09954101241170585,
+      "timestamp": "2026-06-30T04:00:00+00:00"
+    }
+  ]
+}

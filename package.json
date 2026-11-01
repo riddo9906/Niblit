@@ -4,6 +4,8 @@
   "description": "Niblit AIOS — unified desktop application launcher",
   "private": true,
   "scripts": {
+    "build:check": "node scripts/niblit-build.js --check",
+    "build:plan": "node scripts/niblit-build.js --plan",
     "dev": "node scripts/niblit-dev.js",
     "build": "node scripts/niblit-build.js --tauri",
     "build:ui": "node scripts/niblit-build.js",

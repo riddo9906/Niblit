@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-30",
+  "company_project": "enginehead-company",
+  "company_project_id": "prj_CQarSznezZNwSrQv04eLuZaud94c",
+  "company_deployment": "dpl_2Dg3GGfhJotMwmSw4nsTV1B7pncV",
+  "company_url": "https://enginehead-company.vercel.app/",
+  "status": "READY; public URL HTTP 200 and company branding verified",
+  "client_project": "niblit-client-portal",
+  "client_project_id": "prj_AJf6PNlMPtJBg7TfDEM4dctYMfsE",
+  "openai_connector_uid": "openai/riyaad-behardien",
+  "connector_environments": [
+    "production"
+  ],
+  "provider_requests_sent": 0,
+  "client_cloud_status": "awaiting Turso database provisioning, persistence/coordination migration and validation",
+  "domain_move": "user approved; API reports still assigned to old project; native capture timed out twice; dashboard move pending",
+  "sha256": {
+    "dist/index.html": "073cd61ae7494c8b6671666edc8cab994aa9e570d47e4e32ec8f3eabeadba079",
+    "dist/style.css": "2497928d30182547cee8e45d74d0a940efeca23c157cf9a4946dde635eff5619",
+    "dist/app.js": "1c89fda77551c2b178f56fe4de6326bdde14927710e2ae1a2a0dedc81c7a7355",
+    "dist/icon.svg": "5c87d8ffc2597b6e28cc9688263d999423a7e589115e3bb939c6638a6fa13834",
+    "dist/robots.txt": "18afedd9b54e6c0eb378e605ee83bb762113ff5bb116778879e3c56f675175f0",
+    "dist/sitemap.xml": "024d030fb4b83a6a236fbfa91a14894cb434ee47191b7eb2a6b159d6d80895a2",
+    "vercel.json": "6fbc427caaaeea341ccef73d2798a9c35b275733315e35cf49a6646582b684b1"
+  }
+}

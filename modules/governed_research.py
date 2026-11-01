@@ -48,6 +48,14 @@ def _url_allowed(url: str) -> tuple:
     return True, ""
 
 
+class _PublicRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        allowed, _ = _url_allowed(newurl)
+        if not allowed:
+            raise urllib.error.URLError("redirect to a non-public target blocked")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def governed_fetch(url: str, max_bytes: int = MAX_FETCH_BYTES,
                    timeout: float = FETCH_TIMEOUT) -> Dict[str, Any]:
     """Fetch public HTTP(S) text with SSRF/size/timeout guards. Structured
@@ -60,7 +68,7 @@ def governed_fetch(url: str, max_bytes: int = MAX_FETCH_BYTES,
     )
     t0 = time.time()
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.build_opener(_PublicRedirects()).open(req, timeout=timeout) as resp:
             ctype = resp.headers.get("Content-Type", "")
             if not any(t in ctype for t in ("text/", "json", "xml")):
                 return {"error": f"unsupported content-type {ctype!r}", "url": url}

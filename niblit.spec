@@ -81,6 +81,13 @@ LEAN_ALGOS_ROOT = next(
 # ---------------------------------------------------------------------------
 
 datas = []
+# The local desk endpoints serve these files by their paths at runtime.
+# Only static web extensions are allowed; never package runtime data or .env.
+for _desk in ('trading-desk', 'memory-desk', 'client-portal'):
+    _asset_root = REPO_ROOT / 'assets' / _desk
+    for _asset in _asset_root.rglob('*'):
+        if _asset.is_file() and _asset.suffix.lower() in {'.html', '.js', '.css', '.svg', '.png', '.ico', '.woff', '.woff2'}:
+            datas.append((str(_asset), str(_asset.relative_to(REPO_ROOT).parent)))
 datas.append((str(STAGED_FREQTRADE_DIR), "freqtrade"))
 
 # niblit_core's compatibility loader executes these source files by path.
@@ -161,6 +168,7 @@ if STAGED_TAURI_EXE.is_file():
 hiddenimports = [
     "aiohttp",
     "duckduckgo_search",
+    "ddgs",
     # HTTP server layer
     "uvicorn",
     "uvicorn.main",
@@ -254,7 +262,7 @@ exe = EXE(
     strip=False,
     upx=False,               # UPX makes startup faster but is optional
     console=True,            # keep console so users can see startup logs
-    icon=None,               # set to str(REPO_ROOT/"assets"/"niblit.ico") if icon exists
+    icon=str(REPO_ROOT / "assets" / "branding" / "niblit.ico"),
 )
 
 coll = COLLECT(

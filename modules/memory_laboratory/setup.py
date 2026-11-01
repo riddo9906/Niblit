@@ -96,6 +96,9 @@ class DedicatedEmbedder:
         if not text.strip():
             raise ValueError("empty embedding input")
         if self._model is None:
+            import torch
+            # Bound CPU contention with the UI, market feeds and local chat.
+            torch.set_num_threads(max(1, min(int(os.getenv("NIBLIT_MEMORY_EMBEDDING_THREADS", "2")), 8)))
             from sentence_transformers import SentenceTransformer
             self._model = SentenceTransformer(
                 self.config.model, revision=self.config.revision,

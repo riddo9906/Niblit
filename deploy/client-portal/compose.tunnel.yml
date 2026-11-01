@@ -1,0 +1,19 @@
+# OPT-IN ONLY. Does not start with the normal local launch command.
+services:
+  portal:
+    environment:
+      NIBLIT_PORTAL_REMOTE_ORIGIN: ${NIBLIT_PORTAL_REMOTE_ORIGIN:?Set an explicit HTTPS client origin}
+  android-tunnel:
+    image: cloudflare/cloudflared:2026.10.0
+    profiles: [android-tunnel]
+    command: [tunnel, --no-autoupdate, run, --token-file, /run/secrets/tunnel_token]
+    restart: unless-stopped
+    depends_on: [portal]
+    secrets: [tunnel_token]
+    networks: [edge]
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+secrets:
+  tunnel_token:
+    file: ../../runtime/client-portal/cloudflare-tunnel-token

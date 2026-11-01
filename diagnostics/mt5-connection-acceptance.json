@@ -1,0 +1,22 @@
+{
+  "checked_at": 1793292533.898598,
+  "connected": true,
+  "server": "MetaQuotes-Demo",
+  "account_mode": "demo",
+  "currency": "USD",
+  "symbol": "EURUSD",
+  "quote_advancement_observed": true,
+  "freshness_basis": "locally observed tick advancement; absolute UTC age is not verified",
+  "completed_candles": 200,
+  "position_count": 0,
+  "pending_order_count": 0,
+  "capabilities": {
+    "quotes": true,
+    "positions": true,
+    "completed_candles": true,
+    "demo_preflight": true,
+    "order_submission": false
+  },
+  "paid_inference_calls": 0,
+  "orders_submitted": 0
+}

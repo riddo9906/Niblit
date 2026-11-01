@@ -1,0 +1,12 @@
+{
+  "configured": true,
+  "completed": false,
+  "model": "gpt-4o-mini",
+  "request_id": "req_d8d8360e19d64f23bd91687644b653a0",
+  "error": {
+    "code": "rate_limited",
+    "message": "OpenAI rejected the request or is temporarily unavailable. Check the configured model and API account.",
+    "status_code": 429,
+    "request_id": "req_d8d8360e19d64f23bd91687644b653a0"
+  }
+}

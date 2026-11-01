@@ -1,0 +1,23 @@
+{
+  "ready": false,
+  "checks": {
+    "native_autostart": true,
+    "responsive_after_log_burst": true,
+    "stream_1_with_healthy_backends": true,
+    "stream_2_with_healthy_backends": true,
+    "stream_3_with_healthy_backends": true,
+    "runtime_telemetry_frame": true,
+    "health_responsive_with_active_telemetry": true
+  },
+  "model_ids": [
+    "llama3.2-1b",
+    "qwen2.5-0.5b",
+    "qwen2.5-coder-3b"
+  ],
+  "stage": "runtime_help_reply",
+  "health_latency_ms": {
+    "max": 30.8,
+    "mean": 4.6
+  },
+  "error": "timed out"
+}

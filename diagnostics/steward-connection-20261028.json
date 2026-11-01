@@ -1,0 +1,29 @@
+{
+  "registered": true,
+  "inference_verified": false,
+  "session_id": "sess_0d9bb780faa32c95006ae23bcad080819ea3a367b966a66171",
+  "status": "idle",
+  "response_fields": [
+    "agent",
+    "created_at",
+    "environment",
+    "error",
+    "id",
+    "last_active_at",
+    "metadata",
+    "object",
+    "required_actions",
+    "status",
+    "usage",
+    "vault_ids"
+  ],
+  "error_code": null,
+  "usage": null,
+  "turns": [
+    {
+      "status": "failed",
+      "error_code": "usage_limit_exceeded",
+      "usage": null
+    }
+  ]
+}

@@ -53,7 +53,7 @@ dependencies = [
 build = [
     "pyinstaller>=6.0",
     "aiohttp>=3.9",
-    "duckduckgo-search>=6.0",
+    "ddgs>=6.1.0",
 ]
 dev = [
     "pytest>=7.4.0",

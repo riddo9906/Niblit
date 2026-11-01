@@ -1,0 +1,70 @@
+{
+  "count": 414,
+  "states": {
+    "EXECUTABLE": 262,
+    "REQUIRES_AUTHORIZATION": 137,
+    "UNAVAILABLE": 15
+  },
+  "unavailable": [
+    {
+      "name": "debug off",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    },
+    {
+      "name": "debug on",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    },
+    {
+      "name": "exit",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    },
+    {
+      "name": "heal",
+      "reason": "The original handler is not available in this runtime."
+    },
+    {
+      "name": "lean algo",
+      "reason": "The original handler is not available in this runtime."
+    },
+    {
+      "name": "lean deploy",
+      "reason": "The original handler is not available in this runtime."
+    },
+    {
+      "name": "learn about",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    },
+    {
+      "name": "memory dump",
+      "reason": "The original handler is not available in this runtime."
+    },
+    {
+      "name": "my",
+      "reason": "The original handler is not available in this runtime."
+    },
+    {
+      "name": "notifications history",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    },
+    {
+      "name": "quit",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    },
+    {
+      "name": "runtime provider",
+      "reason": "provider ruflo unavailable"
+    },
+    {
+      "name": "session summary",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    },
+    {
+      "name": "shutdown",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    },
+    {
+      "name": "sidecar status",
+      "reason": "Interactive CLI command; no desktop handler is bound."
+    }
+  ]
+}

@@ -11,6 +11,8 @@ bounded, and routed through NiblitToolExecutor.
 
 from __future__ import annotations
 
+from modules.task_admission import task_owned
+
 import json
 import logging
 import os
@@ -32,9 +34,6 @@ _CHAT_PATH = "/v1/chat/completions"
 # removes the tool surface so the model MUST answer from the observations
 # it already has (bounded, truthful, never fabricated).
 MAX_IDENTICAL_TOOL_CALLS = 2
-_NIBLIT_CLOUD_PORT = int(os.environ.get("NIBLIT_CLOUD_SERVER_PRIMARY_PORT", "8000"))
-_CLOUD_ROOT = f"http://127.0.0.1:{_NIBLIT_CLOUD_PORT}"
-_CHAT_PATH = "/v1/chat/completions"
 
 
 def make_runtime_status_tool() -> dict:
@@ -213,6 +212,7 @@ class LlmToolLoop:
         except urllib.error.URLError as exc:
             raise ToolCallError(f"cloud unreachable: {exc}") from exc
 
+    @task_owned('core_tool_loop')
     def chat(self, messages, tools=None, model="qwen2.5-coder-3b",
              tool_choice=None):
         schemas = dict(getattr(self, "_schemas", {}))

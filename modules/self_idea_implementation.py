@@ -54,8 +54,8 @@ class SelfIdeaImplementation:
         # -----------------------------
         self.slsa = None
         try:
-            self.slsa = SLSAGenerator(interval=20, db_path="niblit.db")
-            threading.Thread(target=self.slsa.run, daemon=True).start()
+            self.slsa = SLSAGenerator(db=self.db, interval=20)
+            self.slsa.start()
             log.info("SLSA Generator initialized and running.")
         except Exception as e:
             log.warning(f"SLSA initialization failed: {e}")

@@ -884,3 +884,159 @@ Full npm run build exited 0. Complete five-component bundle: dist/testing-202610
 After those checks, the superseded Commands build and duplicate staging/compiler caches were removed with verified path boundaries, active-process checks and private runtime/config backups. The new executable passed Qdrant readiness again after this cleanup. Free space is approximately 29.6 GB. Only the older testing-20261025-final folder is retained because its pre-existing worker was still active. Test-owned services were stopped; the persistent authenticated local Qdrant container remains running. Source and the externally created 5c0ce048 checkpoint are being synced to GitHub under the earlier cleanup/save authorization; no binaries, keys, personal memory or model weights are staged.
 
 Start the new desktop using Enable-Memory-And-Start.cmd to explicitly grant desktop-scoped memory read/ingestion/consolidation through the existing permission manager, or Start-Niblit-Testing.cmd to use existing grants. Keep the entire bundle together. The private Qdrant profile and ledger live under %LOCALAPPDATA%/Niblit/memory-laboratory and its Docker named volume must be preserved. Remaining Phase 6 scope/limits above remain explicit; this checkpoint certifies the built/tested paths, not every older memory facade or a profitability target.
+
+
+## 2026-10-29 — Hosted portal, evidence map and documentation correction
+
+Implemented local approved sign-up, shared/private client workspace isolation,
+server-enforced Personal/Pro/Team pilot limits, membership revocation and scoped
+model context in modules/server_manager.py and modules/portal_workspaces.py.
+No billing, public cloud deployment or real model acceptance is claimed. Added
+a narrow Docker profile, not yet built; it does not include private desktop data.
+
+Verification: niblit-env/Scripts/python.exe -m pytest tests/test_server_manager.py
+tests/test_portal_workspaces.py tests/test_llm_tool_loop.py -q -p no:cacheprovider
+completed with 22 passed and one Starlette/httpx deprecation warning, exit 0.
+node --check assets/client-portal/portal.js passed. Removed duplicate Cloud
+endpoint declarations in llm_tool_loop.py; trading_brain.py gained what/how/why
+explanations without changing its journal behavior. Browser inspection verified
+registration UI and an interactive evidence-map node. No paid inference was run.
+
+Built docs/code-atlas (source-only AST index across eight repositories), a
+143-request triage register from 12 relevant accessible conversations,
+NIBLIT_HUMAN_GUIDE.md, NIBLIT_MASTER_PLAN.md and docs/system-map/index.html.
+The register is triage, not 143 independently verified completions; full code
+explanation/refactoring and attachment-by-attachment reconciliation remain open.
+
+Company website version 2 published with Enginehead Software Development as
+company and Niblit as product. Public GitHub documentation updated through the
+connector on main, ending at 66770bf5ab276bfbc98b7602c5c20eac36f43dde. Updated
+README, NOTICE, CONTRIBUTING, setup.py license_files, and added CURRENT_STATUS,
+LICENSING and historical README. MIT terms and original copyright unchanged.
+Only these explicitly reviewed public files were sent; private conversation
+excerpts, atlas, personal memory, credentials and unrelated dirty source were not.
+Local main was not pulled/reset or committed; preserve its existing changes.
+
+Final focused rerun after adding tier seat/workspace acceptance: 23 passed, one existing Starlette warning, exit 0. The intermediate added-test layout error was corrected before this final run. Domain refresh still reports enginehsd.site pending TLS/DNS validation; use the verified generated publication URL until activation is confirmed.
+
+## 2026-10-29 — ALE lifecycle ownership repair
+
+Changed modules/autonomous_learning_engine.py, modules/learning_status.py,
+niblit_core.py, niblit_router.py and server.py to serialize worker ownership,
+track timed-out work, reject overlapping restarts/steps, report truthful stopping
+state and make status observational. Both Core research loop variants yield to
+ALE ownership. Tests: test_autonomous_engine.py::TestGetLearningStats and
+tests/test_ale_lifecycle.py: 16 passed, exit 0; runtime source AST parsing and
+diff check passed. The existing status test was corrected to require no lazy
+research-agent construction. No paid inference or real autonomous actions ran.
+This is a source-level repair, not a verified frozen desktop rollout.
+
+Vercel migration remains pending account-tool connection and Namecheap DNS work.
+Prepared niblit-website/vercel.json, .vercelignore and VERCEL_DEPLOYMENT.md.
+Existing enginehsd.site assignment belongs to niblit-vercel-fresh-648m, linked
+to riddo9906/niblit-vercel-fresh. Preserve the legacy deployment until a static
+preview is verified. Do not reuse Sites DNS records for this migration.
+
+
+## 2026-10-30 — Bounded MT5 demo strategy laboratory
+
+Implemented host-desk trend/breakout rule selection, timed single-worker demo automation, durable reasons/tickets, equity-proportional sizing below the existing 0.01-lot ceiling, 2% session loss/drawdown halt, broker-attributed closed outcomes and descriptive net performance. MT5 demo outcomes reuse the permission-gated Core episodic outbox. Added source-stamped Federal Reserve research collection, with no headline-to-direction execution. No paid inference or funded execution.
+
+Validation: 51 strategy/event/controller/HTTP tests passed; JavaScript syntax and HTML control references passed. Actual MT5 demo IPC outside process restrictions: connected, trading enabled, 200 bars, no positions. Federal Reserve RSS returned 15 items. Host desk is running on port 8767. Started an authorized ten-minute EURUSD trend_v1 demo session capped at one entry; first actual decision was WAIT (trend conditions not aligned), no fill claimed. Restart does not resume automation.
+
+Remaining: observe a qualifying automatic demo entry and exit; sustained evidence; out-of-sample/cost-aware historical validation; politics/war instrument-aware event research; Freqtrade strategy parity and refined native release packaging. See docs/DEMO_STRATEGY_LAB.md for the precise implemented boundaries.
+
+
+## 2026-10-30 — Strategy manager, user notifier, persistent hosting preparation
+
+Added deterministic multi-strategy eligibility comparison, conflict abstention,
+entry-strategy-owned exits, expiry-to-observation, non-delivering opportunity
+preflight, expiring/deduplicated user alerts and explicit session approval. The
+previous ten-minute actual demo test expired with zero entries. New observer is
+running on EURUSD, execution disabled, evaluating two strategies; latest direction
+WAIT. No paid model calls or funded orders.
+
+Prepared a Docker Compose client stack with isolated portal, Qdrant, Ollama and
+optional HTTPS proxy, named data/model/certificate/backup volumes, private inference
+URL validation, health endpoint and consistent SQLite backup. Portal-only image
+built locally. User selected preparation first because no cloud server exists.
+Vercel team grant still returns 403; no production deployment/DNS change occurred.
+Cloud model weights and client Qdrant retrieval remain separate acceptance work.
+
+Local hosting acceptance completed: Docker portal healthy on loopback 8769,
+anonymous session denied, SQLite integrity passed, named volume survived forced
+replacement of only the new portal container, and verified SQLite backup created.
+Trading/portal test batch passed plus the two deployment-specific tests. No
+cloud host, public proxy, model weights, client vector retrieval or default admin
+was silently provisioned. Public rollout remains pending server selection and
+Vercel team authorization. The browser notifier requires user opt-in and an open
+page; it does not send events into Codex.
+
+
+## 2026-10-30 — Expanded strategy/prediction research and Freqtrade parity
+
+Expanded the shared catalog to six experimental documented rule families with
+measured conditions, hypotheses and references. Added local nearest-state next-M5
+forecasting, expanding walk-forward error/baseline comparison, immutable forecasts
+scored after their target candles complete, and eight bounded candidate-rule
+variations generated while no rule qualifies. Training/holdout remain separate,
+including a purged boundary label; all candidates remain execution-ineligible.
+
+MT5 host observer and the new read-only Freqtrade research endpoint use the same
+rules/research engine. Research data and outcomes persist in private SQLite.
+Actual Freqtrade endpoint returned six rules and exploratory predictions; its
+SampleStrategy and three existing dry-run positions were preserved. Seven native
+dry-run classes were staged and imported in the actual container; funded-entry
+rejection and prefix invariance passed. No native strategy switch occurred.
+
+71 targeted tests passed. No paid inference or new automated session was enabled.
+Native strategy full exchange-history backtests, fill/cost/robustness validation,
+FreqAI integration and live activation remain separate work. Signup left unchanged
+at the user's explicit correction. See docs/PREDICTIVE_STRATEGY_RESEARCH.md.
+
+
+2026-10-30 unexpected Freqtrade re-entries: confirmed SampleStrategy opened positions 42/43 after the prior trades closed. Called the running API stopentry endpoint in verified dry-run; state now paused, existing positions preserved. Set private config initial_state=stopped with a private backup so restart does not automatically resume sample trading. No strategy replacement or forced closure was performed.
+
+
+2026-10-30 sample-strategy transition: user closed remaining trades; verified zero open positions and stopped dry-run engine. Changed the Compose strategy argument and private strategy setting to NiblitLabManager, preserving initial_state=stopped and the existing trade database. Recreated only Freqtrade. Authoritative API confirms NiblitLabManager, dry_run=true, state=stopped, stoploss=-0.01, timeframe=5m. No /start or entry was submitted.
+
+
+2026-10-30 Vercel rollout: company production website READY at https://enginehead-company.vercel.app/, public HTTP 200 and branding verified. New project prj_CQarSznezZNwSrQv04eLuZaud94c. Old backend project untouched after auto-review rejected project-wide reconfiguration. User explicitly approved moving enginehsd.site/www; move pending dashboard because available tool lacks move and native capture failed twice. Client project prj_AJf6PNlMPtJBg7TfDEM4dctYMfsE created, existing OpenAI connector attached production-only with explicit reuse authorization; zero provider requests. Existing Turso Starter integration identified; actual client database provisioning pending user dashboard. Local owner riddo9906 approved as admin, /admin route added and verified; nine portal tests passed. No private desktop memory exported.
+
+
+2026-10-30 local portal post-login chat repair: login/admin worked but configured Ollama did not exist or run. Reused the installed llama-server binary and existing Qwen coder 3B GGUF, loopback 8766, two CPU threads/one slot, private ignored key file mounted read-only into the portal. Added explicit local_gguf transport, bounded context/output, authenticated readiness and visible UI send gating. Applied local Compose override without changing accounts/data or paid OpenAI configuration. Actual isolated acceptance passed login HTTP 200, model ready, chat HTTP 200, assistant response 4 and two stored messages. No paid provider request. Added Start-Client-Portal.cmd for deliberate startup.
+
+
+2026-10-30 owner local tool/tutor update: private repository https://github.com/riddo9906/niblit-client-portal created and initial source push verified. Local portal now grounds identity/time in runtime facts and offers owner-only selected-source/official-documentation tools, inert proposals and live action records. Added bounded local tutor: shared chat task lock, one question per cycle, three questions/session, 60-second idle wait, 120-second spacing, 15-minute expiry, stop and no restart resume. Native authenticated memory bridge on 8772 reuses governed Qdrant/source ledger, with append-only unverified episodic observations and no review/delete/code/trading authority. Source claims and generated reflections remain distinct; prior reflection sources excluded from tutor evidence. Core was not running; no duplicate Core/ALE launched. Existing GGUF remains 2 CPU threads/1 slot, below-normal priority; bridge embeddings 1 thread. Actual recalled-memory acceptance retrieved three native sources and generated an answer; missing citations correctly produced knowledge_gap, not verified knowledge. Targeted tests 27 passed. No paid provider calls or trading changes. All legacy inference paths are not yet migrated to this scheduler.
+
+
+2026-10-30 current-moment market comparer: added immutable issued shadow forecasts, later-candle scoring, baseline/error/coverage/pattern/drift summaries and a fixed four-predictor research manager. Forty settled observations required before bounded training-prefix selection plus later-suffix improvement gate; all execution eligibility remains false. Integrated source into MT5 observer and Freqtrade read-only research; one nonblocking process gate, bounded work, no LLM calls, no new worker. 52 targeted market/research/integration tests passed. See docs/ONLINE_MARKET_STUDY.md. Risk limits, order permissions, native Freqtrade strategies and positions unchanged.
+
+Activation verified: restarted only the observation-only market desk and resumed EURUSD auto observation. Fixed legacy observation startup requiring a flat account/order authority: only observation now bypasses those execution-only prerequisites; execution guards unchanged. Regression proves no preview/confirm calls. 53 targeted tests passed. Live running status confirms online comparer observing, zero settled outcomes initially, zero baseline selected, execution_eligible=false and execution_active=false. No orders or position closures sent.
+
+
+2026-10-30 MT5 demo strategy-aware exit update: added saved-entry-thesis invalidation, possible failed-breakout checks, reversion targets and quote-based profit giveback rules. Original stop stays unchanged. Profit checks run inside the existing sequential worker between bar-entry checks; distinct quote confirmation, exact-position broker preflight, single adaptive delivery attempt and reconciliation guards retained. Generated predictor is advisory, not exit authority. Realized broker outcomes now include exit evidence; no counterfactual profit labels. 58 targeted tests passed across exits, observers, research and desk; 28 focused exit/outcome tests passed after outcome linkage. Activated while execution inactive and restored EURUSD observation-only; no real orders/closures tested. New logic applies only to recorded entries in authorized bounded MT5 demo sessions; current older positions, funded accounts and Freqtrade exits unchanged. See docs/DEMO_POSITION_EXITS.md.
+
+
+2026-10-30 Freqtrade parity activated: native dry-run reload 200, running state restored, three positions retained, no forced exits. Durable strategy-aware context applies to newly filled trades; native callback acceptance and 19 focused tests pass. Staged disabled-by-default 1m micro-demo experiment separately; not activated/backtested. Full continuation and remaining delivery direction saved in docs/NEXT_SESSION_CHECKPOINT.md.
+
+
+2026-10-30 usage-aware handoff: created docs/INTEGRATED_DELIVERY_PLAN.md for all requested seconds trading, repackaging, cloud/backend, Android/app, native tabs, Lean UI, strategy/memory/predictor/decision-support and native brain/learning integration work. Includes observed baseline, dependency map, P0-P8 source targets, acceptance gates, safety/resource requirements and exact next-session instruction. Linked checkpoint. Planning only: no new release executable, APK, cloud server or micro/seconds trading session created or started.
+
+
+2026-10-30 Android tunnel preparation: added opt-in Cloudflare named-tunnel Docker profile using private token file, explicit HTTPS remote-origin policy, allowlisted client paths, remote local-owner capability denial, Secure cookies, CSRF/host checks and client UI hiding of local controls. Same authoritative portal instance/lock, no second model. Added Android HTTPS config templates and provisioning/rollback/network acceptance instructions. 22 focused portal tests pass. No provider account/token/DNS/public tunnel/APK configured; no router changes or paid inference.
+
+
+2026-10-30 P0/P1 continuation: inventoried selected listeners without secrets; Core5000/Cloud8000/Lean8100 stopped, model8766/desk8767/portal8769/memory8772 present. Added SQLite-backed shared task ownership to existing memory gateway, no queue/no auto-expiry, ambiguous-failure quarantine and guarded owner recovery script. Local portal/tutor deployed through shared admission; source native router/tool-loop wrappers prepared. Restored missing LocalBrain route_inference contract, preserving paid model config and no fallback. Actual Windows-host vs Docker busy rejection/release passed; actual native Router->existing local GGUF returned4, zero paid requests/new model workers. 70 focused tests passed. Native full boot/Cloud delegation/ALE/frozen release remain incomplete.
+
+
+2026-10-30 native ALE continuation: worker-owned shared admission survives parent timeout; active-user idle gating; local-safe profile (default with shared admission) bypasses legacy external/mutation/training cycle and bounds default sessions to3. New local evidence helper uses existing authenticated memory service and explicit GGUF transport, records only unverified candidates/gaps and respects stop before writing. Actual production ALE cycle/worker-method acceptance with minimal dependency fixture retrieved3 real passages, called local model once, saved knowledge_gap; no full Core constructor, extra models, paid request or trading changes. 32 focused tests pass. Full Core boot, remaining independent research producers and packaging still pending.
+# 31 October 2026 — bounded native readiness checkpoint
+
+Added a read-only dependency preflight for the native local-evidence profile.
+Checks fixed authenticated local model slots and shared admission status; no
+generation, task acquisition, memory writes, Core boot or orders. Configuration
+and authentication failures stay credential-free. Eleven focused tests pass.
+Actual model/gateway checks were unavailable in this session; historical running
+state is not current acceptance. Updated the resume checkpoint and profile guide.
+

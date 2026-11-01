@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 import re
 import time
-import sys
 from threading import Lock
 
 from modules.command_surface_audit import (
@@ -21,6 +20,10 @@ _SHELL_ONLY = {'exit', 'quit', 'shutdown', 'debug on', 'debug off'}
 
 
 def _risk(name):
+    if name in {'freqtrade', 'freqtrade status', 'freqtrade health', 'freqtrade balance', 'freqtrade trades'}:
+        return 'READ_ONLY'
+    if name.startswith('freqtrade '):
+        return 'TRADING'
     for alias, canonical in sorted(VARIANT_SPELLINGS.items(),key=lambda pair:len(pair[0]),reverse=True):
         if name == alias or name.startswith(alias+' '):
             name=canonical+name[len(alias):]
@@ -103,7 +106,9 @@ def _inventory(core, root=None):
     for name in [*cli.get('legacy_commands', []), *cli.get('direct_commands', {})]:
         bindings.setdefault(name, ('cli', ('main.py', 0)))
     if 'unified status' in cli.get('direct_commands', {}):
-        bindings['unified status'] = ('main', ('main.py', '_cmd_unified_status'))
+        current = bindings.get('unified status')
+        if current is None or current[0] == 'cli' or (current[0] == 'registry' and not callable(current[1].handler)):
+            bindings['unified status'] = ('main', ('main.py', '_cmd_unified_status'))
     for alias, canonical in VARIANT_SPELLINGS.items():
         if canonical in bindings:
             bindings[alias]=bindings[canonical]
@@ -117,11 +122,34 @@ def _permission_actions(name, meta, risk):
     return list(dict.fromkeys(actions))
 
 
+def _command_outcome(result):
+    """Normalize legacy diagnostics without treating stopped status as failure."""
+    if result is None:
+        return 'unavailable', 'The original handler returned no response'
+    if isinstance(result, dict):
+        state = result.get('status')
+        if state in {'unavailable', 'authorization_required', 'rejected'}:
+            return state, str(result.get('error') or result.get('message') or state)
+        if (result.get('success') is False or result.get('ok') is False
+                or state in {'error', 'failed', 'blocked'}):
+            return 'error', str(result.get('error') or result.get('message') or 'Original handler failed')
+    if isinstance(result, str):
+        if re.match(r'(?is)^\s*(?:\[ERROR(?:::|\])|\[safe_call error:|❌|Unknown\b|Invalid\b|Usage:|Error:)', result):
+            return 'error', result
+        first_line = result.strip().split('\n', 1)[0]
+        if re.match(r'(?i)^\[UNAVAILABLE\]', first_line):
+            return 'unavailable', result
+        if len(result) < 600 and re.match(r'^(?:\[|⚠)', first_line):
+            if re.search(r'(?i)(not available|unavailable|not initiali[sz]ed|API missing)', first_line):
+                return 'unavailable', result
+    return 'success', None
+
+
 def list_operator_commands(core, root=None):
     registry, bindings = _inventory(core, root)
     if registry is None:
         return {'source': 'original_operator_handlers', 'commands': [], 'count': 0, 'error': 'Core command registry is not ready'}
-    snapshots = {item['name']: item for item in registry.capability_snapshot(surface='desktop')}
+    snapshots = {item['name']: item for item in registry.capability_snapshot(surface='desktop', emit_events=False)}
     from modules.permission_manager import PermissionManager
     permissions = PermissionManager()
     output = []
@@ -134,7 +162,9 @@ def list_operator_commands(core, root=None):
         source = getattr(meta, 'source_authority', '') or (binding[0] if target != 'registry' else '')
         reason = ''
         owner = core if target == 'core' else getattr(core, target, None)
-        implemented = target == 'main' or (callable(getattr(binding, 'handler', None)) if target == 'registry' else callable(getattr(owner, 'handle' if target == 'core' else 'handle_command', None)))
+        implemented = (binding[1] == '_cmd_unified_status' if target == 'main' else
+                       callable(getattr(binding, 'handler', None)) if target == 'registry' else
+                       callable(getattr(owner, 'handle' if target == 'core' else 'handle_command', None)))
         if name in _SHELL_ONLY or target == 'cli':
             reason = 'Interactive CLI command; no desktop handler is bound.'
         elif not implemented:
@@ -209,24 +239,11 @@ def execute_operator_command(core, name, arguments=None, *, confirmed=False, req
             elif target == 'core':
                 result = core.handle(text)
             elif target == 'main':
-                module = sys.modules.get('__main__')
-                if not callable(getattr(module, binding[1], None)):
-                    import main as module
-                result = getattr(module, binding[1])(core)
+                from modules.unified_status import format_unified_status
+                result = format_unified_status(core)
             else:
                 result = getattr(core, target).handle_command(text)
-            status, error = 'success', None
-            if result is None:
-                status, error = 'unavailable', 'The original handler returned no response'
-            elif isinstance(result, str):
-                if re.search(r'(?i)(not available|unavailable|not initialized|not running)', result) and len(result) < 600:
-                    status, error = 'unavailable', result
-                elif re.match(r'(?is)^\s*(?:\[ERROR\]|❌|Unknown\b|Invalid\b|Usage:|Error:)', result):
-                    status, error = 'error', result
-            elif isinstance(result, dict) and (result.get('success') is False or result.get('ok') is False):
-                status, error = 'error', str(result.get('error') or result.get('message') or 'Original handler failed')
-            elif isinstance(result, dict) and result.get('status') in {'error','failed','rejected','unavailable','blocked'}:
-                status, error = 'error', str(result.get('error') or result.get('message') or 'Original handler failed')
+            status, error = _command_outcome(result)
             result = json.loads(json.dumps(result, default=str))
         except Exception as exc:
             result, status, error = None, 'error', str(exc)

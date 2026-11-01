@@ -400,7 +400,16 @@ class TradingBrain:
         state_vector: List[float],
         metadata: Dict[str, Any],
     ) -> None:
-        """Persist a market state vector and its metadata via NiblitMemory.
+        """Record a numeric observation in the scoped journal and legacy memory.
+
+        What: retain features for later market-state comparisons.
+        How: write through MarketJournal when the framework is available, then
+        retain the compatibility write for older consumers. The journal records
+        symbol, venue, interval, mode and observation time separately from outcomes.
+        Why: a text embedding or an outcome learned later must not be mistaken
+        for a comparable market observation available at decision time.
+        Limit: this adapter currently identifies Binance; MT5 observations need
+        their own adapter identity before they can use the same recall workflow.
 
         The record ID is derived from the ISO-8601 timestamp embedded in
         *metadata* so that each minute produces a deterministic, unique key.
@@ -409,8 +418,20 @@ class TradingBrain:
             state_vector: Float vector from :meth:`build_state_vector`.
             metadata:     Dict containing at minimum a ``"timestamp"`` key.
         """
+        try:
+            from modules.memory_laboratory.runtime import runtime_memory
+            from modules.memory_laboratory.market import MarketJournal
+            framework = runtime_memory()
+            if framework:
+                self._memory_observed_at = metadata["timestamp"]
+                MarketJournal(framework.gateway).observe(state_vector,
+                    symbol=self.symbol, venue="binance", interval=self.interval,
+                    mode=os.getenv("NIBLIT_TRADING_MODE", "observe"),
+                    observed_at=metadata["timestamp"], features=metadata)
+        except Exception as exc:
+            log.warning("[TradingBrain] durable market projection pending/unavailable: %s", type(exc).__name__)
         if self.memory is None:
-            log.debug("[TradingBrain] Memory unavailable — skipping store.")
+            log.debug("[TradingBrain] Legacy memory unavailable — skipping legacy store.")
             return
 
         state_id = "market_{}".format(metadata.get("timestamp", "unknown"))
@@ -429,7 +450,13 @@ class TradingBrain:
         vector: List[float],
         top_k: int = 10,
     ) -> List[Dict[str, Any]]:
-        """Search the fused memory for past states similar to *vector*.
+        """Retrieve comparable observations without crossing market scopes.
+
+        With the memory framework enabled, use its numeric MarketJournal and an
+        as-of cutoff. If it fails, return no evidence instead of falling back to
+        an unscoped legacy index. Similarity is a retrieval heuristic, not proof
+        that a trade will profit. Legacy fused recall is used only when the
+        framework is disabled.
 
         Args:
             vector: Query vector from :meth:`build_state_vector`.
@@ -440,6 +467,20 @@ class TradingBrain:
             key) ordered by descending similarity.  Returns an empty list
             when memory is unavailable or the query fails.
         """
+        if os.getenv("NIBLIT_MEMORY_LAB_ENABLED", "0") == "1":
+            try:
+                from modules.memory_laboratory.runtime import runtime_memory
+                from modules.memory_laboratory.market import MarketJournal
+                framework = runtime_memory()
+                if framework:
+                    return MarketJournal(framework.gateway).similar(vector,
+                        symbol=self.symbol, venue="binance", interval=self.interval,
+                        mode=os.getenv("NIBLIT_TRADING_MODE", "observe"),
+                        as_of=getattr(self, "_memory_observed_at", datetime.now(timezone.utc).isoformat()),
+                        limit=top_k)
+            except Exception as exc:
+                log.warning("[TradingBrain] scoped market recall unavailable: %s", type(exc).__name__)
+            return []  # never mix an unscoped legacy index into strict market recall
         if self.memory is None:
             return []
         try:
@@ -492,7 +533,11 @@ class TradingBrain:
 
         # Compute heuristic score (always, for logging / study purposes)
         heuristic_action = "HOLD"
-        if len(similar) >= 5:
+        if os.getenv("NIBLIT_MEMORY_LAB_ENABLED", "0") == "1":
+            # Similarity measures resemblance, not return direction. Keep the
+            # legacy heuristic neutral until an outcome-tested strategy exists.
+            log.debug("[TradingBrain] Memory evidence available for review; similarity alone cannot authorize a directional signal.")
+        elif len(similar) >= 5:
             scores = [s.get("score", 0.0) for s in similar]
             if not _NP_AVAILABLE:
                 avg_score = sum(scores) / len(scores)

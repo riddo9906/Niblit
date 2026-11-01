@@ -121,8 +121,9 @@ class MemoryGateway:
         return self.ingest(segments, source=target.as_uri(), namespace=namespace,
                            principal=principal, category=category)
 
-    def ingest(self, segments, *, source, namespace, principal, category="semantic"):
+    def ingest(self, segments, *, source, namespace, principal, category="semantic", metadata=None):
         self.require("ingest", namespace, principal)
+        metadata = metadata or {}
         if category not in CATEGORIES or not source.strip() or not 0 < len(segments) <= 200:
             raise ValueError("invalid bounded ingestion")
         for text, location in segments:
@@ -137,15 +138,16 @@ class MemoryGateway:
             raise ValueError("embedding dimensions changed within document")
         collection = self.config.collection(category, dimension)
         stamp = now()
-        version = digest(json.dumps(segments, ensure_ascii=False))
+        version = digest(json.dumps([segments, metadata], ensure_ascii=False, sort_keys=True))
         records = []
         for index, ((text, location), vector) in enumerate(zip(segments, vectors)):
             key = json.dumps([namespace, principal, source, version, index, collection])
             record = MemoryRecord(
                 memory_id=uuid5(NAMESPACE_URL, key), category=category, namespace=namespace,
                 content=text, source_id=digest(source), source_location=location,
-                source_type="document", provenance={"source": source, "version": version, "actor": principal},
-                created_at=stamp, observed_at=stamp, updated_at=stamp, confidence=0.5,
+                source_type=metadata.get("source_type", "document"), provenance={"source": source, "version": version, "actor": principal, **metadata.get("provenance", {})},
+                created_at=stamp, observed_at=metadata.get("observed_at", stamp), updated_at=stamp,
+                confidence=metadata.get("confidence", 0.5), structured=metadata.get("structured"),
                 access_principals=[principal], embedding_model=self.config.model,
                 embedding_version=self.config.revision, content_hash=digest(text), idempotency_key=digest(key))
             records.append((record, vector))
@@ -174,7 +176,11 @@ class MemoryGateway:
                            (namespace, principal, source))
                 for record, _ in records:
                     key = str(record.memory_id)
-                    db.execute("UPDATE records SET active=1, projection='verified' WHERE id=?", (key,))
+                    existing = db.execute("SELECT payload FROM records WHERE id=?", (key,)).fetchone()
+                    canonical = json.loads(existing["payload"])
+                    canonical.update(lifecycle="active", superseded_by=None)
+                    db.execute("UPDATE records SET active=?, projection='verified',payload=? WHERE id=?",
+                               (int(canonical["verification"] != "rejected"), json.dumps(canonical), key))
                     db.execute("DELETE FROM lexical WHERE id=?", (key,))
                     db.execute("INSERT INTO lexical(id,content) VALUES(?,?)", (key, record.content))
                     self.audit(db, "ingestion.verified", key)
@@ -215,7 +221,7 @@ class MemoryGateway:
                               (namespace, principal)).fetchall()
             eligible = {r["id"]: json.loads(r["payload"]) for r in rows}
             eligible = {key: p for key, p in eligible.items()
-                        if p["lifecycle"] == "active" and (not category or p["category"] == category)
+                        if p["lifecycle"] == "active" and p["verification"] != "rejected" and (not category or p["category"] == category)
                         and principal in p["access_principals"]}
             if tokens:
                 lexical = db.execute("""SELECT lexical.id FROM lexical JOIN records ON lexical.id=records.id
@@ -266,6 +272,40 @@ class MemoryGateway:
             if len(selected) == limit:
                 break
         return {"results": selected, "issues": issues, "mode": "hybrid" if not issues else "lexical_degraded"}
+
+    def status(self, *, namespace, principal):
+        self.require("read", namespace, principal)
+        with self.db() as db:
+            counts = db.execute("SELECT projection,active,count(*) AS count FROM records WHERE namespace=? AND principal=? GROUP BY projection,active", (namespace, principal)).fetchall()
+            categories = db.execute("SELECT json_extract(payload,'$.category') AS category,count(*) AS count FROM records WHERE namespace=? AND principal=? AND active=1 GROUP BY category", (namespace, principal)).fetchall()
+        return {"storage": "sqlite_source_ledger_and_qdrant_projection", "counts": [dict(r) for r in counts],
+                "categories": [dict(r) for r in categories], "embedding_model": self.config.model,
+                "embedding_revision": self.config.revision, "verification_policy": "imported_claims_are_unverified"}
+
+    def review_record(self, record_id, *, namespace, principal, verification, confidence, evidence):
+        """Explicit operator review, never inferred from recurrence or similarity."""
+        self.require("verify", namespace, principal)
+        import math
+        if verification not in {"verified", "rejected"} or not math.isfinite(confidence) or not 0 <= confidence <= 1 or not evidence.strip():
+            raise ValueError("review requires verification, bounded confidence and evidence")
+        with self.lock, self.db() as db:
+            row = db.execute("SELECT * FROM records WHERE id=? AND namespace=? AND principal=? AND active=1", (record_id, namespace, principal)).fetchone()
+            if not row:
+                raise ValueError("active scoped record not found")
+            payload = json.loads(row["payload"])
+            payload.update(verification=verification, confidence=confidence, updated_at=now())
+            payload["provenance"]["operator_review"] = {"reviewer": principal, "evidence": evidence, "at": now()}
+            db.execute("UPDATE records SET payload=?,active=? WHERE id=?", (json.dumps(payload), int(verification != "rejected"), record_id))
+            if verification == "rejected":
+                db.execute("DELETE FROM lexical WHERE id=?", (record_id,))
+            self.audit(db, "record.reviewed", record_id, verification=verification, reviewer=principal)
+        # Local authoritative filters take effect even if projection is offline.
+        try:
+            self.backend.request("POST", f"/collections/{row['collection']}/points/payload?wait=true", json={"points": [record_id], "payload": payload})
+            projected = True
+        except Exception:
+            projected = False
+        return {"reviewed": True, "projection_updated": projected}
 
     def delete_source(self, source, *, namespace, principal):
         self.require("delete", namespace, principal)

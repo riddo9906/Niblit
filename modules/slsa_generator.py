@@ -84,6 +84,8 @@ class SLSAGenerator:
         self.topics: List[str] = list(topics or DEFAULT_TOPICS)
         self.interval = interval
         self.stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+        self._start_lock = threading.Lock()
         self._stats: Dict[str, int] = {
             "cycles": 0,
             "artifacts_stored": 0,
@@ -414,16 +416,27 @@ class SLSAGenerator:
 
             self._stats["cycles"] += 1
 
-            # Interruptible sleep
-            deadline = time.time() + self.interval
-            while time.time() < deadline and not self.stop_event.is_set():
-                time.sleep(1.0)
+            self.stop_event.wait(self.interval)
 
         log.info("[SLSA] Generator stopped after %d cycle(s)", self._stats["cycles"])
 
-    def stop(self) -> None:
-        """Signal the background loop to stop."""
-        self.stop_event.set()
+    def start(self) -> threading.Thread:
+        """Start one managed background loop, returning the existing live thread."""
+        with self._start_lock:
+            if self._thread is not None and self._thread.is_alive():
+                return self._thread
+            self.stop_event.clear()
+            self._thread = threading.Thread(target=self.run, name='SLSAGeneratorThread', daemon=True)
+            self._thread.start()
+            return self._thread
+
+    def stop(self, timeout: float = 5.0) -> None:
+        """Stop the loop and wait a bounded time for an in-flight request."""
+        with self._start_lock:
+            self.stop_event.set()
+            thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=timeout)
 
     def add_topic(self, topic: str) -> None:
         """Add a new topic to the running generation list."""
@@ -458,8 +471,7 @@ def start_slsa(
         internet=internet,
         phased_research=phased_research,
     )
-    thread = threading.Thread(target=engine.run, name="SLSAGeneratorThread", daemon=True)
-    thread.start()
+    thread = engine.start()
     return engine, thread
 
 

@@ -1,6 +1,7 @@
 import importlib.util
 import os
 import sys
+import pkgutil
 from pathlib import Path
 from typing import Dict, List
 
@@ -31,6 +32,15 @@ def _ensure_repo_paths(repo_root: Path, modules_dirs: List[Path]) -> None:
 
 
 def load_modules() -> Dict[str, List[str]]:
+    if getattr(sys, 'frozen', False):
+        # PyInstaller stores modules in its archive; there need not be a
+        # physical modules directory. Inventory it without importing every
+        # plugin a second time under an unrelated top-level name.
+        package = sys.modules.get('modules')
+        discovered = sorted(item.name for item in pkgutil.iter_modules(getattr(package, '__path__', [])))
+        loaded = sorted(name[len('modules.'):] for name, value in list(sys.modules.items())
+                        if name.startswith('modules.') and value is not None)
+        return {'loaded': loaded, 'failed': [], 'discovered': discovered, 'mode': 'packaged'}
     repo_root = get_repo_root()
     modules_dirs = _candidate_modules_dirs()
     if not modules_dirs:

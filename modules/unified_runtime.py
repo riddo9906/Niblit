@@ -905,7 +905,7 @@ class NiblitUnifiedRuntime:
                 "compatibility": {name: meta.get("compatible", False) for name, meta in self._model_registry.items()},
             }
 
-    def _update_from_status(self, *, core: Any) -> dict[str, Any]:
+    def _update_from_status(self, *, core: Any, observe_only: bool = False) -> dict[str, Any]:
         with self._lock:
             previous_mode = self._state.runtime_mode
             provider_status = self.provider_runtime.status()
@@ -924,16 +924,19 @@ class NiblitUnifiedRuntime:
                 event_stats=self._event_bus.stats(),
                 state_file=str(self._state_file),
             )
-            self._state.market_intelligence = self.market_cognition.status(core=core)
+            # A supplied Core flushes queued market knowledge to durable storage.
+            # Observation must not trigger that write path.
+            self._state.market_intelligence = self.market_cognition.status(core=None if observe_only else core)
             retrieval_status = self.adaptive_retrieval.status()
-            self.hypothesis_engine.ingest_snapshot_sources(
-                cognitive_status=cognitive_status,
-                market_status=self._state.market_intelligence,
-                retrieval_status=retrieval_status,
-                reflection_report=(cognitive_status.get("reflections", [])[-1] if cognitive_status.get("reflections") else {}),
-                evaluation_history=[],
-                lean_events=[],
-            )
+            if not observe_only:
+                self.hypothesis_engine.ingest_snapshot_sources(
+                    cognitive_status=cognitive_status,
+                    market_status=self._state.market_intelligence,
+                    retrieval_status=retrieval_status,
+                    reflection_report=(cognitive_status.get("reflections", [])[-1] if cognitive_status.get("reflections") else {}),
+                    evaluation_history=[],
+                    lean_events=[],
+                )
             self._state.hypothesis_intelligence = self.hypothesis_engine.status(core=core)
             self._state.market_knowledge_graph = self._state.hypothesis_intelligence.get("market_knowledge_graph", {})
             self._state.contradiction_dashboard = {
@@ -958,6 +961,10 @@ class NiblitUnifiedRuntime:
                     context=capability_context,
                     surface="runtime",
                     include_unavailable=True,
+                    # Telemetry is an observation, not a capability lifecycle
+                    # action. Cold discovery otherwise synchronously persists
+                    # hundreds of events while holding the runtime lock.
+                    emit_events=False,
                 )
                 self._state.capabilities = capabilities
                 self._state.capability_summary = {
@@ -998,12 +1005,13 @@ class NiblitUnifiedRuntime:
                 local_brain_status = {}
             foundation_status = {}
             if self._foundation_architecture is not None:
-                self._foundation_architecture.record_model_selection(
-                    {
-                        "active_provider": provider_status.get("active_provider"),
-                        "provider_rankings": provider_status.get("manager_status", {}).get("provider_rankings", {}),
-                    }
-                )
+                if not observe_only:
+                    self._foundation_architecture.record_model_selection(
+                        {
+                            "active_provider": provider_status.get("active_provider"),
+                            "provider_rankings": provider_status.get("manager_status", {}).get("provider_rankings", {}),
+                        }
+                    )
                 foundation_status = self._foundation_architecture.status(
                     provider_status=provider_status,
                     event_stats=self._event_bus.stats(),
@@ -1028,17 +1036,19 @@ class NiblitUnifiedRuntime:
             if model_manager_state.get("active_model"):
                 self._state.active_provider = str(model_manager_state.get("active_model"))
             self._state.loaded_models = list(model_manager_state.get("registered_models", self._state.loaded_models))
-            self._state.telemetry_snapshots.append(dict(telemetry))
+            if not observe_only:
+                self._state.telemetry_snapshots.append(dict(telemetry))
             if len(self._state.telemetry_snapshots) > MAX_TELEMETRY_HISTORY:
                 self._state.telemetry_snapshots = self._state.telemetry_snapshots[-MAX_TELEMETRY_HISTORY:]
-            if previous_mode != self._state.runtime_mode:
+            if not observe_only and previous_mode != self._state.runtime_mode:
                 self._event_bus.emit(
                     "runtime.mode.changed",
                     "NiblitUnifiedRuntime",
                     {"previous_mode": previous_mode, "runtime_mode": self._state.runtime_mode},
                 )
-            self._event_bus.emit("telemetry.update", "RuntimeTelemetryManager", telemetry)
-            self._save_state()
+            if not observe_only:
+                self._event_bus.emit("telemetry.update", "RuntimeTelemetryManager", telemetry)
+                self._save_state()
             cognition_payload = dict(cognitive_status)
             cognition_payload["adaptive_retrieval"] = retrieval_status
             cognition_payload["market_intelligence"] = dict(self._state.market_intelligence)
@@ -1341,7 +1351,7 @@ class NiblitUnifiedRuntime:
             return out
 
     def state(self, *, core: Any | None = None) -> dict[str, Any]:
-        return self._update_from_status(core=core)
+        return self._update_from_status(core=core, observe_only=True)
 
     def events(self, *, since: int = 0, limit: int = 100) -> list[dict[str, Any]]:
         return self._event_bus.events(since=since, limit=limit)
@@ -1375,7 +1385,7 @@ class NiblitUnifiedRuntime:
         self._event_bus.emit(event_type, source, envelope.payload)
 
     def stream_frame(self, *, core: Any | None = None, since: int = 0) -> dict[str, Any]:
-        status = self._update_from_status(core=core)
+        status = self._update_from_status(core=core, observe_only=True)
         return {
             "stream_format": "niblit.runtime.stream.v1",
             "type": "runtime.frame",

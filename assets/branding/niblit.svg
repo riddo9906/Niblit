@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 64 64" role="img" aria-label="Niblit">
+  <rect width="64" height="64" rx="14" fill="#18211e"/>
+  <path d="M15 46V18h8l18 28h8V18" fill="none" stroke="#c3ef78" stroke-width="6"/>
+  <circle cx="49" cy="18" r="5" fill="#c3ef78"/>
+</svg>

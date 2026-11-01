@@ -66,8 +66,10 @@ class TestOpenAIAdapter:
         from modules.openai_adapter import OpenAIAdapter
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
         mock_resp.json.return_value = {
-            "choices": [{"message": {"content": "hello world"}}]
+            "status": "completed", "output": [{"type":"message","content":[{"type":"output_text","text":"hello world"}]}]
         }
         mock_post.return_value = mock_resp
 
@@ -88,8 +90,10 @@ class TestOpenAIAdapter:
         from modules.openai_adapter import OpenAIAdapter
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
         mock_resp.json.return_value = {
-            "choices": [{"message": {"content": "def foo(): pass"}}]
+            "status": "completed", "output": [{"type":"message","content":[{"type":"output_text","text":"def foo(): pass"}]}]
         }
         mock_post.return_value = mock_resp
 
@@ -129,6 +133,8 @@ class TestAnthropicAdapter:
         from modules.anthropic_adapter import AnthropicAdapter
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
         mock_resp.json.return_value = {
             "content": [{"type": "text", "text": "I am Claude"}]
         }
@@ -150,6 +156,8 @@ class TestAnthropicAdapter:
         from modules.anthropic_adapter import AnthropicAdapter
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
         mock_resp.json.return_value = {
             "content": [{"type": "text", "text": "def bar(): return 42"}]
         }
@@ -175,6 +183,8 @@ class TestStackOverflowSearch:
         from modules.stackoverflow_search import StackOverflowSearch
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
         mock_resp.json.return_value = {
             "items": [
                 {
@@ -208,6 +218,8 @@ class TestStackOverflowSearch:
         from modules.stackoverflow_search import StackOverflowSearch
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
         mock_resp.json.return_value = {"items": []}
         mock_get.return_value = mock_resp
         s = StackOverflowSearch()
@@ -219,6 +231,8 @@ class TestStackOverflowSearch:
         from modules.stackoverflow_search import StackOverflowSearch
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
         mock_resp.json.return_value = {"items": []}
         mock_get.return_value = mock_resp
         s = StackOverflowSearch()
@@ -241,6 +255,8 @@ class TestPyPISearch:
         from modules.pypi_search import PyPISearch
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
         mock_resp.json.return_value = {
             "info": {
                 "name": "requests",

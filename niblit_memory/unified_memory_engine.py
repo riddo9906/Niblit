@@ -223,6 +223,17 @@ class UnifiedMemoryEngine:
             tags=list(tags or []),
         )
 
+        try:
+            from modules.memory_laboratory.runtime import runtime_memory
+            persistent = runtime_memory()
+            if persistent:
+                persistent.enqueue(source="unified://" + uid, content=text,
+                    category={"episodic": "episodic", "causal": "episodic", "strategic": "procedural"}.get(category, "semantic"),
+                    metadata={"confidence": .5, "source_type": "unified_memory",
+                              "provenance": {"category": category, "importance": importance}})
+        except Exception as exc:
+            log.warning("[UME] persistent projection enqueue failed: %s", type(exc).__name__)
+
         return uid
 
     def remember_contract(self, record: Any) -> str:
@@ -258,6 +269,16 @@ class UnifiedMemoryEngine:
             )
             self._episodes.append(ep)
         self._try_store_governed_episode(ep)
+        try:
+            from modules.memory_laboratory.runtime import runtime_memory
+            persistent = runtime_memory()
+            if persistent:
+                persistent.enqueue(source="episode://" + hashlib.sha256((ep.timestamp+ep.input_text).encode()).hexdigest(),
+                    content=("User: " + ep.input_text + "\nAssistant: " + ep.response_text)[:20000],
+                    category="episodic", metadata={"confidence": .5, "source_type": "conversation",
+                    "provenance": {"timestamp": ep.timestamp, "intent": ep.intent}})
+        except Exception as exc:
+            log.warning("[UME] episode projection enqueue failed: %s", type(exc).__name__)
 
     # ── Recall API ────────────────────────────────────────────────────────────
 
@@ -300,6 +321,23 @@ class UnifiedMemoryEngine:
                 if rec.uid in self._records:
                     self._records[rec.uid].access_count += 1
 
+        if os.getenv("NIBLIT_MEMORY_LAB_ENABLED", "0") == "1":
+            try:
+                from modules.memory_laboratory.runtime import runtime_memory
+                persistent = runtime_memory()
+                if persistent:
+                    mapped = {"semantic": "semantic", "episodic": "episodic", "causal": "episodic", "strategic": "procedural", "introspective": "semantic"}.get(category) if category else None
+                    found = persistent.gateway.retrieve(query, **persistent.scope, limit=max(1, min(top_k, 20)), category=mapped)
+                    seen = {r.text.strip().casefold() for r in chosen}
+                    for item in found["results"]:
+                        if item["content"].strip().casefold() in seen:
+                            continue
+                        chosen.append(MemoryRecord(uid=item["id"], text=item["content"], category=category or "semantic",
+                            importance=.5, tags=["persistent_evidence", item["verification"]]))
+                        seen.add(item["content"].strip().casefold())
+            except Exception as exc:
+                log.warning("[UME] persistent recall unavailable: %s", type(exc).__name__)
+            return chosen[:top_k]
         if len(chosen) < top_k:
             cluster = self._get_governed_cluster()
             if cluster is not None:

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from modules.task_admission import task_owned
+
 import logging
 import os
 from typing import Any, Dict, Optional
@@ -45,6 +47,7 @@ class NiblitUnifiedRuntimeRouterV2:
             "default_max_new_tokens": default_max_new,
         }
 
+    @task_owned('core_inference')
     def generate(
         self,
         prompt: str,
@@ -101,6 +104,8 @@ class NiblitUnifiedRuntimeRouterV2:
         text = result.get("text", "")
         if isinstance(text, str) and text.strip():
             return text
+        if result.get('error'):
+            raise RuntimeError(str(result['error']))
         return "[RuntimeRouterV2] empty response"
 
     def generate_for_contract(self, request_contract: Any, **kwargs: Any) -> str:

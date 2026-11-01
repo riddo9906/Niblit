@@ -323,6 +323,7 @@ class NiblitRouter:
         "memory dump",
         # Trading Brain autonomous cycle
         "trading",
+        "freqtrade",
         # Real-time Binance WebSocket stream
         "stream",
         # Builds/python scripts integration
@@ -1235,11 +1236,11 @@ Ask me about:
 
         if action in ("start", "on"):
             result = engine.start()
-            return "🚀 Autonomous learning started ✅" if result else "ℹ️ Already running"
+            return "🚀 Autonomous learning started ✅" if result else "ℹ️ Worker already running or previous work is still stopping"
 
         if action in ("stop", "off"):
             result = engine.stop()
-            return "⏹️ Autonomous learning stopped ✅" if result else "ℹ️ Engine was not running"
+            return "⏹️ ALE worker stopped ✅" if result else "⏳ Stop requested; unfinished work is still active"
 
         if action == "code-status":
             stats = engine.get_learning_stats()
@@ -1270,6 +1271,8 @@ Ask me about:
             return (
                 "[AUTONOMOUS LEARNING STATUS]\n"
                 f"Running: {'✅' if stats['running'] else '❌'}\n"
+                f"ALE worker state: {stats.get('lifecycle', {}).get('state', 'unknown')}\n"
+                "Scope: ALE worker only; other research producers have separate lifecycles.\n"
                 f"System Idle: {'Yes' if stats['is_idle'] else 'No'}\n"
                 f"Uptime: {stats['uptime_seconds']}s\n"
                 "\n📊 Learning:\n"
@@ -6779,6 +6782,10 @@ Ask me about:
             return self._handle_trading_study(cmd)
 
         # TRADING BRAIN COMMANDS (start/stop/status/cycle)
+        if lower == 'freqtrade' or lower.startswith('freqtrade '):
+            from modules.freqtrade_operator import handle_freqtrade_command
+            return handle_freqtrade_command(cmd)
+
         if lower.startswith("trading"):
             return self._handle_trading(cmd)
 

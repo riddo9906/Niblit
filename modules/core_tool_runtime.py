@@ -969,6 +969,8 @@ def build_governed_tool_loop(core_getter: Callable) -> LlmToolLoop:
 
     loop = LlmToolLoop(executor=NiblitToolExecutor(core_getter=core_getter))
     register_research_tools(loop)
+    from modules.environment_navigator import NAME, SCHEMA, navigate_and_describe_environment
+    loop.register_capability(NAME, navigate_and_describe_environment, SCHEMA)
     register_trading(
         loop,
         lambda: getattr(
@@ -1038,6 +1040,11 @@ COMMAND_PERMISSION_ACTIONS: Dict[str, str] = {
 # runtime dependency is currently missing (state UNAVAILABLE); the command
 # stays listed but is never dispatched while unavailable.
 GOVERNED_COMMAND_METADATA: Dict[str, Dict[str, Any]] = {
+    "navigate_and_describe_environment": {
+        "category": "Environment", "risk_class": "low",
+        "side_effect_level": "read_only", "requires_authorization": False,
+        "availability": lambda core: True,
+    },
     "runtime_status": {
         "category": "Runtime", "risk_class": "none",
         "side_effect_level": "read_only", "requires_authorization": False,

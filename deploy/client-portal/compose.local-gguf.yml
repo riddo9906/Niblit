@@ -1,0 +1,13 @@
+services:
+  portal:
+    environment:
+      NIBLIT_PORTAL_MODEL_BACKEND: local_gguf
+      NIBLIT_PORTAL_GGUF_URL: http://host.docker.internal:8766
+      NIBLIT_PORTAL_GGUF_KEY_FILE: /run/secrets/local_model_key
+      NIBLIT_PORTAL_LOCAL_LEARNING: "1"
+      NIBLIT_SHARED_ADMISSION: "1"
+      NIBLIT_ADMISSION_URL: http://host.docker.internal:8772
+    secrets: [local_model_key]
+secrets:
+  local_model_key:
+    file: ../../runtime/client-portal/gguf-api-key

@@ -9,6 +9,7 @@ regardless of how pytest resolves the package hierarchy.
 """
 
 import os
+os.environ.setdefault("NIBLIT_MEMORY_LAB_ENABLED", "0")  # tests must not import into personal Qdrant memory
 import sys
 from pathlib import Path
 

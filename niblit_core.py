@@ -3248,7 +3248,7 @@ class NiblitCore:
             return "[❌ Autonomous engine not available]"
 
         result = self.autonomous_engine.start()
-        return "🚀 [AUTONOMOUS] Learning started ✅" if result else "ℹ️ [AUTONOMOUS] Already running"
+        return "🚀 [AUTONOMOUS] Learning started ✅" if result else "ℹ️ [AUTONOMOUS] Worker already running or previous work is still stopping"
 
     def _cmd_autonomous_stop(self, _text: str) -> str:
         """Stop autonomous learning engine."""
@@ -3256,7 +3256,7 @@ class NiblitCore:
             return "[❌ Autonomous engine not available]"
 
         result = self.autonomous_engine.stop()
-        return "⏹️ [AUTONOMOUS] Learning stopped ✅" if result else "ℹ️ [AUTONOMOUS] Not running"
+        return "⏹️ [AUTONOMOUS] ALE worker stopped ✅" if result else "⏳ [AUTONOMOUS] Stop requested; unfinished work is still active"
 
     def _cmd_autonomous_status(self, _text: str) -> str:
         """Show autonomous learning status."""
@@ -3271,6 +3271,9 @@ class NiblitCore:
 🧠 **AUTONOMOUS LEARNING STATUS:**
 
 Running: {'✅' if stats['running'] else '❌'}
+ALE worker state: {stats.get('lifecycle', {}).get('state', 'unknown')}
+Unfinished ALE steps: {', '.join(stats.get('lifecycle', {}).get('unfinished_steps', [])) or 'none'}
+Scope: ALE worker only; Core research, curriculum and SLSA are separate producers.
 System Idle: {'Yes' if stats['is_idle'] else 'No'}
 Uptime: {stats['uptime_seconds']}s
 
@@ -10294,6 +10297,15 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # pylint: disable=too-many-branches,too-many-statements,too-many-nested-blocks
         while self.running and not self._shutdown_event.is_set():
             try:
+                # Match the sync worker's ownership boundary: ALE already owns
+                # research while it runs or finishes a timed-out provider call.
+                from modules.learning_status import ale_owns_research
+                if ale_owns_research(getattr(self, 'autonomous_engine', None)):
+                    for _ in range(150):
+                        if not self.running or self._shutdown_event.is_set():
+                            return
+                        await asyncio.sleep(1)
+                    continue
                 if self.db and hasattr(self.db, "get_learning_queue") and self.researcher:
                     queued = self.db.get_learning_queue()
                     pending = [
@@ -10508,7 +10520,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 # and calling researcher.search() concurrently would saturate
                 # the network stack and serialise on internal locks.
                 _ale = getattr(self, "autonomous_engine", None)
-                if _ale is not None and getattr(_ale, "running", False):
+                from modules.learning_status import ale_owns_research
+                if ale_owns_research(_ale):
                     if not self._sleep_with_shutdown(150):
                         break
                     continue

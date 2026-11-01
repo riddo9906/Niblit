@@ -359,6 +359,12 @@ class AutonomousLearningEngine:
         self.running = False
         self.last_user_interaction = datetime.now(timezone.utc)
         self.learning_thread = None
+        # One owner controls lifecycle transitions. A stop request cannot kill a
+        # Python task already inside a provider, so timed-out work stays visible.
+        self._lifecycle_lock = threading.RLock()
+        self._step_futures = {}
+        self._max_cycles = None
+        self._worker_error = None
         # Event used to wake up the inter-cycle sleep early (e.g. on stop())
         self._stop_event = threading.Event()
         # Event that is *clear* while the ALE is paused and *set* while it may run.
@@ -4206,10 +4212,9 @@ class AutonomousLearningEngine:
         """Run a single ALE step in a thread pool with a timeout.
 
         If the step does not complete within the effective timeout the main
-        cycle continues without waiting further. The worker thread is a daemon
-        thread and will be collected by the OS when the process exits.  This
-        prevents any single stalled network call or slow module from blocking
-        the entire ALE cycle.
+        caller returns without waiting further. The underlying worker may still
+        be active; it remains tracked, and later steps/cycles defer until it ends.
+        A timeout is not cancellation and does not prove an external action failed.
 
         Args:
             step_name: Human-readable name used in log / return messages.
@@ -4232,7 +4237,22 @@ class AutonomousLearningEngine:
         effective_timeout = timeout if timeout is not None else self.step_timeout
         executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         try:
-            future = executor.submit(step_fn)
+            with self._lifecycle_lock:
+                if self._step_futures:
+                    return f"[{step_name} deferred: earlier step still active]"
+                from modules.task_admission import admitted,task_is_held
+                if task_is_held():
+                    return f"[{step_name} deferred: asynchronous work cannot inherit a caller's task lifetime]"
+                def governed_step():
+                    if self._stop_event.is_set():return f"[{step_name} deferred: stop requested]"
+                    with admitted('autonomous_step'):
+                        return step_fn()
+                future = executor.submit(governed_step)
+                self._step_futures[future] = step_name
+            def _finished(done):
+                with self._lifecycle_lock:
+                    self._step_futures.pop(done, None)
+            future.add_done_callback(_finished)
             try:
                 result = future.result(timeout=effective_timeout)
                 # ── Kernel health reporting (additive) ───────────────────────
@@ -4257,8 +4277,9 @@ class AutonomousLearningEngine:
                         pass
                 return f"[{step_name} error: {exc}]"
         finally:
-            # Non-blocking shutdown: returns immediately; orphaned worker runs
-            # as a daemon thread and is collected when the process exits.
+            # This returns without waiting; Python cannot kill a running future.
+            # Track it until completion and block overlapping steps/restarts.
+            # ThreadPoolExecutor threads are not disposable daemon workers.
             executor.shutdown(wait=False, cancel_futures=True)
 
     # ─────────────────────────────────────────────
@@ -5872,7 +5893,7 @@ class AutonomousLearningEngine:
             return f"[LLMArchitect error] {exc}"
 
     def _run_autonomous_cycle(self):
-        """Execute one complete autonomous learning cycle (32 steps).
+        """Execute one configured cycle: local evidence, or legacy 32 steps.
 
         Design principles
         -----------------
@@ -5955,6 +5976,14 @@ class AutonomousLearningEngine:
         Phase D (steps 18–23): Improvement & Self-Management
         Phase E (steps 24–32): Training, Discovery & Maintenance
         """
+        from modules.native_evidence_learning import local_safe_profile,run_cycle
+        if local_safe_profile():
+            self._cycle_count += 1
+            def study_one():
+                report=run_cycle(self._cycle_count-1,stopped=self._stop_event.is_set)
+                self._native_cycle_result=report
+                return report['state']
+            return self._run_step_with_timeout('NativeLocalEvidence',study_one,timeout=90)
         self._cycle_count += 1
         cycle = self._cycle_count
 
@@ -6437,13 +6466,25 @@ class AutonomousLearningEngine:
 
         while self.running:
             try:
+                # A timeout ends our wait, not the underlying Python operation.
+                # Do not launch another full cycle on top of unfinished work.
+                with self._lifecycle_lock:
+                    unfinished = bool(self._step_futures)
+                if unfinished:
+                    self._interruptible_sleep(min(self.poll_interval, 1.0))
+                    continue
                 idle = self.is_idle()
+                if not idle:
+                    self._interruptible_sleep(self.poll_interval)
+                    continue
                 log.info(
                     f"🔄 [BACKGROUND LOOP] Starting cycle #{cycle_count + 1} "
                     f"({'idle' if idle else 'active'} system)..."
                 )
                 self._run_autonomous_cycle()
                 cycle_count += 1
+                if self._max_cycles is not None and cycle_count >= self._max_cycles:
+                    break
 
                 # Wait before next cycle.
                 # During idle: longer pause (5× poll_interval) — no rush when no
@@ -6461,32 +6502,82 @@ class AutonomousLearningEngine:
         log.info(f"[BACKGROUND LOOP] Stopped after {cycle_count} cycles")
 
     # ─────────────────────────────────────────────
-    def start(self):
-        """Start the autonomous learning engine"""
-        if self.running:
-            log.warning("⚠️  Autonomous learning engine already running")
-            return False
+    def start(self, max_cycles=None):
+        """Start one owned worker; optionally stop after a finite cycle count.
 
-        self._stop_event.clear()
-        self.running = True
-        self.learning_thread = threading.Thread(
-            target=self.background_loop, daemon=True, name="ALE-BackgroundLoop"
-        )
-        self.learning_thread.start()
-
+        A finite count bounds iterations, not provider-call duration. It does not
+        change permissions, model budgets or the steps' external side effects.
+        Refuse overlap even when an earlier worker has received a stop request.
+        """
+        from modules.native_evidence_learning import local_safe_profile
+        if local_safe_profile():
+            max_cycles=3 if max_cycles is None else max_cycles
+            if type(max_cycles) is not int or not 1<=max_cycles<=3:
+                raise ValueError('Local evidence sessions allow one to three cycles')
+        if max_cycles is not None and (type(max_cycles) is not int or max_cycles < 1):
+            raise ValueError('max_cycles must be a positive integer')
+        with self._lifecycle_lock:
+            if self.running or (self.learning_thread and self.learning_thread.is_alive()) or self._step_futures:
+                return False
+            self._stop_event.clear()
+            self._max_cycles = max_cycles
+            self._worker_error = None
+            self.running = True
+            self.learning_thread = threading.Thread(
+                target=self._owned_background_loop, daemon=True, name="ALE-BackgroundLoop"
+            )
+            try:
+                self.learning_thread.start()
+            except Exception:
+                self.running = False
+                raise
         log.info("✅ Autonomous learning engine started")
         return True
 
-    # ─────────────────────────────────────────────
-    def stop(self):
-        """Stop the autonomous learning engine"""
-        self.running = False
-        self._stop_event.set()  # Wake any sleeping background loop immediately
-        if self.learning_thread:
-            self.learning_thread.join(timeout=10)
+    def _owned_background_loop(self):
+        """Always release the running flag, including on unexpected worker exit."""
+        try:
+            self.background_loop()
+        except Exception as exc:
+            self._worker_error = type(exc).__name__
+            log.exception('ALE worker exited unexpectedly')
+        finally:
+            with self._lifecycle_lock:
+                self.running = False
 
-        log.info("✅ Autonomous learning engine stopped")
-        return True
+    def lifecycle_status(self):
+        """Observe this worker without constructing modules or invoking a model."""
+        from modules.native_evidence_learning import local_safe_profile
+        with self._lifecycle_lock:
+            alive = bool(self.learning_thread and self.learning_thread.is_alive())
+            # Future.result() can wake before completion callbacks finish.
+            self._step_futures = {f:n for f,n in self._step_futures.items() if not f.done()}
+            steps = list(self._step_futures.values())
+            state = ('running' if self.running and alive else
+                     'stopping' if alive or steps else
+                     'failed' if self._worker_error else 'idle')
+            return {'state':state, 'running':bool(self.running and alive),
+                    'worker_alive':alive, 'stop_requested':self._stop_event.is_set(),
+                    'unfinished_steps':steps, 'max_cycles':self._max_cycles,
+                    'last_worker_error':self._worker_error,
+                    'owner':'core.autonomous_engine',
+                    'learning_profile':'local_evidence_only' if local_safe_profile() else 'legacy',
+                    'last_native_cycle':{k:v for k,v in getattr(self,'_native_cycle_result',{}).items() if k in ('state','topic','model_calls','truth_verified','citation_check')},
+                    'scope':'ALE worker only; Core research, curriculum and SLSA may operate separately'}
+
+    # ─────────────────────────────────────────────
+    def stop(self, join_timeout=10):
+        """Request stop and report whether owned work has actually finished."""
+        with self._lifecycle_lock:
+            self.running = False
+            self._stop_event.set()
+            worker = self.learning_thread
+        if worker and worker is not threading.current_thread():
+            worker.join(timeout=max(0, min(10, join_timeout)))
+        state = self.lifecycle_status()
+        finished = not state['worker_alive'] and not state['unfinished_steps']
+        log.info('ALE stop requested; finished=%s', finished)
+        return finished
 
     # ─────────────────────────────────────────────
     def get_current_topic(self) -> Optional[str]:
@@ -6510,8 +6601,17 @@ class AutonomousLearningEngine:
                 uptime = int((datetime.now(timezone.utc) - start_dt).total_seconds())
             except Exception:
                 uptime = 0
+        def wired(name, *aliases):
+            # Inspect already-wired objects only. Status must not instantiate a
+            # lazy agent or manufacture a capability from a configured key.
+            own = vars(self)
+            core = vars(self.core) if self.core is not None else {}
+            return any(bool(own.get(key) or core.get(key))
+                       for key in (name, *aliases))
+        lifecycle = self.lifecycle_status()
         return {
-            "running": self.running,
+            "running": lifecycle['running'],
+            "lifecycle": lifecycle,
             "is_idle": self.is_idle(),
             "cycle_count": self._cycle_count,
             "stats": self.learning_history,
@@ -6530,25 +6630,25 @@ class AutonomousLearningEngine:
                 "evolve_engine": bool(self.evolve_engine),
                 "self_implementer": bool(self.self_implementer),
                 "idea_implementation": bool(self.idea_implementation),
-                "code_generator": bool(self._get_code_generator()),
-                "code_compiler": bool(self._get_code_compiler()),
-                "software_studier": bool(self._get_software_studier()),
-                "internet": bool(self._get_internet()),
-                "structural_awareness": bool(self._get_structural_awareness()),
+                "code_generator": wired("code_generator"),
+                "code_compiler": wired("code_compiler"),
+                "software_studier": wired("software_studier"),
+                "internet": wired("internet"),
+                "structural_awareness": wired("structural_awareness"),
                 "slsa_manager": bool(self.slsa_manager),
-                "reasoning_engine": bool(self._get_reasoning_engine()),
-                "metacognition": bool(self._get_metacognition()),
-                "improvement_integrator": bool(self._get_improvement_integrator()),
-                "github_sync": bool(self.github_sync or (self.core and getattr(self.core, "github_sync", None))),
-                "build_scanner": bool(self.build_scanner or (self.core and getattr(self.core, "build_scanner", None))),
-                "binary_studier": bool(self.binary_studier or (self.core and getattr(self.core, "binary_studier", None))),
-                "github_code_search": bool(self._get_github_code_search()),
-                "searchcode_search": bool(self._get_searchcode_search()),
+                "reasoning_engine": wired("reasoning_engine"),
+                "metacognition": wired("metacognition"),
+                "improvement_integrator": wired("improvement_integrator", "improvements"),
+                "github_sync": wired("github_sync"),
+                "build_scanner": wired("build_scanner"),
+                "binary_studier": wired("binary_studier"),
+                "github_code_search": wired("github_code_search"),
+                "searchcode_search": wired("searchcode_search"),
                 # True when the Serpex-specific agent is available OR when the
                 # Scrapy direct agent is available (no API key required for either).
                 # Preserved as "serpex_research_agent" for backward compatibility.
-                "serpex_research_agent": bool(self._get_serpex_agent() or self._get_scrapy_agent()),
-                "scrapy_research_agent": bool(self._get_scrapy_agent()),
+                "serpex_research_agent": wired("serpex_research_agent", "scrapy_research_agent"),
+                "scrapy_research_agent": wired("scrapy_research_agent"),
             },
         }
 

@@ -30,6 +30,17 @@ def test_denial_fails_without_changing_original_request():
     assert result == messages and report["issues"] == ["PermissionError"]
 
 
+def test_new_evidence_stays_next_to_current_question_after_old_answers():
+    messages = [{"role":"system","content":"Original policy"},
+                {"role":"user","content":"An old question"},
+                {"role":"assistant","content":"An old answer"},
+                {"role":"user","content":"What does the current source say?"}]
+    result, _ = augment_messages(messages, gateway=Evidence(), scope=("operator_scope","operator"))
+    assert result[-1] == messages[-1]
+    assert result[-2]["content"].startswith("UNTRUSTED_MEMORY_EVIDENCE_JSON")
+    assert result[-3]["content"] == "An old answer"
+
+
 def test_existing_tool_loop_receives_evidence_before_inference():
     class Executor:
         def niblit_status(self):

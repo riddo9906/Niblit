@@ -336,6 +336,7 @@ class CanonicalRuntimeCapabilityRegistry:
         context: dict[str, Any] | None = None,
         surface: str = "discoverability",
         include_unavailable: bool = True,
+        emit_events: bool = True,
     ) -> list[dict[str, Any]]:
         effective_context = self._effective_context(context, surface=surface)
         snapshot: list[dict[str, Any]] = []
@@ -343,7 +344,9 @@ class CanonicalRuntimeCapabilityRegistry:
         # so calling it here repeated every dynamic gate and lifecycle event.
         ordered = sorted(self.commands.values(), key=lambda item: (-item.priority, item.prefix))
         for metadata in ordered:
-            availability = self._availability(metadata, effective_context, surface=surface)
+            availability = self._availability(
+                metadata, effective_context, surface=surface, emit_events=emit_events
+            )
             if include_unavailable or availability["available"]:
                 snapshot.append(metadata.to_dict(available=availability["available"], reason=availability["reason"]))
         return snapshot
@@ -425,7 +428,7 @@ class CanonicalRuntimeCapabilityRegistry:
             catalog.append({"group": group["category"], "commands": commands})
         return catalog
 
-    def _availability(self, metadata: CommandMetadata, context: dict[str, Any], *, surface: str) -> dict[str, Any]:
+    def _availability(self, metadata: CommandMetadata, context: dict[str, Any], *, surface: str, emit_events: bool = True) -> dict[str, Any]:
         visible = surface in metadata.visibility_surfaces
         if surface == "desktop" and not metadata.desktop_visible:
             visible = False
@@ -462,7 +465,7 @@ class CanonicalRuntimeCapabilityRegistry:
                 reason = f"availability error: {exc}"
         cache_key = (metadata.prefix, surface)
         previous = self._availability_cache.get(cache_key)
-        if previous is None or previous != available:
+        if emit_events and (previous is None or previous != available):
             self._availability_cache[cache_key] = available
             self._emit(
                 "capability.available" if available else "capability.unavailable",

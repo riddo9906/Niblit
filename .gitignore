@@ -185,3 +185,5 @@ build/
 *.pyz
 __pycache__/
 *.pyc
+
+runtime/client-portal/cloudflare-tunnel-token

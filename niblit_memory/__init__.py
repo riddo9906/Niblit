@@ -1989,9 +1989,11 @@ class KnowledgeDB:
             ("backup", self.backup_path),
             ("snapshot", self.snapshot_path),
         ]
+        existing_store_found = False
         for label, candidate_path in candidates:
             if not os.path.exists(candidate_path):
                 continue
+            existing_store_found = True
             try:
                 with open(candidate_path, "r", encoding="utf-8") as f:
                     raw = f.read()
@@ -2031,7 +2033,10 @@ class KnowledgeDB:
             except Exception as exc:
                 _kdb_log.error("Failed to load KnowledgeDB (%s): %s", label, exc)
                 self._record_quarantine("load_exception", source=f"{label}:{candidate_path}", details=str(exc))
-        _kdb_log.warning("KnowledgeDB started in partial recovery mode with default in-memory state")
+        if existing_store_found:
+            _kdb_log.warning("KnowledgeDB started in partial recovery mode with default in-memory state")
+        else:
+            _kdb_log.info("KnowledgeDB initialized a new store; no previous memory file exists")
         self._save(blocking=False)
 
     def _snapshot_for_persistence(self) -> Dict[str, Any]:
@@ -2160,9 +2165,8 @@ class KnowledgeDB:
         except ImportError:
             pass  # filter not yet available — store as-is
         # ── Original storage logic ────────────────────────────────────────────
-        # Every fact is stored with an initial confidence of 1.0 and an
-        # access_count of 0.  call reinforce(key) to increase confidence when
-        # the same fact is re-confirmed by a separate source.
+        # Preserve declared research confidence; saving is not verification.
+        from modules.memory_laboratory.runtime import confidence as _source_confidence
         with self.lock:
             self.data.setdefault("facts", [])
             raw_fact = {
@@ -2170,7 +2174,7 @@ class KnowledgeDB:
                 "value": value,
                 "tags": tags or [],
                 "ts": int(time.time()),
-                "confidence": 1.0,
+                "confidence": _source_confidence(value),
                 "access_count": 0,
             }
             structured = self._structure_fact_payload(raw_fact)
@@ -2181,6 +2185,8 @@ class KnowledgeDB:
             self._upsert_fact(structured)
             self._index_relationships_for_fact(structured)
         self._save(blocking=False)
+        from modules.memory_laboratory.runtime import queue_core_fact
+        queue_core_fact(key, value, tags)
 
     def _extract_relationship_entities(self, raw: str, *, max_entities: int = 6) -> List[str]:
         """Extract stable entity-like tokens from free-form text."""
@@ -2353,7 +2359,8 @@ class KnowledgeDB:
                 if len(summary) > 180:
                     summary = summary[:177] + "..."
             elif isinstance(value, dict):
-                summary = value.get("summary") or value.get("description") or str(value)[:180]
+                from modules.memory_laboratory.runtime import readable
+                summary = (readable(value) or value.get("description") or str(value))[:180]
             else:
                 summary = str(value)[:180]
         except Exception:

@@ -1,0 +1,8 @@
+{$NIBLIT_PORTAL_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy portal:8768
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}

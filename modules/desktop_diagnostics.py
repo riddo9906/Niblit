@@ -57,8 +57,20 @@ def desktop_snapshot(core, section, *, query="", limit=20, unified_runtime=None)
             counts = {key: None for key in ("facts", "interactions", "learning_log", "events")}
         result["memory"] = {"backend": type(database).__name__ if database else "unavailable", "counts": counts}
         if section == "memory":
+            from modules.memory_laboratory.runtime import runtime_memory
+            try:
+                framework = runtime_memory()
+                result["memory_framework"] = framework.status() if framework else {"enabled": False}
+            except Exception as exc:
+                result["memory_framework"] = {"enabled": True, "error": type(exc).__name__}
             result["records"] = (_call(database, "recall", [], query=query[:300], limit=limit)
                                  if query.strip() else _call(database, "list_facts", [], limit=limit))
+            # Normalize presentation only; retain the original evidence on disk.
+            from modules.memory_laboratory.runtime import readable, confidence
+            if isinstance(result["records"], list):
+                result["records"] = [dict(record, summary=readable(record.get("value"))[:180] or record.get("summary", ""),
+                    confidence=confidence(record.get("value"))) if isinstance(record, dict) and "value" in record else record
+                    for record in result["records"]]
             from modules.llm_chat_memory import get_llm_chat_memory
             result["conversation"] = get_llm_chat_memory().status()
     if section in {"overview", "architecture", "inference"}:

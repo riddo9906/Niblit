@@ -136,6 +136,19 @@ def main():
         (output / "command-surface.json").write_text(json.dumps(surface, indent=2), encoding="utf-8")
         report["checks"]["original_command_catalogue"] = len(surface.get("commands", [])) > 20
         report["command_counts"] = {"governed": governed.get("count"), "original": len(surface.get("commands", []))}
+        operators = request_json("http://127.0.0.1:28500/api/commands/operator", timeout=30)
+        (output / "operator-catalogue.json").write_text(json.dumps(operators, indent=2), encoding="utf-8")
+        entries = {entry['name']: entry for entry in operators.get('commands', [])}
+        report['checks']['freqtrade_operator_discovered'] = 'freqtrade' in entries
+        operator_results = {}
+        for name in ('help', 'status', 'time', 'unified status', 'status_slsa'):
+            assert entries.get(name, {}).get('execution_enabled'), f'Operator command unavailable: {name}'
+            result = request_json('http://127.0.0.1:28500/api/commands/operator/execute', {
+                'command': name, 'arguments': {}, 'confirmed': True,
+            }, timeout=30)
+            operator_results[name] = result
+            report['checks']['operator_' + name.replace(' ', '_')] = result.get('status') == 'success'
+        (output / 'operator-results.json').write_text(json.dumps(operator_results, indent=2), encoding='utf-8')
         executed = request_json("http://127.0.0.1:28500/api/commands/execute", {
             "command": "runtime_status", "arguments": {}, "request_id": "desktop-acceptance-status"}, timeout=20)
         (output / "command-execution.json").write_text(json.dumps(executed, indent=2), encoding="utf-8")
@@ -170,6 +183,9 @@ def main():
         text = (output / "core-status.log").read_text(encoding="utf-8", errors="replace")
         report["checks"]["core_status_exit_zero"] = core.returncode == 0
         report["checks"]["core_completed_boot"] = "Runtime staged bootstrap complete" in text and "Niblit fully initialised" in text
+        report['checks']['slsa_startup_api_compatible'] = all(message not in text for message in (
+            'SLSA initialization failed', 'SLSAGenerator init failed',
+        ))
         report["checks"]["no_source_only_lean_import_error"] = "No module named 'niblit_lean_algos'" not in text
         report["checks"]["supervised_trading_started"] = "Trading runtime ready" in text
         report["checks"]["no_readiness_log_spin"] = text.count("Still loading") < 30

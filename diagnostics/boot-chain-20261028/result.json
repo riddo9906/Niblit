@@ -1,0 +1,19 @@
+{
+  "services": {
+    "lean": {
+      "http": 200,
+      "status": null,
+      "state": "ready",
+      "service": null,
+      "inference_ready": null
+    },
+    "cloud": {
+      "http": 200,
+      "status": "ready",
+      "state": null,
+      "service": null,
+      "inference_ready": true
+    }
+  },
+  "exit": null
+}

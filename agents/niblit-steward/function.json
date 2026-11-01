@@ -1,0 +1,57 @@
+{
+  "name": "navigate_and_describe_environment",
+  "description": "Observe a public website or governed workspace with timestamped evidence. Does not click, log in, execute code or control native apps.",
+  "strict": true,
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "environment_type",
+      "environment_details",
+      "action"
+    ],
+    "properties": {
+      "environment_type": {
+        "type": "string",
+        "enum": [
+          "website",
+          "workspace",
+          "application",
+          "virtual_world"
+        ]
+      },
+      "environment_details": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "url",
+          "additional_context",
+          "object_id"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "additional_context": {
+            "type": "string"
+          },
+          "object_id": {
+            "type": "string"
+          }
+        }
+      },
+      "action": {
+        "type": "string",
+        "enum": [
+          "navigate",
+          "explore",
+          "describe"
+        ]
+      }
+    }
+  }
+}

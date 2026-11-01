@@ -12,6 +12,7 @@ Covers:
 from __future__ import annotations
 
 import os
+import subprocess
 import threading
 import time
 from unittest.mock import MagicMock, Mock, patch
@@ -36,9 +37,10 @@ from modules.niblit_ui_launcher import (
 # ─────────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("present", [True, False])
-def test_frozen_cloud_autostart_uses_service_executable(tmp_path, present):
+def test_frozen_cloud_autostart_uses_service_executable(tmp_path, present, monkeypatch):
     import sys
     from modules.niblit_ui_launcher import _maybe_start_cloud_server
+    monkeypatch.setenv('NIBLIT_SERVICE_LOG_DIR', str(tmp_path / 'logs'))
 
     cloud = tmp_path / "cloud"
     cloud.mkdir()
@@ -52,9 +54,33 @@ def test_frozen_cloud_autostart_uses_service_executable(tmp_path, present):
     if present:
         assert spawn.call_args.args[0] == [str(service_exe)]
         assert result is spawn.return_value
+        assert spawn.call_args.kwargs['stderr'] == subprocess.STDOUT
+        assert spawn.call_args.kwargs['stdout'] != subprocess.PIPE
     else:
         spawn.assert_not_called()
         assert result is None
+
+
+def test_autostart_log_volume_cannot_block_child(tmp_path, monkeypatch):
+    from modules.niblit_ui_launcher import _maybe_start_cloud_server
+    cloud = tmp_path / 'cloud'
+    cloud.mkdir()
+    (cloud / 'main.py').write_text(
+        "import os\nfrom pathlib import Path\nos.write(2, b'e' * 2000000)\nos.write(1, b'o' * 1000000)\nPath(__file__).with_name('done').write_text('ready')\n",
+        encoding='utf-8',
+    )
+    monkeypatch.setattr('modules.niblit_ui_launcher._find_cloud_server_root', lambda: cloud)
+    monkeypatch.setenv('NIBLIT_SERVICE_LOG_DIR', str(tmp_path / 'logs'))
+    process = _maybe_start_cloud_server('http://127.0.0.1:8000', lambda _: None)
+    assert process is not None
+    try:
+        assert process.wait(timeout=10) == 0
+        assert (cloud / 'done').read_text() == 'ready'
+        assert (tmp_path / 'logs/cloud-server.log').stat().st_size >= 3000000
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=5)
 
 
 @pytest.mark.parametrize("present", [True, False])
@@ -494,6 +520,11 @@ class TestPortResolution:
 
 class TestLaunchPrimaryUi:
     """Section 14 — API startup: already ready vs. needs start vs. failure."""
+
+    @pytest.fixture(autouse=True)
+    def isolate_ui_repository(self, monkeypatch, tmp_path):
+        # HTTP contract tests must not discover and launch the user's sibling UI.
+        monkeypatch.setenv('NIBLIT_UI_PATH', str(tmp_path / 'absent-ui'))
 
     def test_api_already_ready_no_start(self):
         """API already serving → success, _start_api_server_thread NOT called."""

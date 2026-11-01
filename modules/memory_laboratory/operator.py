@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--principal", default="desktop_operator")
     commands = parser.add_subparsers(dest="command", required=True)
     grant = commands.add_parser("grant")
-    grant.add_argument("actions", nargs="+", choices=["read", "ingest", "delete", "consolidate"])
+    grant.add_argument("actions", nargs="+", choices=["read", "ingest", "delete", "consolidate", "verify"])
     grant.add_argument("--confirm", action="store_true", required=True)
     ingest = commands.add_parser("ingest")
     ingest.add_argument("path", help="Relative file within NIBLIT_WORKSPACE_ROOT")
@@ -36,6 +36,15 @@ def main():
     rollback = commands.add_parser("rollback")
     rollback.add_argument("manifest")
     commands.add_parser("consolidate")
+    review = commands.add_parser("review")
+    review.add_argument("record_id")
+    review.add_argument("--verification", choices=["verified", "rejected"], required=True)
+    review.add_argument("--confidence", type=float, required=True)
+    review.add_argument("--evidence", required=True)
+    commands.add_parser("status")
+    backup = commands.add_parser("backup")
+    backup.add_argument("destination")
+    commands.add_parser("rebuild")
     args = parser.parse_args()
     values = dotenv_values(args.env_file)
     config = Config.from_values(values)
@@ -52,7 +61,31 @@ def main():
     g = MemoryGateway(config, args.ledger)
     try:
         scope = {"namespace": args.namespace, "principal": args.principal}
-        if args.command == "ingest":
+        if args.command in {"status", "backup", "rebuild"}:
+            from .runtime import MemoryRuntime
+            runtime = MemoryRuntime(g, scope=scope)
+            if args.command == "status":
+                result = runtime.status()
+            elif args.command == "backup":
+                g.require("read", **scope)
+                result = runtime.backup(args.destination)
+            else:
+                g.require("ingest", **scope)
+                preflight = g.backend.run(apply=True)
+                if not preflight["ready"]:
+                    raise RuntimeError("Qdrant setup is not ready")
+                after, total = "", 0
+                while True:
+                    batch = runtime.rebuild(after=after)
+                    total += batch["repaired"]
+                    after = batch["after"]
+                    if batch["repaired"] < 100:
+                        break
+                result = {"repaired": total}
+        elif args.command == "review":
+            result = g.review_record(args.record_id, **scope, verification=args.verification,
+                                     confidence=args.confidence, evidence=args.evidence)
+        elif args.command == "ingest":
             result = g.ingest_file(args.path, **scope)
         elif args.command == "retrieve":
             result = g.retrieve(args.query, **scope)

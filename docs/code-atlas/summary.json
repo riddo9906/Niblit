@@ -1,0 +1,58 @@
+{
+  "Niblit": {
+    "files": 1050,
+    "lines": 289940,
+    "symbols": 14389,
+    "documented_symbols": 5956,
+    "review_signals": 62
+  },
+  "Niblit-cloud-server": {
+    "files": 113,
+    "lines": 21123,
+    "symbols": 1217,
+    "documented_symbols": 371,
+    "review_signals": 12
+  },
+  "niblit-ui": {
+    "files": 75,
+    "lines": 7817,
+    "symbols": 0,
+    "documented_symbols": 0,
+    "review_signals": 0
+  },
+  "niblit-lean-algos": {
+    "files": 137,
+    "lines": 28074,
+    "symbols": 1267,
+    "documented_symbols": 516,
+    "review_signals": 16
+  },
+  "niblit-steward": {
+    "files": 2,
+    "lines": 436,
+    "symbols": 26,
+    "documented_symbols": 0,
+    "review_signals": 1
+  },
+  "trade-signal-desk": {
+    "files": 13,
+    "lines": 499,
+    "symbols": 0,
+    "documented_symbols": 0,
+    "review_signals": 0
+  },
+  "github-copilot-llm-gateway": {
+    "files": 117,
+    "lines": 21184,
+    "symbols": 0,
+    "documented_symbols": 0,
+    "review_signals": 0
+  },
+  "niblit-website": {
+    "files": 3,
+    "lines": 34,
+    "symbols": 0,
+    "documented_symbols": 0,
+    "review_signals": 0
+  }
+}

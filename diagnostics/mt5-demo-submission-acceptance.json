@@ -1,0 +1,27 @@
+{
+  "connected": true,
+  "mode": "demo",
+  "positions": [
+    {
+      "symbol": "EURUSD",
+      "volume": 0.01,
+      "sl": 1.11394,
+      "tp": 1.11994,
+      "niblit_owned": true
+    }
+  ],
+  "tickets": [
+    {
+      "state": "filled",
+      "result": {
+        "retcode": 10009,
+        "deal": 58703319096,
+        "order": 59103745002,
+        "volume": 0.01,
+        "price": 1.11594,
+        "comment": "Request executed"
+      }
+    }
+  ],
+  "openai_calls": 0
+}

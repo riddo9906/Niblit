@@ -1,0 +1,6 @@
+{
+  "core_available": true,
+  "memory_reuses_previous_release": true,
+  "configured_openai_model_present": true,
+  "openai_inference_tested_after_topup": false
+}

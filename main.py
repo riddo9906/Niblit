@@ -916,15 +916,8 @@ def _drain_init_messages(init_queue, io) -> int:
 
 def _cmd_unified_status(core):
     """The same feedback-loop report for CLI and desktop operators."""
-    if not hasattr(core, '_unified_loop_status'):
-        return '[Unified-loop status not yet available — boot may still be in progress]'
-    state = core._unified_loop_status
-    return '\n'.join([
-        '🔗 Unified feedback-loop status:',
-        f"  Layers ready  : {state.get('ready', '?')}/{state.get('total', '?')}",
-        f"  Verified      : {'✅ Yes' if state.get('verified') else '⚠️  No — some layers degraded'}",
-        f"  Degraded      : {', '.join(state.get('warnings', [])) or 'none'}",
-    ])
+    from modules.unified_status import format_unified_status
+    return format_unified_status(core)
 
 
 def _sync_cli_capability_registry(core, io):

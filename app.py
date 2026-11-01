@@ -2207,7 +2207,11 @@ async def ws_runtime(websocket: WebSocket):
     cursor = 0
     try:
         while True:
-            frame = runtime.stream_frame(core=get_core(), since=cursor)
+            # Keep synchronous runtime locks, storage and service probes off
+            # the ASGI loop shared by health, chat and inference requests.
+            frame = await asyncio.to_thread(
+                lambda: runtime.stream_frame(core=get_core(), since=cursor)
+            )
             events = frame.get("events", [])
             if events:
                 cursor = max(cursor, max(int(e.get("id", 0)) for e in events))

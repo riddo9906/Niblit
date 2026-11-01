@@ -1,0 +1,44 @@
+{
+  "checked_at_utc": "2026-10-30T20:25:43.5274012Z",
+  "timezone": "Africa/Johannesburg",
+  "services": [
+    {
+      "port": 5000,
+      "running": false
+    },
+    {
+      "port": 8000,
+      "running": false
+    },
+    {
+      "port": 8100,
+      "running": false
+    },
+    {
+      "port": 8766,
+      "running": true,
+      "pid": 23800,
+      "process": "llama-server"
+    },
+    {
+      "port": 8767,
+      "running": true,
+      "pid": 25968,
+      "process": "pythonw"
+    },
+    {
+      "port": 8769,
+      "running": true,
+      "pid": 11504,
+      "process": "com.docker.backend"
+    },
+    {
+      "port": 8772,
+      "running": true,
+      "pid": 9364,
+      "process": "pythonw"
+    }
+  ],
+  "scope": "Selected local listeners only; process availability is not end-to-end health",
+  "configuration_changed": false
+}

@@ -30,6 +30,7 @@ next to the main Niblit data directory).
 
 import logging
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -38,6 +39,15 @@ from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
 
 from modules.memory_context import select_recent_messages
+
+
+def readable_history_content(content: str) -> str:
+    """Keep legacy binary-PDF attachments out of restored model context.
+
+    Preserve the original database rows; only the outgoing view is repaired.
+    """
+    return re.sub(r'(?is)--- attached: ([^\r\n]+\.pdf) ---\s*%PDF-.*',
+        r'[Earlier PDF attachment \1 was unreadable; reattach it for page extraction.]', content)
 
 log = logging.getLogger("LLMChatMemory")
 
@@ -192,7 +202,7 @@ class LLMChatMemory:
                     ).fetchall()
                 # rows are newest-first; reverse to chronological order
                 return select_recent_messages(
-                    [{"role": r[0], "content": r[1]} for r in reversed(rows)],
+                    [{"role": r[0], "content": readable_history_content(r[1])} for r in reversed(rows)],
                     max_messages=limit, max_chars=max_chars,
                 )
             except Exception as exc:

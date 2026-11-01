@@ -42,9 +42,20 @@ const fs = require("fs");
 
 const tauriMode = process.argv.includes("--tauri");
 const repoRoot = path.resolve(__dirname, "..");
-const stagedDir = path.resolve(process.env.NIBLIT_BUILD_STAGING_DIR || path.join(repoRoot, "dist", "_staged"));
-const distDir = path.resolve(process.env.NIBLIT_BUILD_DIST_DIR || path.join(repoRoot, "dist"));
-const buildWorkDir = path.resolve(process.env.NIBLIT_BUILD_WORK_DIR || path.join(repoRoot, "build"));
+const paths = require('./build-paths').buildPaths(repoRoot);
+const stagedDir = paths.staged;
+const distDir = paths.dist;
+const buildWorkDir = paths.work;
+// The Core spec reads this same staging path; never let it consume old sidecars.
+Object.assign(process.env, {
+  NIBLIT_BUILD_STAGING_DIR: stagedDir,
+  NIBLIT_BUILD_DIST_DIR: distDir,
+  NIBLIT_BUILD_WORK_DIR: buildWorkDir,
+});
+if (process.argv.includes('--plan')) {
+  console.log(JSON.stringify({ ...paths, servicesStarted: false, filesWritten: false }, null, 2));
+  process.exit(0);
+}
 const skipUiBuild = process.env.NIBLIT_SKIP_UI_BUILD === "1";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -65,6 +76,10 @@ function run(cmd, opts = {}) {
 
 function resolvePython() {
   if (process.env.PYTHON) return process.env.PYTHON;
+  for (const name of ['niblit-env', '.venv', 'venv']) {
+    const interpreter = path.join(repoRoot, name, process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+    if (fs.existsSync(interpreter)) return interpreter;
+  }
   return process.platform === "win32" ? "python" : "python3";
 }
 
@@ -188,17 +203,9 @@ function findTauriExe(uiRoot) {
   const releaseDir = path.join(uiRoot, "src-tauri", "target", "release");
   if (!fs.existsSync(releaseDir)) return null;
 
-  const entries = fs.readdirSync(releaseDir);
-  for (const entry of entries) {
-    // Skip NSIS installer bundles (they live deeper in bundle/nsis/)
-    if (entry.endsWith(".exe") && !entry.endsWith("-setup.exe")) {
-      const full = path.join(releaseDir, entry);
-      if (fs.statSync(full).isFile()) {
-        return full;
-      }
-    }
-  }
-  return null;
+  // Cargo.toml names this binary niblit-ui. Never pick a stale unrelated exe.
+  const executable = path.join(releaseDir, 'niblit-ui.exe');
+  return fs.existsSync(executable) && fs.statSync(executable).isFile() ? executable : null;
 }
 
 // ── Step helpers ──────────────────────────────────────────────────────────────
@@ -207,6 +214,14 @@ const pythonBin = resolvePython();
 const npmBin = resolveNpm();
 const skipPyInstaller = (process.env.NIBLIT_SKIP_PYINSTALLER || "").trim() === "1";
 const label = tauriMode ? "tauri:build" : "build";
+
+// Validate inputs without importing Core, installing packages or touching output.
+if (tauriMode || process.argv.includes('--check')) {
+  const audit = spawnSync(pythonBin, [path.join(__dirname, 'check-build-contract.py')],
+    { cwd: repoRoot, stdio: 'inherit' });
+  if (audit.status !== 0) process.exit(audit.status ?? 1);
+  if (process.argv.includes('--check')) process.exit(0);
+}
 
 console.log(`[niblit-build] ════════════════════════════════════════`);
 console.log(`[niblit-build]  Niblit build  (${label})`);
@@ -250,11 +265,11 @@ if (tauriMode) {
 // ── Step 1: Install the Python package ───────────────────────────────────────
 
 console.log("\n[niblit-build] Step 1 — Installing Python package (pip install -e .)…");
-if (tauriMode && ["PyInstaller", "aiohttp", "duckduckgo_search"].every((name) => hasPythonModule(pythonBin, name))) {
+if (tauriMode && ["PyInstaller", "aiohttp", "ddgs", "pypdf"].every((name) => hasPythonModule(pythonBin, name))) {
   console.log("[niblit-build] ✅ Core build dependencies are available; reusing the existing environment.");
 } else try {
   const editableTarget = tauriMode && !skipPyInstaller ? '".[build]"' : '"."';
-  run(`${pythonBin} -m pip install -e ${editableTarget}`, { cwd: repoRoot });
+  run(`${quoteArg(pythonBin)} -m pip install -e ${editableTarget}`, { cwd: repoRoot });
   console.log("[niblit-build] ✅ Python package installed.");
 } catch (err) {
   // Non-fatal: package may already be installed or pip unavailable in CI.
@@ -484,6 +499,11 @@ for (const relative of [
 
 const finalBundleDir = path.dirname(finalExe);
 fs.copyFileSync(path.join(repoRoot, "scripts", "Start-Niblit-Testing.ps1"), path.join(finalBundleDir, "Start-Niblit-Testing.ps1"));
+fs.copyFileSync(path.join(repoRoot, "scripts", "Start-Niblit-Freqtrade.ps1"), path.join(finalBundleDir, "Start-Niblit-Freqtrade.ps1"));
+for (const launcher of ["Start-Niblit-Freqtrade.cmd", "Start-Niblit-Live.cmd"]) {
+  fs.copyFileSync(path.join(repoRoot, "scripts", launcher), path.join(finalBundleDir, launcher));
+}
+fs.copyFileSync(path.join(repoRoot, "docs", "FREQTRADE_DESKTOP_PROFILES.md"), path.join(finalBundleDir, "FREQTRADE_DESKTOP_PROFILES.md"));
 fs.copyFileSync(path.join(repoRoot, "docs", "NIBLIT_TESTING_GUIDE.md"), path.join(finalBundleDir, "NIBLIT_TESTING_GUIDE.md"));
 fs.writeFileSync(path.join(finalBundleDir, "Start-Niblit-Testing.cmd"),
   '@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-Niblit-Testing.ps1"\r\n');

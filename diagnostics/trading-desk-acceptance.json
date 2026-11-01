@@ -1,0 +1,29 @@
+{
+  "checked_at": 1793289433.084263,
+  "connected": true,
+  "configuration": {
+    "dry_run": true,
+    "state": "running",
+    "exchange": "binance",
+    "trading_mode": "futures",
+    "strategy": "SampleStrategy",
+    "timeframe": "5m",
+    "stake_currency": "USDT",
+    "max_open_trades": 3.0,
+    "force_entry_enable": true,
+    "version": "2026.9"
+  },
+  "fresh_completed_candles": true,
+  "candle_count": 200,
+  "open_positions": 1,
+  "closed_outcomes": 31,
+  "memory_export": {
+    "state": "queued_to_core",
+    "outcomes_queued": 31
+  },
+  "funded_execution_enabled": false,
+  "orders_submitted_by_acceptance": 0,
+  "paid_inference_calls": 0,
+  "outcome_records_projected": 31,
+  "core_ready": true
+}

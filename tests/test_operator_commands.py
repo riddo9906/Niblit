@@ -72,3 +72,48 @@ def test_argument_shape_rejected_before_handler(core):
 
 def test_invalid_remember_is_not_a_success(core):
     assert execute_operator_command(core,'remember',{'text':'invalid'},confirmed=True,root=ROOT)['status']=='error'
+
+
+@pytest.mark.parametrize('response', ['[safe_call error: cycle: failed]', '[ERROR::cycle]', '[ERROR] Command failed', 'Error: disk full'])
+def test_legacy_errors_are_not_success(core, response):
+    core.command_registry.register('example', lambda text: response)
+    result = execute_operator_command(core, 'example', confirmed=True, root=ROOT)
+    assert result['status'] == 'error'
+    assert result['error'] == response
+
+
+@pytest.mark.parametrize('response', ['[Trading Status]\nEngine: not running', 'Trading cycle is not currently running.', '[Status]\nOptional provider unavailable\nCore ready'])
+def test_stopped_state_is_valid_status(core, response):
+    core.command_registry.register('example', lambda text: response)
+    assert execute_operator_command(core, 'example', confirmed=True, root=ROOT)['status'] == 'success'
+
+
+@pytest.mark.parametrize('response', ['⚠️ TradingBrain is not initialised.\nInstall dependencies.', '[Core not available]', '[UNAVAILABLE] Provider offline'])
+def test_missing_dependency_is_unavailable(core, response):
+    core.command_registry.register('example', lambda text: response)
+    assert execute_operator_command(core, 'example', confirmed=True, root=ROOT)['status'] == 'unavailable'
+
+
+@pytest.mark.parametrize('state', ['unavailable', 'rejected', 'authorization_required'])
+def test_structured_handler_state_preserved(core, state):
+    core.command_registry.register('example', lambda text: {'status': state, 'error': 'reason'})
+    assert execute_operator_command(core, 'example', confirmed=True, root=ROOT)['status'] == state
+
+
+def test_unloaded_cli_handler_does_not_boot_main(core, monkeypatch):
+    import modules.operator_commands as commands
+    monkeypatch.setattr(commands, 'read_cli_vocabulary', lambda root: {'direct_commands': {'unified status': {}}})
+    entry = next(c for c in list_operator_commands(core, ROOT)['commands'] if c['name'] == 'unified status')
+    assert entry['state'] == 'EXECUTABLE'
+    core._unified_loop_status = {'ready': 2, 'total': 3, 'verified': False, 'warnings': ['provider']}
+    result = execute_operator_command(core, 'unified status', confirmed=True, root=ROOT)
+    assert result['status'] == 'success'
+    assert '2/3' in result['result']
+
+
+def test_registered_unified_status_handler_keeps_authority(core, monkeypatch):
+    import modules.operator_commands as commands
+    monkeypatch.setattr(commands, 'read_cli_vocabulary', lambda root: {'direct_commands': {'unified status': {}}})
+    core.command_registry.register('unified status', lambda text: 'canonical status')
+    result = execute_operator_command(core, 'unified status', confirmed=True, root=ROOT)
+    assert result['result'] == 'canonical status'

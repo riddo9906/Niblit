@@ -1,0 +1,65 @@
+name: niblit-client-cloud
+services:
+  portal:
+    build:
+      context: ../..
+      dockerfile: deploy/client-portal/Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      NIBLIT_PORTAL_DATA: /data
+      NIBLIT_PORTAL_ORIGIN: ${NIBLIT_PORTAL_ORIGIN:-http://127.0.0.1:8769}
+      NIBLIT_PORTAL_OLLAMA_URL: http://ollama:11434
+      PORT: "8768"
+    ports:
+      - "127.0.0.1:8769:8768"
+    volumes:
+      - portal-data:/data
+      - portal-backups:/backups
+    networks: [backend, edge]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: [CMD, python, -c, "import os,urllib.request,urllib.parse; u=os.environ['NIBLIT_PORTAL_ORIGIN']; r=urllib.request.Request('http://127.0.0.1:8768/api/health',headers={'Host':urllib.parse.urlsplit(u).netloc}); assert urllib.request.urlopen(r,timeout=5).status==200"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+  ollama:
+    image: ollama/ollama:0.40.13
+    restart: unless-stopped
+    volumes: [ollama-models:/root/.ollama]
+    networks: [backend, model-download]
+    security_opt: [no-new-privileges:true]
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    restart: unless-stopped
+    volumes: [qdrant-data:/qdrant/storage]
+    networks: [backend]
+    security_opt: [no-new-privileges:true]
+  caddy:
+    image: caddy:2.11.7-alpine
+    profiles: [public]
+    restart: unless-stopped
+    environment:
+      NIBLIT_PORTAL_DOMAIN: ${NIBLIT_PORTAL_DOMAIN:-portal.enginehsd.site}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [edge]
+    security_opt: [no-new-privileges:true]
+networks:
+  backend:
+    internal: true
+  edge: {}
+  model-download: {}
+volumes:
+  portal-data: {}
+  portal-backups: {}
+  qdrant-data: {}
+  ollama-models: {}
+  caddy-data: {}
+  caddy-config: {}

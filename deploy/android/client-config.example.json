@@ -1,0 +1,12 @@
+{
+  "status": "readiness_template_not_an_apk",
+  "baseUrl": "https://niblit-api.enginehsd.site",
+  "endpointStatus": "proposed_hostname_not_provisioned",
+  "transport": "https_only",
+  "authentication": "existing_portal_login_cookie_and_csrf",
+  "initialShell": "webview_loading_hosted_same_origin_client",
+  "remoteOwnerTools": false,
+  "brokerAccess": false,
+  "offlinePolicy": "show_disconnected_never_queue_orders",
+  "bundledSecrets": false
+}

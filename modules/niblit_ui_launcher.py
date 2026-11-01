@@ -1029,8 +1029,6 @@ def _maybe_start_cloud_server(
     kwargs: Dict[str, Any] = {
         "cwd": cwd,
         "env": env,
-        "stdout": subprocess.PIPE,
-        "stderr": subprocess.PIPE,
         "text": True,
         "bufsize": 1,
     }
@@ -1038,7 +1036,16 @@ def _maybe_start_cloud_server(
         kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
 
     try:
-        proc = subprocess.Popen(cmd, **kwargs)
+        # An unread PIPE eventually blocks the server's logging thread (and
+        # sometimes its event loop). The desktop must not depend on a reader
+        # consuming an unbounded stream of inference diagnostics.
+        default_logs = Path(os.environ.get('LOCALAPPDATA', str(Path.home() / '.local/state'))) / 'Niblit/logs'
+        log_dir = Path(os.environ.get('NIBLIT_SERVICE_LOG_DIR', str(default_logs))).expanduser()
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / 'cloud-server.log'
+        with log_path.open('ab') as stream:
+            proc = subprocess.Popen(cmd, stdout=stream, stderr=subprocess.STDOUT, **kwargs)
+        emit(f"[Cloud] Diagnostics: {log_path}")
         emit(f"[Cloud] Launch command: {' '.join(cmd)} (cwd={cwd})")
         emit(f"[Cloud] Process PID: {proc.pid}")
         return proc

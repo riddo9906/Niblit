@@ -26,6 +26,7 @@ from modules.tiered_knowledge_system import get_tiered_knowledge_system
 from modules.trading_read_tools import FORBIDDEN_EXECUTION_NAMES
 
 EXPECTED_TOOLS = {"runtime_status", "web_search", "web_fetch",
+                  "navigate_and_describe_environment",
                   "trading_runtime_status", "run_research",
                   # Phase 5D: governed workspace surface (bounded, no
                   # arbitrary execution; run_tests is a fixed pytest command
