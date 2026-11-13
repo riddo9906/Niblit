@@ -77,7 +77,9 @@ class RuntimeManager:
         self,
         history_limit: int = 1000,
         queue_max_size: int = 0,
+        *, ale_instance: Any = None,
     ) -> None:
+        self._core_ale = ale_instance
         self.runtime_id = f"runtime-{uuid.uuid4().hex[:12]}"
         self.event_bus = EventBus(history_limit=history_limit)
         self.task_queue = TaskQueue(max_size=queue_max_size)
@@ -563,7 +565,7 @@ class RuntimeManager:
         return self.get_diagnostics()
 
     def _initialize_service(self, name: str, factory: Callable[[], Any]) -> Any:
-        if name in self._service_registry:
+        if self._service_registry.get(name) is not None:
             return self._service_registry[name]
         started_at = time.perf_counter()
         try:
@@ -572,6 +574,10 @@ class RuntimeManager:
             self._set_service_status(name, "degraded", str(exc))
             raise
         elapsed_ms = (time.perf_counter() - started_at) * 1000.0
+        if service is None:
+            prior=self._service_statuses.get(name,{})
+            self._set_service_status(name,"degraded",prior.get("detail") or "Service factory returned no instance")
+            return None
         self._service_registry[name] = service
         self._service_load_durations_ms[name] = round(elapsed_ms, 3)
         self._service_init_order.append(name)
@@ -582,6 +588,8 @@ class RuntimeManager:
     def _set_service_status(self, name: str, status: str, detail: str | None = None) -> None:
         entry = self._service_statuses.get(name, {})
         entry["status"] = status
+        if status == "ready" and detail is None:
+            entry.pop("detail",None)
         if detail is not None:
             entry["detail"] = detail
         self._service_statuses[name] = entry
@@ -762,7 +770,7 @@ class RuntimeManager:
         try:
             from modules.local_brain import get_local_brain
 
-            return get_local_brain(persistence_manager=self.get_persistence_manager())
+            return get_local_brain()
         except Exception as exc:
             self._set_service_status("local_brain", "degraded", str(exc))
             return None
@@ -888,6 +896,8 @@ class RuntimeManager:
             return None
 
     def _build_ale(self) -> Any:
+        if getattr(self,"_core_ale",None) is not None:
+            return self._core_ale
         try:
             from modules.autonomous_learning_engine import AutonomousLearningEngine
 
@@ -961,7 +971,7 @@ class RuntimeManager:
             try:
                 import modules.local_brain as local_brain_module
 
-                local_brain_module._instance = service
+                local_brain_module._gateway = service
             except Exception:
                 pass
             return

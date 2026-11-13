@@ -4,6 +4,7 @@ Start or Observe enables a worker; restart never rearms execution. The same work
 monitors positions and generates explanations without an LLM. Stop prevents new
 work, but cannot recall an order already being delivered or close positions.
 """
+from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 import json
 import math
@@ -20,7 +21,7 @@ from modules.strategy_research import study
 
 
 class DemoAutotrader:
-    def __init__(self, bridge, orders, path, outcome_sink=None, events=None):
+    def __init__(self, bridge, orders, path, outcome_sink=None, events=None, core_cycle=None):
         self.bridge, self.orders, self.path = bridge, orders, str(path)
         self.lock = threading.RLock()
         self.stop_event = threading.Event()
@@ -34,7 +35,8 @@ class DemoAutotrader:
         self.research_key = None
         from modules.online_market_study import OnlineMarketStudy
         from pathlib import Path
-        self.online_study=OnlineMarketStudy(Path(self.path).parent/'online-market-study.sqlite3')
+        self.online_study=OnlineMarketStudy(Path(self.path).parent/'online-market-study.sqlite3') if core_cycle is None else None
+        if core_cycle is not None:self.core_cycle=core_cycle
         with self.db() as db:
             db.execute('CREATE TABLE IF NOT EXISTS decisions(id TEXT PRIMARY KEY, ts REAL, payload TEXT)')
             db.execute('CREATE TABLE IF NOT EXISTS demo_outcomes(id TEXT PRIMARY KEY, payload TEXT)')
@@ -42,8 +44,12 @@ class DemoAutotrader:
             db.execute('CREATE TABLE IF NOT EXISTS research_reports(id TEXT PRIMARY KEY, created REAL, payload TEXT)')
             db.execute('CREATE TABLE IF NOT EXISTS forecast_outcomes(id TEXT PRIMARY KEY, payload TEXT)')
 
+    @contextmanager
     def db(self):
-        return sqlite3.connect(self.path, timeout=10)
+        db=sqlite3.connect(self.path, timeout=10)
+        try:
+            with db: yield db
+        finally: db.close()
 
     def record(self, payload):
         with self.db() as db:
@@ -143,6 +149,8 @@ class DemoAutotrader:
         # Start/rearm and each scan share a lock, so old and new sessions cannot
         # race to deliver an order. Broker LOCK still serializes manual controls.
         with self.lock:
+            if hasattr(self, 'core_cycle'):
+                return self.core_cycle(self)
             self._step()
 
     def _step(self):

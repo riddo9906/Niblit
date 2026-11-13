@@ -11,7 +11,7 @@ bounded, and routed through NiblitToolExecutor.
 
 from __future__ import annotations
 
-from modules.task_admission import task_owned
+from modules.task_admission import task_owned, delegation_headers, check_cancelled
 
 import json
 import logging
@@ -46,7 +46,7 @@ def make_runtime_status_tool() -> dict:
                 "Read-only; no side effects. Useful for answering questions "
                 "about Niblit's runtime state or status."
             ),
-            "parameters": {"type": "object", "properties": {}, "required": []},
+            "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
         },
     }
 
@@ -70,6 +70,14 @@ class LlmToolLoop:
         self.memory_gateway = memory_gateway
         self.memory_scope = memory_scope
         self._tool_map = {"runtime_status": self.executor.niblit_status}
+
+    def tool_schemas(self, names):
+        """Narrow this request to existing registrations; never grant a capability."""
+        schemas=dict(getattr(self,'_schemas',{}))
+        schemas.setdefault('runtime_status',make_runtime_status_tool())
+        if len(names)!=len(set(names)) or any(name not in schemas for name in names):
+            raise ToolCallError('Requested tool set contains duplicate or unregistered capabilities')
+        return [schemas[name] for name in names]
 
     def allowed_tool_names(self):
         return list(self._tool_map.keys())
@@ -201,7 +209,7 @@ class LlmToolLoop:
             self.cloud_root + _CHAT_PATH,
             data=json.dumps(payload).encode("utf-8"),
             method="POST",
-            headers={"Content-Type": "application/json"},
+            headers={"Content-Type": "application/json", **delegation_headers()},
         )
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
@@ -214,7 +222,7 @@ class LlmToolLoop:
 
     @task_owned('core_tool_loop')
     def chat(self, messages, tools=None, model="qwen2.5-coder-3b",
-             tool_choice=None):
+             tool_choice=None, max_tokens=512, cancel_event=None):
         schemas = dict(getattr(self, "_schemas", {}))
         schemas.setdefault("runtime_status", make_runtime_status_tool())
         if tools is None:
@@ -249,15 +257,19 @@ class LlmToolLoop:
         initial_tool_choice = tool_choice
 
         for _ in range(self.max_loop_calls):
+            check_cancelled()
             active_tools = None if tools_disabled else (tools or None)
             body = self._cloud_chat(
                 working,
                 model=model,
                 tools=active_tools,
                 tool_choice=None if tools_disabled else initial_tool_choice,
+                max_tokens=max_tokens,
             )
             # A required tool choice applies only to the initial assistant
             # turn. After its observation, the model can answer normally.
+            check_cancelled()
+            initial_tool_choice = None
             initial_tool_choice = None
             last_niblit_model = body.get("niblit_model") or last_niblit_model
             choice = (body.get("choices") or [{}])[0]
@@ -279,6 +291,7 @@ class LlmToolLoop:
             t0 = time.perf_counter()
             repeat_detected = False
             for call in tool_calls:
+                check_cancelled()
                 tc_id = call.get("id") or f"call_{len(trace)}"
                 try:
                     active_allowed = {} if tools_disabled else allowed
@@ -355,14 +368,15 @@ class LlmToolLoop:
                             "observations already collected; no tools available."),
             })
             try:
-                body = self._cloud_chat(working, model=model, tools=None)
+                check_cancelled()
+                body = self._cloud_chat(working, model=model, tools=None, max_tokens=max_tokens)
                 last_niblit_model = body.get("niblit_model") or last_niblit_model
                 choice = (body.get("choices") or [{}])[0]
                 final = choice.get("message", {}).get("content") or ""
                 if final:
                     stopped = "forced_final_answer"
             except ToolCallError:
-                pass  # surfaced as empty text + truthful stopped, never silent
+                raise  # Preserve outage/cancellation causes for the task owner.
 
         # Source links are emitted by Core from retrieval provenance, so a small
         # model omitting citations cannot silently remove the evidence trail.

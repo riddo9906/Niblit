@@ -1,0 +1,44 @@
+# Niblit recorded-entry exit-thesis continuation
+
+Verified checkpoint 2026-11-02T16:06:24.292661+00:00. Continued in the original repositories; no duplicate installation. Patch is already integrated and reverse-checks against the current source. Do not reapply blindly.
+
+## Implemented
+
+Core source root `C:\Users\Operator\Documents\GitHub\Niblit`, HEAD `1b40c4113b0df61ecb561b73b8f7a38ed4280832`. All nine v1.8 hashes reconciled before editing. Four roots/HEADs/status/untracked/staged/working diffs inspected and preserved. Source changes only in Core; relevant Cloud/Lean contracts verified without changing their code.
+
+- `modules/market_data_providers.py`: bounded public CCXT top-of-book reader. Exact instrument identity, active contract and linear USDT settlement, finite positive bid/ask/sizes, uncrossed spread, genuine provider timestamp,15-second freshness/round-trip and5-second future tolerance. Missing timestamp fails closed. Existing provider framework reused; no private credentials, account/order calls or candle/last-price substitution.
+- `modules/trading_desk.py`: read-only quote bridge reuses original configured exchange/market type; Binance futures selects binanceusdm. Ambiguous/spot-contract mismatch denied. No changes to existing tickets, confirmations, risk or execution permissions.
+- `modules/position_intelligence.py`: invokes original `position_exit_policy.assess_exit` only with reconciled recorded entry context, compatible fresh public quote, fresh candles and complete strategy comparison. No saved context means no adoption. Context attribution mismatch refuses evaluation. Copies original context; continuation peak/giveback state belongs only to the existing scoped observer cache after canonical Core acknowledgement. Restart and out-of-order/repeated quote handling preserve confirmation semantics. No competing exit-policy engine or memory authority.
+- Existing close condition is translated into advisory EXIT-CANDIDATE with execution_authorized=false; execution_eligible is not propagated. Strategy disagreement remains REVIEW, incomplete comparisons ABSTAIN, Core denial overrides recommendations. Missing quote leaves other market observation/strategy work operational. Removed one duplicated pre-existing closed-record validation block without changing its conditions.
+- Existing `assets/trading-desk/desk.js` and `index.html`: recorded-thesis result/reason with actual public bid/ask timestamp in the current read-only position panel. No new order actions. Served assets and proxy checked; JavaScript syntax passed. No visual browser certification claimed.
+- New `tests/test_position_exit_integration.py` covers real policy invocation, missing/stale/future/mismatched/crossed/nonfinite quotes, recorded-context mismatch, incomplete strategy comparison, distinct giveback confirmations, restart/idempotency, Core denial, quote outage continuity, exact public contract/provider routing, no order methods and unchanged engine context.
+
+## Verified
+
+98 Core integration/regression tests passed (new bridge plus existing position/exit/market/freshness/strategy-failure suites). Existing Cloud wrapper passed all34 nested Core/Cloud execution-governance cases.26 Lean/Freqtrade adapter cases passed. Controlled doubles prove contracts, not broker execution. Initial new-test fixture import omissions and2 direct fixture-venue mismatches were corrected; failed reports retained, final XMLs have zero errors/failures. Do not count the Cloud wrapper plus its34 nested tests as independent coverage.
+
+Actual public BTC/USDT:USDT order book returned fresh exchange timestamp and bid/ask through the new provider. Original Core scheduler completed at least2 automatic passes. Actual BTC recorded trend_v1 thesis invoked original assess_exit, returned HOLD (No exit condition met), Core analytical allow and durable canonical receipt. Sample quote timestamp 1793635228.997, bid 77435.0, ask 77435.1. These are sampled public observations, not current prices, executable guarantees or fills. Candle marks remain separately labeled gross P&L estimates. Original engine entry context read back unchanged. Original dashboard proxy/assets HTTP200 and new text served.
+
+Canonical SQLite receipts exist, integrity ok. Latest projection verification all_complete=False; per-position exact outbox states/hash readback counts in exit-thesis-checkpoint.json. Some points can be hash-verified while their outbox job is still processing; that is not full-job completion. No separate projector was started. Existing canonical worker reports running with substantial backlog and last source_error OperationalError. Do not claim all new observations fully projected unless all outbox states and expected point hashes complete.
+
+## Services and recovery
+
+Nov2 inspection found all previous service listeners/model absent, Docker engine stopped and an old active reservation in canonical SQLite. Used existing runtime-task-status.py --recover --confirm-producers-stopped only while known producer ports and model were absent; guard succeeded. No active generation killed and no timer-based ownership reset. Previously approved original Docker Desktop startup resumed original containers; no recreate/reinstall/volume deletion. Original Freqtrade private profile inspected before startup:dry_run=true,initial_state=stopped,max3. Actual engine confirmed stopped afterward. Existing orphan llama container stayed exited; same native model launcher restored Qwen3B8192 context,1 slot,2 CPU threads(model process8532). No second inference model installation.
+
+Original Core/native-cloud profile, shared Cloud, memory/desk source launchers and Lean observe source restored. All six requested endpoints HTTP200, with real quote/Core/outbox checks beyond health alone. Initial Core/Lean readiness timeout retained in work/exit-thesis/core.stderr.log; later original Lean healthy observe/execution-disabled. Current inference authority snapshot: {"state": "quarantined", "owner": "core_inference"}. Background inference has quarantined again; do not call fresh research verified or clear it on a timer. Core observation remains functional without LLM admission. Task lease/cancellation/tool normalization/model configuration source unchanged.
+
+## Position status / execution limits
+
+Same3 recorded dry-run SHORT positions:40 XAU entry3888.82 amount0.025;42 XAG entry49.13 amount2.035;45 BTC entry77447.4 amount0.001. Engine stopped,3/3 slots occupied. All local ledger reconciled. BTC alone has saved exit context; XAU/XAG thesis state not_eligible, while their six-rule market assessments continue. Latest captured aggregate assessments XAU/XAG EXIT-CANDIDATE, BTC HOLD; recommendations change with observations and never authorize an order. No entries, closes, modifications, previews, tickets, consent tokens or execution-permission changes. No live-money or simulated-order lifecycle verification.
+
+## Remaining / next action
+
+Diagnose the existing canonical memory worker OperationalError/backlog and verify complete projection of current quote-backed episodes, preserving the original outbox leases and memory authority.
+
+Also unresolved: background autonomous inference quarantine; legacy remote HybridQdrant resets; exhausted search quota; original human-reviewed order lifecycle unavailable without current authorization. These were not hidden by stubs, permission changes or switching memory endpoints. Quote absence never fabricates a price or entry thesis. No automatic model training or proven profitability is claimed.
+
+## Context and continuation
+
+Sole living map: `C:\Users\Operator\Documents\GitHub\Niblit\docs\agent-context\NIBLIT_CONTEXT_MAP.md`. Detailed checkpoint exit-thesis-checkpoint.json; evidence evidence/exit-thesis. Preimages and baseline full dirty diffs: `C:\Users\Operator\Documents\Codex\2026-11-01\referenced-chatgpt-conversation-this-is-an\work\exit-thesis`. Preserve all prior work; review exact source hashes before reversing individual hunks. Additive observer cache/outbox data must not be dropped as rollback. Patch is a delta against v1.8 dirty-source preimages, not a replacement install.
+
+Copy-paste next session: Continue directly in the four existing repositories. Read the sole context map and exit-thesis checkpoint, inspect HEAD/status/untracked/diffs and real service/position/ownership state. Diagnose the existing canonical worker OperationalError and backlog; verify current quote-backed outbox jobs complete and Qdrant content hashes match, using its existing leases/worker. Preserve current original model/task/cancellation authorities. Do not forcibly stop generations, clear quarantine on a timer, introduce another projector/ledger, redirect remote Qdrant or alter order permissions. Keep read-only market/recorded-thesis monitoring operational; no tickets, entry start, close/modify or live orders. Update the same map and leave exact tests/runtime evidence.

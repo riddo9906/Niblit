@@ -1,0 +1,1869 @@
+{
+  "version": "1.9",
+  "timestamp": "2026-11-03T17:24:17.317250+00:00",
+  "roots": {
+    "Niblit": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+      "HEAD": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+      "diff_check_exit": 0
+    },
+    "Niblit-cloud-server": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+      "HEAD": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+      "diff_check_exit": 0
+    },
+    "niblit-lean-algos": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\niblit-lean-algos",
+      "HEAD": "bfa656e5c4d74cb5ea6b23721b949f590bd79b57",
+      "diff_check_exit": 0
+    },
+    "niblit-ui": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\niblit-ui",
+      "HEAD": "4425a4b1cdaf662552e6d8af44f408b6341bdbf3",
+      "diff_check_exit": 0
+    }
+  },
+  "previous_checkpoint_source_hashes_verified": {
+    "modules/memory_laboratory/runtime.py": true,
+    "tests/test_memory_worker_recovery.py": true
+  },
+  "source_sha256": {
+    "modules/memory_laboratory/setup.py": "a12546b3678112c7fecdb1fe2adadb52a77b20dd13cc758309a3b6f6c38d136b",
+    "modules/memory_laboratory/gateway.py": "60bbdfd475b313752dacddfa3283f826de27e7282731bc2930ae48501e39b9db",
+    "modules/memory_laboratory/runtime.py": "2efb25ed15d4a16aab881909103be5703c4ceb16e9c5823227b4b2d054966f9e",
+    "tests/test_memory_embedding_batches.py": "bb980b26c34ce49360303b0c1c9d55eec58ff0cf049056e1ac1aab7fbd184c51"
+  },
+  "preimage_sha256": {
+    "modules/memory_laboratory/setup.py": "17e8683aa4dfa8332f7453c57eee5d16448685f59794ebcdae3b99f29a56d8d2",
+    "modules/memory_laboratory/gateway.py": "3d463bf0b032a9ee898322e010f17ccf7b9869d3c2a9989e011de3b4a81d68d2",
+    "modules/memory_laboratory/runtime.py": "8751eaa27b9c3b1c063f1dec8b4062f26a725bec84bafab66da4fb8cfb1640a0",
+    "tests/test_memory_embedding_batches.py": null
+  },
+  "patch_already_applied_reverse_check": true,
+  "post_optimization_real_event_readback": {
+    "after": "2026-11-03T17:18:04.390645+00:00",
+    "verified_new_small_events": [
+      {
+        "outbox_id": "8af7bf72dca2c6b2d3350f2ec2d029f2f808c49789b7847697b4cd763a1f747a",
+        "point_id": "2ee87ac6-8838-52a6-91e8-a3fb31302fd3",
+        "original_content_hash": "b52d71c51782951cf9b182d3c592895e6ef027520a58b50e0148c267c0a6aec0",
+        "exact_identity_and_hash_readback": true
+      },
+      {
+        "outbox_id": "41d429d0dc159899471da5a13d2f662f83299746af7f9662c64f7e58f9787033",
+        "point_id": "bf5d2c48-ed4a-5d2f-85a0-a275a6caaf53",
+        "original_content_hash": "db212b9c7f2991ff819152f7c0d11b7eceea80b780b90775ddde5d52ec70f99e",
+        "exact_identity_and_hash_readback": true
+      },
+      {
+        "outbox_id": "8192b910af948ca142be55cd7c1cd6030949537fbb7b9abeffafa017d5ea5752",
+        "point_id": "f627e676-6c16-5168-851c-ac5dd870453f",
+        "original_content_hash": "d27f3b506c02a696d1f846db7384a2f23681a4a8067e429914c705b012391f5b",
+        "exact_identity_and_hash_readback": true
+      },
+      {
+        "outbox_id": "cf262e1f829c062a9d6dc0155dda0bbb3d6ec7dd5fce803ac6911209c8cc4bcd",
+        "point_id": "70c95f63-95a1-5764-b402-568cdcc6b1e6",
+        "original_content_hash": "f792ea7b63db828657d28dbead9d4d6a91ac386d770c32ed315f88d3a8ef41df",
+        "exact_identity_and_hash_readback": true
+      }
+    ]
+  },
+  "vector_identity_readback": [
+    {
+      "trade_id": 40,
+      "id": "4e347519-4886-5a06-a2d3-d2566f4bfb8e",
+      "dimension": 384,
+      "norm": 0.9999999780141102,
+      "model": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "collection": "niblit_lab_s6_episodic_ca47ec0609270416"
+    },
+    {
+      "trade_id": 42,
+      "id": "adb97eef-2176-5bf5-86f0-34532064bbe1",
+      "dimension": 384,
+      "norm": 0.9999999792328147,
+      "model": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "collection": "niblit_lab_s6_episodic_ca47ec0609270416"
+    },
+    {
+      "trade_id": 45,
+      "id": "979136ab-5089-5564-b23e-6f57af7a1326",
+      "dimension": 384,
+      "norm": 1.0000000009988035,
+      "model": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "collection": "niblit_lab_s6_episodic_ca47ec0609270416"
+    }
+  ],
+  "private_configuration_change": {
+    "old_path_exists": false,
+    "new_path": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\niblit_memory.json",
+    "producer_evidence": "NiblitCore NIBLIT_MEMORY_PATH empty -> KnowledgeDB default writable CWD; original Core launch cwd=root; root file actively updated",
+    "no_snapshot_copied": true,
+    "no_ledger_rows_removed": true,
+    "fact_source_identity": "legacy source derived from fact key, not snapshot path"
+  },
+  "tests": {
+    "lookup-final": {
+      "tests": "146",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "55.654"
+    },
+    "adapter-final": {
+      "tests": "16",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "2.765"
+    },
+    "compat-final": {
+      "tests": "34",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "12.422"
+    },
+    "cloud": {
+      "tests": "10",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "32.845"
+    },
+    "lean": {
+      "tests": "26",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "1.027"
+    }
+  },
+  "test_count_warning": "Runs overlap; do not sum them.",
+  "measurements": {
+    "initial": {
+      "samples": 10,
+      "seconds": 189.19384837150574,
+      "initial": {
+        "complete": 17213,
+        "pending": 1771,
+        "processing": 1,
+        "superseded": 247
+      },
+      "final": {
+        "complete": 17279,
+        "pending": 1785,
+        "processing": 1,
+        "superseded": 247
+      },
+      "observed_arrivals_per_minute": 25.370803761941566,
+      "observed_completions_per_minute": 20.930913103601792,
+      "reused_already_complete_transitions": null,
+      "rate_basis": "sampled state transitions; may include completed-record reuse on both sides",
+      "worker_counter_completions_per_minute": null,
+      "oldest_pending_age_lower_bound_seconds": 4301.416873455048,
+      "age_caveat": "updated_at is mutable; original enqueue timestamp is not retained",
+      "active_errors": {},
+      "worker_totals": null,
+      "source_error": null,
+      "process": {}
+    },
+    "scalar": {
+      "samples": 10,
+      "seconds": 211.4738073348999,
+      "initial": {
+        "complete": 17416,
+        "pending": 1860,
+        "processing": 2,
+        "superseded": 233
+      },
+      "final": {
+        "complete": 17446,
+        "pending": 1954,
+        "processing": 1,
+        "superseded": 231
+      },
+      "observed_arrivals_per_minute": 35.46538502578074,
+      "observed_completions_per_minute": 9.07913856659987,
+      "reused_already_complete_transitions": null,
+      "rate_basis": "sampled state transitions; may include completed-record reuse on both sides",
+      "worker_counter_completions_per_minute": 9.64658472701236,
+      "oldest_pending_age_lower_bound_seconds": 4741.103873491287,
+      "age_caveat": "updated_at is mutable; original enqueue timestamp is not retained",
+      "active_errors": {},
+      "worker_totals": {
+        "completed": 70,
+        "failed": 0,
+        "chunks": 171,
+        "unique_chunks": 171,
+        "adapter_calls": 171,
+        "cache_hits": 0,
+        "stages": {
+          "outbox_acquire": 26.236199999993914,
+          "content_retrieval": 0.003165900003295974,
+          "chunk_construction": 0.0006920999985595699,
+          "permission_validation": 0.44275549999474606,
+          "hash_dedup": 0.0007484000016120262,
+          "embedding": 101.6078147000062,
+          "record_identity": 0.02116520000163291,
+          "gateway_lock_wait": 0.00010569999903964344,
+          "sqlite_prepare": 32.30103699999927,
+          "qdrant_write": 13.986736999999266,
+          "qdrant_verify": 8.120318299992505,
+          "sqlite_activate": 60.68397849999383,
+          "supersession_projection": 17.626584500005265,
+          "total": 234.79814980000083,
+          "sqlite_ack": 19.234321500001897
+        }
+      },
+      "source_error": null,
+      "process": {
+        "pid": 19628,
+        "rss_bytes": 3498733568,
+        "peak_wset_bytes": 3854704640,
+        "cpu_user_seconds": 639.59375,
+        "cpu_system_seconds": 133.921875,
+        "available_ram_bytes": 30166962176
+      }
+    },
+    "optimized": {
+      "samples": 13,
+      "seconds": 260.18150305747986,
+      "initial": {
+        "complete": 17563,
+        "pending": 2051,
+        "processing": 2,
+        "superseded": 255
+      },
+      "final": {
+        "complete": 17648,
+        "pending": 2117,
+        "processing": 1,
+        "superseded": 261
+      },
+      "observed_arrivals_per_minute": 37.35853581356487,
+      "observed_completions_per_minute": 21.90778334746088,
+      "reused_already_complete_transitions": null,
+      "rate_basis": "sampled state transitions; may include completed-record reuse on both sides",
+      "worker_counter_completions_per_minute": 23.29143282203736,
+      "oldest_pending_age_lower_bound_seconds": 5108.59824514389,
+      "age_caveat": "updated_at is mutable; original enqueue timestamp is not retained",
+      "active_errors": {},
+      "worker_totals": {
+        "completed": 138,
+        "failed": 0,
+        "chunks": 452,
+        "unique_chunks": 452,
+        "adapter_calls": 169,
+        "cache_hits": 73,
+        "stages": {
+          "outbox_acquire": 25.72971619999589,
+          "content_retrieval": 0.006983100007346366,
+          "chunk_construction": 0.0014869999868096784,
+          "permission_validation": 1.4073451999938698,
+          "hash_dedup": 0.0016840000007505296,
+          "embedding": 222.57362049999028,
+          "record_identity": 0.0684309999942343,
+          "gateway_lock_wait": 0.00015730000268376898,
+          "sqlite_prepare": 19.348758299995097,
+          "qdrant_write": 29.14817739999671,
+          "qdrant_verify": 9.4246944999868,
+          "sqlite_activate": 60.24281370001154,
+          "supersession_projection": 10.26106470000741,
+          "total": 352.4969087999816,
+          "sqlite_ack": 28.68226489999688
+        }
+      },
+      "source_error": null,
+      "process": {
+        "pid": 18756,
+        "rss_bytes": 3831349248,
+        "peak_wset_bytes": 4034584576,
+        "cpu_user_seconds": 959.625,
+        "cpu_system_seconds": 202.21875,
+        "available_ram_bytes": 29328359424
+      }
+    },
+    "grouped": {
+      "samples": 16,
+      "seconds": 323.94059205055237,
+      "initial": {
+        "complete": 18234,
+        "pending": 2091,
+        "processing": 5,
+        "superseded": 262
+      },
+      "final": {
+        "complete": 18400,
+        "pending": 2102,
+        "superseded": 266
+      },
+      "observed_arrivals_per_minute": 34.45076126260346,
+      "observed_completions_per_minute": 31.48725491743327,
+      "reused_already_complete_transitions": null,
+      "rate_basis": "sampled state transitions; may include completed-record reuse on both sides",
+      "worker_counter_completions_per_minute": 35.56207614204228,
+      "oldest_pending_age_lower_bound_seconds": 5104.9845995903015,
+      "age_caveat": "updated_at is mutable; original enqueue timestamp is not retained",
+      "active_errors": {},
+      "worker_totals": {
+        "completed": 261,
+        "failed": 0,
+        "chunks": 523,
+        "unique_chunks": 523,
+        "adapter_calls": 112,
+        "cache_hits": 292,
+        "prefetch_generated": 129,
+        "stages": {
+          "content_retrieval": 0.010368399991421029,
+          "outbox_acquire": 32.295212099999844,
+          "embedding_prefetch": 49.49485670000104,
+          "chunk_construction": 0.002559600005042739,
+          "permission_validation": 1.9602628000084223,
+          "hash_dedup": 0.003017699989868561,
+          "embedding": 110.83012239997879,
+          "record_identity": 0.08721909998712363,
+          "gateway_lock_wait": 0.0002852999787137378,
+          "sqlite_prepare": 60.649840500009304,
+          "qdrant_write": 52.35495049998099,
+          "qdrant_verify": 24.844194499995865,
+          "sqlite_activate": 126.3862262000057,
+          "supersession_projection": 10.39694329998747,
+          "total": 387.54533310001534,
+          "sqlite_ack": 17.633630100008304
+        }
+      },
+      "source_error": null,
+      "process": {
+        "pid": 16084,
+        "rss_bytes": 3469905920,
+        "peak_wset_bytes": 4083830784,
+        "cpu_user_seconds": 1110.171875,
+        "cpu_system_seconds": 218.5,
+        "available_ram_bytes": 29497831424
+      }
+    },
+    "anchored": {
+      "samples": 16,
+      "seconds": 329.1021602153778,
+      "initial": {
+        "complete": 18497,
+        "pending": 2070,
+        "processing": 5,
+        "superseded": 278
+      },
+      "final": {
+        "complete": 18675,
+        "pending": 2069,
+        "processing": 1,
+        "superseded": 281
+      },
+      "observed_arrivals_per_minute": 33.54581444489752,
+      "observed_completions_per_minute": 33.91044286277685,
+      "reused_already_complete_transitions": null,
+      "rate_basis": "sampled state transitions; may include completed-record reuse on both sides",
+      "worker_counter_completions_per_minute": 35.91589916111311,
+      "oldest_pending_age_lower_bound_seconds": 5076.588236570358,
+      "age_caveat": "updated_at is mutable; original enqueue timestamp is not retained",
+      "active_errors": {},
+      "worker_totals": {
+        "completed": 234,
+        "failed": 0,
+        "chunks": 542,
+        "unique_chunks": 542,
+        "adapter_calls": 128,
+        "cache_hits": 241,
+        "prefetch_generated": 129,
+        "stages": {
+          "content_retrieval": 0.00945510000201466,
+          "outbox_acquire": 13.942497499994715,
+          "embedding_prefetch": 39.05580659999396,
+          "chunk_construction": 0.002357799996389076,
+          "permission_validation": 1.1129771000032633,
+          "hash_dedup": 0.0025152000125672203,
+          "embedding": 149.51980049998565,
+          "record_identity": 0.08492550000482879,
+          "gateway_lock_wait": 0.00023830000463931356,
+          "sqlite_prepare": 28.722378899987234,
+          "qdrant_write": 39.92437609998342,
+          "qdrant_verify": 16.51145109999925,
+          "sqlite_activate": 90.74249209999834,
+          "supersession_projection": 4.646230400019704,
+          "total": 331.2967247000124,
+          "sqlite_ack": 9.95498699998825
+        }
+      },
+      "source_error": null,
+      "process": {
+        "pid": 23012,
+        "rss_bytes": 3742466048,
+        "peak_wset_bytes": 4096552960,
+        "cpu_user_seconds": 982.03125,
+        "cpu_system_seconds": 192.65625,
+        "available_ram_bytes": 29007745024
+      }
+    },
+    "publication": {
+      "samples": 16,
+      "seconds": 375.7017843723297,
+      "initial": {
+        "complete": 19437,
+        "pending": 1713,
+        "processing": 2,
+        "superseded": 303
+      },
+      "final": {
+        "complete": 20108,
+        "pending": 1531,
+        "processing": 12,
+        "superseded": 328
+      },
+      "observed_arrivals_per_minute": 85.28040412032638,
+      "observed_completions_per_minute": 108.43706816048991,
+      "reused_already_complete_transitions": null,
+      "rate_basis": "sampled state transitions; may include completed-record reuse on both sides",
+      "worker_counter_completions_per_minute": null,
+      "oldest_pending_age_lower_bound_seconds": 80372.71607041359,
+      "age_caveat": "updated_at is mutable; original enqueue timestamp is not retained",
+      "active_errors": {},
+      "worker_totals": {
+        "completed": 4,
+        "failed": 0,
+        "chunks": 4,
+        "unique_chunks": 4,
+        "adapter_calls": 1,
+        "cache_hits": 4,
+        "prefetch_generated": 4,
+        "stages": {
+          "content_retrieval": 9.74000004134723e-05,
+          "outbox_acquire": 0.08828379999977187,
+          "embedding_prefetch": 6.478407900000093,
+          "permission_validation": 0.0014099999998506973,
+          "hash_dedup": 2.679999943211442e-05,
+          "embedding": 0.00015999999959603883,
+          "record_identity": 0.0007869000000937376,
+          "gateway_lock_wait": 1.6999993022182025e-06,
+          "sqlite_prepare": 0.016319699999257864,
+          "qdrant_write": 0.03376580000076501,
+          "qdrant_verify": 0.0027573999996093335,
+          "sqlite_activate": 0.38159410000025673,
+          "supersession_projection": 0.0048180999992837314,
+          "total": 0.4418084999997518,
+          "sqlite_ack": 0.001707899999928486
+        }
+      },
+      "source_error": null,
+      "process": {
+        "pid": 19252,
+        "rss_bytes": 2740240384,
+        "peak_wset_bytes": 3118440448,
+        "cpu_user_seconds": 45.578125,
+        "cpu_system_seconds": 14.671875,
+        "available_ram_bytes": 24315084800
+      }
+    },
+    "healthy": {
+      "samples": 16,
+      "seconds": 360.07725381851196,
+      "initial": {
+        "complete": 20032,
+        "pending": 1388,
+        "processing": 4,
+        "superseded": 327
+      },
+      "final": {
+        "complete": 20603,
+        "pending": 1305,
+        "superseded": 349
+      },
+      "observed_arrivals_per_minute": 86.81470342404863,
+      "observed_completions_per_minute": 95.64614158426855,
+      "reused_already_complete_transitions": null,
+      "rate_basis": "sampled state transitions; may include completed-record reuse on both sides",
+      "worker_counter_completions_per_minute": 21.66201812884131,
+      "oldest_pending_age_lower_bound_seconds": 78955.91696953773,
+      "age_caveat": "updated_at is mutable; original enqueue timestamp is not retained",
+      "active_errors": {},
+      "worker_totals": {
+        "completed": 130,
+        "failed": 0,
+        "chunks": 230,
+        "unique_chunks": 230,
+        "adapter_calls": 58,
+        "cache_hits": 128,
+        "prefetch_generated": 85,
+        "stages": {
+          "content_retrieval": 0.004984399997738365,
+          "outbox_acquire": 28.867811700000857,
+          "embedding_prefetch": 69.04455059999782,
+          "permission_validation": 0.0756342999975459,
+          "hash_dedup": 0.0010980999932144186,
+          "embedding": 71.58170280000559,
+          "record_identity": 0.036730599994371005,
+          "gateway_lock_wait": 4.3700001697288826e-05,
+          "sqlite_prepare": 44.72871159999886,
+          "qdrant_write": 22.83531480000056,
+          "qdrant_verify": 3.9679856000002474,
+          "sqlite_activate": 67.41554720000295,
+          "supersession_projection": 0.05090279999785707,
+          "total": 210.70207809999738,
+          "sqlite_ack": 9.728553800000554,
+          "chunk_construction": 0.00011460000041552121
+        }
+      },
+      "source_error": null,
+      "process": {
+        "pid": 19252,
+        "rss_bytes": 3792789504,
+        "peak_wset_bytes": 4196614144,
+        "cpu_user_seconds": 666.984375,
+        "cpu_system_seconds": 166.5625,
+        "available_ram_bytes": 23797501952
+      }
+    },
+    "lookup": {
+      "samples": 16,
+      "seconds": 333.28916096687317,
+      "initial": {
+        "complete": 20869,
+        "pending": 1154,
+        "processing": 5,
+        "superseded": 352
+      },
+      "final": {
+        "complete": 21095,
+        "pending": 1077,
+        "processing": 1,
+        "superseded": 372
+      },
+      "observed_arrivals_per_minute": 30.60405556067218,
+      "observed_completions_per_minute": 41.585510791266316,
+      "reused_already_complete_transitions": 0,
+      "rate_basis": "sampled state transitions minus completed-record reuse",
+      "worker_counter_completions_per_minute": 41.94555850374481,
+      "oldest_pending_age_lower_bound_seconds": 78568.1982831955,
+      "age_caveat": "updated_at is mutable; original enqueue timestamp is not retained",
+      "active_errors": {},
+      "worker_totals": {
+        "completed": 233,
+        "failed": 0,
+        "chunks": 489,
+        "unique_chunks": 489,
+        "adapter_calls": 106,
+        "cache_hits": 264,
+        "prefetch_generated": 127,
+        "stages": {
+          "content_retrieval": 0.00756049998835806,
+          "outbox_acquire": 11.784206200005428,
+          "embedding_prefetch": 31.72932039999796,
+          "permission_validation": 0.10387510000327893,
+          "hash_dedup": 0.0016316999981427216,
+          "embedding": 150.82651410000108,
+          "record_identity": 0.05724070000269421,
+          "gateway_lock_wait": 7.26000034774188e-05,
+          "sqlite_prepare": 2.629926900004648,
+          "qdrant_write": 22.814624200002072,
+          "qdrant_verify": 5.023447599996871,
+          "sqlite_activate": 33.418804199995066,
+          "supersession_projection": 4.166988800005129,
+          "total": 219.05817130000105,
+          "sqlite_ack": 4.684552800002166,
+          "chunk_construction": 0.00024220000159402844
+        }
+      },
+      "source_error": null,
+      "process": {
+        "pid": 5628,
+        "rss_bytes": 3774558208,
+        "peak_wset_bytes": 4350275584,
+        "cpu_user_seconds": 794.921875,
+        "cpu_system_seconds": 192.0625,
+        "available_ram_bytes": 27355537408
+      }
+    }
+  },
+  "measurement_caveats": [
+    "Different workloads and service restarts; not controlled speedup benchmarks.",
+    "Observed sampled transitions undercount complete-to-complete changes between polls.",
+    "Publication window crosses service/source recovery; use final lookup window with healthy source for rates.",
+    "Initial samplers held read connections during HTTP polling; grouped/anchored/healthy close them first.",
+    "No exact original pending age available; updated_at gives only a lower bound."
+  ],
+  "canonical_qdrant_readback": {
+    "sqlite_integrity": "ok",
+    "receipts": [
+      {
+        "trade_id": 40,
+        "receipt": "40c81c9463302907f1dc51c13f90ad5678567164f42a0e778f7b2627acb22d97",
+        "outbox_state": "complete",
+        "attempts": 1,
+        "expected_points": 54,
+        "canonical_points": 54,
+        "qdrant_points": 54,
+        "exact_hashes_match": true,
+        "fully_complete": true
+      },
+      {
+        "trade_id": 42,
+        "receipt": "a78cda595800b8493891dc091198a2b38741c3342ed6e7c828c5d2d0ab5d8549",
+        "outbox_state": "complete",
+        "attempts": 1,
+        "expected_points": 52,
+        "canonical_points": 52,
+        "qdrant_points": 52,
+        "exact_hashes_match": true,
+        "fully_complete": true
+      },
+      {
+        "trade_id": 45,
+        "receipt": "ea0c2d90e3d000f45f3668e7696bebee62225a9283de75c32909c0f56f6efedc",
+        "outbox_state": "complete",
+        "attempts": 1,
+        "expected_points": 55,
+        "canonical_points": 55,
+        "qdrant_points": 55,
+        "exact_hashes_match": true,
+        "fully_complete": true
+      }
+    ],
+    "all_complete": true,
+    "new_worker_started": false
+  },
+  "final_state": {
+    "dry_run": true,
+    "engine_state": "stopped",
+    "positions": 3,
+    "position_ids": [
+      40,
+      42,
+      45
+    ],
+    "max_open_trades": 3.0,
+    "orders_sent": 0,
+    "services": {
+      "Core": {
+        "http": 200
+      },
+      "Cloud": {
+        "http": 200
+      },
+      "Memory": {
+        "http": 200
+      },
+      "Desk": {
+        "http": 200
+      },
+      "Lean": {
+        "http": 200,
+        "mode": "observe",
+        "execution_enabled": false
+      },
+      "Portal": {
+        "http": 200
+      }
+    },
+    "sqlite_integrity": "ok",
+    "task_authority": {
+      "state": "active",
+      "owner": "core_inference"
+    }
+  },
+  "inference": {
+    "authority": {
+      "state": "active",
+      "owner": "core_inference",
+      "started": 1793726390.8838177
+    },
+    "current_owner_delegations": [],
+    "all_journal_states": [
+      [
+        "active",
+        1
+      ],
+      [
+        "complete",
+        184
+      ],
+      [
+        "uncertain",
+        3
+      ]
+    ],
+    "model": {
+      "health": {
+        "status": "ok"
+      },
+      "slots": [
+        {
+          "id": 0,
+          "is_processing": false
+        }
+      ]
+    },
+    "same_original_model_settings": "Qwen2.5-coder-3B GGUF,8192 context,2threads,1slot",
+    "original_actual_tool_evidence": "actual-tool.json; HTTP200,4 completed child generations, parent released; 3 runtime_status calls stopped by guard",
+    "no_ambiguous_retry": true
+  },
+  "positions": {
+    "state": "observed",
+    "checked_at": 1793726492.3236778,
+    "positions": [
+      {
+        "assessment": "EXIT-CANDIDATE",
+        "execution_authorized": false,
+        "entry_thesis": {
+          "state": "not_eligible",
+          "recommendation": "ABSTAIN",
+          "execution_authorized": false,
+          "policy": "position_exit_policy.assess_exit",
+          "reason": "No recognized recorded entry thesis; manual management required"
+        },
+        "strategies": {
+          "signal": "HOLD",
+          "side": "wait",
+          "execution_authorized": false,
+          "analysis_only": true,
+          "candidates": [
+            {
+              "strategy": "trend_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "20/50 mean trend with a five-bar momentum confirmation",
+              "side": "wait",
+              "evidence": {
+                "close": 3938.19,
+                "mean20": 3940.888,
+                "mean50": 3948.566,
+                "prior20_high": 3947.18,
+                "prior20_low": 3934.61,
+                "rsi14": 36.55965500718727,
+                "previous_rsi14": 40.272727272727025,
+                "ema20": 3940.464304115947,
+                "ema50": 3944.158204400286,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 3.168986588800972
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "Trend persistence after price and momentum agree.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false,
+                  true
+                ],
+                "short": [
+                  true,
+                  true,
+                  false
+                ]
+              },
+              "reason": "WAIT: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "breakout_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Close beyond the previous 20-bar high or low",
+              "side": "wait",
+              "evidence": {
+                "close": 3938.19,
+                "mean20": 3940.888,
+                "mean50": 3948.566,
+                "prior20_high": 3947.18,
+                "prior20_low": 3934.61,
+                "rsi14": 36.55965500718727,
+                "previous_rsi14": 40.272727272727025,
+                "ema20": 3940.464304115947,
+                "ema50": 3944.158204400286,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 3.168986588800972
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "A close outside the prior range may precede continuation.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false
+                ],
+                "short": [
+                  false
+                ]
+              },
+              "reason": "WAIT: Close beyond the previous 20-bar high or low. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "rsi_reversion_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime",
+              "side": "wait",
+              "evidence": {
+                "close": 3938.19,
+                "mean20": 3940.888,
+                "mean50": 3948.566,
+                "prior20_high": 3947.18,
+                "prior20_low": 3934.61,
+                "rsi14": 36.55965500718727,
+                "previous_rsi14": 40.272727272727025,
+                "ema20": 3940.464304115947,
+                "ema50": 3944.158204400286,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 3.168986588800972
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false
+                ],
+                "short": [
+                  false,
+                  false
+                ]
+              },
+              "reason": "WAIT: Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "bollinger_reversion_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Return inside a two-deviation 20-bar band in a flat regime",
+              "side": "wait",
+              "evidence": {
+                "close": 3938.19,
+                "mean20": 3940.888,
+                "mean50": 3948.566,
+                "prior20_high": 3947.18,
+                "prior20_low": 3934.61,
+                "rsi14": 36.55965500718727,
+                "previous_rsi14": 40.272727272727025,
+                "ema20": 3940.464304115947,
+                "ema50": 3944.158204400286,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 3.168986588800972
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false,
+                  true
+                ],
+                "short": [
+                  false,
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: Return inside a two-deviation 20-bar band in a flat regime. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "ema_pullback_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Price recrosses EMA(20) in the direction of EMA(50)",
+              "side": "wait",
+              "evidence": {
+                "close": 3938.19,
+                "mean20": 3940.888,
+                "mean50": 3948.566,
+                "prior20_high": 3947.18,
+                "prior20_low": 3934.61,
+                "rsi14": 36.55965500718727,
+                "previous_rsi14": 40.272727272727025,
+                "ema20": 3940.464304115947,
+                "ema50": 3944.158204400286,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 3.168986588800972
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "A pullback recross in an established mean trend may resume that trend; whipsaws invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  true,
+                  false
+                ],
+                "short": [
+                  true,
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: Price recrosses EMA(20) in the direction of EMA(50). See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "squeeze_breakout_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "20-bar range breakout after contracting return volatility",
+              "side": "wait",
+              "evidence": {
+                "close": 3938.19,
+                "mean20": 3940.888,
+                "mean50": 3948.566,
+                "prior20_high": 3947.18,
+                "prior20_low": 3934.61,
+                "rsi14": 36.55965500718727,
+                "previous_rsi14": 40.272727272727025,
+                "ema20": 3940.464304115947,
+                "ema50": 3944.158204400286,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 3.168986588800972
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "Contracting volatility followed by a range break may precede expansion; false breakouts invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  true,
+                  false
+                ],
+                "short": [
+                  true,
+                  false
+                ]
+              },
+              "reason": "WAIT: 20-bar range breakout after contracting return volatility. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            }
+          ],
+          "assessment_complete": true,
+          "regime": "trend_down",
+          "policy_version": "conditions-v2",
+          "observation": {
+            "symbol": "XAU/USDT:USDT",
+            "venue": "binance",
+            "timeframe": "5m",
+            "mode": "dry-run",
+            "account_scope": "freqtrade-profile-aa95c9083908276c35f033e0dc10c27856865c7de01e8daabf10fe6aa8219b2c",
+            "source": "ccxt_public_exchange_ohlcv",
+            "bar": 1793726100.0,
+            "completed_at": 1793726400.0
+          },
+          "strategy": "auto",
+          "reason": "No strategy currently meets its entry conditions; continue observing.",
+          "evidence": {},
+          "bar": 1793726100.0,
+          "profitability": "No validated profitability forecast.",
+          "selection_reason": "No strategy currently meets its entry conditions; continue observing.",
+          "selection_mode": "auto",
+          "strategy_failures": [],
+          "selection_limit": "Rule eligibility is not proof that a strategy will be profitable.",
+          "abstain_reason": "no_qualifying_setup",
+          "regime_basis": "Existing rule mean/flat-regime measurements; not a calibrated forecast.",
+          "observation_id": "aba981b8a2efcba4fc0acd68888bf230498416524d99af7a1672dcd40194de35"
+        },
+        "held_strategy_evaluation": {
+          "strategy": "trend_v1",
+          "origin": "Human-authored Niblit baseline v1",
+          "rule": "20/50 mean trend with a five-bar momentum confirmation",
+          "side": "wait",
+          "evidence": {
+            "close": 3938.19,
+            "mean20": 3940.888,
+            "mean50": 3948.566,
+            "prior20_high": 3947.18,
+            "prior20_low": 3934.61,
+            "rsi14": 36.55965500718727,
+            "previous_rsi14": 40.272727272727025,
+            "ema20": 3940.464304115947,
+            "ema50": 3944.158204400286,
+            "flat_regime": false,
+            "volatility_compressed": true,
+            "band_deviation": 3.168986588800972
+          },
+          "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+          "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+          "references": {
+            "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+            "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+            "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+          },
+          "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+          "hypothesis": "Trend persistence after price and momentum agree.",
+          "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+          "bar": 1793726100.0,
+          "conditions": {
+            "long": [
+              false,
+              false,
+              true
+            ],
+            "short": [
+              true,
+              true,
+              false
+            ]
+          },
+          "reason": "WAIT: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup.",
+          "invoked": true,
+          "status": "succeeded",
+          "eligible": false
+        },
+        "realized_result_verified": false,
+        "recorded": {
+          "trade_id": 40,
+          "pair": "XAU/USDT:USDT",
+          "is_short": true,
+          "is_open": true,
+          "open_timestamp": 1793384432596
+        }
+      },
+      {
+        "assessment": "EXIT-CANDIDATE",
+        "execution_authorized": false,
+        "entry_thesis": {
+          "state": "not_eligible",
+          "recommendation": "ABSTAIN",
+          "execution_authorized": false,
+          "policy": "position_exit_policy.assess_exit",
+          "reason": "No recognized recorded entry thesis; manual management required"
+        },
+        "strategies": {
+          "signal": "HOLD",
+          "side": "wait",
+          "execution_authorized": false,
+          "analysis_only": true,
+          "candidates": [
+            {
+              "strategy": "trend_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "20/50 mean trend with a five-bar momentum confirmation",
+              "side": "wait",
+              "evidence": {
+                "close": 49.82,
+                "mean20": 49.908,
+                "mean50": 50.047200000000004,
+                "prior20_high": 50.1,
+                "prior20_low": 49.76,
+                "rsi14": 36.53846153846175,
+                "previous_rsi14": 39.58333333333342,
+                "ema20": 49.89519879588458,
+                "ema50": 49.942809559968225,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 0.07573638491504592
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "Trend persistence after price and momentum agree.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false,
+                  false
+                ],
+                "short": [
+                  true,
+                  true,
+                  false
+                ]
+              },
+              "reason": "WAIT: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "breakout_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Close beyond the previous 20-bar high or low",
+              "side": "wait",
+              "evidence": {
+                "close": 49.82,
+                "mean20": 49.908,
+                "mean50": 50.047200000000004,
+                "prior20_high": 50.1,
+                "prior20_low": 49.76,
+                "rsi14": 36.53846153846175,
+                "previous_rsi14": 39.58333333333342,
+                "ema20": 49.89519879588458,
+                "ema50": 49.942809559968225,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 0.07573638491504592
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "A close outside the prior range may precede continuation.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false
+                ],
+                "short": [
+                  false
+                ]
+              },
+              "reason": "WAIT: Close beyond the previous 20-bar high or low. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "rsi_reversion_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime",
+              "side": "wait",
+              "evidence": {
+                "close": 49.82,
+                "mean20": 49.908,
+                "mean50": 50.047200000000004,
+                "prior20_high": 50.1,
+                "prior20_low": 49.76,
+                "rsi14": 36.53846153846175,
+                "previous_rsi14": 39.58333333333342,
+                "ema20": 49.89519879588458,
+                "ema50": 49.942809559968225,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 0.07573638491504592
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false
+                ],
+                "short": [
+                  false,
+                  false
+                ]
+              },
+              "reason": "WAIT: Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "bollinger_reversion_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Return inside a two-deviation 20-bar band in a flat regime",
+              "side": "wait",
+              "evidence": {
+                "close": 49.82,
+                "mean20": 49.908,
+                "mean50": 50.047200000000004,
+                "prior20_high": 50.1,
+                "prior20_low": 49.76,
+                "rsi14": 36.53846153846175,
+                "previous_rsi14": 39.58333333333342,
+                "ema20": 49.89519879588458,
+                "ema50": 49.942809559968225,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 0.07573638491504592
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false,
+                  true
+                ],
+                "short": [
+                  false,
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: Return inside a two-deviation 20-bar band in a flat regime. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "ema_pullback_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Price recrosses EMA(20) in the direction of EMA(50)",
+              "side": "wait",
+              "evidence": {
+                "close": 49.82,
+                "mean20": 49.908,
+                "mean50": 50.047200000000004,
+                "prior20_high": 50.1,
+                "prior20_low": 49.76,
+                "rsi14": 36.53846153846175,
+                "previous_rsi14": 39.58333333333342,
+                "ema20": 49.89519879588458,
+                "ema50": 49.942809559968225,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 0.07573638491504592
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "A pullback recross in an established mean trend may resume that trend; whipsaws invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  true,
+                  false
+                ],
+                "short": [
+                  true,
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: Price recrosses EMA(20) in the direction of EMA(50). See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "squeeze_breakout_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "20-bar range breakout after contracting return volatility",
+              "side": "wait",
+              "evidence": {
+                "close": 49.82,
+                "mean20": 49.908,
+                "mean50": 50.047200000000004,
+                "prior20_high": 50.1,
+                "prior20_low": 49.76,
+                "rsi14": 36.53846153846175,
+                "previous_rsi14": 39.58333333333342,
+                "ema20": 49.89519879588458,
+                "ema50": 49.942809559968225,
+                "flat_regime": false,
+                "volatility_compressed": true,
+                "band_deviation": 0.07573638491504592
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "Contracting volatility followed by a range break may precede expansion; false breakouts invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  true,
+                  false
+                ],
+                "short": [
+                  true,
+                  false
+                ]
+              },
+              "reason": "WAIT: 20-bar range breakout after contracting return volatility. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            }
+          ],
+          "assessment_complete": true,
+          "regime": "trend_down",
+          "policy_version": "conditions-v2",
+          "observation": {
+            "symbol": "XAG/USDT:USDT",
+            "venue": "binance",
+            "timeframe": "5m",
+            "mode": "dry-run",
+            "account_scope": "freqtrade-profile-aa95c9083908276c35f033e0dc10c27856865c7de01e8daabf10fe6aa8219b2c",
+            "source": "ccxt_public_exchange_ohlcv",
+            "bar": 1793726100.0,
+            "completed_at": 1793726400.0
+          },
+          "strategy": "auto",
+          "reason": "No strategy currently meets its entry conditions; continue observing.",
+          "evidence": {},
+          "bar": 1793726100.0,
+          "profitability": "No validated profitability forecast.",
+          "selection_reason": "No strategy currently meets its entry conditions; continue observing.",
+          "selection_mode": "auto",
+          "strategy_failures": [],
+          "selection_limit": "Rule eligibility is not proof that a strategy will be profitable.",
+          "abstain_reason": "no_qualifying_setup",
+          "regime_basis": "Existing rule mean/flat-regime measurements; not a calibrated forecast.",
+          "observation_id": "998dc1cc57b27777e35ab8513fa283f1d03279abc4f37fff6bda6980f662ede7"
+        },
+        "held_strategy_evaluation": {
+          "strategy": "trend_v1",
+          "origin": "Human-authored Niblit baseline v1",
+          "rule": "20/50 mean trend with a five-bar momentum confirmation",
+          "side": "wait",
+          "evidence": {
+            "close": 49.82,
+            "mean20": 49.908,
+            "mean50": 50.047200000000004,
+            "prior20_high": 50.1,
+            "prior20_low": 49.76,
+            "rsi14": 36.53846153846175,
+            "previous_rsi14": 39.58333333333342,
+            "ema20": 49.89519879588458,
+            "ema50": 49.942809559968225,
+            "flat_regime": false,
+            "volatility_compressed": true,
+            "band_deviation": 0.07573638491504592
+          },
+          "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+          "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+          "references": {
+            "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+            "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+            "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+          },
+          "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+          "hypothesis": "Trend persistence after price and momentum agree.",
+          "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+          "bar": 1793726100.0,
+          "conditions": {
+            "long": [
+              false,
+              false,
+              false
+            ],
+            "short": [
+              true,
+              true,
+              false
+            ]
+          },
+          "reason": "WAIT: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup.",
+          "invoked": true,
+          "status": "succeeded",
+          "eligible": false
+        },
+        "realized_result_verified": false,
+        "recorded": {
+          "trade_id": 42,
+          "pair": "XAG/USDT:USDT",
+          "is_short": true,
+          "is_open": true,
+          "open_timestamp": 1793387351654
+        }
+      },
+      {
+        "assessment": "EXIT-CANDIDATE",
+        "execution_authorized": false,
+        "entry_thesis": {
+          "state": "evaluated",
+          "recommendation": "EXIT-CANDIDATE",
+          "execution_authorized": false,
+          "policy": "position_exit_policy.assess_exit",
+          "context_identity": "a33b61bab6c49e56ce82629d461f3cc78efd6d65c07ef37cbe32d3d6f5098a01",
+          "monitor_context": {
+            "breakout_level": 77400.1,
+            "entry_bar": 1793456100,
+            "giveback_checks": 0,
+            "initial_stop": 78221.8,
+            "peak_price_gain": 557.0,
+            "policy_version": "strategy-aware-exits-v1",
+            "strategy": "trend_v1"
+          },
+          "reason": "Entry trend invalidation: two completed closes crossed the strategy mean against the position",
+          "evidence": {
+            "strategy": "trend_v1",
+            "current_R": -0.261880165289257,
+            "peak_R": 0.7192665289256117,
+            "gain_in_price": -202.8000000000029,
+            "spread_in_price": 0.09999999999126885,
+            "initial_risk_in_price": 774.4000000000087,
+            "cost_limit": "Executable bid/ask used. Commission, swap and slippage may erase a price profit."
+          },
+          "limits": "Experimental demo exit rules; cannot identify every fakeout or guarantee a profitable fill.",
+          "last_quote_timestamp": 1793726483.337,
+          "quote": {
+            "symbol": "BTC/USDT:USDT",
+            "venue": "binance",
+            "source": "ccxt_public_order_book",
+            "timestamp": 1793726483.337,
+            "bid": 77650.1,
+            "ask": 77650.2
+          },
+          "context_storage": "Observer continuation only; original engine context unchanged"
+        },
+        "strategies": {
+          "signal": "HOLD",
+          "side": "wait",
+          "execution_authorized": false,
+          "analysis_only": true,
+          "candidates": [
+            {
+              "strategy": "trend_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "20/50 mean trend with a five-bar momentum confirmation",
+              "side": "wait",
+              "evidence": {
+                "close": 77656.2,
+                "mean20": 77599.535,
+                "mean50": 77453.70599999999,
+                "prior20_high": 77816.1,
+                "prior20_low": 77301.2,
+                "rsi14": 53.6853261393197,
+                "previous_rsi14": 58.03218949286344,
+                "ema20": 77581.92738628788,
+                "ema50": 77482.92605786634,
+                "flat_regime": false,
+                "volatility_compressed": false,
+                "band_deviation": 93.1450174459166
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "Trend persistence after price and momentum agree.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  true,
+                  true,
+                  false
+                ],
+                "short": [
+                  false,
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "breakout_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Close beyond the previous 20-bar high or low",
+              "side": "wait",
+              "evidence": {
+                "close": 77656.2,
+                "mean20": 77599.535,
+                "mean50": 77453.70599999999,
+                "prior20_high": 77816.1,
+                "prior20_low": 77301.2,
+                "rsi14": 53.6853261393197,
+                "previous_rsi14": 58.03218949286344,
+                "ema20": 77581.92738628788,
+                "ema50": 77482.92605786634,
+                "flat_regime": false,
+                "volatility_compressed": false,
+                "band_deviation": 93.1450174459166
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "A close outside the prior range may precede continuation.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false
+                ],
+                "short": [
+                  false
+                ]
+              },
+              "reason": "WAIT: Close beyond the previous 20-bar high or low. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "rsi_reversion_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime",
+              "side": "wait",
+              "evidence": {
+                "close": 77656.2,
+                "mean20": 77599.535,
+                "mean50": 77453.70599999999,
+                "prior20_high": 77816.1,
+                "prior20_low": 77301.2,
+                "rsi14": 53.6853261393197,
+                "previous_rsi14": 58.03218949286344,
+                "ema20": 77581.92738628788,
+                "ema50": 77482.92605786634,
+                "flat_regime": false,
+                "volatility_compressed": false,
+                "band_deviation": 93.1450174459166
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false
+                ],
+                "short": [
+                  false,
+                  false
+                ]
+              },
+              "reason": "WAIT: Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "bollinger_reversion_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Return inside a two-deviation 20-bar band in a flat regime",
+              "side": "wait",
+              "evidence": {
+                "close": 77656.2,
+                "mean20": 77599.535,
+                "mean50": 77453.70599999999,
+                "prior20_high": 77816.1,
+                "prior20_low": 77301.2,
+                "rsi14": 53.6853261393197,
+                "previous_rsi14": 58.03218949286344,
+                "ema20": 77581.92738628788,
+                "ema50": 77482.92605786634,
+                "flat_regime": false,
+                "volatility_compressed": false,
+                "band_deviation": 93.1450174459166
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false,
+                  true
+                ],
+                "short": [
+                  false,
+                  false,
+                  true
+                ]
+              },
+              "reason": "WAIT: Return inside a two-deviation 20-bar band in a flat regime. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "ema_pullback_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "Price recrosses EMA(20) in the direction of EMA(50)",
+              "side": "wait",
+              "evidence": {
+                "close": 77656.2,
+                "mean20": 77599.535,
+                "mean50": 77453.70599999999,
+                "prior20_high": 77816.1,
+                "prior20_low": 77301.2,
+                "rsi14": 53.6853261393197,
+                "previous_rsi14": 58.03218949286344,
+                "ema20": 77581.92738628788,
+                "ema50": 77482.92605786634,
+                "flat_regime": false,
+                "volatility_compressed": false,
+                "band_deviation": 93.1450174459166
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "A pullback recross in an established mean trend may resume that trend; whipsaws invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  true,
+                  false,
+                  true
+                ],
+                "short": [
+                  false,
+                  true,
+                  false
+                ]
+              },
+              "reason": "WAIT: Price recrosses EMA(20) in the direction of EMA(50). See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            },
+            {
+              "strategy": "squeeze_breakout_v1",
+              "origin": "Human-authored Niblit baseline v1",
+              "rule": "20-bar range breakout after contracting return volatility",
+              "side": "wait",
+              "evidence": {
+                "close": 77656.2,
+                "mean20": 77599.535,
+                "mean50": 77453.70599999999,
+                "prior20_high": 77816.1,
+                "prior20_low": 77301.2,
+                "rsi14": 53.6853261393197,
+                "previous_rsi14": 58.03218949286344,
+                "ema20": 77581.92738628788,
+                "ema50": 77482.92605786634,
+                "flat_regime": false,
+                "volatility_compressed": false,
+                "band_deviation": 93.1450174459166
+              },
+              "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+              "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+              "references": {
+                "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+                "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+                "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+              },
+              "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+              "hypothesis": "Contracting volatility followed by a range break may precede expansion; false breakouts invalidate this.",
+              "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+              "bar": 1793726100.0,
+              "conditions": {
+                "long": [
+                  false,
+                  false
+                ],
+                "short": [
+                  false,
+                  false
+                ]
+              },
+              "reason": "WAIT: 20-bar range breakout after contracting return volatility. See measured values; WAIT means no qualifying setup.",
+              "invoked": true,
+              "status": "succeeded",
+              "eligible": false
+            }
+          ],
+          "assessment_complete": true,
+          "regime": "trend_up",
+          "policy_version": "conditions-v2",
+          "observation": {
+            "symbol": "BTC/USDT:USDT",
+            "venue": "binance",
+            "timeframe": "5m",
+            "mode": "dry-run",
+            "account_scope": "freqtrade-profile-aa95c9083908276c35f033e0dc10c27856865c7de01e8daabf10fe6aa8219b2c",
+            "source": "ccxt_public_exchange_ohlcv",
+            "bar": 1793726100.0,
+            "completed_at": 1793726400.0
+          },
+          "strategy": "auto",
+          "reason": "No strategy currently meets its entry conditions; continue observing.",
+          "evidence": {},
+          "bar": 1793726100.0,
+          "profitability": "No validated profitability forecast.",
+          "selection_reason": "No strategy currently meets its entry conditions; continue observing.",
+          "selection_mode": "auto",
+          "strategy_failures": [],
+          "selection_limit": "Rule eligibility is not proof that a strategy will be profitable.",
+          "abstain_reason": "no_qualifying_setup",
+          "regime_basis": "Existing rule mean/flat-regime measurements; not a calibrated forecast.",
+          "observation_id": "0c2550bb28453039b865854a59d355c8c0bcfd63d5fb6963579942d3efb626f9"
+        },
+        "held_strategy_evaluation": {
+          "strategy": "trend_v1",
+          "origin": "Human-authored Niblit baseline v1",
+          "rule": "20/50 mean trend with a five-bar momentum confirmation",
+          "side": "wait",
+          "evidence": {
+            "close": 77656.2,
+            "mean20": 77599.535,
+            "mean50": 77453.70599999999,
+            "prior20_high": 77816.1,
+            "prior20_low": 77301.2,
+            "rsi14": 53.6853261393197,
+            "previous_rsi14": 58.03218949286344,
+            "ema20": 77581.92738628788,
+            "ema50": 77482.92605786634,
+            "flat_regime": false,
+            "volatility_compressed": false,
+            "band_deviation": 93.1450174459166
+          },
+          "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+          "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+          "references": {
+            "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+            "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+            "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+          },
+          "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+          "hypothesis": "Trend persistence after price and momentum agree.",
+          "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+          "bar": 1793726100.0,
+          "conditions": {
+            "long": [
+              true,
+              true,
+              false
+            ],
+            "short": [
+              false,
+              false,
+              true
+            ]
+          },
+          "reason": "WAIT: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup.",
+          "invoked": true,
+          "status": "succeeded",
+          "eligible": false
+        },
+        "realized_result_verified": false,
+        "recorded": {
+          "trade_id": 45,
+          "pair": "BTC/USDT:USDT",
+          "is_short": true,
+          "is_open": true,
+          "open_timestamp": 1793456632074
+        }
+      }
+    ]
+  },
+  "backlog_recovered": false,
+  "no_orders_submitted": true,
+  "inference_final_caution": "Final ownership caution: Core process remains running. The final sample has an active core_inference reservation, no child delegations for that reservation, and an idle healthy model slot. Idle model state alone does not prove the producer finished; reservation was retained. Historical journal includes one active and three uncertain child records across owners. Do not clear these by elapsed time, retry ambiguous generations, or infer that every research task is healthy. Next ownership action is to trace the current producer and obtain its normal release, or use existing owner-only recovery only after all required producer-stop/idle evidence."
+}

@@ -47,6 +47,11 @@ def desktop_snapshot(core, section, *, query="", limit=20, unified_runtime=None)
         result["core"] = _call(manager, "get_runtime_health", {"status": "unavailable"})
         result["readiness"] = _call(core, "readiness_status", {})
         result["startup_stages"] = getattr(core, "_staged_bootstrap_report", {})
+        result["startup_stages_are_historical"] = True
+        services=result["core"].get("services",{})
+        result["current_layers"]={name:{"status":item.get("status","unknown"),"detail":item.get("detail"),"object_type":item.get("object_type")} for name,item in services.items()}
+        engine=getattr(core,"autonomous_engine",None)
+        result["ale_runtime"]={"initialized":engine is not None,"running":bool(getattr(engine,"running",False)),"status":"running" if getattr(engine,"running",False) else "ready_idle" if engine is not None else "unavailable","startup_automatically_runs_learning":False}
     if section in {"overview", "memory"}:
         data = getattr(database, "data", {})
         lock = getattr(database, "lock", None)

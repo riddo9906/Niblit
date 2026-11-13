@@ -129,14 +129,31 @@ class UiLaunchResult:
                 "The launcher must attach a real long-lived process on success."
             )
 
+        from modules.runtime_lifecycle import event, enable_fault_diagnostics
+        enable_fault_diagnostics()
+        event("ui_wait_started",child_pid=getattr(self._ui_process,"pid",None),restart_budget=0)
+        process=self._ui_process
         try:
-            return self._ui_process.wait()
+            while True:
+                if self._stop_event.is_set() or (self._shutdown_event is not None and self._shutdown_event.is_set()):
+                    event('ui_controlled_stop',child_pid=getattr(process,'pid',None),reason='core_shutdown_requested')
+                    self.terminate()
+                    return 0
+                try:
+                    code=process.wait(timeout=.25)
+                except subprocess.TimeoutExpired:
+                    continue
+                event("ui_process_exited",child_pid=getattr(process,"pid",None),exit_code=code,
+                      reason="normal_ui_exit" if code==0 else "abnormal_ui_exit")
+                return code
         except KeyboardInterrupt:
             self.terminate()
             return 130
 
     def terminate(self) -> None:
         """Cleanly terminate any processes / threads owned by this launch."""
+        from modules.runtime_lifecycle import event
+        event("owned_children_shutdown_requested",reason="launcher_cleanup")
         self._stop_event.set()
         for proc in (self._ui_process, self._cloud_process):
             if proc is None:
@@ -366,6 +383,19 @@ def _wait_for_http_ready(
         except Exception:
             pass
         time.sleep(min(interval_seconds, max(0.05, remaining)))
+
+
+def _api_owned_by_current_process(url: str) -> bool:
+    """A healthy foreign Core must never be silently adopted by this UI."""
+    try:
+        request=urllib.request.Request(url,headers={'Accept':'application/json'})
+        with urllib.request.urlopen(request,timeout=2) as response:
+            import json
+            payload=json.loads(response.read(4097))
+        return (payload.get('service')=='niblit' and payload.get('process_id')==os.getpid()
+                and payload.get('core_bound') is True)
+    except Exception:
+        return False
 
 
 def _niblit_api_port() -> int:
@@ -707,11 +737,15 @@ def launch_primary_ui(
 
     # Quick check — is the API already serving?
     api_ready = _wait_for_http_ready(health_url, timeout_seconds=2.0, interval_seconds=0.1)
+    api_owner_conflict=bool(api_ready and core is not None and not _api_owned_by_current_process(health_url))
+    if api_owner_conflict:
+        emit('Another or unverified Core owns the API port; close it before launching this runtime UI')
+        api_ready=False
 
     api_thread: Optional[threading.Thread] = None
     owned: Any = None
 
-    if not api_ready and core is not None:
+    if not api_ready and core is not None and not api_owner_conflict:
         started = _start_api_server_thread(core, api_port, emit)
         if started is not None:
             _server_obj, api_thread = started
@@ -723,6 +757,8 @@ def launch_primary_ui(
                 interval_seconds=0.25,
             )
 
+    if api_ready and core is not None:
+        api_ready=_api_owned_by_current_process(health_url)
     if api_ready:
         state.api_ready = True
         emit(f"Niblit API ready at {api_url}")

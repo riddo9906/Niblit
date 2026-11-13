@@ -17,7 +17,10 @@ def install():
     (package/'position_exit_policy.py').write_text(exits.replace('from modules.demo_strategy import','from .demo_strategy import'),encoding='utf-8')
     manager=(ROOT/'modules/strategy_manager.py').read_text(encoding='utf-8')
     (package/'strategy_manager.py').write_text(manager.replace('from modules.demo_strategy import','from .demo_strategy import'),encoding='utf-8')
+    shutil.copyfile(ROOT/'modules/freqtrade_chart_adapter.py',target/'niblit_chart_plot.py')
     shutil.copyfile(ROOT/'deploy/freqtrade-lab/NiblitLabManager.py',target/'NiblitLabManager.py')
+    shutil.copyfile(ROOT/'modules/freqtrade_core_claim.py',package/'core_claim.py')
+    shutil.copyfile(ROOT/'deploy/freqtrade-lab/NiblitCoreManaged.py',target/'NiblitCoreManaged.py')
     shutil.copyfile(ROOT/'deploy/freqtrade-lab/NiblitMicroDemo.py',target/'NiblitMicroDemo.py')
     print('Staged seven dry-run strategy classes. Running config and trades were not changed.')
 

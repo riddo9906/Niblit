@@ -1426,17 +1426,10 @@ Ask me about:
     # AUTO-RESEARCH CONTROL
     # ─────────────────────────────────
     def _handle_auto_research(self, cmd):
-        """Handle auto-research start / stop / status commands.
+        """Start one governed local evidence cycle, stop owned work, or inspect status.
 
-        These commands control the autonomous research sub-system independently:
-
-        * ``auto-research start``  — re-enable auto-research in SelfResearcher
-                                     and, if the ALE engine is stopped, start it too.
-        * ``auto-research stop``   — pause auto-research in SelfResearcher (manual
-                                     ``search()`` calls still work) and stop the ALE.
-        * ``auto-research status`` — show current state of both SelfResearcher and ALE.
-        * ``auto-research pause``  — alias for stop.
-        * ``auto-research resume`` — alias for start.
+        Start/on/resume share the canonical ALE task authority. They do not
+        enable independent research loops, paid calls or weight training.
         """
         if not self.core:
             return "[Core not available]"
@@ -1448,24 +1441,10 @@ Ask me about:
         engine = getattr(self.core, "autonomous_engine", None)
 
         if action in ("start", "on", "resume"):
-            lines = []
-            if researcher and hasattr(researcher, "start_auto_research"):
-                lines.append(safe_call(researcher.start_auto_research) or "✅ Auto-research started")
-            if engine and not engine.running:
-                result = engine.start()
-                lines.append("🚀 Autonomous learning engine started ✅" if result else "ℹ️ ALE already running")
-            elif engine and engine.running:
-                lines.append("ℹ️ Autonomous learning engine already running")
-            return "\n".join(lines) if lines else "✅ Auto-research started"
+            return self.core._cmd_autonomous_start("")
 
         if action in ("stop", "off", "pause"):
-            lines = []
-            if researcher and hasattr(researcher, "stop_auto_research"):
-                lines.append(safe_call(researcher.stop_auto_research) or "⏹️ Auto-research stopped")
-            if engine and engine.running:
-                result = engine.stop()
-                lines.append("⏹️ Autonomous learning engine stopped ✅" if result else "ℹ️ ALE was not running")
-            return "\n".join(lines) if lines else "⏹️ Auto-research stopped"
+            return self.core._cmd_autonomous_stop("")
 
         if action in ("status", ""):
             parts = []
@@ -1489,8 +1468,8 @@ Ask me about:
 
         return (
             "Usage:\n"
-            "  auto-research start   — Start / resume auto-research and ALE\n"
-            "  auto-research stop    — Stop / pause auto-research and ALE\n"
+            "  auto-research start   — Start one bounded local evidence cycle\n"
+            "  auto-research stop    — Request stop of the owned ALE worker\n"
             "  auto-research status  — Show auto-research and ALE state\n"
             "  auto-research pause   — Alias for stop\n"
             "  auto-research resume  — Alias for start"

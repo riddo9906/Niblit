@@ -306,6 +306,50 @@ class MarketDataProviders:
             log.warning("[MarketData:ccxt] %s %s: %s", exchange, symbol, exc)
             return f"[ccxt] Error fetching {symbol} from {exchange}: {exc}"
 
+    def ccxt_quote(self, symbol: str, exchange: str = "binanceusdm") -> dict:
+        """Public top-of-book evidence, never a candle/last-price substitute.
+
+        Missing exchange timestamps fail freshness validation. No private keys,
+        account calls, order methods or fallback instruments are used.
+        """
+        import math
+        import time
+        result = {"symbol": symbol, "provider": exchange,
+                  "source": "ccxt_public_order_book", "fresh": False}
+        try:
+            if not _CCXT_OK or not exchange.isidentifier():
+                raise ValueError("provider_unavailable")
+            factory = getattr(_ccxt, exchange, None)
+            if factory is None:
+                raise ValueError("provider_unavailable")
+            client = factory({"enableRateLimit": True, "timeout": 5000})
+            started = time.monotonic()
+            client.load_markets()
+            instrument = client.market(symbol)
+            if instrument.get("symbol") != symbol or instrument.get("active") is False:
+                raise ValueError("instrument_identity_mismatch")
+            if ':' in symbol and not (instrument.get("contract") and instrument.get("linear") and instrument.get("settle") == 'USDT'):
+                raise ValueError("unsupported_contract")
+            book = client.fetch_order_book(symbol, limit=5)
+            received = time.time()
+            if book.get("symbol") != symbol:
+                raise ValueError("quote_identity_mismatch")
+            raw = [book.get("timestamp"), book["bids"][0][0], book["asks"][0][0],
+                   book["bids"][0][1], book["asks"][0][1]]
+            if any(isinstance(v, bool) for v in raw):
+                raise ValueError("invalid_quote")
+            timestamp, bid, ask, bid_size, ask_size = map(float, raw)
+            timestamp /= 1000
+            if not all(math.isfinite(v) and v > 0 for v in (timestamp, bid, ask, bid_size, ask_size)) or ask < bid:
+                raise ValueError("invalid_quote")
+            if not -5 <= received-timestamp <= 15 or time.monotonic()-started > 15:
+                raise ValueError("stale_or_slow_quote")
+            return {**result, "fresh": True, "timestamp": timestamp,
+                    "bid": bid, "ask": ask, "bid_size": bid_size, "ask_size": ask_size,
+                    "received_at": received, "price_basis": "Public top of book; no fill or depth guarantee"}
+        except Exception as exc:
+            return {**result, "reason": str(exc) if type(exc) is ValueError else type(exc).__name__}
+
     def ccxt_exchanges(self) -> List[str]:
         """Return list of all exchange IDs available in CCXT."""
         if not _CCXT_OK:

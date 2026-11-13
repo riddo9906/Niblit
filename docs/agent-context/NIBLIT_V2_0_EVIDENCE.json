@@ -1,0 +1,893 @@
+{
+  "timestamp": 1793739529.2344565,
+  "repositories": {
+    "Niblit": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit",
+      "HEAD": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+      "status_lines": 437,
+      "diff_stat": " NIBLIT_PROGRESS.md                       |  30 ++\n aios_scheduler.py                        |  29 +-\n assets/trading-desk/desk.css             |   2 +\n assets/trading-desk/desk.js              |  21 +-\n assets/trading-desk/index.html           |   7 +-\n deploy/freqtrade-lab/NiblitLabManager.py |   5 +\n modules/cognitive_ingress.py             |  68 +++-\n modules/execution_graph.py               |  55 +++-\n modules/freqtrade_research.py            |  71 ++++-\n modules/llm_tool_loop.py                 |  26 +-\n modules/local_brain.py                   |   5 +-\n modules/market_data_providers.py         |  44 +++\n modules/memory_laboratory/gateway.py     | 513 +++++++++++++++++++++++++------\n modules/memory_laboratory/runtime.py     | 279 +++++++++++++----\n modules/memory_laboratory/setup.py       |  43 ++-\n modules/memory_laboratory/web.py         |  13 +-\n modules/strategy_manager.py              | 120 +++++++-\n modules/task_admission.py                |  61 +++-\n modules/trading_desk.py                  | 204 +++++++++++-\n niblit_brain.py                          |  12 +-\n niblit_core.py                           |   3 +\n scripts/install-freqtrade-lab.py         |   1 +\n scripts/start-portal-local-model.ps1     |   4 +-\n server.py                                | 136 +++++++-\n 24 files changed, 1540 insertions(+), 212 deletions(-)\n"
+    },
+    "Niblit-cloud-server": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\Niblit-cloud-server",
+      "HEAD": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+      "status_lines": 11,
+      "diff_stat": " app/execution/freqtrade_adapters.py |   8 +--\n app/main.py                         | 107 +++++++++++++++++++++---------------\n app/trading/freqtrade_adapter.py    | 100 +++++++++++++++++++++------------\n app/trading/freqtrade_supervisor.py |   9 ++-\n app/trading/router.py               |  25 +++------\n tests/test_trading_pipeline.py      |   5 +-\n 6 files changed, 153 insertions(+), 101 deletions(-)\n"
+    },
+    "niblit-lean-algos": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\niblit-lean-algos",
+      "HEAD": "bfa656e5c4d74cb5ea6b23721b949f590bd79b57",
+      "status_lines": 0,
+      "diff_stat": ""
+    },
+    "niblit-ui": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\niblit-ui",
+      "HEAD": "4425a4b1cdaf662552e6d8af44f408b6341bdbf3",
+      "status_lines": 0,
+      "diff_stat": ""
+    },
+    "freqtrade": {
+      "root": "C:\\Users\\Operator\\Documents\\GitHub\\freqtrade",
+      "HEAD": "fe735187afe8afc1866f951009d8a14a40bfd627",
+      "status_lines": 0,
+      "diff_stat": ""
+    }
+  },
+  "tests": {
+    "core-verified": {
+      "tests": "196",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "182.094"
+    },
+    "cloud-final": {
+      "tests": "10",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "28.544"
+    },
+    "lean-final": {
+      "tests": "26",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "1.144"
+    }
+  },
+  "source_sha256": {
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\modules\\chart_annotations.py": "bc3a1723296d552ed752a6c7c0d5dc0280bd78e075f15a0bb35cb01774c45b99",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\modules\\chart_views.py": "fb5570ebc2339c8774c16a2e9ae2b26828d0b47d90a59ee1486251c9f06f3d34",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\modules\\freqtrade_chart_adapter.py": "3060863cc408748672cbfb014ddb412bc2215ab61f33fd2b5898e672f700ebf6",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\modules\\cognitive_ingress.py": "f8020654c6ab14c71de439bf4d6b6881241e7b0e195bc9da892139034a5b0aae",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\modules\\trading_desk.py": "416efcc3da1ec074ff6aeacd9f3d2abbacf6d4af8f40bfb970c37a18025111a9",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\modules\\memory_laboratory\\runtime.py": "cb71ce49861b4e9d9572ea981afaf9303d1a1aec44294d0e82d8eb88b4669fa6",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\server.py": "9570b9ccff54133d69fa9f888715f4ac3296a725caabf7d17d704da175f1c3d8",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\assets\\trading-desk\\chart.js": "5d9130e4f1d61fa242a9ac598728c8f55a93498764b9640ea83a03b5b1ca42c8",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\assets\\trading-desk\\desk.js": "9d6a533c1a382c4779c705ee7287466054a54aeb9356f9b031c0076b33958750",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\assets\\trading-desk\\desk.css": "3ec849ebd01341e89afe7d316920e3c687fa2652f25b399ca88b3adf28834fd7",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\assets\\trading-desk\\index.html": "1d7eddbd59145b73153f3b2f537f84b5a1f97d941e49ba49d236a255aba73e81",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\deploy\\freqtrade-lab\\NiblitLabManager.py": "5a180a423aa1380851b2dcee2ef369dabef2447f78cfe1cf5aeab300375671c0",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\scripts\\install-freqtrade-lab.py": "c5addf1868dacb403159527ecaf06910bb94e0f33dc16ff945964c034daa1b3a",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\integrations\\mt5\\NiblitChartObjects.mq5": "be1e6db89cbc4476603e93918edbaaa777ea6f6e4a101ec4bbd72e24362bb287",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\integrations\\mt5\\NiblitCharts.tpl": "8e403dd26f9c1c20d9c0065d5cde39862b90cbd5bd1383971c4d48fb66b82b11",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\tests\\test_chart_annotations.py": "d8d30f2db664c053db9adba7834f902512409d9ee92b12a869cb5b456ace3c4d",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\tests\\test_core_market_pipeline.py": "7deea66c2f622ecedcfdab9d865ff7841236ea51028f20b9bf3eec171289c5f9",
+    "C:\\Users\\Operator\\Documents\\GitHub\\Niblit\\tests\\test_memory_worker_recovery.py": "cf8449dae183cc7f9b0860d09ad73cf0a0e0a67f91ff5ea4af177e31f7bcebdf",
+    "C:\\Users\\Operator\\Documents\\GitHub\\freqtrade\\user_data\\strategies\\NiblitLabManager.py": "5a180a423aa1380851b2dcee2ef369dabef2447f78cfe1cf5aeab300375671c0",
+    "C:\\Users\\Operator\\Documents\\GitHub\\freqtrade\\user_data\\strategies\\niblit_chart_plot.py": "3060863cc408748672cbfb014ddb412bc2215ab61f33fd2b5898e672f700ebf6",
+    "C:\\Users\\Operator\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Indicators\\NiblitChartObjects.mq5": "be1e6db89cbc4476603e93918edbaaa777ea6f6e4a101ec4bbd72e24362bb287",
+    "C:\\Users\\Operator\\AppData\\Roaming\\MetaQuotes\\Terminal\\D0E8209F77C8CF37AD8BF550E51FF075\\MQL5\\Indicators\\NiblitChartObjects.ex5": "3adb4eb5b120af936226bb6fa1e569048bb518258a80f51c37bc8f807353fa0a"
+  },
+  "patch_checks": {
+    "NIBLIT_V2_0_IMPLEMENTATION.patch": {
+      "already_integrated_reverse_check": true,
+      "detail": ""
+    },
+    "NIBLIT_V2_0_FREQTRADE.patch": {
+      "already_integrated_reverse_check": true,
+      "detail": ""
+    }
+  },
+  "runtime": {
+    "timestamp": 1793739525.9441955,
+    "services": {
+      "Core": {
+        "http": 200
+      },
+      "Cloud": {
+        "http": 200
+      },
+      "Memory": {
+        "http": 200
+      },
+      "Desk": {
+        "http": 200
+      },
+      "Lean": {
+        "http": 200
+      },
+      "Qdrant": {
+        "http": 200
+      },
+      "Portal": {
+        "http": 200
+      }
+    },
+    "freqtrade": {
+      "configuration": {
+        "dry_run": true,
+        "state": "stopped",
+        "strategy": "NiblitLabManager",
+        "timeframe": "5m",
+        "max_open_trades": 3.0
+      },
+      "positions": [
+        {
+          "trade_id": 40,
+          "pair": "XAU/USDT:USDT",
+          "is_short": true,
+          "open_rate": 3888.82,
+          "amount": 0.025,
+          "is_open": true
+        },
+        {
+          "trade_id": 42,
+          "pair": "XAG/USDT:USDT",
+          "is_short": true,
+          "open_rate": 49.13,
+          "amount": 2.035,
+          "is_open": true
+        },
+        {
+          "trade_id": 45,
+          "pair": "BTC/USDT:USDT",
+          "is_short": true,
+          "open_rate": 77447.4,
+          "amount": 0.001,
+          "is_open": true
+        }
+      ]
+    },
+    "queue": {
+      "complete": 29075,
+      "pending": 68,
+      "processing": 4,
+      "superseded": 398
+    },
+    "inference_owner": [
+      "active",
+      "core_inference",
+      1793726390.8838177
+    ],
+    "memory_runtime": {
+      "enabled": true,
+      "storage": "sqlite_source_ledger_and_qdrant_projection",
+      "counts": [
+        {
+          "projection": "deleted",
+          "active": 0,
+          "count": 6
+        },
+        {
+          "projection": "pending",
+          "active": 0,
+          "count": 6
+        },
+        {
+          "projection": "superseded",
+          "active": 0,
+          "count": 494
+        },
+        {
+          "projection": "verified",
+          "active": 1,
+          "count": 28252
+        }
+      ],
+      "categories": [
+        {
+          "category": "episodic",
+          "count": 2086
+        },
+        {
+          "category": "semantic",
+          "count": 26166
+        }
+      ],
+      "embedding_model": "intfloat/multilingual-e5-small",
+      "embedding_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "verification_policy": "imported_claims_are_unverified",
+      "queue": [
+        {
+          "state": "complete",
+          "count": 29079
+        },
+        {
+          "state": "pending",
+          "count": 68
+        },
+        {
+          "state": "superseded",
+          "count": 398
+        }
+      ],
+      "errors": [
+        {
+          "error": "ConnectError",
+          "count": 3
+        }
+      ],
+      "worker_running": true,
+      "legacy_source_error": null,
+      "worker_phases": {
+        "knowledge_sync": {
+          "state": "ok",
+          "checked_at": 1793739495.4198642,
+          "elapsed_seconds": 6.92299290000301,
+          "result": 16498,
+          "last_error": null
+        },
+        "general_projection": {
+          "state": "ok",
+          "checked_at": 1793739497.4149766,
+          "elapsed_seconds": 1.9950699000000895,
+          "result": {
+            "completed": 4,
+            "failed": 0,
+            "metrics": {
+              "chunks": 5,
+              "unique_chunks": 5,
+              "adapter_calls": 2,
+              "cache_hits": 3,
+              "prefetch_generated": 1,
+              "stages": {
+                "content_retrieval": 0.00014820000069448724,
+                "outbox_acquire": 0.4367409000005864,
+                "embedding_prefetch": 0.5506223999982467,
+                "permission_validation": 0.0012984000022697728,
+                "hash_dedup": 3.249999645049684e-05,
+                "embedding": 0.5723231000010855,
+                "record_identity": 0.0008082999993348494,
+                "gateway_lock_wait": 1.8999962776433676e-06,
+                "sqlite_prepare": 0.006239100002858322,
+                "qdrant_write": 0.018495200001780177,
+                "qdrant_verify": 0.0073382999980822206,
+                "sqlite_activate": 0.38217949999670964,
+                "supersession_projection": 0.012397999998938758,
+                "total": 1.0013211999976193,
+                "sqlite_ack": 0.006112400002166396,
+                "chunk_construction": 7.299997378140688e-06
+              }
+            }
+          },
+          "last_error": null
+        },
+        "market_partitions": {
+          "state": "ok",
+          "checked_at": 1793739515.7571507,
+          "elapsed_seconds": 18.342161399999895,
+          "result": {
+            "completed": 1,
+            "failed": 0,
+            "estimated_chunks_serviced": 34
+          },
+          "last_error": null
+        },
+        "general_projection_tail": {
+          "state": "ok",
+          "checked_at": 1793739526.4211988,
+          "elapsed_seconds": 10.664043099997798,
+          "result": {
+            "completed": 28,
+            "failed": 0,
+            "metrics": {
+              "chunks": 28,
+              "unique_chunks": 28,
+              "adapter_calls": 7,
+              "cache_hits": 28,
+              "prefetch_generated": 15,
+              "stages": {
+                "content_retrieval": 0.0005770999960077461,
+                "outbox_acquire": 1.158733600001142,
+                "embedding_prefetch": 1.7480677999992622,
+                "permission_validation": 0.007270399997651111,
+                "hash_dedup": 0.00014280001050792634,
+                "embedding": 0.0009187000068777706,
+                "record_identity": 0.0035458999991533346,
+                "gateway_lock_wait": 5.299996701069176e-06,
+                "sqlite_prepare": 0.928882899996097,
+                "qdrant_write": 3.525705400003062,
+                "qdrant_verify": 0.523012399993604,
+                "sqlite_activate": 1.6686228000035044,
+                "supersession_projection": 2.319999475730583e-05,
+                "total": 6.659123699995689,
+                "sqlite_ack": 1.0970187000020815
+              }
+            }
+          },
+          "last_error": null
+        },
+        "market_journal": {
+          "state": "ok",
+          "checked_at": 1793739526.4227831,
+          "elapsed_seconds": 0.0015711999985796865,
+          "result": 0,
+          "last_error": null
+        }
+      },
+      "last_cycle": 1793739526.4227896,
+      "projection_totals": {
+        "completed": 327,
+        "failed": 0,
+        "chunks": 757,
+        "unique_chunks": 757,
+        "adapter_calls": 186,
+        "cache_hits": 342,
+        "prefetch_generated": 172,
+        "stages": {
+          "content_retrieval": 0.010515499998291489,
+          "outbox_acquire": 18.206156699980056,
+          "chunk_construction": 0.0006274000043049455,
+          "permission_validation": 3.096369400020194,
+          "hash_dedup": 0.002607199985504849,
+          "embedding": 205.52132420000999,
+          "record_identity": 0.0856676999683259,
+          "gateway_lock_wait": 0.00010499998825252987,
+          "sqlite_prepare": 27.678524999981164,
+          "qdrant_write": 39.46055790001992,
+          "qdrant_verify": 10.614649499995721,
+          "sqlite_activate": 53.23015499999383,
+          "supersession_projection": 24.74334659998567,
+          "total": 364.454994300002,
+          "sqlite_ack": 21.880918800001382,
+          "embedding_prefetch": 45.02633070001684
+        }
+      },
+      "sqlite_settings": {
+        "journal_mode": "wal",
+        "synchronous": 2
+      },
+      "last_ingestion_profile": {
+        "chunks": 4,
+        "unique_chunks": 4,
+        "adapter_calls": 0,
+        "cache_hits": 4,
+        "small_events": 4,
+        "permission_validation": 0.002388499997323379,
+        "hash_dedup": 2.470000254106708e-05,
+        "embedding": 0.00018449999697622843,
+        "record_identity": 0.0007217000020318665,
+        "gateway_lock_wait": 7.999988156370819e-07,
+        "sqlite_prepare": 0.18940629999997327,
+        "qdrant_write": 0.8911130000014964,
+        "qdrant_verify": 0.0026866000007430557,
+        "sqlite_activate": 0.28808720000233734,
+        "supersession_projection": 1.0000003385357559e-06,
+        "total": 1.3747788999971817
+      },
+      "last_prefetch_profile": {
+        "generated": 1,
+        "adapter_calls": 1,
+        "seconds": 0.04351110000061453
+      }
+    },
+    "positions_unchanged": true,
+    "model_slots_http": 200,
+    "model_idle": true,
+    "listeners": {
+      "5000": {
+        "pid": 25480,
+        "parent_pid": 22912,
+        "executable": "C:\\Users\\Operator\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe"
+      },
+      "8769": {
+        "pid": 12252,
+        "parent_pid": 8816,
+        "executable": "C:\\Users\\Operator\\AppData\\Local\\Programs\\DockerDesktop\\resources\\com.docker.backend.exe"
+      },
+      "8000": {
+        "pid": 14612,
+        "parent_pid": 6840,
+        "executable": "C:\\Python314\\python.exe"
+      },
+      "8767": {
+        "pid": 18708,
+        "parent_pid": 23196,
+        "executable": "C:\\Users\\Operator\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe"
+      },
+      "8100": {
+        "pid": 11588,
+        "parent_pid": 17072,
+        "executable": "C:\\Python314\\python.exe"
+      },
+      "8772": {
+        "pid": 21288,
+        "parent_pid": 21116,
+        "executable": "C:\\Users\\Operator\\AppData\\Local\\Python\\pythoncore-3.14-64\\pythonw.exe"
+      },
+      "6333": {
+        "pid": 12252,
+        "parent_pid": 8816,
+        "executable": "C:\\Users\\Operator\\AppData\\Local\\Programs\\DockerDesktop\\resources\\com.docker.backend.exe"
+      },
+      "8766": {
+        "pid": 2344,
+        "parent_pid": 15680,
+        "executable": "C:\\Users\\Operator\\llama_migration\\llama.cpp\\build\\bin\\Release\\llama-server.exe"
+      }
+    },
+    "order_requests_by_task": 0,
+    "engine_started_by_task": false,
+    "inference_recovery_performed": false
+  },
+  "activation": {
+    "original_owner": {
+      "state": "active",
+      "owner": "core_inference",
+      "started": 1793726390.8838177
+    },
+    "model_idle_verified": true,
+    "no_active_child_for_owner": true,
+    "demo_execution_inactive": true,
+    "no_admission_reset": true,
+    "no_model_restart": true,
+    "orders_sent_by_task": 0,
+    "core_parent_pid": 22912,
+    "desk_parent_pid": 23196,
+    "exact_original_reservation_preserved": true,
+    "chart_http": 200,
+    "complete": true
+  },
+  "memory_health": {
+    "post_reload_window": {
+      "seconds": 67.07087826728821,
+      "initial": {
+        "complete": 28962,
+        "pending": 94,
+        "processing": 1,
+        "superseded": 398
+      },
+      "final": {
+        "complete": 29017,
+        "pending": 74,
+        "processing": 1,
+        "superseded": 398
+      },
+      "arrivals_per_minute": 31.310161045322282,
+      "completions_per_minute": 49.2016816426493,
+      "active_errors": {}
+    },
+    "current_source_profile": {
+      "timestamp": 1793739434.8611906,
+      "unfinished_by_source": [
+        {
+          "state": "pending",
+          "source_type": "chart_annotation_delta",
+          "jobs": 11,
+          "body_bytes": 289558,
+          "earliest_updated_at": "2026-11-03T20:50:47.680917+00:00",
+          "largest_body_bytes": 38589
+        },
+        {
+          "state": "pending",
+          "source_type": "conversation",
+          "jobs": 11,
+          "body_bytes": 6101,
+          "earliest_updated_at": "2026-11-03T20:55:57.870569+00:00",
+          "largest_body_bytes": 621
+        },
+        {
+          "state": "pending",
+          "source_type": "legacy_knowledge",
+          "jobs": 41,
+          "body_bytes": 35094,
+          "earliest_updated_at": "2026-11-03T20:55:54.521123+00:00",
+          "largest_body_bytes": 1834
+        },
+        {
+          "state": "pending",
+          "source_type": "market_analysis",
+          "jobs": 15,
+          "body_bytes": 758396,
+          "earliest_updated_at": "2026-11-03T20:50:47.609453+00:00",
+          "largest_body_bytes": 59218
+        },
+        {
+          "state": "pending",
+          "source_type": "unified_memory",
+          "jobs": 1,
+          "body_bytes": 364,
+          "earliest_updated_at": "2026-11-03T20:56:11.879844+00:00",
+          "largest_body_bytes": 364
+        }
+      ],
+      "active_errors": [],
+      "age_basis": "updated_at is not immutable enqueue time"
+    },
+    "initial_session": {
+      "complete": 24926,
+      "pending": 19,
+      "processing": 5,
+      "superseded": 375
+    },
+    "window_initial": {
+      "complete": 28601,
+      "pending": 4,
+      "processing": 4,
+      "superseded": 396
+    },
+    "window_final": {
+      "complete": 28632,
+      "superseded": 396
+    },
+    "window_seconds": 66.2168357372284,
+    "arrivals_per_minute": 20.840621341018522,
+    "completions_per_minute": 28.089533111807572,
+    "active_errors": {},
+    "latest_queue": {
+      "complete": 29075,
+      "pending": 68,
+      "processing": 4,
+      "superseded": 398
+    },
+    "qdrant_chart_readback": {
+      "sqlite_integrity": "ok",
+      "receipts": [
+        {
+          "trade_id": 40,
+          "receipt": "b207a98098cf3e4fcdf0e320a98c4b83fc964b6d76ab0c90afb2b573585a0d34",
+          "outbox_state": "complete",
+          "attempts": 1,
+          "expected_points": 31,
+          "canonical_points": 31,
+          "qdrant_points": 31,
+          "exact_hashes_match": true,
+          "fully_complete": true
+        },
+        {
+          "trade_id": 42,
+          "receipt": "da671e33db58535e499b24f37800a675a5ad7503e109b3eb134b92b53f22780e",
+          "outbox_state": "complete",
+          "attempts": 1,
+          "expected_points": 3,
+          "canonical_points": 3,
+          "qdrant_points": 3,
+          "exact_hashes_match": true,
+          "fully_complete": true
+        },
+        {
+          "trade_id": 45,
+          "receipt": "6203a4fcc5b3f74a2cc4ab298aba64cb818106e7d99103692d1474c77ca8c35c",
+          "outbox_state": "complete",
+          "attempts": 1,
+          "expected_points": 5,
+          "canonical_points": 5,
+          "qdrant_points": 5,
+          "exact_hashes_match": true,
+          "fully_complete": true
+        }
+      ],
+      "all_complete": true,
+      "new_worker_started": false
+    },
+    "oldest_age_basis": "Original enqueue time not retained; updated_at is only a lower-bound age. Zero unfinished at window end is not a sustained-drain guarantee."
+  },
+  "restart_identity": {
+    "common_roles": 19,
+    "stable_ids_across_actual_core_desk_restart": true,
+    "old_bar": 1793738400.0,
+    "new_bar": 1793738700.0,
+    "revisions_changed": 19,
+    "source_available_present": true,
+    "current_creation_basis": [
+      "source_availability_legacy"
+    ],
+    "note": "Market advanced one five-minute bar during actual restart; common-role IDs remained stable while revisions/source anchors updated. Provenance-field upgrade also contributes to revision changes; no profit inference."
+  },
+  "actual_mt5_readonly": {
+    "http": 200,
+    "timestamp": 1793739220.477231,
+    "source": "mt5_broker_completed_bars",
+    "candles": 200,
+    "annotation_state": "native_time_mapping_unverified",
+    "annotations": 0,
+    "native_sync": {
+      "state": "waiting_for_clock_receipts"
+    },
+    "time_mapping": {
+      "verified": false,
+      "reason": "Awaiting two native indicator clock receipts; no guessed broker timezone",
+      "error_type": "FileNotFoundError"
+    },
+    "execution_authorized": false
+  },
+  "post_restart_projection": {
+    "sqlite_integrity": "ok",
+    "receipts": [
+      {
+        "trade_id": 40,
+        "receipt": "b258106dbf89ebc27b775f911c4910416f5f4aa5ac681558532b65292e761a6b",
+        "outbox_state": "pending",
+        "attempts": 0,
+        "expected_points": 7,
+        "canonical_points": 0,
+        "qdrant_points": 0,
+        "exact_hashes_match": false,
+        "fully_complete": false
+      },
+      {
+        "trade_id": 42,
+        "receipt": "96d50be31fc7e417a274cd1dea110123497a2ae3c0bf9a9b8eef8d08bfb3cc2d",
+        "outbox_state": "complete",
+        "attempts": 1,
+        "expected_points": 34,
+        "canonical_points": 34,
+        "qdrant_points": 34,
+        "exact_hashes_match": true,
+        "fully_complete": true
+      },
+      {
+        "trade_id": 45,
+        "receipt": "670ee10f3e66dab1dffab78d4325d9a249df72cde576995ef984666bc65777ec",
+        "outbox_state": "pending",
+        "attempts": 0,
+        "expected_points": 9,
+        "canonical_points": 0,
+        "qdrant_points": 0,
+        "exact_hashes_match": false,
+        "fully_complete": false
+      }
+    ],
+    "all_complete": false,
+    "new_worker_started": false
+  },
+  "chart_acceptance": {
+    "XAU/USDT:USDT": {
+      "state": "fresh",
+      "candles": 200,
+      "annotations": 24,
+      "strategy_ids": [
+        "bollinger_reversion_v1",
+        "breakout_v1",
+        "ema_pullback_v1",
+        "rsi_reversion_v1",
+        "squeeze_breakout_v1",
+        "trend_v1"
+      ],
+      "core_authorization": {
+        "allowed": true,
+        "reason": "allowed",
+        "mode": "analytical"
+      },
+      "position_id": 40,
+      "assessment": "EXIT-CANDIDATE",
+      "thesis_state": "not_eligible",
+      "memory": {
+        "id": "b258106dbf89ebc27b775f911c4910416f5f4aa5ac681558532b65292e761a6b",
+        "queued": true,
+        "projection": "pending_not_verified"
+      },
+      "namespace": "market.8ed5722a4f9132b5444595c5901eebcefc8b4d40",
+      "chart_key": "9c6dfce26e7a3c2f7ce1a88144c5594fa3f5fa6d7b366b99963691c61aec9c49"
+    },
+    "XAG/USDT:USDT": {
+      "state": "fresh",
+      "candles": 200,
+      "annotations": 24,
+      "strategy_ids": [
+        "bollinger_reversion_v1",
+        "breakout_v1",
+        "ema_pullback_v1",
+        "rsi_reversion_v1",
+        "squeeze_breakout_v1",
+        "trend_v1"
+      ],
+      "core_authorization": {
+        "allowed": true,
+        "reason": "allowed",
+        "mode": "analytical"
+      },
+      "position_id": 42,
+      "assessment": "EXIT-CANDIDATE",
+      "thesis_state": "not_eligible",
+      "memory": {
+        "id": "96d50be31fc7e417a274cd1dea110123497a2ae3c0bf9a9b8eef8d08bfb3cc2d",
+        "projection": "pending_not_verified",
+        "queued": true
+      },
+      "namespace": "market.06cb3abfe003c2f906db40a72ed18f1aa8e86a08",
+      "chart_key": "95ab0208b04b47439c12f443e56114306c41db0335cc8b6c463ea3afd04d00a6"
+    },
+    "BTC/USDT:USDT": {
+      "state": "fresh",
+      "candles": 200,
+      "annotations": 25,
+      "strategy_ids": [
+        "bollinger_reversion_v1",
+        "breakout_v1",
+        "ema_pullback_v1",
+        "rsi_reversion_v1",
+        "squeeze_breakout_v1",
+        "trend_v1"
+      ],
+      "core_authorization": {
+        "allowed": true,
+        "reason": "allowed",
+        "mode": "analytical"
+      },
+      "position_id": 45,
+      "assessment": "EXIT-CANDIDATE",
+      "thesis_state": "evaluated",
+      "memory": {
+        "id": "670ee10f3e66dab1dffab78d4325d9a249df72cde576995ef984666bc65777ec",
+        "projection": "pending_not_verified",
+        "queued": true
+      },
+      "namespace": "market.4370402c110746af05bde2419b01a4c9eabedd13",
+      "chart_key": "1510b4e3dd7ae1dba6ca108fcdc7b81d44f11dab6987b50b316c1af3b15e20c1"
+    }
+  },
+  "browser": {
+    "actual_url": "http://127.0.0.1:8767/",
+    "before": {
+      "scope": {
+        "symbol": "BTC/USDT:USDT",
+        "venue": "binance",
+        "timeframe": "5m",
+        "mode": "dry-run",
+        "account_scope": "freqtrade-profile-aa95c9083908276c35f033e0dc10c27856865c7de01e8daabf10fe6aa8219b2c"
+      },
+      "state": "fresh",
+      "candles": 200,
+      "annotations": 25,
+      "annotation_ids": [
+        "ann_ce505fd9b8e0fb3dc20a0978",
+        "ann_3d71655873cf6491c5a750d8",
+        "ann_9edab972d0defdfab577afea",
+        "ann_55f1c66e98b50711ca5ece6e",
+        "ann_97d4b70f23fbb1f07821434f",
+        "ann_9b86c82f45b5ce1ad2b62d18",
+        "ann_6c0923c8761720a8a07e8914",
+        "ann_fc4b51508140ef9692328e60",
+        "ann_40b09d514afdee35e4bd1d58",
+        "ann_c010bcbe7965f530dbbe848a",
+        "ann_920dcc04f00c75d81dd325c4",
+        "ann_205169f8a83a53470d02cb06",
+        "ann_65478ab1d50d0ae0e5bdeb86",
+        "ann_8b6fc1f8713fb71fc507a1b0",
+        "ann_fa7b8f28f73f1dc57572c661",
+        "ann_ca05fb818d3c4984aea744c1",
+        "ann_5cb7a720facee410f3b0cfd5",
+        "ann_59b1e1278f148c78e1962e94",
+        "ann_d525d4f701928607b4df8260",
+        "ann_f0ad6cd6cdded418ee08ae68",
+        "ann_456b38061cca19e615186127",
+        "ann_9e59cfbfc4e1331993b5c3a6",
+        "ann_4b45478f618893ff1f7f1231",
+        "ann_7ac1cae3d53f2efa0926adde",
+        "ann_3ce0e6119355a806a038c6dd"
+      ],
+      "core": {
+        "state": "analyzed_by_core",
+        "authorization": {
+          "allowed": true,
+          "reason": "allowed",
+          "mode": "analytical"
+        },
+        "trace_id": "req-67fc37eb998c"
+      },
+      "position": 45
+    },
+    "positionFiltered": true,
+    "history": {
+      "events": 262,
+      "enabled": true
+    },
+    "otherFrame": {
+      "timeframe": "1h",
+      "candles": 200,
+      "state": "analysis_unavailable",
+      "signals": [
+        "ABSTAIN"
+      ]
+    },
+    "manualAndDuplicates": {
+      "manual_preserved": true,
+      "unique_overlay_ids": true,
+      "candlestick_bodies": 200
+    },
+    "toggleHidden": true,
+    "explanation": "trend_v1: HOLD. WAIT: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup. Coordinates: 77841.2 @ 2026-11-03T20:45:00.000Z Source: ccxt_public_exchange_ohlcv \u00b7 strategy_measurement \u00b7 ann_ce505fd9b8e0fb3dc20a0978",
+    "stale_fixture_indicator": true,
+    "reloaded": {
+      "unique_ids": true,
+      "annotations": 25,
+      "ids": [
+        "ann_ce505fd9b8e0fb3dc20a0978",
+        "ann_3d71655873cf6491c5a750d8",
+        "ann_9edab972d0defdfab577afea",
+        "ann_55f1c66e98b50711ca5ece6e",
+        "ann_97d4b70f23fbb1f07821434f",
+        "ann_9b86c82f45b5ce1ad2b62d18",
+        "ann_6c0923c8761720a8a07e8914",
+        "ann_fc4b51508140ef9692328e60",
+        "ann_40b09d514afdee35e4bd1d58",
+        "ann_c010bcbe7965f530dbbe848a",
+        "ann_920dcc04f00c75d81dd325c4",
+        "ann_205169f8a83a53470d02cb06",
+        "ann_65478ab1d50d0ae0e5bdeb86",
+        "ann_8b6fc1f8713fb71fc507a1b0",
+        "ann_fa7b8f28f73f1dc57572c661",
+        "ann_ca05fb818d3c4984aea744c1",
+        "ann_5cb7a720facee410f3b0cfd5",
+        "ann_59b1e1278f148c78e1962e94",
+        "ann_d525d4f701928607b4df8260",
+        "ann_f0ad6cd6cdded418ee08ae68",
+        "ann_456b38061cca19e615186127",
+        "ann_9e59cfbfc4e1331993b5c3a6",
+        "ann_4b45478f618893ff1f7f1231",
+        "ann_7ac1cae3d53f2efa0926adde",
+        "ann_3ce0e6119355a806a038c6dd"
+      ]
+    },
+    "financial_mutations": [],
+    "page_errors": [],
+    "screenshots": [
+      "NIBLIT_V2_0_BTC_CHART.png",
+      "NIBLIT_V2_0_CHART_PANEL.png"
+    ],
+    "distinction": "Actual service/market/strategy chart; stale/manual DOM checks are controlled client regressions, not broker actions."
+  },
+  "freqtrade_callback": {
+    "installed_runtime_callback": {
+      "BTC/USDT:USDT": {
+        "count": 25,
+        "types": [
+          "area",
+          "line",
+          "point"
+        ],
+        "symbols_source": "Exact Core snapshot/profile/5m identity",
+        "no_engine_created": true
+      },
+      "XAU/USDT:USDT": {
+        "count": 24,
+        "types": [
+          "area",
+          "line",
+          "point"
+        ],
+        "symbols_source": "Exact Core snapshot/profile/5m identity",
+        "no_engine_created": true
+      },
+      "XAG/USDT:USDT": {
+        "count": 24,
+        "types": [
+          "area",
+          "line",
+          "point"
+        ],
+        "symbols_source": "Exact Core snapshot/profile/5m identity",
+        "no_engine_created": true
+      }
+    },
+    "all_existing_strategy_methods_ast_identical": true,
+    "engine_reload_performed": false,
+    "native_ui_activation": "Existing engine retains old loaded class until supported reload; this verifies actual installed callback/data compatibility, not live FreqUI rendering."
+  },
+  "platform_limits": {
+    "dashboard": "Actual original dashboard rendered in Chromium with real market candles and original Core six-strategy outputs.",
+    "MT5": "Compiled and installed indicator; NOT attached. No native clock receipt or object ACK. Source-contract tests are not native visual proof.",
+    "Freqtrade": "Actual installed callback consumes Core files and returns supported area/line/point shapes; current Bot class not reloaded and native FreqUI rendering unverified.",
+    "TradingView": "Pine v6 snapshot export only; native compilation/rendering and live synchronization unverified."
+  },
+  "safety": {
+    "orders_submitted": 0,
+    "positions_modified": false,
+    "engine_started": false,
+    "permissions_changed": false,
+    "inference_ownership_cleared": false,
+    "new_workers": 0
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "terminal": "C:\\Program Files\\XM MT5\\terminal64.exe",
+  "port": 18765,
+  "account": {
+    "broker": "REPLACE_FROM_DISCOVERY",
+    "login": "0",
+    "server": "XM-REPLACE_FROM_DISCOVERY",
+    "currency": "REPLACE_FROM_DISCOVERY",
+    "terminal_id": "REPLACE_FROM_DISCOVERY",
+    "environment": "demo"
+  },
+  "limits": {
+    "max_positions": 0,
+    "min_equity": "1",
+    "max_margin_fraction": "0"
+  }
+}

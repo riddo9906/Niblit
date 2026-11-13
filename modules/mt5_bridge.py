@@ -4,6 +4,7 @@ Attaches to the current terminal session. Never logs in, switches accounts,
     changes terminal permissions. Demo order submission is handled separately
     by the durable human-only ticket controller. No paid inference is used.
 """
+from collections import deque
 import hashlib
 import math
 import os
@@ -14,6 +15,42 @@ import time
 LOCK = threading.RLock()
 
 
+TIMEFRAME_SECONDS = {'M1':60,'M5':300,'M15':900,'M30':1800,'H1':3600,'H4':14400,'D1':86400,'W1':604800}
+
+
+def summarize_completed(rows, frame, as_of):
+    """Summarize native closed bars as of a timestamp in the broker clock."""
+    seconds = TIMEFRAME_SECONDS[frame]
+    if not isinstance(as_of, (int, float)) or not math.isfinite(as_of):
+        return {'status':'clock_unavailable'}
+    if rows is None:
+        return {'status':'missing'}
+    try:
+        bars = [(int(row['time']), *(float(row[key]) for key in ('open','high','low','close')))
+                for row in rows]
+        if any(b[0] <= a[0] for a,b in zip(bars,bars[1:])):
+            return {'status':'unordered'}
+        if any(not all(math.isfinite(x) and x > 0 for x in b) or
+               b[3] > min(b[1],b[4]) or b[2] < max(b[1],b[4]) for b in bars):
+            return {'status':'invalid_ohlc'}
+    except (TypeError, ValueError, KeyError, OverflowError):
+        return {'status':'invalid_ohlc'}
+    closed = [bar for bar in bars if bar[0]+seconds <= as_of]
+    if len(closed) < 20:
+        return {'status':'insufficient_closed_history'}
+    sample = closed[-20:]
+    completed_at = sample[-1][0]+seconds
+    if as_of-completed_at > 2*seconds:
+        return {'status':'stale','completed_at':completed_at}
+    if any(b[0]-a[0] != seconds for a,b in zip(sample,sample[1:])):
+        return {'status':'session_gap','completed_at':completed_at}
+    first = sum(b[4] for b in sample[:10])/10
+    last = sum(b[4] for b in sample[10:])/10
+    return {'status':'ready','trend':'up' if last>first else 'down' if last<first else 'flat',
+            'completed_at':completed_at,'support':min(b[3] for b in sample),
+            'resistance':max(b[2] for b in sample),'source':'mt5_native_closed_bars'}
+
+
 class MT5Unavailable(RuntimeError):
     pass
 
@@ -22,6 +59,7 @@ class MT5Bridge:
     def __init__(self, api=None):
         self._api = api
         self._ticks = {}
+        self._spread_samples = {}
 
     def connect(self):
         if self._api is None:
@@ -44,6 +82,24 @@ class MT5Bridge:
         # Correlate account switches without exposing login/name in browser logs.
         return hashlib.sha256(f'{account.server}:{account.login}'.encode()).hexdigest()[:16]
 
+    def account_record(self, api, account, terminal):
+        mode = next((label for name, label in (
+            ('ACCOUNT_TRADE_MODE_DEMO', 'demo'),
+            ('ACCOUNT_TRADE_MODE_REAL', 'live'),
+            ('ACCOUNT_TRADE_MODE_CONTEST', 'contest'),
+        ) if getattr(api, name, None) is not None and getattr(api, name) == account.trade_mode), 'unknown')
+        terminal_path = str(getattr(terminal, 'path', '') or
+                            os.getenv('NIBLIT_MT5_TERMINAL', 'C:/Program Files/MetaTrader 5/terminal64.exe'))
+        terminal_key = os.path.normcase(terminal_path) + '|' + os.path.normcase(str(getattr(terminal, 'data_path', '')))
+        return {'identity':self.identity(account), 'login':str(account.login),
+                'server':str(account.server), 'broker':str(getattr(account, 'company', '') or account.server),
+                'environment':mode, 'terminal_id':hashlib.sha256(terminal_key.encode()).hexdigest()[:20],
+                'terminal_path':terminal_path}
+
+    def connection_record(self):
+        with LOCK:
+            return self.account_record(*self.connect())
+
     def tick(self, api, symbol, account):
         tick = api.symbol_info_tick(symbol)
         if tick is None: return {'fresh':False,'reason':'No broker tick received'}
@@ -62,7 +118,7 @@ class MT5Bridge:
                 'raw_clock_difference_seconds':timestamp-time.time(),
                 'freshness_basis':'locally observed tick advancement; absolute UTC age is not verified'}
 
-    def snapshot(self, symbol=None):
+    def snapshot(self, symbol=None, *, allow_symbol_fallback=False, include_context=False):
         with LOCK:
             api, account, terminal = self.connect()
             demo = account.trade_mode==api.ACCOUNT_TRADE_MODE_DEMO
@@ -70,39 +126,73 @@ class MT5Bridge:
             if all_symbols is None: raise MT5Unavailable('MT5 could not list broker symbols')
             symbols = sorted(s.name for s in all_symbols if s.visible)[:100]
             selected = symbol or ('EURUSD' if 'EURUSD' in symbols else (symbols[0] if symbols else None))
+            unavailable_symbol = None
             if selected and selected not in symbols:
-                raise ValueError('Choose a visible broker symbol from the MT5 list')
-            tick, candles, specs = None, [], None
+                if not allow_symbol_fallback:
+                    raise ValueError('Choose a visible broker symbol from the MT5 list')
+                unavailable_symbol, selected = selected, None
+            tick, candles, specs, context = None, [], None, {}
             if selected:
                 tick = self.tick(api,selected,account)
                 info = api.symbol_info(selected)
                 if info:
                     specs = {key:getattr(info,key,None) for key in ('digits','point','volume_min','volume_max',
-                        'volume_step','trade_contract_size','trade_mode','filling_mode')}
+                        'volume_step','trade_contract_size','trade_mode','filling_mode','trade_tick_size',
+                        'trade_tick_value','trade_tick_value_profit','trade_tick_value_loss','trade_stops_level',
+                        'trade_freeze_level','trade_exemode','trade_calc_mode','swap_mode','swap_long','swap_short',
+                        'swap_rollover3days','currency_base','currency_profit','currency_margin')}
+                    point = specs['point']
+                    if point and point > 0 and 'spread' in tick:
+                        tick['spread_points'] = tick['spread']/point
+                        if include_context and tick['fresh']:
+                            key = (self.identity(account), selected)
+                            if key not in self._spread_samples and len(self._spread_samples) >= 128:
+                                self._spread_samples.pop(next(iter(self._spread_samples)))
+                            samples = self._spread_samples.setdefault(key, deque(maxlen=120))
+                            if not samples or tick['timestamp'] > samples[-1][0]:
+                                samples.append((tick['timestamp'], tick['spread_points']))
+                            ordered = sorted(value for _, value in samples)
+                            tick['spread_sample'] = {'count':len(ordered),'unit':'points',
+                                'median':ordered[len(ordered)//2],
+                                'p95':ordered[math.ceil(.95*len(ordered))-1]}
                 # Position 1 starts with the previous completed bar, not current bar 0.
                 rates = api.copy_rates_from_pos(selected,api.TIMEFRAME_M5,1,200)
                 if rates is not None:
                     candles = [{'timestamp':int(r['time']),'open':float(r['open']),'high':float(r['high']),
                         'low':float(r['low']),'close':float(r['close']),'volume':int(r['tick_volume'])}
                         for r in rates]
+                if include_context:
+                    for frame in TIMEFRAME_SECONDS:
+                        native_frame = getattr(api, 'TIMEFRAME_'+frame, None)
+                        native_rows = (rates if frame == 'M5' else
+                                       api.copy_rates_from_pos(selected,native_frame,1,32)
+                                       if native_frame is not None else None)
+                        context[frame] = summarize_completed(native_rows, frame, tick.get('timestamp'))
             positions = api.positions_get()
             orders = api.orders_get()
             if positions is None or orders is None:
                 raise MT5Unavailable('MT5 could not read positions or pending orders')
             confirmed_account = api.account_info()
-            if confirmed_account is None or self.identity(confirmed_account)!=self.identity(account):
+            confirmed_terminal = api.terminal_info()
+            if (confirmed_account is None or confirmed_terminal is None or not confirmed_terminal.connected
+                    or self.account_record(api, confirmed_account, confirmed_terminal) != self.account_record(api, account, terminal)):
                 raise MT5Unavailable('MT5 account changed while reading; refresh the connection')
             return {'connected':True,'adapter':'mt5_desktop','checked_at':time.time(),
-                'account':{'identity':self.identity(account),'server':account.server,'currency':account.currency,
+                'account':{**{k:v for k,v in self.account_record(api,account,terminal).items() if k != 'login'},'currency':account.currency,
                     'mode':'demo' if demo else 'live_read_only','balance':account.balance,'equity':account.equity,
                     'profit':account.profit,'margin':account.margin,'free_margin':account.margin_free,
-                    'leverage':account.leverage,'trade_allowed':account.trade_allowed},
+                    'leverage':account.leverage,'trade_allowed':account.trade_allowed,
+                    'account_subtype':None,'margin_mode':getattr(account,'margin_mode',None),
+                    'stopout_mode':getattr(account,'margin_so_mode',None),
+                    'margin_call':getattr(account,'margin_so_call',None),'stopout':getattr(account,'margin_so_so',None)},
                 'terminal':{'connected':terminal.connected,'build':terminal.build,
                     'trade_allowed':terminal.trade_allowed,'python_trading_disabled':terminal.tradeapi_disabled},
-                'symbols':symbols,'symbol':selected,'quote':tick,'specification':specs,'candles':candles,
+                'symbols':symbols,'symbol':selected,'unavailable_symbol':unavailable_symbol,'quote':tick,'specification':specs,'candles':candles,
                 'positions':[{key:getattr(p,key,None) for key in ('ticket','symbol','type','volume',
                     'price_open','price_current','profit','sl','tp','time','magic')} for p in positions],
-                'pending_order_count':len(orders),'capabilities':{'quotes':True,'positions':True,
+                'market_context':context,'field_provenance':{'account':'mt5_account_info',
+                    'specification':'mt5_symbol_info','quote':'mt5_symbol_info_tick',
+                    'account_subtype':'unknown','commission':'unknown'},'pending_order_count':len(orders),'capabilities':{'quotes':True,'positions':True,
                     'completed_candles':True,'demo_preflight':demo,
                     'order_submission':bool(demo and terminal.trade_allowed and not terminal.tradeapi_disabled and account.trade_allowed)},
                 'notice':'Manual demo orders require a reviewed ticket. Funded-account submissions are blocked.'}

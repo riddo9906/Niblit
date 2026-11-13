@@ -24,6 +24,11 @@ class NiblitLabManager(IStrategy):
     chosen_strategy='auto'
     exit_policy_version='strategy-aware-exits-v1'
 
+    def plot_annotations(self, pair, start_date, end_date, dataframe, **kwargs):
+        # Core visualization only. No analysis callbacks, Bot, orders or state writes.
+        from niblit_chart_plot import read_plot_annotations
+        return read_plot_annotations(self.config,pair,self.timeframe)
+
     def order_filled(self, pair, trade, order, current_time, **kwargs):
         if self.config.get('dry_run') is not True or order.ft_order_side!=trade.entry_side or trade.nr_of_successful_entries!=1:return
         tag=(trade.enter_tag or '').split(':')

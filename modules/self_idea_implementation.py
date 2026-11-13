@@ -55,8 +55,7 @@ class SelfIdeaImplementation:
         self.slsa = None
         try:
             self.slsa = SLSAGenerator(db=self.db, interval=20)
-            self.slsa.start()
-            log.info("SLSA Generator initialized and running.")
+            log.info("SLSA initialized for idea lookup; generation uses the Core learning controls.")
         except Exception as e:
             log.warning(f"SLSA initialization failed: {e}")
 
@@ -69,6 +68,7 @@ class SelfIdeaImplementation:
         # Autonomous loop control
         # -----------------------------
         self.running = True
+        self._stop_event = threading.Event()
 
     # ============================================================
     # SAFE DB WRAPPERS
@@ -245,7 +245,7 @@ class SelfIdeaImplementation:
                 self.generate_and_implement(limit=3)
             except Exception as e:
                 log.error(f"Autonomous loop error: {e}")
-            time.sleep(poll_interval)
+            self._stop_event.wait(poll_interval)
 
     # ============================================================
     # STOP LOOP
@@ -253,6 +253,7 @@ class SelfIdeaImplementation:
 
     def stop(self):
         self.running = False
+        self._stop_event.set()
         if self.slsa:
             self.slsa.stop()
 

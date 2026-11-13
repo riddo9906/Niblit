@@ -4,7 +4,7 @@ Freqtrade remains the execution authority. Tickets are durable before delivery;
 an ambiguous response is never retried automatically.
 """
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 import hashlib
 import json
 import math
@@ -30,7 +30,7 @@ class FreqtradeRejection(RuntimeError):
 
 
 class Intent(BaseModel):
-    action: Literal['enter_long', 'exit']
+    action: Literal['enter_long', 'enter_short', 'exit']
     pair: str = Field(min_length=3, max_length=80)
     stake: float = Field(default=20, gt=0, le=100000)
     trade_id: int | None = Field(default=None, gt=0)
@@ -39,6 +39,14 @@ class Intent(BaseModel):
 class Confirm(BaseModel):
     ticket: str
     acknowledgement: Literal['CONFIRM_SIMULATED_ORDER']
+
+
+class BoundConfirm(Confirm):
+    """Existing human ticket, additionally bound to an immutable Cloud request."""
+    model_config = {"extra": "forbid"}
+    mode: Literal["dry-run"]
+    intent: Intent
+    identity: dict
 
 
 class MT5Check(BaseModel):
@@ -80,10 +88,13 @@ class Desk:
             db.execute('CREATE TABLE IF NOT EXISTS outcomes(id TEXT PRIMARY KEY, payload TEXT, recorded REAL)')
             db.execute('CREATE TABLE IF NOT EXISTS memory_exports(id TEXT PRIMARY KEY, queued REAL)')
 
+    @contextmanager
     def db(self):
         db = sqlite3.connect(self.path, timeout=10)
         db.row_factory = sqlite3.Row
-        return db
+        try:
+            with db: yield db
+        finally: db.close()
 
     def connection(self):
         # The Docker profile is explicit; no silent fallback to another account.
@@ -115,10 +126,29 @@ class Desk:
         return {key:data.get(key) for key in ('dry_run','state','exchange','trading_mode',
             'strategy','timeframe','stake_currency','max_open_trades','force_entry_enable','version')}
 
+    def quote(self, pair, config=None):
+        """Read public bid/ask for this exact configured market, without orders."""
+        config = config or self.configuration()
+        kind = config.get('trading_mode')
+        result = {'symbol':pair, 'venue':config.get('exchange'), 'fresh':False,
+                  'source':'ccxt_public_order_book'}
+        if kind not in ('spot','futures') or (kind=='spot' and ':' in pair):
+            return {**result,'reason':'unsupported_or_ambiguous_market_type'}
+        provider = 'binanceusdm' if config.get('exchange')=='binance' and kind=='futures' else config.get('exchange')
+        if not isinstance(provider,str) or not provider.isidentifier():
+            return {**result,'reason':'provider_unavailable'}
+        from modules.market_data_providers import MarketDataProviders
+        return {**MarketDataProviders().ccxt_quote(pair,exchange=provider),'venue':config['exchange']}
+
     def market(self, pair, config=None):
         config = config or self.configuration()
         from urllib.parse import urlencode
-        raw = self.api('pair_candles?'+urlencode({'pair':pair,'timeframe':config['timeframe'],'limit':200}))
+        engine_error = None
+        try:
+            raw = self.api('pair_candles?'+urlencode({'pair':pair,'timeframe':config['timeframe'],'limit':200}))
+        except Exception as exc:
+            raw = {}
+            engine_error = type(exc).__name__
         columns = raw.get('columns', [])
         rows = [dict(zip(columns,row)) for row in raw.get('data',[])]
         interval = raw.get('timeframe_ms', 300000)/1000
@@ -137,11 +167,89 @@ class Desk:
         last = closed[-1] if closed else None
         age = stamp-(last['timestamp']+interval) if last else None
         fresh = age is not None and -5 <= age <= max(interval*2,120)
+        if not fresh:
+            public = self.public_market(pair, config)
+            public['engine_data_state'] = engine_error or ('empty' if not closed else 'stale')
+            if public['fresh'] or not closed:
+                return public
         return {'pair':pair,'candles':closed,'last':last,'age_seconds':age,'fresh':fresh,
                 'source':'freqtrade_analyzed_exchange_candles','timeframe':config['timeframe'],
                 'signal':('STALE' if not fresh else 'EXIT_LONG' if last.get('exit_long')==1
                           else 'ENTER_LONG' if last.get('enter_long')==1 else 'WAIT'),
                 'signal_basis':'Configured strategy on the latest completed candle; not a profitability claim'}
+
+    def public_market(self, pair, config):
+        """Reuse existing public data provider when the stopped engine has no bars.
+
+        This fetches no account credentials or strategy-entry flags and never
+        starts the engine. Instrument/market type remain explicitly configured.
+        """
+        base = {'pair':pair, 'candles':[], 'last':None, 'fresh':False,
+                'age_seconds':None, 'source':'ccxt_public_exchange_ohlcv',
+                'timeframe':config.get('timeframe'), 'signal':'STALE',
+                'native_signals_available':False,
+                'signal_basis':'Public OHLCV only; native engine signals unavailable.'}
+        try:
+            import re
+            frame = re.fullmatch(r'([1-9][0-9]*)([smhdw])', str(config.get('timeframe','')))
+            if frame is None:
+                raise ValueError('unsupported_timeframe')
+            interval = int(frame[1])*{'s':1,'m':60,'h':3600,'d':86400,'w':604800}[frame[2]]
+            exchange = config.get('exchange')
+            kind = config.get('trading_mode') or ('futures' if ':' in pair else 'spot')
+            if kind not in ('spot','futures'):
+                raise ValueError('unsupported_market_type')
+            if kind=='spot' and ':' in pair:
+                raise ValueError('instrument_market_type_mismatch')
+            provider = 'binanceusdm' if exchange=='binance' and kind=='futures' else exchange
+            if not isinstance(provider,str) or not provider.isidentifier():
+                raise ValueError('invalid_exchange_identity')
+            base.update(provider=provider, market_type=kind)
+            key = (provider, pair, config['timeframe'])
+            cache = self.__dict__.setdefault('_public_market_cache', {})
+            lock = self.__dict__.setdefault('_public_market_lock', threading.Lock())
+            with lock:
+                cached = cache.get(key)
+                if cached is not None and time.monotonic()-cached[0]<15:
+                    bars = cached[1]
+                else:
+                    from modules.market_data_providers import MarketDataProviders
+                    bars = MarketDataProviders().ccxt_bars(pair,interval=config['timeframe'],
+                                                           bars=201,exchange=provider)
+                    if not isinstance(bars,list):
+                        raise ValueError('public_provider_unavailable')
+                    if len(cache)>=32:
+                        cache.pop(next(iter(cache)))
+                    cache[key] = (time.monotonic(), bars)
+            if not 1<=len(bars)<=500:
+                raise ValueError('missing_or_unbounded_candles')
+            stamp = time.time()
+            rows = []
+            for bar in bars:
+                if not isinstance(bar,(list,tuple)) or len(bar)<6:
+                    raise ValueError('invalid_ohlcv')
+                if any(isinstance(v,bool) for v in bar[:6]):
+                    raise ValueError('invalid_ohlcv')
+                ts,o,h,l,c,v = [float(x) for x in bar[:6]]
+                ts /= 1000
+                if not all(math.isfinite(x) for x in (ts,o,h,l,c,v)) or min(ts,o,h,l,c)<=0 or v<0:
+                    raise ValueError('invalid_ohlcv')
+                if l>min(o,c) or h<max(o,c):
+                    raise ValueError('inconsistent_ohlc')
+                if ts+interval<=stamp:
+                    rows.append(dict(timestamp=ts,open=o,high=h,low=l,close=c,volume=v))
+            if any(b['timestamp']-a['timestamp']!=interval for a,b in zip(rows,rows[1:])):
+                raise ValueError('duplicate_or_gapped_candles')
+            if not rows:
+                raise ValueError('no_completed_candles')
+            age = stamp-(rows[-1]['timestamp']+interval)
+            fresh = 0<=age<=max(interval*2,120)
+            return {**base,'candles':rows,'last':rows[-1],'age_seconds':age,'fresh':fresh,
+                    'signal':'WAIT' if fresh else 'STALE',
+                    'quality':{'ohlcv_valid':True,'closed_only':True,'contiguous':True,
+                               'interval_seconds':interval}}
+        except (TypeError,ValueError,KeyError,OverflowError) as exc:
+            return {**base,'data_error':str(exc) if isinstance(exc,ValueError) else type(exc).__name__}
 
     def snapshot(self, pair=None):
         config = self.configuration()
@@ -214,7 +322,8 @@ class Desk:
     def validate(self, intent, config):
         if config.get('dry_run') is not True:
             raise ValueError('Funded orders are not enabled. This desk currently accepts dry-run orders only.')
-        if intent.action == 'enter_long':
+        if intent.action in ('enter_long','enter_short'):
+            if intent.action=='enter_short' and config.get('trading_mode')!='futures':raise ValueError('Short entries require verified futures mode')
             if config.get('state') != 'running': raise ValueError('Engine must be running')
             if config.get('force_entry_enable') is not True: raise ValueError('Freqtrade manual entry is disabled in its configuration')
             if intent.pair not in self.api('whitelist').get('whitelist',[]): raise ValueError('Pair is not in the engine whitelist')
@@ -251,38 +360,55 @@ class Desk:
         # Use the maximum 50% cost reserve to avoid a silent stake increase.
         return max(quantity*price*1.05,notional*1.5)
 
-    def preview(self, intent):
+    def preview(self, intent, core_owned=False):
         config = self.configuration()
         with self.db() as db:
             if db.execute("SELECT 1 FROM tickets WHERE state IN ('sending','unknown') LIMIT 1").fetchone():
                 raise ValueError('An earlier delivery is unresolved. Reconcile the engine and ticket ledger before another order.')
         self.validate(intent,config)
         key = secrets.token_urlsafe(24)
-        payload = {'intent':intent.model_dump(),'identity':config}
+        payload = {'intent':intent.model_dump(),'identity':config,**({'core_owned':True,'entry_tag':'niblit_core:'+key} if core_owned else {})}
         with self.db() as db:
             db.execute('INSERT INTO tickets VALUES(?,?,?,?,?)',(key,time.time(),'preview',json.dumps(payload),None))
         return {'ticket':key,'expires_in':30,**payload,'notice':'Simulated order; actual price and fill are determined by Freqtrade'}
 
-    def confirm(self, key):
+    def confirm(self, key, expected=None, guard=None):
         with self.lock:
             with self.db() as db:
                 db.execute('BEGIN IMMEDIATE')
                 row = db.execute('SELECT * FROM tickets WHERE id=?',(key,)).fetchone()
                 if not row: raise ValueError('Unknown ticket')
+                data = json.loads(row['payload'])
+                if data.get('core_owned') and guard is None:raise PermissionError('Core-owned ticket requires current Core session guard')
+                config = None
+                if expected is not None:
+                    # Binding and current non-live identity are checked inside
+                    # the original durable ticket transaction, even on replay.
+                    if (not isinstance(expected,dict) or data != expected
+                            or data['identity'].get('dry_run') is not True):
+                        raise ValueError('Core ticket does not match the requested operation or identity')
+                    config = self.configuration()
+                    if config.get('dry_run') is not True or config != data['identity']:
+                        raise ValueError('Core non-live identity changed or cannot be verified')
                 if row['state'] != 'preview': return {'state':row['state'],'result':json.loads(row['result'] or 'null')}
                 if db.execute("SELECT 1 FROM tickets WHERE state IN ('sending','unknown') LIMIT 1").fetchone():
                     raise ValueError('An earlier delivery is unresolved; reconcile before submitting another ticket')
                 if time.time()-row['created'] > 30: raise ValueError('Ticket expired; preview again')
-                data = json.loads(row['payload'])
-                config = self.configuration()
+                config = config or self.configuration()
                 if config != data['identity']: raise ValueError('Engine identity or configuration changed; preview again')
                 intent = Intent(**data['intent'])
                 self.validate(intent,config)
                 db.execute("UPDATE tickets SET state='sending' WHERE id=?",(key,))
             # Persisted sending means a restart cannot cause a duplicate retry.
+            if guard is not None:
+                try: guard()
+                except Exception:
+                    with self.db() as db:
+                        db.execute("UPDATE tickets SET state='rejected',result=? WHERE id=?",(json.dumps({'message':'Core scope/risk guard denied; no order sent'}),key))
+                    raise
             try:
-                result = self.api('forceenter',{'pair':intent.pair,'side':'long','stakeamount':intent.stake,
-                    'ordertype':'market','entry_tag':'niblit_'+key[:12],'leverage':1}) if intent.action=='enter_long' else self.api(
+                result = self.api('forceenter',{'pair':intent.pair,'side':'short' if intent.action=='enter_short' else 'long','stakeamount':intent.stake,
+                    'ordertype':'market','entry_tag':data.get('entry_tag','niblit_'+key[:12]),'leverage':1}) if intent.action in ('enter_long','enter_short') else self.api(
                     'forceexit',{'tradeid':str(intent.trade_id),'ordertype':'market'})
                 selected = {k:result.get(k) for k in ('trade_id','status','pair','is_open')}
                 state = 'submitted'  # Submission is not proof of a fill.
@@ -306,7 +432,7 @@ class Desk:
                     continue
                 intent = payload['intent']
                 match = next((t for t in trades if t.get('pair')==intent['pair'] and (
-                    t.get('enter_tag')=='niblit_'+row['id'][:12] if intent['action']=='enter_long'
+                    t.get('enter_tag')==payload.get('entry_tag','niblit_'+row['id'][:12]) if intent['action'] in ('enter_long','enter_short')
                     else t.get('trade_id')==intent['trade_id'] and t.get('is_open') is False)),None)
                 if match:
                     db.execute("UPDATE tickets SET state='reconciled',result=? WHERE id=?",
@@ -315,7 +441,31 @@ class Desk:
         return {'resolved':resolved,'notice':'Only matching engine evidence resolves a ticket. No orders were sent.'}
 
 
-def create_app(desk=None, mt5=None):
+def core_market_analysis(observation):
+    """Forward evidence to the existing Core; never retry or submit an order."""
+    try:
+        port=int(os.getenv("NIBLIT_API_PORT","5000"))
+        if not 1 <= port <= 65535:
+            raise ValueError("Invalid Core port")
+        with httpx.Client(base_url=f"http://127.0.0.1:{port}",trust_env=False,timeout=httpx.Timeout(60,connect=2)) as client:
+            response=client.post("/api/trading/analysis",json={"observation":observation})
+            response.raise_for_status()
+            payload=response.json()
+        metadata=payload.get("metadata",{})
+        analysis=metadata.get("market_analysis")
+        if not isinstance(analysis,dict) or analysis.get("execution_authorized") is not False:
+            raise ValueError("Core analysis-only contract unavailable")
+        return {"state":"analyzed_by_core","analysis":analysis,
+                "authorization":metadata.get("authorization"),
+                "memory":metadata.get("market_memory"),"trace_id":payload.get("trace_id"),
+                "annotations":metadata.get("chart_annotations"),
+                "execution_authorized":False}
+    except Exception as exc:
+        return {"state":"pending","error_type":type(exc).__name__,
+                "execution_authorized":False}
+
+
+def create_app(desk=None, mt5=None, core_hosted=False):
     desk = desk or Desk()
     @asynccontextmanager
     async def lifespan(app):
@@ -339,7 +489,18 @@ def create_app(desk=None, mt5=None):
     auto = DemoAutotrader(mt5, mt5_orders, desk.path.parent/'demo-learning.sqlite3', demo_outcome_sink, events)
     app.state.demo_autotrader = auto
     from modules.freqtrade_research import FreqtradeResearch
-    freqtrade_research=FreqtradeResearch(desk)
+    from modules.freqtrade_native_analysis import NativeAnalysisCache
+    native_analysis=NativeAnalysisCache()
+    freqtrade_research=FreqtradeResearch(desk,core_analysis=core_market_analysis,native_analysis=native_analysis.snapshot)
+
+    @app.get('/api/freqtrade/positions')
+    def core_position_intelligence():
+        try:
+            with httpx.Client(trust_env=False,timeout=8) as client:
+                response=client.get('http://127.0.0.1:5000/api/trading/positions')
+                response.raise_for_status()
+                return response.json()
+        except Exception:raise HTTPException(503,'Core position observations unavailable; no order was sent')
 
     @app.get('/api/freqtrade/research')
     def freqtrade_research_snapshot(pair:str):
@@ -365,7 +526,8 @@ def create_app(desk=None, mt5=None):
             if body.opportunity_id is not None:
                 match=next((o for o in auto.status()['opportunities'] if o['id']==body.opportunity_id and o['symbol']==body.symbol),None)
                 if match is None: raise ValueError('Opportunity expired or conditions changed; wait for another alert')
-            return auto.start(body.symbol, body.strategy, body.minutes, body.max_entries)
+            if mt5.snapshot(body.symbol)['account']['mode']!='demo':raise ValueError('Connect a verified demo account')
+            raise ValueError('Review and activate the bounded session in Core trading controls; this legacy route cannot grant execution')
         except ValueError as exc: raise HTTPException(409, str(exc))
         except Exception: raise HTTPException(503, 'Demo session unavailable; inspect the terminal')
 
@@ -381,10 +543,42 @@ def create_app(desk=None, mt5=None):
 
     @app.get('/api/mt5/snapshot')
     def mt5_snapshot(symbol:str|None=None):
-        try: return {**mt5.snapshot(symbol),'order_history':mt5_orders.history()}
+        try:
+            snapshot = mt5.snapshot(symbol, allow_symbol_fallback=True)
+            return {**snapshot, 'order_history':mt5_orders.history(snapshot['account']['identity'])}
         except ValueError as exc: return {'connected':False,'error':str(exc)}
         except MT5Unavailable as exc: return {'connected':False,'error':str(exc)}
         except Exception: return {'connected':False,'error':'MT5 bridge unavailable; check the desktop terminal'}
+
+    # Independent desktop observation is explicitly account-bound and cannot
+    # route any mutations around the selected remote execution profile.
+    from modules.desktop_market_intelligence import DesktopMarketIntelligence, component_inventory
+    intelligence=DesktopMarketIntelligence(mt5,core_market_analysis)
+
+    @app.get('/api/intelligence/desktop-binding')
+    def desktop_binding():
+        try:return intelligence.binding()
+        except Exception as exc:return {'connected':False,'error_type':type(exc).__name__,
+                                        'reason':'Open and connect the desktop MT5 terminal'}
+
+    @app.get('/api/intelligence/desktop')
+    def desktop_intelligence(symbol:str,account_identity:str,terminal_id:str):
+        try:return intelligence.observe(symbol,account_identity,terminal_id)
+        except (ValueError,MT5Unavailable) as exc:return {'connected':False,'reason':str(exc),'execution_authorized':False}
+        except Exception as exc:return {'connected':False,'error_type':type(exc).__name__,
+            'reason':'Desktop intelligence unavailable','execution_authorized':False}
+
+    @app.get('/api/intelligence/components')
+    def desktop_components(account_identity:str,terminal_id:str):
+        try:
+            from modules.mt5_bridge import LOCK
+            with LOCK:
+                api,account,terminal=mt5.connect()
+                identity=mt5.account_record(api,account,terminal)
+                if identity['identity']!=account_identity or identity['terminal_id']!=terminal_id:
+                    raise ValueError('Desktop binding changed')
+                return component_inventory(terminal.data_path)
+        except Exception as exc:return {'components':[],'available':False,'error_type':type(exc).__name__,'execution_enabled':False}
 
     @app.post('/api/mt5/check-order')
     def mt5_check(body:MT5Check):
@@ -413,12 +607,25 @@ def create_app(desk=None, mt5=None):
     @app.middleware('http')
     async def guard(request:Request, call_next):
         host = request.headers.get('host','')
-        if host not in {'127.0.0.1:8767','localhost:8767','testserver'}:
+        allowed_hosts={'127.0.0.1:8767','localhost:8767','testserver'}
+        if core_hosted:allowed_hosts.update({'127.0.0.1:5000','localhost:5000'})
+        if host not in allowed_hosts:
             from fastapi.responses import JSONResponse
             return JSONResponse({'detail':'Invalid host'},400)
+        if core_hosted and os.getenv('NIBLIT_VPS_GATEWAY_PROFILE','').strip():
+            path=request.url.path
+            prefix=request.scope.get('root_path','')
+            if prefix and path.startswith(prefix):path=path[len(prefix):]
+            remote_blocked=(path.startswith('/api/mt5/') or path.startswith('/api/demo/')
+                or (path.startswith('/api/charts/') and request.query_params.get('environment')=='mt5'))
+            if remote_blocked:
+                from fastapi.responses import JSONResponse
+                return JSONResponse({'detail':'Remote XM profile selected; desktop MT5 fallback and mutations disabled. Use Core remote observation.'},403)
         if request.method != 'GET':
             origin = request.headers.get('origin','')
-            if origin not in {'http://127.0.0.1:8767','http://localhost:8767'} or not secrets.compare_digest(request.headers.get('x-desk-token',''),token):
+            allowed_origins={'http://127.0.0.1:8767','http://localhost:8767'}
+            if core_hosted:allowed_origins.update({'http://127.0.0.1:5000','http://localhost:5000'})
+            if origin not in allowed_origins or not secrets.compare_digest(request.headers.get('x-desk-token',''),token):
                 from fastapi.responses import JSONResponse
                 return JSONResponse({'detail':'Open the local desk to review orders'},403)
         response = await call_next(request)
@@ -427,13 +634,88 @@ def create_app(desk=None, mt5=None):
         return response
 
     @app.get('/',response_class=HTMLResponse)
-    def index(): return (ROOT/'assets/trading-desk/index.html').read_text(encoding='utf-8').replace('TOKEN_PLACEHOLDER',token)
+    def index(request:Request):
+        base=request.scope.get('root_path','').rstrip('/')
+        content=(ROOT/'assets/trading-desk/index.html').read_text(encoding='utf-8').replace('TOKEN_PLACEHOLDER',token).replace('BASE_PLACEHOLDER',base)
+        content=content.replace('</head>','<script src="/exness-demo.js" defer></script></head>')
+        for asset in ('desk.css','chart.js','desk.js','sessions.js','remote-observation.js','exness-demo.js','broker-view.js','intelligence.js'):
+            content=content.replace('/'+asset,base+'/'+asset)
+        if core_hosted and os.getenv('NIBLIT_VPS_GATEWAY_PROFILE','').strip():
+            content=content.replace('<body>','<body data-remote-observation="true">')
+        return content
+
+    @app.api_route('/api/core-trading/{action:path}',methods=['GET','POST'])
+    async def core_trading_proxy(action:str,request:Request):
+        import re
+        paths={'status':'','observe':'/observe','propose':'/propose','activate':'/activate','stop':'/stop'}
+        if action in paths:tail=paths[action]
+        elif re.fullmatch(r'alerts/[a-f0-9]{64}/delivered',action):tail='/'+action
+        else:raise HTTPException(404,'Unknown Core trading action')
+        if (action=='status') != (request.method=='GET'):raise HTTPException(405,'Invalid method')
+        data=await request.json() if request.method=='POST' else None
+        nonce=data.pop('operator_nonce','') if data is not None else ''
+        port=int(os.getenv('NIBLIT_API_PORT','5000'))
+        if not 1<=port<=65535:raise HTTPException(503,'Invalid Core port')
+        headers={'origin':'http://127.0.0.1:8767','x-niblit-trading-nonce':nonce}
+        async with httpx.AsyncClient(trust_env=False,timeout=120) as client:
+            url=f'http://127.0.0.1:{port}/api/trading/sessions'+tail
+            result=await client.get(url,headers=headers) if data is None else await client.post(url,json=data,headers=headers)
+        if result.is_error:raise HTTPException(result.status_code,result.json().get('detail','Core trading unavailable'))
+        return result.json()
+
+    @app.get('/remote-observation.js')
+    def remote_observation_javascript():return FileResponse(ROOT/'assets/trading-desk/remote-observation.js',media_type='text/javascript')
+
+    @app.get('/exness-demo.js')
+    def exness_demo_javascript():return FileResponse(ROOT/'assets/trading-desk/exness-demo.js',media_type='text/javascript')
+
+    @app.get('/broker-view.js')
+    def broker_view_javascript():return FileResponse(ROOT/'assets/trading-desk/broker-view.js',media_type='text/javascript')
+
+    @app.get('/sessions.js')
+    def core_trading_javascript():return FileResponse(ROOT/'assets/trading-desk/sessions.js',media_type='text/javascript')
 
     @app.get('/desk.js')
     def js(): return FileResponse(ROOT/'assets/trading-desk/desk.js',media_type='text/javascript')
 
+    @app.get('/intelligence.js')
+    def intelligence_javascript():return FileResponse(ROOT/'assets/trading-desk/intelligence.js',media_type='text/javascript')
+
     @app.get('/desk.css')
     def css(): return FileResponse(ROOT/'assets/trading-desk/desk.css',media_type='text/css')
+
+    from modules.chart_views import ChartView, pine_export, freqtrade_annotations
+    from fastapi.responses import PlainTextResponse
+    chart_view=ChartView(desk,mt5,core_market_analysis)
+
+    @app.get('/chart.js')
+    def chart_javascript():return FileResponse(ROOT/'assets/trading-desk/chart.js',media_type='text/javascript')
+
+    @app.get('/api/charts/snapshot')
+    def chart_snapshot(environment:str='freqtrade',symbol:str='BTC/USDT:USDT',timeframe:str='5m'):
+        try:return chart_view.snapshot(environment,symbol,timeframe)
+        except ValueError as exc:raise HTTPException(422,str(exc))
+        except Exception as exc:raise HTTPException(503,'Chart observation unavailable: '+type(exc).__name__)
+
+    @app.get('/api/charts/history')
+    def chart_history(environment:str='freqtrade',symbol:str='BTC/USDT:USDT',timeframe:str='5m'):
+        result=chart_snapshot(environment,symbol,timeframe);bundle=result['annotations']
+        if not bundle.get('namespace'):return {'history':[],'state':'history_unavailable'}
+        with httpx.Client(trust_env=False,timeout=10) as client:
+            response=client.get('http://127.0.0.1:5000/api/trading/chart-annotations',params={'chart_key':bundle['chart_key'],'namespace':bundle['namespace'],'history':'true'})
+            response.raise_for_status();return response.json()
+
+    @app.get('/api/charts/pine',response_class=PlainTextResponse)
+    def chart_pine(environment:str='freqtrade',symbol:str='BTC/USDT:USDT',timeframe:str='5m'):
+        result=chart_snapshot(environment,symbol,timeframe)
+        return PlainTextResponse(pine_export(result['annotations']),headers={'Content-Disposition':'attachment; filename="NiblitEvidence.pine"'})
+
+    @app.get('/api/charts/freqtrade')
+    def chart_freqtrade(symbol:str='BTC/USDT:USDT',timeframe:str='5m'):
+        result=chart_snapshot('freqtrade',symbol,timeframe)
+        return {'pair':symbol,'timeframe':timeframe,'annotations':freqtrade_annotations(result['annotations']),
+                'notice':'Supported FreqUI area contract. Endpoint is an export, not proof FreqUI consumes it.',
+                'execution_authorized':False}
 
     @app.get('/api/snapshot')
     def snapshot(pair:str|None=None):
@@ -445,6 +727,17 @@ def create_app(desk=None, mt5=None):
         try: return desk.preview(body)
         except ValueError as exc: raise HTTPException(409,str(exc))
         except Exception: raise HTTPException(503,'Execution engine unavailable')
+
+    @app.post('/api/cloud/confirm')
+    def cloud_confirm(body:BoundConfirm):
+        # The original same-origin/session-token middleware applies. Cloud can
+        # neither mint tickets nor obtain that human consent token from here.
+        try:
+            result = desk.confirm(body.ticket, expected={
+                "intent":body.intent.model_dump(), "identity":body.identity})
+            return {**result, "mode":"dry-run", "authority":"core_human_ticket"}
+        except ValueError as exc: raise HTTPException(409,str(exc))
+        except Exception: raise HTTPException(503,'Core confirmation unavailable; inspect tickets before retrying')
 
     @app.post('/api/confirm')
     def confirm(body:Confirm):

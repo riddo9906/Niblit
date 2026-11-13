@@ -31,10 +31,17 @@ def test_tutor_capability_is_scoped_and_never_verifies(tmp_path):
     g=gateway(tmp_path,Backend())
     private=tmp_path/'runtime/client-portal';private.mkdir(parents=True)
     (private/'gguf-api-key').write_text('test-local-tutor-key-not-a-real-secret-12345')
-    c=TestClient(web.create_app(g,root=tmp_path,port=8772))
+    from modules.memory_laboratory.runtime import MemoryRuntime
+    runtime=MemoryRuntime(g)
+    c=TestClient(web.create_app(g,root=tmp_path,port=8772,runtime=runtime))
     header={'authorization':'Bearer test-local-tutor-key-not-a-real-secret-12345','host':'host.docker.internal:8772'}
     assert c.post('/api/local-tutor/recall',json={'query':'memory'}).status_code==403
     assert c.post('/api/local-tutor/observation',json={'source_id':'test-1','content':'A local model suggested a hypothesis.'},headers=header).status_code==200
+    # The canonical durable outbox precedes projection; an HTTP receipt does
+    # not mean the asynchronous worker has already created a vector record.
+    with g.db() as db:
+        assert db.execute('SELECT COUNT(*) FROM ingestion_outbox').fetchone()[0]==1
+    runtime.tick()
     with g.db() as db:
         payload=json.loads(db.execute('SELECT payload FROM records').fetchone()[0])
     assert payload['category']=='episodic' and payload['verification']=='unverified'

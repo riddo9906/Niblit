@@ -54,7 +54,14 @@ class TutorObservation(BaseModel):
     content: str = Field(min_length=1,max_length=12000)
 
 class TaskRequest(BaseModel):
-    owner: Literal['portal_chat','local_tutor','core_tool_loop','core_inference','autonomous_step']
+    owner: Literal['portal_chat','local_tutor','core_tool_loop','core_inference','autonomous_step','niblit_chat']
+    request_id: str | None = Field(default=None,pattern=r'^[a-f0-9]{32}$')
+
+class TaskDelegation(BaseModel):
+    token: str = Field(min_length=32,max_length=120)
+    request_id: str = Field(pattern=r'^[a-f0-9]{32}$')
+    complete: bool = False
+    uncertain: bool = False
 
 class TaskFinish(BaseModel):
     token: str = Field(min_length=32,max_length=120)
@@ -119,7 +126,7 @@ def local_get(url):
         return {"available": False, "error": type(exc).__name__}
 
 
-def create_app(gateway=None, *, root=ROOT, port=8766):
+def create_app(gateway=None, *, root=ROOT, port=8766, runtime=None):
     root = Path(root)
     if gateway is None:
         from dotenv import dotenv_values
@@ -136,8 +143,10 @@ def create_app(gateway=None, *, root=ROOT, port=8766):
             except (OSError, ValueError):
                 return False
         gateway = MemoryGateway(Config.from_values(dotenv_values(values["NIBLIT_MEMORY_LAB_ENV_FILE"])), values["NIBLIT_MEMORY_LAB_LEDGER"], authorize=authorize)
-    runtime = MemoryRuntime(gateway)
-    from modules.task_admission import TaskAuthority,AdmissionBusy
+    if runtime is not None and runtime.gateway is not gateway:
+        raise ValueError("Memory gateway/runtime ownership mismatch")
+    runtime = runtime if runtime is not None else MemoryRuntime(gateway)
+    from modules.task_admission import TaskAuthority,AdmissionBusy,AdmissionUncertain
     authority=TaskAuthority(gateway)
     scope = runtime.scope
     token = secrets.token_urlsafe(32)
@@ -149,7 +158,7 @@ def create_app(gateway=None, *, root=ROOT, port=8766):
 
     @app.middleware("http")
     async def local_operator(request: Request, call_next):
-        if request.url.path in {'/api/local-tutor/recall','/api/local-tutor/observation','/api/local-tutor/task/acquire','/api/local-tutor/task/finish','/api/local-tutor/task/status'}:
+        if request.url.path in {'/api/local-tutor/recall','/api/local-tutor/observation','/api/local-tutor/task/acquire','/api/local-tutor/task/finish','/api/local-tutor/task/status','/api/local-tutor/task/delegate'}:
             # Dedicated local tutor capability: read-only, fixed scope and
             # authenticated with the existing private local-model service key.
             # Writes can only append unverified episodic model observations;
@@ -199,12 +208,18 @@ def create_app(gateway=None, *, root=ROOT, port=8766):
 
     @app.post('/api/local-tutor/task/acquire')
     def acquire_task(body:TaskRequest):
-        try:return authority.acquire(body.owner)
+        try:return authority.acquire(body.owner,request_id=body.request_id)
+        except AdmissionUncertain as exc:raise HTTPException(423,str(exc))
         except AdmissionBusy as exc:raise HTTPException(409,str(exc))
 
     @app.post('/api/local-tutor/task/finish')
     def finish_task(body:TaskFinish):
         return authority.finish(body.token,body.uncertain)
+
+    @app.post('/api/local-tutor/task/delegate')
+    def delegate_task(body:TaskDelegation):
+        try:return authority.delegate(body.token,body.request_id,body.complete,body.uncertain)
+        except AdmissionBusy as exc:raise HTTPException(409,str(exc))
 
     @app.post('/api/local-tutor/task/status')
     def task_status():return authority.status()
@@ -223,11 +238,11 @@ def create_app(gateway=None, *, root=ROOT, port=8766):
         segments=[(body.content[i:i+1000],source+f'#offset={i}') for i in range(0,len(body.content),1000)]
         if not tutor_memory_lock.acquire(blocking=False):raise HTTPException(409,'Memory task already active; no queue')
         try:
-            gateway.ingest(segments,source=source,**scope,category='episodic',
+            receipt=runtime.enqueue(source=source,content=body.content,category='episodic',
                 metadata={'source_type':'local_model_reflection','confidence':.2,
                           'provenance':{'source_type':'local_model_reflection','truth_verified':False}})
         finally:tutor_memory_lock.release()
-        return {'stored':True,'verification':'unverified','category':'episodic'}
+        return {'stored':True,'id':receipt,'projection':'pending_not_verified','verification':'unverified','category':'episodic'}
 
     @app.get("/desk.js")
     def script():
