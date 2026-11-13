@@ -187,3 +187,23 @@ __pycache__/
 *.pyc
 
 runtime/client-portal/cloudflare-tunnel-token
+
+# Reviewed local-only output locations (repository sync 2026-11-13)
+/work/
+/diagnostics/pytest-*/
+/outputs/*TESTS.xml
+/outputs/*REGRESSION.xml
+/deploy/hybrid/base-image.id
+/training-work/
+/model-checkpoints/
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Raw local execution evidence: generated diffs, process state and test captures.
+# Keep architecture Markdown, source, tests and publishable templates visible.
+/docs/agent-context/evidence/
+/.secrets/
+*.token
+*.pfx
+*.p12

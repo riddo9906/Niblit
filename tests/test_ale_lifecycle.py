@@ -105,8 +105,10 @@ def test_local_profile_has_finite_default_and_bypasses_legacy_cycle(monkeypatch)
     monkeypatch.setenv('NIBLIT_ALE_LOCAL_SAFE','1')
     called=[]
     monkeypatch.setattr('modules.native_evidence_learning.run_cycle',lambda *a,**k:called.append(True) or {'state':'knowledge_gap'})
-    assert e._run_autonomous_cycle()=='knowledge_gap'
-    assert called==[True]
+    e.prepare_learning_opportunity=lambda:'pending-proposal'
+    assert e._run_autonomous_cycle()=='awaiting_approval'
+    assert called==[]
+    assert e._native_cycle_result['proposal_id']=='pending-proposal'
     e.background_loop=lambda:None
     assert e.start();e.learning_thread.join(2)
     assert e._max_cycles==3

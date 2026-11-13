@@ -26,6 +26,27 @@ import threading
 import time
 import traceback
 
+# Offline release checks must exit before environment loading or Core imports.
+if __name__ == "__main__" and "--phase6-preflight" in sys.argv:
+    from modules.phase6_preflight import main as _phase6_preflight
+    raise SystemExit(_phase6_preflight())
+
+if __name__ == "__main__" and "--release-preflight" in sys.argv:
+    sys.argv.remove("--release-preflight")
+    from modules.release_preflight import main as _release_preflight_main
+    raise SystemExit(_release_preflight_main())
+
+# Offline fixture only: never constructs a real broker connector.
+if __name__ == "__main__" and "--trading-selftest" in sys.argv:
+    from modules.trading_session_selftest import main as _trading_selftest
+    raise SystemExit(_trading_selftest())
+
+# Explicit read-only broker acceptance; never constructs or activates sessions.
+if __name__ == "__main__" and "--trading-readonly-check" in sys.argv:
+    sys.argv.remove("--trading-readonly-check")
+    from modules.trading_session_probe import main as _trading_probe
+    raise SystemExit(_trading_probe(sys.argv[1:]))
+
 # Standalone memory administration/probes must not boot Core, start workers or
 # load personal stores. These entrypoints also work in the frozen executable.
 if __name__ == "__main__" and "--memory-lab" in sys.argv:
@@ -101,6 +122,36 @@ except ImportError:
 # user presses Ctrl+C from outside the shell loop (SIGINT).
 # ─────────────────────────────
 _active_core = None  # set by run_shell so signal handlers can reach it
+
+
+_core_service_lock = None
+
+
+def _claim_core_service(port):
+    """Hold an OS lock across startup, before opening the operator API."""
+    import socket
+    import tempfile
+    from pathlib import Path
+    global _core_service_lock
+    lock_path = Path(tempfile.gettempdir()) / f'niblit-core-service-{port}.lock'
+    lock = lock_path.open('a+b')
+    try:
+        lock.seek(0)
+        if os.name == 'nt':
+            import msvcrt
+            msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with socket.socket() as probe:
+            probe.settimeout(.5)
+            if probe.connect_ex(('127.0.0.1', port)) == 0:
+                raise OSError('Core port already occupied')
+    except OSError:
+        lock.close()
+        return False
+    _core_service_lock = lock
+    return True
 
 
 def _shutdown_on_signal(sig, _frame):
@@ -298,6 +349,8 @@ def parse_args(argv=None):
         default="{}",
         help="JSON object arguments for --tool-call (default: '{}')",
     )
+    p.add_argument("--serve", action="store_true",
+                   help="Run the local Core API independently of the desktop and CLI input")
     p.add_argument(
         "--headless",
         action="store_true",
@@ -510,6 +563,17 @@ def _run_staged_runtime_bootstrap(core, io) -> dict:
         if getattr(sys, "frozen", False):
             managed_repositories.append("niblit-lean-algos")
         managed_repo_status = orchestrator.start_managed_repositories(managed_repositories)
+        # A spawned packaged service is not ready yet. Wait only for selected
+        # starting services; never restart a failed/attached service to pass boot.
+        if getattr(sys, "frozen", False):
+            deadline = time.monotonic() + 30.0
+            while any(item.get("state") == "starting" for item in managed_repo_status.values()):
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.25)
+                current = orchestrator.monitor_managed_repositories()
+                managed_repo_status = {name: current.get(name, managed_repo_status[name])
+                                       for name in managed_repo_status}
         if runtime_manager is not None:
             for repo_name, status in managed_repo_status.items():
                 runtime_manager.update_managed_repository_status(repo_name, dict(status or {}))
@@ -1172,6 +1236,12 @@ def main(argv=None):
     except SystemExit:
         return 0
 
+    if _args.serve:
+        _args.headless = True
+        if not _claim_core_service(int(os.getenv("NIBLIT_API_PORT", "5000"))):
+            print("A Core service already owns this local port.", file=sys.stderr)
+            raise SystemExit(1)
+
     # Apply CLI flags before boot
     if getattr(_args, "debug", False):
         DEBUG_MODE = True
@@ -1194,7 +1264,14 @@ def main(argv=None):
     # Register OS-level signal handlers so that SIGTERM (system kill) and
     # SIGHUP (Termux session close) also trigger a clean shutdown instead
     # of an abrupt process death that loses autonomous-growth data.
-    signals_to_try = [getattr(signal, "SIGTERM", None)]
+    service_stop_requested = False
+
+    def request_service_stop(_signal, _frame):
+        # Never join threads or acquire shutdown locks in a signal handler.
+        nonlocal service_stop_requested
+        service_stop_requested = True
+
+    signals_to_try = [getattr(signal, "SIGTERM", None), getattr(signal, "SIGBREAK", None)]
     sighup_signal = getattr(signal, "SIGHUP", None)
     if sighup_signal is not None:
         signals_to_try.append(sighup_signal)
@@ -1202,7 +1279,7 @@ def main(argv=None):
         if sig is None:
             continue
         try:
-            signal.signal(sig, _shutdown_on_signal)
+            signal.signal(sig, request_service_stop if _args.serve else _shutdown_on_signal)
         except (OSError, ValueError):
             # SIGHUP is unavailable on Windows; SIGTERM may be restricted on
             # some platforms — ignore gracefully.
@@ -1315,10 +1392,13 @@ def main(argv=None):
                 ) if (_sr and hasattr(_sr, "results")) else None
                 _tc = len(_sr.results) if (_sr and hasattr(_sr, "results")) else None
                 if _rc is not None:
-                    io.out(
-                        f"{timestamp()} ✅ Niblit fully initialised — "
-                        f"{_rc}/{_tc} components ready"
-                    )
+                    label = "✅ Niblit fully initialised" if _rc == _tc else "⚠️ Niblit initialised with unavailable components"
+                    io.out(f"{timestamp()} {label} — {_rc}/{_tc} components ready")
+                    if _rc != _tc:
+                        unavailable = sorted(str(name) + " (" + str(result.get("status", "unknown")) + ")"
+                                             for name, result in _sr.results.items()
+                                             if result.get("status") != "ready")
+                        io.out("Unavailable components: " + ", ".join(unavailable))
                 else:
                     io.out(f"{timestamp()} ✅ Niblit fully initialised — all modules ready")
             except Exception:
@@ -1379,7 +1459,7 @@ def main(argv=None):
         io.out(f"{timestamp()} ⚠️ Final readiness checks failed: {exc}")
     RUNTIME_LOGGER.info("boot complete", event="startup", component="main", state=_BOOT_STATUS.runtime_mode)
 
-    if os.getenv("NIBLIT_API_AUTOSTART", "0") == "1" and getattr(_args, "headless", False):
+    if _args.serve or (os.getenv("NIBLIT_API_AUTOSTART", "0") == "1" and _args.headless):
         from modules.niblit_ui_launcher import _start_api_server_thread
         handles = _start_api_server_thread(core, int(os.getenv("NIBLIT_API_PORT", "5000")), io.out)
         if handles is not None:
@@ -1389,6 +1469,23 @@ def main(argv=None):
 
     # Structured boot status summary (always shown before CLI / one-shot / desktop).
     print_boot_status_report(io, _BOOT_STATUS)
+
+    if _args.serve:
+        try:
+            if handles is None:
+                raise SystemExit(1)
+            api_server, api_thread = handles
+            while core.running and api_thread.is_alive() and not service_stop_requested:
+                api_thread.join(timeout=1)
+            if core.running and not api_server.started:
+                raise SystemExit(1)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if core.running:
+                RUNTIME_LOGGER.info("Service shutdown requested", event="shutdown", component="main")
+                core.shutdown()
+        return 0
 
     # ── One-shot mode: run a single command then exit ─────────────────────────
     one_shot = getattr(_args, "one_shot", None)
@@ -1473,10 +1570,15 @@ def main(argv=None):
                     try:
                         io.out(f"{timestamp()} [INSTRUMENT] About to call ui_result.wait()", flush=True)
                         sys.stdout.flush()
+                        from modules.runtime_lifecycle import enable_fault_diagnostics, event
+                        enable_fault_diagnostics()
+                        event("core_ui_lifecycle_entered")
                         exit_code = ui_result.wait()
                         io.out(f"{timestamp()} [INSTRUMENT] ui_result.wait() returned: {exit_code}", flush=True)
                         sys.stdout.flush()
                     finally:
+                        from modules.runtime_lifecycle import event
+                        event("core_shutdown_after_ui",reason="ui_wait_finally")
                         ui_result.terminate()
                         try:
                             core.shutdown()
@@ -1519,5 +1621,28 @@ def main(argv=None):
     return 0
 
 
+def _stop_owned_runtime_dependencies():
+    """Release only this frozen launcher's supervisor-owned services."""
+    if not getattr(sys, "frozen", False):
+        return
+    try:
+        from modules.multi_repo_orchestrator import get_multi_repo_orchestrator
+        get_multi_repo_orchestrator().stop_managed_repositories()
+    except Exception:
+        logging.getLogger(__name__).exception("Owned runtime dependency cleanup failed")
+
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        # Includes one-shot and failed-boot exits, not just the shell path.
+        shutdown_started = time.monotonic()
+        try:
+            from modules.niblit_sidecar import stop_sidecar
+            stop_sidecar()
+        finally:
+            _stop_owned_runtime_dependencies()
+        RUNTIME_LOGGER.info("Main cleanup finished", event="shutdown", component="main",
+                            elapsed_seconds=round(time.monotonic() - shutdown_started, 3),
+                            state="cleanup_complete")

@@ -1,0 +1,33 @@
+{
+  "updated_at": "2026-11-01T17:18:24.489046+00:00",
+  "delivery": "PARTIAL v1.5: fixture-verified Core market-analysis chain; real-feed/demo acceptance pending",
+  "gates": {
+    "G0": "PARTIAL: source roots/HEAD/status/diffs and import route proven; running launcher/package not proven",
+    "G1": "PARTIAL: fixtures prove stale rejection; real feed ConnectError",
+    "G2": "PARTIAL: six existing shared rules tested; all Lean/MT5/Freqtrade strategy implementations not audited",
+    "G3": "PARTIAL: conflict/failure/malformed/stale abstention tests pass; full Core governance route not proven",
+    "G4": "PARTIAL: immutable local research journal dedup/restart and namespace isolation pass; Core export/recall not implemented for these analysis episodes",
+    "G5": "PARTIAL: existing demo/dry-run guard regression passes with fake brokers",
+    "G6": "PARTIAL: existing fake execution lifecycle/reconciliation tests pass; actual monitoring/fills not verified",
+    "G7": "BLOCKED: Freqtrade unreachable; no MT5 demo lifecycle test",
+    "G8": "PARTIAL: readiness/memory ownership regressions pass; full cognition boot not run",
+    "G9": "PASS for bounded source packets: source hashes, preimages, tests, diff and next action saved"
+  },
+  "v15": {
+    "analysis_chain": "PASS with controlled fixtures; no production feed proof",
+    "core_denial": "PASS in integrated Core analysis path; legacy Cloud execution gap separately recorded",
+    "canonical_memory": "PASS SQLite/outbox/fixture projection/restart/isolation; live gateway unverified",
+    "actual_feed": "BLOCKED ConnectError",
+    "demo_execution": "NOT RUN; existing guard regressions pass",
+    "broader_cognition": "Relevant cognition/phase21/governance/memory regression passes"
+  },
+  "v16": {
+    "legacy_cloud_direct_mutation": "REMOVED/BLOCKED",
+    "supported_authority": "Existing deliberate human Core dry-run ticket only, through bound Core API",
+    "contract_cases": "34 passed with fake broker",
+    "core_regression": "279 passed",
+    "cloud_regression": "238 passed; one independently reproduced existing launcher failure deselected",
+    "real_market_acceptance": "BLOCKED ConnectError",
+    "demo_trading": "NOT VERIFIED"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "release": "2026.11.12-hybrid1",
+  "market_evidence": "market-evidence-v1",
+  "desktop_observation": "desktop-intelligence-v1",
+  "authority": "existing_native_core",
+  "canonical_events": "existing_Core_SQLite_outbox",
+  "funded_execution": false,
+  "mt5_native": true,
+  "vulkan_inference_native": true,
+  "containerized_core_acceptance": "pending",
+  "vps_required": false
+}

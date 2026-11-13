@@ -1,0 +1,90 @@
+{
+  "version": "1.7",
+  "captured_at": "2026-11-01T17:30:29.029315+00:00",
+  "repos": {
+    "Niblit": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit",
+      "head": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\Niblit-head.txt",
+        "warnings": ""
+      },
+      "status": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\Niblit-status.txt",
+        "warnings": "warning: could not open directory 'diagnostics/pytest-admin-335aa83a171743c1906b7e7d8e928726/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-local-model-7dde06f39e0e4f87a8510dfe12f5531b/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-acceptance-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-guard-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-release/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-facade-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-final-20261028/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-portal-model-afa98e0a048d40d4a57723fcbe1cb76d/': Permission denied\n"
+      },
+      "diff": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\Niblit-diff.txt",
+        "warnings": ""
+      },
+      "staged": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\Niblit-staged.txt",
+        "warnings": ""
+      }
+    },
+    "Niblit-cloud-server": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit-cloud-server",
+      "head": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\Niblit-cloud-server-head.txt",
+        "warnings": ""
+      },
+      "status": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\Niblit-cloud-server-status.txt",
+        "warnings": ""
+      },
+      "diff": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\Niblit-cloud-server-diff.txt",
+        "warnings": ""
+      },
+      "staged": {
+        "exit_code": 0,
+        "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\Niblit-cloud-server-staged.txt",
+        "warnings": ""
+      }
+    }
+  },
+  "v16_hashes": {
+    "Niblit/modules/trading_desk.py": true,
+    "Niblit-cloud-server/app/trading/freqtrade_adapter.py": true,
+    "Niblit-cloud-server/app/trading/router.py": true,
+    "Niblit-cloud-server/app/trading/freqtrade_supervisor.py": true,
+    "Niblit-cloud-server/app/execution/freqtrade_adapters.py": true,
+    "Niblit-cloud-server/tests/test_trading_pipeline.py": true,
+    "Niblit/server.py": true,
+    "Niblit-cloud-server/tests/test_cloud_execution_governance.py": true,
+    "Niblit-cloud-server/tests/core_execution_contract_cases.py": true,
+    "Niblit/scripts/check-market-pipeline.py": true,
+    "Niblit/tests/test_market_pipeline_readiness.py": true
+  },
+  "preimages": {
+    "modules/trading_desk.py": {
+      "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\trading_desk.before.py",
+      "sha256": "2cad4ca21c4c47fa30d96a94459aad8478081279f6600a1f3d803be95bbcc2dd"
+    },
+    "modules/memory_laboratory/gateway.py": {
+      "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\modules__memory_laboratory__gateway.py.before",
+      "sha256": "098138ea302c19d6f952769d0fa86b394233c8be3e61c539f29f39e1c82aeb01"
+    },
+    "modules/cognitive_ingress.py": {
+      "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\modules__cognitive_ingress.py.before",
+      "sha256": "ea32db50a78a868c6ab16264ac5bd9530014c964c8a58e37e5df614c0d37d02a"
+    }
+  },
+  "services_started": {
+    "llama_pid": 11532,
+    "core_launcher_pid": 12992,
+    "docker": "explicit user-approved startup",
+    "market_desk": "existing launcher",
+    "memory_gateway": "existing launcher"
+  },
+  "canonical_ledger_backup": {
+    "path": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\canonical-ledger-before.sqlite3",
+    "integrity_check": "ok"
+  }
+}

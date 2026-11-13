@@ -46,11 +46,31 @@ Singleton via get_phased_research_engine().
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar, copy_context
 import re
 import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+_phase_scope = ContextVar("niblit_research_phase_scope", default=None)
+
+
+class ResearchCancelled(RuntimeError):
+    """A research owner or phase deadline cancelled further work."""
+
+
+def research_checkpoint(timeout=None):
+    """Check cooperative cancellation and bound I/O inside a research phase."""
+    scope = _phase_scope.get()
+    if scope is None:
+        return timeout
+    owner, cancelled, deadline = scope
+    remaining = deadline - time.monotonic()
+    if cancelled.is_set() or (owner is not None and owner.is_set()) or remaining <= 0:
+        raise ResearchCancelled("Research phase cancelled")
+    return min(timeout, 10.0, max(0.1, remaining)) if timeout is not None else None
+
 
 # ---------------------------------------------------------------------------
 # Internal-first confidence thresholds
@@ -447,6 +467,8 @@ class PhasedResearchEngine:
         topic: str,
         skip_phase2: bool = False,
         skip_phase3: bool = False,
+        *,
+        cancel_event=None,
     ) -> PhasedResearchResult:
         """Research *topic* through up to 4 sequential phases (0-3).
 
@@ -480,7 +502,10 @@ class PhasedResearchEngine:
             topic=topic,
             fn=self._phase0_internal,
             timeout=self.PHASE0_TIMEOUT,
+            cancel_event=cancel_event,
         )
+        if cancel_event is not None and cancel_event.is_set():
+            return result
         result.phases_run.append(0)
         result.phase_results[0] = p0
         if p0.facts_stored:
@@ -504,7 +529,10 @@ class PhasedResearchEngine:
                 topic=topic,
                 fn=self._phase1_basic,
                 timeout=self.PHASE1_TIMEOUT,
+                cancel_event=cancel_event,
             )
+            if cancel_event is not None and cancel_event.is_set():
+                return result
             result.phases_run.append(1)
             result.phase_results[1] = p1
             if p1.facts_stored:
@@ -524,7 +552,10 @@ class PhasedResearchEngine:
                 topic=topic,
                 fn=lambda t: self._phase2_advanced(t, _p1_result),
                 timeout=self.PHASE2_TIMEOUT,
+                cancel_event=cancel_event,
             )
+            if cancel_event is not None and cancel_event.is_set():
+                return result
             result.phases_run.append(2)
             result.phase_results[2] = p2
             if p2.facts_stored:
@@ -546,7 +577,10 @@ class PhasedResearchEngine:
                 topic=topic,
                 fn=lambda t: self._phase3_code(t, _p1_result, _p2_result),
                 timeout=self.PHASE3_TIMEOUT,
+                cancel_event=cancel_event,
             )
+            if cancel_event is not None and cancel_event.is_set():
+                return result
             result.phases_run.append(3)
             result.phase_results[3] = p3
             if p3.facts_stored:
@@ -556,6 +590,9 @@ class PhasedResearchEngine:
             log.debug("[PhasedResearch] Phase 3 skipped (%s)", reason)
 
         result.total_duration_s = time.monotonic() - t0
+
+        if cancel_event is not None and cancel_event.is_set():
+            return result
 
         # ── Emit research artifact ─────────────────────────────────────────
         result.artifact = self._build_research_artifact(result)
@@ -675,6 +712,7 @@ class PhasedResearchEngine:
         pr.confidence_score = confidence_map.get(sources_hit, 0.10)
 
         # ── Store Phase 0 results ─────────────────────────────────────────
+        research_checkpoint()
         pr.facts_stored = self._store_phase_results(pr, tier="internal")
         pr.duration_s = time.monotonic() - t0
         log.info(
@@ -760,6 +798,7 @@ class PhasedResearchEngine:
             pr.snippets, pr.sources = [p[0] for p in paired], [p[1] for p in paired]
 
         # ── Store Phase 1 results in KB + GraphRAG ─────────────────────
+        research_checkpoint()
         pr.facts_stored = self._store_phase_results(pr, tier="tier2")
         # External basic sources carry moderate confidence
         pr.confidence_score = 0.65 if pr.snippets else 0.20
@@ -802,6 +841,7 @@ class PhasedResearchEngine:
             internet = self._get_internet()
             scrapy = self._get_scrapy()
             for gq in gap_queries:
+                research_checkpoint()
                 if len(pr.snippets) >= self.MAX_SNIPPETS_PER_PHASE:
                     break
                 fetched: List[str] = []
@@ -822,6 +862,7 @@ class PhasedResearchEngine:
                         pr.snippets.append(s)
                         pr.sources.append("gap_query")
 
+        research_checkpoint()
         # ── Strategy B: authoritative sources on the original topic ──────
 
         # ── 2a. SerpAPI ──────────────────────────────────────────────
@@ -841,6 +882,7 @@ class PhasedResearchEngine:
                 except Exception as e:
                     log.debug("[Phase2] SerpAPI failed: %s", e)
 
+        research_checkpoint()
         # ── 2b. Serpex ───────────────────────────────────────────────
         if len(pr.snippets) < 3:
             serpex = self._get_serpex()
@@ -858,6 +900,7 @@ class PhasedResearchEngine:
                 except Exception as e:
                     log.debug("[Phase2] Serpex failed: %s", e)
 
+        research_checkpoint()
         # ── 2c. Qdrant / HybridManager vector recall ─────────────────
         if len(pr.snippets) < 2:
             hybrid = self._get_hybrid_manager()
@@ -897,6 +940,7 @@ class PhasedResearchEngine:
             pr.snippets, pr.sources = [p[0] for p in paired], [p[1] for p in paired]
 
         # ── Store Phase 2 results in Tier 1 ─────────────────────────
+        research_checkpoint()
         pr.facts_stored = self._store_phase_results(pr, tier="tier1")
         # Authoritative external sources get higher confidence
         pr.confidence_score = 0.78 if pr.snippets else 0.30
@@ -949,6 +993,7 @@ class PhasedResearchEngine:
             pr.error = str(e)
 
         # ── Store Phase 3 code artefacts ────────────────────────────
+        research_checkpoint()
         pr.facts_stored = self._store_phase_results(pr, tier="code")
         pr.confidence_score = 0.72 if pr.snippets else 0.20
         pr.source_type = "external"
@@ -986,6 +1031,7 @@ class PhasedResearchEngine:
         phase0_skip_sources = frozenset({"niblit_memory", "tiered_knowledge"})
 
         for i, snippet in enumerate(pr.snippets[:self.MAX_SNIPPETS_PER_PHASE]):
+            research_checkpoint()
             if len(snippet.strip()) < self.MIN_SNIPPET_LEN:
                 continue
             source = pr.sources[i] if i < len(pr.sources) else "unknown"
@@ -1177,38 +1223,50 @@ class PhasedResearchEngine:
         topic: str,
         fn,
         timeout: float,
+        *,
+        cancel_event=None,
     ) -> PhaseResult:
-        """Run *fn(topic)* in a daemon thread with a per-phase timeout."""
+        """Cancel the phase cooperatively and join its owned executor."""
         import concurrent.futures
 
         result_box: List[PhaseResult] = []
         error_box: List[str] = []
+        cancelled = threading.Event()
+        t0 = time.monotonic()
+        deadline = t0 + timeout
 
         def _worker():
+            marker = _phase_scope.set((cancel_event, cancelled, deadline))
             try:
+                research_checkpoint()
                 result_box.append(fn(topic))
-            except Exception as e:
-                error_box.append(str(e))
+            except Exception as exc:
+                error_box.append(str(exc))
+            finally:
+                _phase_scope.reset(marker)
 
-        t0 = time.monotonic()
-        label = {0: "Internal", 1: "Basic", 2: "Advanced", 3: "Code"}.get(phase, str(phase))
-        log.info("🔍 [PhasedResearch Phase %d/%s] Topic: %r (%.0fs budget)", phase, label, topic, timeout)
+        reason = None
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="NiblitResearchPhase") as executor:
+            future = executor.submit(copy_context().run, _worker)
+            while not future.done():
+                if cancel_event is not None and cancel_event.is_set():
+                    reason = "owner cancelled research"
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    reason = f"timeout after {timeout}s"
+                    break
+                try:
+                    future.result(timeout=min(0.1, remaining))
+                except concurrent.futures.TimeoutError:
+                    continue
+            if reason:
+                cancelled.set()
+                future.cancel()
 
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        try:
-            future = executor.submit(_worker)
-            try:
-                future.result(timeout=timeout)
-            except concurrent.futures.TimeoutError:
-                log.warning(
-                    "⏱️ [PhasedResearch Phase %d] '%s' timed out after %.0fs — partial results kept",
-                    phase, topic, timeout,
-                )
-                pr = PhaseResult(phase=phase, topic=topic, error=f"timeout after {timeout}s")
-                pr.duration_s = time.monotonic() - t0
-                return pr
-        finally:
-            executor.shutdown(wait=False, cancel_futures=True)
+        if reason:
+            log.info("Research executor stopped for phase %s after %.2fs (%s)", phase, time.monotonic()-t0, reason)
+            return PhaseResult(phase=phase, topic=topic, error=reason, duration_s=time.monotonic()-t0)
 
         if error_box:
             log.debug("[PhasedResearch Phase %d] error: %s", phase, error_box[0])

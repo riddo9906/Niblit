@@ -38,6 +38,8 @@ Typical usage::
 from __future__ import annotations
 
 import heapq
+import math
+import os
 import logging
 import threading
 import time
@@ -95,6 +97,7 @@ class ScheduledTask:
     task_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     cancelled: bool = field(default=False, init=False)
     completed: bool = field(default=False, init=False)
+    running: bool = field(default=False, init=False)
     result: Any = field(default=None, init=False)
     error: Optional[Exception] = field(default=None, init=False)
 
@@ -113,7 +116,16 @@ class AIOSScheduler:
     while adding a structured priority queue for on-demand AIOS tasks.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_pending: int = 256, reserve_interactive: int = 8,
+                 resource_provider=None) -> None:
+        if type(max_pending) is not int or type(reserve_interactive) is not int or not 0 <= reserve_interactive < max_pending:
+            raise ValueError("Invalid scheduler queue budget")
+        self.max_pending = max_pending
+        self.reserve_interactive = reserve_interactive
+        self.resource_provider = resource_provider
+        self.resource_admission = os.getenv("NIBLIT_SCHEDULER_RESOURCE_ADMISSION", "0") == "1"
+        self.rejected_tasks = 0
+        self.resource_deferrals = 0
         self._lock = threading.Lock()
         self._heap: List[Tuple[int, float, str, ScheduledTask]] = []
         self._tasks: Dict[str, ScheduledTask] = {}
@@ -194,6 +206,10 @@ class AIOSScheduler:
 
         Returns the ``task_id`` string for later cancellation.
         """
+        if not callable(fn) or type(priority) is not int or not 0 <= priority <= 9:
+            raise ValueError("A callable and integer priority 0-9 are required")
+        if isinstance(delay_secs, bool) or not math.isfinite(delay_secs) or delay_secs < 0:
+            raise ValueError("Delay must be finite and nonnegative")
         task = ScheduledTask(
             fn=fn,
             args=args,
@@ -203,6 +219,19 @@ class AIOSScheduler:
             run_after=time.time() + delay_secs,
         )
         with self._lock:
+            pending = sum(not item.completed and not item.cancelled for item in self._tasks.values())
+            ceiling = self.max_pending - self.reserve_interactive if priority >= 5 else self.max_pending
+            if pending >= ceiling:
+                self.rejected_tasks += 1
+                raise RuntimeError("Scheduler queue capacity reached")
+            retired = [key for key, item in self._tasks.items()
+                       if (item.completed or item.cancelled) and not item.running]
+            for key in retired[:-1024]:
+                del self._tasks[key]
+            if len(self._heap) >= self.max_pending * 2:
+                self._heap = [entry for entry in self._heap
+                              if not entry[3].cancelled and not entry[3].completed]
+                heapq.heapify(self._heap)
             self._tasks[task.task_id] = task
             heapq.heappush(self._heap, task._heap_key() + (task,))  # type: ignore[arg-type]
         log.debug(
@@ -210,6 +239,14 @@ class AIOSScheduler:
             label, task.task_id, priority,
         )
         return task.task_id
+
+    def prune_completed(self, label: str, keep: int = 2) -> int:
+        """Bound history for a recurring caller without deleting other tasks."""
+        with self._lock:
+            done=[key for key,task in self._tasks.items() if task.label==label and task.completed]
+            remove=done[:-max(1,keep)]
+            for key in remove:del self._tasks[key]
+            return len(remove)
 
     def cancel(self, task_id: str) -> bool:
         """
@@ -220,7 +257,7 @@ class AIOSScheduler:
         """
         with self._lock:
             task = self._tasks.get(task_id)
-            if task is None or task.completed:
+            if task is None or task.completed or task.running:
                 return False
             task.cancelled = True
         log.debug("AIOSScheduler: cancelled task '%s'", task_id)
@@ -257,6 +294,11 @@ class AIOSScheduler:
                 if not t.completed and not t.cancelled
             )
             return {
+                "queue_capacity": self.max_pending,
+                "interactive_reservation": self.reserve_interactive,
+                "rejected_tasks": self.rejected_tasks,
+                "resource_admission_enabled": self.resource_admission,
+                "resource_deferrals": self.resource_deferrals,
                 "running": self._running,
                 "current_phase": self._current_phase,
                 "pending_tasks": pending,
@@ -278,19 +320,37 @@ class AIOSScheduler:
     def _pop_ready_task(self) -> Optional[ScheduledTask]:
         """Pop the highest-priority task that is ready to run."""
         now = time.time()
+        background_ready = True
+        if self.resource_admission:
+            try:
+                if self.resource_provider is None:
+                    from modules.runtime_resource_manager import get_resource_manager, _PSUTIL
+                    snapshot = get_resource_manager().snapshot() if _PSUTIL else None
+                    available = snapshot.ram_available_mb if snapshot is not None else None
+                else:
+                    available = self.resource_provider()
+                background_ready = (available is not None and math.isfinite(available) and available >= 2048)
+            except (ImportError, OSError, TypeError, ValueError):
+                background_ready = False
+        waiting=[]
+        selected=None
         with self._lock:
             while self._heap:
-                # Peek at the top item
-                entry = self._heap[0]
-                task: ScheduledTask = entry[3]  # type: ignore[index]
-                if task.cancelled or task.completed:
-                    heapq.heappop(self._heap)
+                entry=heapq.heappop(self._heap)
+                task=entry[3]
+                if task.cancelled or task.completed:continue
+                if task.priority >= 5 and not background_ready:
+                    self.resource_deferrals += 1
+                    waiting.append(entry)
                     continue
-                if task.run_after > now:
-                    break  # top item not ready yet
-                heapq.heappop(self._heap)
-                return task
-        return None
+                if task.run_after>now:
+                    waiting.append(entry)
+                    continue
+                selected=task
+                task.running=True
+                break
+            for entry in waiting:heapq.heappush(self._heap,entry)
+        return selected
 
     def _execute(self, task: ScheduledTask) -> None:
         """Execute a task and record its result or error."""
@@ -303,7 +363,9 @@ class AIOSScheduler:
                 "AIOSScheduler: task '%s' raised — %s", task.label, exc
             )
         finally:
-            task.completed = True
+            with self._lock:
+                task.running = False
+                task.completed = True
 
 
 # ── Singleton ──────────────────────────────────────────────────────────────────

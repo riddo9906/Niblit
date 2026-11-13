@@ -1,0 +1,61 @@
+name: niblit-hybrid
+x-portal: &portal
+  image: niblit/portal:2026.11.12-hybrid1
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: ['/tmp:size=64m,mode=1777']
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  cpus: '1.0'
+  mem_limit: 512m
+  pids_limit: 128
+  stop_grace_period: 20s
+  networks: [backend, native-access]
+  secrets: [local_model_key]
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: '3'}
+  healthcheck:
+    test: [CMD, python, -c, "import os,urllib.request,urllib.parse; r=urllib.request.Request('http://127.0.0.1:8768/api/health',headers={'Host':urllib.parse.urlsplit(os.environ['NIBLIT_PORTAL_ORIGIN']).netloc}); assert urllib.request.urlopen(r,timeout=3).status==200"]
+    interval: 20s
+    timeout: 5s
+    start_period: 20s
+    retries: 3
+x-environment: &environment
+  NIBLIT_PORTAL_DATA: /data
+  PORT: '8768'
+  NIBLIT_PORTAL_MODEL_BACKEND: local_gguf
+  NIBLIT_PORTAL_GGUF_URL: http://host.docker.internal:8766
+  NIBLIT_PORTAL_GGUF_KEY_FILE: /run/secrets/local_model_key
+  NIBLIT_SHARED_ADMISSION: '1'
+  NIBLIT_ADMISSION_URL: http://host.docker.internal:8772
+  NIBLIT_PORTAL_LOCAL_LEARNING: '0'
+services:
+  portal-development:
+    <<: *portal
+    profiles: [development]
+    environment:
+      <<: *environment
+      NIBLIT_PORTAL_ORIGIN: http://127.0.0.1:8879
+    ports: ['127.0.0.1:8879:8768']
+    volumes: [development-data:/data, development-backups:/backups]
+  portal-production:
+    <<: *portal
+    profiles: [production-like]
+    environment:
+      <<: *environment
+      NIBLIT_PORTAL_ORIGIN: http://127.0.0.1:8769
+    ports: ['127.0.0.1:8769:8768']
+    volumes: [existing-portal-data:/data, existing-portal-backups:/backups]
+networks:
+  backend: {internal: true}
+  native-access: {}
+volumes:
+  development-data: {}
+  development-backups: {}
+  existing-portal-data: {external: true, name: niblit-client-cloud_portal-data}
+  existing-portal-backups: {external: true, name: niblit-client-cloud_portal-backups}
+secrets:
+  local_model_key:
+    file: ../../runtime/client-portal/gguf-api-key

@@ -1,0 +1,394 @@
+{
+  "bundle": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\dist\\releases\\v202-20261106-r8-verified\\niblit",
+  "core_sha256": "d49d163b8766828adbbd7ad8d78568654cfd0f0a72375bd43cb497ad33c58da7",
+  "unchanged_sidecars": {
+    "niblit-ui.exe": "21e252fc48a64b381eebe2ae06825b7d6050cd63bdafe096ee7cb62d8cadf629",
+    "cloud/niblit-cloud.exe": "f8bec7272b1e1ed64e9a83441cdb35d2a3406c0fc5214ba8cdf4f8dfcc861763",
+    "lean-algos/niblit-lean-algos.exe": "010bc25b2395dd53787dc1754938715184559970824b1fb751e912fcebecb727",
+    "freqtrade/niblit-freqtrade-worker.exe": "fab8e4b5cfcf006defc92fac327b7de2ddf84118879ac61e5504f3a294f131bf"
+  },
+  "preflight": {
+    "bundle_files_ready": true,
+    "checks": [
+      {
+        "file": "niblit.exe",
+        "ok": true
+      },
+      {
+        "file": "niblit-ui.exe",
+        "ok": true
+      },
+      {
+        "file": "cloud/niblit-cloud.exe",
+        "ok": true
+      },
+      {
+        "file": "lean-algos/niblit-lean-algos.exe",
+        "ok": true
+      },
+      {
+        "file": "freqtrade/niblit-freqtrade-worker.exe",
+        "ok": true
+      },
+      {
+        "file": "niblit_core.py",
+        "ok": true
+      },
+      {
+        "file": "main.py",
+        "ok": true
+      },
+      {
+        "file": "assets/trading-desk/index.html",
+        "ok": true
+      },
+      {
+        "file": "assets/trading-desk/chart.js",
+        "ok": true
+      },
+      {
+        "file": "assets/trading-desk/sessions.js",
+        "ok": true
+      },
+      {
+        "file": "assets/memory-desk/index.html",
+        "ok": true
+      },
+      {
+        "file": "assets/client-portal/index.html",
+        "ok": true
+      },
+      {
+        "file": "freqtrade/data/BTC_USDT_USDT-1h-futures.feather",
+        "ok": true
+      },
+      {
+        "file": "freqtrade/data/ETH_USDT_USDT-1h-futures.feather",
+        "ok": true
+      }
+    ],
+    "services_started": false,
+    "orders_submitted": false,
+    "scope": "Offline file presence only. Service health, lifecycle, inference, memory and trading acceptance remain unverified.",
+    "module_checks": [
+      {
+        "module": "modules.chart_annotations",
+        "ok": true
+      },
+      {
+        "module": "modules.chart_views",
+        "ok": true
+      },
+      {
+        "module": "modules.native_evidence_learning",
+        "ok": true
+      },
+      {
+        "module": "modules.permission_manager",
+        "ok": true
+      },
+      {
+        "module": "modules.hybrid_qdrant_manager",
+        "ok": true
+      },
+      {
+        "module": "modules.strategy_manager",
+        "ok": true
+      },
+      {
+        "module": "MetaTrader5",
+        "ok": true
+      },
+      {
+        "module": "modules.core_trading_sessions",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_session_adapters",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_session_api",
+        "ok": true
+      },
+      {
+        "module": "modules.freqtrade_core_claim",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_session_probe",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_session_selftest",
+        "ok": true
+      },
+      {
+        "module": "modules.position_intelligence",
+        "ok": true
+      },
+      {
+        "module": "modules.command_registry",
+        "ok": true
+      },
+      {
+        "module": "modules.demo_autotrader",
+        "ok": true
+      },
+      {
+        "module": "modules.mt5_orders",
+        "ok": true
+      },
+      {
+        "module": "modules.trading_runtime_client",
+        "ok": true
+      }
+    ]
+  },
+  "lifecycle": {
+    "cloud_was_listening_before": true,
+    "memory_present_at_start": [],
+    "health_ready": true,
+    "managed_ready": {
+      "8000": true,
+      "29601": true,
+      "29602": true
+    },
+    "survives_http_client_disconnect": true,
+    "duplicate_rejected": true,
+    "no_desktop_child": true,
+    "graceful_stop_sent": true,
+    "forced_termination": false,
+    "stop_seconds": 14.2,
+    "owned_children_remaining": [],
+    "exit_code": 0,
+    "process_exit_confirmed": true,
+    "remaining_ports": [],
+    "cloud_listening_after": true,
+    "saved_memory_files": [
+      "memory.json"
+    ],
+    "durable_json_readable": true
+  },
+  "frozen_broker_doubles_passed": true,
+  "source_suite": {
+    "trading_learning_shutdown": 92,
+    "final_trading_and_consensus": 71,
+    "overlap": true
+  },
+  "broker_readback": {
+    "checked_at": 1793993938.7833602,
+    "account": "b95a8bc3fd731d67",
+    "demo": true,
+    "position_identifier": "59227514240",
+    "positions": [
+      {
+        "ticket": "59227514240",
+        "side": "sell",
+        "volume": 0.01,
+        "entry": 1.11453,
+        "mark": 1.11417,
+        "stop_loss": 1.11653,
+        "take_profit": 1.11053,
+        "unrealized_pnl": 0.36
+      }
+    ],
+    "deals": [
+      {
+        "ticket": "58824170802",
+        "order": "59227514240",
+        "entry_type": 0,
+        "price": 1.11453,
+        "volume": 0.01,
+        "profit": 0.0,
+        "commission": 0.0,
+        "swap": 0.0,
+        "fee": 0.0
+      }
+    ],
+    "currency": "USD"
+  },
+  "close_check": {
+    "account": "b95a8bc3fd731d67",
+    "position_identifier": "59227514240",
+    "ticket": "59227514240",
+    "volume": 0.01,
+    "stop_loss": 1.11653,
+    "take_profit": 1.11053,
+    "accepted": true,
+    "scope": "MT5 order_check only, with no ticket creation or submission"
+  },
+  "live_brokers": {
+    "checked_at": 1793993998.997837,
+    "broker_orders": 0,
+    "sessions_activated": 0,
+    "scope": "Read-only provider observations and MT5 order_check only; no preview/confirm/order_send",
+    "mt5": {
+      "observations_valid": true,
+      "account": "b95a8bc3fd731d67",
+      "environment": "demo",
+      "symbol": "EURUSD",
+      "candles": 200,
+      "positions": 1,
+      "fresh": true,
+      "execution_blockers": [
+        "Explicit bounded activation required",
+        "Native non-delivering preflight did not pass"
+      ],
+      "non_delivering_preflight": {
+        "accepted": false,
+        "error_type": "ValueError"
+      }
+    },
+    "freqtrade": {
+      "observations_valid": true,
+      "account": "0856b930615652f39f0a1e71",
+      "environment": "dry-run",
+      "symbol": "BTC/USDT:USDT",
+      "candles": 201,
+      "positions": 3,
+      "engine_state": "stopped",
+      "fresh": true,
+      "native_protections": {
+        "stoploss": -0.01,
+        "minimal_roi": {
+          "0": 0.02
+        },
+        "fee": null,
+        "trading_mode": "futures",
+        "position_adjustment_enable": false
+      },
+      "execution_blockers": [
+        "Explicit bounded activation required",
+        "Core-managed native strategy must be selected before a session",
+        "Native engine is stopped",
+        "All configured position slots occupied",
+        "Native fee is unreported; explicit verified fee required"
+      ]
+    }
+  },
+  "runtime": {
+    "real_money_enabled": false,
+    "execution_at_startup": false,
+    "active_sessions": 0,
+    "observers": [
+      {
+        "adapter": "mt5",
+        "symbol": "EURUSD",
+        "running": true,
+        "error": null,
+        "decision": "sell",
+        "vote_count": 6
+      },
+      {
+        "adapter": "freqtrade",
+        "symbol": "BTC/USDT:USDT",
+        "running": true,
+        "error": null,
+        "decision": "wait",
+        "vote_count": 6
+      }
+    ]
+  },
+  "qdrant": {
+    "local_readback_verified": true,
+    "sampled_events": [
+      {
+        "kind": "position_watch",
+        "event_id": "b0d16d4287ca9ff308ec46723357e6e6f0b7516a9553c321ec22038c2aa5cfd9",
+        "matching_points": 1
+      },
+      {
+        "kind": "position_watch",
+        "event_id": "79c24931aaf8fce83e022bd9daf64fd7f380bd658dbb8e89f55fd9adde79bb11",
+        "matching_points": 1
+      },
+      {
+        "kind": "position_watch",
+        "event_id": "a30ffed1cf17952294229a483e771cdc03cee4f0fe93a6cfd89fdac19e87ea95",
+        "matching_points": 1
+      }
+    ],
+    "remote_projection": "Synthetic acceptance scope only"
+  },
+  "local_gguf": {
+    "provider": "isolated local GGUF",
+    "samples": [
+      {
+        "seconds": 2.11,
+        "nonempty_output": true
+      },
+      {
+        "seconds": 1.86,
+        "nonempty_output": true
+      }
+    ],
+    "concurrent_observation_core_healthy": true,
+    "scope": "Local completions and concurrent Core health, without a Core shutdown during inference"
+  },
+  "market_desk": {
+    "scope": "Actual sessions.js in isolated DOM/Notification doubles; no browser, OS popup or broker request",
+    "normal": {
+      "signal_entry_exit_error_expiry": "passed",
+      "strategy_disagreement": "passed",
+      "close_only_review_does_not_activate": "passed",
+      "review_activation_emergency": "passed",
+      "notification_show_receipt": "passed",
+      "notification_click_no_order": "passed",
+      "duplicate_suppression": "passed"
+    },
+    "quiet": {
+      "quiet_hours": "passed"
+    }
+  },
+  "pending_proposal": {
+    "id": "deb6d6753df14b9d98d7b5272da473cd",
+    "spec": {
+      "account": "b95a8bc3fd731d67",
+      "adapter": "mt5",
+      "close_order_id": "43bc6fe651a1185ddaffee19f44404b005d7d343b7468fa1193bd6a58868be56",
+      "environment": "demo",
+      "instrument": "EUR/USD",
+      "limits": {
+        "max_daily_loss": 0.03,
+        "max_drawdown": 0.02,
+        "max_entries": 0,
+        "max_exposure_fraction": 0.5,
+        "max_margin_fraction": 0.1,
+        "max_open_risk_fraction": 0.01,
+        "max_positions": 1,
+        "max_session_loss": 0.02,
+        "max_volume": 0.01,
+        "risk_cash": 3.0,
+        "risk_fraction": 0.0025
+      },
+      "live_money": false,
+      "position_actions": [
+        "close"
+      ],
+      "position_identifier": "59227514240",
+      "seconds": 3600,
+      "strategies": [
+        "trend_v1",
+        "breakout_v1",
+        "rsi_reversion_v1",
+        "bollinger_reversion_v1",
+        "ema_pullback_v1",
+        "squeeze_breakout_v1"
+      ],
+      "symbol": "EURUSD",
+      "timeframe": "5m"
+    },
+    "spec_hash": "688337abc92f635cf9a486726fbd6b91cbbc19ff26678c85457402fbe6ea9a91",
+    "runtime_id": "604049c28b724b6585720864b1c0ec9a",
+    "state": "pending",
+    "created": 1793994225.2854886,
+    "expires": 1793994525.2854888,
+    "initial_equity": 100001.69,
+    "peak_equity": 100001.69,
+    "entries": 0,
+    "reason": null
+  },
+  "real_broker_orders_by_r8": 0,
+  "real_money_enabled": false
+}

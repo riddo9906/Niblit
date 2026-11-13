@@ -498,6 +498,26 @@ for (const relative of [
 }
 
 const finalBundleDir = path.dirname(finalExe);
+// Ship the native Core-managed subclass and its existing six-rule dependencies
+// as source assets; this never changes a private profile or starts Freqtrade.
+const nativeStrategyDir=path.join(finalBundleDir,"integrations","freqtrade");
+const nativeLabDir=path.join(nativeStrategyDir,"niblit_lab");
+fs.mkdirSync(nativeLabDir,{recursive:true});
+fs.writeFileSync(path.join(nativeLabDir,"__init__.py"),"");
+for (const name of ["NiblitLabManager.py","NiblitCoreManaged.py"]) {
+  fs.copyFileSync(path.join(repoRoot,"deploy","freqtrade-lab",name),path.join(nativeStrategyDir,name));
+}
+fs.copyFileSync(path.join(repoRoot,"modules","demo_strategy.py"),path.join(nativeLabDir,"demo_strategy.py"));
+fs.copyFileSync(path.join(repoRoot,"modules","freqtrade_core_claim.py"),path.join(nativeLabDir,"core_claim.py"));
+for (const name of ["strategy_manager.py","position_exit_policy.py"]) {
+  const content=fs.readFileSync(path.join(repoRoot,"modules",name),"utf8").replace("from modules.demo_strategy import","from .demo_strategy import");
+  fs.writeFileSync(path.join(nativeLabDir,name),content);
+}
+fs.copyFileSync(path.join(repoRoot,"modules","freqtrade_chart_adapter.py"),path.join(nativeStrategyDir,"niblit_chart_plot.py"));
+
+for (const launcher of ["Start-Niblit-Autotrading.ps1", "Start-Niblit-Autotrading.cmd", "Open-Niblit-Trading.cmd"]) {
+  fs.copyFileSync(path.join(repoRoot,"scripts",launcher),path.join(finalBundleDir,launcher));
+}
 fs.copyFileSync(path.join(repoRoot, "scripts", "Start-Niblit-Testing.ps1"), path.join(finalBundleDir, "Start-Niblit-Testing.ps1"));
 fs.copyFileSync(path.join(repoRoot, "scripts", "Start-Niblit-Freqtrade.ps1"), path.join(finalBundleDir, "Start-Niblit-Freqtrade.ps1"));
 for (const launcher of ["Start-Niblit-Freqtrade.cmd", "Start-Niblit-Live.cmd"]) {
@@ -516,6 +536,22 @@ fs.copyFileSync(path.join(repoRoot, "deploy", "memory-laboratory.compose.yml"), 
 for (const doc of ["MEMORY_LABORATORY.md", "PHASE6_MEMORY_INVENTORY.md", "COMMAND_TAB_RESTORATION.md"]) {
   fs.copyFileSync(path.join(repoRoot, "docs", doc), path.join(finalBundleDir, doc));
 }
+
+// Execute the frozen archive's offline gate; never boot services during packaging.
+const preflight = spawnSync(finalExe, ["--release-preflight"], {
+  cwd: finalBundleDir, encoding: "utf8", windowsHide: true, timeout: 60000,
+});
+if (preflight.status !== 0) {
+  console.error("[niblit-build] Frozen release preflight failed:", preflight.stderr || preflight.stdout || preflight.error);
+  process.exit(1);
+}
+let preflightReport;
+try { preflightReport = JSON.parse(preflight.stdout); }
+catch (error) { console.error("[niblit-build] Invalid preflight report:", error.message); process.exit(1); }
+if (preflightReport.bundle_files_ready !== true || preflightReport.services_started !== false) {
+  console.error("[niblit-build] Offline acceptance contract failed"); process.exit(1);
+}
+fs.writeFileSync(path.join(finalBundleDir, "release-preflight.json"), JSON.stringify(preflightReport, null, 2));
 
 console.log("\n[niblit-build] ════════════════════════════════════════");
 console.log("[niblit-build]  ✅ Niblit build complete!");

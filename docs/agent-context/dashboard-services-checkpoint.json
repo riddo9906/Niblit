@@ -1,0 +1,461 @@
+{
+  "timestamp": "2026-11-01T18:26:30.210060+00:00",
+  "source_sha256": {
+    "modules/freqtrade_native_analysis.py": "a0b5531ec8a60fa432742fa130c982c45c3265b9c76f274140b70966f7856165",
+    "modules/freqtrade_research.py": "9e6e9a6fd42225de7d5fb2228362fe5dbca38b22c03e0581a7bc67fcee23c274",
+    "modules/trading_desk.py": "5655f6d91c6dce429368622fc2b142f38184576dab830e647fff5e4ac0efac3d",
+    "assets/trading-desk/desk.js": "86a57ed0ef84fbe063cb500ae63195b3a8ba4784fe550571268517d8e0392560",
+    "tests/test_freqtrade_native_analysis.py": "1d2a6875520c320b1d51833c87aee7d791e7bf90e1b61419b962ed9720b0b53c"
+  },
+  "tests": {
+    "Core_research_trading": 68,
+    "Lean_adapter": 26
+  },
+  "dashboard": {
+    "native_states": [
+      "pending",
+      "pending",
+      "evaluated"
+    ],
+    "native_analysis": {
+      "state": "evaluated",
+      "strategy": "NiblitLabManager",
+      "signal": "SELL",
+      "flags": {
+        "enter_long": false,
+        "enter_short": true,
+        "exit_long": false,
+        "exit_short": false
+      },
+      "rows": 200,
+      "timestamp": 1793556900.0,
+      "execution_authorized": false,
+      "strategy_sha256": "b30e47460eebd1418b43788dbaecf6f841a312045a02fc1312bff6940ab2cd1f"
+    },
+    "core_analysis": {
+      "state": "analyzed_by_core",
+      "analysis": {
+        "signal": "SELL",
+        "side": "sell",
+        "execution_authorized": false,
+        "analysis_only": true,
+        "candidates": [
+          {
+            "strategy": "trend_v1",
+            "origin": "Human-authored Niblit baseline v1",
+            "rule": "20/50 mean trend with a five-bar momentum confirmation",
+            "side": "wait",
+            "evidence": {
+              "close": 77904.5,
+              "mean20": 78042.23000000001,
+              "mean50": 78026.13799999999,
+              "prior20_high": 78134.0,
+              "prior20_low": 77906.0,
+              "rsi14": 21.218424962852083,
+              "previous_rsi14": 22.368421052630964,
+              "ema20": 78006.87484028598,
+              "ema50": 78011.44798889043,
+              "flat_regime": true,
+              "volatility_compressed": false,
+              "band_deviation": 71.96652068844203
+            },
+            "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+            "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+            "references": {
+              "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+              "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+              "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+            },
+            "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+            "hypothesis": "Trend persistence after price and momentum agree.",
+            "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+            "bar": 1793556900.0,
+            "conditions": {
+              "long": [
+                false,
+                true,
+                false
+              ],
+              "short": [
+                true,
+                false,
+                true
+              ]
+            },
+            "reason": "WAIT: 20/50 mean trend with a five-bar momentum confirmation. See measured values; WAIT means no qualifying setup.",
+            "invoked": true,
+            "status": "succeeded",
+            "eligible": false
+          },
+          {
+            "strategy": "breakout_v1",
+            "origin": "Human-authored Niblit baseline v1",
+            "rule": "Close beyond the previous 20-bar high or low",
+            "side": "sell",
+            "evidence": {
+              "close": 77904.5,
+              "mean20": 78042.23000000001,
+              "mean50": 78026.13799999999,
+              "prior20_high": 78134.0,
+              "prior20_low": 77906.0,
+              "rsi14": 21.218424962852083,
+              "previous_rsi14": 22.368421052630964,
+              "ema20": 78006.87484028598,
+              "ema50": 78011.44798889043,
+              "flat_regime": true,
+              "volatility_compressed": false,
+              "band_deviation": 71.96652068844203
+            },
+            "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+            "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+            "references": {
+              "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+              "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+              "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+            },
+            "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+            "hypothesis": "A close outside the prior range may precede continuation.",
+            "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+            "bar": 1793556900.0,
+            "conditions": {
+              "long": [
+                false
+              ],
+              "short": [
+                true
+              ]
+            },
+            "reason": "SELL: Close beyond the previous 20-bar high or low. See measured values; WAIT means no qualifying setup.",
+            "invoked": true,
+            "status": "succeeded",
+            "eligible": true
+          },
+          {
+            "strategy": "rsi_reversion_v1",
+            "origin": "Human-authored Niblit baseline v1",
+            "rule": "Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime",
+            "side": "wait",
+            "evidence": {
+              "close": 77904.5,
+              "mean20": 78042.23000000001,
+              "mean50": 78026.13799999999,
+              "prior20_high": 78134.0,
+              "prior20_low": 77906.0,
+              "rsi14": 21.218424962852083,
+              "previous_rsi14": 22.368421052630964,
+              "ema20": 78006.87484028598,
+              "ema50": 78011.44798889043,
+              "flat_regime": true,
+              "volatility_compressed": false,
+              "band_deviation": 71.96652068844203
+            },
+            "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+            "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+            "references": {
+              "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+              "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+              "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+            },
+            "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+            "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+            "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+            "bar": 1793556900.0,
+            "conditions": {
+              "long": [
+                true,
+                false
+              ],
+              "short": [
+                true,
+                false
+              ]
+            },
+            "reason": "WAIT: Cutler RSI(14) recovery through 30/70 in a flat 20/50 mean regime. See measured values; WAIT means no qualifying setup.",
+            "invoked": true,
+            "status": "succeeded",
+            "eligible": false
+          },
+          {
+            "strategy": "bollinger_reversion_v1",
+            "origin": "Human-authored Niblit baseline v1",
+            "rule": "Return inside a two-deviation 20-bar band in a flat regime",
+            "side": "wait",
+            "evidence": {
+              "close": 77904.5,
+              "mean20": 78042.23000000001,
+              "mean50": 78026.13799999999,
+              "prior20_high": 78134.0,
+              "prior20_low": 77906.0,
+              "rsi14": 21.218424962852083,
+              "previous_rsi14": 22.368421052630964,
+              "ema20": 78006.87484028598,
+              "ema50": 78011.44798889043,
+              "flat_regime": true,
+              "volatility_compressed": false,
+              "band_deviation": 71.96652068844203
+            },
+            "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+            "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+            "references": {
+              "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+              "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+              "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+            },
+            "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+            "hypothesis": "An extreme deviation recovering in a flat regime may revert toward its mean; a new trend can invalidate this.",
+            "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+            "bar": 1793556900.0,
+            "conditions": {
+              "long": [
+                true,
+                false,
+                true
+              ],
+              "short": [
+                true,
+                false,
+                true
+              ]
+            },
+            "reason": "WAIT: Return inside a two-deviation 20-bar band in a flat regime. See measured values; WAIT means no qualifying setup.",
+            "invoked": true,
+            "status": "succeeded",
+            "eligible": false
+          },
+          {
+            "strategy": "ema_pullback_v1",
+            "origin": "Human-authored Niblit baseline v1",
+            "rule": "Price recrosses EMA(20) in the direction of EMA(50)",
+            "side": "wait",
+            "evidence": {
+              "close": 77904.5,
+              "mean20": 78042.23000000001,
+              "mean50": 78026.13799999999,
+              "prior20_high": 78134.0,
+              "prior20_low": 77906.0,
+              "rsi14": 21.218424962852083,
+              "previous_rsi14": 22.368421052630964,
+              "ema20": 78006.87484028598,
+              "ema50": 78011.44798889043,
+              "flat_regime": true,
+              "volatility_compressed": false,
+              "band_deviation": 71.96652068844203
+            },
+            "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+            "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+            "references": {
+              "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+              "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+              "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+            },
+            "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+            "hypothesis": "A pullback recross in an established mean trend may resume that trend; whipsaws invalidate this.",
+            "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+            "bar": 1793556900.0,
+            "conditions": {
+              "long": [
+                false,
+                true,
+                false
+              ],
+              "short": [
+                true,
+                false,
+                true
+              ]
+            },
+            "reason": "WAIT: Price recrosses EMA(20) in the direction of EMA(50). See measured values; WAIT means no qualifying setup.",
+            "invoked": true,
+            "status": "succeeded",
+            "eligible": false
+          },
+          {
+            "strategy": "squeeze_breakout_v1",
+            "origin": "Human-authored Niblit baseline v1",
+            "rule": "20-bar range breakout after contracting return volatility",
+            "side": "wait",
+            "evidence": {
+              "close": 77904.5,
+              "mean20": 78042.23000000001,
+              "mean50": 78026.13799999999,
+              "prior20_high": 78134.0,
+              "prior20_low": 77906.0,
+              "rsi14": 21.218424962852083,
+              "previous_rsi14": 22.368421052630964,
+              "ema20": 78006.87484028598,
+              "ema50": 78011.44798889043,
+              "flat_regime": true,
+              "volatility_compressed": false,
+              "band_deviation": 71.96652068844203
+            },
+            "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+            "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+            "references": {
+              "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+              "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+              "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+            },
+            "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+            "hypothesis": "Contracting volatility followed by a range break may precede expansion; false breakouts invalidate this.",
+            "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+            "bar": 1793556900.0,
+            "conditions": {
+              "long": [
+                false,
+                false
+              ],
+              "short": [
+                false,
+                true
+              ]
+            },
+            "reason": "WAIT: 20-bar range breakout after contracting return volatility. See measured values; WAIT means no qualifying setup.",
+            "invoked": true,
+            "status": "succeeded",
+            "eligible": false
+          }
+        ],
+        "assessment_complete": true,
+        "regime": "range",
+        "policy_version": "conditions-v2",
+        "observation": {
+          "symbol": "BTC/USDT:USDT",
+          "venue": "binance",
+          "timeframe": "5m",
+          "mode": "dry-run",
+          "account_scope": "freqtrade-profile-146522df31fce9a6ca59c9d2756cca19b6690fd6030bac1962edd930a149a7ef",
+          "source": "ccxt_public_exchange_ohlcv",
+          "bar": 1793556900.0,
+          "completed_at": 1793557200.0,
+          "received_at": 1793557345.4265702,
+          "as_of": 1793557345.5165672,
+          "age_seconds": 145.5165672302246
+        },
+        "strategy": "breakout_v1",
+        "origin": "Human-authored Niblit baseline v1",
+        "rule": "Close beyond the previous 20-bar high or low",
+        "evidence": {
+          "close": 77904.5,
+          "mean20": 78042.23000000001,
+          "mean50": 78026.13799999999,
+          "prior20_high": 78134.0,
+          "prior20_low": 77906.0,
+          "rsi14": 21.218424962852083,
+          "previous_rsi14": 22.368421052630964,
+          "ema20": 78006.87484028598,
+          "ema50": 78011.44798889043,
+          "flat_regime": true,
+          "volatility_compressed": false,
+          "band_deviation": 71.96652068844203
+        },
+        "profitability": "Unproven; reward/risk is not a probability or a profit forecast.",
+        "invalidation": "Stop loss, opposing signal, or changed market regime; gaps can exceed stops.",
+        "references": {
+          "strategy_families": "https://www.quantconnect.com/docs/v2/writing-algorithms/strategy-library",
+          "predictive_validation": "https://www.freqtrade.io/en/stable/freqai/",
+          "lookahead": "https://www.freqtrade.io/en/stable/lookahead-analysis/"
+        },
+        "validation": "Experimental demo rule. Documentation describes the family, not profitability of these exact parameters.",
+        "hypothesis": "A close outside the prior range may precede continuation.",
+        "risk_reward": "Broker ticket targets twice its stop distance before costs. Break-even needs more than one-third wins at exact 2:1 fills; costs and gaps increase the requirement.",
+        "bar": 1793556900.0,
+        "conditions": {
+          "long": [
+            false
+          ],
+          "short": [
+            true
+          ]
+        },
+        "reason": "SELL: Close beyond the previous 20-bar high or low. See measured values; WAIT means no qualifying setup.",
+        "selection_reason": "Only this strategy currently meets its entry conditions.",
+        "selection_mode": "auto",
+        "strategy_failures": [],
+        "selection_limit": "Rule eligibility is not proof that a strategy will be profitable.",
+        "regime_basis": "Existing rule mean/flat-regime measurements; not a calibrated forecast.",
+        "observation_id": "06c2bce0ab642e7d6c07a73a51fa66fa2e6e146b6765c382b16d5fb0022d2696",
+        "execution_gate": "analysis_only_existing_order_approval_still_required"
+      },
+      "authorization": {
+        "allowed": true,
+        "reason": "allowed",
+        "mode": "analytical"
+      },
+      "memory": {
+        "state": "queued_to_core",
+        "queued": true,
+        "id": "68286669c128350c068565c95e6e8a218a13e1574190c22dc1019d8111c42ccc",
+        "namespace": "market.957f4c9a73a73f68a2c80b3956a61eecde0fd2e2",
+        "source": "market-analysis://9cb87d00a153f3aabeeefa8c8d53882f38126b0dae5c94b0abbee000751bae2b",
+        "projection": "pending_not_verified"
+      },
+      "trace_id": "req-22c114d9e18d",
+      "execution_authorized": false
+    },
+    "candidate_count": 6,
+    "execution_active": false,
+    "asset_served": true,
+    "configuration": {
+      "dry_run": true,
+      "state": "stopped",
+      "exchange": "binance",
+      "trading_mode": "futures",
+      "strategy": "NiblitLabManager",
+      "timeframe": "5m",
+      "stake_currency": "USDT",
+      "max_open_trades": 3.0,
+      "force_entry_enable": true,
+      "version": "2026.9"
+    },
+    "positions": 3,
+    "orders_sent": 0
+  },
+  "canonical_projection_verified": true,
+  "projected_chunks": 37,
+  "lean_health": {
+    "backend": "freqtrade",
+    "healthy": true,
+    "state": "ready",
+    "error": null,
+    "manager_instance_id": "1869126641248",
+    "market_data": {
+      "provider": "ccxt",
+      "exchange": "binance",
+      "market_type": "swap",
+      "healthy": true,
+      "timeframe": "5m",
+      "error": null,
+      "latency_ms": 406.2937000016973
+    },
+    "mode": "observe",
+    "execution_enabled": false
+  },
+  "remote_memory": {
+    "remote_read_verified": false,
+    "error_type": "ResponseHandlingException",
+    "cause_type": null
+  },
+  "remote_memory443": {
+    "cloud_hostname": true,
+    "explicit_port": null,
+    "probe_port": 443,
+    "read_verified": false,
+    "error_type": "ResponseHandlingException"
+  },
+  "execution_readiness": {
+    "dry_run": true,
+    "engine_state": "stopped",
+    "position_count": 3,
+    "max_positions": 3.0,
+    "new_entry_blockers": [
+      "engine_stopped",
+      "position_capacity_full",
+      "current_human_ticket_required"
+    ],
+    "close_blocker": "current_position_specific_human_ticket_required",
+    "orders_sent": 0,
+    "positions_modified": 0,
+    "no_preview_or_approval_generated": true
+  },
+  "orders_sent": 0
+}

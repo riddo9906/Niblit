@@ -1,5 +1,12 @@
 from unittest.mock import Mock
-from modules.native_evidence_learning import run_cycle
+from modules.native_evidence_learning import run_cycle as _run_cycle
+from functools import partial
+run_cycle=partial(_run_cycle,authorize=lambda operation:None)
+import pytest
+
+@pytest.fixture(autouse=True)
+def isolated_research(monkeypatch):
+    monkeypatch.setattr("modules.native_evidence_learning.research_local_evidence",lambda topic:[])
 
 
 def test_native_cycle_records_only_unverified_evidence(monkeypatch):
@@ -37,3 +44,15 @@ def test_nonlocal_transport_cannot_trigger_paid_fallback(monkeypatch):
     g=Mock();infer=Mock()
     assert run_cycle(0,stopped=lambda:False,gateway=g,infer=infer)['state']=='deferred'
     infer.assert_not_called();g.retrieve.assert_not_called()
+
+
+def test_credential_patterns_are_redacted_before_model_and_durable_observation(monkeypatch):
+    monkeypatch.setenv('NIBLIT_NATIVE_LOCAL_TRANSPORT','local_gguf')
+    from modules.memory_laboratory.runtime import SECRET
+    marker='-----BEGIN EXAMPLE PRIVATE KEY-----'
+    g=Mock();g.retrieve.return_value={'results':[{'id':'a','content':marker,'citation':'source://a','verification':'verified'}],'issues':[]}
+    infer=Mock(return_value='Redacted source [1] '+marker)
+    result=run_cycle(0,stopped=lambda:False,gateway=g,infer=infer)
+    assert marker not in infer.call_args.args[0] and marker not in result['answer']
+    stored=''.join(text for text,_ in g.ingest.call_args.args[0])
+    assert not SECRET.search(stored) and '[REDACTED_CREDENTIAL_PATTERN]' in stored

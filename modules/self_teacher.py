@@ -202,6 +202,16 @@ class SelfTeacher:
 
     # ── Core teaching ──────────────────────────────────────────────────────
 
+
+    def assess_evidence(self, report):
+        """Review a native candidate without turning its answer into KB facts."""
+        topic=str(report.get('topic',''))
+        if topic:self.schedule_for_review(topic)
+        return {'topic':topic,'citation_check':bool(report.get('citation_check')),
+                'truth_verified':False,'weaknesses':(['semantic_source_verification_required'] if report.get('citation_check') else ['missing_or_invalid_citations']),
+                'question':'Which cited observation supports this answer, and what remains unknown?',
+                'curriculum_scheduled':bool(topic),'weights_trained':False}
+
     def teach(self, topic):
         if not topic:
             return "No topic provided for self-teach."

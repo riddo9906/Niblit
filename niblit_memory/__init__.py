@@ -3322,8 +3322,13 @@ class NiblitMemory:
         # ── Single canonical background threads ──────────────────────────────
         # Exactly one autosave thread and one dump thread for the whole process.
         # The autosave loop persists both NiblitMemory state and KnowledgeDB.
-        threading.Thread(target=self._autosave_loop, daemon=True, name="NiblitMemoryAutosave").start()
-        threading.Thread(target=self._dump_loop, daemon=True, name="NiblitMemoryDump").start()
+        self._memory_stop = threading.Event()
+        self._memory_threads = [
+            threading.Thread(target=self._autosave_loop, daemon=True, name="NiblitMemoryAutosave"),
+            threading.Thread(target=self._dump_loop, daemon=True, name="NiblitMemoryDump"),
+        ]
+        for worker in self._memory_threads:
+            worker.start()
 
         log.info("NiblitMemory: single autosave + single dump thread started")
 
@@ -3521,7 +3526,7 @@ class NiblitMemory:
 
     def _autosave_loop(self):
         """Single canonical autosave loop — saves NiblitMemory state AND KnowledgeDB."""
-        while True:
+        while not self._memory_stop.is_set():
             try:
                 self.save()
                 # A separately configured facade still flushes canonical knowledge.
@@ -3531,13 +3536,13 @@ class NiblitMemory:
                         _kdb._save(blocking=False)
                     except Exception:
                         pass
-                time.sleep(self.autosave_interval)
+                self._memory_stop.wait(self.autosave_interval)
             except Exception as e:
                 _lt = _get_loop_tracer()
                 if _lt:
                     _lt.record("MemoryAutosaveLoop", e)
                 log.error(f"Autosave loop error: {e}")
-                time.sleep(self.autosave_interval)
+                self._memory_stop.wait(self.autosave_interval)
 
     def _dump_loop(self):
         """Single canonical dump loop.
@@ -3546,7 +3551,7 @@ class NiblitMemory:
         enabled (``_dump_verbose=True``).  Toggle with
         :meth:`set_dump_verbose`.
         """
-        while True:
+        while not self._memory_stop.is_set():
             try:
                 if self._dump_verbose:
                     self.dump_state()
@@ -3556,13 +3561,13 @@ class NiblitMemory:
                             _kdb.dump_state()
                         except Exception:
                             pass
-                time.sleep(self.dump_interval)
+                self._memory_stop.wait(self.dump_interval)
             except Exception as e:
                 _lt = _get_loop_tracer()
                 if _lt:
                     _lt.record("MemoryDumpLoop", e)
                 log.error(f"Dump loop error: {e}")
-                time.sleep(self.dump_interval)
+                self._memory_stop.wait(self.dump_interval)
 
     # ── dump visibility control ───────────────────────────────────────────────
 
@@ -3845,6 +3850,12 @@ class NiblitMemory:
 
     def shutdown(self):
         """Gracefully shutdown and save final state."""
+        self._memory_stop.set()
+        for worker in self._memory_threads:
+            if worker is not threading.current_thread():
+                worker.join(timeout=12)
+                if worker.is_alive():
+                    log.warning("Memory worker still pending: %s", worker.name)
         try:
             log.info("MemoryManager shutting down — saving final state")
             self.save()

@@ -672,8 +672,16 @@ class AutonomousLearningEngine:
         return grade_topics
 
     # ─────────────────────────────────────────────
+    def prepare_learning_opportunity(self,topic='Niblit canonical memory durability',justification='A current source-based review of durable memory and task ownership is needed.'):
+        from modules.memory_laboratory.runtime import runtime_memory
+        from modules.permission_manager import PermissionManager
+        runtime=runtime_memory()
+        if runtime is None:return None
+        return PermissionManager().propose_learning(runtime.gateway,topic,justification)
+
     def is_idle(self) -> bool:
         """Check if system is idle (no recent user interaction)"""
+        if getattr(self,'_learning_task',None) is not None:return True # explicit one-task approval, not an idle autonomous grant
         time_since_interaction = (datetime.now(timezone.utc) - self.last_user_interaction).total_seconds()
         is_idle = time_since_interaction > self.idle_threshold
         if is_idle:
@@ -4246,12 +4254,32 @@ class AutonomousLearningEngine:
                 def governed_step():
                     if self._stop_event.is_set():return f"[{step_name} deferred: stop requested]"
                     with admitted('autonomous_step'):
-                        return step_fn()
+                        grant=getattr(self,'_learning_task',None)
+                        if grant is None:return step_fn()
+                        pm,gateway,ident,runtime_id=grant
+                        from modules.task_admission import delegation_headers
+                        token=delegation_headers().get('x-niblit-task-token','')
+                        try:
+                            spec=pm.bind_learning(gateway,ident,runtime_id,token)
+                            self._approved_learning_spec=spec
+                            self._approved_learning_guard=lambda operation:pm.authorize_learning_stage(gateway,ident,runtime_id,token,operation)
+                            result=step_fn()
+                        except BaseException as exc:
+                            self._native_cycle_result={'state':'failed','error_type':type(exc).__name__,
+                                                       'truth_verified':False}
+                            pm.finish_learning(gateway,ident,'failed',self._native_cycle_result);raise
+                        else:
+                            pm.finish_learning(gateway,ident,'completed',getattr(self,'_native_cycle_result',{}));return result
                 future = executor.submit(governed_step)
                 self._step_futures[future] = step_name
             def _finished(done):
                 with self._lifecycle_lock:
                     self._step_futures.pop(done, None)
+                    close_grant=getattr(self,'_learning_task',None) if not self.running and not self._step_futures else None
+                    if close_grant:self._learning_task=None
+                if close_grant:
+                    pm,gateway,ident,_=close_grant
+                    pm.finish_learning(gateway,ident,'failed',{'reason':'Owned step ended after worker stopped'})
             future.add_done_callback(_finished)
             try:
                 result = future.result(timeout=effective_timeout)
@@ -5977,10 +6005,20 @@ class AutonomousLearningEngine:
         Phase E (steps 24–32): Training, Discovery & Maintenance
         """
         from modules.native_evidence_learning import local_safe_profile,run_cycle
+        if not getattr(self,'_learning_task',None):
+            ident=self.prepare_learning_opportunity()
+            self._native_cycle_result={'state':'awaiting_approval','proposal_id':ident,'model_calls':0,'truth_verified':False}
+            return 'awaiting_approval'
         if local_safe_profile():
             self._cycle_count += 1
             def study_one():
-                report=run_cycle(self._cycle_count-1,stopped=self._stop_event.is_set)
+                from modules.native_evidence_learning import research_local_evidence
+                spec=self._approved_learning_spec
+                report=run_cycle(self._cycle_count-1,stopped=self._stop_event.is_set,
+                    teacher=self.self_teacher,trainer=self.brain_trainer,topic=spec['topic'],
+                    scope={'namespace':spec['namespace'],'principal':spec['principal']},
+                    research=lambda topic:research_local_evidence(topic,spec['source_path']),
+                    authorize=self._approved_learning_guard)
                 self._native_cycle_result=report
                 return report['state']
             return self._run_step_with_timeout('NativeLocalEvidence',study_one,timeout=90)
@@ -6502,7 +6540,7 @@ class AutonomousLearningEngine:
         log.info(f"[BACKGROUND LOOP] Stopped after {cycle_count} cycles")
 
     # ─────────────────────────────────────────────
-    def start(self, max_cycles=None):
+    def start(self, max_cycles=None, task_authorization=None):
         """Start one owned worker; optionally stop after a finite cycle count.
 
         A finite count bounds iterations, not provider-call duration. It does not
@@ -6510,6 +6548,7 @@ class AutonomousLearningEngine:
         Refuse overlap even when an earlier worker has received a stop request.
         """
         from modules.native_evidence_learning import local_safe_profile
+        if task_authorization is not None and (not local_safe_profile() or max_cycles!=1):raise PermissionError('Learning approval covers one local evidence cycle only')
         if local_safe_profile():
             max_cycles=3 if max_cycles is None else max_cycles
             if type(max_cycles) is not int or not 1<=max_cycles<=3:
@@ -6519,6 +6558,7 @@ class AutonomousLearningEngine:
         with self._lifecycle_lock:
             if self.running or (self.learning_thread and self.learning_thread.is_alive()) or self._step_futures:
                 return False
+            self._learning_task=task_authorization
             self._stop_event.clear()
             self._max_cycles = max_cycles
             self._worker_error = None
@@ -6544,6 +6584,11 @@ class AutonomousLearningEngine:
         finally:
             with self._lifecycle_lock:
                 self.running = False
+                close_grant=getattr(self,'_learning_task',None) if not self._step_futures else None
+                if close_grant:self._learning_task=None
+            if close_grant:
+                pm,gateway,ident,_=close_grant
+                pm.finish_learning(gateway,ident,'failed',{'reason':'Worker ended without an active scoped step'})
 
     def lifecycle_status(self):
         """Observe this worker without constructing modules or invoking a model."""
@@ -6562,12 +6607,16 @@ class AutonomousLearningEngine:
                     'last_worker_error':self._worker_error,
                     'owner':'core.autonomous_engine',
                     'learning_profile':'local_evidence_only' if local_safe_profile() else 'legacy',
-                    'last_native_cycle':{k:v for k,v in getattr(self,'_native_cycle_result',{}).items() if k in ('state','topic','model_calls','truth_verified','citation_check')},
+                    'last_native_cycle':{k:v for k,v in getattr(self,'_native_cycle_result',{}).items() if k in ('state','topic','model_calls','truth_verified','citation_check','research_performed','memory','self_teacher','trainer_source_observations')},
                     'scope':'ALE worker only; Core research, curriculum and SLSA may operate separately'}
 
     # ─────────────────────────────────────────────
     def stop(self, join_timeout=10):
         """Request stop and report whether owned work has actually finished."""
+        grant=getattr(self,'_learning_task',None)
+        if grant:
+            pm,gateway,ident,_=grant
+            pm.finish_learning(gateway,ident,'cancelled')
         with self._lifecycle_lock:
             self.running = False
             self._stop_event.set()

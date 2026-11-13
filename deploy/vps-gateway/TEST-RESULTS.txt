@@ -1,0 +1,13 @@
+test_configuration_rejects_duplicates_and_unknown_authority_flags (test_gateway.GatewayTests.test_configuration_rejects_duplicates_and_unknown_authority_flags) ... ok
+test_discovery_rejects_wrong_terminal_and_disconnect (test_gateway.GatewayTests.test_discovery_rejects_wrong_terminal_and_disconnect) ... ok
+test_http_auth_status_disabled_routes_and_persistent_stop (test_gateway.GatewayTests.test_http_auth_status_disabled_routes_and_persistent_stop) ... ok
+test_identity_swap_during_inventory (test_gateway.GatewayTests.test_identity_swap_during_inventory) ... ok
+test_limit_breach_and_db_binding (test_gateway.GatewayTests.test_limit_breach_and_db_binding) ... ok
+test_partial_inventory_and_wrong_account_are_rejected (test_gateway.GatewayTests.test_partial_inventory_and_wrong_account_are_rejected) ... ok
+test_positions_and_pending_orders_are_journaled_and_never_adopted (test_gateway.GatewayTests.test_positions_and_pending_orders_are_journaled_and_never_adopted) ... ok
+test_staleness_and_durable_loss_latch (test_gateway.GatewayTests.test_staleness_and_durable_loss_latch) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.949s
+
+OK

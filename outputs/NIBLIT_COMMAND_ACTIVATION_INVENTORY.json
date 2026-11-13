@@ -1,0 +1,77 @@
+[
+  {
+    "name": "autonomous-learn start",
+    "state": "EXECUTABLE",
+    "source_symbol": "NiblitCore._cmd_autonomous_start"
+  },
+  {
+    "name": "autonomous-learn stop",
+    "state": "EXECUTABLE",
+    "source_symbol": "NiblitCore._cmd_autonomous_stop"
+  },
+  {
+    "name": "deploy improvements",
+    "state": "EXECUTABLE",
+    "source_symbol": "NiblitCore._cmd_import_improvements"
+  },
+  {
+    "name": "deploy-bridge",
+    "state": "EXECUTABLE",
+    "source_symbol": "NiblitCore._register_commands.<locals>.<lambda>"
+  },
+  {
+    "name": "evolve start",
+    "state": "EXECUTABLE",
+    "source_symbol": "niblit_core.py:11527"
+  },
+  {
+    "name": "evolve stop",
+    "state": "EXECUTABLE",
+    "source_symbol": "niblit_core.py:11531"
+  },
+  {
+    "name": "hf-disable",
+    "state": "EXECUTABLE",
+    "source_symbol": "niblit_router.py:7158"
+  },
+  {
+    "name": "hf-enable",
+    "state": "EXECUTABLE",
+    "source_symbol": "niblit_router.py:7158"
+  },
+  {
+    "name": "lean deploy",
+    "state": "UNAVAILABLE",
+    "source_symbol": "NiblitRouter.handle_command"
+  },
+  {
+    "name": "start evolution",
+    "state": "EXECUTABLE",
+    "source_symbol": "niblit_core.py:11527"
+  },
+  {
+    "name": "start evolving",
+    "state": "EXECUTABLE",
+    "source_symbol": "niblit_core.py:11527"
+  },
+  {
+    "name": "start_slsa",
+    "state": "EXECUTABLE",
+    "source_symbol": "NiblitCore._cmd_slsa_start"
+  },
+  {
+    "name": "stop evolution",
+    "state": "EXECUTABLE",
+    "source_symbol": "niblit_core.py:11531"
+  },
+  {
+    "name": "stop evolving",
+    "state": "EXECUTABLE",
+    "source_symbol": "niblit_core.py:11531"
+  },
+  {
+    "name": "stop_slsa",
+    "state": "EXECUTABLE",
+    "source_symbol": "NiblitCore._cmd_slsa_stop"
+  }
+]

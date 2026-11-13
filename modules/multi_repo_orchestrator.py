@@ -648,7 +648,7 @@ class RepositorySupervisor:
         # Guard: if a healthy process is already running for this repo, skip re-launch.
         with self._lock:
             existing = self._states.get(manifest.name)
-            if existing is not None and existing.state == "running":
+            if existing is not None and existing.state in {"running", "starting"}:
                 proc = self._processes.get(manifest.name)
                 if proc is not None and proc.poll() is None:
                     log.debug(
@@ -680,13 +680,21 @@ class RepositorySupervisor:
                 cwd=str(manifest.root),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                # The Core console's Ctrl+C/Break belongs to Core. It must
+                # not kill a sidecar parent before we capture its descendants.
+                creationflags=(subprocess.CREATE_NO_WINDOW if os.name == 'nt'
+                               and manifest.name in {'niblit-cloud-server', 'niblit-lean-algos'} else 0),
             )
             with self._lock:
                 self._processes[manifest.name] = process
                 state.state = "running"
                 state.pid = int(process.pid or 0)
                 state.started_at = time.time()
-                state.last_health_status = "healthy"
+                # Process creation is not HTTP readiness for packaged services.
+                frozen_service = getattr(sys, "frozen", False) and manifest.name in {"niblit-cloud-server", "niblit-lean-algos"}
+                if frozen_service:
+                    state.state = "starting"
+                state.last_health_status = "starting" if frozen_service else "healthy"
                 state.message = f"started: {command}"
             self._publish("repo.supervision.started", manifest, state=state.state, pid=state.pid)
             return state
@@ -710,7 +718,12 @@ class RepositorySupervisor:
             state.last_health_status = "unknown" if manifest.present else "unavailable"
             return state
         if proc.poll() is None:
-            state.last_health_status = "healthy"
+            if getattr(sys, "frozen", False) and manifest.name in {"niblit-cloud-server", "niblit-lean-algos"}:
+                ready = self._existing_service_ready(manifest)
+                state.state = "running" if ready else "starting"
+                state.last_health_status = "healthy" if ready else "starting"
+            else:
+                state.last_health_status = "healthy"
             return state
         state.last_health_status = "failed"
         ownership = dict(manifest.bootstrap_contract.get("ownership", {}) or {})
@@ -737,6 +750,14 @@ class RepositorySupervisor:
         if proc is None:
             state.state = "stopped" if manifest.present else "unavailable"
             return state
+        descendants = []
+        if getattr(sys, "frozen", False):
+            try:
+                import psutil
+                # Capture ownership while the supervisor's parent still exists.
+                descendants = psutil.Process(proc.pid).children(recursive=True)
+            except Exception:
+                log.warning("Unable to inspect owned service descendants", exc_info=True)
         try:
             proc.terminate()
             proc.wait(timeout=15)
@@ -747,7 +768,19 @@ class RepositorySupervisor:
                 pass
         state.state = "stopped"
         state.last_health_status = "stopped"
-        state.message = "gracefully stopped"
+        for child in reversed(descendants):
+            try:
+                child.terminate()
+                try:
+                    child.wait(timeout=5)
+                except psutil.TimeoutExpired:
+                    child.kill()
+                    child.wait(timeout=5)
+            except psutil.NoSuchProcess:
+                pass
+            except Exception:
+                log.warning("Owned service descendant cleanup failed", exc_info=True)
+        state.message = "stopped owned process tree"
         self._publish("repo.supervision.stopped", manifest, state=state.state)
         return state
 

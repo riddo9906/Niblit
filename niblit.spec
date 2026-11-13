@@ -81,6 +81,11 @@ LEAN_ALGOS_ROOT = next(
 # ---------------------------------------------------------------------------
 
 datas = []
+# Optional native Core-managed strategy: stage beside existing catalog through
+# the original installer; never switch a profile or start a broker during build.
+datas += [(str(REPO_ROOT / 'deploy/freqtrade-lab/NiblitCoreManaged.py'), 'integrations/freqtrade'),
+          (str(REPO_ROOT / 'modules/freqtrade_core_claim.py'), 'integrations/freqtrade/niblit_lab')]
+
 # The local desk endpoints serve these files by their paths at runtime.
 # Only static web extensions are allowed; never package runtime data or .env.
 for _desk in ('trading-desk', 'memory-desk', 'client-portal'):
@@ -187,6 +192,7 @@ hiddenimports = [
     "server",
     "modules.niblit_ui_launcher",
     "modules.runtime_bootstrap",
+    "modules.release_preflight",  # offline frozen-release acceptance entrypoint
     "modules.resilient_boot",
     "modules.structured_logging",
     # Optional heavy imports that PyInstaller misses
@@ -243,6 +249,7 @@ a = Analysis(
         "ruff",
         "black",
         "mypy",
+        "__main__",  # PyInstaller adds this exclusion internally; keep cache stable.
     ],
     noarchive=False,
     optimize=0,

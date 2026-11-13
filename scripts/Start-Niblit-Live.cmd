@@ -10,7 +10,7 @@ if not exist "%PROFILE%" (
   pause
   exit /b 0
 )
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-Niblit-Freqtrade.ps1" -ConfigPath "%PROFILE%" -EnableTradingControls
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-Niblit-Freqtrade.ps1" -ConfigPath "%PROFILE%"
 if errorlevel 1 goto failed
 exit /b 0
 :failed

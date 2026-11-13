@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.3",
+  "endpoint": "http://127.0.0.1:18765",
+  "token_file": "C:/private/niblit-gateway/operator.token",
+  "account": {
+    "broker": "REPLACE_WITH_BROKER_READBACK",
+    "login": "362350183",
+    "server": "XMGlobal-MT5 12",
+    "currency": "REPLACE_WITH_BROKER_READBACK",
+    "terminal_id": "REPLACE_WITH_BROKER_READBACK",
+    "environment": "live"
+  },
+  "gateway_id": "0000000000000000000000000000000000000000000000000000000000000000",
+  "ssh_peer": {
+    "host": "173.225.99.161",
+    "user": "Administrator",
+    "key_file": "C:/Users/Operator/.ssh/niblit-vps",
+    "known_hosts_file": "C:/Users/Operator/.ssh/niblit-vps-known-hosts"
+  }
+}

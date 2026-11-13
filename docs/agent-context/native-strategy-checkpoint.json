@@ -1,0 +1,78 @@
+{
+  "updated_at": "2026-11-01T18:17:21.544088+00:00",
+  "source_sha256": {
+    "modules/freqtrade_native_analysis.py": "98b892af11ff3a5d2fd82a29f085eea4aeae84d174b92269b59f2712d8d629aa",
+    "scripts/check-market-pipeline.py": "9b4d740959b7af2e197b8d4dac7a74aa194a6311154b300816ef50b17bccd235",
+    "tests/test_freqtrade_native_analysis.py": "cb8ffabb523c908ac44441a90ec15b15c091471d1204dfb0b178a7f1ea694d29"
+  },
+  "real_acceptance": {
+    "checked_at": 1793556871.096795,
+    "ready_for_analysis": true,
+    "execution_ready": false,
+    "orders_sent": 0,
+    "services_started": false,
+    "execution_limit": "A separately reviewed current human Core ticket and all account/risk checks are still required.",
+    "configuration": {
+      "exchange": "binance",
+      "strategy": "NiblitLabManager",
+      "timeframe": "5m",
+      "dry_run": true,
+      "state": "stopped"
+    },
+    "native_strategy": {
+      "state": "evaluated",
+      "strategy": "NiblitLabManager",
+      "signal": "HOLD",
+      "flags": {
+        "enter_long": false,
+        "enter_short": false,
+        "exit_long": false,
+        "exit_short": false
+      },
+      "rows": 200,
+      "timestamp": 1793556300.0,
+      "execution_authorized": false,
+      "strategy_sha256": "b30e47460eebd1418b43788dbaecf6f841a312045a02fc1312bff6940ab2cd1f"
+    },
+    "market": {
+      "pair": "BTC/USDT:USDT",
+      "fresh": true,
+      "candles": 200,
+      "source": "ccxt_public_exchange_ohlcv"
+    },
+    "rules": {
+      "signal": "HOLD",
+      "complete": true,
+      "invoked": 6,
+      "abstain_reason": "no_qualifying_setup"
+    },
+    "core": {
+      "state": "analyzed_by_core",
+      "authorization": {
+        "allowed": true,
+        "reason": "allowed",
+        "mode": "analytical"
+      },
+      "memory": {
+        "state": "queued_to_core",
+        "queued": true,
+        "id": "06eae0584ba2b22f643c4458e0a6059093d042b87045e9c4ea7a50829bf0e4bb",
+        "namespace": "market.957f4c9a73a73f68a2c80b3956a61eecde0fd2e2",
+        "source": "market-analysis://136e341164656b12adeaa3feff4784030497fe87a57ba7029bd223144eef3c14",
+        "projection": "pending_not_verified"
+      },
+      "trace_id": "req-5a70fecef9fb",
+      "error_type": null
+    }
+  },
+  "projected_chunks": 35,
+  "native_episode_verified": true,
+  "tests": 62,
+  "orders_sent": 0,
+  "baseline_heads": {
+    "Niblit": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+    "Cloud": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+    "Lean": "bfa656e5c4d74cb5ea6b23721b949f590bd79b57",
+    "Freqtrade": "fe735187afe8afc1866f951009d8a14a40bfd627"
+  }
+}

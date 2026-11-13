@@ -508,8 +508,9 @@ class LocalBrainGateway:
         if context:messages.append({'role':'user','content':str(context)[:1500]})
         messages.append({'role':'user','content':prompt[:3000]})
         limit=max(1,min(int(max_new_tokens or 256),512))
-        with httpx.Client(trust_env=False,timeout=90) as client:
-            response=client.post(base+'/v1/chat/completions',json={'model':model,'messages':messages,'max_tokens':limit,'stream':False})
+        with httpx.Client(trust_env=False,timeout=httpx.Timeout(270,connect=3)) as client:
+            from modules.task_admission import delegation_headers
+            response=client.post(base+'/v1/chat/completions',headers=delegation_headers(),json={'model':model,'messages':messages,'max_tokens':limit,'stream':False})
             response.raise_for_status();text=response.json()['choices'][0]['message']['content']
         return {'backend':'http','text':text,'model':model,'context_policy':policy,'error':None}
 

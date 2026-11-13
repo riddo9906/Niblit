@@ -1,0 +1,273 @@
+{
+  "checkpoint": "v1.8-exit-thesis-continuation",
+  "timestamp": "2026-11-02T16:06:24.292661+00:00",
+  "roots": {
+    "Niblit": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit",
+      "HEAD": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+      "diff_check_exit": 0
+    },
+    "Niblit-cloud-server": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit-cloud-server",
+      "HEAD": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+      "diff_check_exit": 0
+    },
+    "niblit-lean-algos": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\niblit-lean-algos",
+      "HEAD": "bfa656e5c4d74cb5ea6b23721b949f590bd79b57",
+      "diff_check_exit": 0
+    },
+    "niblit-ui": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\niblit-ui",
+      "HEAD": "4425a4b1cdaf662552e6d8af44f408b6341bdbf3",
+      "diff_check_exit": 0
+    }
+  },
+  "v18_reconciled_hashes": {
+    "modules/position_intelligence.py": true,
+    "tests/test_position_intelligence.py": true,
+    "aios_scheduler.py": true,
+    "server.py": true,
+    "modules/cognitive_ingress.py": true,
+    "niblit_core.py": true,
+    "modules/trading_desk.py": true,
+    "assets/trading-desk/index.html": true,
+    "assets/trading-desk/desk.js": true
+  },
+  "source_sha256": {
+    "modules/market_data_providers.py": "72ac053cf63ad3dfde84b85c9c0d1ed4a19831793a5ca64a9a3ceb23783479c7",
+    "modules/trading_desk.py": "004a1b94b524de3af383c0e1d27d01962ce813e5405c47a5284984d9b220dd06",
+    "modules/position_intelligence.py": "7f526f7829b7f6a7ad265dfd362ce24e7d224b25185010b737023e56653e9f88",
+    "tests/test_position_exit_integration.py": "97541d6baea145a7fac986495d99eea80e05f51c7bc2cb36f09cf35d3e97c702",
+    "assets/trading-desk/desk.js": "45e7158c43691693ab11db8f3f1ad024ddb9552fc814c34659c004ca09fb8988",
+    "assets/trading-desk/index.html": "d69fd31a466defe70dc98ef3b1bd8a92fa147f76fd4032b624762be805c86be3"
+  },
+  "tests": {
+    "core-final": {
+      "tests": "98",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "57.474"
+    },
+    "cloud": {
+      "tests": "1",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "88.124"
+    },
+    "lean": {
+      "tests": "26",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "2.407"
+    },
+    "cloud_nested_contract": {
+      "tests": "34",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "time": "86.061"
+    }
+  },
+  "tests_notice": "Cloud wrapper includes34 nested cases; do not add wrapper as independent coverage.",
+  "actual_public_quote": {
+    "symbol": "BTC/USDT:USDT",
+    "provider": "binanceusdm",
+    "source": "ccxt_public_order_book",
+    "fresh": true,
+    "timestamp": 1793634754.199,
+    "bid": 77770.0,
+    "ask": 77770.1,
+    "bid_size": 11.805,
+    "ask_size": 4.327,
+    "received_at": 1793634754.4801035,
+    "price_basis": "Public top of book; no fill or depth guarantee",
+    "venue": "binance"
+  },
+  "runtime_scan_sequence": 2,
+  "actual_btc_entry_thesis": {
+    "state": "evaluated",
+    "recommendation": "HOLD",
+    "execution_authorized": false,
+    "policy": "position_exit_policy.assess_exit",
+    "context_identity": "a33b61bab6c49e56ce82629d461f3cc78efd6d65c07ef37cbe32d3d6f5098a01",
+    "monitor_context": {
+      "breakout_level": 77400.1,
+      "entry_bar": 1793456100,
+      "giveback_checks": 0,
+      "initial_stop": 78221.8,
+      "peak_price_gain": 12.299999999988358,
+      "policy_version": "strategy-aware-exits-v1",
+      "strategy": "trend_v1"
+    },
+    "reason": "No exit condition met",
+    "evidence": {
+      "strategy": "trend_v1",
+      "current_R": 0.015883264462794706,
+      "peak_R": 0.015883264462794706,
+      "gain_in_price": 12.299999999988358,
+      "spread_in_price": 0.10000000000582077,
+      "initial_risk_in_price": 774.4000000000087,
+      "cost_limit": "Executable bid/ask used. Commission, swap and slippage may erase a price profit."
+    },
+    "limits": "Experimental demo exit rules; cannot identify every fakeout or guarantee a profitable fill.",
+    "last_quote_timestamp": 1793635228.997,
+    "quote": {
+      "symbol": "BTC/USDT:USDT",
+      "venue": "binance",
+      "source": "ccxt_public_order_book",
+      "timestamp": 1793635228.997,
+      "bid": 77435.0,
+      "ask": 77435.1
+    },
+    "context_storage": "Observer continuation only; original engine context unchanged"
+  },
+  "core_receipt": {
+    "state": "analyzed_by_core",
+    "authorization": {
+      "allowed": true,
+      "reason": "allowed",
+      "mode": "analytical"
+    },
+    "memory": {
+      "state": "queued_to_core",
+      "queued": true,
+      "id": "e0e7eae950151e0939e99109f58ca51a3f8108cf0d05fd8c5a79291d5bb430b3",
+      "namespace": "market.51657435948845654085c623eac276d4f601be37",
+      "source": "market-analysis://6feea700042a33ad358474ecf474c3ced93393b11701b5444cb6071200c722a5",
+      "projection": "pending_not_verified"
+    }
+  },
+  "canonical_projection": {
+    "all_complete": false,
+    "positions": [
+      {
+        "trade_id": 40,
+        "outbox": {
+          "id": "02a39b5ceeaac9cae073a2cae9ceb637270b026f20ce8f045510ffa765fd3583",
+          "state": "processing",
+          "attempts": 1,
+          "error": null
+        },
+        "hash_verified_points": 0,
+        "fully_projected": false
+      },
+      {
+        "trade_id": 42,
+        "outbox": {
+          "id": "bb5bf7ab807c7da79ca69578bb813102ef1b659f26c50a63e0d5d089738a2800",
+          "state": "processing",
+          "attempts": 1,
+          "error": null
+        },
+        "hash_verified_points": 52,
+        "fully_projected": false
+      },
+      {
+        "trade_id": 45,
+        "outbox": {
+          "id": "e0e7eae950151e0939e99109f58ca51a3f8108cf0d05fd8c5a79291d5bb430b3",
+          "state": "pending",
+          "attempts": 0,
+          "error": null
+        },
+        "hash_verified_points": 0,
+        "fully_projected": false
+      }
+    ]
+  },
+  "runtime_state": {
+    "dry_run": true,
+    "engine_state": "stopped",
+    "positions": 3,
+    "position_ids": [
+      40,
+      42,
+      45
+    ],
+    "max_open_trades": 3.0,
+    "orders_sent": 0,
+    "services": {
+      "Core": {
+        "http": 200
+      },
+      "Cloud": {
+        "http": 200
+      },
+      "Memory": {
+        "http": 200
+      },
+      "Desk": {
+        "http": 200
+      },
+      "Lean": {
+        "http": 200,
+        "mode": "observe",
+        "execution_enabled": false
+      },
+      "Portal": {
+        "http": 200
+      }
+    },
+    "sqlite_integrity": "ok",
+    "task_authority": {
+      "state": "quarantined",
+      "owner": "core_inference"
+    }
+  },
+  "dashboard": {
+    "js_http": 200,
+    "html_http": 200,
+    "new_thesis_column_served": true,
+    "quote_explanation_served": true,
+    "proxy_http": 200,
+    "proxy_scan": 2,
+    "original_engine_context_unchanged": true,
+    "monitor_execution_authorized": false
+  },
+  "process_ownership": [
+    {
+      "Port": 8772,
+      "PID": 15740,
+      "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\pythonw.exe C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\scripts\\run-memory-desk.py"
+    },
+    {
+      "Port": 8769,
+      "PID": 3312,
+      "Command": "C:\\Users\\Riyaad\\AppData\\Local\\Programs\\DockerDesktop\\resources\\com.docker.backend.exe services"
+    },
+    {
+      "Port": 8767,
+      "PID": 13336,
+      "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\pythonw.exe C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\scripts\\run-trading-desk.py"
+    },
+    {
+      "Port": 8766,
+      "PID": 8532,
+      "Command": "\"C:\\Users\\Riyaad\\llama_migration\\llama.cpp\\build\\bin\\Release\\llama-server.exe\" -m C:\\Users\\Riyaad\\llama_migration\\models\\qwen2.5-coder-3b-instruct-q4_k_m.gguf --alias qwen2.5-coder-3b --host 127.0.0.1 --port 8766 --ctx-size 8192 --threads 2 --parallel 1 --gpu-layers 0 --api-key-file C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\runtime\\client-portal\\gguf-api-key "
+    },
+    {
+      "Port": 8100,
+      "PID": 16196,
+      "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\niblit-lean-algos\\.venv\\Scripts\\python.exe main.py"
+    },
+    {
+      "Port": 8000,
+      "PID": 9116,
+      "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit-cloud-server\\venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+    },
+    {
+      "Port": 5000,
+      "PID": 1636,
+      "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m uvicorn server:app --host 127.0.0.1 --port 5000 --log-level warning"
+    }
+  ],
+  "preimages": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\exit-thesis",
+  "already_integrated": true,
+  "patch_reverse_check_exit": 0,
+  "orders_sent": 0,
+  "next_action": "Diagnose the existing canonical memory worker OperationalError/backlog and verify complete projection of current quote-backed episodes, preserving the original outbox leases and memory authority."
+}

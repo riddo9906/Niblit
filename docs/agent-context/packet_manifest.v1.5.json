@@ -1,0 +1,66 @@
+{
+  "version": "1.5",
+  "updated_at": "2026-11-01T16:44:24.089435+00:00",
+  "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit",
+  "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+  "delivery": "PARTIAL: verified fixture-based governed market-analysis integration",
+  "source_sha256": {
+    "modules/strategy_manager.py": "00f749aa99591ebcd1ea1dca179e8396e9fdcce408e626e0bc3c2435f67c8ab6",
+    "modules/execution_graph.py": "f50429b7e84766600b8d8141ae4172b5cfbfe3285cdc3f6601eb25faae86f8a8",
+    "modules/cognitive_ingress.py": "ea32db50a78a868c6ab16264ac5bd9530014c964c8a58e37e5df614c0d37d02a",
+    "server.py": "b0a44f1ffb2cf3212288e9e71525d255426e33dce04740c7d75cf6602cb72dc7",
+    "modules/memory_laboratory/runtime.py": "c5a1384f430391fbb0b3a5da2b2ff02d0ac1d0a15719f10fb5b07809070da42a",
+    "modules/freqtrade_research.py": "24279319203727f178b3c37071096c7d3c845d488ce698d865b03cee6f7232cd",
+    "modules/trading_desk.py": "005395511d198f17527250bdb19f40dce4e2415ca2b98ca6ba73ad12cfe4540c",
+    "tests/test_core_market_pipeline.py": "33809e690efbf0fee852fb1e1ea9690a3aae47e2dcab10ea16e5b93b14b57575"
+  },
+  "files": [
+    "modules/strategy_manager.py",
+    "modules/execution_graph.py",
+    "modules/cognitive_ingress.py",
+    "server.py",
+    "modules/memory_laboratory/runtime.py",
+    "modules/freqtrade_research.py",
+    "modules/trading_desk.py",
+    "tests/test_core_market_pipeline.py"
+  ],
+  "tests": {
+    "evidence_id": "v15-core-market-integration",
+    "captured_at": "2026-11-01T16:44:24.089435+00:00",
+    "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit",
+    "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+    "source_sha256": {
+      "modules/strategy_manager.py": "00f749aa99591ebcd1ea1dca179e8396e9fdcce408e626e0bc3c2435f67c8ab6",
+      "modules/execution_graph.py": "f50429b7e84766600b8d8141ae4172b5cfbfe3285cdc3f6601eb25faae86f8a8",
+      "modules/cognitive_ingress.py": "ea32db50a78a868c6ab16264ac5bd9530014c964c8a58e37e5df614c0d37d02a",
+      "server.py": "b0a44f1ffb2cf3212288e9e71525d255426e33dce04740c7d75cf6602cb72dc7",
+      "modules/memory_laboratory/runtime.py": "c5a1384f430391fbb0b3a5da2b2ff02d0ac1d0a15719f10fb5b07809070da42a",
+      "modules/freqtrade_research.py": "24279319203727f178b3c37071096c7d3c845d488ce698d865b03cee6f7232cd",
+      "modules/trading_desk.py": "005395511d198f17527250bdb19f40dce4e2415ca2b98ca6ba73ad12cfe4540c",
+      "tests/test_core_market_pipeline.py": "33809e690efbf0fee852fb1e1ea9690a3aae47e2dcab10ea16e5b93b14b57575"
+    },
+    "command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m pytest tests/test_core_market_pipeline.py tests/test_strategy_failure_consensus.py tests/test_freqtrade_analysis_integration.py tests/test_freqtrade_research.py tests/test_strategy_manager.py tests/test_demo_autotrader.py tests/test_trading_desk.py tests/test_strategy_research.py tests/test_online_market_study.py tests/test_native_runtime_readiness.py tests/test_memory_persistence_ownership.py tests/test_memory_framework_runtime.py tests/test_memory_laboratory_gateway.py tests/test_phase5r_governance_hardening.py tests/test_paper_gateway.py test_cognitive_contract_rollout.py test_phase21_cognitive_layer.py -q -p no:cacheprovider --basetemp=C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15-integration --junitxml=C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\integration.xml",
+    "working_directory": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit",
+    "exit_code": 0,
+    "result": "PASS",
+    "tests": 252,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\integration.log",
+    "junit": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\integration.xml",
+    "limitations": "Fixture market/provider and Qdrant backend, real Core ingress/graph/strategies/SQLite and HTTP handlers. No real broker, feed, deployed Core process or live Qdrant acceptance."
+  },
+  "baseline_checkpoint": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\docs\\agent-context\\checkpoints\\v1.5-start.json",
+  "diff_check": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "status_manifest": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v15\\final-status.txt",
+  "v14_reconciliation": "All four v1.4 source/test hashes matched. 83 tests passed again. Changes were present; patch not reapplied.",
+  "processes_started": [],
+  "orders_sent": 0,
+  "live_settings_changed": false,
+  "services": "Freqtrade ConnectError; model8766 and memory8772 not ready; Docker engine pipe unavailable. No service restart or installation."
+}

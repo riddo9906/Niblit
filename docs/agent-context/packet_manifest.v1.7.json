@@ -1,0 +1,184 @@
+{
+  "version": "1.7",
+  "updated_at": "2026-11-01T18:05:08.084322+00:00",
+  "repos": {
+    "Niblit": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit",
+      "head": "1b40c4113b0df61ecb561b73b8f7a38ed4280832\n",
+      "status": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.7\\Niblit-status.txt",
+      "status_warnings": "warning: could not open directory 'diagnostics/pytest-admin-335aa83a171743c1906b7e7d8e928726/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-local-model-7dde06f39e0e4f87a8510dfe12f5531b/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-acceptance-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-guard-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-desk-release/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-facade-final/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-memory-final-20261028/': Permission denied\nwarning: could not open directory 'diagnostics/pytest-portal-model-afa98e0a048d40d4a57723fcbe1cb76d/': Permission denied\n",
+      "diff": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.7\\Niblit-diff.txt",
+      "staged": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.7\\Niblit-staged.txt"
+    },
+    "Niblit-cloud-server": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit-cloud-server",
+      "head": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32\n",
+      "status": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.7\\Niblit-cloud-server-status.txt",
+      "diff": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.7\\Niblit-cloud-server-diff.txt",
+      "staged": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\docs\\agent-context\\evidence\\v1.7\\Niblit-cloud-server-staged.txt"
+    }
+  },
+  "source_sha256": {
+    "modules/trading_desk.py": "d738eee14fec0d6508a698b1d9d3e96ed8a6d11e003cf87dfa26b86ba662e24c",
+    "modules/memory_laboratory/gateway.py": "3d463bf0b032a9ee898322e010f17ccf7b9869d3c2a9989e011de3b4a81d68d2",
+    "modules/cognitive_ingress.py": "b1f7f7169e3c5998defcdcafa4214714a08c58f1c40abdd34b6aacb28280c9ca",
+    "server.py": "f1ac6bdfd6b6e068564612a5985bb6f89f4f110d8abdb4faebaff1b95689a55f",
+    "tests/test_market_restoration_v17.py": "11ceba9bedf3b8e2f530f6725c9ba4ed087dc6f643980dd9a36d3c572540b6a7"
+  },
+  "tests": {
+    "core-final": {
+      "tests": "290",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "84.568"
+    },
+    "cloud-final": {
+      "tests": "238",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "33.287"
+    },
+    "focused-final": {
+      "tests": "66",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "24.873"
+    },
+    "race": {
+      "tests": "12",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "25.615"
+    },
+    "final-focused": {
+      "tests": "76",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "52.529"
+    }
+  },
+  "ticket_contract": {
+    "outer_tests": 1,
+    "nested_cases": 34,
+    "broker": "controlled fake; not real order verification"
+  },
+  "real_market": {
+    "checked_at": 1793556115.1326523,
+    "ready_for_analysis": true,
+    "execution_ready": false,
+    "orders_sent": 0,
+    "services_started": false,
+    "execution_limit": "A separately reviewed current human Core ticket and all account/risk checks are still required.",
+    "configuration": {
+      "exchange": "binance",
+      "strategy": "NiblitLabManager",
+      "timeframe": "5m",
+      "dry_run": true,
+      "state": "stopped"
+    },
+    "market": {
+      "pair": "BTC/USDT:USDT",
+      "fresh": true,
+      "candles": 200,
+      "source": "ccxt_public_exchange_ohlcv"
+    },
+    "rules": {
+      "signal": "SELL",
+      "complete": true,
+      "invoked": 6,
+      "abstain_reason": null
+    },
+    "core": {
+      "state": "analyzed_by_core",
+      "authorization": {
+        "allowed": true,
+        "reason": "allowed",
+        "mode": "analytical"
+      },
+      "memory": {
+        "state": "queued_to_core",
+        "queued": true,
+        "id": "f54163aa68a77d9b757a6b951a2161ee420cd61cdcd3d7dd93b06ef3b8047729",
+        "namespace": "market.957f4c9a73a73f68a2c80b3956a61eecde0fd2e2",
+        "source": "market-analysis://d8dd2a15eb57422a33db9b37ad77396120858194727a0f2a5a8e188cc876051e",
+        "projection": "pending_not_verified"
+      },
+      "trace_id": "req-78d2694ff658",
+      "error_type": null
+    }
+  },
+  "persistent_feedback": {
+    "receipt": {
+      "id": "3cb205f7b49c91143b83de9aa323d142e5cb6fe957eedf7d3525b2bdfb203d4e",
+      "state": "complete",
+      "attempts": 1,
+      "error": null
+    },
+    "records": 35,
+    "qdrant_points": 35,
+    "fully_projected": true,
+    "integrity": "ok",
+    "claims_verification": "unverified"
+  },
+  "services": {
+    "checked_at": 1793556193.4121897,
+    "freqtrade": {
+      "dry_run": true,
+      "state": "stopped",
+      "exchange": "binance",
+      "trading_mode": "futures",
+      "strategy": "NiblitLabManager",
+      "timeframe": "5m"
+    },
+    "freqtrade_open_positions": 3,
+    "orders_sent_by_session": 0,
+    "services": {
+      "core": {
+        "port": 5000,
+        "http_status": 200
+      },
+      "cloud": {
+        "port": 8000,
+        "http_status": 200,
+        "configured_readiness": {
+          "status": "ready",
+          "api_ready": true,
+          "inference_ready": true,
+          "default_model": "qwen2.5-coder-3b",
+          "models": [
+            "qwen2.5-coder-3b"
+          ]
+        },
+        "generation_verified": false
+      },
+      "memory": {
+        "port": 8772,
+        "http_status": 200
+      },
+      "human_desk": {
+        "port": 8767,
+        "http_status": 200
+      },
+      "portal": {
+        "port": 8769,
+        "http_status": 200
+      }
+    },
+    "human_desk_session": {
+      "running": false,
+      "session_present": false,
+      "funded_execution_enabled": false
+    },
+    "actual_cloud_missing_ticket_http": 200
+  },
+  "orders_sent": 0,
+  "baseline": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\docs\\agent-context\\checkpoints\\v1.7-start.json",
+  "private_recovery_backup": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v17\\canonical-ledger-before.sqlite3",
+  "patch_already_integrated": true,
+  "no_permissions_changed": true
+}

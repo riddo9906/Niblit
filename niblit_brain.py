@@ -468,7 +468,7 @@ class NiblitCloudBrain:
         self.timeout = int(
             timeout
             if timeout is not None
-            else os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "60")
+            else os.environ.get("NIBLIT_LLAMA_SERVER_TIMEOUT", "300")
         )
         self.api_key = api_key or os.environ.get("NIBLIT_API_KEY", "")
         self._available: Optional[bool] = None
@@ -500,6 +500,8 @@ class NiblitCloudBrain:
         h: Dict[str, str] = {"Content-Type": "application/json"}
         if self.api_key:
             h["X-API-Key"] = self.api_key
+        from modules.task_admission import delegation_headers
+        h.update(delegation_headers())
         return h
 
     def _request_json(self, path: str, payload: Optional[dict] = None) -> dict:
@@ -536,9 +538,11 @@ class NiblitCloudBrain:
         return await asyncio.to_thread(self._request_json, "/v1/models")
 
     async def chat_completion(self, payload: dict) -> dict:
-        return await asyncio.to_thread(
-            self._request_json, "/v1/chat/completions", payload
-        )
+        def request():
+            from modules.task_admission import admitted
+            with admitted('core_inference'):
+                return self._request_json('/v1/chat/completions',payload)
+        return await asyncio.to_thread(request)
 
     def _open_stream(self, payload: dict):
         import json as _json

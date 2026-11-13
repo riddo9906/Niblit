@@ -753,7 +753,7 @@ class EvolveEngine:
 
     def start_background_evolution(self) -> bool:
         """Start the background evolution thread."""
-        if self.running:
+        if self.running or (self._thread is not None and self._thread.is_alive()):
             return False
         self._stop_event.clear()
         self.running = True

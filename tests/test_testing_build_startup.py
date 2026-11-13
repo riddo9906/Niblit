@@ -121,3 +121,58 @@ def test_final_bootstrap_does_not_treat_degraded_health_as_ready(monkeypatch, he
     assert report["health_verification"]["status"] == expected
     assert emitter.call_args.args[:2] == ("runtime_ready", expected)
     orchestrator.boot.assert_not_called()
+
+
+def test_packaged_process_is_not_ready_until_http_health(monkeypatch, tmp_path):
+    import sys
+    from modules import multi_repo_orchestrator as module
+    supervisor = RepositorySupervisor(bus=None, correlation_id="test")
+    manifest = SimpleNamespace(name="niblit-cloud-server", present=True, compatible=True,
+        root=tmp_path, error=None, bootstrap_contract={"startup_argv": ["cloud.exe"]})
+    process = Mock(pid=123)
+    process.poll.return_value = None
+    spawn = Mock(return_value=process)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(module.subprocess, "Popen", spawn)
+    monkeypatch.setattr(supervisor, "_existing_service_ready", lambda _: False)
+    state = supervisor.start(manifest)
+    assert state.state == "starting"
+    assert state.last_health_status == "starting"
+    assert supervisor.start(manifest) is state
+    spawn.assert_called_once()
+    assert supervisor.check_health(manifest).last_health_status == "starting"
+    monkeypatch.setattr(supervisor, "_existing_service_ready", lambda _: True)
+    assert supervisor.check_health(manifest).last_health_status == "healthy"
+    assert state.state == "running"
+
+
+def test_frozen_exit_releases_supervisor_ownership(monkeypatch):
+    import main
+    import sys
+    from modules import multi_repo_orchestrator as module
+    orchestrator = Mock()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(module, "get_multi_repo_orchestrator", lambda: orchestrator)
+    main._stop_owned_runtime_dependencies()
+    orchestrator.stop_managed_repositories.assert_called_once_with()
+
+
+def test_frozen_stop_cleans_only_owned_descendants(monkeypatch):
+    import sys
+    import psutil
+    supervisor = RepositorySupervisor(bus=None, correlation_id="test")
+    manifest = SimpleNamespace(name="niblit-lean-algos", present=True)
+    process, child = Mock(pid=123), Mock()
+    supervisor._processes[manifest.name] = process
+    tree = Mock()
+    tree.children.return_value = [child]
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(psutil, "Process", lambda pid: tree)
+    supervisor.stop(manifest)
+    process.terminate.assert_called_once()
+    child.terminate.assert_called_once()
+    child.wait.assert_called_once_with(timeout=5)
+    # Attached services have no owned Popen and never enter tree cleanup.
+    tree.children.reset_mock()
+    supervisor.stop(manifest)
+    tree.children.assert_not_called()

@@ -1,0 +1,263 @@
+{
+  "version": "1.8",
+  "timestamp": "2026-11-01T21:03:39.336635+00:00",
+  "roots": {
+    "Niblit": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit",
+      "HEAD": "1b40c4113b0df61ecb561b73b8f7a38ed4280832",
+      "diff_check_exit": 0
+    },
+    "Niblit-cloud-server": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit-cloud-server",
+      "HEAD": "c6f2291f0ca9fc76ab77b3f2723d439c7dd78c32",
+      "diff_check_exit": 0
+    },
+    "niblit-lean-algos": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\niblit-lean-algos",
+      "HEAD": "bfa656e5c4d74cb5ea6b23721b949f590bd79b57",
+      "diff_check_exit": 0
+    },
+    "niblit-ui": {
+      "root": "C:\\Users\\Riyaad\\Documents\\GitHub\\niblit-ui",
+      "HEAD": "4425a4b1cdaf662552e6d8af44f408b6341bdbf3",
+      "diff_check_exit": 0
+    }
+  },
+  "source_sha256": {
+    "modules/position_intelligence.py": "f818649f48fc0f02131fd80eb988bed57d12ae16ffe5c2023485409b496e1f57",
+    "tests/test_position_intelligence.py": "f4b79e93d7256fd6ea956383ae4de485f60508e1501a057c08597350beff983e",
+    "aios_scheduler.py": "fcd452468b918d3e0f2645c5d46ec2d2baf56123fbd8715f1e4d4df0e9d980a8",
+    "server.py": "89fb066f967026e2695c5c5944e82224427606698454ab89e55355294ab115f2",
+    "modules/cognitive_ingress.py": "550cef3651d1b84809a3b1f9cafebc3874c6ecbe93cf661d1e5d64ac5f63975b",
+    "niblit_core.py": "facad0a7ab1ad024c23f594f295aa6786b55f104f05cd4e47aba39ac5b8fc72f",
+    "modules/trading_desk.py": "5c488d3e6f0a2ec663966ff839d4179601d83a544729ddf1b781453a63007d6e",
+    "assets/trading-desk/index.html": "4d4f29525f49c42665ad5fffddfad5a0db6adc655f79a252f2099d7f043c75a0",
+    "assets/trading-desk/desk.js": "343c2681fe2266e7eda98c9df76576a8bb04655ce18840c9465355b827b97a59"
+  },
+  "checkpoint_reconciliation": {
+    "Niblit/modules/task_admission.py": {
+      "expected": "515292ba77986d1d95067e33b73e1f47bfa7aaeeeb19c19b36282be1221754b3",
+      "actual": "515292ba77986d1d95067e33b73e1f47bfa7aaeeeb19c19b36282be1221754b3",
+      "match": true
+    },
+    "Niblit/modules/llm_tool_loop.py": {
+      "expected": "66a014033c2934a37bdbd9fe674c5464037fc632b2682f3171ca218633e9da5e",
+      "actual": "66a014033c2934a37bdbd9fe674c5464037fc632b2682f3171ca218633e9da5e",
+      "match": true
+    },
+    "Niblit/server.py": {
+      "expected": "97a3d59f3649cbcfe571328f5b9f2d6fa678964cc53a67ef3f271e88a2cc5d24",
+      "actual": "89fb066f967026e2695c5c5944e82224427606698454ab89e55355294ab115f2",
+      "match": false,
+      "expected_v18_delta": true,
+      "baseline_preimage_matches": true
+    },
+    "Niblit/modules/local_brain.py": {
+      "expected": "f504c392cf86f2099c8d5a5320881f97f3cadd65b33f90b2eaad19102a39061d",
+      "actual": "f504c392cf86f2099c8d5a5320881f97f3cadd65b33f90b2eaad19102a39061d",
+      "match": true
+    },
+    "Niblit/niblit_brain.py": {
+      "expected": "1d3975108b2295a14803088129e93b10c1463d5a55f8403a8dae6681ecbb32ae",
+      "actual": "1d3975108b2295a14803088129e93b10c1463d5a55f8403a8dae6681ecbb32ae",
+      "match": true
+    },
+    "Niblit/deploy/runtime/native-cloud.env.example": {
+      "expected": "e5ddc10a4a2f553f379979e6155121586f3b292cc564fdbe7dfea2162f0c97c3",
+      "actual": "e5ddc10a4a2f553f379979e6155121586f3b292cc564fdbe7dfea2162f0c97c3",
+      "match": true
+    },
+    "Niblit/scripts/start-portal-local-model.ps1": {
+      "expected": "179e71a8e13439f0f946c82ab093085d8e60221652170452f50ddb773359a87b",
+      "actual": "179e71a8e13439f0f946c82ab093085d8e60221652170452f50ddb773359a87b",
+      "match": true
+    },
+    "Niblit/tests/test_research_recovery.py": {
+      "expected": "3b54517ca536d5f90f327e3481ced0ad887a807c308ce68942bfd2dd7c2885a2",
+      "actual": "3b54517ca536d5f90f327e3481ced0ad887a807c308ce68942bfd2dd7c2885a2",
+      "match": true
+    },
+    "Niblit-cloud-server/app/shared_gguf.py": {
+      "expected": "1bd95b8463b0d12156ca4f5ce2c2d013dc86e21fd56cf58f2ef03c66750559a2",
+      "actual": "1bd95b8463b0d12156ca4f5ce2c2d013dc86e21fd56cf58f2ef03c66750559a2",
+      "match": true
+    },
+    "Niblit-cloud-server/app/main.py": {
+      "expected": "3392d2acc07dc75e1d5ec95403acd2ea56d0f869a917d84f1aa958d45cbc15fa",
+      "actual": "3392d2acc07dc75e1d5ec95403acd2ea56d0f869a917d84f1aa958d45cbc15fa",
+      "match": true
+    },
+    "Niblit-cloud-server/.env.shared-gguf.example": {
+      "expected": "aa8def6a2784d305836d56bc27e44c3b92f988681f789bf6edff53d154b63c44",
+      "actual": "aa8def6a2784d305836d56bc27e44c3b92f988681f789bf6edff53d154b63c44",
+      "match": true
+    },
+    "Niblit-cloud-server/tests/test_shared_gguf.py": {
+      "expected": "fa9479733b67c8ff0769e3f8bef521ae823e74e44c23347aa92dee7de7679f6b",
+      "actual": "fa9479733b67c8ff0769e3f8bef521ae823e74e44c23347aa92dee7de7679f6b",
+      "match": true
+    }
+  },
+  "tests": {
+    "positions-final": {
+      "tests": "52",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "85.881"
+    },
+    "core-final": {
+      "tests": "96",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "118.185"
+    },
+    "cloud-retest": {
+      "tests": "296",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "66.354"
+    },
+    "lean-retest": {
+      "tests": "26",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0",
+      "time": "0.940"
+    }
+  },
+  "test_overlap_notice": "52 focused tests overlap with the 96-test broader run; do not sum them as distinct tests. Final focused run includes two additional cancellation/account tests.",
+  "cloud_deselected": "test_termux_inference_server_dry_run_resolves_termux_defaults (known unchanged Windows/Termux limitation)",
+  "actual_runtime": {
+    "automatic_passes_verified": 2,
+    "manual_read_only_passes": 1,
+    "latest_recorded_sequence": 3,
+    "duplicate_process_start_refused": {
+      "duplicate_worker_start": false,
+      "existing_kernel_lock_held": true,
+      "scheduled_work": 0,
+      "orders_sent": 0
+    },
+    "canonical_projection": {
+      "all_three_complete": true,
+      "receipt_ids": [
+        "9da5b0cbc0409d8b0d78b8e2a9b4b2f1329b0a192c1a5aee47291f48c7da65b0",
+        "123e9bed940b2bda0e27b0ea7ad80f2ac7c46aedf7ded36ca34781ad45633d45",
+        "79b8460fd326acad09f5ac03e7b3ebbc09c5617e5fa00d346d62b6585f86fbcb"
+      ]
+    },
+    "services": {
+      "dry_run": true,
+      "engine_state": "stopped",
+      "positions": 3,
+      "position_ids": [
+        40,
+        42,
+        45
+      ],
+      "max_open_trades": 3.0,
+      "orders_sent": 0,
+      "services": {
+        "Core": {
+          "http": 200
+        },
+        "Cloud": {
+          "http": 200
+        },
+        "Memory": {
+          "http": 200
+        },
+        "Desk": {
+          "http": 200
+        },
+        "Lean": {
+          "http": 200,
+          "mode": "observe",
+          "execution_enabled": false
+        },
+        "Portal": {
+          "http": 200
+        }
+      },
+      "sqlite_integrity": "ok",
+      "task_authority": {
+        "state": "active",
+        "owner": "core_inference"
+      }
+    },
+    "process_ownership": [
+      {
+        "Port": 8772,
+        "PID": 19664,
+        "Parent": 12444,
+        "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\pythonw.exe C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\scripts\\run-memory-desk.py"
+      },
+      {
+        "Port": 8769,
+        "PID": 17508,
+        "Parent": 12124,
+        "Command": "C:\\Users\\Riyaad\\AppData\\Local\\Programs\\DockerDesktop\\resources\\com.docker.backend.exe services"
+      },
+      {
+        "Port": 8767,
+        "PID": 22712,
+        "Parent": 24440,
+        "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\pythonw.exe C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\scripts\\run-trading-desk.py"
+      },
+      {
+        "Port": 8766,
+        "PID": 21096,
+        "Parent": 8912,
+        "Command": "\"C:\\Users\\Riyaad\\llama_migration\\llama.cpp\\build\\bin\\Release\\llama-server.exe\" -m C:\\Users\\Riyaad\\llama_migration\\models\\qwen2.5-coder-3b-instruct-q4_k_m.gguf --alias qwen2.5-coder-3b --host 127.0.0.1 --port 8766 --ctx-size 8192 --threads 2 --parallel 1 --gpu-layers 0 --api-key-file C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\runtime\\client-portal\\gguf-api-key "
+      },
+      {
+        "Port": 8100,
+        "PID": 17720,
+        "Parent": 16928,
+        "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\niblit-lean-algos\\.venv\\Scripts\\python.exe main.py"
+      },
+      {
+        "Port": 8000,
+        "PID": 8800,
+        "Parent": 7080,
+        "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit-cloud-server\\venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+      },
+      {
+        "Port": 5000,
+        "PID": 12940,
+        "Parent": 16260,
+        "Command": "C:\\Users\\Riyaad\\Documents\\GitHub\\Niblit\\niblit-env\\Scripts\\python.exe -m uvicorn server:app --host 127.0.0.1 --port 5000 --log-level warning"
+      }
+    ]
+  },
+  "recovery": {
+    "before": {
+      "state": "quarantined",
+      "owner": "core_inference",
+      "started": 1793565194.6424634
+    },
+    "services": [
+      {
+        "name": "cloud",
+        "pid": 7080
+      },
+      {
+        "name": "core",
+        "pid": 16260
+      }
+    ],
+    "existing_owner_recovery": true,
+    "existing_model_unchanged_context": 8192,
+    "after": {
+      "state": "idle"
+    },
+    "lean_and_portal_restored": true
+  },
+  "source_preimages": "C:\\Users\\Riyaad\\Documents\\Codex\\2026-11-01\\referenced-chatgpt-conversation-this-is-an\\work\\v18",
+  "already_integrated": true,
+  "patch_reverse_check_exit": 0,
+  "orders_sent": 0,
+  "next_action": "Integrate the existing strategy-specific exit-thesis evaluator with authentic fresh bid/ask observations for recorded entry contexts, retaining advisory-only output and all original Core execution gates."
+}

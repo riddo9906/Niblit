@@ -2115,6 +2115,8 @@ class NiblitCore:
         log.info("✨ Booting Niblit (Phase 0 — fast start)...")
 
         try:
+            # Commands are essential operator capabilities, not optional background work.
+            self._init_command_registry()
             if self.config.enable_improvements:
                 self._init_improvements()
 
@@ -2208,22 +2210,30 @@ class NiblitCore:
     # IMPROVEMENT INITIALIZATION
     # ============================
 
+    def _init_command_registry(self):
+        """Initialize original handlers even when optional improvements are off."""
+        if self.command_registry is not None:
+            return
+        if CommandRegistry is None:
+            log.warning("CommandRegistry dependency unavailable; commands remain unavailable")
+            return
+        try:
+            registry = CommandRegistry(
+                event_emitter=self._emit_capability_event,
+                context_provider=self._command_registry_snapshot,
+            )
+            self.command_registry = registry
+            self._register_commands()
+        except Exception:
+            self.command_registry = None
+            log.exception("Essential command registration failed")
+
     def _init_improvements(self):
         """Initialize all production improvements."""
         # pylint: disable=too-many-branches,too-many-statements
         log.info("[IMPROVEMENTS] Initializing 17 production enhancements...")
 
-        try:
-            # 1. CommandRegistry
-            if CommandRegistry:
-                self.command_registry = CommandRegistry(
-                    event_emitter=self._emit_capability_event,
-                    context_provider=self._command_registry_snapshot,
-                )
-                self._register_commands()
-                log.info("[IMPROVEMENTS] ✅ CommandRegistry initialized")
-        except Exception as e:
-            log.warning(f"[IMPROVEMENTS] CommandRegistry failed: {e}")
+        self._init_command_registry()
 
         try:
             # 2. AsyncTaskCoordinator
@@ -2386,6 +2396,11 @@ class NiblitCore:
         log.info("[DEFERRED-INIT] Phase 1 starting — heavy modules loading in background...")
         try:
             self._initialize_modules()
+            try:
+                from modules.core_trading_sessions import install_core_trading
+                install_core_trading(self)  # registration only; execution never rearms at boot
+            except Exception as exc:
+                log.warning("Core trading session registration unavailable: %s", type(exc).__name__)
 
             self._deferred_init_phase = "complete"
             self._deferred_init_event.set()
@@ -2872,11 +2887,11 @@ class NiblitCore:
         # Autonomous Learning Commands
         self.command_registry.register(
             "autonomous-learn start", self._cmd_autonomous_start,
-            "Resume the 28-step Autonomous Learning Engine (ALE) background loop", "autonomous", priority=98
+            "Start one local evidence-learning cycle: one model call, up to 256 tokens, 240 seconds; no paid calls or weight training", "autonomous", priority=98
         )
         self.command_registry.register(
             "autonomous-learn stop", self._cmd_autonomous_stop,
-            "Pause ALE (all stored knowledge is retained)", "autonomous", priority=98
+            "Stop the ALE worker; report stopping until unfinished work acknowledges cancellation", "autonomous", priority=98
         )
         self.command_registry.register(
             "autonomous-learn status", self._cmd_autonomous_status,
@@ -3242,21 +3257,28 @@ class NiblitCore:
         )
 
 
-    def _cmd_autonomous_start(self, _text: str) -> str:
-        """Start autonomous learning engine."""
-        if not self.autonomous_engine:
-            return "[❌ Autonomous engine not available]"
+    def _prepare_queued_learning(self, topic):
+        """Queued background learning proposes work; it never self-authorizes."""
+        try:
+            from modules.memory_laboratory.runtime import runtime_memory
+            from modules.permission_manager import PermissionManager
+            runtime=runtime_memory()
+            if runtime is not None:
+                return PermissionManager().propose_learning(runtime.gateway,str(topic)[:160],
+                    'A queued research topic needs a bounded source-based learning review. Existing queue entry is retained until authorized work resolves it.')
+        except Exception as exc:
+            log.debug('Learning proposal unavailable: %s',type(exc).__name__)
+        return None
 
-        result = self.autonomous_engine.start()
-        return "🚀 [AUTONOMOUS] Learning started ✅" if result else "ℹ️ [AUTONOMOUS] Worker already running or previous work is still stopping"
+    def _cmd_autonomous_start(self, text: str):
+        """Start the reviewed, local-only learning cycle through the owned ALE worker."""
+        from modules.learning_commands import start
+        return start(self,text)
 
-    def _cmd_autonomous_stop(self, _text: str) -> str:
-        """Stop autonomous learning engine."""
-        if not self.autonomous_engine:
-            return "[❌ Autonomous engine not available]"
-
-        result = self.autonomous_engine.stop()
-        return "⏹️ [AUTONOMOUS] ALE worker stopped ✅" if result else "⏳ [AUTONOMOUS] Stop requested; unfinished work is still active"
+    def _cmd_autonomous_stop(self, _text: str):
+        """Cancel the owned ALE worker and report actual completion separately."""
+        from modules.learning_commands import stop
+        return stop(self)
 
     def _cmd_autonomous_status(self, _text: str) -> str:
         """Show autonomous learning status."""
@@ -4769,14 +4791,21 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return "[EvolveEngine not available]"
         self.evolve_engine.refresh_from_core()
         ok = self.evolve_engine.start_background_evolution()
-        return "✅ Background evolution started." if ok else "⚠️ Evolution already running."
+        thread=getattr(self.evolve_engine,"_thread",None)
+        alive=bool(thread and thread.is_alive())
+        active=bool(self.evolve_engine.running and alive)
+        return {"state":"started" if ok and active else "already_running" if active else "busy",
+                "execution_started":active,"worker_alive":alive,"reason":None if active else "Previous evolution work is still finishing or startup failed"}
 
     def _cmd_evolve_stop(self, _text: str = "") -> str:
         """Stop background evolution."""
         if not self.evolve_engine:
             return "[EvolveEngine not available]"
         self.evolve_engine.stop_background_evolution()
-        return "✅ Background evolution stopped."
+        thread=getattr(self.evolve_engine,"_thread",None)
+        alive=bool(thread and thread.is_alive())
+        return {"state":"stopping" if alive else "stopped","execution_started":False,
+                "worker_finished":not alive,"stop_requested":True}
 
     def _cmd_evolve_status(self, _text: str = "") -> str:
         """Show evolution status."""
@@ -7876,7 +7905,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             ) if SelfIdeaGenerator else None
 
             if self.idea_generator and hasattr(self.idea_generator, "autonomous_loop"):
-                threading.Thread(target=self.idea_generator.autonomous_loop, daemon=True).start()
+                self._prepare_queued_learning('Review source-grounded improvement ideas')
 
             # Initialize SelfIdeaImplementation with db + self_implementer
             if SelfIdeaImplementation:
@@ -7983,8 +8012,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         internet=getattr(self, "internet", None),
                     )
                     # Auto-start the background generator thread
-                    self.slsa_thread = self.slsa_engine.start()
-                    log.info("✅ SLSAGenerator initialized and started")
+                    self.slsa_thread = None
+                    self._prepare_queued_learning('Review structured knowledge acquisition evidence')
+                    log.info('SLSAGenerator initialized; manual learning proposal prepared')
                     self.startup_report.add("slsa_engine", "ready")
                 except Exception as e:
                     log.warning(f"SLSAGenerator init failed: {e}")
@@ -8244,6 +8274,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         builds_integrator=getattr(self, "builds_integrator", None),
                     )
                     log.info("✅ AutonomousLearningEngine initialized")
+                    try:self.autonomous_engine.prepare_learning_opportunity()
+                    except Exception as exc:log.debug('Learning proposal deferred: %s',type(exc).__name__)
                     self.startup_report.add("autonomous_engine", "ready")
                     # ── Inject cognitive components into ALE (additive) ───────
                     if hasattr(self, 'autonomous_engine') and self.autonomous_engine is not None:
@@ -8359,8 +8391,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         db=getattr(self, "db", None),
                         brain_trainer=_brain_trainer_for_bg,
                     )
-                    self.background_trainer.start()
-                    log.info("✅ BackgroundTrainer daemon started")
+                    self._prepare_queued_learning('Review validated BrainTrainer learning examples')
+                    log.info('BackgroundTrainer initialized; manual learning authorization required')
                     self.startup_report.add("background_trainer", "ready")
                 except Exception as _e:
                     log.debug("BackgroundTrainer init failed: %s", _e)
@@ -9430,7 +9462,11 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 try:
                     _lb_status = self.local_brain.status()
                     _model_files = _lb_status.get("model_files", [])
-                    if _lb_status.get("installed_locally"):
+                    if isinstance(_lb_status.get("cloud_runtime"),dict):
+                        healthy=_lb_status["cloud_runtime"].get("healthy") is True
+                        self.startup_report.add("local_brain_transport","ready" if healthy else "degraded",
+                            "CloudRuntime readback verified; generation not tested" if healthy else "CloudRuntime health unavailable")
+                    elif _lb_status.get("installed_locally"):
                         if _model_files:
                             _first_model_file = _model_files[0]
                             log.info(
@@ -9845,7 +9881,7 @@ SW Categories: {stats.get('software_study_categories', 0)}
             return
 
         try:
-            rm = _RuntimeManager()
+            rm = _RuntimeManager(ale_instance=getattr(self,"autonomous_engine",None))
             self.runtime_manager = rm
             self.event_bus = rm.event_bus
             agents_registered = self._register_phase2_agents(rm)
@@ -10316,6 +10352,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         topic = item.get("topic")
                         if not topic:
                             continue
+                        self._prepare_queued_learning(topic)
+                        continue # manual authorization preserves the queued source task
 
                         log.info(f"[AUTO RESEARCH] {topic}")
                         if self.internet:
@@ -10536,6 +10574,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                         topic = item.get("topic")
                         if not topic:
                             continue
+                        self._prepare_queued_learning(topic)
+                        continue # manual authorization preserves the queued source task
 
                         if getattr(self, '_loops_verbose', True):
                             log.info(f"[AUTO RESEARCH] {topic}")
@@ -10898,7 +10938,8 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 return "[SLSA engine not running]"
 
             log.info("[SLSA] Stopping SLSA engine...")
-            self.slsa_engine.stop()  # join is now handled inside SLSAGenerator.stop()
+            if not self.slsa_engine.stop():
+                return "[SLSA cancellation requested; worker still pending]"
 
             self.slsa_engine = None
             self.slsa_thread = None
@@ -12187,16 +12228,43 @@ SW Categories: {stats.get('software_study_categories', 0)}
         """Gracefully shutdown NiblitCore and all services."""
         # pylint: disable=too-many-branches
         timeout = timeout_seconds or self.config.shutdown_timeout_seconds
+        started = time.monotonic()
+        native_server=getattr(self,"_native_learning_server",None)
+        if native_server is not None:native_server.should_exit=True
+        observer=getattr(self,'cognitive_observation',None)
+        if observer is not None:observer.stop(timeout=2)
+        lifecycle_log = logging.getLogger("NiblitRuntime")
+
+        def stage(component, state="complete"):
+            lifecycle_log.info("Core shutdown stage", extra={
+                "event": "shutdown", "component": component, "state": state,
+                "elapsed_seconds": round(time.monotonic() - started, 3),
+            })
+
+        stage("core", "requested")
         log.info("✅ Shutdown initiated")
         self.running = False
         self._shutdown_event.set()
+        trading_sessions=getattr(self,"core_trading_sessions",None)
+        if trading_sessions is not None:
+            try:
+                trading_sessions.shutdown()
+                stage("trading_authority")
+            except Exception as exc:log.warning("Trading shutdown: %s",type(exc).__name__)
+
+        hosted_server=sys.modules.get('server')
+        if hosted_server is not None and hasattr(hosted_server,'stop_hosted_market_desk'):
+            try:hosted_server.stop_hosted_market_desk()
+            except Exception as exc:log.warning("Market Desk shutdown: %s",type(exc).__name__)
 
         headless_api = getattr(self, "_headless_api_server", None)
         if headless_api is not None:
             headless_api.should_exit = True
             headless_thread = getattr(self, "_headless_api_thread", None)
             if headless_thread is not None:
-                headless_thread.join(timeout=3.0)
+                if headless_thread is not threading.current_thread():
+                    headless_thread.join(timeout=3.0)
+                stage("core_api", "pending" if headless_thread.is_alive() else "complete")
 
         # Stop topic refresh thread
         if self._topic_refresh_stop_event is not None:
@@ -12240,6 +12308,9 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as e:
                 log.debug(f"[SHUTDOWN] runtime_manager stop failed: {e}")
 
+        monitor=getattr(self,'position_intelligence',None)
+        if monitor is not None:monitor.stop()
+
         # Stop AIOS scheduler (also stops its LifecycleEngine when attached)
         if getattr(self, "aios_scheduler", None) is not None:
             try:
@@ -12269,12 +12340,24 @@ SW Categories: {stats.get('software_study_categories', 0)}
             except Exception as e:
                 log.debug(f"[SHUTDOWN] sync_engine stop failed: {e}")
 
+        stage("learning_workers", "cancellation_requested")
+        # Stop learning producers before their shared resources are closed.
+        for name in ("idea_implementation", "slsa_manager"):
+            worker = getattr(self, name, None)
+            if worker is not None:
+                try:
+                    worker.stop()
+                except Exception as exc:
+                    log.warning("[SHUTDOWN] %s stop failed: %s", name, type(exc).__name__)
+
         # Stop SLSA engine
         if self.slsa_engine:
             try:
                 self._stop_slsa_engine()
             except Exception as e:
                 log.error(f"SLSA engine shutdown failed: {e}")
+
+        stage("learning_workers")
 
         # ── Stop trading API server BEFORE event loop ─────────────────────────
         # 1. Stop accepting new trading API requests
@@ -12346,9 +12429,25 @@ SW Categories: {stats.get('software_study_categories', 0)}
         # 6. Stop trading background tasks
         # 7. Then stop the shared event loop
         if self._event_loop and not self._event_loop.is_closed():
-            for task in list(getattr(self, "_async_tasks", ())):
-                if task and not task.done():
+            async def drain_owned_loop():
+                loop = asyncio.get_running_loop()
+                current = asyncio.current_task()
+                tasks = [task for task in asyncio.all_tasks(loop) if task is not current]
+                for task in tasks:
                     task.cancel()
+                if tasks:
+                    _, pending = await asyncio.wait(tasks, timeout=3)
+                    if pending:
+                        stage("async_tasks", "pending")
+                await loop.shutdown_asyncgens()
+                await loop.shutdown_default_executor(timeout=5)
+
+            if self._event_loop.is_running():
+                try:
+                    self._run_async_startup(drain_owned_loop(), name="Core async drain", timeout=10)
+                    stage("async_executor")
+                except Exception:
+                    stage("async_executor", "pending")
             try:
                 if self._event_loop.is_running():
                     self._event_loop.call_soon_threadsafe(self._event_loop.stop)
@@ -12381,6 +12480,14 @@ SW Categories: {stats.get('software_study_categories', 0)}
                 except Exception as e:
                     log.error(f"Error joining thread {thread.name}: {e}")
 
+        from modules.memory_laboratory.runtime import stop_runtime_memory
+        stage("memory_projection", "complete" if stop_runtime_memory() else "pending")
+        idea_module = sys.modules.get("modules.self_idea_implementation")
+        memory_facade = getattr(idea_module, "GLOBAL_MEMORY", None)
+        if memory_facade is not None:
+            memory_facade.shutdown()
+            stage("memory_facade")
+
         # Shutdown services in reverse order
         services = [
             ("tasks", self.tasks),
@@ -12397,10 +12504,13 @@ SW Categories: {stats.get('software_study_categories', 0)}
                     if hasattr(service, "shutdown"):
                         service.shutdown()
                     log.info(f"[SHUTDOWN] {name} shut down")
+                    if name == "db":
+                        stage("database_checkpoint")
                 except Exception as e:
                     log.error(f"[SHUTDOWN] {name} failed: {e}")
 
         time.sleep(0.5)
+        stage("core")
         log.info("✅ Shutdown complete")
 
 

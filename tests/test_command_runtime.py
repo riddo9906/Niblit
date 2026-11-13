@@ -30,6 +30,7 @@ from modules.trading_read_tools import FORBIDDEN_EXECUTION_NAMES
 
 EXPECTED_COMMANDS = {
     "runtime_status", "web_search", "web_fetch", "run_research",
+    "navigate_and_describe_environment",
     "trading_runtime_status", "workspace_list", "workspace_search",
     "workspace_read", "workspace_read_pdf", "workspace_inspect_python", "workspace_write",
     "workspace_edit", "run_tests",
